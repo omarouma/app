@@ -1,0 +1,741 @@
+/*
+  supabaseDb.ts — Supabase database adapter.
+
+  Provides the same interface as firestoreLegacy.ts so stores/pages need no changes.
+  All field mapping (camelCase ↔ snake_case) happens here transparently.
+*/
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
+import { getSupabaseSafe } from './supabase';
+
+export function isSupabaseAvailable(): boolean {
+  return !!getSupabaseSafe();
+}
+
+export function getDb() {
+  return getSupabaseSafe();
+}
+
+// ─── Column fallback helpers ───────────────────────────────────────────
+// Supabase schema may be missing columns. Retry without unknown columns
+// so the app keeps working while the admin runs supabase_migration.sql.
+
+const MAX_COLUMN_RETRIES = 5;
+
+function isColumnMissingError(error: any): boolean {
+  if (!error) return false;
+  const code = error.code || '';
+  const msg = error.message || '';
+  return (
+    code === 'PGRST204' ||
+    code === '42703' ||
+    msg.includes('Could not find the') ||
+    msg.includes('column of') ||
+    msg.includes('in the schema cache') ||
+    msg.includes('does not exist')
+  );
+}
+
+function extractMissingColumn(error: any): string | null {
+  const msg = error?.message || '';
+  const m = msg.match(/Could not find the '([^']+)' column/);
+  if (m) return m[1];
+  const m2 = msg.match(/column "([^"]+)" does not exist/);
+  if (m2) return m2[1];
+  return null;
+}
+
+async function insertWithFallback(
+  table: string,
+  payload: Record<string, any>
+): Promise<{ data: any; error: any }> {
+  const supabase = getDb();
+  if (!supabase) throw new Error('Supabase not available');
+
+  const data = { ...payload };
+  let retries = 0;
+  while (retries < MAX_COLUMN_RETRIES) {
+    const result = await supabase.from(table).insert(data).select('id').single();
+    if (!result.error) return result;
+
+    if (isColumnMissingError(result.error)) {
+      const col = extractMissingColumn(result.error);
+      if (col && col in data) {
+        console.warn(`[supabaseDb] Column '${col}' missing in '${table}', retrying without it. Run supabase_migration.sql to fix.`);
+        delete data[col];
+        retries++;
+        continue;
+      }
+    }
+    return result;
+  }
+  return { data: null, error: new Error(`Max column retries exceeded for ${table}`) };
+}
+
+async function updateWithFallback(
+  table: string,
+  id: string,
+  payload: Record<string, any>,
+  extraEq?: Record<string, any>
+): Promise<{ data: any; error: any }> {
+  const supabase = getDb();
+  if (!supabase) throw new Error('Supabase not available');
+
+  const data = { ...payload };
+  let retries = 0;
+  let query = supabase.from(table).update(data).eq('id', id);
+  if (extraEq) {
+    for (const [k, v] of Object.entries(extraEq)) {
+      query = query.eq(k, v);
+    }
+  }
+
+  while (retries < MAX_COLUMN_RETRIES) {
+    const result = await query;
+    if (!result.error) return result;
+
+    if (isColumnMissingError(result.error)) {
+      const col = extractMissingColumn(result.error);
+      if (col && col in data) {
+        console.warn(`[supabaseDb] Column '${col}' missing in '${table}', retrying without it. Run supabase_migration.sql to fix.`);
+        delete data[col];
+        retries++;
+        // Rebuild query with reduced data
+        query = supabase.from(table).update(data).eq('id', id);
+        if (extraEq) {
+          for (const [k, v] of Object.entries(extraEq)) {
+            query = query.eq(k, v);
+          }
+        }
+        continue;
+      }
+    }
+    return result;
+  }
+  return { data: null, error: new Error(`Max column retries exceeded for ${table}`) };
+}
+
+async function upsertWithFallback(
+  table: string,
+  payload: Record<string, any>
+): Promise<{ data: any; error: any }> {
+  const supabase = getDb();
+  if (!supabase) throw new Error('Supabase not available');
+
+  const data = { ...payload };
+  let retries = 0;
+  while (retries < MAX_COLUMN_RETRIES) {
+    const result = await supabase.from(table).upsert(data, { onConflict: 'id' });
+    if (!result.error) return result;
+
+    if (isColumnMissingError(result.error)) {
+      const col = extractMissingColumn(result.error);
+      if (col && col in data) {
+        console.warn(`[supabaseDb] Column '${col}' missing in '${table}', retrying without it. Run supabase_migration.sql to fix.`);
+        delete data[col];
+        retries++;
+        continue;
+      }
+    }
+    return result;
+  }
+  return { data: null, error: new Error(`Max column retries exceeded for ${table}`) };
+}
+
+// ─── Collection name map ───────────────────────────────────────────────
+export const COLLECTIONS = {
+  CHATS: 'chats',
+  MESSAGES: 'messages',
+  USERS: 'users',
+  POSTS: 'posts',
+  STORIES: 'stories',
+  REELS: 'reels',
+  LIVE_STREAMS: 'live_streams',
+  FRIENDSHIPS: 'friendships',
+  FRIEND_REQUESTS: 'friend_requests',
+  BLOCKED_USERS: 'blocked_users',
+  NOTIFICATIONS: 'notifications',
+  ANALYTICS: 'analytics',
+  SUBSCRIPTIONS: 'subscriptions',
+  REFERRALS: 'referrals',
+  TIPS: 'tips',
+  CREATOR_SUBSCRIPTIONS: 'creator_subscriptions',
+  ADS: 'ads',
+  ACHIEVEMENTS: 'achievements',
+  STREAKS: 'streaks',
+  POST_VIEWS: 'post_views',
+  STORY_HIGHLIGHTS: 'story_highlights',
+  BOOKMARKS: 'bookmarks',
+  BOOKMARK_COLLECTIONS: 'bookmark_collections',
+  CALL_HISTORY: 'call_history',
+  HASHTAGS: 'hashtags',
+  POLLS: 'polls',
+  WALLETS: 'wallets',
+  PRESENCE: 'presence',
+  TYPING: 'typing',
+  REPORTS: 'reports',
+  GROUPS: 'groups',
+} as const;
+
+// ─── camelCase → snake_case field map ─────────────────────────────────
+const FIELD_TO_DB: Record<string, string> = {
+  userId: 'user_id',
+  userName: 'user_name',
+  userAvatar: 'user_avatar',
+  timestamp: 'created_at',
+  createdAt: 'created_at',
+  updatedAt: 'updated_at',
+  lastSeen: 'last_seen',
+  lastMessage: 'last_message',
+  mediaUrl: 'media_url',
+  mediaUrls: 'media_urls',
+  displayName: 'display_name',
+  statusMessage: 'status_message',
+  isVerified: 'is_verified',
+  isAdmin: 'is_admin',
+  isMuted: 'is_muted',
+  isOnline: 'is_online',
+  isTyping: 'is_typing',
+  isPremium: 'is_premium',
+  unreadCount: 'unread_count',
+  videoUrl: 'video_url',
+  thumbnailUrl: 'thumbnail_url',
+  forwardedFrom: 'forwarded_from',
+  pollData: 'poll_data',
+  transferData: 'transfer_data',
+  contactCard: 'contact_card',
+  replyTo: 'reply_to',
+  chatId: 'chat_id',
+  senderId: 'sender_id',
+  fromUserId: 'from_user_id',
+  toUserId: 'to_user_id',
+  friendId: 'friend_id',
+  blockerId: 'blocker_id',
+  blockedId: 'blocked_id',
+  groupId: 'group_id',
+  postId: 'post_id',
+  creatorId: 'creator_id',
+  participantIds: 'participant_ids',
+  pinnedMessages: 'pinned_messages',
+  disappearingMessages: 'disappearing_messages',
+  chatLocked: 'chat_locked',
+  lockType: 'lock_type',
+  lockValue: 'lock_value',
+  storyId: 'story_id',
+  reelId: 'reel_id',
+  callId: 'call_id',
+  bdtBalance: 'bdt_balance',
+  usdBalance: 'usd_balance',
+  disappearingTimer: 'disappearing_timer',
+  disappearingInitiatedAt: 'disappearing_initiated_at',
+  friendRequestPrivacy: 'friend_request_privacy',
+  hideOnlineStatus: 'hide_online_status',
+  hideFriendList: 'hide_friend_list',
+  groupAddPrivacy: 'group_add_privacy',
+  coverImage: 'cover_image',
+  createdBy: 'created_by',
+  admins: 'admins',
+  participants: 'participants',
+};
+
+const DB_TO_FIELD: Record<string, string> = Object.fromEntries(
+  Object.entries(FIELD_TO_DB).map(([k, v]) => [v, k])
+);
+
+function toSnake(obj: Record<string, any>): Record<string, any> {
+  const out: Record<string, any> = {};
+  for (const [k, v] of Object.entries(obj)) {
+    if (v === undefined) continue;
+    const mapped = FIELD_TO_DB[k] ?? k.replace(/[A-Z]/g, (m) => `_${m.toLowerCase()}`);
+    out[mapped] = v;
+  }
+  return out;
+}
+
+function toCamel(obj: Record<string, any>): Record<string, any> {
+  const out: Record<string, any> = {};
+  for (const [k, v] of Object.entries(obj)) {
+    const mapped = DB_TO_FIELD[k] ?? k.replace(/_([a-z])/g, (_, m) => m.toUpperCase());
+    out[mapped] = v;
+  }
+  return out;
+}
+
+function mapRows<T>(rows: any[] | null): (T & { id: string })[] {
+  if (!rows) return [];
+  return rows.map((r) => ({ ...toCamel(r), id: r.id })) as (T & { id: string })[];
+}
+
+// ─── Query constraint helpers ──────────────────────────────────────────
+export type QueryConstraint =
+  | { _type: 'where'; field: string; op: string; value: any }
+  | { _type: 'orderBy'; field: string; direction: 'asc' | 'desc' }
+  | { _type: 'limit'; count: number }
+  | { _type: 'startAfter'; cursor: any };
+
+export function where(field: string, op: string, value: any): QueryConstraint {
+  return { _type: 'where', field, op, value };
+}
+export function orderBy(field: string, direction: 'asc' | 'desc' = 'asc'): QueryConstraint {
+  return { _type: 'orderBy', field, direction };
+}
+export function limit(count: number): QueryConstraint {
+  return { _type: 'limit', count };
+}
+export function startAfter(cursor: any): QueryConstraint {
+  return { _type: 'startAfter', cursor };
+}
+
+export function serverTimestamp(): string {
+  return new Date().toISOString();
+}
+
+// ─── Atomic operation markers ──────────────────────────────────────────
+export function increment(n: number) {
+  return { _increment: n };
+}
+export function arrayUnion<T>(...values: T[]) {
+  return { _arrayUnion: values };
+}
+export function arrayRemove<T>(...values: T[]) {
+  return { _arrayRemove: values };
+}
+
+// ─── Apply query constraints to a Supabase query builder ──────────────
+function applyConstraints(query: any, constraints: QueryConstraint[]): any {
+  let q = query;
+  let lastOrderField: string | null = null;
+  let lastOrderDir: 'asc' | 'desc' = 'asc';
+  for (const c of constraints) {
+    if (c._type === 'where') {
+      const field = FIELD_TO_DB[c.field] ?? c.field.replace(/[A-Z]/g, (m) => `_${m.toLowerCase()}`);
+      switch (c.op) {
+        case '==': q = q.eq(field, c.value); break;
+        case '!=': q = q.neq(field, c.value); break;
+        case '>': q = q.gt(field, c.value); break;
+        case '>=': q = q.gte(field, c.value); break;
+        case '<': q = q.lt(field, c.value); break;
+        case '<=': q = q.lte(field, c.value); break;
+        case 'in': q = q.in(field, c.value); break;
+        case 'array-contains': q = q.contains(field, [c.value]); break;
+        case 'array-contains-any': q = q.overlaps(field, c.value); break;
+      }
+    } else if (c._type === 'orderBy') {
+      const field = FIELD_TO_DB[c.field] ?? c.field.replace(/[A-Z]/g, (m) => `_${m.toLowerCase()}`);
+      lastOrderField = field;
+      lastOrderDir = c.direction;
+      q = q.order(field, { ascending: c.direction === 'asc' });
+    } else if (c._type === 'limit') {
+      q = q.limit(c.count);
+    } else if (c._type === 'startAfter') {
+      if (lastOrderField) {
+        const cursor = c.cursor instanceof Date ? c.cursor.toISOString() : c.cursor;
+        if (lastOrderDir === 'asc') {
+          q = q.gt(lastOrderField, cursor);
+        } else {
+          q = q.lt(lastOrderField, cursor);
+        }
+      }
+    }
+  }
+  return q;
+}
+
+// ─── Resolve atomic ops (increment, arrayUnion, arrayRemove) + dot-notation ──────────
+async function resolveAtomics(
+  table: string,
+  id: string,
+  data: Record<string, any>,
+): Promise<Record<string, any>> {
+  const supabase = getDb();
+  if (!supabase) throw new Error('Supabase not available');
+
+  // Separate dot-notation keys (e.g. unread_count.user123) from flat keys
+  const dotKeys: Record<string, { path: string[]; value: any }[]> = {};
+  const flatData: Record<string, any> = {};
+
+  for (const [key, value] of Object.entries(data)) {
+    if (key.includes('.')) {
+      const [parent, ...path] = key.split('.');
+      if (!dotKeys[parent]) dotKeys[parent] = [];
+      dotKeys[parent].push({ path, value });
+    } else {
+      flatData[key] = value;
+    }
+  }
+
+  const hasAtomic = Object.values(data).some(
+    (v) => v && typeof v === 'object' && ('_increment' in v || '_arrayUnion' in v || '_arrayRemove' in v),
+  );
+  const hasDotKeys = Object.keys(dotKeys).length > 0;
+
+  if (!hasAtomic && !hasDotKeys) return data;
+
+  const { data: current, error } = await supabase.from(table).select('*').eq('id', id).single();
+  if (error || !current) throw new Error(`Failed to fetch current doc: ${error?.message}`);
+
+  const resolved: Record<string, any> = {};
+
+  // Handle dot-notation keys (grouped by parent column, e.g. unread_count)
+  for (const [parent, updates] of Object.entries(dotKeys)) {
+    let currentValue = current[parent] || {};
+    if (typeof currentValue !== 'object' || currentValue === null) {
+      currentValue = {};
+    }
+
+    for (const { path, value } of updates) {
+      let target = currentValue;
+      for (let i = 0; i < path.length - 1; i++) {
+        if (!target[path[i]] || typeof target[path[i]] !== 'object') {
+          target[path[i]] = {};
+        }
+        target = target[path[i]];
+      }
+
+      const lastKey = path[path.length - 1];
+      // Handle atomic values nested inside dot-notation
+      if (value && typeof value === 'object' && '_increment' in value) {
+        target[lastKey] = ((target[lastKey] as number) ?? 0) + value._increment;
+      } else if (value && typeof value === 'object' && '_arrayUnion' in value) {
+        const arr = Array.isArray(target[lastKey]) ? target[lastKey] : [];
+        target[lastKey] = [...new Set([...arr, ...(value._arrayUnion as any[])])];
+      } else if (value && typeof value === 'object' && '_arrayRemove' in value) {
+        const arr = Array.isArray(target[lastKey]) ? target[lastKey] : [];
+        const toRemove = new Set(value._arrayRemove as any[]);
+        target[lastKey] = arr.filter((item: any) => !toRemove.has(item));
+      } else {
+        target[lastKey] = value;
+      }
+    }
+
+    resolved[parent] = currentValue;
+  }
+
+  // Handle flat keys (including atomic ops on flat columns)
+  for (const [key, value] of Object.entries(flatData)) {
+    if (value && typeof value === 'object' && '_increment' in value) {
+      resolved[key] = ((current[key] as number) ?? 0) + value._increment;
+    } else if (value && typeof value === 'object' && '_arrayUnion' in value) {
+      const arr: any[] = Array.isArray(current[key]) ? current[key] : [];
+      resolved[key] = [...new Set([...arr, ...(value._arrayUnion as any[])])];
+    } else if (value && typeof value === 'object' && '_arrayRemove' in value) {
+      const arr: any[] = Array.isArray(current[key]) ? current[key] : [];
+      const toRemove = new Set(value._arrayRemove as any[]);
+      resolved[key] = arr.filter((item: any) => !toRemove.has(item));
+    } else {
+      resolved[key] = value;
+    }
+  }
+
+  return resolved;
+}
+
+// ─── CRUD ──────────────────────────────────────────────────────────────
+
+export async function getDocById<T = any>(
+  table: string,
+  id: string,
+): Promise<(T & { id: string }) | null> {
+  const supabase = getDb();
+  if (!supabase || !id) return null;
+  const { data, error } = await supabase.from(table).select('*').eq('id', id).single();
+  if (error || !data) return null;
+  return { ...toCamel(data), id: data.id } as T & { id: string };
+}
+
+export async function setDocById(
+  table: string,
+  id: string,
+  data: any,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  _merge = true,
+): Promise<void> {
+  const supabase = getDb();
+  if (!supabase) throw new Error('Supabase not available');
+  const payload = { ...toSnake(data), id };
+  const result = await upsertWithFallback(table, payload);
+  if (result.error) throw result.error;
+}
+
+export async function updateDocById(
+  table: string,
+  id: string,
+  data: any,
+): Promise<void> {
+  const supabase = getDb();
+  if (!supabase) throw new Error('Supabase not available');
+  const snaked = toSnake(data);
+  const resolved = await resolveAtomics(table, id, snaked);
+  const result = await updateWithFallback(table, id, resolved);
+  if (result.error) throw result.error;
+}
+
+export async function deleteDocById(table: string, id: string): Promise<void> {
+  const supabase = getDb();
+  if (!supabase) throw new Error('Supabase not available');
+  const { error } = await supabase.from(table).delete().eq('id', id);
+  if (error) throw error;
+}
+
+export async function addDocToCollection(table: string, data: any): Promise<string> {
+  const supabase = getDb();
+  if (!supabase) throw new Error('Supabase not available');
+  const result = await insertWithFallback(table, toSnake(data));
+  if (result.error) throw result.error;
+  return result.data?.id ?? '';
+}
+
+// Explicit FK column map — extend this when adding new subcollection relationships
+const FK_COLUMN: Record<string, Record<string, string>> = {
+  [COLLECTIONS.CHATS]: {
+    [COLLECTIONS.MESSAGES]: 'chat_id',
+  },
+  [COLLECTIONS.POSTS]: {
+    comments: 'post_id',
+  },
+  [COLLECTIONS.REELS]: {
+    comments: 'reel_id',
+  },
+  [COLLECTIONS.STORIES]: {
+    viewers: 'story_id',
+  },
+  [COLLECTIONS.GROUPS]: {
+    members: 'group_id',
+  },
+};
+
+function fkColumn(parentTable: string, subTable: string): string {
+  const fk = FK_COLUMN[parentTable]?.[subTable];
+  if (fk) return fk;
+  // Fallback: strip trailing 's' (works for simple plurals like 'chats' → 'chat_id')
+  // Log a warning for any unmapped pair so it's easy to catch during development
+  const derived = `${parentTable.replace(/s$/, '')}_id`;
+  console.warn(`[supabaseDb] fkColumn: no explicit mapping for ${parentTable}→${subTable}, using derived '${derived}'. Add it to FK_COLUMN if incorrect.`);
+  return derived;
+}
+
+export async function addDocToSubcollection(
+  parentTable: string,
+  parentId: string,
+  subTable: string,
+  data: any,
+): Promise<string> {
+  const supabase = getDb();
+  if (!supabase) throw new Error('Supabase not available');
+  const fk = fkColumn(parentTable, subTable);
+  const payload = { ...toSnake(data), [fk]: parentId };
+  const result = await insertWithFallback(subTable, payload);
+  if (result.error) throw result.error;
+  return result.data?.id ?? '';
+}
+
+export async function updateSubcollectionDoc(
+  parentTable: string,
+  parentId: string,
+  subTable: string,
+  subDocId: string,
+  data: any,
+): Promise<void> {
+  const supabase = getDb();
+  if (!supabase) throw new Error('Supabase not available');
+  const fk = fkColumn(parentTable, subTable);
+  const snaked = toSnake(data);
+  const resolved = await resolveAtomics(subTable, subDocId, snaked);
+  const result = await updateWithFallback(subTable, subDocId, resolved, { [fk]: parentId });
+  if (result.error) throw result.error;
+}
+
+export async function deleteSubcollectionDoc(
+  parentTable: string,
+  parentId: string,
+  subTable: string,
+  subDocId: string,
+): Promise<void> {
+  const supabase = getDb();
+  if (!supabase) throw new Error('Supabase not available');
+  const fk = fkColumn(parentTable, subTable);
+  const { error } = await supabase
+    .from(subTable)
+    .delete()
+    .eq('id', subDocId)
+    .eq(fk, parentId);
+  if (error) throw error;
+}
+
+export async function queryCollection<T = any>(
+  table: string,
+  constraints: QueryConstraint[],
+): Promise<(T & { id: string })[]> {
+  const supabase = getDb();
+  if (!supabase) return [];
+  const q = applyConstraints(supabase.from(table).select('*'), constraints);
+  const { data, error } = await q;
+  if (error) {
+    console.error(`[queryCollection] ${table}:`, error.message);
+    return [];
+  }
+  return mapRows<T>(data);
+}
+
+export async function querySubcollection<T = any>(
+  parentTable: string,
+  parentId: string,
+  subTable: string,
+  constraints: QueryConstraint[],
+): Promise<(T & { id: string })[]> {
+  const fk = fkColumn(parentTable, subTable);
+  return queryCollection<T>(subTable, [where(fk, '==', parentId), ...constraints]);
+}
+
+// ─── Real-time subscriptions ───────────────────────────────────────────
+
+export function subscribeToDoc(
+  table: string,
+  id: string,
+  onData: (data: any) => void,
+): () => void {
+  const supabase = getDb();
+  if (!supabase) return () => {};
+
+  // Initial fetch
+  supabase.from(table).select('*').eq('id', id).single().then(({ data }) => {
+    if (data) onData({ ...toCamel(data), id: data.id });
+  }, () => {});
+
+  const channel = supabase
+    .channel(`${table}:id=${id}`)
+    .on(
+      'postgres_changes',
+      { event: '*', schema: 'public', table, filter: `id=eq.${id}` },
+      ({ new: row }) => {
+        if (row && typeof row === 'object' && 'id' in row) {
+          onData({ ...toCamel(row as Record<string, any>), id: (row as any).id });
+        }
+      },
+    )
+    .subscribe();
+
+  return () => { supabase.removeChannel(channel); };
+}
+
+export function subscribeToCollection<T = any>(
+  table: string,
+  constraints: QueryConstraint[],
+  onData: (data: (T & { id: string })[]) => void,
+): () => void {
+  const supabase = getDb();
+  if (!supabase) return () => {};
+
+  const refetch = () =>
+    queryCollection<T>(table, constraints).then(onData).catch(() => {});
+
+  // Initial fetch
+  refetch();
+
+  // Build realtime filter from first applicable constraint (eq or array-contains)
+  const filterC = constraints.find(
+    (c): c is Extract<QueryConstraint, { _type: 'where' }> =>
+      c._type === 'where' && (c.op === '==' || c.op === 'array-contains'),
+  );
+  let filter: string | undefined;
+  if (filterC) {
+    const field = FIELD_TO_DB[filterC.field] ?? filterC.field.replace(/[A-Z]/g, (m) => `_${m.toLowerCase()}`);
+    if (filterC.op === 'array-contains') {
+      filter = `${field}=cs.{${filterC.value}}`;
+    } else {
+      filter = `${field}=eq.${filterC.value}`;
+    }
+  }
+
+  const channelId = filter ? `${table}:${filter}` : `${table}:all:${Date.now()}`;
+  const filterConfig = filter ? { filter } : {};
+  const channel = supabase
+    .channel(channelId)
+    .on('postgres_changes', { event: '*', schema: 'public', table, ...filterConfig }, refetch)
+    .subscribe();
+
+  return () => { supabase.removeChannel(channel); };
+}
+
+export function subscribeToSubcollection<T = any>(
+  parentTable: string,
+  parentId: string,
+  subTable: string,
+  constraints: QueryConstraint[],
+  onData: (data: (T & { id: string })[]) => void,
+): () => void {
+  const fk = fkColumn(parentTable, subTable);
+  return subscribeToCollection<T>(
+    subTable,
+    [where(fk, '==', parentId), ...constraints],
+    onData,
+  );
+}
+
+// ─── Batch helpers ─────────────────────────────────────────────────────
+
+export async function batchWrite(
+  operations: Array<{ collection: string; docId: string; data?: any }>,
+): Promise<void> {
+  for (const op of operations) {
+    if (op.data) await updateDocById(op.collection, op.docId, op.data);
+  }
+}
+
+export async function batchDelete(
+  arg1: string | { collection: string; docId: string }[],
+  arg2?: QueryConstraint[],
+): Promise<void> {
+  if (typeof arg1 === 'string') {
+    const items = await queryCollection(arg1, arg2 ?? []);
+    for (const item of items) await deleteDocById(arg1, item.id);
+  } else {
+    for (const item of arg1) await deleteDocById(item.collection, item.docId);
+  }
+}
+
+export async function runDbTransaction<T>(updateFn: (t: any) => Promise<T>): Promise<T> {
+  const supabase = getDb();
+  if (!supabase) throw new Error('Supabase not available');
+  return updateFn(supabase);
+}
+
+// ─── Misc helpers ──────────────────────────────────────────────────────
+
+export function fromFirestoreDate(d: any): Date | null {
+  if (!d) return null;
+  if (d instanceof Date) return d;
+  const dt = new Date(d);
+  return isNaN(dt.getTime()) ? null : dt;
+}
+
+export function updateSubcollectionDocSafe(
+  p: string, pId: string, s: string, sId: string, data: any,
+) {
+  return updateSubcollectionDoc(p, pId, s, sId, data);
+}
+
+export async function getDbSafe() {
+  return getDb();
+}
+
+export class Timestamp {
+  public seconds: number;
+  public nanoseconds: number;
+
+  constructor(seconds: number, nanoseconds: number) {
+    this.seconds = seconds;
+    this.nanoseconds = nanoseconds;
+  }
+
+  toDate() { return new Date(this.seconds * 1000 + this.nanoseconds / 1_000_000); }
+  toMillis() { return this.seconds * 1000 + this.nanoseconds / 1_000_000; }
+  static now() {
+    const now = Date.now();
+    return new Timestamp(Math.floor(now / 1000), (now % 1000) * 1_000_000);
+  }
+  static fromDate(date: Date) {
+    const ms = date.getTime();
+    return new Timestamp(Math.floor(ms / 1000), (ms % 1000) * 1_000_000);
+  }
+}

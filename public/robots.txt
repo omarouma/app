@@ -1,0 +1,13 @@
+User-agent: *
+Allow: /
+
+# Block private/auth routes
+Disallow: /chats/
+Disallow: /calls/
+Disallow: /contacts/
+Disallow: /profile/
+Disallow: /wallet/
+Disallow: /notifications/
+
+# Sitemap
+Sitemap: https://gagachat.app/sitemap.xml

@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#0d0d0d">
+  <title>Offline — GaGa Chat</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #0d0d0d;
+      color: #fff;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      text-align: center;
+    }
+    .icon { width: 80px; height: 80px; margin-bottom: 24px; }
+    .icon svg { width: 100%; height: 100%; stroke: #00C300; }
+    h1 { font-size: 24px; font-weight: 700; margin-bottom: 8px; }
+    p { color: #8D8D8D; font-size: 15px; line-height: 1.5; max-width: 320px; margin-bottom: 24px; }
+    .retry-btn {
+      background: #00C300;
+      color: #000;
+      border: none;
+      padding: 12px 28px;
+      border-radius: 12px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.2s;
+    }
+    .retry-btn:hover { opacity: 0.85; }
+    .retry-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .status {
+      margin-top: 16px;
+      font-size: 13px;
+      color: #8D8D8D;
+    }
+    .status.online { color: #00C300; }
+    .logo { width: 48px; height: 48px; margin-bottom: 16px; }
+  </style>
+</head>
+<body>
+  <div class="logo">
+    <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect width="48" height="48" rx="12" fill="#00C300"/>
+      <path d="M14 18h20M14 24h16M14 30h12" stroke="#000" stroke-width="3" stroke-linecap="round"/>
+    </svg>
+  </div>
+  <div class="icon">
+    <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M1 4v6h6"/>
+      <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/>
+    </svg>
+  </div>
+  <h1>You're offline</h1>
+  <p>It looks like you've lost your internet connection. Some features are still available — messages you send will be queued and sent when you're back online.</p>
+  <button class="retry-btn" id="retry" onclick="checkOnline()">Retry Connection</button>
+  <p class="status" id="status">Checking connection...</p>
+
+  <script>
+    function checkOnline() {
+      const btn = document.getElementById('retry');
+      const status = document.getElementById('status');
+      btn.disabled = true;
+      btn.textContent = 'Checking...';
+      status.textContent = 'Trying to reach the server...';
+      status.className = 'status';
+
+      fetch('/manifest.json', { method: 'HEAD', cache: 'no-store' })
+        .then(() => {
+          status.textContent = 'Back online! Reloading...';
+          status.className = 'status online';
+          setTimeout(() => window.location.reload(), 800);
+        })
+        .catch(() => {
+          btn.disabled = false;
+          btn.textContent = 'Retry Connection';
+          status.textContent = 'Still offline. Please check your connection.';
+          status.className = 'status';
+        });
+    }
+
+    // Auto-check on load
+    if (navigator.onLine) {
+      checkOnline();
+    } else {
+      document.getElementById('status').textContent = 'Waiting for network...';
+    }
+
+    // Listen for online event
+    window.addEventListener('online', () => {
+      document.getElementById('status').textContent = 'Back online! Reloading...';
+      document.getElementById('status').className = 'status online';
+      setTimeout(() => window.location.reload(), 800);
+    });
+  </script>
+</body>
+</html>
