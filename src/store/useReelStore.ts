@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { create } from 'zustand';
 import {
-  isFirestoreAvailable,
+  isSupabaseAvailable,
   COLLECTIONS,
   getDocById,
   updateDocById,
@@ -14,10 +14,9 @@ import {
   arrayUnion,
   arrayRemove,
   increment,
-} from '@/lib/firestore';
-import { where, orderBy, limit, startAfter } from '@/lib/firestore';
+} from '@/lib/supabaseDb';
+import { where, orderBy, limit, startAfter } from '@/lib/supabaseDb';
 import { toast } from 'sonner';
-import { generateDemoReels, mixForYou, sortByTrending, isDemoReel } from '@/lib/demoReels';
 import type { Reel } from '@/types';
 
 const COLLECTION_REELS = 'reels';
@@ -32,7 +31,6 @@ interface ReelStore {
   searchingExternal: boolean;
   hasMore: boolean;
   lastTimestamp: Date | null;
-  demoMode: boolean;
   activeCategory: string | null;
   createReel: (userId: string, data: Omit<Reel, 'id' | 'userId' | 'timestamp' | 'likes' | 'comments' | 'shares' | 'savedBy' | 'viewedBy' | 'viewCount' | 'reactions'> & { visibility?: 'public' | 'friends' | 'private' }) => Promise<void>;
   deleteReel: (reelId: string) => Promise<void>;
@@ -105,11 +103,10 @@ export const useReelStore = create<ReelStore>((set, get) => ({
   searchingExternal: false,
   hasMore: true,
   lastTimestamp: null,
-  demoMode: false,
   activeCategory: null,
 
   createReel: async (userId, data) => {
-    if (!isFirestoreAvailable()) return;
+    if (!isSupabaseAvailable()) return;
     try {
       const user = await getDocById(COLLECTIONS.USERS, userId);
       await addDocToCollection(COLLECTION_REELS, {
@@ -133,7 +130,7 @@ export const useReelStore = create<ReelStore>((set, get) => ({
   },
 
   deleteReel: async (reelId) => {
-    if (!isFirestoreAvailable()) return;
+    if (!isSupabaseAvailable()) return;
     try {
       await deleteDocById(COLLECTION_REELS, reelId);
       set({ reels: get().reels.filter(r => r.id !== reelId) });
@@ -145,7 +142,7 @@ export const useReelStore = create<ReelStore>((set, get) => ({
   },
 
   likeReel: async (reelId, userId) => {
-    if (!isFirestoreAvailable()) return;
+    if (!isSupabaseAvailable()) return;
     try {
       await updateDocById(COLLECTION_REELS, reelId, {
         likes: arrayUnion(userId),
@@ -157,7 +154,7 @@ export const useReelStore = create<ReelStore>((set, get) => ({
   },
 
   unlikeReel: async (reelId, userId) => {
-    if (!isFirestoreAvailable()) return;
+    if (!isSupabaseAvailable()) return;
     try {
       await updateDocById(COLLECTION_REELS, reelId, {
         likes: arrayRemove(userId),
@@ -169,7 +166,7 @@ export const useReelStore = create<ReelStore>((set, get) => ({
   },
 
   commentOnReel: async (reelId, userId, content) => {
-    if (!isFirestoreAvailable()) return;
+    if (!isSupabaseAvailable()) return;
     try {
       const user = await getDocById(COLLECTIONS.USERS, userId);
       await addDocToSubcollection(COLLECTION_REELS, reelId, 'comments', {
@@ -188,7 +185,7 @@ export const useReelStore = create<ReelStore>((set, get) => ({
   },
 
   saveReel: async (reelId, userId) => {
-    if (!isFirestoreAvailable()) return;
+    if (!isSupabaseAvailable()) return;
     try {
       const reel = await getDocById(COLLECTION_REELS, reelId);
       if (!reel) return;
@@ -207,7 +204,7 @@ export const useReelStore = create<ReelStore>((set, get) => ({
   },
 
   shareReel: async (reelId, userId) => {
-    if (!isFirestoreAvailable()) return;
+    if (!isSupabaseAvailable()) return;
     try {
       await updateDocById(COLLECTION_REELS, reelId, {
         shares: arrayUnion(userId),
@@ -220,7 +217,7 @@ export const useReelStore = create<ReelStore>((set, get) => ({
   },
 
   viewReel: async (reelId, userId) => {
-    if (!isFirestoreAvailable()) return;
+    if (!isSupabaseAvailable()) return;
     try {
       await updateDocById(COLLECTION_REELS, reelId, {
         viewedBy: arrayUnion(userId),
@@ -230,7 +227,7 @@ export const useReelStore = create<ReelStore>((set, get) => ({
   },
 
   getReels: async (limitCount = 20) => {
-    if (!isFirestoreAvailable()) return [];
+    if (!isSupabaseAvailable()) return [];
     try {
       const data = await queryCollection(COLLECTION_REELS, [
         orderBy('timestamp', 'desc'),
@@ -244,7 +241,7 @@ export const useReelStore = create<ReelStore>((set, get) => ({
   },
 
   getMyReels: async (userId) => {
-    if (!isFirestoreAvailable()) return [];
+    if (!isSupabaseAvailable()) return [];
     try {
       const data = await queryCollection(COLLECTION_REELS, [
         where('userId', '==', userId),
@@ -258,7 +255,7 @@ export const useReelStore = create<ReelStore>((set, get) => ({
   },
 
   getTrendingReels: async (limitCount = 50) => {
-    if (!isFirestoreAvailable()) return [];
+    if (!isSupabaseAvailable()) return [];
     try {
       const data = await queryCollection(COLLECTION_REELS, [
         orderBy('viewCount', 'desc'),
@@ -272,7 +269,7 @@ export const useReelStore = create<ReelStore>((set, get) => ({
   },
 
   getReelsByTag: async (tag, limitCount = 50) => {
-    if (!isFirestoreAvailable()) return [];
+    if (!isSupabaseAvailable()) return [];
     try {
       const data = await queryCollection(COLLECTION_REELS, [
         where('tags', 'array-contains', tag),
@@ -287,7 +284,7 @@ export const useReelStore = create<ReelStore>((set, get) => ({
   },
 
   getReelsByCategory: async (category, limitCount = 50) => {
-    if (!isFirestoreAvailable()) return [];
+    if (!isSupabaseAvailable()) return [];
     try {
       const data = await queryCollection(COLLECTION_REELS, [
         where('category', '==', category),
@@ -312,20 +309,8 @@ export const useReelStore = create<ReelStore>((set, get) => ({
 
     let data: Record<string, unknown>[] = [];
 
-    if (!isFirestoreAvailable()) {
-      // In demo mode, just load more demo reels
-      if (state.demoMode) {
-        const allDemo = generateDemoReels(24);
-        const existingIds = new Set(state.reels.map(r => r.id));
-        const newReels = allDemo.filter(r => !existingIds.has(r.id));
-        set({
-          reels: [...state.reels, ...newReels],
-          loadingMore: false,
-          hasMore: newReels.length > 0,
-        });
-      } else {
-        set({ loadingMore: false, hasMore: false });
-      }
+    if (!isSupabaseAvailable()) {
+      set({ loadingMore: false, hasMore: false });
       return;
     }
 
@@ -369,9 +354,8 @@ export const useReelStore = create<ReelStore>((set, get) => ({
   },
 
   getForYouReels: async (limitCount = 50) => {
-    if (!isFirestoreAvailable()) {
-      const demo = generateDemoReels(24);
-      return mixForYou(demo);
+    if (!isSupabaseAvailable()) {
+      return [];
     }
     try {
       // Fetch latest reels across all categories
@@ -380,22 +364,16 @@ export const useReelStore = create<ReelStore>((set, get) => ({
         limit(limitCount * 2),
       ]);
       const reels = (data || []).map(mapReel);
-      if (reels.length === 0) {
-        const demo = generateDemoReels(24);
-        return mixForYou(demo);
-      }
-      return mixForYou(reels).slice(0, limitCount);
+      return reels.slice(0, limitCount);
     } catch (err) {
       console.error('getForYouReels error:', err);
-      const demo = generateDemoReels(24);
-      return mixForYou(demo);
+      return [];
     }
   },
 
   subscribeReels: () => {
-    if (!isFirestoreAvailable()) {
-      const demo = generateDemoReels(24);
-      set({ reels: mixForYou(demo), loading: false, demoMode: true, hasMore: false });
+    if (!isSupabaseAvailable()) {
+      set({ reels: [], loading: false, hasMore: false });
       return () => {};
     }
 
@@ -408,26 +386,17 @@ export const useReelStore = create<ReelStore>((set, get) => ({
         [orderBy('timestamp', 'desc')],
         (data) => {
           const reels = (data || []).map(mapReel);
-          if (reels.length === 0) {
-            // No real reels - show demo content
-            const demo = generateDemoReels(24);
-            set({ reels: mixForYou(demo), loading: false, demoMode: true, hasMore: false });
-          } else {
-            const forYou = mixForYou(reels);
-            set({
-              reels: forYou,
-              loading: false,
-              demoMode: false,
-              hasMore: reels.length >= 20,
-              lastTimestamp: forYou[forYou.length - 1]?.timestamp || null,
-            });
-          }
+          set({
+            reels: reels,
+            loading: false,
+            hasMore: reels.length >= 20,
+            lastTimestamp: reels[reels.length - 1]?.timestamp || null,
+          });
         }
       );
     } catch (err) {
       console.error('subscribeReels error:', err);
-      const demo = generateDemoReels(24);
-      set({ reels: mixForYou(demo), loading: false, demoMode: true, hasMore: false });
+      set({ reels: [], loading: false, hasMore: false });
     }
     return () => { if (unsub) unsub(); };
   },
@@ -441,9 +410,8 @@ export const useReelStore = create<ReelStore>((set, get) => ({
     const category = state.activeCategory;
     set({ loading: true, reels: [], hasMore: true, lastTimestamp: null });
 
-    if (!isFirestoreAvailable()) {
-      const demo = generateDemoReels(24);
-      set({ reels: mixForYou(demo), loading: false, demoMode: true, hasMore: false });
+    if (!isSupabaseAvailable()) {
+      set({ reels: [], loading: false, hasMore: false });
       return;
     }
 
@@ -462,23 +430,15 @@ export const useReelStore = create<ReelStore>((set, get) => ({
         ]);
       }
       const reels = (data || []).map(mapReel);
-      if (reels.length === 0) {
-        const demo = generateDemoReels(24);
-        set({ reels: mixForYou(demo), loading: false, demoMode: true, hasMore: false });
-      } else {
-        const forYou = mixForYou(reels);
-        set({
-          reels: forYou,
-          loading: false,
-          demoMode: false,
-          hasMore: reels.length >= 20,
-          lastTimestamp: forYou[forYou.length - 1]?.timestamp || null,
-        });
-      }
+      set({
+        reels: reels,
+        loading: false,
+        hasMore: reels.length >= 20,
+        lastTimestamp: reels[reels.length - 1]?.timestamp || null,
+      });
     } catch (err) {
       console.error('refreshReels error:', err);
-      const demo = generateDemoReels(24);
-      set({ reels: mixForYou(demo), loading: false, demoMode: true, hasMore: false });
+      set({ reels: [], loading: false, hasMore: false });
     }
   },
 

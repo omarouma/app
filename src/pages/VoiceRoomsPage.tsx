@@ -1,9 +1,9 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Mic, Plus, Search, Users, X, Volume2, Lock, Globe,
-  TrendingUp, Clock, ChevronRight, Radio, Headphones
+  Mic, Plus, Search, Users, X,Lock, Globe,
+  TrendingUp,ChevronRight, Radio, Headphones
 } from 'lucide-react';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useVoiceRoomStore } from '@/store/useVoiceRoomStore';
@@ -12,8 +12,6 @@ import { getDefaultAvatar } from '@/lib/utils';
 import BottomNav from '@/components/layout/BottomNav';
 import EmptyState from '@/components/EmptyState';
 import LoadingSkeleton from '@/components/LoadingSkeleton';
-import { toast } from 'sonner';
-
 const ROOM_CATEGORIES = [
   'All', 'Tech', 'Music', 'Gaming', 'Sports', 'Business',
   'Education', 'Health', 'Comedy', 'News', 'Lifestyle', 'Science'
@@ -310,6 +308,7 @@ export default function VoiceRoomsPage() {
   );
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function RoomCard({ room, onJoin }: { room: any; onJoin: () => void }) {
   return (
     <button

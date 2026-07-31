@@ -1,29 +1,44 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   ArrowLeft, Camera, QrCode, ChevronRight, Edit2, MessageCircle,
   Link2, Copy, Check, Share2, MapPin, Globe, Phone, Mail, Ban,
-  UserPlus, Loader, ImagePlus, Settings, Shield, Video, Flag, Star, Users
+  UserPlus, Loader, ImagePlus, Settings, Shield, Video, Flag, Star, Users,
+  Bell, Radio, Mic, Trophy, Sparkles, Search, Play, Calendar, ShoppingBag,
+  Hash, Bookmark, BarChart3, Crown, Gift, Coins,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useAuth } from '@/context/AuthContext';
 import { useFriendStore } from '@/store/useFriendStore';
 import { useGroupStore } from '@/store/useGroupStore';
-import { isFirestoreAvailable, getDocById, updateDocById, queryCollection, subscribeToDoc, subscribeToCollection } from '@/lib/firestore';
-import { setLocalUser } from '@/lib/localAuth';
+import { isFirestoreAvailable, COLLECTIONS, getDocById, queryCollection, subscribeToDoc, subscribeToCollection } from '@/lib/firestore';
+import { updateUserProfile } from '@/lib/supabaseAuth';
 import { formatLastSeen } from '@/lib/timeUtils';
 import { uploadMediaBlob } from '@/lib/storage';
 import { buildGagaChatUri, buildGagaChatWebUrl, getDefaultAvatar, sanitizeMediaUrl } from '@/lib/utils';
 import { where, orderBy, limit } from '@/lib/firestore';
 import { toast } from 'sonner';
-import type { TimelinePost, User } from '@/types';
+import type { TimelinePost, User, PostComment, FriendRequest, SentRequest, Chat } from '@/types';
+
+type FriendRequestWithAliases = Partial<FriendRequest & SentRequest> & {
+  to_user_id?: string;
+  toUserId?: string;
+  receiver_id?: string;
+  receiverId?: string;
+  from_user_id?: string;
+  fromUserId?: string;
+  sender_id?: string;
+  senderId?: string;
+};
 
 // QR Code SVG component
 function QRCodeSVG({ data, size = 180 }: { data: string; size?: number }) {
   const [svg, setSvg] = useState('');
   useEffect(() => {
+    // Only generate QR for safe URI schemes
+    const safe = /^gagachat:\/\/[a-zA-Z0-9/_\-.]+$/.test(data) || /^https:\/\/gagachat\.app\/[a-zA-Z0-9/_\-.]+$/.test(data);
+    if (!safe) { setSvg(''); return; }
     import('qrcode').then((QR) => {
       QR.toString(data, { type: 'svg', width: size, margin: 2, color: { dark: '#111111', light: '#ffffff' } })
         .then(setSvg).catch(() => setSvg(''));
@@ -44,7 +59,8 @@ function WalletIcon(props: { size: number; strokeWidth: number; className: strin
 
 export default function ProfilePage() {
   const navigate = useNavigate();
-  const { userId: viewUserId } = useParams<{ userId: string }>();
+  const _params = useParams();
+  const viewUserId = (_params as { userId?: string }).userId;
   const { user, setUser } = useAuthStore();
   const { logout } = useAuth();
   const {
@@ -67,7 +83,7 @@ export default function ProfilePage() {
 
   const [friendStatus, setFriendStatus] = useState<string>('not_friends');
   const [mutualCount, setMutualCount] = useState(0);
-  const [mutualGroups, setMutualGroups] = useState<any[]>([]);
+  const [mutualGroups, setMutualGroups] = useState<Chat[]>([]);
   const [loadingStatus, setLoadingStatus] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
   const [reportReason, setReportReason] = useState('');
@@ -76,17 +92,28 @@ export default function ProfilePage() {
   const [isFavorited, setIsFavorited] = useState(false);
 
   const isViewingOther = !!viewUserId;
-  const displayUser = viewUser || user;
+  const displayUserNullable = viewUser || user;
   const targetUserId = viewUserId || user?.id;
 
   // Load view user when viewing another profile
   useEffect(() => {
     if (!viewUserId) { setViewUser(null); return; }
+    let cancelled = false;
     setLoadingViewUser(true);
-    getUserById(viewUserId).then(u => {
-      setViewUser(u);
-      setLoadingViewUser(false);
-    });
+    getUserById(viewUserId)
+      .then((u) => {
+        if (!cancelled) {
+          setViewUser(u);
+          setLoadingViewUser(false);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setViewUser(null);
+          setLoadingViewUser(false);
+        }
+      });
+    return () => { cancelled = true; };
   }, [viewUserId, getUserById]);
 
   // Load friend status and mutual count when viewing another user
@@ -118,12 +145,12 @@ export default function ProfilePage() {
     setMutualGroups(shared);
   }, [isViewingOther, user, user?.id, viewUserId, groups]);
 
-  // Real-time sync: subscribe to user profile changes
+  // Real-time sync: subscribe to user profile changes (only when viewing another user)
   useEffect(() => {
-    if (!isFirestoreAvailable() || !targetUserId) return;
+    if (!isFirestoreAvailable() || !targetUserId || !viewUserId) return;
     const fetchProfile = async () => {
       try {
-        const data = await getDocById('users', targetUserId);
+        const data = await getDocById(COLLECTIONS.USERS, targetUserId);
         if (!data) return;
         const updatedUser = {
           id: data.id,
@@ -156,7 +183,7 @@ export default function ProfilePage() {
       }
     };
     fetchProfile();
-    const unsubscribe = subscribeToDoc('users', targetUserId, (data) => {
+    const unsubscribe = subscribeToDoc(COLLECTIONS.USERS, targetUserId, (data) => {
       if (!data) return;
       const updatedUser = {
         id: data.id,
@@ -219,16 +246,16 @@ export default function ProfilePage() {
     setLoadingPosts(true);
     try {
       if (isFirestoreAvailable()) {
-        const data = await queryCollection('posts', [
+        const data = await queryCollection(COLLECTIONS.POSTS, [
           where('userId', '==', targetUserId),
           orderBy('timestamp', 'desc'),
-          limit(500),
+          limit(30),
         ]);
-        let list: TimelinePost[] = data.map((d: any) => ({
-          id: d.id, userId: d.userId || d.user_id, content: d.content || '',
-          images: d.images || [], likes: d.likes || [], comments: d.comments || [],
-          shares: d.shares || [], timestamp: d.timestamp ? new Date(d.timestamp) : new Date(),
-          visibility: d.visibility || 'public',
+        let list: TimelinePost[] = data.map((d: Record<string, unknown>) => ({
+          id: (d.id as string) || '', userId: (d.userId as string) || '', content: (d.content as string) || '',
+          images: (d.images as string[]) || [], likes: (d.likes as string[]) || [], comments: (d.comments as PostComment[]) || [],
+          shares: (d.shares as string[]) || [], timestamp: d.timestamp ? new Date(d.timestamp as string) : new Date(),
+          visibility: (d.visibility as TimelinePost['visibility']) || 'public',
         }));
         // Visibility filter when viewing another user's profile
         if (isViewingOther && user?.id) {
@@ -251,7 +278,7 @@ export default function ProfilePage() {
 
   useEffect(() => {
     if (!isFirestoreAvailable() || !targetUserId) return;
-    const unsubscribe = subscribeToCollection('posts', [
+    const unsubscribe = subscribeToCollection(COLLECTIONS.POSTS, [
       where('userId', '==', targetUserId),
       orderBy('timestamp', 'desc'),
     ], () => fetchPosts());
@@ -262,32 +289,21 @@ export default function ProfilePage() {
     if (!user) return;
     setSaving(true);
     try {
-      // Always save to localStorage as primary backup
       const updated = { ...user, ...form };
-      setLocalUser(updated);
-
-      // Try Firestore as secondary (may fail due to billing/permissions)
-      if (isFirestoreAvailable()) {
-        try {
-          await updateDocById('users', user.id, {
-            displayName: form.displayName,
-            name: form.name,
-            bio: form.bio,
-            statusMessage: form.statusMessage,
-            location: form.location,
-            website: form.website,
-            phone: form.phone,
-          });
-        } catch (firestoreErr: any) {
-          console.warn('[Profile] Firestore write failed (billing/permissions):', firestoreErr.message);
-        }
+      
+      // Update in Supabase
+      const success = await updateUserProfile(user.id, form);
+      if (success) {
+        // Update app state
+        setUser(updated);
+        toast.success('Profile updated');
+        setEditing(false);
+      } else {
+        toast.error('Failed to update profile');
       }
-
-      // Update app state
-      setUser(updated);
-      toast.success('Profile updated');
-      setEditing(false);
-    } catch { /* noop */ }
+    } catch { 
+      toast.error('Failed to update profile');
+    }
     setSaving(false);
   };
 
@@ -296,27 +312,22 @@ export default function ProfilePage() {
     if (!file || !user) return;
     setUploadingAvatar(true);
     try {
-      // Step 1: Upload to Cloudinary (primary storage)
+      // Upload to storage (Cloudinary or similar)
       const url = await uploadMediaBlob({ kind: 'avatars', userId: user.id, file });
 
-      // Step 2: Always save to localStorage as backup
+      // Update in Supabase
       const updatedUser = { ...user, avatar: url };
-      setLocalUser(updatedUser);
-
-      // Step 3: Try Firestore (secondary, may fail due to billing/permissions)
-      if (isFirestoreAvailable()) {
-        try {
-          await updateDocById('users', user.id, { avatar: url });
-        } catch (firestoreErr: any) {
-          console.warn('[Avatar] Firestore write failed (billing/permissions):', firestoreErr.message);
-          // Firestore failed but Cloudinary + localStorage succeeded — this is OK
-        }
+      const success = await updateUserProfile(user.id, { avatar: url });
+      if (success) {
+        // Update app state
+        setUser(updatedUser);
+        toast.success('Avatar updated');
+      } else {
+        toast.error('Failed to update avatar');
       }
-
-      // Step 4: Update app state
-      setUser(updatedUser);
-      toast.success('Avatar updated');
-    } catch { /* noop */ } finally {
+    } catch { 
+      toast.error('Failed to update avatar');
+    } finally {
       setUploadingAvatar(false);
     }
   };
@@ -354,21 +365,21 @@ export default function ProfilePage() {
     setProcessingAction(false);
   };
 
-  const profileLink = displayUser ? buildGagaChatWebUrl(displayUser.id) : '';
-  const qrCodeData = displayUser ? buildGagaChatUri(displayUser.id) : '';
+  const profileLink = displayUserNullable ? buildGagaChatWebUrl(displayUserNullable.id) : '';
+  const qrCodeData = displayUserNullable ? buildGagaChatUri(displayUserNullable.id) : '';
 
   // Friend action helpers
   const findSentRequest = (toUserId: string) => {
-    return sentRequests.find((r: any) =>
-      r.toUserId === toUserId || r.to_user_id === toUserId ||
-      r.receiverId === toUserId || r.receiver_id === toUserId
+    return sentRequests.find((r: FriendRequestWithAliases) =>
+      (r.toUserId === toUserId) || (r.to_user_id === toUserId) ||
+      (r.receiverId === toUserId) || (r.receiver_id === toUserId)
     );
   };
 
   const findReceivedRequest = (fromUserId: string) => {
-    return requests.find((r: any) =>
-      r.fromUserId === fromUserId || r.from_user_id === fromUserId ||
-      r.senderId === fromUserId || r.sender_id === fromUserId
+    return requests.find((r: FriendRequestWithAliases) =>
+      (r.from === fromUserId) || (r.fromUserId === fromUserId) || (r.from_user_id === fromUserId) ||
+      (r.senderId === fromUserId) || (r.sender_id === fromUserId)
     );
   };
 
@@ -470,13 +481,24 @@ export default function ProfilePage() {
 
   const reportOptions = ['Spam', 'Harassment', 'Inappropriate content', 'Fake account', 'Other'];
 
-  if (!displayUser || loadingViewUser) {
+  if (loadingViewUser || (!displayUserNullable && isViewingOther)) {
     return (
       <div className="min-h-[100dvh] bg-[#F5F5F5] flex items-center justify-center">
         <Loader size={32} className="text-[#00C300] animate-spin" />
       </div>
     );
   }
+
+  if (!displayUserNullable) {
+    return (
+      <div className="min-h-[100dvh] bg-[#F5F5F5] flex items-center justify-center">
+        <Loader size={32} className="text-[#00C300] animate-spin" />
+      </div>
+    );
+  }
+
+  // After guards, displayUser is guaranteed non-null
+  const displayUser = displayUserNullable;
 
   const renderActionButtons = () => {
     if (loadingStatus) {
@@ -567,16 +589,16 @@ export default function ProfilePage() {
   };
 
   return (
-    <div className="min-h-[100dvh] bg-[#F5F5F5]">
+    <div className="min-h-[100dvh] bg-[#F5F5F5] page-enter">
       {/* Header */}
       <div className="bg-white border-b border-[#EBEBEB]">
-        <div className="flex items-center gap-3 p-4">
-          <button type="button" onClick={() => navigate(-1)} className="p-2 -ml-2 active:bg-gray-100 rounded-full text-[#111111]">
+        <div className="flex items-center gap-3 px-4 py-3">
+          <button type="button" onClick={() => navigate(-1)} className="p-2 -ml-2 active:bg-gray-100 rounded-full text-[#111111] tap-scale">
             <ArrowLeft size={22} />
           </button>
-          <h1 className="text-lg font-bold text-[#111111]">{isViewingOther ? displayUser.name || 'Profile' : 'Profile'}</h1>
+          <h1 className="text-[17px] font-bold text-[#111111]">{isViewingOther ? displayUser.name || 'Profile' : 'Profile'}</h1>
           {!isViewingOther && (
-            <button type="button" onClick={() => setEditing(!editing)} className="ml-auto p-2 active:bg-gray-100 rounded-full text-[#8D8D8D]">
+            <button type="button" onClick={() => setEditing(!editing)} className="ml-auto p-2 active:bg-gray-100 rounded-full text-[#8D8D8D] tap-scale">
               {editing ? <Ban size={18} /> : <Edit2 size={18} />}
             </button>
           )}
@@ -584,19 +606,23 @@ export default function ProfilePage() {
       </div>
 
       {/* Profile Card */}
-      <div className="bg-white pb-6 mb-4">
-        <div className="flex flex-col items-center pt-6">
+      <div className="bg-white pb-6 mb-3">
+        {/* Cover gradient */}
+        <div className="h-24 bg-gradient-to-br from-[#00C300]/20 via-[#00C300]/10 to-transparent" />
+        <div className="flex flex-col items-center -mt-12">
           {/* Avatar */}
           <div className="relative mb-3">
             <div
-              className={`w-28 h-28 rounded-full bg-[#F5F5F5] flex items-center justify-center border-3 border-[#EBEBEB] overflow-hidden shadow-sm ${!isViewingOther ? 'cursor-pointer' : ''}`}
+              className={`w-24 h-24 rounded-full bg-[#F5F5F5] flex items-center justify-center border-4 border-white overflow-hidden shadow-md ${
+                !isViewingOther ? 'cursor-pointer' : ''
+              }`}
               onClick={() => {
                 if (!isViewingOther) fileInputRef.current?.click();
                 else if (sanitizeMediaUrl(displayUser.avatar)) setShowAvatarViewer(true);
               }}
             >
               {uploadingAvatar ? (
-                <Loader size={32} className="text-[#00C300] animate-spin" />
+                <Loader size={28} className="text-[#00C300] animate-spin" />
               ) : sanitizeMediaUrl(displayUser.avatar) ? (
                 <img src={sanitizeMediaUrl(displayUser.avatar)} className="w-full h-full object-cover" alt="User avatar" />
               ) : (
@@ -606,9 +632,9 @@ export default function ProfilePage() {
             {!isViewingOther && (
               <button type="button" onClick={() => fileInputRef.current?.click()}
                 disabled={uploadingAvatar}
-                className="absolute bottom-0 right-0 w-9 h-9 rounded-full bg-[#00C300] flex items-center justify-center border-2 border-white shadow-sm disabled:opacity-50"
+                className="absolute bottom-0 right-0 w-8 h-8 rounded-full bg-[#00C300] flex items-center justify-center border-2 border-white shadow-sm disabled:opacity-50 tap-scale"
               >
-                {uploadingAvatar ? <Loader size={14} className="text-white animate-spin" /> : <Camera size={16} className="text-white" />}
+                {uploadingAvatar ? <Loader size={12} className="text-white animate-spin" /> : <Camera size={14} className="text-white" />}
               </button>
             )}
             <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} />
@@ -616,7 +642,7 @@ export default function ProfilePage() {
 
           <div className="flex items-center gap-1">
             <h2 className="text-xl font-bold text-[#111111]">{displayUser.displayName || displayUser.name}</h2>
-            {(displayUser as any).verified && (
+            {displayUser.verified && (
               <span className="text-[#00C300]">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M9 12l2 2 4-4" />
@@ -658,24 +684,29 @@ export default function ProfilePage() {
           </div>
 
           {/* Stats */}
-          <div className="flex items-center gap-8 mt-4 text-sm">
-            <div className="text-center cursor-pointer" onClick={() => navigate('/contacts')}>
-              <span className="text-[#111111] font-bold block">{(displayUser.friends || []).length}</span>
-              <span className="text-[#8D8D8D] text-xs">Friends</span>
+          <div className="flex items-center gap-0 mt-4 w-full max-w-xs bg-[#F8F8F8] rounded-2xl overflow-hidden">
+            <div className="flex-1 text-center py-3 cursor-pointer tap-scale" onClick={() => navigate('/contacts')}>
+              <span className="text-[#111111] font-bold text-lg block leading-tight">{(displayUser.friends || []).length}</span>
+              <span className="text-[#8D8D8D] text-[11px]">Friends</span>
             </div>
-            <div className="text-center">
-              <span className="text-[#111111] font-bold block">{posts.length}</span>
-              <span className="text-[#8D8D8D] text-xs">Posts</span>
+            <div className="w-px h-8 bg-[#EBEBEB]" />
+            <div className="flex-1 text-center py-3">
+              <span className="text-[#111111] font-bold text-lg block leading-tight">{posts.length}</span>
+              <span className="text-[#8D8D8D] text-[11px]">Posts</span>
             </div>
-            <div className="text-center">
-              <span className="text-[#111111] font-bold block">{(displayUser.coins || 0).toLocaleString()}</span>
-              <span className="text-[#8D8D8D] text-xs">Coins</span>
+            <div className="w-px h-8 bg-[#EBEBEB]" />
+            <div className="flex-1 text-center py-3">
+              <span className="text-[#111111] font-bold text-lg block leading-tight">{(displayUser.coins || 0).toLocaleString()}</span>
+              <span className="text-[#8D8D8D] text-[11px]">Coins</span>
             </div>
             {isViewingOther && (
-              <div className="text-center">
-                <span className="text-[#111111] font-bold block">{mutualCount}</span>
-                <span className="text-[#8D8D8D] text-xs">Mutual</span>
-              </div>
+              <>
+                <div className="w-px h-8 bg-[#EBEBEB]" />
+                <div className="flex-1 text-center py-3">
+                  <span className="text-[#111111] font-bold text-lg block leading-tight">{mutualCount}</span>
+                  <span className="text-[#8D8D8D] text-[11px]">Mutual</span>
+                </div>
+              </>
             )}
           </div>
 
@@ -795,27 +826,69 @@ export default function ProfilePage() {
         )}
       </AnimatePresence>
 
-      {/* Menu - only for own profile */}
-      {!isViewingOther && (
-        <div className="bg-white border-y border-[#EBEBEB] mb-4">
-          {[
-            { icon: QrCode, label: 'My QR Code', action: () => setShowQr(true) },
-            { icon: WalletIcon, label: 'My Wallet', action: () => navigate('/wallet') },
-            { icon: MessageCircle, label: 'Notifications', action: () => navigate('/notifications') },
-            { icon: Shield, label: 'Privacy & Security', action: () => navigate('/privacy') },
-            { icon: Settings, label: 'Settings', action: () => navigate('/more') },
-          ].map((item, idx, arr) => (
-            <button type="button" key={item.label}
-              onClick={item.action}
-              className={`w-full flex items-center px-4 py-3.5 active:bg-gray-50 text-left ${idx !== arr.length - 1 ? 'border-b border-[#EBEBEB]' : ''}`}
-            >
-              <item.icon size={20} strokeWidth={1.5} className="text-[#111111] mr-3" />
-              <span className="flex-1 text-[16px] text-[#111111]">{item.label}</span>
-              <ChevronRight size={20} className="text-[#C7C7CC]" />
-            </button>
-          ))}
-        </div>
-      )}
+      {/* Menu + More sections - only for own profile */}
+      {!isViewingOther && (() => {
+        const moreSections = [
+          {
+            title: 'Quick Actions',
+            items: [
+              { icon: QrCode, label: 'My QR Code', color: 'text-[#00C300]', bg: 'bg-[#00C300]/10', action: () => setShowQr(true) },
+              { icon: WalletIcon, label: 'My Wallet', color: 'text-[#00C300]', bg: 'bg-[#00C300]/10', to: '/wallet' },
+              { icon: Bell, label: 'Notifications', color: 'text-[#FF3B30]', bg: 'bg-[#FF3B30]/10', to: '/notifications' },
+              { icon: Shield, label: 'Privacy & Security', color: 'text-[#8B5CF6]', bg: 'bg-[#8B5CF6]/10', to: '/privacy' },
+              { icon: Settings, label: 'Settings', color: 'text-[#111111]', bg: 'bg-[#F5F5F5]', to: '/settings' },
+            ],
+          },
+          {
+            title: 'New & Exciting',
+            items: [
+              { icon: Radio, label: 'Voice Rooms', color: 'text-[#00C300]', bg: 'bg-[#00C300]/10', to: '/voice-rooms' },
+              { icon: Mic, label: 'Live Streams', color: 'text-[#FF3B30]', bg: 'bg-[#FF3B30]/10', to: '/live-streams' },
+              { icon: Trophy, label: 'Daily Challenges', color: 'text-[#FF4081]', bg: 'bg-[#FF4081]/10', to: '/challenges' },
+              { icon: Sparkles, label: 'GaGa AI', color: 'text-[#8B5CF6]', bg: 'bg-[#8B5CF6]/10', to: '/ai-chat' },
+            ],
+          },
+          {
+            title: 'Social & Discover',
+            items: [
+              { icon: Search, label: 'Search', color: 'text-[#2196F3]', bg: 'bg-[#2196F3]/10', to: '/search' },
+              { icon: Play, label: 'Reels', color: 'text-[#FF4081]', bg: 'bg-[#FF4081]/10', to: '/reels' },
+              { icon: Calendar, label: 'Events', color: 'text-[#FF9800]', bg: 'bg-[#FF9800]/10', to: '/events' },
+              { icon: ShoppingBag, label: 'Marketplace', color: 'text-[#4CAF50]', bg: 'bg-[#4CAF50]/10', to: '/marketplace' },
+              { icon: Hash, label: 'Hashtags', color: 'text-[#00BCD4]', bg: 'bg-[#00BCD4]/10', to: '/hashtags' },
+              { icon: Bookmark, label: 'Bookmarks', color: 'text-[#FFD700]', bg: 'bg-[#FFD700]/10', to: '/bookmarks' },
+            ],
+          },
+          {
+            title: 'Creator & Rewards',
+            items: [
+              { icon: BarChart3, label: 'Analytics', color: 'text-[#8B5CF6]', bg: 'bg-[#8B5CF6]/10', to: '/analytics' },
+              { icon: Crown, label: 'Premium', color: 'text-[#FF9800]', bg: 'bg-[#FF9800]/10', to: '/premium' },
+              { icon: Coins, label: 'Wallet', color: 'text-[#00C300]', bg: 'bg-[#00C300]/10', to: '/wallet' },
+              { icon: Gift, label: 'GaGa Rewards', color: 'text-[#FF9800]', bg: 'bg-[#FF9800]/10', to: '/rewards' },
+            ],
+          },
+        ];
+        return moreSections.map((section) => (
+          <div key={section.title} className="bg-white border-y border-[#EBEBEB] mb-4">
+            <p className="text-[#8D8D8D] text-[11px] font-medium uppercase tracking-wider px-4 pt-3 pb-1">{section.title}</p>
+            {section.items.map((item, idx, arr) => (
+              <button type="button" key={item.label}
+                onClick={() => { if ('action' in item && item.action) item.action(); else if ('to' in item && item.to) navigate(item.to); }}
+                className={`w-full flex items-center gap-3 px-4 py-3 active:bg-gray-50 text-left ${
+                  idx !== arr.length - 1 ? 'border-b border-[#EBEBEB]' : ''
+                }`}
+              >
+                <div className={`w-9 h-9 rounded-xl ${item.bg} flex items-center justify-center shrink-0`}>
+                  <item.icon size={18} className={item.color} strokeWidth={1.5} />
+                </div>
+                <span className="flex-1 text-[15px] text-[#111111]">{item.label}</span>
+                <ChevronRight size={18} className="text-[#C7C7CC]" />
+              </button>
+            ))}
+          </div>
+        ));
+      })()}
 
       {/* Contact Info - only for own profile */}
       {!isViewingOther && (

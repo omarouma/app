@@ -1,10 +1,10 @@
-import { useState, useRef, useCallback, useEffect } from 'react';
+import { useState, useRef, useCallback, useEffect, useLayoutEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   ArrowLeft, Upload, Video, X, Music, Hash, Image as ImageIcon,
   Loader, Play, AlertCircle, Sparkles, Pause, Volume2, VolumeX,
-  Globe, Users, Lock, Wand2, Scissors, Save, Trash2
+  Globe, Users, Lock, Wand2, Scissors, Save
 } from 'lucide-react';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useReelStore } from '@/store/useReelStore';
@@ -15,6 +15,30 @@ import { toast } from 'sonner';
 const DRAFT_KEY = 'gaga_reel_draft';
 const MAX_FILE_SIZE = 500 * 1024 * 1024; // 500MB
 const MAX_DURATION = 600; // 10 minutes
+
+const safeStorage = {
+  getItem(key: string) {
+    try {
+      return typeof window !== 'undefined' && window.localStorage ? window.localStorage.getItem(key) : null;
+    } catch {
+      return null;
+    }
+  },
+  setItem(key: string, value: string) {
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) window.localStorage.setItem(key, value);
+    } catch {
+      // ignore storage failures
+    }
+  },
+  removeItem(key: string) {
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) window.localStorage.removeItem(key);
+    } catch {
+      // ignore storage failures
+    }
+  },
+};
 
 interface ReelDraft {
   caption: string;
@@ -27,12 +51,12 @@ interface ReelDraft {
 
 function loadDraft(): ReelDraft | null {
   try {
-    const raw = localStorage.getItem(DRAFT_KEY);
+    const raw = safeStorage.getItem(DRAFT_KEY);
     if (!raw) return null;
     const draft = JSON.parse(raw);
     // Only use drafts from last 24 hours
     if (Date.now() - draft.savedAt > 24 * 60 * 60 * 1000) {
-      localStorage.removeItem(DRAFT_KEY);
+      safeStorage.removeItem(DRAFT_KEY);
       return null;
     }
     return draft;
@@ -41,12 +65,22 @@ function loadDraft(): ReelDraft | null {
 
 function saveDraft(draft: Omit<ReelDraft, 'savedAt'>) {
   try {
-    localStorage.setItem(DRAFT_KEY, JSON.stringify({ ...draft, savedAt: Date.now() }));
+    safeStorage.setItem(DRAFT_KEY, JSON.stringify({ ...draft, savedAt: Date.now() }));
   } catch { /* ignore storage full */ }
 }
 
 function clearDraft() {
-  localStorage.removeItem(DRAFT_KEY);
+  safeStorage.removeItem(DRAFT_KEY);
+}
+
+function revokeObjectUrl(url?: string) {
+  if (url && url.startsWith('blob:')) {
+    try {
+      URL.revokeObjectURL(url);
+    } catch {
+      // ignore revoke failures
+    }
+  }
 }
 
 export default function CreateReelsPage() {
@@ -83,9 +117,10 @@ export default function CreateReelsPage() {
   const uploadAbortRef = useRef<AbortController | null>(null);
 
   // Load draft on mount
-  useEffect(() => {
+  useLayoutEffect(() => {
     const draft = loadDraft();
     if (draft) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setHasDraft(true);
       setCaption(draft.caption || '');
       setTags(draft.tags || []);
@@ -105,12 +140,13 @@ export default function CreateReelsPage() {
     }
   }, [caption, tags, musicTitle, category, visibility]);
 
-  // Cleanup blob URLs on unmount
+  // Cleanup blob URLs on unmount and when they change
   useEffect(() => {
     return () => {
-      if (videoPreviewUrl) URL.revokeObjectURL(videoPreviewUrl);
+      revokeObjectUrl(videoPreviewUrl);
+      revokeObjectUrl(thumbnailUrl);
     };
-  }, [videoPreviewUrl]);
+  }, [videoPreviewUrl, thumbnailUrl]);
 
   const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -130,9 +166,14 @@ export default function CreateReelsPage() {
       return;
     }
 
+    if (videoPreviewUrl) revokeObjectUrl(videoPreviewUrl);
+    if (thumbnailUrl) revokeObjectUrl(thumbnailUrl);
+
     setVideoFile(file);
     const url = URL.createObjectURL(file);
     setVideoPreviewUrl(url);
+    setThumbnailUrl('');
+    setThumbnailBlob(null);
     setIsPlaying(false);
     setCurrentTime(0);
 
@@ -150,7 +191,7 @@ export default function CreateReelsPage() {
       setError('Could not load video. Please try a different file.');
     };
     video.src = url;
-  }, []);
+  }, [thumbnailUrl, videoPreviewUrl]);
 
   const handleThumbnailSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -159,10 +200,11 @@ export default function CreateReelsPage() {
       toast.error('Please select an image file');
       return;
     }
+    if (thumbnailUrl) revokeObjectUrl(thumbnailUrl);
     const url = URL.createObjectURL(file);
     setThumbnailUrl(url);
     setThumbnailBlob(file);
-  }, []);
+  }, [thumbnailUrl]);
 
   const generateThumbnail = useCallback(() => {
     if (!videoRef.current || !videoPreviewUrl) return;
@@ -181,6 +223,7 @@ export default function CreateReelsPage() {
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
       canvas.toBlob((blob) => {
         if (blob) {
+          if (thumbnailUrl) revokeObjectUrl(thumbnailUrl);
           const url = URL.createObjectURL(blob);
           setThumbnailUrl(url);
           setThumbnailBlob(blob);
@@ -193,7 +236,7 @@ export default function CreateReelsPage() {
       capture();
       video.onseeked = null;
     };
-  }, [videoPreviewUrl]);
+  }, [thumbnailUrl, videoPreviewUrl]);
 
   // Auto-generate thumbnail when video is loaded
   useEffect(() => {
@@ -311,6 +354,7 @@ export default function CreateReelsPage() {
         tags: tags.length > 0 ? tags : undefined,
         category,
         visibility,
+        filter: activeFilter,
       });
 
       setUploadProgress(100);
@@ -318,7 +362,6 @@ export default function CreateReelsPage() {
       toast.success('Reel posted successfully!');
       navigate('/timeline');
     } catch (err) {
-      console.error('Post reel error:', err);
       const msg = err instanceof Error ? err.message : 'Failed to post reel';
       setError(msg);
       toast.error('Failed to post reel. Please try again.');
@@ -327,8 +370,8 @@ export default function CreateReelsPage() {
   };
 
   const handleClear = () => {
-    if (videoPreviewUrl) URL.revokeObjectURL(videoPreviewUrl);
-    if (thumbnailUrl && thumbnailUrl.startsWith('blob:')) URL.revokeObjectURL(thumbnailUrl);
+    revokeObjectUrl(videoPreviewUrl);
+    revokeObjectUrl(thumbnailUrl);
     setVideoFile(null);
     setVideoPreviewUrl('');
     setThumbnailUrl('');

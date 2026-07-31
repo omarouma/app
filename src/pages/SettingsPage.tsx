@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
+
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -6,7 +6,7 @@ import {
   ChevronRight, User, Bell, Palette, Globe, Database,
   Shield, HelpCircle, Info, LogOut, Trash2, Download, AlertTriangle,
   Check, Moon, Sun, Smartphone, Eye, Lock,
-  Volume2, Users, Wallet,
+  Volume2, Users, Wallet, Phone, Music,
   Mail, MoonStar, Eraser,
   FileText, Crown,
   Clock, Bug, LifeBuoy, FileQuestion, ArrowLeft,
@@ -21,6 +21,7 @@ import { useTranslation } from '@/hooks/useTranslation';
 import type { LangCode } from '@/lib/i18n';
 import type { ThemeSettings } from '@/types';
 import Logo from '@/components/Logo';
+import { previewSound, type SoundProfile, isVibrationSupported } from '@/lib/sounds';
 import { toast } from 'sonner';
 
 const accentColors = [
@@ -32,6 +33,13 @@ const accentColors = [
   { name: 'Hot Pink', value: '#FF4081', class: 'bg-[#FF4081]' },
   { name: 'Teal', value: '#00BCD4', class: 'bg-[#00BCD4]' },
   { name: 'Slate', value: '#607D8B', class: 'bg-[#607D8B]' },
+];
+
+const soundProfiles: { code: SoundProfile; label: string; desc: string }[] = [
+  { code: 'gaga', label: 'GaGa', desc: 'Modern two-tone chime' },
+  { code: 'classic', label: 'Classic', desc: 'Traditional phone beeps' },
+  { code: 'minimal', label: 'Minimal', desc: 'Very subtle, short tones' },
+  { code: 'playful', label: 'Playful', desc: 'Higher pitched, energetic' },
 ];
 
 const themes = [
@@ -72,7 +80,7 @@ export default function SettingsPage() {
     setTempSettings({ ...settings });
   }, [settings]);
 
-  const handleUpdate = useCallback(async (key: keyof ThemeSettings, value: any) => {
+  const handleUpdate = useCallback(async (key: keyof ThemeSettings, value: unknown) => {
     const updated = { ...tempSettings, [key]: value };
     setTempSettings(updated);
     try {
@@ -95,14 +103,31 @@ export default function SettingsPage() {
   const handleExportData = useCallback(async () => {
     setLoading(true);
     try {
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      const { getSupabaseSafe } = await import('@/lib/supabase');
+      const supabase = getSupabaseSafe();
+      if (!supabase || !user?.id) throw new Error('Not authenticated');
+      const [{ data: profile }, { data: messages }, { data: posts }] = await Promise.all([
+        supabase.from('users').select('*').eq('id', user.id).single(),
+        supabase.from('messages').select('id,content,type,created_at').eq('sender_id', user.id).limit(500),
+        supabase.from('posts').select('id,content,created_at').eq('user_id', user.id).limit(200),
+      ]);
+      const exportData = { exportedAt: new Date().toISOString(), profile, messages: messages ?? [], posts: posts ?? [] };
+      const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `gaga-data-export-${new Date().toISOString().slice(0, 10)}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
       toast.success('Your data has been exported');
     } catch {
       toast.error('Export failed');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [user?.id]);
 
   const handleDeleteAccount = useCallback(async () => {
     if (deleteConfirmText !== 'DELETE') {
@@ -111,11 +136,12 @@ export default function SettingsPage() {
     }
     setLoading(true);
     try {
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      toast.success('Account scheduled for deletion');
-      logout();
-    } catch {
-      toast.error('Deletion failed');
+      const { deleteAccount } = await import('@/lib/supabaseAuth');
+      await deleteAccount();
+      toast.success('Account deleted');
+      await logout();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Deletion failed. Contact support.');
     } finally {
       setLoading(false);
     }
@@ -158,7 +184,7 @@ export default function SettingsPage() {
       {/* Header */}
       <div className="sticky top-0 z-50 bg-white border-b border-[#EBEBEB]">
         <div className="max-w-xl mx-auto px-4 h-14 flex items-center gap-3">
-          <button onClick={() => section ? setSection(null) : navigate(-1)} className="p-2 -ml-2 rounded-full hover:bg-[#F5F5F5] transition-colors">
+          <button type="button" onClick={() => section ? setSection(null) : navigate(-1)} className="p-2 -ml-2 rounded-full hover:bg-[#F5F5F5] transition-colors">
             <ArrowLeft size={20} className="text-[#111111]" />
           </button>
           <h1 className="text-lg font-bold text-[#111111]">{section ? sections.find(s => s.id === section)?.label : 'Settings'}</h1>
@@ -179,7 +205,7 @@ export default function SettingsPage() {
                     <p className="text-base font-semibold text-[#111111] truncate">{user?.name || 'User'}</p>
                     <p className="text-sm text-[#999999] truncate">{user?.username || user?.phone || ''}</p>
                   </div>
-                  <button onClick={() => navigate('/profile')} className="p-2 rounded-full hover:bg-[#F5F5F5]">
+                  <button type="button" onClick={() => navigate('/profile')} className="p-2 rounded-full hover:bg-[#F5F5F5]">
                     <ChevronRight size={18} className="text-[#999999]" />
                   </button>
                 </div>
@@ -312,12 +338,67 @@ export default function SettingsPage() {
                   {settingItem('Sound', Volume2, (
                     <button
                       type="button"
-                      onClick={() => updateSettings({ notifications: { ...settings.notifications, messageSound: !settings.notifications.messageSound } })}
+                      onClick={() => {
+                        updateSettings({ notifications: { ...settings.notifications, messageSound: !settings.notifications.messageSound } });
+                      }}
                       className={`w-10 h-6 rounded-full transition-colors relative ${settings.notifications.messageSound ? 'bg-[#00C300]' : 'bg-[#CCCCCC]'}`}
                     >
                       <div className={`w-4 h-4 rounded-full bg-white absolute top-1 transition-all ${settings.notifications.messageSound ? 'left-5' : 'left-1'}`} />
                     </button>
                   ))}
+                  {settingItem('Call Sound', Phone, (
+                    <button
+                      type="button"
+                      onClick={() => updateSettings({ notifications: { ...settings.notifications, callSound: !settings.notifications.callSound } })}
+                      className={`w-10 h-6 rounded-full transition-colors relative ${settings.notifications.callSound ? 'bg-[#00C300]' : 'bg-[#CCCCCC]'}`}
+                    >
+                      <div className={`w-4 h-4 rounded-full bg-white absolute top-1 transition-all ${settings.notifications.callSound ? 'left-5' : 'left-1'}`} />
+                    </button>
+                  ))}
+                  {isVibrationSupported() && settingItem('Vibration', Smartphone, (
+                    <button
+                      type="button"
+                      onClick={() => updateSettings({ notifications: { ...settings.notifications, vibrationEnabled: !settings.notifications.vibrationEnabled } })}
+                      className={`w-10 h-6 rounded-full transition-colors relative ${settings.notifications.vibrationEnabled ? 'bg-[#00C300]' : 'bg-[#CCCCCC]'}`}
+                    >
+                      <div className={`w-4 h-4 rounded-full bg-white absolute top-1 transition-all ${settings.notifications.vibrationEnabled ? 'left-5' : 'left-1'}`} />
+                    </button>
+                  ))}
+                  {/* Sound Profile Picker */}
+                  <div className="pt-2">
+                    <p className="text-sm font-medium text-[#111111] mb-2">Notification Tone</p>
+                    <div className="flex gap-2">
+                      {soundProfiles.map((profile) => (
+                        <button
+                          key={profile.code}
+                          type="button"
+                          onClick={() => {
+                            updateSettings({ notifications: { ...settings.notifications, soundProfile: profile.code } });
+                          }}
+                          className={`flex-1 py-2 rounded-xl text-xs font-medium transition-all ${
+                            settings.notifications.soundProfile === profile.code
+                              ? 'bg-[#00C300] text-white'
+                              : 'bg-[#F5F5F5] text-[#111111] hover:bg-[#EBEBEB]'
+                          }`}
+                        >
+                          {profile.label}
+                        </button>
+                      ))}
+                    </div>
+                    <p className="text-[10px] text-[#999999] mt-1">
+                      {soundProfiles.find((p) => p.code === settings.notifications.soundProfile)?.desc}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        previewSound(settings.notifications.soundProfile);
+                        toast.info('Playing preview...');
+                      }}
+                      className="mt-2 flex items-center gap-1.5 text-[#00C300] text-xs font-medium hover:underline"
+                    >
+                      <Music size={14} /> Preview Tone
+                    </button>
+                  </div>
                   {settingItem('Show Preview', Eye, (
                     <button
                       type="button"
@@ -351,7 +432,7 @@ export default function SettingsPage() {
               {section === 'account' && (
                 <div className="bg-white rounded-2xl p-4 shadow-sm border border-[#EBEBEB] space-y-2">
                   {settingItem('Edit Profile', User, undefined, () => navigate('/profile'))}
-                  {settingItem('Wallet', Wallet, <span className="text-sm text-[#999999]">{wallet?.bdtBalance?.toFixed(2) || '0.00'} BDT</span>, () => navigate('/wallet'))}
+                  {settingItem('Wallet', Wallet, <span className="text-sm text-[#999999]">{wallet?.usdBalance?.toFixed(2) || '0.00'} USD</span>, () => navigate('/wallet'))}
                   {settingItem('Export Data', Download, undefined, handleExportData)}
                   {settingItem('Delete Account', Trash2, undefined, () => setShowDeleteConfirm(true), true)}
                 </div>
@@ -371,7 +452,7 @@ export default function SettingsPage() {
                     <Logo size={32} />
                     <div>
                       <p className="text-sm font-semibold text-[#111111]">GaGa Chat</p>
-                      <p className="text-xs text-[#999999]">Version 1.0.0</p>
+                      <p className="text-xs text-[#999999]">Version 2.0.0</p>
                     </div>
                   </div>
                   {settingItem('Terms of Service', FileText, undefined, () => navigate('/terms'))}
@@ -401,8 +482,8 @@ export default function SettingsPage() {
                   className="w-full px-4 py-3 rounded-xl border border-[#EBEBEB] text-sm mb-4 focus:outline-none focus:border-red-400"
                 />
                 <div className="flex gap-2">
-                  <button onClick={() => setShowDeleteConfirm(false)} className="flex-1 py-2.5 rounded-xl bg-[#F5F5F5] text-sm font-medium text-[#111111]">Cancel</button>
-                  <button onClick={handleDeleteAccount} disabled={loading || deleteConfirmText !== 'DELETE'} className="flex-1 py-2.5 rounded-xl bg-red-500 text-sm font-medium text-white disabled:opacity-50">Delete</button>
+                  <button type="button" onClick={() => setShowDeleteConfirm(false)} className="flex-1 py-2.5 rounded-xl bg-[#F5F5F5] text-sm font-medium text-[#111111]">Cancel</button>
+                  <button type="button" onClick={handleDeleteAccount} disabled={loading || deleteConfirmText !== 'DELETE'} className="flex-1 py-2.5 rounded-xl bg-red-500 text-sm font-medium text-white disabled:opacity-50">Delete</button>
                 </div>
               </motion.div>
             </motion.div>

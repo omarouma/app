@@ -10,14 +10,14 @@ import {
 /** Track page views automatically on route changes */
 export function usePageTracking() {
   const location = useLocation();
-  const analytics = getFirebaseAnalytics();
 
   useEffect(() => {
+    const analytics = getFirebaseAnalytics();
     if (!analytics) return;
     const pagePath = location.pathname + location.search;
     const pageTitle = document.title || 'GaGa Chat';
     trackPageView(pageTitle, pagePath);
-  }, [location, analytics]);
+  }, [location]);
 }
 
 /** Track user engagement time (send when user leaves page) */

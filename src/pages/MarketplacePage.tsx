@@ -64,7 +64,7 @@ export default function MarketplacePage() {
   const [createIsNegotiable, setCreateIsNegotiable] = useState(false);
   const [creating, setCreating] = useState(false);
 
-  // Initial load
+  // Initial load + subscribe
   useEffect(() => {
     getListings(selectedCategory === 'All' ? undefined : selectedCategory, 50);
     const unsub = subscribeListings();
@@ -81,11 +81,9 @@ export default function MarketplacePage() {
     queueMicrotask(() => setFavoritedIds(favs));
   }, [listings, user?.id]);
 
-  // Handle tab changes
+  // Handle tab changes (skip 'all' since initial load covers it)
   useEffect(() => {
-    if (activeTab === 'all') {
-      getListings(selectedCategory === 'All' ? undefined : selectedCategory, 50);
-    } else if (activeTab === 'my' && user?.id) {
+    if (activeTab === 'my' && user?.id) {
       getMyListings(user.id);
     } else if (activeTab === 'favorites' && user?.id) {
       getFavorites(user.id);
@@ -111,7 +109,7 @@ export default function MarketplacePage() {
         getNearbyListings(loc.lat, loc.lng, 50);
       }
     }
-  }, [activeTab, user?.id, user?.latitude, user?.longitude, getListings, getMyListings, getFavorites, getNearbyListings, selectedCategory]);
+  }, [activeTab, user?.id, user?.latitude, user?.longitude, getMyListings, getFavorites, getNearbyListings]);
 
   const handleFavorite = async (item: MarketplaceItem) => {
     if (!user?.id) return;
@@ -146,7 +144,7 @@ export default function MarketplacePage() {
         title: createTitle.trim(),
         description: createDesc.trim(),
         price,
-        currency: 'BDT',
+        currency: 'USD',
         images: [],
         category: createCategory,
         condition: createCondition,

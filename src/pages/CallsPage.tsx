@@ -29,9 +29,15 @@ export default function CallsPage() {
     if (!user?.id) return;
     setLoading(true);
     const unsub = subscribeCalls(user.id);
-    const timer = setTimeout(() => setLoading(false), 600);
-    return () => { clearTimeout(timer); unsub(); };
+    // Loading is cleared by the store subscription callback, not a timer
+    const fallback = setTimeout(() => setLoading(false), 3000);
+    return () => { clearTimeout(fallback); unsub(); };
   }, [user?.id, subscribeCalls]);
+
+  // Clear loading once the store delivers the first data snapshot
+  useEffect(() => {
+    setLoading(false);
+  }, [history]);
 
   const getCallDirection = (call: any) => {
     if (!user) return 'incoming';
@@ -47,7 +53,7 @@ export default function CallsPage() {
     return f?.name || 'Unknown';
   };
 
-  const filteredCalls = history.filter((call) => {
+  const filteredCalls = (history || []).filter((call) => {
     const direction = getCallDirection(call);
     if (activeTab === 'missed') return call.status === 'missed';
     if (activeTab === 'outgoing') return direction === 'outgoing';
@@ -95,7 +101,7 @@ export default function CallsPage() {
   };
 
   return (
-    <div className="h-full flex flex-col bg-[#0d0d0d]">
+    <div className="h-[100dvh] flex flex-col bg-[#0d0d0d]">
       <div className="shrink-0 px-4 py-3 border-b border-[#1a1a1a]">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">

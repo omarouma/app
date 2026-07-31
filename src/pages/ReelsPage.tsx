@@ -5,19 +5,28 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Heart, MessageCircle, Share2, Bookmark, Music, Volume2, VolumeX,
   Play, Send, ChevronLeft, MoreHorizontal, UserPlus, Download, BarChart3,
-  Loader, Sparkles, TrendingUp, Search, X
+  Loader, TrendingUp, Search, X
 } from 'lucide-react';
+
+const filters: Record<string, string> = {
+  none: '',
+  warm: 'sepia(0.3) contrast(1.1)',
+  cool: 'hue-rotate(180deg) saturate(0.8)',
+  bw: 'grayscale(1)',
+  vivid: 'saturate(1.5) contrast(1.2)',
+  fade: 'brightness(1.1) contrast(0.9) saturate(0.8)',
+};
 import { useAuthStore } from '@/store/useAuthStore';
 import { useFriendStore } from '@/store/useFriendStore';
 import { useReelStore } from '@/store/useReelStore';
-import { REEL_CATEGORIES, isDemoReel } from '@/lib/demoReels';
-import { isYouTubeReel, isExternalReel } from '@/lib/videoApis';
+import { REEL_CATEGORIES } from '@/lib/demoReels';
+import { isExternalReel, isYouTubeReel } from '@/lib/videoApis';
 import YouTubePlayer from '@/components/YouTubePlayer';
 import { hasAnyVideoKey } from '@/config/videoApis';
 import BottomNav from '@/components/layout/BottomNav';
 import EmptyState from '@/components/EmptyState';
 import LoadingSkeleton from '@/components/LoadingSkeleton';
-import { getDefaultAvatar } from '@/lib/utils';
+import { getDefaultAvatar, sanitizeText } from '@/lib/utils';
 import { toast } from 'sonner';
 import type { Reel } from '@/types';
 
@@ -27,10 +36,10 @@ export default function ReelsPage() {
   const { user } = useAuthStore();
   const { friends, subscribeFriends } = useFriendStore();
   const {
-    reels, externalReels, loading, loadingMore, hasMore, demoMode, searchingExternal,
+    reels, externalReels, loading, loadingMore, hasMore, searchingExternal,
     likeReel, unlikeReel, saveReel, shareReel, commentOnReel,
     loadMoreReels, subscribeReels, setActiveCategory, refreshReels,
-    searchExternalVideos, loadExternalByCategory, clearExternalReels
+    searchExternalVideos, clearExternalReels
   } = useReelStore();
   const navigate = useNavigate();
 
@@ -126,10 +135,43 @@ export default function ReelsPage() {
     });
   }, [activeIndex, displayReels]);
 
+  // IntersectionObserver for robust auto-play/pause on scroll
+  useEffect(() => {
+    const observers: IntersectionObserver[] = [];
+    const container = scrollRef.current;
+    if (!container) return;
+
+    // Small delay to let video elements mount
+    const timeout = setTimeout(() => {
+      Object.entries(videoRefs.current).forEach(([id, video]) => {
+        if (!video) return;
+        const observer = new IntersectionObserver(
+          ([entry]) => {
+            if (entry.isIntersecting && entry.intersectionRatio >= 0.6) {
+              video.play().catch(() => {});
+              setPlaying(prev => ({ ...prev, [id]: true }));
+            } else {
+              video.pause();
+              setPlaying(prev => ({ ...prev, [id]: false }));
+            }
+          },
+          { root: container, threshold: 0.6 }
+        );
+        observer.observe(video);
+        observers.push(observer);
+      });
+    }, 500);
+
+    return () => {
+      clearTimeout(timeout);
+      observers.forEach(o => o.disconnect());
+    };
+  }, [displayReels.length]);
+
   // Track view when reel becomes active (3 second watch)
   useEffect(() => {
     const reel = displayReels[activeIndex];
-    if (!reel || !user?.id || isDemoReel(reel)) return;
+    if (!reel || !user?.id) return;
     const timer = setTimeout(() => {
       if (!reel.viewedBy?.includes(user.id)) {
         useReelStore.getState().viewReel?.(reel.id, user.id);
@@ -151,7 +193,7 @@ export default function ReelsPage() {
 
     // Infinite scroll: load more when near bottom
     const isNearBottom = index >= displayReels.length - 3;
-    if (isNearBottom && hasMore && !loadingMore && !loadingMoreRef.current && !demoMode) {
+    if (isNearBottom && hasMore && !loadingMore && !loadingMoreRef.current) {
       if (index > lastLoadIndexRef.current) {
         loadingMoreRef.current = true;
         lastLoadIndexRef.current = index;
@@ -160,7 +202,7 @@ export default function ReelsPage() {
         });
       }
     }
-  }, [activeIndex, displayReels.length, hasMore, loadingMore, demoMode, loadMoreReels]);
+  }, [activeIndex, displayReels.length, hasMore, loadingMore, loadMoreReels]);
 
   // Handle feed type change
   const handleFeedTypeChange = (type: FeedTab) => {
@@ -255,7 +297,7 @@ export default function ReelsPage() {
         const videoId = reel.id.replace('yt-', '');
         link = `https://youtube.com/watch?v=${videoId}`;
       } else {
-        link = `https://oumagachat.web.app/reel/${reel.id}`;
+        link = `https://gagachat.app/reel/${reel.id}`;
       }
       await navigator.clipboard.writeText(link);
       toast.success('Link copied to clipboard');
@@ -451,22 +493,14 @@ export default function ReelsPage() {
             key={reel.id}
             className="h-full w-full snap-start relative shrink-0 overflow-hidden"
           >
-            {/* Demo mode indicator */}
-            {isDemoReel(reel) && (
-              <div className="absolute top-16 left-4 z-20 flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#00C300]/90 text-black text-xs font-semibold">
-                <Sparkles size={12} />
-                Sample Content
-              </div>
-            )}
-
             {/* External video indicator */}
-            {isExternalReel(reel) && !isDemoReel(reel) && (
+            {isExternalReel(reel) && (
               <div className="absolute top-16 left-4 z-20 flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-red-500/90 text-white text-xs font-semibold">
                 {isYouTubeReel(reel) ? 'YouTube' : 'External'}
               </div>
             )}
 
-            {/* Video rendering: YouTube iframe or native video */}
+            {/* Video rendering: native video for app content, thumbnail+link for YouTube */}
             {isYouTubeReel(reel) ? (
               <YouTubePlayer
                 videoId={reel.id.replace('yt-', '')}
@@ -474,7 +508,6 @@ export default function ReelsPage() {
                 muted={muted}
                 thumbnail={reel.thumbnailUrl || ''}
                 onClick={() => {
-                  // Toggle play/pause by scrolling
                   if (reelIndex !== activeIndex) {
                     if (scrollRef.current) {
                       scrollRef.current.scrollTo({ top: reelIndex * scrollRef.current.clientHeight, behavior: 'smooth' });
@@ -492,6 +525,7 @@ export default function ReelsPage() {
                 preload={reelIndex <= activeIndex + 2 ? 'auto' : 'metadata'}
                 className="absolute inset-0 w-full h-full object-cover"
                 poster={reel.thumbnailUrl}
+                style={{ filter: filters[(reel as any).filter || 'none'] || '' }}
               />
             ) : (
               <div className="absolute inset-0 bg-gradient-to-br from-[#1a1a1a] to-[#0d0d0d] flex items-center justify-center">
@@ -535,11 +569,9 @@ export default function ReelsPage() {
                   alt={reel.userName}
                   className="w-10 h-10 rounded-full object-cover border border-white/20"
                 />
-                {!isDemoReel(reel) && (
-                  <button type="button" className="absolute -bottom-2 left-1/2 -translate-x-1/2 bg-[#00C300] rounded-full p-0.5">
-                    <UserPlus size={12} className="text-black" />
-                  </button>
-                )}
+                <button type="button" className="absolute -bottom-2 left-1/2 -translate-x-1/2 bg-[#00C300] rounded-full p-0.5">
+                  <UserPlus size={12} className="text-black" />
+                </button>
               </div>
 
               {/* Like */}
@@ -599,15 +631,13 @@ export default function ReelsPage() {
                   alt="User avatar"
                   className="w-8 h-8 rounded-full object-cover"
                 />
-                <span className="text-white font-semibold text-sm">{reel.userName || 'User'}</span>
-                {!isDemoReel(reel) && (
-                  <button type="button" className="px-3 py-1 rounded-full border border-white/30 text-white text-xs font-medium">
-                    Follow
-                  </button>
-                )}
+                <span className="text-white font-semibold text-sm">{sanitizeText(reel.userName) || 'User'}</span>
+                <button type="button" className="px-3 py-1 rounded-full border border-white/30 text-white text-xs font-medium">
+                  Follow
+                </button>
               </div>
               <p className="text-white text-sm leading-relaxed mb-2 line-clamp-2">
-                {reel.caption}
+                {sanitizeText(reel.caption)}
               </p>
               {reel.category && (
                 <span className="inline-block px-2 py-0.5 rounded-md bg-white/10 text-white/80 text-xs font-medium mb-2">
@@ -697,8 +727,8 @@ export default function ReelsPage() {
                         className="w-8 h-8 rounded-full object-cover shrink-0"
                       />
                       <div className="flex-1">
-                        <p className="text-white text-sm font-medium">{comment.userName || 'User'}</p>
-                        <p className="text-[#8D8D8D] text-sm">{comment.content}</p>
+                        <p className="text-white text-sm font-medium">{sanitizeText(comment.userName) || 'User'}</p>
+                        <p className="text-[#8D8D8D] text-sm">{sanitizeText(comment.content)}</p>
                       </div>
                     </div>
                   ))

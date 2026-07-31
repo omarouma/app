@@ -3,45 +3,34 @@ import { useLocation } from 'react-router-dom';
 
 declare global {
   interface Window {
-    gtag?: (...args: any[]) => void;
-    dataLayer?: any[];
+    gtag?: (...args: unknown[]) => void;
+    dataLayer?: unknown[];
   }
 }
 
-/**
- * Track a page view in GA4 for SPA navigation.
- * Call this in your root App component.
- */
+// Read once at module load — never changes at runtime
+const GA_MEASUREMENT_ID = import.meta.env.VITE_GA_MEASUREMENT_ID as string | undefined;
+
 export function useGATracking() {
   const location = useLocation();
 
   useEffect(() => {
-    if (!window.gtag) return;
-
-    const path = location.pathname + location.search;
-    const title = document.title;
-
+    if (!window.gtag || !GA_MEASUREMENT_ID) return;
     window.gtag('event', 'page_view', {
-      page_path: path,
+      page_path: location.pathname + location.search,
       page_location: window.location.href,
-      page_title: title,
-      send_to: 'G-GK2JKHSS9E',
+      page_title: document.title,
+      send_to: GA_MEASUREMENT_ID,
     });
   }, [location]);
 }
 
-/**
- * Send a custom event to GA4.
- */
 export function trackEvent(
   eventName: string,
   params?: Record<string, string | number | boolean | undefined>
 ) {
-  if (!window.gtag) return;
-  window.gtag('event', eventName, {
-    send_to: 'G-GK2JKHSS9E',
-    ...params,
-  });
+  if (!window.gtag || !GA_MEASUREMENT_ID) return;
+  window.gtag('event', eventName, { send_to: GA_MEASUREMENT_ID, ...params });
 }
 
 /**

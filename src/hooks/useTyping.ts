@@ -3,6 +3,7 @@ import { useAuthStore } from '@/store/useAuthStore';
 import { isSupabaseConfigured, getSupabase } from '@/lib/supabase';
 import { setDocById, subscribeToDoc, serverTimestamp } from '@/lib/firestore';
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function isColumnMissingError(error: any): boolean {
   if (!error) return false;
   const code = error.code || '';
@@ -125,7 +126,7 @@ export function useTyping(chatId: string | undefined) {
       const supabase = isSupabaseConfigured() ? getSupabase() : null;
 
       if (supabase) {
-        const payload: Record<string, any> = {
+        const payload: Record<string, unknown> = {
           id: `${chatId}_${user.id}`,
           chat_id: chatId,
           user_id: user.id,
@@ -135,7 +136,7 @@ export function useTyping(chatId: string | undefined) {
         };
         try {
           await supabase.from('typing').upsert(payload, { onConflict: 'id' });
-        } catch (err: any) {
+        } catch (err: unknown) {
           if (isColumnMissingError(err)) {
             delete payload.user_name;
             await supabase.from('typing').upsert(payload, { onConflict: 'id' });

@@ -10,12 +10,16 @@ import { getAuth, type Auth } from 'firebase/auth';
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
   authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  databaseURL: import.meta.env.VITE_FIREBASE_DATABASE_URL,
   projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
   storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
   messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
   appId: import.meta.env.VITE_FIREBASE_APP_ID,
   measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID,
 };
+
+// Re-export for internal use
+export { firebaseConfig };
 
 /** Check if Firebase is configured (all required env vars present) */
 export function isFirebaseConfigured(): boolean {
@@ -66,8 +70,8 @@ export function initFirebase() {
     if (import.meta.env.DEV) {
       console.log('[Firebase] Initialized successfully (Analytics/Performance disabled in dev)');
     }
-  } catch (err) {
-    console.error('[Firebase] Initialization failed:', err);
+  } catch {
+    console.error('[Firebase] Initialization failed');
   }
 
   return app;
@@ -144,8 +148,7 @@ export async function getFcmToken(vapidKey: string): Promise<string | null> {
   try {
     const token = await getToken(msg, { vapidKey });
     return token || null;
-  } catch (err) {
-    console.error('[FCM] Failed to get token:', err);
+  } catch {
     return null;
   }
 }

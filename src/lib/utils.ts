@@ -15,9 +15,13 @@ export function getDefaultAvatar(seed: string): string {
 
 export function sanitizeMediaUrl(url: string | undefined | null): string {
   if (!url) return '';
-  if (url.startsWith('blob:')) return url;
-  if (url.startsWith('data:')) return url;
-  if (url.startsWith('http')) return url;
+  const trimmed = url.trim();
+  // Block dangerous URI schemes
+  const lower = trimmed.toLowerCase();
+  if (lower.startsWith('javascript:') || lower.startsWith('vbscript:') || lower.startsWith('data:text') || lower.startsWith('data:application')) return '';
+  if (trimmed.startsWith('blob:')) return trimmed;
+  if (trimmed.startsWith('data:image/')) return trimmed;
+  if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) return trimmed;
   return '';
 }
 
@@ -39,7 +43,7 @@ export function buildGagaChatUri(userId: string): string {
 }
 
 export function buildGagaChatWebUrl(userId: string): string {
-  return `https://oumagachat.web.app/profile/${userId}`;
+  return `https://gagachat.app/profile/${userId}`;
 }
 
 export function parseGagaChatUri(uri: string | null): string | null {
@@ -56,6 +60,11 @@ export function stopStreamTracks(stream: MediaStream | null) {
 
 export function sanitizeForLog(input: string): string {
   return input.replace(/[\r\n]/g, ' ').slice(0, 500);
+}
+
+export function sanitizeText(input: string | undefined | null): string {
+  if (!input) return '';
+  return input.replace(/[<>"'&]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#x27;', '&': '&amp;' }[c] ?? c)).slice(0, 2000);
 }
 
 export const BD_TK_RATE = 0.85;

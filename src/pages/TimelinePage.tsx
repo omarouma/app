@@ -1,5 +1,5 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-import { useState, useRef, useEffect, useMemo } from 'react';
+import type { PostPollData, PostComment, TimelinePost } from '@/types';
+import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -13,7 +13,7 @@ import {
   isFirestoreAvailable, COLLECTIONS, addDocToCollection,
   updateDocById, deleteDocById, subscribeToCollection, serverTimestamp
 } from '@/lib/firestore';
-import { where, orderBy, limit } from '@/lib/firestore';
+import { where, orderBy, limit, startAfter, queryCollection } from '@/lib/firestore';
 import TimelineCard from '@/components/features/timeline/TimelineCard';
 import BottomNav from '@/components/layout/BottomNav';
 import EmptyState from '@/components/EmptyState';
@@ -23,7 +23,6 @@ import { MOCK_ADS } from '@/lib/mockAds';
 import RequestTipModal from '@/components/RequestTipModal';
 import FeedReelsViewer from '@/components/features/feed/FeedReelsViewer';
 import YouTubeFeed from '@/components/features/feed/YouTubeFeed';
-import type { TimelinePost } from '@/types';
 import { toast } from 'sonner';
 import { getDefaultAvatar } from '@/lib/utils';
 
@@ -53,7 +52,15 @@ export default function TimelinePage() {
   const [refreshing, setRefreshing] = useState(false);
   const refreshTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [feedFilter, setFeedFilter] = useState<'all' | 'public' | 'friends' | 'mine'>('all');
-  const [postLimit, setPostLimit] = useState(20);
+
+  // ─── Deduplication: track seen post IDs ──────────────────────────────
+  const seenPostIdsRef = useRef<Set<string>>(new Set());
+
+  // ─── Cursor-based pagination ─────────────────────────────────────────
+  const POSTS_PER_PAGE = 20;
+  const [cursor, setCursor] = useState<Date | null>(null);
+  const [hasMore, setHasMore] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
 
   const [postSearch, setPostSearch] = useState('');
   const [showPostSearch, setShowPostSearch] = useState(false);
@@ -87,33 +94,154 @@ export default function TimelinePage() {
   const storyFileInputRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Real-time posts subscription
+  // ── Map raw DB data to TimelinePost ──────────────────────────────────
+  const mapPost = useCallback((d: Record<string, unknown>, uid: string | undefined): TimelinePost => ({
+    id: d.id as string,
+    userId: d.userId as string,
+    content: (d.content as string) || '',
+    images: (d.images as string[]) || [],
+    likes: (d.likes as string[]) || [],
+    comments: (d.comments as PostComment[]) || [],
+    shares: (d.shares as string[]) || [],
+    timestamp: (() => {
+      const ts = d.timestamp;
+      if (ts && typeof ts === 'object' && 'toDate' in ts && typeof (ts as { toDate(): Date }).toDate === 'function') {
+        return (ts as { toDate(): Date }).toDate();
+      }
+      return new Date(ts as string | number);
+    })(),
+    visibility: (d.visibility as TimelinePost['visibility']) || 'public',
+    pollData: (d.pollData as PostPollData) || undefined,
+    userName: (d.userName as string) || (d.userId === uid ? user?.name : 'User'),
+    userAvatar: (d.userAvatar as string) || (d.userId === uid ? user?.avatar : undefined),
+  }), [user?.name, user?.avatar]);
+
+  // ── Real-time post subscription with deduplication ─────────────────
   useEffect(() => {
     if (!isFirestoreAvailable() || !user?.id) {
       setLoading(false);
       return;
     }
     setLoading(true);
-    const unsub = subscribeToCollection(COLLECTIONS.POSTS, [orderBy('timestamp', 'desc'), limit(postLimit)], (data) => {
-      const list: TimelinePost[] = (data || []).map((d: any) => ({
-        id: d.id,
-        userId: d.userId,
-        content: d.content || '',
-        images: d.images || [],
-        likes: d.likes || [],
-        comments: d.comments || [],
-        shares: d.shares || [],
-        timestamp: d.timestamp && d.timestamp.toDate ? d.timestamp.toDate() : new Date(d.timestamp),
-        visibility: d.visibility || 'public',
-        pollData: d.pollData || null,
-        userName: d.userName || (d.userId === user?.id ? user?.name : 'User'),
-        userAvatar: d.userAvatar || (d.userId === user?.id ? user?.avatar : undefined),
-      }));
-      setPosts(list);
-      setLoading(false);
-    });
-    return () => unsub();
-  }, [user?.id, user?.name, user?.avatar, postLimit]);
+
+    const unsub = subscribeToCollection(
+      COLLECTIONS.POSTS,
+      [orderBy('timestamp', 'desc'), limit(POSTS_PER_PAGE)],
+      (data) => {
+        const list: TimelinePost[] = (data || [])
+          .map((d: Record<string, unknown>) => mapPost(d, user.id));
+        
+        // Deduplication: skip already-seen post IDs
+        const unique: TimelinePost[] = [];
+        for (const post of list) {
+          if (!seenPostIdsRef.current.has(post.id)) {
+            seenPostIdsRef.current.add(post.id);
+            unique.push(post);
+          }
+        }
+
+        setPosts(prev => {
+          // Merge: keep existing (not in new batch) + new unique posts
+          const existingIds = new Set(prev.map(p => p.id));
+          const merged = [...unique.filter(p => !existingIds.has(p.id)), ...prev];
+          // Sort by timestamp desc
+          merged.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+          return merged;
+        });
+        
+        // Update cursor for pagination
+        if (list.length > 0) {
+          const oldest = list[list.length - 1];
+          setCursor(oldest.timestamp instanceof Date ? oldest.timestamp : new Date(oldest.timestamp));
+        }
+        setHasMore(list.length >= POSTS_PER_PAGE);
+        setLoading(false);
+        setLoadingMore(false);
+      },
+    );
+    const seenIds = seenPostIdsRef.current;
+    return () => { unsub(); seenIds.clear(); };
+  }, [user?.id, mapPost]);
+
+  // ── Post view tracking via IntersectionObserver ───────────────────
+  const viewedPostIdsRef = useRef<Set<string>>(new Set());
+  const observerRef = useRef<IntersectionObserver | null>(null);
+  const recordViewRef = useRef<(postId: string) => void>(() => {});
+
+  useEffect(() => {
+    if (!isFirestoreAvailable()) return;
+
+    // Pre-bind the view recording function to avoid dynamic requires
+    recordViewRef.current = async (postId: string) => {
+      try {
+        const { increment: inc } = await import('@/lib/firestore');
+        const { updateDocById: update, COLLECTIONS: cols } = await import('@/lib/firestore');
+        await update(cols.POSTS, postId, { viewCount: inc(1) });
+      } catch { /* ignore view tracking errors */ }
+    };
+
+    observerRef.current = new IntersectionObserver(
+      (entries) => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) {
+            const postId = entry.target.getAttribute('data-post-id');
+            if (postId && !viewedPostIdsRef.current.has(postId)) {
+              viewedPostIdsRef.current.add(postId);
+              recordViewRef.current(postId);
+            }
+          }
+        });
+      },
+      { threshold: 0.5, rootMargin: '0px 0px -100px 0px' },
+    );
+
+    return () => {
+      if (observerRef.current) observerRef.current.disconnect();
+    };
+  }, []);
+
+  // Attach observer to post elements when posts change
+  useEffect(() => {
+    if (!observerRef.current || loading) return;
+    const timer = setTimeout(() => {
+      document.querySelectorAll('[data-post-id]').forEach(el => {
+        observerRef.current?.observe(el);
+      });
+    }, 100);
+    return () => clearTimeout(timer);
+  }, [posts, loading]);
+
+  // ── Cursor-based load more ────────────────────────────────────────
+  const handleLoadMore = useCallback(async () => {
+    if (loadingMore || !hasMore || !cursor) return;
+    setLoadingMore(true);
+    try {
+      const data = await queryCollection(COLLECTIONS.POSTS, [
+        orderBy('timestamp', 'desc'),
+        startAfter(cursor),
+        limit(POSTS_PER_PAGE),
+      ]);
+      const list: TimelinePost[] = (data || []).map((d: Record<string, unknown>) => mapPost(d, user?.id));
+      
+      // Deduplicate
+      const unique: TimelinePost[] = [];
+      for (const post of list) {
+        if (!seenPostIdsRef.current.has(post.id)) {
+          seenPostIdsRef.current.add(post.id);
+          unique.push(post);
+        }
+      }
+      
+      setPosts(prev => [...prev, ...unique]);
+      if (list.length > 0) {
+        setCursor(list[list.length - 1].timestamp);
+      }
+      setHasMore(list.length >= POSTS_PER_PAGE);
+    } catch {
+      toast.error('Failed to load more posts');
+    }
+    setLoadingMore(false);
+  }, [loadingMore, hasMore, cursor, mapPost, user?.id]);
 
   // Cleanup refresh timeout
   useEffect(() => {
@@ -144,16 +272,32 @@ export default function TimelinePage() {
       setNewPostsCount(0);
       return;
     }
+
     const newestPost = posts[0];
     const newestTime = newestPost.timestamp instanceof Date ? newestPost.timestamp.getTime() : new Date(newestPost.timestamp).getTime();
+
     if (newestTime > lastSeenPostTime) {
       const count = posts.filter(p => {
         const t = p.timestamp instanceof Date ? p.timestamp.getTime() : new Date(p.timestamp).getTime();
         return t > lastSeenPostTime;
       }).length;
+
       setNewPostsCount(count);
+
+      // Signal: new timeline posts while user is not at top (keeps it real-time).
+      if (count > 0) {
+        import('@/lib/sounds')
+          .then(({ safePlay, playTimelineNotification, vibrateNotification }) => {
+            safePlay(playTimelineNotification, vibrateNotification);
+          })
+          .catch(() => {
+            // ignore
+          });
+      }
     }
   }, [posts, isAtTop, lastSeenPostTime]);
+
+
 
   const handleScrollToTop = () => {
     scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
@@ -205,26 +349,26 @@ export default function TimelinePage() {
   const STORY_DURATION = 5000;
   const closeStory = () => setViewingStory(null);
 
-  // Real-time stories subscription
+  // Real-time stories subscription — memoize friendIds to prevent subscription churn
+  const friendIds = useMemo(() => friends.map(f => f.id), [friends]);
   useEffect(() => {
     if (!isFirestoreAvailable() || !user?.id) return;
-    const friendIds = friends.map(f => f.id);
     const allIds = [user.id, ...friendIds];
     const unsub = subscribeToCollection(COLLECTIONS.STORIES, [where('userId', 'in', allIds), orderBy('timestamp', 'desc')], (data) => {
-      const list = (data || []).map((d: any) => ({
-        id: d.id,
-        user_id: d.userId,
-        name: d.userName || (d.userId === user.id ? 'My Story' : 'Friend'),
-        avatar: d.userAvatar || undefined,
-        media_url: d.mediaUrl || '',
-        type: d.type || 'image',
+      const list = (data || []).map((d: Record<string, unknown>) => ({
+        id: d.id as string,
+        user_id: d.userId as string,
+        name: (d.userName as string) || (d.userId === user.id ? 'My Story' : 'Friend'),
+        avatar: d.userAvatar as string | undefined,
+        media_url: (d.mediaUrl as string) || '',
+        type: (d.type as string) || 'image',
         caption: '',
         isMine: d.userId === user.id,
       }));
       setStories(list);
     });
     return () => unsub();
-  }, [user?.id, friends]);
+  }, [user?.id, friendIds]);
 
   // Auto-advance stories
   useEffect(() => {
@@ -269,7 +413,7 @@ export default function TimelinePage() {
     setUploading(true);
     try {
       if (isFirestoreAvailable()) {
-        const payload: any = {
+        const payload: Record<string, unknown> = {
           userId: user.id,
           content: content.trim(),
           images,
@@ -401,9 +545,23 @@ export default function TimelinePage() {
     setShowReportModal(true);
   };
 
-  const submitReport = () => {
-    if (!reportReason.trim() || !reportPost) return;
-    toast.success('Report submitted. Thank you for helping keep GaGa Chat safe.');
+  const submitReport = async () => {
+    if (!reportReason.trim() || !reportPost || !user?.id) return;
+    try {
+      if (isFirestoreAvailable()) {
+        await addDocToCollection(COLLECTIONS.USER_REPORTS ?? 'user_reports', {
+          reporterId: user.id,
+          reportedPostId: reportPost.id,
+          reportedUserId: reportPost.userId,
+          reason: reportReason.trim(),
+          status: 'pending',
+          timestamp: serverTimestamp(),
+        });
+      }
+      toast.success('Report submitted. Thank you for helping keep GaGa Chat safe.');
+    } catch {
+      toast.error('Failed to submit report');
+    }
     setReportReason('');
     setShowReportModal(false);
     setReportPost(null);
@@ -438,19 +596,6 @@ export default function TimelinePage() {
     return true;
   });
 
-  const hasMore = posts.length >= postLimit;
-
-  const [loadingMore, setLoadingMore] = useState(false);
-
-  const handleLoadMore = () => {
-    if (loadingMore || !hasMore) return;
-    setLoadingMore(true);
-    setPostLimit(prev => prev + 20);
-  };
-
-  const handleLoadMoreRef = useRef(handleLoadMore);
-  handleLoadMoreRef.current = handleLoadMore;
-
   // Auto-load more posts on scroll near bottom
   useEffect(() => {
     const el = scrollRef.current;
@@ -466,15 +611,16 @@ export default function TimelinePage() {
     return () => el.removeEventListener('scroll', onScroll);
   }, [loading, loadingMore, hasMore]);
 
-  // Reset loadingMore when posts update
-  useEffect(() => {
-    setLoadingMore(false);
-  }, [posts.length]);
+  const handleLoadMoreRef = useRef(handleLoadMore);
+  handleLoadMoreRef.current = handleLoadMore;
 
   const handleRefresh = async () => {
     if (refreshing) return;
     setRefreshing(true);
-    setPostLimit(20);
+    // Clear dedup cache and reset cursor for fresh load
+    seenPostIdsRef.current.clear();
+    setCursor(null);
+    setHasMore(true);
     refreshTimeoutRef.current = setTimeout(() => setRefreshing(false), 1000);
   };
 
@@ -799,7 +945,7 @@ export default function TimelinePage() {
 
             {/* Posts */}
             {!loading && filteredPosts.map((post, index) => (
-              <div key={post.id}>
+              <div key={post.id} data-post-id={post.id}>
                 <TimelineCard
                   post={post}
                   index={index}
@@ -809,6 +955,8 @@ export default function TimelinePage() {
                   onImageClick={(url: string) => { setViewerImage(url); setShowImageViewer(true); }}
                   onTip={() => setTipTarget({ userId: post.userId, userName: post.userName || 'User', userAvatar: post.userAvatar, postId: post.id })}
                   onReport={() => handleReport(post)}
+                  userName={post.userName}
+                  userAvatar={post.userAvatar}
                 />
                 {index > 0 && index % 3 === 0 && !dismissedAds.has('timeline_' + index) && (
                   <div className="px-4">
@@ -979,7 +1127,7 @@ export default function TimelinePage() {
               <h3 className="text-white font-semibold mb-4">Share Post</h3>
               <div className="flex flex-col gap-3">
                 <button type="button" onClick={() => {
-                    navigator.clipboard.writeText(`https://oumagachat.web.app/post/${sharePost.id}`);
+                    navigator.clipboard.writeText(`https://gagachat.app/post/${sharePost.id}`);
                     toast.success('Link copied!');
                     setShowShareModal(false);
                   }}
@@ -989,9 +1137,9 @@ export default function TimelinePage() {
                 </button>
                 <button type="button" onClick={() => {
                     if (navigator.share) {
-                      navigator.share({ title: 'GaGa Chat Post', text: sharePost.content || 'Check out this post', url: `https://oumagachat.web.app/post/${sharePost.id}` });
+                      navigator.share({ title: 'GaGa Chat Post', text: sharePost.content || 'Check out this post', url: `https://gagachat.app/post/${sharePost.id}` });
                     } else {
-                      navigator.clipboard.writeText(`https://oumagachat.web.app/post/${sharePost.id}`);
+                      navigator.clipboard.writeText(`https://gagachat.app/post/${sharePost.id}`);
                       toast.success('Link copied!');
                     }
                     setShowShareModal(false);

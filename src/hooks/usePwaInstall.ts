@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
@@ -56,7 +56,7 @@ export function usePwaInstall() {
     };
   }, []);
 
-  const triggerInstall = async () => {
+  const triggerInstall = useCallback(async () => {
     if (isIOS) {
       setShowIOSGuide(true);
       return;
@@ -69,9 +69,9 @@ export function usePwaInstall() {
       setCanInstall(false);
     }
     deferredPrompt = null;
-  };
+  }, [isIOS]);
 
-  const dismissIOSGuide = () => setShowIOSGuide(false);
+  const dismissIOSGuide = useCallback(() => setShowIOSGuide(false), []);
 
   return { canInstall, installed, triggerInstall, isIOS, showIOSGuide, dismissIOSGuide };
 }

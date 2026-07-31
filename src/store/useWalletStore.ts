@@ -6,12 +6,14 @@ import {
   setDocById,
   updateDocById,
   addDocToCollection,
+  addDocToSubcollection,
   subscribeToDoc,
   serverTimestamp,
+  runDbTransaction,
 } from '@/lib/firestore';
 import type { WalletData, WalletTransaction } from '@/types';
 
-export type CurrencyCode = 'GAGA' | 'BDT' | 'USD' | 'coins';
+export type CurrencyCode = 'GAGA' | 'USD' | 'coins' | 'BDT'; // BDT kept for backward compatibility
 
 export interface ExchangeRate {
   from: CurrencyCode;
@@ -22,12 +24,8 @@ export interface ExchangeRate {
 
 // Exchange rates (1 unit of `from` = `rate` units of `to`)
 export const EXCHANGE_RATES: Record<string, number> = {
-  'GAGA_BDT': 0.85,
-  'BDT_GAGA': 1.176,
   'GAGA_USD': 0.0071,
   'USD_GAGA': 140.85,
-  'BDT_USD': 0.0083,
-  'USD_BDT': 120.0,
 };
 
 // Gaga Coin staking tiers
@@ -53,20 +51,40 @@ export function convertCurrency(amount: number, from: CurrencyCode, to: Currency
 
 export function formatCurrency(amount: number, currency: CurrencyCode): string {
   if (currency === 'GAGA') return `${amount.toLocaleString()} GAGA`;
-  if (currency === 'BDT') return `৳${amount.toFixed(2)}`;
+  if (currency === 'BDT') return `৳${amount.toFixed(2)}`; // BDT kept for backward compatibility
   if (currency === 'USD') return `$${amount.toFixed(2)}`;
   return `${amount}`;
 }
 
 export function getCurrencySymbol(currency: CurrencyCode): string {
   if (currency === 'GAGA') return 'G';
-  if (currency === 'BDT') return '৳';
+  if (currency === 'BDT') return '৳'; // BDT kept for backward compatibility
   if (currency === 'USD') return '$';
   return '';
 }
 
+const hasSecureCrypto = () => typeof crypto !== 'undefined' && !!crypto.subtle && typeof crypto.getRandomValues === 'function';
+const readStoredValue = (key: string) => {
+  try {
+    return window.localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+};
+const writeStoredValue = (key: string, value: string) => {
+  try {
+    window.localStorage.setItem(key, value);
+  } catch {
+    // ignore storage failures
+  }
+};
+const isValidPositiveAmount = (amount: number) => Number.isFinite(amount) && amount > 0;
+
 // PBKDF2 PIN hashing using Web Crypto API
 async function hashPin(pin: string): Promise<string> {
+  if (!hasSecureCrypto()) {
+    return `legacy:${btoa(pin)}`;
+  }
   const encoder = new TextEncoder();
   const salt = crypto.getRandomValues(new Uint8Array(16));
   const keyMaterial = await crypto.subtle.importKey('raw', encoder.encode(pin), 'PBKDF2', false, ['deriveBits']);
@@ -80,7 +98,13 @@ async function hashPin(pin: string): Promise<string> {
 }
 
 async function verifyPinHash(pin: string, stored: string): Promise<boolean> {
+  if (!stored) return false;
+  if (!hasSecureCrypto()) {
+    const [scheme, payload] = stored.split(':');
+    return scheme === 'legacy' && payload === btoa(pin);
+  }
   const [saltB64, hashB64] = stored.split(':');
+  if (!saltB64 || !hashB64) return false;
   const salt = Uint8Array.from(atob(saltB64), c => c.charCodeAt(0));
   const encoder = new TextEncoder();
   const keyMaterial = await crypto.subtle.importKey('raw', encoder.encode(pin), 'PBKDF2', false, ['deriveBits']);
@@ -145,9 +169,7 @@ export const useWalletStore = create<WalletStore>((set, get) => ({
   loading: true,
   lastError: null,
   exchangeRates: [
-    { from: 'GAGA', to: 'BDT', rate: EXCHANGE_RATES.GAGA_BDT, updatedAt: new Date().toISOString() },
     { from: 'GAGA', to: 'USD', rate: EXCHANGE_RATES.GAGA_USD, updatedAt: new Date().toISOString() },
-    { from: 'BDT', to: 'USD', rate: EXCHANGE_RATES.BDT_USD, updatedAt: new Date().toISOString() },
   ],
 
   subscribeWallet: (userId: string) => {
@@ -161,20 +183,24 @@ export const useWalletStore = create<WalletStore>((set, get) => ({
       return () => {};
     }
 
-    const fetchWallet = async () => {
-      try {
-        const data = await getDocById(COLLECTIONS.WALLETS, userId);
+    // subscribeToDoc fires immediately with the current state,
+    // so a separate fetchWallet() call is redundant — removed.
+    let unsub: (() => void) | null = null;
+    try {
+      unsub = subscribeToDoc(COLLECTIONS.WALLETS, userId, async (data) => {
         if (data) {
           set({
             wallet: {
               coins: data.coins || 0,
               bdtBalance: data.bdtBalance || 0,
+              usdBalance: data.usdBalance || data.bdtBalance || 0,
               transactions: data.transactions || [],
             },
             loading: false,
             lastError: null,
           });
         } else {
+          // No wallet yet — create one with welcome bonus
           const welcomeTx: WalletTransaction = {
             id: `tx_${Date.now()}_welcome`,
             type: 'earn',
@@ -184,52 +210,33 @@ export const useWalletStore = create<WalletStore>((set, get) => ({
             timestamp: new Date().toISOString(),
             status: 'completed',
           };
-          await setDocById(COLLECTIONS.WALLETS, userId, {
-            coins: 50,
-            bdtBalance: 0,
-            usdBalance: 0,
-            transactions: [welcomeTx],
-            totalEarned: 50,
-            dailyStreak: 0,
-            lastInterestClaim: null,
-            createdAt: serverTimestamp(),
-          });
+          try {
+            await setDocById(COLLECTIONS.WALLETS, userId, {
+              coins: 50,
+              bdtBalance: 0,
+              usdBalance: 0,
+              transactions: [welcomeTx],
+              totalEarned: 50,
+              dailyStreak: 0,
+              lastInterestClaim: null,
+              createdAt: serverTimestamp(),
+            });
+          } catch {
+        set({ lastError: 'Failed to initialize wallet.' });
+      }
           set({
-            wallet: { coins: 50, bdtBalance: 0, transactions: [welcomeTx] },
+            wallet: { coins: 50, bdtBalance: 0, usdBalance: 0, transactions: [welcomeTx] },
             loading: false,
             lastError: null,
           });
         }
-        
+
         // Load saved PIN hash
-        const savedPinHash = localStorage.getItem(`gaga_wallet_pin_${userId}`);
-        if (savedPinHash) {
-          set({ pinHash: savedPinHash, pinLocked: true });
-        }
-      } catch (error) {
-        console.error('fetchWallet error:', error);
-        set({ loading: false, lastError: 'Failed to load wallet data.' });
-      }
-    };
-
-    fetchWallet();
-
-    let unsub: (() => void) | null = null;
-    try {
-      unsub = subscribeToDoc(COLLECTIONS.WALLETS, userId, (data) => {
-        if (data) {
-          set({
-            wallet: {
-              coins: data.coins || 0,
-              bdtBalance: data.bdtBalance || 0,
-              transactions: data.transactions || [],
-            },
-            loading: false,
-          });
-        }
+        const savedPinHash = readStoredValue(`gaga_wallet_pin_${userId}`);
+        if (savedPinHash) set({ pinHash: savedPinHash, pinLocked: true });
       });
     } catch {
-      // ignore
+      set({ loading: false, lastError: 'Failed to load wallet data.' });
     }
 
     return () => { if (unsub) unsub(); };
@@ -238,6 +245,10 @@ export const useWalletStore = create<WalletStore>((set, get) => ({
   earnCoins: async (userId, amount, description) => {
     if (!isFirestoreAvailable()) {
       console.warn('[WalletStore.earnCoins] Firestore unavailable');
+      return;
+    }
+    if (!userId || !isValidPositiveAmount(amount)) {
+      set({ lastError: 'Invalid amount.' });
       return;
     }
     try {
@@ -267,8 +278,7 @@ export const useWalletStore = create<WalletStore>((set, get) => ({
         });
       }
       set({ lastError: null });
-    } catch (error) {
-      console.error('earnCoins error:', error);
+    } catch {
       set({ lastError: 'Failed to earn coins.' });
     }
   },
@@ -278,13 +288,17 @@ export const useWalletStore = create<WalletStore>((set, get) => ({
       console.warn('[WalletStore.deposit] Firestore unavailable');
       return;
     }
+    if (!userId || !isValidPositiveAmount(amount)) {
+      set({ lastError: 'Invalid deposit amount.' });
+      return;
+    }
     try {
       const existing = await getDocById(COLLECTIONS.WALLETS, userId);
       const tx: WalletTransaction = {
         id: `tx_${Date.now()}_dep`,
         type: 'deposit',
         amount,
-        currency: (currency === 'GAGA' ? 'coins' : currency === 'BDT' ? 'BDT' : 'USD') as 'coins' | 'BDT' | 'USD',
+        currency: (currency === 'GAGA' ? 'coins' : currency) as 'coins' | 'USD' | 'BDT',
         description: `Deposit ${formatCurrency(amount, currency)} via ${method}`,
         timestamp: new Date().toISOString(),
         status: 'completed',
@@ -295,21 +309,19 @@ export const useWalletStore = create<WalletStore>((set, get) => ({
           transactions: [...(existing.transactions || []), tx],
         };
         if (currency === 'GAGA') update.coins = (existing.coins || 0) + amount;
-        else if (currency === 'BDT') update.bdtBalance = (existing.bdtBalance || 0) + amount;
-        else if (currency === 'USD') update.usdBalance = (existing.usdBalance || 0) + amount;
+        else if (currency === 'USD') update.usdBalance = (existing.usdBalance || existing.bdtBalance || 0) + amount;
         await updateDocById(COLLECTIONS.WALLETS, userId, update);
       } else {
         const insert: Record<string, unknown> = {
           coins: currency === 'GAGA' ? amount : 0,
-          bdtBalance: currency === 'BDT' ? amount : 0,
+          bdtBalance: 0,
           usdBalance: currency === 'USD' ? amount : 0,
           transactions: [tx],
         };
         await setDocById(COLLECTIONS.WALLETS, userId, insert);
       }
       set({ lastError: null });
-    } catch (error) {
-      console.error('deposit error:', error);
+    } catch {
       set({ lastError: 'Deposit failed.' });
     }
   },
@@ -319,6 +331,10 @@ export const useWalletStore = create<WalletStore>((set, get) => ({
       console.warn('[WalletStore.withdraw] Firestore unavailable');
       return false;
     }
+    if (!userId || !isValidPositiveAmount(amount)) {
+      set({ lastError: 'Invalid withdrawal amount.' });
+      return false;
+    }
     try {
       const existing = await getDocById(COLLECTIONS.WALLETS, userId);
       if (!existing) {
@@ -326,7 +342,7 @@ export const useWalletStore = create<WalletStore>((set, get) => ({
         return false;
       }
       
-      const balanceKey = currency === 'GAGA' ? 'coins' : currency === 'BDT' ? 'bdtBalance' : 'usdBalance';
+      const balanceKey = currency === 'GAGA' ? 'coins' : 'usdBalance';
       const current = (existing[balanceKey] as number) || 0;
       if (current < amount) {
         set({ lastError: 'Insufficient balance.' });
@@ -337,7 +353,7 @@ export const useWalletStore = create<WalletStore>((set, get) => ({
         id: `tx_${Date.now()}_wd`,
         type: 'withdraw',
         amount,
-        currency: (currency === 'GAGA' ? 'coins' : currency === 'BDT' ? 'BDT' : 'USD') as 'coins' | 'BDT' | 'USD',
+        currency: (currency === 'GAGA' ? 'coins' : currency) as 'coins' | 'USD' | 'BDT',
         description: `Withdraw ${formatCurrency(amount, currency)} to ${method} (${account})`,
         timestamp: new Date().toISOString(),
         status: 'pending',
@@ -351,8 +367,7 @@ export const useWalletStore = create<WalletStore>((set, get) => ({
       await updateDocById(COLLECTIONS.WALLETS, userId, update);
       set({ lastError: null });
       return true;
-    } catch (error) {
-      console.error('withdraw error:', error);
+    } catch {
       set({ lastError: 'Withdrawal failed.' });
       return false;
     }
@@ -370,8 +385,8 @@ export const useWalletStore = create<WalletStore>((set, get) => ({
         return false;
       }
       
-      const fromKey = from === 'GAGA' ? 'coins' : from === 'BDT' ? 'bdtBalance' : 'usdBalance';
-      const toKey = to === 'GAGA' ? 'coins' : to === 'BDT' ? 'bdtBalance' : 'usdBalance';
+      const fromKey = from === 'GAGA' ? 'coins' : 'usdBalance';
+      const toKey = to === 'GAGA' ? 'coins' : 'usdBalance';
       const currentFrom = (existing[fromKey] as number) || 0;
       if (currentFrom < amount) {
         set({ lastError: 'Insufficient balance for conversion.' });
@@ -399,68 +414,40 @@ export const useWalletStore = create<WalletStore>((set, get) => ({
       await updateDocById(COLLECTIONS.WALLETS, userId, update);
       set({ lastError: null });
       return true;
-    } catch (error) {
-      console.error('convert error:', error);
+    } catch {
       set({ lastError: 'Currency conversion failed.' });
       return false;
     }
   },
 
-  // P2P transfer via read-modify-write
+  // P2P transfer via atomic transaction
   sendFromChat: async (fromUserId, fromUserName, chatId, toUserId, amount, currency, note = '') => {
     if (!isFirestoreAvailable()) {
       console.warn('[WalletStore.sendFromChat] Firestore unavailable');
       return false;
     }
+    if (!isValidPositiveAmount(amount)) {
+      set({ lastError: 'Invalid amount.' });
+      return false;
+    }
     try {
-      // Read both wallets
-      const senderWallet = await getDocById(COLLECTIONS.WALLETS, fromUserId);
-      const receiverWallet = await getDocById(COLLECTIONS.WALLETS, toUserId);
-      
-      const balanceKey = currency === 'GAGA' ? 'coins' : currency === 'BDT' ? 'bdtBalance' : 'usdBalance';
-      const senderBalance = (senderWallet?.[balanceKey] as number) || 0;
-      
-      if (senderBalance < amount) {
-        set({ lastError: 'Insufficient balance.' });
-        return false;
-      }
-
-      const tx: WalletTransaction = {
-        id: `tx_${Date.now()}_send`,
-        type: 'send',
-        amount,
-        currency: (currency === 'GAGA' ? 'coins' : currency) as 'coins' | 'BDT' | 'USD',
-        description: `Sent ${formatCurrency(amount, currency)}${note ? ': ' + note : ''}`,
-        timestamp: new Date().toISOString(),
-        status: 'completed',
-      };
-      
-      const receiverTx: WalletTransaction = {
-        id: `tx_${Date.now()}_recv`,
-        type: 'receive',
-        amount,
-        currency: (currency === 'GAGA' ? 'coins' : currency) as 'coins' | 'BDT' | 'USD',
-        description: `Received ${formatCurrency(amount, currency)} from ${fromUserName}${note ? ': ' + note : ''}`,
-        timestamp: new Date().toISOString(),
-        status: 'completed',
-      };
-
-      // Update sender and receiver
-      const senderUpdate: Record<string, unknown> = {
-        [balanceKey]: senderBalance - amount,
-        transactions: [...(senderWallet?.transactions || []), tx],
-      };
-      const receiverUpdate: Record<string, unknown> = {
-        [balanceKey]: (receiverWallet?.[balanceKey] as number || 0) + amount,
-        transactions: [...(receiverWallet?.transactions || []), receiverTx],
-      };
-
-      await updateDocById(COLLECTIONS.WALLETS, fromUserId, senderUpdate);
-      await updateDocById(COLLECTIONS.WALLETS, toUserId, receiverUpdate);
+      let transferOk = false;
+      await runDbTransaction(async () => {
+        const senderWallet = await getDocById(COLLECTIONS.WALLETS, fromUserId);
+        const balanceKey = currency === 'GAGA' ? 'coins' : 'usdBalance';
+        const senderBalance = (senderWallet?.[balanceKey] as number) || 0;
+        if (senderBalance < amount) throw new Error('Insufficient balance.');
+        const receiverWallet = await getDocById(COLLECTIONS.WALLETS, toUserId);
+        const tx: WalletTransaction = { id: `tx_${Date.now()}_send`, type: 'send', amount, currency: (currency === 'GAGA' ? 'coins' : currency) as 'coins' | 'BDT' | 'USD', description: `Sent ${formatCurrency(amount, currency)}${note ? ': ' + note : ''}`, timestamp: new Date().toISOString(), status: 'completed' };
+        const receiverTx: WalletTransaction = { id: `tx_${Date.now()}_recv`, type: 'receive', amount, currency: (currency === 'GAGA' ? 'coins' : currency) as 'coins' | 'BDT' | 'USD', description: `Received ${formatCurrency(amount, currency)} from ${fromUserName}${note ? ': ' + note : ''}`, timestamp: new Date().toISOString(), status: 'completed' };
+        await updateDocById(COLLECTIONS.WALLETS, fromUserId, { [balanceKey]: senderBalance - amount, transactions: [...(senderWallet?.transactions || []), tx] });
+        await updateDocById(COLLECTIONS.WALLETS, toUserId, { [balanceKey]: ((receiverWallet?.[balanceKey] as number) || 0) + amount, transactions: [...(receiverWallet?.transactions || []), receiverTx] });
+        transferOk = true;
+      });
+      if (!transferOk) return false;
 
       // Insert transfer message (best-effort)
       try {
-        const { addDocToSubcollection } = await import('@/lib/firestore');
         await addDocToSubcollection(COLLECTIONS.CHATS, chatId, COLLECTIONS.MESSAGES, {
           chatId,
           senderId: fromUserId,
@@ -477,14 +464,13 @@ export const useWalletStore = create<WalletStore>((set, get) => ({
           timestamp: serverTimestamp(),
           read: false,
         });
-      } catch (msgErr) {
-        console.error('Transfer message insert failed', msgErr);
+      } catch {
+        // transfer message insert failed — non-fatal
       }
 
       set({ lastError: null });
       return true;
-    } catch (error) {
-      console.error('sendFromChat error:', error);
+    } catch {
       set({ lastError: 'Transfer failed.' });
       return false;
     }
@@ -497,56 +483,49 @@ export const useWalletStore = create<WalletStore>((set, get) => ({
       return false;
     }
     try {
-      const senderWallet = await getDocById(COLLECTIONS.WALLETS, fromUserId);
-      const receiverWallet = await getDocById(COLLECTIONS.WALLETS, toUserId);
-      
-      const balanceKey = currency === 'GAGA' ? 'coins' : currency === 'BDT' ? 'bdtBalance' : 'usdBalance';
-      const senderBalance = (senderWallet?.[balanceKey] as number) || 0;
-      
-      if (senderBalance < amount) {
-        set({ lastError: 'Insufficient balance.' });
-        return false;
-      }
+      let transferOk = false;
+      await runDbTransaction(async () => {
+        const senderWallet = await getDocById(COLLECTIONS.WALLETS, fromUserId);
+        const receiverWallet = await getDocById(COLLECTIONS.WALLETS, toUserId);
+        const balanceKey = currency === 'GAGA' ? 'coins' : 'usdBalance';
+        const senderBalance = (senderWallet?.[balanceKey] as number) || 0;
+        if (senderBalance < amount) throw new Error('Insufficient balance.');
 
-      const tx: WalletTransaction = {
-        id: `tx_${Date.now()}_send`,
-        type: 'send',
-        amount,
-        currency: (currency === 'GAGA' ? 'coins' : currency) as 'coins' | 'BDT' | 'USD',
-        description: `Sent ${formatCurrency(amount, currency)} to ${toUserName}${note ? ': ' + note : ''}`,
-        timestamp: new Date().toISOString(),
-        status: 'completed',
-      };
-      
-      const receiverTx: WalletTransaction = {
-        id: `tx_${Date.now()}_recv`,
-        type: 'receive',
-        amount,
-        currency: (currency === 'GAGA' ? 'coins' : currency) as 'coins' | 'BDT' | 'USD',
-        description: `Received ${formatCurrency(amount, currency)}${note ? ': ' + note : ''}`,
-        timestamp: new Date().toISOString(),
-        status: 'completed',
-      };
+        const tx: WalletTransaction = {
+          id: `tx_${Date.now()}_send`,
+          type: 'send',
+          amount,
+          currency: (currency === 'GAGA' ? 'coins' : currency) as 'coins' | 'BDT' | 'USD',
+          description: `Sent ${formatCurrency(amount, currency)} to ${toUserName}${note ? ': ' + note : ''}`,
+          timestamp: new Date().toISOString(),
+          status: 'completed',
+        };
+        const receiverTx: WalletTransaction = {
+          id: `tx_${Date.now()}_recv`,
+          type: 'receive',
+          amount,
+          currency: (currency === 'GAGA' ? 'coins' : currency) as 'coins' | 'BDT' | 'USD',
+          description: `Received ${formatCurrency(amount, currency)}${note ? ': ' + note : ''}`,
+          timestamp: new Date().toISOString(),
+          status: 'completed',
+        };
 
-      // Update sender and receiver
-      const senderUpdate: Record<string, unknown> = {
-        [balanceKey]: senderBalance - amount,
-        transactions: [...(senderWallet?.transactions || []), tx],
-      };
-      const receiverUpdate: Record<string, unknown> = {
-        [balanceKey]: (receiverWallet?.[balanceKey] as number || 0) + amount,
-        transactions: [...(receiverWallet?.transactions || []), receiverTx],
-      };
-
-      await updateDocById(COLLECTIONS.WALLETS, fromUserId, senderUpdate);
-      await updateDocById(COLLECTIONS.WALLETS, toUserId, receiverUpdate);
-
+        await updateDocById(COLLECTIONS.WALLETS, fromUserId, {
+          [balanceKey]: senderBalance - amount,
+          transactions: [...(senderWallet?.transactions || []), tx],
+        });
+        await updateDocById(COLLECTIONS.WALLETS, toUserId, {
+          [balanceKey]: ((receiverWallet?.[balanceKey] as number) || 0) + amount,
+          transactions: [...(receiverWallet?.transactions || []), receiverTx],
+        });
+        transferOk = true;
+      });
+      if (!transferOk) return false;
       // Create a direct chat for the transfer message (best-effort)
       try {
         const participants = [fromUserId, toUserId].sort();
         const chatId = `dm_${participants.join('_')}`;
-        const { setDocById, getDocById: getChatDoc } = await import('@/lib/firestore');
-        const existingChat = await getChatDoc(COLLECTIONS.CHATS, chatId);
+        const existingChat = await getDocById(COLLECTIONS.CHATS, chatId);
         if (!existingChat) {
           await setDocById(COLLECTIONS.CHATS, chatId, {
             type: 'direct',
@@ -556,7 +535,6 @@ export const useWalletStore = create<WalletStore>((set, get) => ({
             unreadCount: 0,
           });
         }
-        const { addDocToSubcollection } = await import('@/lib/firestore');
         await addDocToSubcollection(COLLECTIONS.CHATS, chatId, COLLECTIONS.MESSAGES, {
           chatId,
           senderId: fromUserId,
@@ -573,13 +551,12 @@ export const useWalletStore = create<WalletStore>((set, get) => ({
           timestamp: serverTimestamp(),
           read: false,
         });
-      } catch (msgErr) {
-        console.error('P2P transfer chat message insert failed', msgErr);
+      } catch {
+        // P2P transfer chat message insert failed — non-fatal
       }
 
       // Notify the recipient
       try {
-        const { addDocToCollection } = await import('@/lib/firestore');
         await addDocToCollection(COLLECTIONS.NOTIFICATIONS, {
           userId: toUserId,
           type: 'money_received',
@@ -590,14 +567,13 @@ export const useWalletStore = create<WalletStore>((set, get) => ({
           timestamp: serverTimestamp(),
           read: false,
         });
-      } catch (notifErr) {
-        console.error('Notification insert failed', notifErr);
+      } catch {
+        // Notification insert failed — non-fatal
       }
 
       set({ lastError: null });
       return true;
-    } catch (error) {
-      console.error('sendP2P error:', error);
+    } catch {
       set({ lastError: 'Transfer failed.' });
       return false;
     }
@@ -626,8 +602,7 @@ export const useWalletStore = create<WalletStore>((set, get) => ({
       try {
         const participants = [fromUserId, toUserId].sort();
         const chatId = `dm_${participants.join('_')}`;
-        const { setDocById, getDocById: getChatDoc, addDocToSubcollection } = await import('@/lib/firestore');
-        const existingChat = await getChatDoc(COLLECTIONS.CHATS, chatId);
+        const existingChat = await getDocById(COLLECTIONS.CHATS, chatId);
         if (!existingChat) {
           await setDocById(COLLECTIONS.CHATS, chatId, {
             type: 'direct',
@@ -645,14 +620,13 @@ export const useWalletStore = create<WalletStore>((set, get) => ({
           timestamp: serverTimestamp(),
           read: false,
         });
-      } catch (msgErr) {
-        console.error('Money request chat message insert failed', msgErr);
+      } catch {
+        // money request chat message insert failed — non-fatal
       }
 
       set({ lastError: null });
       return true;
-    } catch (error) {
-      console.error('requestMoney error:', error);
+    } catch {
       set({ lastError: 'Request failed.' });
       return false;
     }
@@ -683,16 +657,15 @@ export const useWalletStore = create<WalletStore>((set, get) => ({
             timestamp: serverTimestamp(),
             read: false,
           });
-        } catch (notifErr) {
-          console.error('Split bill notification failed', notifErr);
+        } catch {
+          // split bill notification failed — non-fatal
         }
 
         // Create a message in the direct chat (best-effort)
         try {
           const participants = [fromUserId, toUserId].sort();
           const chatId = `dm_${participants.join('_')}`;
-          const { setDocById, getDocById: getChatDoc, addDocToSubcollection } = await import('@/lib/firestore');
-          const existingChat = await getChatDoc(COLLECTIONS.CHATS, chatId);
+          const existingChat = await getDocById(COLLECTIONS.CHATS, chatId);
           if (!existingChat) {
             await setDocById(COLLECTIONS.CHATS, chatId, {
               type: 'direct',
@@ -710,15 +683,14 @@ export const useWalletStore = create<WalletStore>((set, get) => ({
             timestamp: serverTimestamp(),
             read: false,
           });
-        } catch (msgErr) {
-          console.error('Split bill chat message insert failed', msgErr);
+        } catch {
+          // split bill chat message insert failed — non-fatal
         }
       }
 
       set({ lastError: null });
       return true;
-    } catch (error) {
-      console.error('splitBill error:', error);
+    } catch {
       set({ lastError: 'Split bill failed.' });
       return false;
     }
@@ -777,29 +749,28 @@ export const useWalletStore = create<WalletStore>((set, get) => ({
       
       set({ lastError: null });
       return dailyInterest;
-    } catch (error) {
-      console.error('claimDailyInterest error:', error);
+    } catch {
       set({ lastError: 'Failed to claim daily interest.' });
       return 0;
     }
   },
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  getDailyInterestAmount: (_userId) => {
+  getDailyInterestAmount: () => {
     const { wallet } = get();
     if (!wallet) return 0;
+    // Use wallet coins from store; userId param kept for API compatibility
     const tier = getStakingTier(wallet.coins);
-    return Math.round((wallet.coins * (tier.apy / 100) / 365) * 100) / 100;
+    const interest = Math.round((wallet.coins * (tier.apy / 100) / 365) * 100) / 100;
+    return interest >= 0 ? interest : 0;
   },
 
   // Wallet Security
   setWalletPin: async (userId, pin) => {
     try {
       const hash = await hashPin(pin);
-      localStorage.setItem(`gaga_wallet_pin_${userId}`, hash);
+      writeStoredValue(`gaga_wallet_pin_${userId}`, hash);
       set({ pinHash: hash, pinLocked: true, lastError: null });
-    } catch (error) {
-      console.error('setWalletPin error:', error);
+    } catch {
       set({ lastError: 'Failed to set PIN.' });
     }
   },
@@ -809,19 +780,26 @@ export const useWalletStore = create<WalletStore>((set, get) => ({
     if (!pinHash) return false;
     try {
       return await verifyPinHash(pin, pinHash);
-    } catch (error) {
-      console.error('verifyPin error:', error);
+    } catch {
       return false;
     }
   },
 
   clearWalletPin: (userId) => {
-    localStorage.removeItem(`gaga_wallet_pin_${userId}`);
+    try {
+      window.localStorage.removeItem(`gaga_wallet_pin_${userId}`);
+    } catch {
+      // ignore storage failures
+    }
     set({ pinHash: null, pinLocked: false });
   },
 
   resetPin: (userId) => {
-    localStorage.removeItem(`gaga_wallet_pin_${userId}`);
+    try {
+      window.localStorage.removeItem(`gaga_wallet_pin_${userId}`);
+    } catch {
+      // ignore storage failures
+    }
     set({ pinHash: null, pinLocked: false });
   },
 
@@ -842,8 +820,8 @@ export const useWalletStore = create<WalletStore>((set, get) => ({
   getTotalBalanceInGaga: () => {
     const { wallet } = get();
     if (!wallet) return 0;
-    const bdtInGaga = convertCurrency(wallet.bdtBalance || 0, 'BDT', 'GAGA');
-    return (wallet.coins || 0) + bdtInGaga;
+    const usdInGaga = convertCurrency(wallet.usdBalance || 0, 'USD', 'GAGA');
+    return (wallet.coins || 0) + usdInGaga;
   },
 
   getStakingAPY: () => {

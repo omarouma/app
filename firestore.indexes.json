@@ -97,21 +97,45 @@
       ]
     },
     {
-      "collectionGroup": "friendRequests",
+      "collectionGroup": "friend_requests",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "to", "order": "ASCENDING" },
+        { "fieldPath": "toUserId", "order": "ASCENDING" },
         { "fieldPath": "status", "order": "ASCENDING" },
-        { "fieldPath": "timestamp", "order": "DESCENDING" }
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
       ]
     },
     {
-      "collectionGroup": "friendRequests",
+      "collectionGroup": "friend_requests",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "from", "order": "ASCENDING" },
+        { "fieldPath": "fromUserId", "order": "ASCENDING" },
         { "fieldPath": "status", "order": "ASCENDING" },
-        { "fieldPath": "timestamp", "order": "DESCENDING" }
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "friend_requests",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "fromUserId", "order": "ASCENDING" },
+        { "fieldPath": "toUserId", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "friendships",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "userId", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "blocked_users",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "blockerId", "order": "ASCENDING" },
+        { "fieldPath": "blockedId", "order": "ASCENDING" }
       ]
     },
     {
@@ -132,7 +156,7 @@
       ]
     },
     {
-      "collectionGroup": "callHistory",
+      "collectionGroup": "call_history",
       "queryScope": "COLLECTION",
       "fields": [
         { "fieldPath": "caller", "order": "ASCENDING" },
@@ -140,7 +164,7 @@
       ]
     },
     {
-      "collectionGroup": "callHistory",
+      "collectionGroup": "call_history",
       "queryScope": "COLLECTION",
       "fields": [
         { "fieldPath": "callee", "order": "ASCENDING" },
@@ -156,19 +180,19 @@
       ]
     },
     {
-      "collectionGroup": "reports",
+      "collectionGroup": "user_reports",
       "queryScope": "COLLECTION",
       "fields": [
         { "fieldPath": "status", "order": "ASCENDING" },
-        { "fieldPath": "timestamp", "order": "DESCENDING" }
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
       ]
     },
     {
-      "collectionGroup": "reports",
+      "collectionGroup": "user_reports",
       "queryScope": "COLLECTION",
       "fields": [
         { "fieldPath": "reporterId", "order": "ASCENDING" },
-        { "fieldPath": "timestamp", "order": "DESCENDING" }
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
       ]
     },
     {
@@ -212,7 +236,7 @@
       ]
     },
     {
-      "collectionGroup": "liveStreams",
+      "collectionGroup": "live_streams",
       "queryScope": "COLLECTION",
       "fields": [
         { "fieldPath": "isLive", "order": "ASCENDING" },
@@ -244,14 +268,6 @@
       ]
     },
     {
-      "collectionGroup": "polls",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "userId", "order": "ASCENDING" },
-        { "fieldPath": "timestamp", "order": "DESCENDING" }
-      ]
-    },
-    {
       "collectionGroup": "presence",
       "queryScope": "COLLECTION",
       "fields": [
@@ -265,6 +281,22 @@
       "fields": [
         { "fieldPath": "chatId", "order": "ASCENDING" },
         { "fieldPath": "timestamp", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "broadcast_lists",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "userId", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "groups",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "participants", "arrayConfig": "CONTAINS" },
+        { "fieldPath": "updatedAt", "order": "DESCENDING" }
       ]
     },
     {

@@ -16,20 +16,25 @@ export function useGeolocation() {
 
   const isSupported = typeof navigator !== 'undefined' && 'geolocation' in navigator;
 
-  // Check permission state
   useEffect(() => {
-    if (!isSupported) return;
-    if ('permissions' in navigator) {
-      navigator.permissions.query({ name: 'geolocation' as PermissionName }).then((result) => {
-        setPermission(result.state);
-        result.addEventListener('change', () => setPermission(result.state));
-      });
-    }
+    if (!isSupported || !('permissions' in navigator)) return;
+    let result: PermissionStatus;
+    const onChange = () => setPermission(result.state);
+    navigator.permissions.query({ name: 'geolocation' as PermissionName }).then((r) => {
+      result = r;
+      setPermission(r.state);
+      r.addEventListener('change', onChange);
+    });
+    return () => { result?.removeEventListener('change', onChange); };
   }, [isSupported]);
 
   const getLocation = useCallback(() => {
     if (!isSupported) {
       setError('Geolocation not supported');
+      return;
+    }
+    if (permission === 'denied') {
+      setError('Location permission denied. Please enable location access in your browser settings.');
       return;
     }
 
@@ -59,7 +64,7 @@ export function useGeolocation() {
       },
       { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 }
     );
-  }, [isSupported]);
+  }, [isSupported, permission]);
 
   return { location, loading, error, permission, getLocation, isSupported };
 }

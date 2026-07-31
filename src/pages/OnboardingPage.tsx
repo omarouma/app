@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { safeSetStorageItem } from '@/lib/safeStorage';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   MessageCircle, Users, Video, Wallet, Sparkles,
@@ -74,12 +75,12 @@ export default function OnboardingPage() {
   };
 
   const completeOnboarding = () => {
-    localStorage.setItem('gaga-onboarding-complete', 'true');
+    safeSetStorageItem('gaga-onboarding-complete', 'true');
     navigate('/contacts');
   };
 
   const skip = () => {
-    localStorage.setItem('gaga-onboarding-complete', 'true');
+    safeSetStorageItem('gaga-onboarding-complete', 'true');
     navigate('/contacts');
   };
 

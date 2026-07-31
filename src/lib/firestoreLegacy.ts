@@ -122,6 +122,9 @@ export const COLLECTIONS = {
   PRESENCE: 'presence',
   TYPING: 'typing',
   REPORTS: 'reports',
+  VOICE_ROOMS: 'voiceRooms',
+  BROADCAST_LISTS: 'broadcast_lists',
+  USER_REPORTS: 'userReports',
 };
 
 

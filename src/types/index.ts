@@ -11,7 +11,8 @@ export interface User {
   statusMessage?: string;
   lastSeen?: Date | null;
   coins?: number;
-  bdtBalance?: number;
+  usdBalance?: number;
+  bdtBalance?: number; // for backwards compatibility
   savedPosts?: string[];
   blockedUsers?: string[];
   favorites?: string[];
@@ -86,6 +87,7 @@ export interface Message {
   read?: boolean;
   edited?: boolean;
   replyTo?: string;
+  reaction?: string;
   reactions?: Record<string, string[]>;
   forwardedFrom?: string;
   pollData?: PollData;
@@ -94,6 +96,11 @@ export interface Message {
   disappearingTimer?: number; // seconds until self-destruct, 0 = permanent
   disappearingInitiatedAt?: Date;
   destroyed?: boolean;
+  deliveryStatus?: 'sending' | 'sent' | 'delivered' | 'read' | 'failed';
+  deliveredAt?: Date;
+  readAt?: Date;
+  retryCount?: number;
+  localId?: string; // client-generated ID for tracking sends
 }
 
 export interface ContactCardData {
@@ -117,7 +124,7 @@ export interface BroadcastList {
 
 export interface TransferData {
   amount: number;
-  currency: 'coins' | 'BDT' | 'USD';
+  currency: 'coins' | 'USD' | 'BDT'; // BDT for backwards compatibility
   fromUserId: string;
   toUserId: string;
   status: 'pending' | 'completed' | 'failed';
@@ -223,6 +230,7 @@ export interface FriendRequest {
   to: string;
   status: 'pending' | 'accepted' | 'rejected';
   timestamp: Date;
+  fromUser?: User | null;
 }
 
 export type FriendStatus = 'not_friends' | 'request_sent' | 'request_received' | 'friends' | 'blocked' | 'self';
@@ -295,7 +303,7 @@ export interface WalletTransaction {
   id: string;
   type: 'earn' | 'spend' | 'send' | 'receive' | 'withdraw' | 'deposit' | 'convert' | 'premium' | 'subscription' | 'tip' | 'ad_revenue' | 'referral_bonus' | 'streak_bonus' | 'achievement' | 'refund';
   amount: number;
-  currency: 'coins' | 'BDT' | 'USD';
+  currency: 'coins' | 'USD' | 'BDT'; // BDT for backwards compatibility
   description: string;
   timestamp: string | Date;
   status?: 'pending' | 'completed' | 'failed';
@@ -303,15 +311,16 @@ export interface WalletTransaction {
 
 export interface WalletData {
   coins: number;
-  bdtBalance: number;
+  usdBalance: number;
   usd_balance?: number;
+  bdtBalance?: number; // for backwards compatibility
   transactions: WalletTransaction[];
 }
 
 export interface WithdrawalRequest {
   id: string;
   amount: number;
-  currency: 'coins' | 'BDT' | 'USD';
+  currency: 'coins' | 'USD' | 'BDT'; // BDT for backwards compatibility
   method: string;
   account: string;
   status: 'pending' | 'completed' | 'rejected';
@@ -334,6 +343,10 @@ export interface PinnedMessage {
   content: string;
   pinned_by: string;
   pinned_at: string;
+  // camelCase aliases written by older store versions — normalized on read
+  messageId?: string;
+  pinnedBy?: string;
+  pinnedAt?: string;
 }
 
 export interface ThemeSettings {
@@ -356,6 +369,8 @@ export interface ThemeSettings {
     quietHours: boolean;
     quietHoursStart: string;
     quietHoursEnd: string;
+    soundProfile: 'gaga' | 'classic' | 'minimal' | 'playful';
+    vibrationEnabled: boolean;
   };
   privacy: {
     lastSeen: 'everyone' | 'friends' | 'nobody';
@@ -484,6 +499,7 @@ export interface Reel {
   musicTitle?: string;
   musicUrl?: string;
   filters?: string[];
+  filter?: string;
   effects?: string[];
   speed?: number;
   voiceover?: string;
@@ -557,7 +573,7 @@ export interface LiveGift {
   userId: string;
   type: 'rose' | 'heart' | 'star' | 'crown' | 'diamond' | 'rocket';
   amount: number;
-  currency: 'coins' | 'BDT' | 'USD';
+  currency: 'coins' | 'USD' | 'BDT'; // BDT for backwards compatibility
   timestamp: Date;
   userName?: string;
   message?: string;
@@ -580,7 +596,7 @@ export interface EventData {
   invited: string[];
   privacy: 'public' | 'friends' | 'private';
   cost?: number;
-  currency?: 'BDT' | 'USD';
+  currency?: 'USD' | 'BDT';
   isOnline: boolean;
   onlineLink?: string;
   category?: string;
@@ -596,7 +612,7 @@ export interface MarketplaceItem {
   title: string;
   description: string;
   price: number;
-  currency: 'BDT' | 'USD';
+  currency: 'USD' | 'BDT';
   images: string[];
   category: string;
   condition: 'new' | 'like_new' | 'good' | 'fair' | 'poor';
@@ -661,7 +677,7 @@ export interface PremiumPlan {
   name: string;
   description: string;
   price: number;
-  currency: 'BDT' | 'USD' | 'coins';
+  currency: 'USD' | 'coins' | 'BDT'; // BDT for backwards compatibility
   duration: 'monthly' | 'quarterly' | 'yearly' | 'lifetime';
   features: string[];
   badge: string;
@@ -678,7 +694,7 @@ export interface PremiumSubscription {
   expiresAt: Date;
   autoRenew: boolean;
   price: number;
-  currency: 'BDT' | 'USD' | 'coins';
+  currency: 'USD' | 'coins' | 'BDT'; // BDT for backwards compatibility
   plan?: PremiumPlan;
 }
 
@@ -688,7 +704,7 @@ export interface ReferralRecord {
   referredId: string;
   status: 'pending' | 'completed' | 'rewarded';
   rewardAmount: number;
-  currency: 'coins' | 'BDT' | 'USD';
+  currency: 'coins' | 'USD' | 'BDT'; // BDT for backwards compatibility
   timestamp: Date;
   referredUser?: User;
 }
@@ -718,7 +734,7 @@ export interface CreatorSubscription {
   creatorId: string;
   subscriberId: string;
   price: number;
-  currency: 'BDT' | 'USD' | 'coins';
+  currency: 'USD' | 'coins' | 'BDT'; // BDT for backwards compatibility
   tier: 'basic' | 'standard' | 'premium';
   status: 'active' | 'cancelled' | 'expired';
   startedAt: Date;
@@ -732,7 +748,7 @@ export interface TipRecord {
   fromUserId: string;
   toUserId: string;
   amount: number;
-  currency: 'coins' | 'BDT' | 'USD';
+  currency: 'coins' | 'USD' | 'BDT'; // BDT for backwards compatibility
   message: string;
   contentId?: string;
   contentType?: 'post' | 'reel' | 'live' | 'story';
@@ -749,7 +765,7 @@ export interface Achievement {
   category: 'social' | 'engagement' | 'content' | 'premium' | 'streak' | 'referral' | 'monetization' | 'admin';
   requirement: number;
   reward: number;
-  rewardCurrency: 'coins' | 'BDT';
+  rewardCurrency: 'coins' | 'USD' | 'BDT'; // BDT for backwards compatibility
   rarity: 'common' | 'rare' | 'epic' | 'legendary';
   unlockedAt?: Date;
   progress?: number;
@@ -807,7 +823,7 @@ export interface CreatorAnalytics {
   dailyActiveAudience: number;
   watchTime: number;
   revenue: number;
-  revenueCurrency: 'BDT' | 'USD';
+  revenueCurrency: 'USD' | 'BDT'; // BDT for backwards compatibility
   tipsReceived: number;
   subscriptionsCount: number;
   growthChart: { date: string; followers: number; views: number }[];

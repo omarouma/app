@@ -5,9 +5,9 @@
 
 export const VIDEO_API_CONFIG = {
   // YouTube Data API v3 - 10,000 quota units/day (search costs 100 units)
-  YOUTUBE_API_KEY: (import.meta as any).env?.VITE_YOUTUBE_API_KEY || '',
+  YOUTUBE_API_KEY: (import.meta as { env?: Record<string, string> }).env?.VITE_YOUTUBE_API_KEY || '',
   // Pexels API - 200 requests/hour free tier
-  PEXELS_API_KEY: (import.meta as any).env?.VITE_PEXELS_API_KEY || '',
+  PEXELS_API_KEY: (import.meta as { env?: Record<string, string> }).env?.VITE_PEXELS_API_KEY || '',
   // Enable/disable external sources
   ENABLE_YOUTUBE: true,
   ENABLE_PEXELS: true,

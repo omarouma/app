@@ -1,14 +1,18 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { Clock, Image, Plus, X, Loader, MessageSquare } from 'lucide-react';
 import { useAuthStore } from '@/store/useAuthStore';
-import { isFirestoreAvailable, queryCollection, addDocToCollection, deleteDocById, subscribeToCollection } from '@/lib/firestore';
+import { isFirestoreAvailable, addDocToCollection, deleteDocById, subscribeToCollection, COLLECTIONS } from '@/lib/firestore';
 import { toast } from 'sonner';
 import TimelineCard from '@/components/features/timeline/TimelineCard';
 import EmptyState from '@/components/EmptyState';
-import type { TimelinePost } from '@/types';
+import type { TimelinePost, PostComment } from '@/types';
 import { orderBy } from '@/lib/firestore';
+
+type FirestoreTimestamp = { toDate: () => Date };
+function isFirestoreTs(val: unknown): val is FirestoreTimestamp {
+  return typeof val === 'object' && val !== null && 'toDate' in val;
+}
 
 export default function DesktopTimelineView() {
   const { user } = useAuthStore();
@@ -22,46 +26,50 @@ export default function DesktopTimelineView() {
 
   const [visibility, setVisibility] = useState<'public' | 'friends' | 'private'>('public');
 
-  const fetchPosts = async () => {
+  const mapPost = useCallback((d: Record<string, unknown>): TimelinePost => {
+    const rawTs = d.timestamp;
+    let timestamp: Date;
+    if (isFirestoreTs(rawTs)) {
+      timestamp = rawTs.toDate();
+    } else if (rawTs) {
+      timestamp = new Date(rawTs as string | number | Date);
+    } else {
+      timestamp = new Date();
+    }
+    return {
+      id: d.id as string,
+      userId: (d.userId as string) || (d.user_id as string) || '',
+      content: (d.content as string) || '',
+      images: (d.images as string[]) || [],
+      likes: (d.likes as string[]) || [],
+      comments: (d.comments as PostComment[]) || [],
+      shares: (d.shares as string[]) || [],
+      timestamp,
+      visibility: (d.visibility as TimelinePost['visibility']) || 'public',
+      userName: (d.userName as string) || (d.user_name as string) || (d as Record<string, Record<string, string>>).users?.name || 'User',
+      userAvatar: (d.userAvatar as string) || (d.user_avatar as string) || (d as Record<string, Record<string, string>>).users?.avatar || '',
+    };
+  }, []);
+
+  useEffect(() => {
     if (!isFirestoreAvailable()) {
       setLoading(false);
       return;
     }
-    try {
-      const data = await queryCollection('posts', [orderBy('timestamp', 'desc')]);
-      const list: TimelinePost[] = (data || []).map((d: any) => ({
-        id: d.id,
-        userId: d.userId || d.user_id,
-        content: d.content || '',
-        images: d.images || [],
-        likes: d.likes || [],
-        comments: d.comments || [],
-        shares: d.shares || [],
-        timestamp: d.timestamp ? new Date(d.timestamp) : new Date(),
-        visibility: d.visibility || 'public',
-        userName: d.userName || d.user_name || d.users?.name,
-        userAvatar: d.userAvatar || d.user_avatar || d.users?.avatar,
-      }));
+    const unsubscribe = subscribeToCollection(COLLECTIONS.POSTS, [orderBy('timestamp', 'desc')], (data) => {
+      const list: TimelinePost[] = (data || []).map(mapPost);
       setPosts(list);
-    } catch {
-      setPosts([]);
-    }
-    setLoading(false);
-  };
-
-  useEffect(() => {
-    fetchPosts();
-    if (!isFirestoreAvailable()) return;
-    const unsubscribe = subscribeToCollection('posts', [orderBy('timestamp', 'desc')], () => fetchPosts());
+      setLoading(false);
+    });
     return () => unsubscribe();
-  }, [user?.id]);
+  }, [mapPost]);
 
   const handlePost = async () => {
     if (!user || (!content.trim() && images.length === 0) || posting) return;
     setPosting(true);
     if (isFirestoreAvailable()) {
       try {
-        await addDocToCollection('posts', {
+        await addDocToCollection(COLLECTIONS.POSTS, {
           userId: user.id,
           userName: user.name || user.displayName || 'User',
           userAvatar: user.avatar || '',
@@ -87,7 +95,7 @@ export default function DesktopTimelineView() {
   const handleDelete = async (postId: string) => {
     if (!isFirestoreAvailable()) return;
     try {
-      await deleteDocById('posts', postId);
+      await deleteDocById(COLLECTIONS.POSTS, postId);
     } catch {
       toast.error('Failed to delete post');
     }

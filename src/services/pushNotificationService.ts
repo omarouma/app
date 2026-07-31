@@ -7,7 +7,7 @@ export interface PushNotificationData {
   badge?: string;
   tag?: string;
   requireInteraction?: boolean;
-  data?: Record<string, any>;
+  data?: Record<string, unknown>;
 }
 
 class PushNotificationService {
@@ -22,11 +22,9 @@ class PushNotificationService {
 
     try {
       this.swRegistration = await navigator.serviceWorker.register(SW_PATH, { scope: '/' });
-      console.log('[Push] Service worker registered');
       this.permission = Notification.permission;
       return true;
-    } catch (err) {
-      console.error('[Push] Service worker registration failed:', err);
+    } catch {
       return false;
     }
   }
@@ -64,24 +62,24 @@ class PushNotificationService {
       requireInteraction: data.requireInteraction ?? false,
       data: data.data || {},
       vibrate: [200, 100, 200],
-      // @ts-ignore - vibrate is valid but not in standard TS NotificationOptions
-    } as any);
+    } as NotificationOptions);
   }
 
   // Subscribe to push notifications (for server-sent push)
   async subscribeToPush(): Promise<PushSubscription | null> {
     if (!this.swRegistration || !('PushManager' in window)) return null;
+    const vapidKey = import.meta.env.VITE_FIREBASE_VAPID_KEY || import.meta.env.VITE_VAPID_PUBLIC_KEY || '';
+    if (!vapidKey) {
+      console.warn('[Push] No VAPID key configured — set VITE_FIREBASE_VAPID_KEY in .env');
+      return null;
+    }
     try {
       const subscription = await this.swRegistration.pushManager.subscribe({
         userVisibleOnly: true,
-        applicationServerKey: this.urlBase64ToUint8Array(
-          import.meta.env.VITE_VAPID_PUBLIC_KEY || ''
-        ) as unknown as BufferSource,
+        applicationServerKey: this.urlBase64ToUint8Array(vapidKey) as unknown as BufferSource,
       });
-      console.log('[Push] Push subscription created');
       return subscription;
-    } catch (err) {
-      console.error('[Push] Push subscription failed:', err);
+    } catch {
       return null;
     }
   }

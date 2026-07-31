@@ -9,14 +9,14 @@ import {
 } from 'lucide-react';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useFriendStore } from '@/store/useFriendStore';
-import { isFirestoreAvailable, getDocById, updateDocById, queryCollection } from '@/lib/firestore';
-import { searchLocalUsersByUsername } from '@/lib/localAuth';
+import { searchUsers, fetchUserProfile } from '@/lib/supabaseAuth';
+
 import { buildGagaChatUri, buildGagaChatWebUrl, parseGagaChatUri } from '@/lib/utils';
 import { useContacts } from '@/hooks/useContacts';
 import { useGeolocation, getDistanceKm, formatDistance } from '@/hooks/useGeolocation';
 import { toast } from 'sonner';
 import type { User } from '@/types';
-import { where, limit } from '@/lib/firestore';
+import { where, limit, isFirestoreAvailable, updateDocById, queryCollection } from '@/lib/firestore';
 
 type FriendStatus = 'not_friends' | 'request_sent' | 'request_received' | 'friends' | 'blocked' | 'self';
 
@@ -26,42 +26,41 @@ function mapUser(u: any): User {
   return {
     id: u.id,
     name: u.name || 'User',
-    displayName: u.display_name || u.name || 'User',
+    displayName: u.displayName || u.name || 'User',
     username: u.username || '',
     email: u.email || '',
     phone: u.phone || '',
     avatar: u.avatar || '',
-    statusMessage: u.status_message || '',
+    statusMessage: u.statusMessage || '',
     status: u.status || 'offline',
-    lastSeen: u.last_seen || u.lastSeen || undefined,
+    lastSeen: u.lastSeen || u.lastSeen || undefined,
     coins: u.coins || 0,
-    bdtBalance: u.bdt_balance || u.bdtBalance || 0,
-    savedPosts: u.saved_posts || [],
-    blockedUsers: u.blocked_users || [],
+    bdtBalance: u.bdtBalance || u.bdtBalance || 0,
+    savedPosts: u.savedPosts || [],
+    blockedUsers: u.blockedUsers || [],
     favorites: u.favorites || [],
     friends: u.friends || [],
     bio: u.bio || '',
     location: u.location || '',
     website: u.website || '',
-    coverImage: u.cover_image || u.coverImage || '',
+    coverImage: u.coverImage || u.coverImage || '',
     latitude: u.latitude ?? undefined,
     longitude: u.longitude ?? undefined,
     verified: u.verified || false,
-    isAdmin: u.is_admin || u.isAdmin || false,
-    friendRequestPrivacy: u.friend_request_privacy || u.friendRequestPrivacy || 'everyone',
-    hideFriendList: u.hide_friend_list || u.hideFriendList || false,
-    hideOnlineStatus: u.hide_online_status || u.hideOnlineStatus || false,
+    isAdmin: u.isAdmin || u.isAdmin || false,
+    friendRequestPrivacy: u.friendRequestPrivacy || u.friendRequestPrivacy || 'everyone',
+    hideFriendList: u.hideFriendList || u.hideFriendList || false,
+    hideOnlineStatus: u.hideOnlineStatus || u.hideOnlineStatus || false,
     interests: u.interests || [],
-    friendCount: u.friend_count || u.friendCount || 0,
+    friendCount: u.friendCount || u.friendCount || 0,
   };
 }
 
 async function fetchUserById(userId: string): Promise<User | null> {
-  if (!isFirestoreAvailable()) return null;
   try {
-    const data = await getDocById('users', userId);
+    const data = await fetchUserProfile(userId);
     if (!data) return null;
-    return mapUser(data);
+    return data;
   } catch {
     return null;
   }
@@ -283,6 +282,7 @@ export default function AddFriendsPage() {
     getMutualFriendsCount,
     getSuggestedFriends,
     subscribeFriends,
+    subscribeSentRequests,
     friends,
     requests,
     sentRequests,
@@ -311,12 +311,16 @@ export default function AddFriendsPage() {
   const myLink = currentUser ? buildGagaChatUri(currentUser.id) : '';
   const myWebLink = currentUser ? buildGagaChatWebUrl(currentUser.id) : '';
 
-  // Subscribe to friends on mount
+  // Subscribe to friends and sent requests on mount
   useEffect(() => {
     if (!currentUser?.id) return;
-    const unsub = subscribeFriends(currentUser.id);
-    return () => unsub();
-  }, [currentUser?.id, subscribeFriends]);
+    const unsubFriends = subscribeFriends(currentUser.id);
+    const unsubSentRequests = subscribeSentRequests(currentUser.id);
+    return () => {
+      unsubFriends();
+      unsubSentRequests();
+    };
+  }, [currentUser?.id, subscribeFriends, subscribeSentRequests]);
 
   // ─── Search ───
 
@@ -325,39 +329,11 @@ export default function AddFriendsPage() {
     if (!query || !currentUser) return;
     setSearching(true);
     try {
-      let results: User[] = [];
-      if (isFirestoreAvailable()) {
-        const safeQuery = query.toLowerCase();
-        // Try username search first, fall back to name search if username column is missing
-        let byUsername: any[] = [];
-        try {
-          byUsername = await queryCollection('users', [
-            where('username', '>=', safeQuery),
-            where('username', '<=', safeQuery + '\uf8ff'),
-            limit(20),
-          ]);
-        } catch {
-          // username column may be missing from schema — will be added by migration
-        }
-        const byName = await queryCollection('users', [
-          where('name', '>=', safeQuery),
-          where('name', '<=', safeQuery + '\uf8ff'),
-          limit(20),
-        ]);
-        const merged = new Map<string, any>();
-        [...(byUsername || []), ...(byName || [])]
-          .filter((u: any) => u.id !== currentUser.id)
-          .forEach((u: any) => merged.set(u.id, u));
-        results = Array.from(merged.values()).map(mapUser);
-      } else {
-        results = searchLocalUsersByUsername(query);
-      }
+      const results = await searchUsers(query, currentUser.id);
       setSearchResults(results);
     } catch (err: any) {
       console.error('Search error:', err);
-      toast.error(err?.message?.includes('index') 
-        ? 'Search is unavailable right now. Please try again later.'
-        : 'Search failed');
+      toast.error('Search failed');
     }
     setSearching(false);
   }, [searchQuery, currentUser]);
@@ -561,7 +537,7 @@ export default function AddFriendsPage() {
           return data.map(mapUser);
         });
         const results = await Promise.all([...emailQueries, ...phoneQueries]);
-        results.forEach((arr) => foundUsers.push(...arr));
+        results.forEach((arr: User[]) => foundUsers.push(...arr));
         const friendIds = new Set(friends.map((f: any) => f.id));
         const matches = foundUsers.filter((u: any) => u.id !== currentUser.id && !friendIds.has(u.id));
         const uniqueMatches = Array.from(new Map(matches.map((u: any) => [u.id, u])).values());
@@ -615,7 +591,7 @@ export default function AddFriendsPage() {
   };
 
   const handleInvite = async () => {
-    const link = 'https://oumagachat.web.app';
+    const link = 'https://gagachat.app';
     const text = 'Join me on GaGa Chat - the free messaging app for everyone! 🌍';
     try {
       if (navigator.share) {

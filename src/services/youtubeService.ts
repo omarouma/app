@@ -115,6 +115,7 @@ function setCached(data: YouTubeVideo[]) {
   }
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function parseYouTubeResponse(items: any[]): YouTubeVideo[] {
   return items.map(item => {
     const snippet = item.snippet || {};

@@ -61,15 +61,14 @@ async function insertWithFallback(
     if (isColumnMissingError(result.error)) {
       const col = extractMissingColumn(result.error);
       if (col && col in data) {
-        console.warn(`[supabaseDb] Column '${col}' missing in '${table}', retrying without it. Run supabase_migration.sql to fix.`);
-        delete data[col];
+          delete data[col];
         retries++;
         continue;
       }
     }
     return result;
   }
-  return { data: null, error: new Error(`Max column retries exceeded for ${table}`) };
+  return { data: null, error: new Error('Max column retries exceeded') };
 }
 
 async function updateWithFallback(
@@ -97,8 +96,7 @@ async function updateWithFallback(
     if (isColumnMissingError(result.error)) {
       const col = extractMissingColumn(result.error);
       if (col && col in data) {
-        console.warn(`[supabaseDb] Column '${col}' missing in '${table}', retrying without it. Run supabase_migration.sql to fix.`);
-        delete data[col];
+          delete data[col];
         retries++;
         // Rebuild query with reduced data
         query = supabase.from(table).update(data).eq('id', id);
@@ -112,7 +110,7 @@ async function updateWithFallback(
     }
     return result;
   }
-  return { data: null, error: new Error(`Max column retries exceeded for ${table}`) };
+  return { data: null, error: new Error('Max column retries exceeded') };
 }
 
 async function upsertWithFallback(
@@ -131,15 +129,14 @@ async function upsertWithFallback(
     if (isColumnMissingError(result.error)) {
       const col = extractMissingColumn(result.error);
       if (col && col in data) {
-        console.warn(`[supabaseDb] Column '${col}' missing in '${table}', retrying without it. Run supabase_migration.sql to fix.`);
-        delete data[col];
+          delete data[col];
         retries++;
         continue;
       }
     }
     return result;
   }
-  return { data: null, error: new Error(`Max column retries exceeded for ${table}`) };
+  return { data: null, error: new Error('Max column retries exceeded') };
 }
 
 // ─── Collection name map ───────────────────────────────────────────────
@@ -175,6 +172,9 @@ export const COLLECTIONS = {
   TYPING: 'typing',
   REPORTS: 'reports',
   GROUPS: 'groups',
+  VOICE_ROOMS: 'voice_rooms',
+  BROADCAST_LISTS: 'broadcast_lists',
+  USER_REPORTS: 'user_reports',
 } as const;
 
 // ─── camelCase → snake_case field map ─────────────────────────────────
@@ -509,9 +509,7 @@ function fkColumn(parentTable: string, subTable: string): string {
   if (fk) return fk;
   // Fallback: strip trailing 's' (works for simple plurals like 'chats' → 'chat_id')
   // Log a warning for any unmapped pair so it's easy to catch during development
-  const derived = `${parentTable.replace(/s$/, '')}_id`;
-  console.warn(`[supabaseDb] fkColumn: no explicit mapping for ${parentTable}→${subTable}, using derived '${derived}'. Add it to FK_COLUMN if incorrect.`);
-  return derived;
+  return `${parentTable.replace(/s$/, '')}_id`;
 }
 
 export async function addDocToSubcollection(
@@ -632,6 +630,13 @@ export function subscribeToCollection<T = any>(
   // Initial fetch
   refetch();
 
+  // Debounce realtime refetches to avoid a DB round-trip per keystroke/message
+  let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+  const debouncedRefetch = () => {
+    if (debounceTimer) clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(refetch, 150);
+  };
+
   // Build realtime filter from first applicable constraint (eq or array-contains)
   const filterC = constraints.find(
     (c): c is Extract<QueryConstraint, { _type: 'where' }> =>
@@ -651,10 +656,13 @@ export function subscribeToCollection<T = any>(
   const filterConfig = filter ? { filter } : {};
   const channel = supabase
     .channel(channelId)
-    .on('postgres_changes', { event: '*', schema: 'public', table, ...filterConfig }, refetch)
+    .on('postgres_changes', { event: '*', schema: 'public', table, ...filterConfig }, debouncedRefetch)
     .subscribe();
 
-  return () => { supabase.removeChannel(channel); };
+  return () => {
+    if (debounceTimer) clearTimeout(debounceTimer);
+    supabase.removeChannel(channel);
+  };
 }
 
 export function subscribeToSubcollection<T = any>(
@@ -675,11 +683,17 @@ export function subscribeToSubcollection<T = any>(
 // ─── Batch helpers ─────────────────────────────────────────────────────
 
 export async function batchWrite(
-  operations: Array<{ collection: string; docId: string; data?: any }>,
+  operations: Array<{ collection: string; docId: string; data?: any; delete?: boolean }>,
 ): Promise<void> {
-  for (const op of operations) {
-    if (op.data) await updateDocById(op.collection, op.docId, op.data);
-  }
+  await Promise.all(
+    operations.map((op) =>
+      op.delete
+        ? deleteDocById(op.collection, op.docId)
+        : op.data
+          ? updateDocById(op.collection, op.docId, op.data)
+          : Promise.resolve()
+    )
+  );
 }
 
 export async function batchDelete(
@@ -688,9 +702,9 @@ export async function batchDelete(
 ): Promise<void> {
   if (typeof arg1 === 'string') {
     const items = await queryCollection(arg1, arg2 ?? []);
-    for (const item of items) await deleteDocById(arg1, item.id);
+    await Promise.all(items.map((item) => deleteDocById(arg1, item.id)));
   } else {
-    for (const item of arg1) await deleteDocById(item.collection, item.docId);
+    await Promise.all(arg1.map((item) => deleteDocById(item.collection, item.docId)));
   }
 }
 

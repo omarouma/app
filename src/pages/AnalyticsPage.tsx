@@ -96,7 +96,7 @@ export default function AnalyticsPage() {
     dailyActiveAudience: 0,
     watchTime: 0,
     revenue: 0,
-    revenueCurrency: 'BDT',
+    revenueCurrency: 'USD',
     tipsReceived: 0,
     subscriptionsCount: 0,
     growthChart: [],
@@ -113,8 +113,8 @@ export default function AnalyticsPage() {
     { label: 'Comments', value: data.totalComments, icon: MessageCircle, color: '#6366f1' },
     { label: 'Shares', value: data.totalShares, icon: Share2, color: '#10b981' },
     { label: 'Saves', value: data.totalSaves, icon: Bookmark, color: '#f97316' },
-    { label: 'Tips', value: `${data.tipsReceived} BDT`, icon: DollarSign, color: '#eab308' },
-    { label: 'Revenue', value: `${data.revenue} BDT`, icon: Crown, color: '#8b5cf6' },
+    { label: 'Tips', value: `$${data.tipsReceived.toFixed(2)}`, icon: DollarSign, color: '#eab308' },
+    { label: 'Revenue', value: `$${data.revenue.toFixed(2)}`, icon: Crown, color: '#8b5cf6' },
   ];
 
   const audienceData = [

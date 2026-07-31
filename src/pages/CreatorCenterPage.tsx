@@ -1,11 +1,9 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, useScroll, useTransform } from 'framer-motion';
 import {
-  ArrowRight, Eye, EyeOff, CheckCircle, Zap, BarChart3, TrendingUp, Users, Wallet, Video, Music, Palette, BookOpen, Briefcase, Gamepad2, Camera, Globe, Star, Crown, Heart, MessageCircle, Sparkles, ArrowUpRight, Play, ChevronRight, BadgeCheck, Flame, Utensils, Dumbbell, Plane, Shirt, Home, Baby, Car, Dog, Flower2, Wrench, Palette as PaletteIcon, Gamepad2 as GamepadIcon, ShoppingBag
-} from 'lucide-react';
-import { useAuthStore } from '@/store/useAuthStore';
-import { useAuth } from '@/context/AuthContext';
+  ArrowRight, Eye, EyeOff, CheckCircle, Zap, BarChart3, TrendingUp, Users, Wallet, Video, Music, Palette, BookOpen, Briefcase, Gamepad2, Camera, Globe, Star, Crown, Heart, MessageCircle, Sparkles, ArrowUpRight, Play, BadgeCheck, Flame, Utensils, Dumbbell, Plane, Shirt, Home, Baby, Car, Dog, Flower2, Wrench, Palette as PaletteIcon, Gamepad2 as GamepadIcon, ShoppingBag
+} from 'lucide-react';import { useAuth } from '@/context/AuthContext';
 import Logo from '@/components/Logo';
 import { toast } from 'sonner';
 
@@ -80,59 +78,29 @@ function FloatingBubble({ size, top, left, color, delay, icon: Icon }: typeof bu
 function CreatorLoginCard() {
   const navigate = useNavigate();
   const { login } = useAuth();
-  const [phone, setPhone] = useState('');
-  const [code, setCode] = useState('');
-  const [agreed, setAgreed] = useState(false);
-  const [showCode] = useState(false);
-  const [countdown, setCountdown] = useState(0);
-  const [loginMethod, setLoginMethod] = useState<'sms' | 'password'>('sms');
-  const [showPassword, setShowPassword] = useState(false);
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-
-  const startCountdown = useCallback(() => {
-    setCountdown(60);
-    const timer = setInterval(() => {
-      setCountdown((c) => {
-        if (c <= 1) { clearInterval(timer); return 0; }
-        return c - 1;
-      });
-    }, 1000);
-  }, []);
-
-  const handleSendCode = () => {
-    if (!phone.trim() || phone.length < 10) {
-      toast.error('Please enter a valid phone number');
-      return;
-    }
-    startCountdown();
-    toast.success('Verification code sent to ' + phone);
-  };
+  const [agreed, setAgreed] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleLogin = async () => {
     if (!agreed) {
       toast.error('Please agree to the terms');
       return;
     }
-    if (loginMethod === 'sms') {
-      if (!code.trim() || code.length < 4) {
-        toast.error('Please enter the verification code');
-        return;
-      }
-      // Navigate to main auth page for proper phone login flow
-      navigate('/auth', { state: { phone, code } });
-    } else {
-      if (!phone.trim() || !password.trim()) {
-        toast.error('Please enter your email and password');
-        return;
-      }
-      try {
-        await login(phone, password);
-        toast.success('Welcome to GaGa Creator Center!');
-        navigate('/timeline');
-      } catch {
-        toast.error('Login failed. Please try again.');
-      }
+    if (!email.trim() || !password.trim()) {
+      toast.error('Please enter your email and password');
+      return;
     }
+
+    const result = await login(email, password);
+    if (result.success) {
+      toast.success('Welcome to GaGa Creator Center!');
+      navigate('/timeline');
+      return;
+    }
+
+    toast.error(result.error || 'Login failed. Please try again.');
   };
 
   return (
@@ -156,87 +124,32 @@ function CreatorLoginCard() {
               <p className="text-[#8D8D8D] text-[10px]">Creator Center Login</p>
             </div>
           </div>
-          <div className="flex gap-2">
-            <button type="button" onClick={() => setLoginMethod('sms')}
-              className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
-                loginMethod === 'sms' ? 'bg-[#00C300] text-white' : 'bg-[#F5F5F5] text-[#8D8D8D]'
-              }`}
-            >
-              SMS
-            </button>
-            <button type="button" onClick={() => setLoginMethod('password')}
-              className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
-                loginMethod === 'password' ? 'bg-[#00C300] text-white' : 'bg-[#F5F5F5] text-[#8D8D8D]'
-              }`}
-            >
-              Password
-            </button>
-          </div>
         </div>
 
-        {loginMethod === 'sms' ? (
-          <>
-            <div className="flex gap-2 mb-4">
-              <div className="flex items-center gap-1 px-3 py-3 bg-[#F5F5F5] rounded-xl text-sm text-[#111111] font-medium">
-                <span>+880</span>
-                <ChevronRight size={14} className="text-[#8D8D8D]" />
-              </div>
-              <input
-                type="tel"
-                placeholder="Phone number"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value.replace(/\D/g, ''))}
-                className="flex-1 px-4 py-3 bg-[#F5F5F5] rounded-xl text-sm text-[#111111] placeholder:text-[#C7C7CC] outline-none focus:ring-2 focus:ring-[#00C300]/30 transition-all"
-              />
-            </div>
+        <div className="mb-4">
+          <input
+            type="email"
+            placeholder="Email address"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className="w-full px-4 py-3 bg-[#F5F5F5] rounded-xl text-sm text-[#111111] placeholder:text-[#C7C7CC] outline-none focus:ring-2 focus:ring-[#00C300]/30 transition-all"
+          />
+        </div>
 
-            <div className="flex gap-2 mb-4">
-              <input
-                type={showCode ? 'text' : 'password'}
-                placeholder="Verification code"
-                value={code}
-                onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                className="flex-1 px-4 py-3 bg-[#F5F5F5] rounded-xl text-sm text-[#111111] placeholder:text-[#C7C7CC] outline-none focus:ring-2 focus:ring-[#00C300]/30 transition-all"
-              />
-              <button type="button" onClick={handleSendCode}
-                disabled={countdown > 0}
-                className={`px-4 py-3 rounded-xl text-sm font-medium transition-all whitespace-nowrap ${
-                  countdown > 0
-                    ? 'bg-[#F5F5F5] text-[#8D8D8D] cursor-not-allowed'
-                    : 'bg-[#00C300]/10 text-[#00C300] hover:bg-[#00C300]/20'
-                }`}
-              >
-                {countdown > 0 ? `${countdown}s` : 'Send Code'}
-              </button>
-            </div>
-          </>
-        ) : (
-          <>
-            <div className="mb-4">
-              <input
-                type="email"
-                placeholder="Email address"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                className="w-full px-4 py-3 bg-[#F5F5F5] rounded-xl text-sm text-[#111111] placeholder:text-[#C7C7CC] outline-none focus:ring-2 focus:ring-[#00C300]/30 transition-all"
-              />
-            </div>
-            <div className="relative mb-4">
-              <input
-                type={showPassword ? 'text' : 'password'}
-                placeholder="Password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-4 py-3 bg-[#F5F5F5] rounded-xl text-sm text-[#111111] placeholder:text-[#C7C7CC] outline-none focus:ring-2 focus:ring-[#00C300]/30 transition-all pr-10"
-              />
-              <button type="button" onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8D8D8D]"
-              >
-                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-              </button>
-            </div>
-          </>
-        )}
+        <div className="relative mb-4">
+          <input
+            type={showPassword ? 'text' : 'password'}
+            placeholder="Password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            className="w-full px-4 py-3 bg-[#F5F5F5] rounded-xl text-sm text-[#111111] placeholder:text-[#C7C7CC] outline-none focus:ring-2 focus:ring-[#00C300]/30 transition-all pr-10"
+          />
+          <button type="button" onClick={() => setShowPassword(!showPassword)}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8D8D8D]"
+          >
+            {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+          </button>
+        </div>
 
         <button type="button" onClick={handleLogin}
           className="w-full py-3.5 bg-[#00C300] hover:bg-[#00A300] text-white rounded-xl text-sm font-bold transition-colors mb-4 shadow-lg shadow-[#00C300]/20"

@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { create } from 'zustand';
 import { toast } from 'sonner';
 import {
@@ -18,34 +17,78 @@ import {
   subscribeToSubcollection,
   serverTimestamp,
   increment,
+  batchWrite,
 } from '@/lib/firestore';
 import type { Chat, Message, MessageType, PollData, TransferData, PinnedMessage } from '@/types';
+import { checkMessageRateLimit } from '@/hooks/useMessageRateLimiter';
+
+type FirestoreTimestamp = { toDate: () => Date };
+function isFirestoreTs(v: unknown): v is FirestoreTimestamp {
+  return typeof v === 'object' && v !== null && 'toDate' in v;
+}
+function toDate(raw: unknown): Date {
+  if (isFirestoreTs(raw)) return raw.toDate();
+  if (raw) return new Date(raw as string | number | Date);
+  return new Date();
+}
 import { where, orderBy, limit, startAfter } from '@/lib/firestore';
 
-const mapMessage = (d: Record<string, unknown>): Message => ({
-  id: d.id as string,
-  chatId: (d.chatId as string) || '',
-  senderId: (d.senderId as string) || '',
-  content: (d.content as string) || '',
-  type: ((d.type as MessageType) || 'text') as MessageType,
-  mediaUrl: (d.mediaUrl as string) || '',
-  timestamp: ((rawTs: any) => rawTs && typeof rawTs === 'object' && 'toDate' in rawTs ? rawTs.toDate() : rawTs ? new Date(rawTs as string) : new Date())(d.createdAt ?? d.timestamp),
-  read: (d.read as boolean) || false,
-  edited: (d.edited as boolean) || false,
-  replyTo: (d.replyTo as string) || undefined,
-  reactions: (d.reactions as Record<string, string[]>) || {},
-  forwardedFrom: (d.forwardedFrom as string) || undefined,
-  pollData: d.pollData as PollData | undefined,
-  transferData: d.transferData as TransferData | undefined,
-  contactCard: d.contactCard as any || undefined,
-  disappearingTimer: (d.disappearingTimer as number) || 0,
-  disappearingInitiatedAt: d.disappearingInitiatedAt && typeof d.disappearingInitiatedAt === 'object' && 'toDate' in d.disappearingInitiatedAt
-    ? (d.disappearingInitiatedAt as any).toDate()
-    : d.disappearingInitiatedAt
-    ? new Date(d.disappearingInitiatedAt as string)
-    : undefined,
-  destroyed: (d.destroyed as boolean) || false,
-});
+interface ContactCard {
+  userId: string;
+  name: string;
+  username?: string;
+  phone?: string;
+  email?: string;
+  avatar?: string;
+  bio?: string;
+}
+
+const mapMessage = (d: Record<string, unknown>): Message => {
+  let contactCard: ContactCard | undefined;
+  const cc = d.contactCard;
+  if (cc && typeof cc === 'object') {
+    const r = cc as Record<string, unknown>;
+    const userId = typeof r.userId === 'string' ? r.userId : undefined;
+    const name = typeof r.name === 'string' ? r.name : undefined;
+    if (userId || name) {
+      contactCard = {
+        userId: userId ?? '',
+        name: name ?? '',
+        username: typeof r.username === 'string' ? r.username : undefined,
+        phone: typeof r.phone === 'string' ? r.phone : undefined,
+        email: typeof r.email === 'string' ? r.email : undefined,
+        avatar: typeof r.avatar === 'string' ? r.avatar : undefined,
+        bio: typeof r.bio === 'string' ? r.bio : undefined,
+      };
+    }
+  }
+
+  return {
+    id: d.id as string,
+    chatId: (d.chatId as string) || '',
+    senderId: (d.senderId as string) || '',
+    content: (d.content as string) || '',
+    type: ((d.type as MessageType) || 'text') as MessageType,
+    mediaUrl: (d.mediaUrl as string) || '',
+    timestamp: toDate(d.createdAt ?? d.timestamp),
+    read: (d.read as boolean) || false,
+    edited: (d.edited as boolean) || false,
+    replyTo: (d.replyTo as string) || undefined,
+    reactions: (d.reactions as Record<string, string[]>) || {},
+    forwardedFrom: (d.forwardedFrom as string) || undefined,
+    pollData: d.pollData as PollData | undefined,
+    transferData: d.transferData as TransferData | undefined,
+    contactCard,
+    disappearingTimer: (d.disappearingTimer as number) || 0,
+    disappearingInitiatedAt: d.disappearingInitiatedAt ? toDate(d.disappearingInitiatedAt) : undefined,
+    destroyed: (d.destroyed as boolean) || false,
+    deliveryStatus: (d.deliveryStatus as Message['deliveryStatus']) || (d.read ? 'read' : d.senderId ? 'sent' : undefined),
+    deliveredAt: d.deliveredAt ? toDate(d.deliveredAt) : undefined,
+    readAt: d.readAt ? toDate(d.readAt) : undefined,
+    retryCount: (d.retryCount as number) || undefined,
+    localId: (d.localId as string) || undefined,
+  };
+};
 
 const mapChat = (d: Record<string, unknown>): Chat => ({
   id: d.id as string,
@@ -105,20 +148,24 @@ interface ChatStore {
   lockChat: (chatId: string, lockType: 'pin' | 'biometric', lockValue: string) => Promise<void>;
   unlockChat: (chatId: string) => Promise<void>;
   sendContactCard: (chatId: string, senderId: string, contactData: { userId: string; name: string; phone?: string; email?: string; avatar?: string; username?: string; bio?: string }) => Promise<void>;
-  exportChat: (chatId: string) => Promise<any | null>;
+  exportChat: (chatId: string) => Promise<Record<string, unknown> | null>;
   getSharedMedia: (chatId: string, mediaType?: string) => Promise<Message[]>;
 }
+
+// In-memory debounce: track last notification time per (recipientId, chatId) pair
+// to avoid a Firestore read on every message send.
+const lastNotifSentAt: Record<string, number> = {};
+const NOTIF_DEBOUNCE_MS = 30_000;
 
 export const useChatStore = create<ChatStore>((set, get) => ({
   chats: [],
   archivedChats: [],
   messages: {},
-  loadingChats: true,
+  loadingChats: false,
   hasMore: {},
 
   subscribeChats: (userId: string) => {
     if (!isFirestoreAvailable()) {
-      console.warn('[ChatStore.subscribeChats] Firestore unavailable');
       set({ loadingChats: false, chats: [], archivedChats: [] });
       return () => {};
     }
@@ -127,30 +174,6 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       set({ chats: [], archivedChats: [], loadingChats: false });
       return () => {};
     }
-
-    // Initial fetch
-    const fetchChats = async () => {
-      try {
-        const data = await queryCollection(COLLECTIONS.CHATS, [
-          where('participants', 'array-contains', userId),
-          orderBy('updatedAt', 'desc'),
-          limit(50),
-        ]);
-
-        const allChats: Chat[] = [];
-        const archived: Chat[] = [];
-        (data || []).forEach((d) => {
-          const chat = mapChat(d);
-          if (d.archived) archived.push(chat);
-          else allChats.push(chat);
-        });
-        set({ chats: allChats, archivedChats: archived, loadingChats: false });
-      } catch {
-        set({ loadingChats: false });
-      }
-    };
-
-    fetchChats();
 
     // Real-time subscription
     let unsub: (() => void) | null = null;
@@ -166,7 +189,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         set({ chats: allChats, archivedChats: archived, loadingChats: false });
       });
     } catch {
-      // Subscription failed — data will still be loaded via initial fetch
+      set({ loadingChats: false });
     }
 
     return () => { if (unsub) unsub(); };
@@ -175,32 +198,32 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   subscribeMessages: (chatId: string) => {
     if (!chatId) return () => {};
 
-    const fetchInitial = async () => {
-      try {
-        const data = await querySubcollection(COLLECTIONS.CHATS, chatId, COLLECTIONS.MESSAGES, [
-          orderBy('timestamp', 'asc'),
-          limit(50),
-        ]);
-
-        const msgs = (data || []).map((d) => mapMessage(d));
-        set((s) => ({
-          messages: { ...s.messages, [chatId]: msgs },
-          hasMore: { ...s.hasMore, [chatId]: (data || []).length >= 50 },
-        }));
-      } catch {
-        // ignore
-      }
-    };
-
-    fetchInitial();
-
     let unsub: (() => void) | null = null;
     try {
-      unsub = subscribeToSubcollection(COLLECTIONS.CHATS, chatId, COLLECTIONS.MESSAGES, [orderBy('timestamp', 'asc')], (data) => {
-        const msgs = (data || []).map((d) => mapMessage(d));
-        set((s) => ({
-          messages: { ...s.messages, [chatId]: msgs },
-        }));
+      // Order by createdAt (client-set Date) so pending writes with serverTimestamp() sentinel
+      // don't sort to the top before the server resolves the timestamp
+      unsub = subscribeToSubcollection(COLLECTIONS.CHATS, chatId, COLLECTIONS.MESSAGES, [orderBy('createdAt', 'asc')], (data) => {
+        const incoming = (data || []).map((d) => mapMessage(d));
+        set((s) => {
+          const existing = s.messages[chatId] || [];
+          // Merge server messages with existing optimistic messages (localId)
+          // Server messages replace by id; optimistic local messages (with localId) are preserved and appended
+          const serverMap = new Map<string, Message>();
+          incoming.forEach((m) => serverMap.set(m.id, m));
+
+          const merged: Message[] = [];
+          // Add server messages in order
+          incoming.forEach((m) => merged.push(m));
+
+          // Preserve optimistic local messages that haven't been confirmed yet
+          const optimistic = existing.filter((m) => m.localId && !merged.some((mm) => mm.localId === m.localId));
+          if (optimistic.length > 0) merged.push(...optimistic);
+
+          return {
+            messages: { ...s.messages, [chatId]: merged },
+            hasMore: { ...s.hasMore, [chatId]: (data || []).length >= 50 },
+          };
+        });
       });
     } catch {
       // ignore
@@ -210,95 +233,131 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   },
 
   sendMessage: async (chatId, senderId, content, type = 'text', mediaUrl, replyTo) => {
-    if (!isFirestoreAvailable()) {
-      console.warn('[ChatStore.sendMessage] Firestore unavailable');
+    if (!isFirestoreAvailable()) return;
+    // Check rate limit before proceeding
+    const rateLimitError = checkMessageRateLimit();
+    if (rateLimitError) {
+      toast.error(rateLimitError);
+      // Still add the message with 'failed' status so user sees it
+      const localId = `pending_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+      set((s) => ({
+        messages: { ...s.messages, [chatId]: [...(s.messages[chatId] ?? []), {
+          id: localId,
+          chatId,
+          senderId,
+          content,
+          type: (type as Message['type']) || 'text',
+          mediaUrl: mediaUrl || '',
+          timestamp: new Date(),
+          read: false,
+          edited: false,
+          reactions: {},
+          deliveryStatus: 'failed' as Message['deliveryStatus'],
+          localId,
+        }]},
+      }));
       return;
     }
-    try {
-      // Ensure chat exists before sending
-      const existingChat = await getDocById(COLLECTIONS.CHATS, chatId);
-      if (!existingChat) {
-        const parts = chatId.split('_');
-        if (parts.length >= 3 && parts[0] === 'dm') {
-          const participants = parts.slice(1).sort();
-          await setDocById(COLLECTIONS.CHATS, chatId, {
-            type: 'direct',
-            participants,
-            createdAt: serverTimestamp(),
-            updatedAt: serverTimestamp(),
-            unreadCount: 0,
-          });
-        } else if (parts[0] === 'group') {
-          console.warn('Group chat does not exist:', chatId);
-          return;
+    // Optimistic pending state
+    const localId = `pending_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+    const optimisticMsg: Message = {
+      id: localId,
+      chatId,
+      senderId,
+      content,
+      type: (type as Message['type']) || 'text',
+      mediaUrl: mediaUrl || '',
+      timestamp: new Date(),
+      read: false,
+      edited: false,
+      reactions: {},
+      deliveryStatus: 'sending',
+      localId,
+    };
+    set((s) => ({
+      messages: { ...s.messages, [chatId]: [...(s.messages[chatId] ?? []), optimisticMsg] },
+    }));
+
+    // Retry with exponential backoff (max 3 attempts)
+    let sent = false;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      if (attempt > 0) await new Promise((r) => setTimeout(r, 500 * 2 ** (attempt - 1)));
+      try {
+        const msgData: Record<string, unknown> = {
+          chatId,
+          senderId,
+          content,
+          type,
+          createdAt: new Date(),
+          timestamp: serverTimestamp(),
+          read: false,
+        };
+        if (mediaUrl) msgData.mediaUrl = mediaUrl;
+        if (replyTo) msgData.replyTo = typeof replyTo === 'string' ? replyTo : replyTo.id;
+
+        await addDocToSubcollection(COLLECTIONS.CHATS, chatId, COLLECTIONS.MESSAGES, msgData);
+        sent = true;
+
+        // Remove optimistic message — real-time subscription adds the confirmed one
+        set((s) => ({
+          messages: { ...s.messages, [chatId]: (s.messages[chatId] ?? []).filter((m) => m.localId !== localId) },
+        }));
+
+        const cachedChat = get().chats.find((c) => c.id === chatId);
+        const participants = cachedChat?.participants ?? [];
+        const otherParticipants = participants.filter((id: string) => id !== senderId);
+        await updateDocById(COLLECTIONS.CHATS, chatId, {
+          lastMessage: content,
+          lastMessageSenderId: senderId,
+          lastMessageRead: false,
+          updatedAt: serverTimestamp(),
+          ...(otherParticipants.length > 0 ? { unreadCount: increment(1) } : {}),
+        });
+
+        if (otherParticipants.length > 0) {
+          try {
+            const sender = await getDocById(COLLECTIONS.USERS, senderId);
+            const senderName = (sender?.name as string) || 'Someone';
+            const chatName = cachedChat?.name || '';
+            const notifTitle = chatName ? `${senderName} in ${chatName}` : senderName;
+            const notifBody = type === 'text' ? content : `Sent a ${type}`;
+            for (const recipientId of otherParticipants) {
+              const debounceKey = `${recipientId}:${chatId}`;
+              const lastSent = lastNotifSentAt[debounceKey] ?? 0;
+              if (Date.now() - lastSent < NOTIF_DEBOUNCE_MS) continue;
+              lastNotifSentAt[debounceKey] = Date.now();
+              await addDocToCollection(COLLECTIONS.NOTIFICATIONS, {
+                userId: recipientId,
+                type: 'message',
+                title: notifTitle,
+                body: notifBody,
+                read: false,
+                data: { chatId, senderId, senderName, messageType: type },
+                timestamp: serverTimestamp(),
+              });
+            }
+          } catch { /* notification failure is non-fatal */ }
+        }
+        break; // success — exit retry loop
+      } catch {
+        if (attempt === 2) {
+          // All retries exhausted — mark optimistic message as failed
+          set((s) => ({
+            messages: {
+              ...s.messages,
+              [chatId]: (s.messages[chatId] ?? []).map((m) =>
+                m.localId === localId ? { ...m, deliveryStatus: 'failed' as Message['deliveryStatus'] } : m
+              ),
+            },
+          }));
         }
       }
-
-      const msgData: Record<string, unknown> = {
-        chatId,
-        senderId,
-        content,
-        type,
-        timestamp: serverTimestamp(),
-        read: false,
-      };
-      if (mediaUrl) msgData.mediaUrl = mediaUrl;
-      if (replyTo) msgData.replyTo = typeof replyTo === 'string' ? replyTo : replyTo.id;
-
-      await addDocToSubcollection(COLLECTIONS.CHATS, chatId, COLLECTIONS.MESSAGES, msgData);
-
-      // Update chat metadata and increment unread count for recipients
-      const chatRow = await getDocById(COLLECTIONS.CHATS, chatId);
-      const participants = (chatRow?.participants as string[]) || [];
-      const otherParticipants = participants.filter((id: string) => id !== senderId);
-      if (otherParticipants.length > 0) {
-        await updateDocById(COLLECTIONS.CHATS, chatId, {
-          lastMessage: content,
-          lastMessageSenderId: senderId,
-          lastMessageRead: false,
-          updatedAt: serverTimestamp(),
-          unreadCount: increment(1),
-        });
-      } else {
-        await updateDocById(COLLECTIONS.CHATS, chatId, {
-          lastMessage: content,
-          lastMessageSenderId: senderId,
-          lastMessageRead: false,
-          updatedAt: serverTimestamp(),
-        });
-      }
-
-      // Create notification for each recipient
-      if (otherParticipants.length > 0) {
-        try {
-          const sender = await getDocById(COLLECTIONS.USERS, senderId);
-          const senderName = (sender?.name as string) || 'Someone';
-          const chatName = (chatRow?.name as string) || (existingChat?.name as string) || '';
-          const notifTitle = chatName ? `${senderName} in ${chatName}` : senderName;
-          const notifBody = type === 'text' ? content : `Sent a ${type}`;
-          for (const recipientId of otherParticipants) {
-            await addDocToCollection(COLLECTIONS.NOTIFICATIONS, {
-              userId: recipientId,
-              type: 'message',
-              title: notifTitle,
-              body: notifBody,
-              read: false,
-              data: { chatId, senderId, senderName, messageType: type },
-              timestamp: serverTimestamp(),
-            });
-          }
-        } catch { /* notification creation failed, but message was sent */ }
-      }
-    } catch {
-      return;
     }
+    if (!sent) return;
   },
 
   editMessage: async (_chatId, messageId, content) => {
-    if (!isFirestoreAvailable()) {
-      console.warn('[ChatStore.editMessage] Firestore unavailable');
-      return;
-    }
+    if (!isFirestoreAvailable()) return;
     try {
       await updateSubcollectionDoc(COLLECTIONS.CHATS, _chatId, COLLECTIONS.MESSAGES, messageId, {
         content,
@@ -310,10 +369,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   },
 
   deleteMessage: async (_chatId, messageId) => {
-    if (!isFirestoreAvailable()) {
-      console.warn('[ChatStore.deleteMessage] Firestore unavailable');
-      return;
-    }
+    if (!isFirestoreAvailable()) return;
     try {
       await deleteSubcollectionDoc(COLLECTIONS.CHATS, _chatId, COLLECTIONS.MESSAGES, messageId);
     } catch {
@@ -322,10 +378,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   },
 
   deleteForEveryone: async (_chatId, messageId) => {
-    if (!isFirestoreAvailable()) {
-      console.warn('[ChatStore.deleteForEveryone] Firestore unavailable');
-      return;
-    }
+    if (!isFirestoreAvailable()) return;
     try {
       await updateSubcollectionDoc(COLLECTIONS.CHATS, _chatId, COLLECTIONS.MESSAGES, messageId, {
         type: 'deleted',
@@ -337,15 +390,11 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   },
 
   addReaction: async (_chatId, messageId, emoji, userId) => {
-    if (!isFirestoreAvailable()) {
-      console.warn('[ChatStore.addReaction] Firestore unavailable');
-      return;
-    }
+    if (!isFirestoreAvailable()) return;
     try {
       if (!userId) return;
-      // Use targeted query with limit for efficiency
-      const msgs = await querySubcollection(COLLECTIONS.CHATS, _chatId, COLLECTIONS.MESSAGES, [limit(50)]);
-      const found = msgs.find((m) => m.id === messageId);
+      // Direct lookup by message ID
+      const found = await getDocById(`${COLLECTIONS.CHATS}/${_chatId}/${COLLECTIONS.MESSAGES}`, messageId);
       if (!found) return;
       const reactions = (found.reactions as Record<string, string[]>) || {};
       const users = reactions[emoji] || [];
@@ -359,21 +408,35 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   },
 
   markAsRead: async (chatId, currentUserId?: string) => {
-    if (!isFirestoreAvailable()) {
-      console.warn('[ChatStore.markAsRead] Firestore unavailable');
-      return;
-    }
+    if (!isFirestoreAvailable()) return;
     try {
+      // Fast path: reset chat-level counters
       await updateDocById(COLLECTIONS.CHATS, chatId, { unreadCount: 0, lastMessageRead: true });
-      // Mark all messages sent by others as read using a targeted query
       if (currentUserId) {
         const msgs = await querySubcollection(COLLECTIONS.CHATS, chatId, COLLECTIONS.MESSAGES, [
           where('senderId', '!=', currentUserId),
           where('read', '==', false),
           limit(50),
         ]);
-        for (const msg of msgs) {
-          await updateSubcollectionDoc(COLLECTIONS.CHATS, chatId, COLLECTIONS.MESSAGES, msg.id, { read: true });
+        if (msgs.length > 0) {
+          const unreadIds = msgs.map((m) => m.id);
+          // Optimistic update
+          set((s) => ({
+            messages: {
+              ...s.messages,
+              [chatId]: (s.messages[chatId] ?? []).map((m) =>
+                unreadIds.includes(m.id) ? { ...m, read: true } : m
+              ),
+            },
+          }));
+          // Batch all read:true updates
+          await batchWrite(
+            unreadIds.map((msgId) => ({
+              collection: `${COLLECTIONS.CHATS}/${chatId}/${COLLECTIONS.MESSAGES}`,
+              docId: msgId,
+              data: { read: true },
+            }))
+          );
         }
       }
     } catch {
@@ -382,21 +445,17 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   },
 
   createDirectChat: async (userId, currentUserId) => {
-    if (!isFirestoreAvailable()) {
-      console.warn('[ChatStore.createDirectChat] Firestore unavailable');
-      return null;
-    }
+    if (!isFirestoreAvailable()) return null;
     try {
       if (!currentUserId) return null;
       if (currentUserId === userId) return null;
 
-      // Check if either user blocks the other (check blockedUsers collection)
-      const blocked1 = await queryCollection(COLLECTIONS.BLOCKED_USERS, []);
-      const isBlocked = blocked1.some((b: any) =>
-        (b.blockerId === currentUserId && b.blockedId === userId) ||
-        (b.blockerId === userId && b.blockedId === currentUserId)
-      );
-      if (isBlocked) {
+      // Check block in both directions with targeted queries (no full-collection scan)
+      const [blockedByMe, blockedByThem] = await Promise.all([
+        queryCollection(COLLECTIONS.BLOCKED_USERS, [where('blockerId', '==', currentUserId), where('blockedId', '==', userId), limit(1)]),
+        queryCollection(COLLECTIONS.BLOCKED_USERS, [where('blockerId', '==', userId), where('blockedId', '==', currentUserId), limit(1)]),
+      ]);
+      if ((blockedByMe?.length ?? 0) > 0 || (blockedByThem?.length ?? 0) > 0) {
         toast.error('Cannot chat with this user');
         return null;
       }
@@ -420,10 +479,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   },
 
   loadOlderMessages: async (chatId) => {
-    if (!isFirestoreAvailable()) {
-      console.warn('[ChatStore.loadOlderMessages] Firestore unavailable');
-      return;
-    }
+    if (!isFirestoreAvailable()) return;
     try {
       const current = get().messages[chatId] || [];
       if (current.length === 0) return;
@@ -445,6 +501,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   },
 
   muteChat: async (chatId) => {
+    if (!isFirestoreAvailable()) return;
     try {
       await updateDocById(COLLECTIONS.CHATS, chatId, { isMuted: true });
     } catch {
@@ -453,6 +510,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   },
 
   updateChat: async (chatId, data) => {
+    if (!isFirestoreAvailable()) return;
     try {
       const payload: Record<string, unknown> = {};
       if (data.name !== undefined) payload.name = data.name;
@@ -467,10 +525,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   },
 
   removeParticipant: async (chatId, userId) => {
-    if (!isFirestoreAvailable()) {
-      console.warn('[ChatStore.removeParticipant] Firestore unavailable');
-      return;
-    }
+    if (!isFirestoreAvailable()) return;
     try {
       const chat = await getDocById(COLLECTIONS.CHATS, chatId);
       if (!chat) return;
@@ -482,10 +537,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   },
 
   promoteAdmin: async (chatId, userId) => {
-    if (!isFirestoreAvailable()) {
-      console.warn('[ChatStore.promoteAdmin] Firestore unavailable');
-      return;
-    }
+    if (!isFirestoreAvailable()) return;
     try {
       const chat = await getDocById(COLLECTIONS.CHATS, chatId);
       const admins = [...new Set([...((chat?.admins as string[]) || []), userId])];
@@ -496,10 +548,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   },
 
   demoteAdmin: async (chatId, userId) => {
-    if (!isFirestoreAvailable()) {
-      console.warn('[ChatStore.demoteAdmin] Firestore unavailable');
-      return;
-    }
+    if (!isFirestoreAvailable()) return;
     try {
       const chat = await getDocById(COLLECTIONS.CHATS, chatId);
       if (!chat) return;
@@ -511,25 +560,19 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   },
 
   clearChat: async (chatId) => {
-    if (!isFirestoreAvailable()) {
-      console.warn('[ChatStore.clearChat] Firestore unavailable');
-      return;
-    }
+    if (!isFirestoreAvailable()) return;
     try {
       const msgs = await querySubcollection(COLLECTIONS.CHATS, chatId, COLLECTIONS.MESSAGES, []);
-      for (const msg of msgs) {
-        await deleteSubcollectionDoc(COLLECTIONS.CHATS, chatId, COLLECTIONS.MESSAGES, msg.id);
-      }
+      await Promise.all(
+        msgs.map((msg) => deleteSubcollectionDoc(COLLECTIONS.CHATS, chatId, COLLECTIONS.MESSAGES, msg.id))
+      );
     } catch {
       return;
     }
   },
 
   leaveGroup: async (chatId, userId) => {
-    if (!isFirestoreAvailable()) {
-      console.warn('[ChatStore.leaveGroup] Firestore unavailable');
-      return;
-    }
+    if (!isFirestoreAvailable()) return;
     try {
       const chat = await getDocById(COLLECTIONS.CHATS, chatId);
       if (!chat) return;
@@ -540,9 +583,9 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         await deleteDocById(COLLECTIONS.CHATS, chatId);
         // Also delete all messages
         const msgs = await querySubcollection(COLLECTIONS.CHATS, chatId, COLLECTIONS.MESSAGES, []);
-        for (const msg of msgs) {
-          await deleteSubcollectionDoc(COLLECTIONS.CHATS, chatId, COLLECTIONS.MESSAGES, msg.id);
-        }
+        await Promise.all(
+          msgs.map((msg) => deleteSubcollectionDoc(COLLECTIONS.CHATS, chatId, COLLECTIONS.MESSAGES, msg.id))
+        );
       } else {
         await updateDocById(COLLECTIONS.CHATS, chatId, { participants, admins, updatedAt: serverTimestamp() });
         await addDocToSubcollection(COLLECTIONS.CHATS, chatId, COLLECTIONS.MESSAGES, {
@@ -559,10 +602,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   },
 
   addParticipant: async (chatId, userId) => {
-    if (!isFirestoreAvailable()) {
-      console.warn('[ChatStore.addParticipant] Firestore unavailable');
-      return;
-    }
+    if (!isFirestoreAvailable()) return;
     try {
       const chat = await getDocById(COLLECTIONS.CHATS, chatId);
       const participants = [...new Set([...((chat?.participants as string[]) || []), userId])];
@@ -573,10 +613,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   },
 
   sendPoll: async (chatId, senderId, question, options) => {
-    if (!isFirestoreAvailable()) {
-      console.warn('[ChatStore.sendPoll] Firestore unavailable');
-      return;
-    }
+    if (!isFirestoreAvailable()) return;
     try {
       await addDocToSubcollection(COLLECTIONS.CHATS, chatId, COLLECTIONS.MESSAGES, {
         chatId,
@@ -592,13 +629,10 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   },
 
   votePoll: async (chatId, messageId, optionIndex, userId) => {
-    if (!isFirestoreAvailable()) {
-      console.warn('[ChatStore.votePoll] Firestore unavailable');
-      return;
-    }
+    if (!isFirestoreAvailable()) return;
     try {
       if (!chatId || !messageId || !userId) return;
-      const msg = await getDocById(COLLECTIONS.MESSAGES, messageId);
+      const msg = await getDocById(`${COLLECTIONS.CHATS}/${chatId}/${COLLECTIONS.MESSAGES}`, messageId);
       if (!msg || !msg.pollData) return;
       const pollData = msg.pollData as { question: string; options: string[]; votes: Record<string, string[]>; totalVotes: number };
       Object.keys(pollData.votes).forEach((key) => {
@@ -614,10 +648,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   },
 
   pinMessage: async (chatId, messageId, content) => {
-    if (!isFirestoreAvailable()) {
-      console.warn('[ChatStore.pinMessage] Firestore unavailable');
-      return;
-    }
+    if (!isFirestoreAvailable()) return;
     try {
       const chat = await getDocById(COLLECTIONS.CHATS, chatId);
       const pinned = [...((chat?.pinnedMessages as unknown[]) || []), { messageId, content, pinnedBy: 'user', pinnedAt: new Date().toISOString() }];
@@ -628,10 +659,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   },
 
   unpinMessage: async (chatId, messageId) => {
-    if (!isFirestoreAvailable()) {
-      console.warn('[ChatStore.unpinMessage] Firestore unavailable');
-      return;
-    }
+    if (!isFirestoreAvailable()) return;
     try {
       const chat = await getDocById(COLLECTIONS.CHATS, chatId);
       if (!chat) return;
@@ -679,7 +707,16 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   lockChat: async (chatId, lockType, lockValue) => {
     if (!isFirestoreAvailable()) return;
     try {
-      await updateDocById(COLLECTIONS.CHATS, chatId, { chatLocked: true, lockType, lockValue });
+      // Hash the PIN before storing — never store plaintext PINs
+      let storedValue = lockValue;
+      if (lockType === 'pin' && lockValue) {
+        const encoder = new TextEncoder();
+        const data = encoder.encode(lockValue);
+        const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        storedValue = hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
+      }
+      await updateDocById(COLLECTIONS.CHATS, chatId, { chatLocked: true, lockType, lockValue: storedValue });
       toast.success('Chat locked');
     } catch {
       toast.error('Failed to lock chat');
@@ -730,19 +767,19 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         exportedAt: new Date().toISOString(),
         chatName: chat?.name || 'Chat',
         participants: chat?.participants || [],
-        messages: (msgs || []).map((m: any) => ({
+        messages: (msgs || []).map((m: Record<string, unknown>) => ({
           id: m.id,
           senderId: m.senderId,
           content: m.content,
           type: m.type,
-          timestamp: m.timestamp?.toDate?.() ? m.timestamp.toDate().toISOString() : new Date(m.timestamp).toISOString(),
+          timestamp: toDate(m.timestamp).toISOString(),
         })),
       };
       const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `gaga-chat-export-${chatId.slice(0, 8)}-${new Date().toISOString().slice(0, 10)}.json`;
+      a.download = `gaga-chat-export-${chatId.replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 8)}-${new Date().toISOString().slice(0, 10)}.json`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -768,7 +805,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
           ])
         )
       );
-      return results.flat().map((m: any) => mapMessage(m));
+      return results.flat().map((m: Record<string, unknown>) => mapMessage(m));
     } catch {
       return [];
     }

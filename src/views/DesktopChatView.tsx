@@ -12,7 +12,8 @@ export default function DesktopChatView() {
   const { user } = useAuthStore();
   const { chats, loadingChats, subscribeChats, createDirectChat } = useChatStore();
   const { friends } = useFriendStore();
-  const { userId } = useParams<{ userId?: string }>();
+  const _params = useParams();
+  const userId = (_params as { userId?: string }).userId;
   const navigate = useNavigate();
   const [search, setSearch] = useState('');
 

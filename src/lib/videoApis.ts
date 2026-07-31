@@ -48,17 +48,20 @@ async function searchYouTube(query: string, maxResults: number): Promise<YouTube
     const items = searchData.items || [];
     if (items.length === 0) return [];
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const videoIds = items.map((item: any) => item.id?.videoId).filter(Boolean).join(',');
     const detailsRes = await fetch(
       `https://www.googleapis.com/youtube/v3/videos?part=contentDetails,statistics&id=${videoIds}&key=${VIDEO_API_CONFIG.YOUTUBE_API_KEY}`
     );
     const detailsData = detailsRes.ok ? await detailsRes.json() : { items: [] };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const detailsMap = new Map<string, any>();
     for (const d of detailsData.items || []) {
       detailsMap.set(d.id, d);
     }
 
-    const results: YouTubeVideo[] = items.map((item: any) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const results: YouTubeVideo[] = (items as any[]).map((item) => {
       const detail = detailsMap.get(item.id?.videoId);
       const thumb = item.snippet?.thumbnails?.maxres?.url
         || item.snippet?.thumbnails?.standard?.url
@@ -110,8 +113,11 @@ async function searchPexels(query: string, perPage: number): Promise<PexelsVideo
     );
     if (!res.ok) return [];
     const data = await res.json();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const results: PexelsVideo[] = (data.videos || []).map((v: any) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const bestFile = v.video_files?.find((f: any) => f.quality === 'hd' && f.file_type === 'video/mp4')
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         || v.video_files?.find((f: any) => f.file_type === 'video/mp4')
         || v.video_files?.[0];
       return {
@@ -237,4 +243,16 @@ export function isPexelsReel(reel: Reel): boolean {
 
 export function isExternalReel(reel: Reel): boolean {
   return isYouTubeReel(reel) || isPexelsReel(reel);
+}
+
+export function getYouTubeWatchUrl(reel: Reel): string {
+  if (!isYouTubeReel(reel)) return '';
+  const videoId = reel.id.replace('yt-', '');
+  return `https://www.youtube.com/watch?v=${videoId}`;
+}
+
+export function getYouTubeEmbedUrl(reel: Reel): string {
+  if (!isYouTubeReel(reel)) return '';
+  const videoId = reel.id.replace('yt-', '');
+  return `https://www.youtube.com/embed/${videoId}`;
 }

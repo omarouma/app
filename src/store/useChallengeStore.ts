@@ -1,8 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { create } from 'zustand';
 import { toast } from 'sonner';
-import { isFirestoreAvailable, COLLECTIONS, getDocById, updateDocById, addDocToCollection } from '@/lib/firestore';
-import { where } from '@/lib/firestore';
+import { isFirestoreAvailable, COLLECTIONS, getDocById, updateDocById } from '@/lib/firestore';
 
 export interface Challenge {
   id: string;
@@ -73,12 +72,10 @@ function getLevelFromXp(xp: number): number {
 }
 
 function getLevelProgress(xp: number): number {
-  let level = 1;
   let required = 100;
   let accumulated = 0;
   while (xp >= accumulated + required) {
     accumulated += required;
-    level++;
     required = Math.floor(required * 1.2);
   }
   const currentLevelXp = xp - accumulated;
@@ -241,7 +238,8 @@ export const useChallengeStore = create<ChallengeStore>((set, get) => ({
     }
   },
 
-  getLeaderboard: async (limit = 50) => {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- interface requires this param
+  getLeaderboard: async (_limit = 50) => {
     if (!isFirestoreAvailable()) return [];
     try {
       const data = await getDocById(COLLECTIONS.USERS, 'leaderboard');

@@ -2,14 +2,11 @@ import { useState, useEffect, Suspense } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Video, Search, Users, Radio, Plus, X, Hash, Flame, TrendingUp,
-  ChevronRight, Circle, Zap, Play
+  Video, Search, Users, Radio,X, Hash,TrendingUp,Circle, Zap, Play
 } from 'lucide-react';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useLiveStore } from '@/store/useLiveStore';
 import { getDefaultAvatar } from '@/lib/utils';
-import { toast } from 'sonner';
-
 const STREAM_CATEGORIES = [
   'All', 'Gaming', 'Music', 'Tech', 'Sports', 'Business',
   'Education', 'Health', 'Comedy', 'News', 'Lifestyle', 'Science'

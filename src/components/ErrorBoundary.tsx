@@ -1,61 +1,93 @@
 import { Component, type ReactNode } from 'react';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { trackError } from '@/lib/firebase';
 
-interface Props { children: ReactNode; }
-interface State { hasError: boolean; error?: Error; }
+interface Props { children: ReactNode; resetKey?: string; }
+interface State { hasError: boolean; error?: Error; prevResetKey?: string; }
+
+function safeTrackError(description: string) {
+  try {
+    import('@/lib/firebase').then(({ trackError }) => trackError(description, false)).catch(() => {});
+  } catch { /* ignore */ }
+}
+
+function clearCachesAndReload() {
+  const reload = () => { (window as Window & typeof globalThis).location.reload(); };
+  if ('caches' in window) {
+    caches.keys()
+      .then((keys) => Promise.all(keys.map((k) => caches.delete(k))))
+      .then(reload)
+      .catch(reload);
+  } else {
+    reload();
+  }
+}
+
+const CHUNK_ERROR_PATTERNS = [
+  'Failed to fetch dynamically imported module',
+  'Importing a module script failed',
+  'Unable to preload CSS',
+];
+
+// Errors that should be silently ignored rather than crashing the UI
+const NON_FATAL_PATTERNS = [
+  'cannot add postgres_changes callbacks',
+  'after subscribe()',
+];
 
 export default class ErrorBoundary extends Component<Props, State> {
   state: State = { hasError: false };
 
-  static getDerivedStateFromError(error: Error): State {
-    if (
-      error.message.includes('Failed to fetch dynamically imported module') ||
-      error.message.includes('Importing a module script failed') ||
-      error.message.includes('Unable to preload CSS')
-    ) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const w = window as any
-      if ('caches' in window) {
-        w.caches.keys().then((keys: string[]) =>
-          Promise.all(keys.map((k: string) => w.caches.delete(k)))
-        ).then(() => w.location.reload()).catch(() => w.location.reload())
-      } else {
-        w.location.reload()
-      }
-      return { hasError: false };
+  static getDerivedStateFromError(error: Error): Partial<State> {
+    // Don't crash the UI for known non-fatal Supabase realtime errors
+    if (NON_FATAL_PATTERNS.some((p) => error.message.includes(p))) {
+      return {};
     }
     return { hasError: true, error };
   }
 
-  componentDidCatch(error: Error) {
-    // Sanitize error message to prevent log injection
-    const safe = String(error.message).replace(/[\r\n]/g, ' ');
-    console.error('ErrorBoundary:', safe);
+  static getDerivedStateFromProps(props: Props, state: State): Partial<State> | null {
+    if (state.hasError && props.resetKey !== state.prevResetKey) {
+      return { hasError: false, error: undefined, prevResetKey: props.resetKey };
+    }
+    if (props.resetKey !== state.prevResetKey) {
+      return { prevResetKey: props.resetKey };
+    }
+    return null;
+  }
 
-    // Track in Firebase Analytics (if available)
-    trackError(safe, false);
+  componentDidCatch(error: Error) {
+    const safe = String(error.message).replace(/[\r\n]/g, ' ');
+    // Skip logging/tracking for known non-fatal errors
+    if (NON_FATAL_PATTERNS.some((p) => error.message.includes(p))) return;
+    console.error('ErrorBoundary:', safe);
+    safeTrackError(safe);
+    if (CHUNK_ERROR_PATTERNS.some((p) => error.message.includes(p))) {
+      clearCachesAndReload();
+    }
   }
 
   render() {
     if (this.state.hasError) {
       return (
-        <div className="min-h-screen bg-[#0d0d0d] flex items-center justify-center p-4">
+        <div className="min-h-screen bg-white flex items-center justify-center p-4">
           <div className="text-center max-w-md mx-auto">
             <div className="w-20 h-20 rounded-full bg-[#FF3B30]/10 flex items-center justify-center mx-auto mb-6">
               <AlertTriangle size={36} className="text-[#FF3B30]" />
             </div>
-            <h1 className="text-2xl font-bold text-white mb-2">Something went wrong</h1>
-            <p className="text-white/50 text-sm mb-6">We're sorry for the inconvenience. Please try refreshing the page.</p>
+            <h1 className="text-2xl font-bold text-[#111111] mb-2">Something went wrong</h1>
+            <p className="text-[#8D8D8D] text-sm mb-6">We're sorry for the inconvenience. Please try refreshing the page.</p>
             {this.state.error && (
               <p className="text-[#FF3B30]/70 text-xs mb-6 p-3 bg-[#FF3B30]/10 rounded-lg">
                 {String(this.state.error.message).replace(/[<>"'&]/g, (c) => ({ '<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;','&':'&amp;' }[c] ?? c))}
               </p>
             )}
-            <Button onClick={() => window.location.reload()} className="gchat-btn rounded-full px-6">
-              <RefreshCw size={16} className="mr-2" /> Refresh Page
-            </Button>
+            <button
+              type="button"
+              onClick={() => window.location.reload()}
+              className="inline-flex items-center gap-2 px-6 py-3 bg-[#00C300] text-white rounded-full text-sm font-bold active:bg-[#00A300] transition-colors"
+            >
+              <RefreshCw size={16} /> Refresh Page
+            </button>
           </div>
         </div>
       );

@@ -1,19 +1,17 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
-  Trophy, Flame, Coins, Zap, Gift, Check, Lock, MessageCircle, Image, Film, Phone,
+  Trophy, Flame, Coins, Zap, Check, MessageCircle, Image, Film, Phone,
   UserPlus, Camera, Heart, Mic, ChevronRight, Star, Crown, Medal, Award
 } from 'lucide-react';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useChallengeStore } from '@/store/useChallengeStore';
-import { getLevelFromXp, getLevelProgress } from '@/store/useChallengeStore';
+import { getLevelProgress } from '@/store/useChallengeStore';
 import { getDefaultAvatar } from '@/lib/utils';
 import BottomNav from '@/components/layout/BottomNav';
 import LoadingSkeleton from '@/components/LoadingSkeleton';
-import { toast } from 'sonner';
 
-const ICON_MAP: Record<string, any> = {
+const ICON_MAP: Record<string, React.ComponentType<{ size?: number; className?: string }>> = {
   MessageCircle, Image, Film, Phone, UserPlus, Camera, Heart, Mic,
 };
 
@@ -22,11 +20,9 @@ const LEVEL_COLORS = ['#8D8D8D', '#00C300', '#2196F3', '#FF9800', '#FF4081', '#9
 const BADGE_ICONS = { Crown, Star, Medal, Award, Flame, Zap };
 
 export default function DailyChallengesPage() {
-  const navigate = useNavigate();
   const { user } = useAuthStore();
   const { challenges, userStats, loading, streakClaimed, loadDailyChallenges, claimReward, checkInDaily } = useChallengeStore();
   const [activeTab, setActiveTab] = useState<'today' | 'leaderboard' | 'badges'>('today');
-  const [leaderboard, setLeaderboard] = useState<Array<{ userId: string; name: string; avatar: string; xp: number; level: number; streak: number }>>([]);
 
   useEffect(() => {
     if (user?.id) {

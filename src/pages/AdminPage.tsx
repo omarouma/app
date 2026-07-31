@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
+
 import { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -11,7 +11,7 @@ import {
 import { useAuthStore } from '@/store/useAuthStore';
 import {
   isFirestoreAvailable, queryCollection, updateDocById, deleteDocById,
-  COLLECTIONS
+  COLLECTIONS, subscribeToCollection
 } from '@/lib/firestore';
 import { toast } from 'sonner';
 import { where, orderBy, limit } from '@/lib/firestore';
@@ -19,6 +19,7 @@ import type { User, TimelinePost, UserReport, AdminDashboardStats } from '@/type
 
 type Tab = 'reports' | 'users' | 'content' | 'analytics';
 type UserFilter = 'all' | 'verified' | 'suspended' | 'banned' | 'admins';
+type RawDoc = Record<string, unknown>;
 
 export default function AdminPage() {
   const navigate = useNavigate();
@@ -65,25 +66,22 @@ export default function AdminPage() {
     if (!isFirestoreAvailable() || !user?.isAdmin) return;
     setReportsLoading(true);
     try {
-      const constraints: any[] = [orderBy('timestamp', 'desc')];
-      if (reportFilter !== 'all') {
-        constraints.push(where('status', '==', reportFilter));
-      }
+      const constraints = [orderBy('timestamp', 'desc'), ...(reportFilter !== 'all' ? [where('status', '==', reportFilter)] : [])];
       const data = await queryCollection(COLLECTIONS.REPORTS, constraints);
-      const list: UserReport[] = (data || []).map((d: any) => ({
-        id: d.id,
-        reporterId: d.reporterId || d.reporter_id,
-        reportedId: d.reportedId || d.reported_id,
-        reason: d.reason,
-        details: d.details || '',
-        status: d.status,
-        reviewedBy: d.reviewedBy || d.reviewed_by,
-        reviewedAt: d.reviewedAt ? new Date(d.reviewedAt) : (d.reviewed_at ? new Date(d.reviewed_at) : undefined),
-        actionTaken: d.actionTaken || d.action_taken || '',
-        createdAt: new Date(d.timestamp || d.createdAt || d.created_at),
-        contentId: d.contentId,
-        contentType: d.contentType,
-        severity: d.severity,
+      const list: UserReport[] = (data || []).map((d: RawDoc) => ({
+        id: d.id as string,
+        reporterId: (d.reporterId || d.reporter_id) as string,
+        reportedId: (d.reportedId || d.reported_id) as string,
+        reason: d.reason as string,
+        details: (d.details || '') as string,
+        status: d.status as UserReport['status'],
+        reviewedBy: (d.reviewedBy || d.reviewed_by) as string | undefined,
+        reviewedAt: d.reviewedAt ? new Date(d.reviewedAt as string) : (d.reviewed_at ? new Date(d.reviewed_at as string) : undefined),
+        actionTaken: (d.actionTaken || d.action_taken || '') as string,
+        createdAt: new Date((d.timestamp || d.createdAt || d.created_at) as string),
+        contentId: d.contentId as string | undefined,
+        contentType: d.contentType as UserReport['contentType'],
+        severity: d.severity as UserReport['severity'],
       }));
       setReports(list);
     } catch (err) {
@@ -92,11 +90,43 @@ export default function AdminPage() {
     setReportsLoading(false);
   };
 
-  /* eslint-disable react-hooks/exhaustive-deps */
   useEffect(() => {
-    if (activeTab === 'reports') queueMicrotask(() => fetchReports());
+    if (activeTab !== 'reports' || !user?.isAdmin) return;
+    if (!isFirestoreAvailable()) return;
+
+    setReportsLoading(true);
+    const constraints = [orderBy('timestamp', 'desc'), ...(reportFilter !== 'all' ? [where('status', '==', reportFilter)] : [])];
+
+    let unsub: (() => void) | null = null;
+    try {
+      unsub = subscribeToCollection(COLLECTIONS.REPORTS, constraints, (data: RawDoc[]) => {
+        const list: UserReport[] = (data || []).map((d: RawDoc) => ({
+          id: d.id as string,
+          reporterId: (d.reporterId || d.reporter_id) as string,
+          reportedId: (d.reportedId || d.reported_id) as string,
+          reason: d.reason as string,
+          details: (d.details || '') as string,
+          status: d.status as UserReport['status'],
+          reviewedBy: (d.reviewedBy || d.reviewed_by) as string | undefined,
+          reviewedAt: d.reviewedAt ? new Date(d.reviewedAt as string) : (d.reviewed_at ? new Date(d.reviewed_at as string) : undefined),
+          actionTaken: (d.actionTaken || d.action_taken || '') as string,
+          createdAt: new Date((d.timestamp || d.createdAt || d.created_at) as string),
+          contentId: d.contentId as string | undefined,
+          contentType: d.contentType as UserReport['contentType'],
+          severity: d.severity as UserReport['severity'],
+        }));
+        setReports(list);
+        setReportsLoading(false);
+      });
+    } catch {
+      // Fallback to one-shot fetch
+      queueMicrotask(() => fetchReports());
+    }
+
+    return () => { if (unsub) unsub(); };
+    // fetchReports is intentionally excluded
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reportFilter, activeTab, user?.isAdmin]);
-  /* eslint-enable react-hooks/exhaustive-deps */
   const updateReportStatus = async (reportId: string, status: string, action: string) => {
     if (!isFirestoreAvailable() || !user?.isAdmin) return;
     setProcessingReportId(reportId);
@@ -121,22 +151,22 @@ export default function AdminPage() {
     setUsersLoading(true);
     try {
       const data = await queryCollection(COLLECTIONS.USERS, [orderBy('createdAt', 'desc')]);
-      const list: User[] = (data || []).map((d: any) => ({
-        id: d.id,
-        name: d.name || d.displayName || 'Unnamed',
-        displayName: d.displayName || d.name,
-        username: d.username || '',
-        email: d.email || '',
-        phone: d.phone || '',
-        avatar: d.avatar || '',
-        status: d.status || 'active',
-        createdAt: d.createdAt ? new Date(d.createdAt) : undefined,
-        verified: d.verified || false,
-        isAdmin: d.isAdmin || false,
-        bio: d.bio || '',
-        friendCount: d.friendCount || 0,
-        lastSeen: d.lastSeen ? new Date(d.lastSeen) : null,
-        coins: d.coins || 0,
+      const list: User[] = (data || []).map((d: RawDoc) => ({
+        id: d.id as string,
+        name: ((d.name || d.displayName || 'Unnamed') as string),
+        displayName: (d.displayName || d.name) as string | undefined,
+        username: (d.username || '') as string,
+        email: (d.email || '') as string,
+        phone: (d.phone || '') as string,
+        avatar: (d.avatar || '') as string,
+        status: (d.status || 'active') as string,
+        createdAt: d.createdAt ? new Date(d.createdAt as string) : undefined,
+        verified: (d.verified || false) as boolean,
+        isAdmin: (d.isAdmin || false) as boolean,
+        bio: (d.bio || '') as string,
+        friendCount: (d.friendCount || 0) as number,
+        lastSeen: d.lastSeen ? new Date(d.lastSeen as string) : null,
+        coins: (d.coins || 0) as number,
       }));
       setUsers(list);
     } catch (err) {
@@ -145,11 +175,10 @@ export default function AdminPage() {
     setUsersLoading(false);
   };
 
-  /* eslint-disable react-hooks/exhaustive-deps */
   useEffect(() => {
     if (activeTab === 'users') queueMicrotask(() => fetchUsers());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab]);
-  /* eslint-enable react-hooks/exhaustive-deps */
 
   const updateUserStatus = async (targetUser: User, updates: Partial<User>, actionLabel: string) => {
     if (!isFirestoreAvailable() || !user?.isAdmin) return;
@@ -202,19 +231,19 @@ export default function AdminPage() {
     setContentLoading(true);
     try {
       const postsData = await queryCollection(COLLECTIONS.POSTS, [orderBy('timestamp', 'desc'), limit(50)]);
-      const postsList: TimelinePost[] = (postsData || []).map((d: any) => ({
-        id: d.id,
-        userId: d.userId || '',
-        content: d.content || '',
-        images: d.images || [],
-        likes: d.likes || [],
-        comments: d.comments || [],
-        shares: d.shares || [],
-        timestamp: new Date(d.timestamp || d.createdAt),
-        visibility: d.visibility || 'public',
-        userName: d.userName || '',
-        userAvatar: d.userAvatar || '',
-        mediaType: d.mediaType || 'text',
+      const postsList: TimelinePost[] = (postsData || []).map((d: RawDoc) => ({
+        id: d.id as string,
+        userId: (d.userId || '') as string,
+        content: (d.content || '') as string,
+        images: (d.images || []) as string[],
+        likes: (d.likes || []) as string[],
+        comments: (d.comments || []) as TimelinePost['comments'],
+        shares: (d.shares || []) as string[],
+        timestamp: new Date((d.timestamp || d.createdAt) as string),
+        visibility: (d.visibility || 'public') as TimelinePost['visibility'],
+        userName: (d.userName || '') as string,
+        userAvatar: (d.userAvatar || '') as string,
+        mediaType: (d.mediaType || 'text') as TimelinePost['mediaType'],
       }));
       setPosts(postsList);
 
@@ -224,18 +253,18 @@ export default function AdminPage() {
         where('status', '==', 'pending'),
       ]);
       const commentMap = new Map<string, { id: string; userId: string; content: string; postId: string; timestamp: Date; reports: number }>();
-      (reportsData || []).forEach((r: any) => {
-        const key = r.contentId || r.id;
+      (reportsData || []).forEach((r: RawDoc) => {
+        const key = (r.contentId || r.id) as string;
         if (commentMap.has(key)) {
           const existing = commentMap.get(key)!;
           existing.reports += 1;
         } else {
           commentMap.set(key, {
             id: key,
-            userId: r.reportedId || '',
-            content: r.details || 'No content',
-            postId: r.postId || '',
-            timestamp: new Date(r.timestamp || r.createdAt),
+            userId: (r.reportedId || '') as string,
+            content: (r.details || 'No content') as string,
+            postId: (r.postId || '') as string,
+            timestamp: new Date((r.timestamp || r.createdAt) as string),
             reports: 1,
           });
         }
@@ -247,11 +276,10 @@ export default function AdminPage() {
     setContentLoading(false);
   };
 
-  /* eslint-disable react-hooks/exhaustive-deps */
   useEffect(() => {
     if (activeTab === 'content') queueMicrotask(() => fetchContent());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab]);
-  /* eslint-enable react-hooks/exhaustive-deps */
 
   const deletePost = async (postId: string) => {
     if (!isFirestoreAvailable() || !user?.isAdmin) return;
@@ -296,18 +324,18 @@ export default function AdminPage() {
     try {
       const allUsers = await queryCollection(COLLECTIONS.USERS, []);
       const allPosts = await queryCollection(COLLECTIONS.POSTS, []);
-      const allMessages = await queryCollection(COLLECTIONS.MESSAGES, []);
+      const allMessages = await queryCollection(COLLECTIONS.MESSAGES, [limit(1000)]);
       const pendingReports = await queryCollection(COLLECTIONS.REPORTS, [where('status', '==', 'pending')]);
 
       const today = new Date();
       today.setHours(0, 0, 0, 0);
-      const newUsersToday = (allUsers || []).filter((u: any) => {
-        const d = u.createdAt ? new Date(u.createdAt) : null;
+      const newUsersToday = (allUsers || []).filter((u: RawDoc) => {
+        const d = u.createdAt ? new Date(u.createdAt as string) : null;
         return d && d >= today;
       }).length;
 
-      const activeToday = (allUsers || []).filter((u: any) => {
-        const d = u.lastSeen ? new Date(u.lastSeen) : null;
+      const activeToday = (allUsers || []).filter((u: RawDoc) => {
+        const d = u.lastSeen ? new Date(u.lastSeen as string) : null;
         return d && d >= today;
       }).length;
 
@@ -343,8 +371,8 @@ export default function AdminPage() {
         d.setHours(0, 0, 0, 0);
         const next = new Date(d);
         next.setDate(next.getDate() + 1);
-        const count = (allUsers || []).filter((u: any) => {
-          const cd = u.createdAt ? new Date(u.createdAt) : null;
+        const count = (allUsers || []).filter((u: RawDoc) => {
+          const cd = u.createdAt ? new Date(u.createdAt as string) : null;
           return cd && cd >= d && cd < next;
         }).length;
         days.push({ day: d.toLocaleDateString('en', { weekday: 'short' }), count });
@@ -359,8 +387,8 @@ export default function AdminPage() {
         d.setHours(0, 0, 0, 0);
         const next = new Date(d);
         next.setDate(next.getDate() + 1);
-        const count = (allPosts || []).filter((p: any) => {
-          const cd = p.timestamp ? new Date(p.timestamp) : null;
+        const count = (allPosts || []).filter((p: RawDoc) => {
+          const cd = p.timestamp ? new Date(p.timestamp as string) : null;
           return cd && cd >= d && cd < next;
         }).length;
         postDays.push({ day: d.toLocaleDateString('en', { weekday: 'short' }), count });
@@ -372,11 +400,10 @@ export default function AdminPage() {
     setAnalyticsLoading(false);
   };
 
-  /* eslint-disable react-hooks/exhaustive-deps */
   useEffect(() => {
     if (activeTab === 'analytics') queueMicrotask(() => fetchAnalytics());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab]);
-  /* eslint-enable react-hooks/exhaustive-deps */
 
   // ─── Derived stats ───
   const reportStats = useMemo(() => ({

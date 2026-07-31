@@ -51,7 +51,7 @@ function mapListing(d: Record<string, unknown>): MarketplaceItem {
     title: (d.title as string) || '',
     description: (d.description as string) || '',
     price: (d.price as number) || 0,
-    currency: (d.currency as 'BDT' | 'USD') || 'BDT',
+    currency: (d.currency as 'USD' | 'BDT') || 'USD',
     images: (d.images as string[]) || [],
     category: (d.category as string) || '',
     condition: (d.condition as 'new' | 'like_new' | 'good' | 'fair' | 'poor') || 'good',

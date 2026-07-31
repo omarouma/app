@@ -1,57 +1,82 @@
 import { useEffect, useRef } from 'react';
 import { useNotificationStore } from '@/store/useNotificationStore';
 import { useAuthStore } from '@/store/useAuthStore';
+import { safePlay, vibrateNotification, playNotification } from '@/lib/sounds';
+import { getActiveChatId } from '@/lib/activeChat';
+import { safeGetJsonStorageItem } from '@/lib/safeStorage';
+
 
 /**
  * Foreground notification bridge.
  * Listens to the notification store and shows native browser notifications
  * for new unread notifications while the app is in the foreground.
+ * Sound is suppressed when the user is already viewing the relevant chat.
  */
 export function useForegroundNotifications() {
   const user = useAuthStore((s) => s.user);
   const notifications = useNotificationStore((s) => s.notifications);
-  const lastCountRef = useRef(0);
+  const seenIdsRef = useRef(new Set<string>());
 
   useEffect(() => {
     if (!user) return;
 
-    const currentUnread = notifications.filter((n) => !n.read);
-    const previousUnread = lastCountRef.current;
-    lastCountRef.current = currentUnread.length;
+    const unreadNotifs = notifications.filter((n) => !n.read);
+    const newNotifs = unreadNotifs.filter((n) => !seenIdsRef.current.has(n.id));
 
-    // Only show notification if unread count increased
-    if (currentUnread.length <= previousUnread) return;
+    // Mark all current unread as seen
+    unreadNotifs.forEach((n) => seenIdsRef.current.add(n.id));
 
-    // Get the newest unread notification
-    const newest = currentUnread[0];
-    if (!newest) return;
+    if (newNotifs.length === 0) return;
 
-    // Skip if the app tab is focused (user is already looking at the app)
+    const newest = newNotifs[0];
+    const activeChatId = getActiveChatId();
+    const isInActiveChat =
+      activeChatId !== null &&
+      newest.data?.chatId !== undefined &&
+      activeChatId === newest.data.chatId;
+
     if (document.visibilityState === 'visible') {
-      // Optionally play a sound or show a toast here
+      // Mute-by-type (same key as NotificationsPage)
+      const mutedTypes = safeGetJsonStorageItem<string[]>('gaga-muted-notif-types', []);
+
+      const isMutedType = mutedTypes.includes(String(newest.type));
+
+      // Suppress sound if tab is currently the notifications list page
+      const isOnNotificationsPage = window.location.pathname.includes('/notifications');
+
+      // Suppress sound if user is already reading this chat, or type is muted, or on notifications page
+      if (!isOnNotificationsPage && !isMutedType && !isInActiveChat) {
+        safePlay(playNotification, vibrateNotification);
+      }
       return;
     }
 
-    // Show native browser notification via service worker
+    // Background: show native browser notification via service worker
     if ('serviceWorker' in navigator && Notification.permission === 'granted') {
-      navigator.serviceWorker.ready.then((registration) => {
-        registration.showNotification(newest.title || 'GaGa Chat', {
-          body: newest.body || 'You have a new notification',
-          icon: '/icons/icon-192x192.png',
-          badge: '/icons/icon-72x72.png',
-          tag: newest.id || 'gaga-notification',
-          requireInteraction: false,
-          data: {
-            url: newest.data?.chatId ? `/chat/${newest.data.chatId}` : '/',
-            notificationId: newest.id,
-            ...newest.data,
-          },
-          actions: [
-            { action: 'open', title: 'Open' },
-            { action: 'dismiss', title: 'Dismiss' },
-          ],
-        } as NotificationOptions);
-      }).catch(() => {});
+      // Sanitize display strings — strip HTML tags and limit length
+      const safeTitle = String(newest.title || 'GaGa Chat').replace(/<[^>]*>/g, '').slice(0, 100);
+      const safeBody = String(newest.body || 'You have a new notification').replace(/<[^>]*>/g, '').slice(0, 200);
+      const safeChatId = String(newest.data?.chatId || '').replace(/[^a-zA-Z0-9_-]/g, '');
+      navigator.serviceWorker.ready
+        .then((registration) => {
+          registration.showNotification(safeTitle, {
+            body: safeBody,
+            icon: '/icons/icon-192x192.png',
+            badge: '/icons/icon-72x72.png',
+            tag: newest.id || 'gaga-notification',
+            requireInteraction: false,
+            data: {
+              url: safeChatId ? `/chat/${safeChatId}` : '/',
+              notificationId: newest.id,
+            },
+            actions: [
+              { action: 'open', title: 'Open' },
+              { action: 'dismiss', title: 'Dismiss' },
+            ],
+          } as NotificationOptions);
+        })
+        .catch(() => {});
     }
+
   }, [notifications, user]);
 }

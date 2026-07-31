@@ -1,9 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   ArrowLeft, Coins, TrendingUp, TrendingDown, Gift, ChevronRight,
-  History, Banknote, ArrowRightLeft, Plus, Minus, Smartphone, CreditCard,
+  History, Banknote, ArrowRightLeft, Plus, Minus, CreditCard,
   Loader, Shield, Lock, Unlock, Percent, Sparkles, Award,
   Copy, Check, Send, HandCoins, Split
 } from 'lucide-react';
@@ -23,10 +23,8 @@ const promoCodes: Record<string, { coins: number; label: string }> = {
 };
 
 const depositMethods = [
-  { icon: Smartphone, label: 'bKash', color: 'bg-[#E2136E]', currency: 'BDT' as CurrencyCode },
-  { icon: CreditCard, label: 'Nagad', color: 'bg-[#FF6B00]', currency: 'BDT' as CurrencyCode },
   { icon: CreditCard, label: 'Visa/Mastercard', color: 'bg-[#1A1F71]', currency: 'USD' as CurrencyCode },
-  { icon: Banknote, label: 'Bank Transfer', color: 'bg-[#00C300]', currency: 'BDT' as CurrencyCode },
+  { icon: Banknote, label: 'Bank Transfer', color: 'bg-[#00C300]', currency: 'USD' as CurrencyCode },
 ];
 
 export default function WalletPage() {
@@ -46,10 +44,10 @@ export default function WalletPage() {
   const [showSendToFriend, setShowSendToFriend] = useState(false);
   const [showRequestMoney, setShowRequestMoney] = useState(false);
   const [showSplitBill, setShowSplitBill] = useState(false);
-  const [convertTab, setConvertTab] = useState<'GAGA_BDT' | 'GAGA_USD' | 'BDT_GAGA' | 'BDT_USD' | 'USD_GAGA' | 'USD_BDT'>('GAGA_BDT');
+  const [convertTab, setConvertTab] = useState<'GAGA_USD' | 'USD_GAGA'>('GAGA_USD');
   const [convertAmount, setConvertAmount] = useState('');
   const [depositAmount, setDepositAmount] = useState('');
-  const [depositCurrency, setDepositCurrency] = useState<CurrencyCode>('BDT');
+  const [depositCurrency, setDepositCurrency] = useState<CurrencyCode>('USD');
   const [depositMethod, setDepositMethod] = useState('');
   const [withdrawCurrency, setWithdrawCurrency] = useState<CurrencyCode>('GAGA');
   const [withdrawAmount, setWithdrawAmount] = useState('');
@@ -60,6 +58,15 @@ export default function WalletPage() {
   const [interestLoading, setInterestLoading] = useState(false);
   const [pinMode, setPinMode] = useState<'none' | 'verify' | 'set'>('none');
   const [copied, setCopied] = useState(false);
+  const copiedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const interestTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current);
+      if (interestTimerRef.current) clearTimeout(interestTimerRef.current);
+    };
+  }, []);
 
   // Subscribe to real-time wallet updates
   useEffect(() => {
@@ -68,8 +75,7 @@ export default function WalletPage() {
   }, [user?.id, subscribeWallet]);
 
   const coins = wallet?.coins || 0;
-  const bdtBalance = wallet?.bdtBalance || 0;
-  const usdBalance = wallet?.usd_balance || 0;
+  const usdBalance = wallet?.usdBalance || wallet?.usd_balance || 0;
   const apy = getStakingAPY();
   const tier = getStakingTier(coins);
   const dailyInterest = getDailyInterestAmount(user?.id || '');
@@ -78,7 +84,6 @@ export default function WalletPage() {
   // Currency display data
   const currencies: { code: CurrencyCode; balance: number; label: string; color: string }[] = [
     { code: 'GAGA', balance: coins, label: 'Gaga Coins', color: 'text-[#00C300]' },
-    { code: 'BDT', balance: bdtBalance, label: 'Local Currency (BDT)', color: 'text-[#2196F3]' },
     { code: 'USD', balance: usdBalance || 0, label: 'US Dollar', color: 'text-[#8B5CF6]' },
   ];
 
@@ -130,8 +135,8 @@ export default function WalletPage() {
     setInterestClaimed(earned);
     setInterestLoading(false);
     if (earned > 0) {
-      const t = setTimeout(() => setInterestClaimed(0), 3000);
-      return () => clearTimeout(t);
+      if (interestTimerRef.current) clearTimeout(interestTimerRef.current);
+      interestTimerRef.current = setTimeout(() => setInterestClaimed(0), 3000);
     }
   };
 
@@ -216,15 +221,13 @@ export default function WalletPage() {
               <p className="text-4xl font-bold text-white">
                 {activeCurrency === 'GAGA' ? (
                   <>{coins.toLocaleString()} <span className="text-lg font-normal text-white/70">GAGA</span></>
-                ) : activeCurrency === 'BDT' ? (
-                  <><span className="text-[#2196F3]">৳</span>{bdtBalance.toFixed(2)}</>
                 ) : (
                   <><span className="text-[#8B5CF6]">$</span>{(usdBalance || 0).toFixed(2)}</>
                 )}
               </p>
               {activeCurrency === 'GAGA' && (
                 <p className="text-white/60 text-xs mt-1">
-                  ≈ ৳{(coins * 0.85).toFixed(2)} BDT  ·  ≈ ${(coins * 0.0071).toFixed(2)} USD
+                  ≈ ${(coins * 0.0071).toFixed(2)} USD
                 </p>
               )}
             </div>
@@ -249,8 +252,8 @@ export default function WalletPage() {
             <button type="button" onClick={() => {
                 navigator.clipboard.writeText(walletId);
                 setCopied(true);
-                const t = setTimeout(() => setCopied(false), 2000);
-                return () => clearTimeout(t);
+                if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current);
+                copiedTimerRef.current = setTimeout(() => setCopied(false), 2000);
               }}
               className="mt-3 flex items-center gap-1.5 text-white/60 text-[10px] hover:text-white/80 transition-colors"
             >
@@ -301,14 +304,10 @@ export default function WalletPage() {
             </div>
             <p className="text-[#00C300] font-bold text-lg">{Math.round(totalGagaValue).toLocaleString()} GAGA</p>
           </div>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-2 gap-2">
             <div className="bg-[#F5F5F5] rounded-xl p-2.5 text-center">
               <p className="text-[#00C300] font-bold text-sm">{coins.toLocaleString()}</p>
               <p className="text-[#8D8D8D] text-[10px]">GAGA</p>
-            </div>
-            <div className="bg-[#F5F5F5] rounded-xl p-2.5 text-center">
-              <p className="text-[#2196F3] font-bold text-sm">৳{bdtBalance.toFixed(0)}</p>
-              <p className="text-[#8D8D8D] text-[10px]">BDT</p>
             </div>
             <div className="bg-[#F5F5F5] rounded-xl p-2.5 text-center">
               <p className="text-[#8B5CF6] font-bold text-sm">${(usdBalance || 0).toFixed(0)}</p>
@@ -469,7 +468,7 @@ export default function WalletPage() {
                         ? 'text-[#2196F3]' : 'text-[#FF3B30]'
                     }`}>
                       {isPositive ? '+' : '-'}
-                      {tx.currency === 'BDT' ? '৳' : tx.currency === 'USD' ? '$' : ''}{tx.amount}
+                      {tx.currency === 'USD' ? '$' : ''}{tx.amount}
                       {!tx.currency && ' GAGA'}
                     </span>
                     {tx.id && (
@@ -529,7 +528,7 @@ export default function WalletPage() {
             <div>
               <label className="text-[#8D8D8D] text-xs mb-2 block">Select Currency</label>
               <div className="flex gap-2">
-                {(['GAGA', 'BDT', 'USD'] as CurrencyCode[]).map(c => (
+                {(['GAGA', 'USD'] as CurrencyCode[]).map(c => (
                   <button type="button" key={c}
                     onClick={() => setDepositCurrency(c)}
                     className={`flex-1 py-2 rounded-xl text-sm font-medium transition-colors ${
@@ -592,7 +591,7 @@ export default function WalletPage() {
             <div>
               <label className="text-[#8D8D8D] text-xs mb-2 block">Currency</label>
               <div className="flex gap-2">
-                {(['GAGA', 'BDT', 'USD'] as CurrencyCode[]).map(c => (
+                {(['GAGA', 'USD'] as CurrencyCode[]).map(c => (
                   <button type="button" key={c}
                     onClick={() => setWithdrawCurrency(c)}
                     className={`flex-1 py-2 rounded-xl text-sm font-medium transition-colors ${
@@ -615,7 +614,7 @@ export default function WalletPage() {
               />
             </div>
             <div>
-              <label className="text-[#8D8D8D] text-xs mb-1 block">Method (e.g. bKash, Bank)</label>
+              <label className="text-[#8D8D8D] text-xs mb-1 block">Method (e.g. PayPal, Bank)</label>
               <input
                 value={withdrawMethod}
                 onChange={e => setWithdrawMethod(e.target.value)}
@@ -648,7 +647,7 @@ export default function WalletPage() {
           <DialogHeader><DialogTitle className="text-[#111111] flex items-center gap-2"><ArrowRightLeft size={18} className="text-[#00C300]" /> Convert Currency</DialogTitle></DialogHeader>
           <div className="pt-4 space-y-4">
             <div className="flex border-b border-[#EBEBEB] overflow-x-auto">
-              {(['GAGA_BDT', 'GAGA_USD', 'BDT_GAGA', 'BDT_USD', 'USD_GAGA', 'USD_BDT'] as const).map(pair => (
+              {(['GAGA_USD', 'USD_GAGA'] as const).map(pair => (
                 <button type="button" key={pair}
                   onClick={() => setConvertTab(pair)}
                   className={`px-3 py-2 text-xs font-medium whitespace-nowrap transition-colors ${

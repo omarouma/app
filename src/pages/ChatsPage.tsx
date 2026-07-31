@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
@@ -11,7 +11,7 @@ import { useChatStore } from '@/store/useChatStore';
 import { useGroupStore } from '@/store/useGroupStore';
 import { useFriendStore } from '@/store/useFriendStore';
 import { usePageTitle } from '@/hooks/useDocumentTitle';
-import BottomNav from '@/components/layout/BottomNav';
+import { useChatListTyping } from '@/hooks/useChatListTyping';
 import EmptyState from '@/components/EmptyState';
 import LoadingSkeleton from '@/components/LoadingSkeleton';
 import { formatTime, getDefaultAvatar, sanitizeMediaUrl } from '@/lib/utils';
@@ -19,7 +19,30 @@ import { isFirestoreAvailable, getDocById } from '@/lib/firestore';
 import { toast } from 'sonner';
 import type { Message } from '@/types';
 
+// Static icon lookup — avoids recreating JSX elements on every render
+const MSG_ICONS: Record<string, React.ReactNode> = {
+  image: <ImageIcon size={14} className="shrink-0" />,
+  video: <Video size={14} className="shrink-0" />,
+  voice: <Mic size={14} className="shrink-0" />,
+  file: <FileText size={14} className="shrink-0" />,
+  location: <MapPin size={14} className="shrink-0" />,
+  poll: <BarChart3 size={14} className="shrink-0" />,
+  money_transfer: <Wallet size={14} className="shrink-0" />,
+  contact_card: <User size={14} className="shrink-0" />,
+};
+
+const MSG_TEXT: Record<string, string> = {
+  image: 'Photo',
+  video: 'Video',
+  voice: 'Voice message',
+  location: 'Location',
+  poll: 'Poll',
+  money_transfer: 'Transfer',
+  contact_card: 'Contact',
+};
+
 /** Format the last message preview with type icon and delivery status */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function formatLastMessage(chat: any, currentUserId?: string): {
   text: string;
   icon: React.ReactNode | null;
@@ -34,67 +57,33 @@ function formatLastMessage(chat: any, currentUserId?: string): {
 
   if (!lastMsg) return { text, icon, isMe, readStatus };
 
-  // If lastMessage is a Message object
   if (typeof lastMsg === 'object' && lastMsg !== null) {
     const msg = lastMsg as Message;
     isMe = msg.senderId === currentUserId;
     readStatus = msg.read ? 'read' : isMe ? 'delivered' : 'none';
 
-    switch (msg.type) {
-      case 'image':
-        text = 'Photo';
-        icon = <ImageIcon size={14} className="shrink-0" />;
-        break;
-      case 'video':
-        text = 'Video';
-        icon = <Video size={14} className="shrink-0" />;
-        break;
-      case 'voice':
-        text = 'Voice message';
-        icon = <Mic size={14} className="shrink-0" />;
-        break;
-      case 'file':
-        text = msg.content || 'File';
-        icon = <FileText size={14} className="shrink-0" />;
-        break;
-      case 'location':
-        text = 'Location';
-        icon = <MapPin size={14} className="shrink-0" />;
-        break;
-      case 'poll':
-        text = 'Poll';
-        icon = <BarChart3 size={14} className="shrink-0" />;
-        break;
-      case 'money_transfer':
-        text = 'Transfer';
-        icon = <Wallet size={14} className="shrink-0" />;
-        break;
-      case 'contact_card':
-        text = 'Contact';
-        icon = <User size={14} className="shrink-0" />;
-        break;
-      default:
-        text = msg.content || '';
+    if (msg.type === 'file') {
+      text = msg.content || 'File';
+      icon = MSG_ICONS.file;
+    } else if (MSG_ICONS[msg.type]) {
+      text = MSG_TEXT[msg.type] || msg.type;
+      icon = MSG_ICONS[msg.type];
+    } else {
+      text = msg.content || '';
     }
   } else if (typeof lastMsg === 'string') {
-    // Infer from content string patterns
     isMe = chat.lastMessageSenderId === currentUserId;
     if (lastMsg.includes('📷') || lastMsg.includes('Photo')) {
-      text = 'Photo';
-      icon = <ImageIcon size={14} className="shrink-0" />;
+      text = 'Photo'; icon = MSG_ICONS.image;
     } else if (lastMsg.includes('🎥') || lastMsg.includes('Video')) {
-      text = 'Video';
-      icon = <Video size={14} className="shrink-0" />;
+      text = 'Video'; icon = MSG_ICONS.video;
     } else if (lastMsg.includes('🎤') || lastMsg.includes('Voice')) {
-      text = 'Voice message';
-      icon = <Mic size={14} className="shrink-0" />;
+      text = 'Voice message'; icon = MSG_ICONS.voice;
     } else if (lastMsg.startsWith('Shared contact:')) {
-      text = 'Contact';
-      icon = <User size={14} className="shrink-0" />;
+      text = 'Contact'; icon = MSG_ICONS.contact_card;
     } else {
       text = lastMsg;
     }
-    // Use chat-level read status if available
     if (chat.lastMessageRead) readStatus = 'read';
     else if (isMe) readStatus = 'delivered';
   }
@@ -113,8 +102,14 @@ export default function ChatsPage() {
   const [search, setSearch] = useState('');
   const [activeTab, setActiveTab] = useState<'all' | 'direct' | 'groups' | 'archived'>('all');
   const [refreshing, setRefreshing] = useState(false);
+  const nonFriendNamesRef = useRef<Record<string, string>>({});
   const [nonFriendNames, setNonFriendNames] = useState<Record<string, string>>({});
   const refreshTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Refs to re-invoke subscriptions on manual refresh
+  const subscribeChatsRef = useRef(subscribeChats);
+  const subscribeGroupsRef = useRef(subscribeGroups);
+  subscribeChatsRef.current = subscribeChats;
+  subscribeGroupsRef.current = subscribeGroups;
 
   useEffect(() => {
     return () => {
@@ -129,114 +124,189 @@ export default function ChatsPage() {
     return () => { unsubChats(); unsubGroups(); };
   }, [user, subscribeChats, subscribeGroups]);
 
+  // Memoised derived lists
+  const allChats = useMemo(() => {
+    const map = new Map<string, typeof chats[0] & { itemType: 'direct' | 'group' }>();
+    chats.forEach(c => map.set(c.id, { ...c, itemType: 'direct' as const }));
+    groups.forEach(g => map.set(g.id, { ...g, itemType: 'group' as const }));
+    return Array.from(map.values()).sort((a, b) => {
+      const aTime = a.updatedAt ? new Date(a.updatedAt).getTime() : 0;
+      const bTime = b.updatedAt ? new Date(b.updatedAt).getTime() : 0;
+      return bTime - aTime;
+    });
+  }, [chats, groups]);
+
+  const activeChats = useMemo(() => allChats.filter(c => !c.archived), [allChats]);
+  const archivedChats = useMemo(() => allChats.filter(c => c.archived), [allChats]);
+  const pinnedChats = useMemo(() => activeChats.filter(c => c.pinned), [activeChats]);
+  const unpinnedChats = useMemo(() => activeChats.filter(c => !c.pinned), [activeChats]);
+
+  const filtered = useMemo(() => {
+    const base =
+      activeTab === 'archived' ? archivedChats :
+      activeTab === 'all' && !search ? [...pinnedChats, ...unpinnedChats] :
+      activeChats;
+
+    return base.filter(c => {
+      if (activeTab === 'direct') return c.itemType === 'direct';
+      if (activeTab === 'groups') return c.itemType === 'group';
+      return true;
+    }).filter(c => {
+      if (!search) return true;
+      if (c.type === 'group') return c.name?.toLowerCase().includes(search.toLowerCase());
+      const otherId = c.participants.find(p => p !== user?.id) || '';
+      const f = friends.find(fr => fr.id === otherId);
+      const name = f?.name || nonFriendNames[otherId] || 'Chat';
+      return name.toLowerCase().includes(search.toLowerCase());
+    });
+  }, [activeTab, search, archivedChats, pinnedChats, unpinnedChats, activeChats, friends, nonFriendNames, user?.id]);
+
+  const totalUnread = useMemo(
+    () => activeChats.reduce((sum, c) => sum + (c.unreadCount || 0), 0),
+    [activeChats]
+  );
+
+  // Typing indicators for visible chats
+  const visibleChatIds = useMemo(() => filtered.map(c => c.id), [filtered]);
+  const typingMap = useChatListTyping(visibleChatIds);
+
   const handleRefresh = useCallback(() => {
     if (!user?.id || refreshing) return;
     setRefreshing(true);
-    // Existing subscriptions already handle real-time updates.
-    // Just show a brief visual refresh indicator.
+    // Re-subscribe to get the latest data immediately
+    subscribeChatsRef.current(user.id);
+    subscribeGroupsRef.current(user.id);
     refreshTimeoutRef.current = setTimeout(() => setRefreshing(false), 800);
   }, [user?.id, refreshing]);
+
+  // Pull-to-refresh touch handler — stored in a ref so the listener can be
+  // properly removed even when the threshold is never met.
+  const touchStartRef = useRef<{ startY: number; el: HTMLDivElement } | null>(null);
+  const touchMoveHandlerRef = useRef<((e: TouchEvent) => void) | null>(null);
+
+  const handleTouchStart = useCallback((e: React.TouchEvent<HTMLDivElement>) => {
+    const el = e.currentTarget;
+    if (el.scrollTop > 0) return;
+    const startY = e.touches[0].clientY;
+    touchStartRef.current = { startY, el };
+
+    const handleMove = (me: TouchEvent) => {
+      if (!touchStartRef.current) return;
+      if (me.touches[0].clientY - touchStartRef.current.startY > 80) {
+        handleRefresh();
+        if (touchMoveHandlerRef.current) {
+          el.removeEventListener('touchmove', touchMoveHandlerRef.current);
+          touchMoveHandlerRef.current = null;
+        }
+      }
+    };
+    touchMoveHandlerRef.current = handleMove;
+    el.addEventListener('touchmove', handleMove);
+  }, [handleRefresh]);
+
+  const handleTouchEnd = useCallback(() => {
+    if (touchStartRef.current && touchMoveHandlerRef.current) {
+      touchStartRef.current.el.removeEventListener('touchmove', touchMoveHandlerRef.current);
+      touchMoveHandlerRef.current = null;
+    }
+    touchStartRef.current = null;
+  }, []);
 
   useEffect(() => {
     if (!user || !chats.length) return;
     const nonFriendIds = chats
       .filter(c => c.type !== 'group')
       .map(c => c.participants.find(p => p !== user.id))
-      .filter((id): id is string => !!id && !friends.find(f => f.id === id) && !nonFriendNames[id]);
-    
+      .filter((id): id is string => !!id && !friends.find(f => f.id === id) && !nonFriendNamesRef.current[id]);
+
     if (!nonFriendIds.length) return;
     let cancelled = false;
     const load = async () => {
-      const names: Record<string, string> = {};
-      for (const id of nonFriendIds) {
-        try {
-          if (!isFirestoreAvailable()) continue;
-          const data = await getDocById('users', id);
-          if (data && !cancelled) names[id] = data.name || 'User';
-        } catch { /* ignore */ }
-      }
-      if (!cancelled) setNonFriendNames(prev => ({ ...prev, ...names }));
+      try {
+        if (!isFirestoreAvailable()) return;
+        const { getSupabaseSafe } = await import('@/lib/supabase');
+        const supabase = getSupabaseSafe();
+        if (supabase) {
+          const { data } = await supabase
+            .from('users')
+            .select('id, name')
+            .in('id', nonFriendIds);
+          if (!cancelled && data) {
+            const names: Record<string, string> = {};
+            data.forEach((u: { id: string; name?: string }) => { names[u.id] = u.name || 'User'; });
+            nonFriendNamesRef.current = { ...nonFriendNamesRef.current, ...names };
+            setNonFriendNames(prev => ({ ...prev, ...names }));
+          }
+        } else {
+          const results = await Promise.all(
+            nonFriendIds.map(id => getDocById('users', id).catch(() => null))
+          );
+          if (!cancelled) {
+            const names: Record<string, string> = {};
+            results.forEach((data, i) => { if (data) names[nonFriendIds[i]] = (data as { name?: string }).name || 'User'; });
+            nonFriendNamesRef.current = { ...nonFriendNamesRef.current, ...names };
+            setNonFriendNames(prev => ({ ...prev, ...names }));
+          }
+        }
+      } catch { /* ignore */ }
     };
     load();
     return () => { cancelled = true; };
   }, [chats, friends, user]);
 
-  // Combine chats and groups, deduplicate by id
-  const allChatsMap = new Map<string, typeof chats[0] & { itemType: 'direct' | 'group' }>();
-  chats.forEach(c => allChatsMap.set(c.id, { ...c, itemType: 'direct' as const }));
-  groups.forEach(g => allChatsMap.set(g.id, { ...g, itemType: 'group' as const }));
-  const allChats = Array.from(allChatsMap.values()).sort((a, b) => {
-    const aTime = a.updatedAt ? new Date(a.updatedAt).getTime() : 0;
-    const bTime = b.updatedAt ? new Date(b.updatedAt).getTime() : 0;
-    return bTime - aTime;
-  });
-
-  const activeChats = allChats.filter(c => !c.archived);
-  const archivedChats = allChats.filter(c => c.archived);
-
-  // Separate pinned and unpinned chats
-  const pinnedChats = activeChats.filter(c => c.pinned);
-  const unpinnedChats = activeChats.filter(c => !c.pinned);
-
-  const filtered = (activeTab === 'archived' ? archivedChats : activeTab === 'all' && search === '' ? [...pinnedChats, ...unpinnedChats] : activeChats).filter(c => {
-    if (activeTab === 'direct') return c.itemType === 'direct';
-    if (activeTab === 'groups') return c.itemType === 'group';
-    if (activeTab === 'archived') return true;
-    return true;
-  }).filter(c => {
-    if (!search) return true;
-    if (c.type === 'group') return c.name?.toLowerCase().includes(search.toLowerCase());
-    const otherId = c.participants.find(p => p !== user?.id) || '';
-    const f = friends.find(fr => fr.id === otherId);
-    const name = f?.name || nonFriendNames[otherId] || 'Chat';
-    return name.toLowerCase().includes(search.toLowerCase());
-  });
-
-  const totalUnread = activeChats.reduce((sum, c) => sum + (c.unreadCount || 0), 0);
-
   return (
-    <div className="h-[100dvh] bg-white flex flex-col relative">
+    <div className="h-[100dvh] bg-white flex flex-col relative page-enter">
       {/* Header */}
-      <div className="shrink-0 px-5 py-4 flex justify-between items-center border-b border-[#EBEBEB]">
+      <div className="shrink-0 px-5 pt-5 pb-3 flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-bold text-[#111111]">Chats</h1>
-          {totalUnread > 0 && <p className="text-[#00C300] text-xs font-medium">{totalUnread} unread</p>}
+          <h1 className="text-[26px] font-bold text-[#111111] tracking-tight">Chats</h1>
+          {totalUnread > 0 && (
+            <p className="text-[#00C300] text-xs font-semibold mt-0.5">
+              {totalUnread} unread message{totalUnread !== 1 ? 's' : ''}
+            </p>
+          )}
         </div>
-        <div className="flex gap-3 text-[#111111]">
-          <button type="button" onClick={() => navigate('/add-friends')} className="p-2 hover:bg-gray-50 rounded-full transition-colors" title="Add friends">
-            <UserPlus size={22} strokeWidth={1.5} />
+        <div className="flex gap-2 text-[#111111]">
+          <button type="button" onClick={() => navigate('/add-friends')}
+            className="w-9 h-9 flex items-center justify-center bg-[#F5F5F5] hover:bg-[#EBEBEB] rounded-full transition-colors tap-scale"
+            title="Add friends"
+          >
+            <UserPlus size={18} strokeWidth={1.8} />
           </button>
-          <button type="button" onClick={() => navigate('/create-group')} className="p-2 hover:bg-gray-50 rounded-full transition-colors" title="New group">
-            <Plus size={22} strokeWidth={1.5} />
+          <button type="button" onClick={() => navigate('/create-group')}
+            className="w-9 h-9 flex items-center justify-center bg-[#F5F5F5] hover:bg-[#EBEBEB] rounded-full transition-colors tap-scale"
+            title="New group"
+          >
+            <Plus size={18} strokeWidth={1.8} />
           </button>
         </div>
       </div>
 
       {/* Search */}
-      <div className="shrink-0 px-4 py-2">
+      <div className="shrink-0 px-4 pb-2">
         <div className="relative">
-          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8D8D8D]" />
+          <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#ADADAD]" />
           <input
             value={search}
             onChange={e => setSearch(e.target.value)}
-            placeholder="Search chats..."
-            className="w-full bg-[#F5F5F5] rounded-xl pl-10 pr-4 py-2.5 text-[#111111] text-sm focus:outline-none focus:ring-2 focus:ring-[#00C300] placeholder:text-[#8D8D8D]"
+            placeholder="Search chats…"
+            className="w-full bg-[#F5F5F5] rounded-2xl pl-10 pr-4 py-2.5 text-[#111111] text-sm focus:outline-none focus:ring-2 focus:ring-[#00C300]/40 placeholder:text-[#ADADAD] transition-shadow"
           />
         </div>
       </div>
 
       {/* Tabs */}
-      <div className="shrink-0 flex border-b border-[#EBEBEB] px-4">
+      <div className="shrink-0 flex gap-2 px-4 pb-2 overflow-x-auto scrollbar-hide">
         {(['all', 'direct', 'groups', 'archived'] as const).map(tab => (
           <button type="button" key={tab}
             onClick={() => setActiveTab(tab)}
-            className={`flex-1 py-3 text-sm font-medium transition-colors capitalize ${
+            className={`shrink-0 px-4 py-1.5 rounded-full text-xs font-semibold transition-all tap-scale ${
               activeTab === tab
-                ? 'text-[#00C300] border-b-2 border-[#00C300]'
-                : 'text-[#8D8D8D]'
+                ? 'bg-[#111111] text-white shadow-sm'
+                : 'bg-[#F5F5F5] text-[#8D8D8D] hover:text-[#111111]'
             }`}
           >
-            {tab === 'all' ? `All (${activeChats.length})` : tab === 'direct' ? 'Direct' : tab === 'groups' ? 'Groups' : `Archived (${archivedChats.length})`}
+            {tab === 'all' ? `All${activeChats.length ? ` (${activeChats.length})` : ''}` : tab === 'direct' ? 'Direct' : tab === 'groups' ? 'Groups' : `Archived${archivedChats.length ? ` (${archivedChats.length})` : ''}`}
           </button>
         ))}
       </div>
@@ -244,22 +314,11 @@ export default function ChatsPage() {
       {/* Chat List */}
       <div
         className="flex-1 overflow-y-auto scrollbar-hide scroll-smooth relative"
-        onTouchStart={(e) => {
-          const el = e.currentTarget;
-          if (el.scrollTop <= 0) {
-            const startY = e.touches[0].clientY;
-            const handleMove = (me: TouchEvent) => {
-              const diff = me.touches[0].clientY - startY;
-              if (diff > 80) {
-                handleRefresh();
-                el.removeEventListener('touchmove', handleMove);
-              }
-            };
-            el.addEventListener('touchmove', handleMove, { once: true });
-          }
-        }}
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+        onTouchCancel={handleTouchEnd}
       >
-        {/* Pull to refresh */}
+        {/* Pull to refresh indicator */}
         {refreshing && (
           <div className="flex justify-center py-3">
             <motion.div
@@ -304,6 +363,7 @@ export default function ChatsPage() {
             const hasUnread = (chat.unreadCount || 0) > 0;
             const isPinned = !!chat.pinned;
             const isOnline = !isGroup && visibleOnline[otherId];
+            const typingName = typingMap[chat.id];
 
             const { text: lastMsgText, icon: msgIcon, isMe: isLastMsgFromMe, readStatus } = formatLastMessage(chat, user?.id);
 
@@ -313,7 +373,7 @@ export default function ChatsPage() {
               try {
                 await sendRequest(otherId, user.id);
                 toast.success('Friend request sent');
-              } catch (err: unknown) {
+              } catch (err) {
                 toast.error(err instanceof Error ? err.message : 'Failed to send request');
               }
             };
@@ -321,26 +381,26 @@ export default function ChatsPage() {
             return (
               <motion.button
                 key={chat.id}
-                initial={{ opacity: 0, y: 10 }}
+                initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: Math.min(i * 0.03, 0.3) }}
+                transition={{ delay: Math.min(i * 0.025, 0.25) }}
                 onClick={() => navigate(isGroup ? `/group/${chat.id}` : `/chat/${otherId}`)}
-                className={`w-full flex items-center p-4 active:bg-gray-50 transition-colors text-left press-scale ${hasUnread ? 'bg-[#00C300]/5' : ''}`}
+                className={`w-full flex items-center px-4 py-3 active:bg-[#F5F5F5] transition-colors text-left press-scale ${
+                  hasUnread ? 'bg-[#00C300]/[0.04]' : ''
+                }`}
               >
                 {/* Avatar with badges */}
-                <div className="relative w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 overflow-hidden mr-4 bg-[#F5F5F5]">
+                <div className="relative w-[52px] h-[52px] rounded-2xl flex items-center justify-center shrink-0 overflow-hidden mr-3.5 bg-[#F5F5F5]">
                   {sanitizeMediaUrl(avatar) ? (
                     <img src={sanitizeMediaUrl(avatar)} className="w-full h-full object-cover" alt="User avatar" />
                   ) : isGroup ? (
-                    <Users size={24} className="text-[#00C300]" />
+                    <Users size={22} className="text-[#00C300]" />
                   ) : (
                     <img src={getDefaultAvatar(otherId || name)} className="w-full h-full object-cover" alt="User avatar" />
                   )}
-                  {/* Online dot - bottom right */}
                   {isOnline && (
-                    <div className="absolute bottom-0.5 right-0.5 w-3.5 h-3.5 bg-[#00C300] rounded-full border-2 border-white" />
+                    <div className="absolute bottom-0.5 right-0.5 w-3 h-3 bg-[#00C300] rounded-full border-2 border-white" />
                   )}
-                  {/* Pinned badge - top left */}
                   {isPinned && (
                     <div className="absolute top-0.5 left-0.5 w-4 h-4 bg-[#FFD700] rounded-full flex items-center justify-center border border-white">
                       <Pin size={8} className="text-white" />
@@ -349,52 +409,63 @@ export default function ChatsPage() {
                 </div>
 
                 {/* Chat info */}
-                <div className="flex-1 min-w-0 border-b border-[#EBEBEB] py-1">
+                <div className="flex-1 min-w-0 border-b border-[#F0F0F0] pb-3">
                   {/* Name row */}
                   <div className="flex justify-between items-center mb-0.5">
                     <div className="flex items-center gap-1.5 min-w-0">
-                      <h3 className={`text-[16px] truncate ${hasUnread ? 'font-bold text-[#111111]' : 'font-medium text-[#111111]'}`}>{name}</h3>
+                      <h3 className={`text-[15px] truncate leading-snug ${
+                        hasUnread ? 'font-bold text-[#111111]' : 'font-medium text-[#111111]'
+                      }`}>{name}</h3>
                       {isGroup && (
-                        <span className="text-[10px] bg-[#00C300]/10 text-[#00C300] px-1.5 py-0.5 rounded-full font-medium shrink-0">
+                        <span className="text-[9px] bg-[#00C300]/10 text-[#00C300] px-1.5 py-0.5 rounded-full font-semibold shrink-0 uppercase tracking-wide">
                           Group
                         </span>
                       )}
                       {!isGroup && !isFriend && (
-                        <span className="text-[10px] bg-[#FF9800]/10 text-[#FF9800] px-1.5 py-0.5 rounded-full font-medium shrink-0">
+                        <span className="text-[9px] bg-[#FF9800]/10 text-[#FF9800] px-1.5 py-0.5 rounded-full font-semibold shrink-0">
                           Not Friends
                         </span>
                       )}
                     </div>
-                    <span className={`text-[12px] shrink-0 ml-2 ${hasUnread ? 'text-[#00C300] font-bold' : 'text-[#8D8D8D]'}`}>{formatTime(chat.updatedAt)}</span>
+                    <span className={`text-[11px] shrink-0 ml-2 ${
+                      hasUnread ? 'text-[#00C300] font-bold' : 'text-[#ADADAD]'
+                    }`}>{formatTime(chat.updatedAt)}</span>
                   </div>
 
-                  {/* Message preview row */}
+                  {/* Message preview / typing indicator row */}
                   <div className="flex items-center justify-between gap-2">
-                    <div className={`flex items-center gap-1 min-w-0 ${hasUnread ? 'text-[#111111] font-medium' : 'text-[#8D8D8D]'}`}>
-                      {/* Read status checkmarks for sent messages */}
-                      {isLastMsgFromMe && readStatus !== 'none' && (
-                        <span className="shrink-0">
-                          {readStatus === 'read' ? (
-                            <CheckCheck size={14} className="text-[#2196F3]" />
-                          ) : (
-                            <Check size={14} className="text-[#8D8D8D]" />
+                    <div className={`flex items-center gap-1 min-w-0 ${
+                      hasUnread ? 'text-[#111111] font-medium' : 'text-[#ADADAD]'
+                    }`}>
+                      {typingName ? (
+                        <p className="text-[13px] truncate text-[#00C300] italic">{typingName} is typing…</p>
+                      ) : (
+                        <>
+                          {isLastMsgFromMe && readStatus !== 'none' && (
+                            <span className="shrink-0">
+                              {readStatus === 'read' ? (
+                                <CheckCheck size={13} className="text-[#2196F3]" />
+                              ) : (
+                                <Check size={13} className="text-[#ADADAD]" />
+                              )}
+                            </span>
                           )}
-                        </span>
+                          {msgIcon && <span className="text-[#ADADAD]">{msgIcon}</span>}
+                          <p className="text-[13px] truncate">{lastMsgText}</p>
+                        </>
                       )}
-                      {msgIcon && <span className="text-[#8D8D8D]">{msgIcon}</span>}
-                      <p className="text-[14px] truncate">{lastMsgText}</p>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
                       {!isGroup && !isFriend && (
                         <button type="button" onClick={handleAddFriend}
-                          className="px-2.5 py-1 bg-[#00C300] text-white text-[10px] rounded-full font-medium active:bg-[#00A300] transition-colors"
+                          className="px-2.5 py-1 bg-[#00C300] text-white text-[10px] rounded-full font-semibold active:bg-[#00A300] transition-colors tap-scale"
                         >
-                          Add Friend
+                          Add
                         </button>
                       )}
                       {hasUnread && (
-                        <span className="bg-[#FF3B30] text-white text-[11px] font-bold rounded-full min-w-[20px] h-5 flex items-center justify-center px-1.5">
-                          {chat.unreadCount}
+                        <span className="bg-[#FF3B30] text-white text-[11px] font-bold rounded-full min-w-[20px] h-5 flex items-center justify-center px-1.5 badge-pulse">
+                          {(chat.unreadCount ?? 0) > 99 ? '99+' : chat.unreadCount}
                         </span>
                       )}
                       {chat.archived && (
@@ -403,7 +474,7 @@ export default function ChatsPage() {
                             unarchiveChat(chat.id);
                             toast.success('Chat unarchived');
                           }}
-                          className="p-1.5 hover:bg-[#F5F5F5] rounded-full text-[#8D8D8D] transition-colors"
+                          className="p-1.5 hover:bg-[#F5F5F5] rounded-full text-[#ADADAD] transition-colors"
                           title="Unarchive"
                         >
                           <Archive size={14} />
@@ -420,13 +491,12 @@ export default function ChatsPage() {
 
       {/* Floating New Chat Button */}
       <button type="button" onClick={() => navigate('/contacts')}
-        className="absolute bottom-20 right-4 w-14 h-14 bg-[#00C300] text-white rounded-full shadow-lg flex items-center justify-center hover:bg-[#00A300] active:scale-95 transition-all z-30"
+        className="absolute bottom-[76px] right-4 w-14 h-14 bg-[#00C300] text-white rounded-full shadow-xl flex items-center justify-center active:scale-95 transition-all z-30 tap-scale"
         title="New Chat"
+        aria-label="New Chat"
       >
-        <MessageCircle size={24} />
+        <MessageCircle size={22} strokeWidth={2} />
       </button>
-
-      <BottomNav />
     </div>
   );
 }

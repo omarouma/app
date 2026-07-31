@@ -17,6 +17,8 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     // Apply OLED-specific optimizations
     if (settings.theme === 'oled') {
       root.style.setProperty('--background', '0 0% 0%');
+    } else {
+      root.style.removeProperty('--background');
     }
   }, [settings.theme]);
 

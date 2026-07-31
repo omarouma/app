@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, UserPlus, X } from 'lucide-react';
@@ -12,13 +12,19 @@ import { toast } from 'sonner';
 export default function SentRequestsPage() {
   const navigate = useNavigate();
   const { user } = useAuthStore();
-  const { sentRequests, loadingSentRequests, cancelRequest, getSentRequests } = useFriendStore();
+  const { sentRequests, loadingSentRequests, cancelRequest, getSentRequests, subscribeSentRequests } = useFriendStore();
+  const unsubRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
-    if (user?.id) {
+    if (!user?.id) return;
+    // Real-time subscription; fall back to one-shot fetch if store doesn't expose subscribe
+    if (typeof subscribeSentRequests === 'function') {
+      unsubRef.current = subscribeSentRequests(user.id);
+    } else {
       getSentRequests(user.id);
     }
-  }, [user?.id, getSentRequests]);
+    return () => { unsubRef.current?.(); };
+  }, [user?.id, getSentRequests, subscribeSentRequests]);
 
   const handleCancel = async (requestId: string) => {
     try {

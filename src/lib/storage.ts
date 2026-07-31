@@ -19,14 +19,75 @@ export type CloudinaryUploadOpts = {
   contentType?: string;
 };
 
-// ── Cloudinary config (env vars preferred, fallback to hardcoded) ──
-const CLOUDINARY_CLOUD_NAME =
-  import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || 'gagachat';
-const CLOUDINARY_UPLOAD_PRESET =
-  import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET || 'gagachat';
-// API key must be set via env var — do NOT hardcode here (it ships in the browser bundle)
-const CLOUDINARY_API_KEY =
-  import.meta.env.VITE_CLOUDINARY_API_KEY || '';
+// ── Cloudinary config ──
+const CLOUDINARY_CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || '';
+const CLOUDINARY_UPLOAD_PRESET = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET || '';
+
+// ── Upload size limits (aligned with Cloudinary free tier) ──
+export const MAX_UPLOAD_SIZE = 25 * 1024 * 1024; // 25 MB
+export const MAX_IMAGE_SIZE = 10 * 1024 * 1024; // 10 MB
+export const MAX_VIDEO_SIZE = 50 * 1024 * 1024; // 50 MB
+export const MAX_VOICE_SIZE = 5 * 1024 * 1024;  // 5 MB
+export type UploadKind = 'chats' | 'voice' | 'avatars' | 'posts' | 'stories' | 'reels';
+
+/** Validates file size against upload limits. Returns null if valid, or an error string. */
+export function validateFileSize(file: Blob | File, kind?: string): string | null {
+  if (!file || file.size === 0) return 'Cannot upload empty file.';
+  if (file.size > MAX_UPLOAD_SIZE)
+    return `File too large (${(file.size / 1024 / 1024).toFixed(1)}MB). Maximum is ${MAX_UPLOAD_SIZE / 1024 / 1024}MB.`;
+  if (kind === 'avatars' && file.size > MAX_IMAGE_SIZE)
+    return `Image too large (${(file.size / 1024 / 1024).toFixed(1)}MB). Maximum is ${MAX_IMAGE_SIZE / 1024 / 1024}MB.`;
+  if (kind === 'voice' && file.size > MAX_VOICE_SIZE)
+    return `Voice message too large (${(file.size / 1024 / 1024).toFixed(1)}MB). Maximum is ${MAX_VOICE_SIZE / 1024 / 1024}MB.`;
+  if ((kind === 'posts' || kind === 'reels') && file.size > MAX_VIDEO_SIZE)
+    return `Video too large (${(file.size / 1024 / 1024).toFixed(1)}MB). Maximum is ${MAX_VIDEO_SIZE / 1024 / 1024}MB.`;
+  return null;
+}
+
+// ── IndexedDB fallback (preferred over localStorage for binary data) ──
+const IDB_DB_NAME = 'gaga_media';
+const IDB_STORE_NAME = 'blobs';
+
+function openIDB(): Promise<IDBDatabase> {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(IDB_DB_NAME, 1);
+    req.onupgradeneeded = () => req.result.createObjectStore(IDB_STORE_NAME);
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function idbFallback(file: Blob | File): Promise<string> {
+  const id = `${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+  const db = await openIDB();
+  await new Promise<void>((resolve, reject) => {
+    const tx = db.transaction(IDB_STORE_NAME, 'readwrite');
+    tx.objectStore(IDB_STORE_NAME).put(
+      { blob: file, type: file.type, name: (file as File).name || 'file', createdAt: Date.now() },
+      id
+    );
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+  // Return a synthetic URL that callers can resolve via getIDBBlob if needed
+  return `idb://${id}`;
+}
+
+export async function getIDBBlob(idbUrl: string): Promise<Blob | null> {
+  if (!idbUrl.startsWith('idb://')) return null;
+  const id = idbUrl.slice(6);
+  try {
+    const db = await openIDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(IDB_STORE_NAME, 'readonly');
+      const req = tx.objectStore(IDB_STORE_NAME).get(id);
+      req.onsuccess = () => resolve(req.result?.blob ?? null);
+      req.onerror = () => reject(req.error);
+    });
+  } catch {
+    return null;
+  }
+}
 
 // ── LocalStorage fallback key ──
 const LOCAL_STORAGE_KEY = 'gaga_media_fallback';
@@ -106,7 +167,8 @@ async function cloudinaryUpload(
   const form = new FormData();
   form.append('file', file);
   form.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
-  form.append('api_key', CLOUDINARY_API_KEY);
+  // Do NOT send api_key from the client — use an unsigned upload preset instead.
+  // Sending the API key exposes it to all users. Configure an unsigned preset in Cloudinary.
 
   const folder = buildDynamicFolder(opts);
   form.append('folder', folder);
@@ -147,47 +209,29 @@ async function uploadWithFallback(
   file: Blob | File,
   opts: CloudinaryUploadOpts
 ): Promise<string> {
+  if (!file || file.size === 0) throw new Error('Cannot upload empty file.');
+  if (!CLOUDINARY_CLOUD_NAME || !CLOUDINARY_UPLOAD_PRESET) {
+    throw new Error('Cloudinary is not configured. Set VITE_CLOUDINARY_CLOUD_NAME and VITE_CLOUDINARY_UPLOAD_PRESET in .env');
+  }
   try {
-    // Try Cloudinary first
-    const url = await cloudinaryUpload(file, opts);
-    return url;
-  } catch (err: unknown) {
-    const msg = (err as Error)?.message || '';
-    console.warn('[Storage] Cloudinary upload failed:', msg);
-
-    // If it's a 401 / 403 auth error, suggest env var config
-    if (msg.includes('401') || msg.includes('403') || msg.includes('Unknown API key')) {
-      console.warn('[Storage] Cloudinary authentication failed. Check VITE_CLOUDINARY_CLOUD_NAME and VITE_CLOUDINARY_UPLOAD_PRESET in .env');
-    }
-
-    // Try Firebase Storage fallback
+    return await cloudinaryUpload(file, opts);
+  } catch {
     try {
       const fbStorage = getFirebaseStorage();
       if (fbStorage) {
         const folder = buildDynamicFolder(opts);
         const fileName = opts.fileName || `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-        const filePath = `${folder}/${fileName}`;
-        const firebaseUrl = await uploadToFirebaseStorage(filePath, file, opts.contentType);
-        console.log('[Storage] Firebase Storage upload succeeded');
+        const firebaseUrl = await uploadToFirebaseStorage(`${folder}/${fileName}`, file, opts.contentType);
         return firebaseUrl;
       }
-    } catch (fbErr: unknown) {
-      console.warn('[Storage] Firebase Storage fallback failed:', (fbErr as Error)?.message || fbErr);
-    }
-
-    // Try localStorage fallback for small files (avatars, images)
-    if (
-      file.size <= MAX_FALLBACK_SIZE &&
-      inferResourceType(file) === 'image'
-    ) {
-      console.warn('[Storage] Falling back to localStorage base64 for file');
+    } catch { /* ignore */ }
+    try {
+      return await idbFallback(file);
+    } catch { /* ignore */ }
+    if (file.size <= MAX_FALLBACK_SIZE && inferResourceType(file) === 'image') {
       return localStorageFallback(file);
     }
-
-    // Re-throw for large files that can't be stored locally
-    throw new Error(
-      `${msg}\n\nStorage fallback unavailable. Please configure Cloudinary (VITE_CLOUDINARY_CLOUD_NAME, VITE_CLOUDINARY_UPLOAD_PRESET) or Firebase Storage.`
-    );
+    throw new Error(`Upload failed. Please configure Cloudinary.`);
   }
 }
 

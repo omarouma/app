@@ -16,7 +16,8 @@ import { toast } from 'sonner';
 import type { Message, User } from '@/types';
 
 export default function ChatInfoPage() {
-  const { chatId } = useParams<{ chatId: string }>();
+  const _params = useParams();
+  const chatId = (_params as { chatId?: string }).chatId;
   const navigate = useNavigate();
   const { user: currentUser } = useAuthStore();
   const { chats, archiveChat, unarchiveChat, getSharedMedia, setDisappearingMessages, lockChat, unlockChat } = useChatStore();
@@ -34,6 +35,9 @@ export default function ChatInfoPage() {
   const [showDisappearingPicker, setShowDisappearingPicker] = useState(false);
   const [isChatLocked, setIsChatLocked] = useState(false);
   const [showLockConfirm, setShowLockConfirm] = useState(false);
+  const [showUnlockConfirm, setShowUnlockConfirm] = useState(false);
+  const [unlockPinInput, setUnlockPinInput] = useState('');
+  const [unlockPinError, setUnlockPinError] = useState('');
   const [lockPinInput, setLockPinInput] = useState('');
   const [isFavorited, setIsFavorited] = useState(false);
 
@@ -133,15 +137,19 @@ export default function ChatInfoPage() {
 
   const handleClearChat = async () => {
     if (!chatId) return;
-    if (!isFirestoreAvailable()) { toast.error('Offline'); return; }
+    if (!isFirestoreAvailable()) {
+      toast.error('Offline');
+      return;
+    }
+
     setShowClearConfirm(false);
     try {
       // Correct Firestore subcollection path: chats/{chatId}/messages
       const { querySubcollection, deleteSubcollectionDoc, COLLECTIONS } = await import('@/lib/firestore');
       const msgs = await querySubcollection(COLLECTIONS.CHATS, chatId, COLLECTIONS.MESSAGES, []);
-      for (const msg of msgs) {
-        await deleteSubcollectionDoc(COLLECTIONS.CHATS, chatId, COLLECTIONS.MESSAGES, msg.id);
-      }
+      await Promise.all(
+        msgs.map((msg: { id: string }) => deleteSubcollectionDoc(COLLECTIONS.CHATS, chatId, COLLECTIONS.MESSAGES, msg.id)),
+      );
       toast.success('Chat cleared');
       setMessages([]);
     } catch {
@@ -189,12 +197,29 @@ export default function ChatInfoPage() {
   const handleToggleChatLock = async () => {
     if (!chatId || !currentUser) return;
     if (isChatLocked) {
-      await unlockChat(chatId);
-      setIsChatLocked(false);
-      toast.success('Chat unlocked');
+      // G3: require PIN confirmation before unlocking from ChatInfoPage
+      setUnlockPinInput('');
+      setUnlockPinError('');
+      setShowUnlockConfirm(true);
     } else {
       setShowLockConfirm(true);
     }
+  };
+
+  const handleUnlockFromInfo = async () => {
+    const chat = chats.find(c => c.id === chatId);
+    if (!chat?.lockValue) {
+      setUnlockPinError('No PIN configured.');
+      return;
+    }
+    if (unlockPinInput !== chat.lockValue) {
+      setUnlockPinError('Incorrect PIN. Please try again.');
+      return;
+    }
+    await unlockChat(chatId!);
+    setIsChatLocked(false);
+    setShowUnlockConfirm(false);
+    toast.success('Chat unlocked');
   };
 
   const handleLockChat = async (lockType: 'pin' | 'biometric', lockValue: string) => {
@@ -649,6 +674,53 @@ export default function ChatInfoPage() {
                   className="flex-1 py-3 bg-[#00C300] text-white rounded-xl text-sm font-bold"
                 >
                   Lock
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+      {/* Unlock Chat PIN Dialog */}
+      <AnimatePresence>
+        {showUnlockConfirm && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+            onClick={() => setShowUnlockConfirm(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-white rounded-2xl p-6 max-w-sm w-full"
+              onClick={e => e.stopPropagation()}
+            >
+              <h3 className="text-lg font-bold text-[#111111] mb-2">Unlock Chat</h3>
+              <p className="text-[#8D8D8D] text-sm mb-4">Enter your 4-digit PIN to unlock this chat.</p>
+              <input
+                type="password"
+                inputMode="numeric"
+                maxLength={4}
+                value={unlockPinInput}
+                onChange={(e) => { setUnlockPinInput(e.target.value.replace(/\D/g, '').slice(0, 4)); setUnlockPinError(''); }}
+                placeholder="Enter 4-digit PIN"
+                className="w-full bg-[#F5F5F5] rounded-xl px-4 py-3 text-center text-lg font-bold tracking-[0.5em] text-[#111111] focus:outline-none focus:ring-2 focus:ring-[#00C300] placeholder:text-[#8D8D8D] placeholder:tracking-normal placeholder:text-sm mb-2"
+              />
+              {unlockPinError && <p className="text-[#FF3B30] text-xs mb-3">{unlockPinError}</p>}
+              <div className="flex gap-2 mt-2">
+                <button type="button" onClick={() => setShowUnlockConfirm(false)}
+                  className="flex-1 py-3 bg-[#F5F5F5] text-[#111111] rounded-xl text-sm font-bold"
+                >
+                  Cancel
+                </button>
+                <button type="button"
+                  onClick={handleUnlockFromInfo}
+                  disabled={unlockPinInput.length !== 4}
+                  className="flex-1 py-3 bg-[#00C300] text-white rounded-xl text-sm font-bold disabled:opacity-50"
+                >
+                  Unlock
                 </button>
               </div>
             </motion.div>

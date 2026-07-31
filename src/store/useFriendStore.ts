@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { create } from 'zustand';
 import {
   isFirestoreAvailable,
@@ -18,6 +17,14 @@ import type { User, FriendRequest, FriendStatus, SentRequest, BlockedUserRecord,
 import { where, orderBy, limit } from '@/lib/firestore';
 import { toast } from 'sonner';
 
+interface BroadcastListData {
+  id: string;
+  userId: string;
+  name: string;
+  recipientIds: string[];
+  createdAt: Date;
+}
+
 interface FriendStore {
   friends: User[];
   requests: FriendRequest[];
@@ -28,6 +35,8 @@ interface FriendStore {
   loadingBlocked: boolean;
   
   subscribeFriends: (userId: string) => () => void;
+  subscribeSentRequests: (userId: string) => () => void;
+  subscribeBlockedUsers: (userId: string) => () => void;
   sendRequest: (toUserId: string, fromUserId: string) => Promise<void>;
   acceptRequest: (requestId: string) => Promise<void>;
   rejectRequest: (requestId: string) => Promise<void>;
@@ -51,7 +60,7 @@ interface FriendStore {
   getFollowers: (userId: string) => Promise<User[]>;
   getFollowing: (userId: string) => Promise<User[]>;
   createBroadcastList: (userId: string, name: string, recipientIds: string[]) => Promise<string | null>;
-  getBroadcastLists: (userId: string) => Promise<any[]>;
+  getBroadcastLists: (userId: string) => Promise<BroadcastListData[]>;
   deleteBroadcastList: (listId: string) => Promise<void>;
   sendBroadcast: (userId: string, recipientIds: string[], content: string, type?: string, mediaUrl?: string) => Promise<{ sent: number; failed: number }>;
   setGroupAddPrivacy: (userId: string, setting: 'everyone' | 'friends_of_friends' | 'nobody') => Promise<void>;
@@ -70,7 +79,7 @@ const mapUser = (u: Record<string, unknown>): User => ({
   status: (u.status as string) || 'offline',
   statusMessage: (u.statusMessage as string) || '',
   lastSeen: u.lastSeen && typeof u.lastSeen === 'object' && 'toDate' in u.lastSeen
-    ? (u.lastSeen as any).toDate()
+    ? (u.lastSeen as { toDate: () => Date }).toDate()
     : u.lastSeen ? new Date(u.lastSeen as string) : null,
   coins: (u.coins as number) || 0,
   bdtBalance: (u.bdtBalance as number) || 0,
@@ -103,6 +112,22 @@ const mapUser = (u: Record<string, unknown>): User => ({
   contactsOnlyInApp: (u.contactsOnlyInApp as string[]) || [],
 });
 
+// Module-level batch fetch — reused by subscribe callbacks and one-shot getters
+const batchFetchUsers = async (ids: string[]): Promise<User[]> => {
+  if (!ids.length) return [];
+  try {
+    const data = await queryCollection(COLLECTIONS.USERS, [where('id', 'in', ids.slice(0, 30))]);
+    return (data || []).map((u: Record<string, unknown>) => mapUser(u));
+  } catch {
+    const users: User[] = [];
+    for (const id of ids) {
+      const u = await getDocById(COLLECTIONS.USERS, id);
+      if (u) users.push(mapUser(u));
+    }
+    return users;
+  }
+};
+
 export const useFriendStore = create<FriendStore>((set, get) => ({
   friends: [],
   requests: [],
@@ -111,6 +136,67 @@ export const useFriendStore = create<FriendStore>((set, get) => ({
   loadingFriends: true,
   loadingSentRequests: false,
   loadingBlocked: false,
+
+  subscribeSentRequests: (userId: string) => {
+    if (!isFirestoreAvailable()) return () => {};
+    set({ loadingSentRequests: true });
+    if (!userId) { set({ loadingSentRequests: false }); return () => {}; }
+    let unsub: (() => void) | null = null;
+    try {
+      unsub = subscribeToCollection(
+        COLLECTIONS.FRIEND_REQUESTS,
+        [where('fromUserId', '==', userId), where('status', '==', 'pending')],
+        async (data) => {
+          const raw = data || [];
+          const recipientIds = [...new Set(raw.map((d: Record<string, unknown>) => d.toUserId as string).filter(Boolean))];
+          const profiles = await batchFetchUsers(recipientIds);
+          const profileMap = Object.fromEntries(profiles.map((u) => [u.id, u]));
+          const sentRequests: SentRequest[] = raw.map((d: Record<string, unknown>) => ({
+            id: d.id as string,
+            toUserId: d.toUserId as string,
+            status: d.status as SentRequest['status'],
+            toUser: profileMap[d.toUserId as string] || undefined,
+            timestamp: (d.createdAt && typeof d.createdAt === 'object' && 'toDate' in d.createdAt)
+              ? (d.createdAt as { toDate: () => Date }).toDate()
+              : new Date((d.createdAt ?? d.timestamp) as string),
+          }));
+          set({ sentRequests, loadingSentRequests: false });
+        },
+      );
+    } catch { set({ loadingSentRequests: false }); }
+    return () => { if (unsub) unsub(); };
+  },
+
+  subscribeBlockedUsers: (userId: string) => {
+    if (!isFirestoreAvailable()) return () => {};
+    set({ loadingBlocked: true });
+    if (!userId) { set({ loadingBlocked: false }); return () => {}; }
+    let unsub: (() => void) | null = null;
+    try {
+      unsub = subscribeToCollection(
+        COLLECTIONS.BLOCKED_USERS,
+        [where('blockerId', '==', userId)],
+        async (data) => {
+          const raw = data || [];
+          const blockedIds = [...new Set(raw.map((d: Record<string, unknown>) => d.blockedId as string).filter(Boolean))];
+          const profiles = await batchFetchUsers(blockedIds);
+          const profileMap = Object.fromEntries(profiles.map((u) => [u.id, u]));
+          const blockedUsers: BlockedUserRecord[] = raw.map((d: Record<string, unknown>) => ({
+            id: d.id as string,
+            blockerId: d.blockerId as string,
+            blockedId: d.blockedId as string,
+            reason: (d.reason as string) || '',
+            blockedUser: profileMap[d.blockedId as string] || undefined,
+            createdAt: (d.createdAt && typeof d.createdAt === 'object' && 'toDate' in d.createdAt)
+              ? (d.createdAt as { toDate: () => Date }).toDate()
+              : new Date(d.createdAt as string),
+          }));
+          set({ blockedUsers, loadingBlocked: false });
+        },
+      );
+    } catch { set({ loadingBlocked: false }); }
+    return () => { if (unsub) unsub(); };
+  },
 
   subscribeFriends: (userId: string) => {
     if (!isFirestoreAvailable()) {
@@ -124,90 +210,52 @@ export const useFriendStore = create<FriendStore>((set, get) => ({
       return () => {};
     }
 
-    const fetchAll = async () => {
-      try {
-        // Fetch friendships
-        const friendships = await queryCollection(COLLECTIONS.FRIENDSHIPS, [
-          where('userId', '==', userId),
-        ]);
-
-        const friendIds: string[] = (friendships || []).map((f: Record<string, unknown>) => f.friendId as string).filter(Boolean);
-
-        const friends: User[] = [];
-        if (friendIds.length > 0) {
-          for (const fid of friendIds) {
-            const user = await getDocById(COLLECTIONS.USERS, fid);
-            if (user) friends.push(mapUser(user));
-          }
-        }
-
-        // Fetch received requests
-        const reqData = await queryCollection(COLLECTIONS.FRIEND_REQUESTS, [
-          where('toUserId', '==', userId),
-          where('status', '==', 'pending'),
-        ]);
-        const requests: FriendRequest[] = (reqData || []).map((d: any) => ({
-          id: d.id,
-          from: d.fromUserId,
-          to: d.toUserId,
-          status: d.status,
-          timestamp: (d.createdAt ?? d.timestamp) && typeof (d.createdAt ?? d.timestamp) === 'object' && 'toDate' in (d.createdAt ?? d.timestamp)
-            ? (d.createdAt ?? d.timestamp).toDate() : new Date((d.createdAt ?? d.timestamp) as string | number | Date),
-        }));
-
-        // Fetch sent requests
-        const sentData = await queryCollection(COLLECTIONS.FRIEND_REQUESTS, [
-          where('fromUserId', '==', userId),
-          where('status', '==', 'pending'),
-        ]);
-        const sentRequests: SentRequest[] = (sentData || []).map((d: any) => ({
-          id: d.id,
-          toUserId: d.toUserId,
-          status: d.status,
-          timestamp: (d.createdAt ?? d.timestamp) && typeof (d.createdAt ?? d.timestamp) === 'object' && 'toDate' in (d.createdAt ?? d.timestamp)
-            ? (d.createdAt ?? d.timestamp).toDate() : new Date((d.createdAt ?? d.timestamp) as string | number | Date),
-        }));
-
-        // Fetch blocked users
-        const blockedData = await queryCollection(COLLECTIONS.BLOCKED_USERS, [
-          where('blockerId', '==', userId),
-        ]);
-        const blockedUsers: BlockedUserRecord[] = (blockedData || []).map((d: any) => ({
-          id: d.id,
-          blockerId: d.blockerId,
-          blockedId: d.blockedId,
-          reason: d.reason || '',
-          createdAt: d.createdAt && typeof d.createdAt === 'object' && 'toDate' in d.createdAt
-            ? d.createdAt.toDate() : new Date(d.createdAt),
-        }));
-
-        set({ friends, requests, sentRequests, blockedUsers, loadingFriends: false });
-      } catch {
-        set({ loadingFriends: false });
-      }
-    };
-
-    fetchAll();
-
-    // Set up real-time subscriptions
     let unsubFriends: (() => void) | null = null;
     let unsubRequests: (() => void) | null = null;
-    let unsubBlocked: (() => void) | null = null;
 
     try {
-      unsubFriends = subscribeToCollection(COLLECTIONS.FRIENDSHIPS, [where('userId', '==', userId)], () => fetchAll());
-      unsubRequests = subscribeToCollection(COLLECTIONS.FRIEND_REQUESTS, [
-        where('toUserId', '==', userId),
-      ], () => fetchAll());
-      unsubBlocked = subscribeToCollection(COLLECTIONS.BLOCKED_USERS, [where('blockerId', '==', userId)], () => fetchAll());
+      // ── Friends (batch fetch profiles) ──────────────────────────
+      unsubFriends = subscribeToCollection(
+        COLLECTIONS.FRIENDSHIPS,
+        [where('userId', '==', userId)],
+        async (data) => {
+          const friendIds = (data || [])
+            .map((f: Record<string, unknown>) => f.friendId as string)
+            .filter(Boolean);
+          const friends = await batchFetchUsers(friendIds);
+          set({ friends, loadingFriends: false });
+        },
+      );
+
+      // ── Incoming requests (enrich sender profiles inline) ────────
+      unsubRequests = subscribeToCollection(
+        COLLECTIONS.FRIEND_REQUESTS,
+        [where('toUserId', '==', userId), where('status', '==', 'pending')],
+        async (data) => {
+          const raw = data || [];
+          const senderIds = [...new Set(raw.map((d: Record<string, unknown>) => d.fromUserId as string).filter(Boolean))];
+          const senderProfiles = await batchFetchUsers(senderIds);
+          const senderMap = Object.fromEntries(senderProfiles.map((u) => [u.id, u]));
+          const requests: FriendRequest[] = raw.map((d: Record<string, unknown>) => ({
+            id: d.id as string,
+            from: d.fromUserId as string,
+            to: d.toUserId as string,
+            status: d.status as FriendRequest['status'],
+            fromUser: senderMap[d.fromUserId as string] || null,
+            timestamp: (d.createdAt && typeof d.createdAt === 'object' && 'toDate' in d.createdAt)
+              ? (d.createdAt as { toDate: () => Date }).toDate()
+              : new Date((d.createdAt ?? d.timestamp) as string),
+          }));
+          set({ requests });
+        },
+      );
     } catch {
-      // ignore subscription errors
+      set({ loadingFriends: false });
     }
 
     return () => {
       if (unsubFriends) unsubFriends();
       if (unsubRequests) unsubRequests();
-      if (unsubBlocked) unsubBlocked();
     };
   },
 
@@ -232,8 +280,8 @@ export const useFriendStore = create<FriendStore>((set, get) => ({
         // Check mutual friends
         const f1 = await queryCollection(COLLECTIONS.FRIENDSHIPS, [where('userId', '==', fromId)]);
         const f2 = await queryCollection(COLLECTIONS.FRIENDSHIPS, [where('userId', '==', toId)]);
-        const ids1 = new Set((f1 || []).map((f: any) => f.friendId as string));
-        const ids2 = new Set((f2 || []).map((f: any) => f.friendId as string));
+        const ids1 = new Set((f1 || []).map((f: Record<string, unknown>) => f.friendId as string));
+        const ids2 = new Set((f2 || []).map((f: Record<string, unknown>) => f.friendId as string));
         let hasMutual = false;
         ids1.forEach((id) => { if (ids2.has(id as string)) hasMutual = true; });
         if (!hasMutual) return { ok: false, reason: 'friends_of_friends' };
@@ -312,7 +360,7 @@ export const useFriendStore = create<FriendStore>((set, get) => ({
       set((s) => ({
         sentRequests: [...s.sentRequests, { id: reqId, toUserId, status: 'pending', timestamp: new Date() }],
       }));
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Send request error:', err);
       throw err;
     }
@@ -355,7 +403,7 @@ export const useFriendStore = create<FriendStore>((set, get) => ({
         requests: s.requests.filter((r) => r.id !== requestId),
         friends: newFriend ? [...s.friends, newFriend] : [...s.friends],
       }));
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('[FriendStore] Error:', err);
       throw err;
     }
@@ -377,7 +425,7 @@ export const useFriendStore = create<FriendStore>((set, get) => ({
       set((s) => ({
         requests: s.requests.filter((r) => r.id !== requestId),
       }));
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('[FriendStore] Error:', err);
       throw err;
     }
@@ -397,19 +445,23 @@ export const useFriendStore = create<FriendStore>((set, get) => ({
       set((s) => ({
         sentRequests: s.sentRequests.filter((r) => r.id !== requestId),
       }));
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('[FriendStore] Error:', err);
       throw err;
     }
   },
 
   toggleFavorite: async (userId: string, currentUserId: string, currentFavorites: string[]) => {
+    if (!isFirestoreAvailable()) {
+      console.warn('[FriendStore.toggleFavorite] Firestore unavailable');
+      return;
+    }
     try {
       if (!currentUserId) return;
       const isFav = currentFavorites.includes(userId);
       const favorites = isFav ? currentFavorites.filter((f) => f !== userId) : [...currentFavorites, userId];
       await updateDocById(COLLECTIONS.USERS, currentUserId, { favorites });
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('[FriendStore] Error:', err);
       throw err;
     }
@@ -430,7 +482,7 @@ export const useFriendStore = create<FriendStore>((set, get) => ({
       set((s) => ({
         friends: s.friends.filter((f) => f.id !== userId),
       }));
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('[FriendStore] Error:', err);
       throw err;
     }
@@ -449,14 +501,22 @@ export const useFriendStore = create<FriendStore>((set, get) => ({
       await deleteDocById(COLLECTIONS.FRIENDSHIPS, `${blockerId}_${blockedId}`);
       await deleteDocById(COLLECTIONS.FRIENDSHIPS, `${blockedId}_${blockerId}`);
 
-      // Remove any pending requests
-      const reqs = await queryCollection(COLLECTIONS.FRIEND_REQUESTS, []);
-      for (const req of reqs) {
-        if ((req.fromUserId === blockerId && req.toUserId === blockedId) ||
-            (req.fromUserId === blockedId && req.toUserId === blockerId)) {
-          await deleteDocById(COLLECTIONS.FRIEND_REQUESTS, req.id);
-        }
-      }
+      // Remove any pending requests using filtered queries instead of scanning the whole collection
+      const [outgoingReqs, incomingReqs] = await Promise.all([
+        queryCollection(COLLECTIONS.FRIEND_REQUESTS, [
+          where('fromUserId', '==', blockerId),
+          where('toUserId', '==', blockedId),
+        ]),
+        queryCollection(COLLECTIONS.FRIEND_REQUESTS, [
+          where('fromUserId', '==', blockedId),
+          where('toUserId', '==', blockerId),
+        ]),
+      ]);
+      await Promise.all(
+        [...(outgoingReqs || []), ...(incomingReqs || [])].map((req) =>
+          deleteDocById(COLLECTIONS.FRIEND_REQUESTS, req.id)
+        )
+      );
 
       // Insert block record
       await addDocToCollection(COLLECTIONS.BLOCKED_USERS, {
@@ -478,7 +538,7 @@ export const useFriendStore = create<FriendStore>((set, get) => ({
         requests: s.requests.filter((r) => r.from !== blockedId),
         sentRequests: s.sentRequests.filter((r) => r.toUserId !== blockedId),
       }));
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Block user error:', err);
       throw err;
     }
@@ -491,18 +551,19 @@ export const useFriendStore = create<FriendStore>((set, get) => ({
     }
     try {
       if (!blockerId || !blockedId) return;
-      const blocked = await queryCollection(COLLECTIONS.BLOCKED_USERS, []);
-      for (const b of blocked) {
-        if (b.blockerId === blockerId && b.blockedId === blockedId) {
-          await deleteDocById(COLLECTIONS.BLOCKED_USERS, b.id);
-        }
+      const blocked = await queryCollection(COLLECTIONS.BLOCKED_USERS, [
+        where('blockerId', '==', blockerId),
+        where('blockedId', '==', blockedId),
+      ]);
+      for (const b of blocked || []) {
+        await deleteDocById(COLLECTIONS.BLOCKED_USERS, b.id);
       }
 
       // Update user's blockedUsers array
       const blocker = await getDocById(COLLECTIONS.USERS, blockerId);
       const blockedList = ((blocker?.blockedUsers as string[]) || []).filter((id) => id !== blockedId);
       await updateDocById(COLLECTIONS.USERS, blockerId, { blockedUsers: blockedList });
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('[FriendStore] Error:', err);
       throw err;
     }
@@ -517,7 +578,7 @@ export const useFriendStore = create<FriendStore>((set, get) => ({
       if (!reporterId || !reportedId) throw new Error('Invalid report');
       if (reporterId === reportedId) throw new Error('Cannot report yourself');
 
-      await addDocToCollection('userReports', {
+      await addDocToCollection(COLLECTIONS.USER_REPORTS, {
         reporterId,
         reportedId,
         reason: reason || 'spam',
@@ -525,28 +586,36 @@ export const useFriendStore = create<FriendStore>((set, get) => ({
         status: 'pending',
         createdAt: serverTimestamp(),
       });
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Report user error:', err);
       throw err;
     }
   },
 
   getUserById: async (userId: string) => {
-    if (!isFirestoreAvailable()) {
-      console.warn('[FriendStore.getUserById] Firestore unavailable');
-      return null;
-    }
     if (!userId) return null;
+    // Try Firestore first, fall back to Supabase
+    if (isFirestoreAvailable()) {
+      try {
+        const data = await getDocById(COLLECTIONS.USERS, userId);
+        if (data) return mapUser(data);
+      } catch { /* fall through to Supabase */ }
+    }
+    // Supabase fallback
     try {
-      const data = await getDocById(COLLECTIONS.USERS, userId);
-      if (!data) return null;
-      return mapUser(data);
+      const { fetchUserProfile } = await import('@/lib/supabaseAuth');
+      const user = await fetchUserProfile(userId);
+      return user;
     } catch {
       return null;
     }
   },
 
   getFriendStatus: async (currentUserId: string, otherUserId: string): Promise<FriendStatus> => {
+    if (!isFirestoreAvailable()) {
+      console.warn('[FriendStore.getFriendStatus] Firestore unavailable');
+      return 'not_friends';
+    }
     if (!currentUserId || !otherUserId) return 'not_friends';
     if (currentUserId === otherUserId) return 'self';
 
@@ -594,13 +663,12 @@ export const useFriendStore = create<FriendStore>((set, get) => ({
     }
     if (!user1 || !user2) return 0;
     try {
-      const f1 = await queryCollection(COLLECTIONS.FRIENDSHIPS, [where('userId', '==', user1)]);
-      const f2 = await queryCollection(COLLECTIONS.FRIENDSHIPS, [where('userId', '==', user2)]);
-      const ids1 = new Set((f1 || []).map((f: any) => f.friendId as string));
-      const ids2 = new Set((f2 || []).map((f: any) => f.friendId as string));
-      let count = 0;
-      ids1.forEach((id) => { if (ids2.has(id as string)) count++; });
-      return count;
+      const [f1, f2] = await Promise.all([
+        queryCollection(COLLECTIONS.FRIENDSHIPS, [where('userId', '==', user1)]),
+        queryCollection(COLLECTIONS.FRIENDSHIPS, [where('userId', '==', user2)]),
+      ]);
+      const ids2 = new Set((f2 || []).map((f: Record<string, unknown>) => f.friendId as string));
+      return (f1 || []).filter((f: Record<string, unknown>) => ids2.has(f.friendId as string)).length;
     } catch {
       return 0;
     }
@@ -615,18 +683,18 @@ export const useFriendStore = create<FriendStore>((set, get) => ({
     try {
       // Get friends and blocked IDs to exclude
       const friends = await queryCollection(COLLECTIONS.FRIENDSHIPS, [where('userId', '==', userId)]);
-      const friendIds = (friends || []).map((f: any) => f.friendId as string);
+      const friendIds = (friends || []).map((f: Record<string, unknown>) => f.friendId as string);
       const blocked = await queryCollection(COLLECTIONS.BLOCKED_USERS, [where('blockerId', '==', userId)]);
-      const blockedIds = (blocked || []).map((b: any) => b.blockedId as string);
+      const blockedIds = (blocked || []).map((b: Record<string, unknown>) => b.blockedId as string);
       const exclude = [...friendIds, ...blockedIds, userId];
 
       // Get random users excluding the above (limit to 100 for performance)
       const allUsers = await queryCollection(COLLECTIONS.USERS, [limit(100)]);
       const candidates = (allUsers || [])
-        .filter((u: any) => !exclude.includes(u.id))
+        .filter((u: Record<string, unknown>) => !exclude.includes(u.id as string))
         .slice(0, 10);
 
-      return candidates.map((u: any) => ({
+      return candidates.map((u: Record<string, unknown>) => ({
         ...mapUser(u),
         mutualCount: 0,
         score: 0,
@@ -637,11 +705,7 @@ export const useFriendStore = create<FriendStore>((set, get) => ({
   },
 
   getSentRequests: async (userId: string) => {
-    if (!isFirestoreAvailable()) {
-      console.warn('[FriendStore.getSentRequests] Firestore unavailable');
-      return;
-    }
-    if (!userId) return;
+    if (!isFirestoreAvailable() || !userId) return;
     set({ loadingSentRequests: true });
     try {
       const data = await queryCollection(COLLECTIONS.FRIEND_REQUESTS, [
@@ -649,61 +713,44 @@ export const useFriendStore = create<FriendStore>((set, get) => ({
         where('status', '==', 'pending'),
         orderBy('timestamp', 'desc'),
       ]);
-
-      const sentRequests: SentRequest[] = (data || []).map((d: any) => ({
-        id: d.id,
-        toUserId: d.toUserId,
-        status: d.status,
-        timestamp: (d.createdAt ?? d.timestamp) && typeof (d.createdAt ?? d.timestamp) === 'object' && 'toDate' in (d.createdAt ?? d.timestamp)
-          ? (d.createdAt ?? d.timestamp).toDate() : new Date((d.createdAt ?? d.timestamp) as string | number | Date),
+      const raw = data || [];
+      const recipientIds = [...new Set(raw.map((d: Record<string, unknown>) => d.toUserId as string).filter(Boolean))];
+      const profiles = await batchFetchUsers(recipientIds);
+      const profileMap = Object.fromEntries(profiles.map((u) => [u.id, u]));
+      const sentRequests: SentRequest[] = raw.map((d: Record<string, unknown>) => ({
+        id: d.id as string,
+        toUserId: d.toUserId as string,
+        status: d.status as SentRequest['status'],
+        toUser: profileMap[d.toUserId as string] || undefined,
+        timestamp: (d.createdAt && typeof d.createdAt === 'object' && 'toDate' in d.createdAt)
+          ? (d.createdAt as { toDate: () => Date }).toDate()
+          : new Date((d.createdAt ?? d.timestamp) as string),
       }));
-
-      // Fetch user data for each sent request
-      for (const req of sentRequests) {
-        if (req.toUserId) {
-          const user = await getDocById(COLLECTIONS.USERS, req.toUserId);
-          if (user) req.toUser = mapUser(user);
-        }
-      }
-
       set({ sentRequests, loadingSentRequests: false });
-    } catch {
-      set({ loadingSentRequests: false });
-    }
+    } catch { set({ loadingSentRequests: false }); }
   },
 
   getBlockedUsers: async (userId: string) => {
-    if (!isFirestoreAvailable()) {
-      console.warn('[FriendStore.getBlockedUsers] Firestore unavailable');
-      return;
-    }
-    if (!userId) return;
+    if (!isFirestoreAvailable() || !userId) return;
     set({ loadingBlocked: true });
     try {
-      const data = await queryCollection(COLLECTIONS.BLOCKED_USERS, [
-        where('blockerId', '==', userId),
-      ]);
-
-      const blockedUsers: BlockedUserRecord[] = (data || []).map((d: any) => ({
-        id: d.id,
-        blockerId: d.blockerId,
-        blockedId: d.blockedId,
-        reason: d.reason || '',
-        createdAt: d.createdAt && typeof d.createdAt === 'object' && 'toDate' in d.createdAt
-          ? d.createdAt.toDate() : new Date(d.createdAt),
+      const data = await queryCollection(COLLECTIONS.BLOCKED_USERS, [where('blockerId', '==', userId)]);
+      const raw = data || [];
+      const blockedIds = [...new Set(raw.map((d: Record<string, unknown>) => d.blockedId as string).filter(Boolean))];
+      const profiles = await batchFetchUsers(blockedIds);
+      const profileMap = Object.fromEntries(profiles.map((u) => [u.id, u]));
+      const blockedUsers: BlockedUserRecord[] = raw.map((d: Record<string, unknown>) => ({
+        id: d.id as string,
+        blockerId: d.blockerId as string,
+        blockedId: d.blockedId as string,
+        reason: (d.reason as string) || '',
+        blockedUser: profileMap[d.blockedId as string] || undefined,
+        createdAt: (d.createdAt && typeof d.createdAt === 'object' && 'toDate' in d.createdAt)
+          ? (d.createdAt as { toDate: () => Date }).toDate()
+          : new Date(d.createdAt as string),
       }));
-
-      for (const b of blockedUsers) {
-        if (b.blockedId) {
-          const user = await getDocById(COLLECTIONS.USERS, b.blockedId);
-          if (user) b.blockedUser = mapUser(user);
-        }
-      }
-
       set({ blockedUsers, loadingBlocked: false });
-    } catch {
-      set({ loadingBlocked: false });
-    }
+    } catch { set({ loadingBlocked: false }); }
   },
 
   getRecentContacts: async (userId: string) => {
@@ -720,19 +767,13 @@ export const useFriendStore = create<FriendStore>((set, get) => ({
         limit(20),
       ]);
 
-      const otherIds = (chats || []).map((c: any) => {
+      const otherIds = (chats || []).map((c: Record<string, unknown>) => {
         const participants = (c.participants as string[]) || [];
         return participants.find((p) => p !== userId);
       }).filter(Boolean) as string[];
 
       if (otherIds.length === 0) return [];
-
-      const users: User[] = [];
-      for (const id of otherIds) {
-        const user = await getDocById(COLLECTIONS.USERS, id);
-        if (user) users.push(mapUser(user));
-      }
-      return users;
+      return batchFetchUsers(otherIds);
     } catch {
       return [];
     }
@@ -754,8 +795,8 @@ export const useFriendStore = create<FriendStore>((set, get) => ({
         followers: arrayUnion(currentUserId),
       });
       toast.success('Following');
-    } catch (err: any) {
-      toast.error(err.message || 'Failed to follow');
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Failed to follow');
     }
   },
 
@@ -773,8 +814,8 @@ export const useFriendStore = create<FriendStore>((set, get) => ({
         followers: arrayRemove(currentUserId),
       });
       toast.success('Unfollowed');
-    } catch (err: any) {
-      toast.error(err.message || 'Failed to unfollow');
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Failed to unfollow');
     }
   },
 
@@ -791,8 +832,8 @@ export const useFriendStore = create<FriendStore>((set, get) => ({
         : [...currentCloseFriends, userId];
       await updateDocById(COLLECTIONS.USERS, currentUserId, { closeFriends });
       toast.success(isClose ? 'Removed from close friends' : 'Added to close friends');
-    } catch (err: any) {
-      toast.error(err.message || 'Failed to update close friends');
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Failed to update close friends');
     }
   },
 
@@ -806,12 +847,7 @@ export const useFriendStore = create<FriendStore>((set, get) => ({
       const data = await getDocById(COLLECTIONS.USERS, userId);
       if (!data) return [];
       const followerIds = (data.followers as string[]) || [];
-      const users: User[] = [];
-      for (const id of followerIds) {
-        const user = await getDocById(COLLECTIONS.USERS, id);
-        if (user) users.push(mapUser(user));
-      }
-      return users;
+      return batchFetchUsers(followerIds);
     } catch {
       return [];
     }
@@ -827,12 +863,7 @@ export const useFriendStore = create<FriendStore>((set, get) => ({
       const data = await getDocById(COLLECTIONS.USERS, userId);
       if (!data) return [];
       const followingIds = (data.following as string[]) || [];
-      const users: User[] = [];
-      for (const id of followingIds) {
-        const user = await getDocById(COLLECTIONS.USERS, id);
-        if (user) users.push(mapUser(user));
-      }
-      return users;
+      return batchFetchUsers(followingIds);
     } catch {
       return [];
     }
@@ -845,7 +876,7 @@ export const useFriendStore = create<FriendStore>((set, get) => ({
     }
     if (!userId) return null;
     try {
-      const list = await addDocToCollection('broadcast_lists', {
+      const list = await addDocToCollection(COLLECTIONS.BROADCAST_LISTS, {
         userId,
         name,
         recipientIds,
@@ -866,13 +897,15 @@ export const useFriendStore = create<FriendStore>((set, get) => ({
     }
     if (!userId) return [];
     try {
-      const data = await queryCollection('broadcast_lists', [where('userId', '==', userId)]);
-      return (data || []).map((d: any) => ({
-        id: d.id,
-        userId: d.userId,
-        name: d.name || 'Broadcast List',
-        recipientIds: d.recipientIds || [],
-        createdAt: d.createdAt?.toDate?.() || new Date(d.createdAt),
+      const data = await queryCollection(COLLECTIONS.BROADCAST_LISTS, [where('userId', '==', userId)]);
+      return (data || []).map((d: Record<string, unknown>) => ({
+        id: d.id as string,
+        userId: d.userId as string,
+        name: (d.name as string) || 'Broadcast List',
+        recipientIds: (d.recipientIds as string[]) || [],
+        createdAt: (d.createdAt && typeof d.createdAt === 'object' && 'toDate' in d.createdAt)
+          ? (d.createdAt as { toDate: () => Date }).toDate()
+          : new Date(d.createdAt as string),
       }));
     } catch {
       return [];
@@ -885,7 +918,7 @@ export const useFriendStore = create<FriendStore>((set, get) => ({
       return;
     }
     try {
-      await deleteDocById('broadcast_lists', listId);
+      await deleteDocById(COLLECTIONS.BROADCAST_LISTS, listId);
       toast.success('Broadcast list deleted');
     } catch {
       toast.error('Failed to delete broadcast list');

@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
+
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -6,7 +6,7 @@ import {
   ChevronLeft, MoreHorizontal, Mic, Send, Smile, Camera,
   Image as ImageIcon, MapPin, File as FileIcon, User, Plus, Users, Phone, UserPlus, Settings, LogOut,
   Search, X, Copy, Trash2, Reply, Forward, Heart, ThumbsUp, Laugh, Flame, Star,
-  Clock, FileText, ArrowRight, Calendar
+  Clock, FileText, ArrowRight, Calendar, Edit, CheckCircle, Crown
 } from 'lucide-react';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useGroupStore } from '@/store/useGroupStore';
@@ -29,6 +29,15 @@ const reactionEmojis = [
 
 const quickEmojis = ['\u{1F44D}', '\u{2764}', '\u{1F602}', '\u{1F62E}', '\u{1F64F}', '\u{1F525}'];
 
+function formatDateSeparator(date: Date) {
+  const now = new Date();
+  const d = new Date(date);
+  if (d.toDateString() === now.toDateString()) return 'Today';
+  const yesterday = new Date(now); yesterday.setDate(yesterday.getDate() - 1);
+  if (d.toDateString() === yesterday.toDateString()) return 'Yesterday';
+  return d.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
+}
+
 const attachmentOptions = [
   { icon: <ImageIcon size={28} strokeWidth={1.5} />, label: 'Photos', color: 'bg-[#4CAF50]' },
   { icon: <Camera size={28} strokeWidth={1.5} />, label: 'Camera', color: 'bg-[#2196F3]' },
@@ -40,11 +49,12 @@ const attachmentOptions = [
 
 export default function GroupChatPage() {
   const navigate = useNavigate();
-  const { groupId } = useParams<{ groupId: string }>();
+  const _params = useParams();
+  const groupId = (_params as { groupId?: string }).groupId;
   const { user: currentUser } = useAuthStore();
   const {
     groups, groupMessages, subscribeGroupMessages, sendGroupMessage,
-    deleteGroupMessage, addGroupReaction, leaveGroup
+    deleteGroupMessage, deleteGroupMessageForEveryone, addGroupReaction, leaveGroup, editGroupMessage
   } = useGroupStore();
   const { friends } = useFriendStore();
   const { isRecording, duration, startRecording, stopRecording, cancelRecording } = useVoiceRecorder();
@@ -63,9 +73,14 @@ export default function GroupChatPage() {
   const [showSchedulePicker, setShowSchedulePicker] = useState(false);
   const [scheduleDate, setScheduleDate] = useState('');
   const [pendingSchedules, setPendingSchedules] = useState<ReturnType<typeof getPending>>([]);
+  const [showMembersModal, setShowMembersModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingMessage, setEditingMessage] = useState<Message | null>(null);
+  const [editInput, setEditInput] = useState('');
   const { typingUsers, sendTyping, stopTyping } = useTyping(groupId);
   const { queueMessage } = useOfflineQueue();
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  void showEmojiPicker; // reserved for future emoji picker integration
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -74,8 +89,8 @@ export default function GroupChatPage() {
 
   const sendGroupMessageForScheduler = useCallback(
     async (chatId: string, senderId: string, content: string, type?: string, mediaUrl?: string, replyTo?: Message | string) => {
-      const replyId = typeof replyTo === 'string' ? replyTo : replyTo?.id;
-      await sendGroupMessage(chatId, senderId, content, (type || 'text') as any, mediaUrl, replyId);
+      const replyId = (typeof replyTo === 'string' ? replyTo : replyTo?.id) || '';
+      await sendGroupMessage(chatId, senderId, content, type || 'text', mediaUrl, replyId);
     },
     [sendGroupMessage]
   );
@@ -89,14 +104,15 @@ export default function GroupChatPage() {
     return () => clearInterval(interval);
   }, [groupId, getPending]);
 
-  const group = groups.find(g => g.id === groupId);
-  const msgs = groupId ? (groupMessages[groupId] || []) : [];
-  const participants = group?.participants || [];
+  const group = useMemo(() => groups.find(g => g.id === groupId), [groups, groupId]);
+  const msgs = useMemo(() => groupId ? (groupMessages[groupId] || []) : [], [groupMessages, groupId]);
+  const participants = useMemo(() => group?.participants || [], [group]);
   const memberCount = participants.length;
 
-  const filteredMsgs = searchQuery
-    ? msgs.filter(m => m.content.toLowerCase().includes(searchQuery.toLowerCase()))
-    : msgs;
+  const filteredMsgs = useMemo(() =>
+    searchQuery ? msgs.filter(m => m.content.toLowerCase().includes(searchQuery.toLowerCase())) : msgs,
+    [msgs, searchQuery]
+  );
 
   useEffect(() => {
     if (!groupId) return;
@@ -113,13 +129,14 @@ export default function GroupChatPage() {
     }
   }, [msgs.length]);
 
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
+
   // Track scroll position to determine auto-scroll behavior
   useEffect(() => {
-    const container = document.querySelector('.overflow-y-auto');
+    const container = messagesContainerRef.current;
     if (!container) return;
     const handleScroll = () => {
-      const threshold = 100;
-      const atBottom = container.scrollHeight - container.scrollTop - container.clientHeight < threshold;
+      const atBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 100;
       shouldAutoScrollRef.current = atBottom;
     };
     container.addEventListener('scroll', handleScroll, { passive: true });
@@ -132,25 +149,23 @@ export default function GroupChatPage() {
     return () => window.removeEventListener('click', handleClick);
   }, []);
 
-  // Typing indicators: stop when unmounting or clearing input
+  // Stop typing on unmount
   useEffect(() => {
-    if (!input.trim()) stopTyping();
     return () => { stopTyping(); };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [input]);
+  }, [stopTyping]);
 
-  const getSenderName = (senderId: string) => {
+  const getSenderName = useCallback((senderId: string) => {
     if (senderId === 'system') return 'System';
     if (senderId === currentUser?.id) return 'You';
     const f = friends.find(f => f.id === senderId);
     return f?.name || 'Member';
-  };
+  }, [currentUser?.id, friends]);
 
-  const getSenderAvatar = (senderId: string) => {
+  const getSenderAvatar = useCallback((senderId: string) => {
     if (senderId === currentUser?.id) return currentUser?.avatar;
     const f = friends.find(f => f.id === senderId);
     return f?.avatar;
-  };
+  }, [currentUser?.id, currentUser?.avatar, friends]);
 
   const handleSend = async () => {
     if (!input.trim() || !currentUser || !groupId) return;
@@ -180,8 +195,8 @@ export default function GroupChatPage() {
       const { uploadMediaBlob } = await import('@/lib/storage');
       const url = await uploadMediaBlob({ kind: 'chats', chatId: groupId, file, mimeType: file.type });
       await sendGroupMessage(groupId, currentUser.id, mediaType === 'image' ? '\u{1F4F7} Photo' : '\u{1F4F9} Video', mediaType, url);
-    } catch (err) {
-      console.error('Upload error:', err);
+    } catch {
+      toast.error('Failed to upload media');
     }
     setIsUploading(false);
   };
@@ -194,8 +209,8 @@ export default function GroupChatPage() {
       const { uploadMediaBlob } = await import('@/lib/storage');
       const url = await uploadMediaBlob({ kind: 'chats', chatId: groupId, file, mimeType: file.type });
       await sendGroupMessage(groupId, currentUser.id, `\u{1F4C1} ${file.name}`, 'file', url);
-    } catch (err) {
-      console.error('File upload error:', err);
+    } catch {
+      toast.error('Failed to upload file');
     }
     setIsUploading(false);
   };
@@ -209,8 +224,7 @@ export default function GroupChatPage() {
       const file = new File([blob], 'voice-message.webm', { type: 'audio/webm' });
       const url = await uploadMediaBlob({ kind: 'voice', chatId: groupId, file, mimeType: 'audio/webm' });
       await sendGroupMessage(groupId, currentUser.id, '\u{1F3A4} Voice message', 'voice', url);
-    } catch (err) {
-      console.error('Voice upload error:', err);
+    } catch {
       toast.error('Failed to send voice message');
     }
   };
@@ -305,18 +319,22 @@ export default function GroupChatPage() {
     setPendingSchedules(getPending());
   };
 
-  const formatDateSeparator = (date: Date) => {
-    const now = new Date();
-    const d = new Date(date);
-    if (d.toDateString() === now.toDateString()) return 'Today';
-    const yesterday = new Date(now); yesterday.setDate(yesterday.getDate() - 1);
-    if (d.toDateString() === yesterday.toDateString()) return 'Yesterday';
-    return d.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
+  const handleEditMessage = async () => {
+    if (!editingMessage || !groupId) return;
+    try {
+      await editGroupMessage(groupId, editingMessage.id, editInput);
+      toast.success('Message edited');
+      setShowEditModal(false);
+      setEditingMessage(null);
+      setEditInput('');
+    } catch {
+      toast.error('Failed to edit message');
+    }
   };
 
   const menuItems = [
     { icon: UserPlus, label: 'Add Member', action: () => { navigate(`/add-friends`); setShowMenu(false); } },
-    { icon: Users, label: 'View Members', action: () => { toast.info(`${memberCount} members in this group`); setShowMenu(false); } },
+    { icon: Users, label: 'View Members', action: () => { setShowMembersModal(true); setShowMenu(false); } },
     { icon: Settings, label: 'Group Settings', action: () => { if (groupId) { navigate(`/group-info/${groupId}`); } setShowMenu(false); } },
     { icon: LogOut, label: 'Leave Group', action: () => { if (groupId && currentUser) { leaveGroup(groupId, currentUser.id); navigate('/chats'); } } },
   ];
@@ -429,7 +447,7 @@ export default function GroupChatPage() {
       </AnimatePresence>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-4 scrollbar-hide">
+      <div ref={messagesContainerRef} className="flex-1 overflow-y-auto p-4 scrollbar-hide">
         <div className="space-y-4">
           {/* Group info banner */}
           <div className="flex justify-center my-4">
@@ -532,8 +550,8 @@ export default function GroupChatPage() {
                       </div>
                     )}
                     <div className={`text-[10px] mt-1 ${isMe ? 'text-white text-right' : 'text-gray-200'}`}>
-                      {formatTime(msg.timestamp)} {isMe && <span>{msg.read ? '\u2713\u2713' : '\u2713'}</span>}
-                    </div>
+                {formatTime(msg.timestamp)} {msg.edited && '(edited)'} {isMe && <span>{msg.read ? '\u2713\u2713' : '\u2713'}</span>}
+              </div>
                   </div>
                 </motion.div>
 
@@ -698,7 +716,10 @@ export default function GroupChatPage() {
             <input
               ref={inputRef}
               value={input}
-              onChange={(e) => { setInput(e.target.value); sendTyping(); }}
+              onChange={(e) => {
+                setInput(e.target.value);
+                if (e.target.value.trim()) sendTyping(); else stopTyping();
+              }}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); }
               }}
@@ -769,12 +790,152 @@ export default function GroupChatPage() {
               <Forward size={14} /> Forward
             </button>
             {contextMenu.msg.senderId === currentUser?.id && (
-              <button type="button" onClick={() => handleDelete(contextMenu.msg.id)}
-                className="w-full flex items-center gap-2 px-3 py-2 text-sm text-[#FF3B30] hover:bg-[#FF3B30]/10 transition-colors"
-              >
-                <Trash2 size={14} /> Delete
-              </button>
+              <>
+                <button type="button" onClick={() => {
+                  setEditingMessage(contextMenu.msg);
+                  setEditInput(contextMenu.msg.content);
+                  setShowEditModal(true);
+                  setContextMenu(null);
+                }}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-sm text-[#111111] hover:bg-[#F5F5F5] transition-colors"
+                >
+                  <Edit size={14} /> Edit
+                </button>
+                <button type="button" onClick={() => {
+                  if (groupId) {
+                    deleteGroupMessageForEveryone(groupId, contextMenu.msg.id);
+                    toast.success('Message deleted for everyone');
+                    setContextMenu(null);
+                  }
+                }}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-sm text-[#FF3B30] hover:bg-[#FF3B30]/10 transition-colors"
+                >
+                  <Trash2 size={14} /> Delete for Everyone
+                </button>
+                <button type="button" onClick={() => handleDelete(contextMenu.msg.id)}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-sm text-[#FF3B30] hover:bg-[#FF3B30]/10 transition-colors"
+                >
+                  <Trash2 size={14} /> Delete for Me
+                </button>
+              </>
             )}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* View Members Modal */}
+      <AnimatePresence>
+        {showMembersModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+            onClick={() => setShowMembersModal(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-white rounded-2xl p-6 max-w-sm w-full max-h-[80vh] overflow-y-auto"
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-bold text-[#111111] flex items-center gap-2">
+                  <Users size={20} className="text-[#00C300]" /> Group Members
+                </h3>
+                <button type="button" onClick={() => setShowMembersModal(false)} className="text-[#8D8D8D] hover:text-[#111111]">
+                  <X size={20} />
+                </button>
+              </div>
+              <p className="text-[#8D8D8D] text-xs mb-3">{memberCount} members total</p>
+              <div className="space-y-2">
+                {participants.map((pId) => {
+                  const friend = friends.find((f) => f.id === pId);
+                  const isCurrentUser = pId === currentUser?.id;
+                  const isAdmin = group?.admins?.includes(pId);
+                  const name = isCurrentUser ? 'You' : (friend?.name || 'Member');
+                  const avatar = isCurrentUser ? (currentUser?.avatar || '') : (friend?.avatar || '');
+
+                  return (
+                    <div key={pId} className="flex items-center gap-3 p-3 rounded-xl hover:bg-[#F5F5F5] transition-colors">
+                      <div className="w-10 h-10 rounded-full bg-[#F5F5F5] flex items-center justify-center shrink-0 overflow-hidden">
+                        {avatar ? (
+                          <img src={avatar} className="w-full h-full object-cover" alt="User avatar" />
+                        ) : (
+                          <User size={18} className="text-[#8D8D8D]" />
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1">
+                          <p className="text-[#111111] text-sm font-medium truncate">{name}</p>
+                          {isAdmin && (
+                            <Crown size={12} className="text-[#FFD700] fill-[#FFD700]" />
+                          )}
+                        </div>
+                        <p className="text-[#8D8D8D] text-xs truncate">
+                          {isCurrentUser ? 'This is you' : (friend?.statusMessage || 'Member')}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              <button type="button" onClick={() => setShowMembersModal(false)}
+                className="w-full mt-4 py-3 bg-[#F5F5F5] text-[#111111] rounded-xl text-sm font-bold"
+              >
+                Close
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Edit Message Modal */}
+      <AnimatePresence>
+        {showEditModal && editingMessage && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+            onClick={() => setShowEditModal(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-white rounded-2xl p-6 max-w-sm w-full"
+              onClick={e => e.stopPropagation()}
+            >
+              <h3 className="text-lg font-bold text-[#111111] mb-4 flex items-center gap-2">
+                <Edit size={20} className="text-[#8B5CF6]" /> Edit Message
+              </h3>
+              <textarea
+                value={editInput}
+                onChange={(e) => setEditInput(e.target.value)}
+                className="w-full bg-[#F5F5F5] rounded-xl px-3 py-3 text-sm text-[#111111] focus:outline-none focus:ring-2 focus:ring-[#8B5CF6] min-h-[100px]"
+                placeholder="Edit your message..."
+                autoFocus
+              />
+              <div className="flex gap-2 mt-4">
+                <button type="button" onClick={() => {
+                  setShowEditModal(false);
+                  setEditingMessage(null);
+                  setEditInput('');
+                }}
+                  className="flex-1 py-3 bg-[#F5F5F5] text-[#111111] rounded-xl text-sm font-bold"
+                >
+                  Cancel
+                </button>
+                <button type="button" onClick={handleEditMessage}
+                  disabled={!editInput.trim()}
+                  className="flex-1 py-3 bg-[#8B5CF6] text-white rounded-xl text-sm font-bold disabled:opacity-50 flex items-center justify-center gap-1"
+                >
+                  <CheckCircle size={16} /> Save
+                </button>
+              </div>
+            </motion.div>
           </motion.div>
         )}
       </AnimatePresence>

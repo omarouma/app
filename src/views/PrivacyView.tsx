@@ -22,7 +22,7 @@ export default function PrivacyView() {
                 <li><strong>Device Information:</strong> Device type, operating system, and unique device identifiers for security and analytics.</li>
                 <li><strong>Usage Data:</strong> How you interact with the app (features used, time spent) to improve our services.</li>
                 <li><strong>Location Data:</strong> With your permission, we may collect approximate location for regional content and security.</li>
-                <li><strong>Wallet Data:</strong> Gaga Coin balances and BDT transaction records for your in-app wallet.</li>
+                <li><strong>Wallet Data:</strong> Gaga Coin balances and fiat currency transaction records for your in-app wallet.</li>
               </ul>
             </section>
 
@@ -31,7 +31,7 @@ export default function PrivacyView() {
               <p className="mb-2">We use your information to:</p>
               <ul className="list-disc pl-5 space-y-1">
                 <li>Provide, maintain, and improve GaGa Chat services</li>
-                <li>Process Gaga Coin transactions and BDT conversions</li>
+                <li>Process Gaga Coin transactions and fiat currency conversions</li>
                 <li>Ensure platform security and prevent fraud or abuse</li>
                 <li>Communicate with you about updates, security alerts, and support</li>
                 <li>Comply with applicable legal requirements including data protection regulations in your jurisdiction</li>
@@ -90,7 +90,7 @@ export default function PrivacyView() {
             <section>
               <h2 className="text-[#111111] font-semibold text-base mb-3">8. Wallet & Financial Data</h2>
               <p>
-                Gaga Coins and BDT balances are stored securely in our Firebase database. We do not store bank account details or payment card information on our servers. All financial transactions are logged for compliance with applicable financial regulations and anti-money laundering (AML) requirements. Users must be 18+ to use wallet features.
+                Gaga Coins and fiat currency balances are stored securely in our Firebase database. We do not store bank account details or payment card information on our servers. All financial transactions are logged for compliance with applicable financial regulations and anti-money laundering (AML) requirements. Users must be 18+ to use wallet features.
               </p>
             </section>
 

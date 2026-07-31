@@ -23,7 +23,7 @@ export default function TermsView() {
             <section>
               <h2 className="text-[#111111] font-semibold text-base mb-3">2. Eligibility</h2>
               <p>
-                You must be at least 13 years old to use GaGa Chat. Users aged 13-17 must have parental consent. To use wallet features (Gaga Coins and BDT), you must be 18 years or older. By using our services, you represent that you meet these requirements and that the information you provide is accurate.
+                You must be at least 13 years old to use GaGa Chat. Users aged 13-17 must have parental consent. To use wallet features (Gaga Coins and Fiat currency), you must be 18 years or older. By using our services, you represent that you meet these requirements and that the information you provide is accurate.
               </p>
             </section>
 
@@ -88,7 +88,7 @@ export default function TermsView() {
             <section>
               <h2 className="text-[#111111] font-semibold text-base mb-3">9. Limitation of Liability</h2>
               <p>
-                GaGa Chat is provided "as is" without warranties of any kind, express or implied. To the maximum extent permitted by applicable law, we are not liable for any indirect, incidental, special, or consequential damages arising from your use of the service. Our total liability shall not exceed the amount you have paid us in the preceding 12 months, or ৳1,000 if no payment was made.
+                GaGa Chat is provided "as is" without warranties of any kind, express or implied. To the maximum extent permitted by applicable law, we are not liable for any indirect, incidental, special, or consequential damages arising from your use of the service. Our total liability shall not exceed the amount you have paid us in the preceding 12 months, or $10 if no payment was made.
               </p>
             </section>
 

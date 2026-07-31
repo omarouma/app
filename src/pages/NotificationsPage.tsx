@@ -85,8 +85,7 @@ export default function NotificationsPage() {
   const [filterType, setFilterType] = useState<string | 'all'>('all');
   const [showFilter, setShowFilter] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const [selectMode, setSelectMode] = useState(false);
-  const { requestPermission, isSupported, canSend } = usePushNotifications();
+  const [selectMode, setSelectMode] = useState(false); const { requestPermission, isSupported } = usePushNotifications();
 
   const [showSettings, setShowSettings] = useState(false);
   const [mutedTypes, setMutedTypes] = useState<string[]>(() => {
@@ -105,8 +104,20 @@ export default function NotificationsPage() {
 
   useEffect(() => {
     if (!user?.id) return;
-    return subscribe(user.id);
+    const unsub = subscribe(user.id);
+    return () => { if (typeof unsub === 'function') unsub(); };
   }, [user?.id, subscribe]);
+
+  // Clear selection when filter changes to avoid stale selected IDs
+  useEffect(() => {
+    // Avoid setState render loop triggered by React warnings in this effect.
+    // Defer clearing selection to the next frame.
+    const id = window.requestAnimationFrame(() => {
+      setSelectedIds([]);
+    });
+    return () => window.cancelAnimationFrame(id);
+  }, [filterType]);
+
 
   const filtered = useMemo(() => {
     let list = [...notifications];

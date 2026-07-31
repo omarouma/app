@@ -11,7 +11,6 @@ export function isSupabaseConfigured(): boolean {
 
 export function getSupabase(): SupabaseClient {
   if (!isSupabaseConfigured()) {
-    // Return a no-op client so callers don't crash — all operations will fail gracefully
     throw new Error('[Supabase] Not configured. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in .env');
   }
   if (!_client) {
@@ -21,6 +20,7 @@ export function getSupabase(): SupabaseClient {
         autoRefreshToken: true,
         persistSession: true,
         detectSessionInUrl: true,
+        storageKey: 'gaga-auth-token',
       },
     });
   }

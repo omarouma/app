@@ -7,7 +7,7 @@ import {
   ChevronRight, Gift, Coins, Info, QrCode,
   Clock, BarChart3, Hash, Bookmark, Play,
   UserPlus, Calendar, Crown, ShoppingBag, Star, Ban, Search, Users,
-  Radio, Trophy, Sparkles, Mic, Target, Zap, MessageSquare
+  Radio, Trophy, Sparkles, Mic,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useAuth } from '@/context/AuthContext';
@@ -69,7 +69,7 @@ export default function MorePage() {
         {
           icon: Coins,
           label: 'My Wallet',
-          subtitle: `${(wallet?.coins || 0).toLocaleString()} GAGA \u00b7 \u09f3${(wallet?.bdtBalance || 0).toFixed(0)}`,
+          subtitle: `${(wallet?.coins || 0).toLocaleString()} GAGA \u00b7 $${(wallet?.usdBalance || wallet?.bdtBalance || 0).toFixed(2)}`,
           to: '/wallet',
           color: 'text-[#00C300]',
           bg: 'bg-[#00C300]/10',

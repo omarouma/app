@@ -1,0 +1,3 @@
+NOTE: Scheduled dedupe fix implemented by disabling global scheduled checker in src/App.tsx.
+Per-chat hook useScheduledMessages handles sending with processedRef + localStorage removal.
+

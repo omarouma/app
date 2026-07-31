@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Users, Search, UserPlus, Star, StarOff, Trash2, Phone, Video, X, Ban, MessageCircle, QrCode, MapPin } from 'lucide-react';
@@ -8,8 +7,6 @@ import { useFilteredOnline } from '@/hooks/usePresence';
 import { useNavigate } from 'react-router-dom';
 import EmptyState from '@/components/EmptyState';
 import { getDefaultAvatar, sanitizeMediaUrl, formatTime } from '@/lib/utils';
-import { queryCollection } from '@/lib/firestore';
-import { where } from '@/lib/firestore';
 import { toast } from 'sonner';
 
 export default function DesktopContactsView() {
@@ -18,42 +15,23 @@ export default function DesktopContactsView() {
   const {
     friends, requests, sentRequests, blockedUsers,
     loadingFriends, loadingSentRequests, loadingBlocked,
+    subscribeFriends, subscribeSentRequests, subscribeBlockedUsers,
     toggleFavorite, removeFriend, acceptRequest, rejectRequest,
-    cancelRequest, blockUser, unblockUser, getSentRequests, getBlockedUsers
+    cancelRequest, blockUser, unblockUser,
   } = useFriendStore();
   const { filtered: visibleOnline } = useFilteredOnline(user?.id || '', friends);
   const [search, setSearch] = useState('');
   const [tab, setTab] = useState<'all' | 'favorites' | 'requests' | 'sent' | 'blocked'>('all');
   const [actionMenu, setActionMenu] = useState<string | null>(null);
-  const [requestSenders, setRequestSenders] = useState<Record<string, { name: string; username: string; avatar: string }>>({});
 
-  // Load request sender profiles
-  useEffect(() => {
-    if (!requests.length) return;
-    const senderIds = [...new Set(requests.map(r => r.from).filter(Boolean))];
-    if (!senderIds.length) return;
-    let cancelled = false;
-    const load = async () => {
-      try {
-        const data = await queryCollection('users', [where('id', 'in', senderIds)]);
-        if (cancelled || !data) return;
-        const map: Record<string, { name: string; username: string; avatar: string }> = {};
-        data.forEach((u: any) => {
-          map[u.id] = { name: u.name || 'User', username: u.username || '', avatar: u.avatar || '' };
-        });
-        setRequestSenders(map);
-      } catch { /* noop */ }
-    };
-    load();
-    return () => { cancelled = true; };
-  }, [requests]);
-
-  // Load sent requests and blocked users when tabs are active
+  // Real-time subscriptions for all data
   useEffect(() => {
     if (!user?.id) return;
-    if (tab === 'sent') getSentRequests(user.id);
-    else if (tab === 'blocked') getBlockedUsers(user.id);
-  }, [tab, user?.id, getSentRequests, getBlockedUsers]);
+    const unsubFriends = subscribeFriends(user.id);
+    const unsubSent = subscribeSentRequests(user.id);
+    const unsubBlocked = subscribeBlockedUsers(user.id);
+    return () => { unsubFriends(); unsubSent(); unsubBlocked(); };
+  }, [user?.id, subscribeFriends, subscribeSentRequests, subscribeBlockedUsers]);
 
   const filtered = friends.filter(f => {
     const match = f.name?.toLowerCase().includes(search.toLowerCase()) || f.username?.toLowerCase().includes(search.toLowerCase());
@@ -156,22 +134,28 @@ export default function DesktopContactsView() {
                     className="flex items-center gap-3 p-4 bg-[#F5F5F5] rounded-xl"
                   >
                     <img
-                      src={sanitizeMediaUrl(requestSenders[req.from]?.avatar) || getDefaultAvatar(req.from)}
+                      src={sanitizeMediaUrl(req.fromUser?.avatar) || getDefaultAvatar(req.fromUser?.id || req.from)}
                       alt="User avatar"
                       className="w-10 h-10 rounded-full object-cover shrink-0 bg-white"
                       onError={(e) => { (e.target as HTMLImageElement).src = getDefaultAvatar(req.from); }}
                     />
                     <div className="flex-1 min-w-0">
-                      <p className="text-[#111111] text-sm font-medium truncate">{requestSenders[req.from]?.name || 'Loading...'}</p>
-                      <p className="text-[#8D8D8D] text-xs truncate">@{requestSenders[req.from]?.username || 'user'}</p>
+                      <p className="text-[#111111] text-sm font-medium truncate">{req.fromUser?.name || req.from}</p>
+                      <p className="text-[#8D8D8D] text-xs truncate">@{req.fromUser?.username || 'user'}</p>
                     </div>
                     <div className="flex gap-2">
-                      <button type="button" onClick={() => acceptRequest(req.id)}
+                      <button type="button" onClick={async () => {
+                          try { await acceptRequest(req.id); toast.success('Friend request accepted'); }
+                          catch { toast.error('Failed to accept request'); }
+                        }}
                         className="px-4 py-2 bg-[#00C300] text-white text-sm rounded-full font-medium hover:bg-[#00A300] transition-colors"
                       >
                         Accept
                       </button>
-                      <button type="button" onClick={() => rejectRequest(req.id)}
+                      <button type="button" onClick={async () => {
+                          try { await rejectRequest(req.id); toast.success('Request declined'); }
+                          catch { toast.error('Failed to decline request'); }
+                        }}
                         className="px-4 py-2 bg-white text-[#8D8D8D] text-sm rounded-full hover:bg-gray-100 transition-colors"
                       >
                         Decline
@@ -264,7 +248,10 @@ export default function DesktopContactsView() {
                       <p className="text-[#8D8D8D] text-xs">@{record.blockedUser?.username || record.blockedId?.slice(0, 8)}</p>
                       {record.reason && <p className="text-[#8D8D8D] text-[10px] mt-0.5 truncate">Reason: {record.reason}</p>}
                     </div>
-                    <button type="button" onClick={() => unblockUser(record.blockedId, user?.id || '')}
+                    <button type="button" onClick={async () => {
+                        try { await unblockUser(record.blockedId, user?.id || ''); toast.success('User unblocked'); }
+                        catch { toast.error('Failed to unblock user'); }
+                      }}
                       className="flex items-center gap-1 px-3 py-1.5 bg-white text-[#00C300] text-xs rounded-full font-medium hover:bg-gray-100 transition-colors"
                     >
                       <UserPlus size={12} /> Unblock
@@ -336,7 +323,6 @@ export default function DesktopContactsView() {
                         </div>
                       </button>
 
-                      {/* Action Menu */}
                       <AnimatePresence>
                         {showMenu && (
                           <motion.div

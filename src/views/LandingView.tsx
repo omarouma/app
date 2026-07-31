@@ -84,10 +84,7 @@ export default function LandingView() {
                 <span className="w-2 h-2 rounded-full bg-[#00C300] animate-pulse" />
                 <span className="text-[#00C300] text-sm font-medium">Early Access — Be a Founding User</span>
               </motion.div>
-              <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}
-                className="inline-flex items-center gap-2 bg-[#FF9800]/10 border border-[#FF9800]/20 rounded-full px-4 py-1.5 mb-6">
-                <span className="text-[#FF9800] text-sm font-medium">{t('madeInBangladesh')}</span>
-              </motion.div>
+
               <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-[#111111] leading-tight mb-6">
                 {t('welcome')}
               </h1>
@@ -257,7 +254,7 @@ export default function LandingView() {
                 >
                   Explore Creator Center <ArrowRight size={16} />
                 </button>
-                <button type="button" onClick={() => navigate('/auth', { state: { creatorSignup: true } })}
+                <button type="button" onClick={() => navigate('/auth')}
                   className="bg-white border-2 border-[#EBEBEB] hover:border-[#00C300] text-[#111111] rounded-full px-8 py-3 text-sm font-bold transition-colors inline-flex items-center justify-center gap-2"
                 >
                   Become a Creator
@@ -285,7 +282,7 @@ export default function LandingView() {
                 <div className="grid grid-cols-2 gap-3 py-4">
                   {[
                     { label: 'Followers', value: '12.5K', color: '#00C300' },
-                    { label: 'Earnings', value: '\u09f345,200', color: '#FF9800' },
+                    { label: 'Earnings', value: '$45,200', color: '#FF9800' },
                     { label: 'Views', value: '482K', color: '#2196F3' },
                     { label: 'Engagement', value: '8.4%', color: '#8B5CF6' },
                   ].map((stat) => (
@@ -363,6 +360,9 @@ export default function LandingView() {
               <motion.div key={i} initial={{ opacity: 0, y: 10 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: i * 0.05 }}>
                 <button
                   type="button"
+                  id={`faq-button-${i}`}
+                  aria-expanded={openFaq === i}
+                  aria-controls={`faq-panel-${i}`}
                   onClick={() => setOpenFaq(openFaq === i ? null : i)}
                   className={`w-full text-left bg-[#F5F5F5] border rounded-2xl p-5 transition-all ${openFaq === i ? 'border-[#00C300]/30 bg-white shadow-sm' : 'border-[#EBEBEB] hover:border-[#00C300]/20'}`}
                 >
@@ -373,6 +373,9 @@ export default function LandingView() {
                   <AnimatePresence>
                     {openFaq === i && (
                       <motion.div
+                        id={`faq-panel-${i}`}
+                        role="region"
+                        aria-labelledby={`faq-button-${i}`}
                         initial={{ height: 0, opacity: 0 }}
                         animate={{ height: 'auto', opacity: 1 }}
                         exit={{ height: 0, opacity: 0 }}
@@ -405,7 +408,7 @@ export default function LandingView() {
           </motion.div>
 
           <div className="overflow-x-auto -mx-4 px-4">
-            <div className="min-w-[600px]">
+            <div className="min-w-full sm:min-w-[600px]">
               <div className="grid grid-cols-4 gap-3 mb-3">
                 <div className="text-sm font-semibold text-[#8D8D8D] p-3">Feature</div>
                 <div className="text-sm font-bold text-[#00C300] p-3 bg-[#00C300]/5 rounded-xl text-center">GaGa Chat</div>
@@ -445,7 +448,7 @@ export default function LandingView() {
           </div>
 
           <motion.div initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }} className="text-center mt-8">
-            <p className="text-[#8D8D8D] text-xs">Comparison based on publicly available features as of 2026. Features may change over time.</p>
+            <p className="text-[#8D8D8D] text-xs">Comparison based on publicly available features as of 2025. Features may change over time.</p>
           </motion.div>
         </div>
       </section>
@@ -664,7 +667,7 @@ export default function LandingView() {
             >
               {t('getStarted')} <ArrowRight size={20} />
             </button>
-            <button type="button" onClick={() => navigate('/auth', { state: { invite: true } })}
+            <button type="button" onClick={() => navigate('/auth')}
               className="bg-white border-2 border-[#EBEBEB] hover:border-[#00C300] text-[#111111] rounded-full px-10 py-4 text-lg font-bold transition-colors inline-flex items-center justify-center gap-2"
             >
               <Users size={20} /> Invite Friends

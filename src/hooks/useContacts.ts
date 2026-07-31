@@ -1,10 +1,16 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { toast } from 'sonner';
 
 interface Contact {
   name: string[];
   email?: string[];
   tel?: string[];
+}
+
+interface NavigatorWithContacts extends Navigator {
+  contacts: {
+    select: (props: string[], opts: { multiple: boolean }) => Promise<Contact[]>;
+  };
 }
 
 interface ContactResult {
@@ -20,13 +26,13 @@ export function useContacts(): ContactResult {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Check if Contacts API is supported
-  const isSupported =
-    typeof navigator !== 'undefined' &&
-    'contacts' in navigator &&
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    !!(navigator as any).contacts?.select;
-
+  const isSupported = useMemo(
+    () =>
+      typeof navigator !== 'undefined' &&
+      'contacts' in navigator &&
+      !!(navigator as NavigatorWithContacts).contacts?.select,
+    []
+  );
 
   const selectContacts = useCallback(async () => {
     if (!isSupported) {
@@ -37,16 +43,16 @@ export function useContacts(): ContactResult {
 
     setLoading(true);
     setError(null);
+    setContacts([]);
 
     try {
-      const props = ['name', 'email', 'tel'];
-      const opts = { multiple: true };
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const results = await (navigator as any).contacts.select(props, opts);
-      
-      if (results && results.length > 0) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const parsed: Contact[] = results.map((c: any) => ({
+      const results = await (navigator as NavigatorWithContacts).contacts.select(
+        ['name', 'email', 'tel'],
+        { multiple: true }
+      );
+
+      if (results?.length > 0) {
+        const parsed: Contact[] = results.map((c) => ({
           name: c.name || [],
           email: c.email || [],
           tel: c.tel || [],

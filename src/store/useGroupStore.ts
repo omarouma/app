@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
+
 import { create } from 'zustand';
 import {
   isFirestoreAvailable,
@@ -8,13 +8,13 @@ import {
   deleteDocById,
   addDocToCollection,
   addDocToSubcollection,
-  queryCollection,
   querySubcollection,
   updateSubcollectionDoc,
   deleteSubcollectionDoc,
   subscribeToCollection,
   subscribeToSubcollection,
   serverTimestamp,
+  increment,
 } from '@/lib/firestore';
 import type { Chat, Message, GroupData } from '@/types';
 import { where, orderBy, limit } from '@/lib/firestore';
@@ -34,6 +34,7 @@ interface GroupStore {
   sendGroupMessage: (groupId: string, senderId: string, content: string, type?: string, mediaUrl?: string, replyTo?: string) => Promise<void>;
   subscribeGroupMessages: (groupId: string) => () => void;
   deleteGroupMessage: (groupId: string, messageId: string) => Promise<void>;
+  deleteGroupMessageForEveryone: (groupId: string, messageId: string) => Promise<void>;
   editGroupMessage: (groupId: string, messageId: string, content: string) => Promise<void>;
   addGroupReaction: (groupId: string, messageId: string, emoji: string, userId: string) => Promise<void>;
   deleteGroup: (groupId: string) => Promise<void>;
@@ -46,73 +47,41 @@ export const useGroupStore = create<GroupStore>((set) => ({
   loading: true,
 
   subscribeGroups: (userId: string) => {
+    if (!userId) { set({ groups: [], loading: false }); return () => {}; }
+    if (!isFirestoreAvailable()) { set({ groups: [], loading: false }); return () => {}; }
     set({ loading: true });
-    if (!userId) {
-      set({ groups: [], loading: false });
-      return () => {};
-    }
-    if (!isFirestoreAvailable()) {
-      set({ groups: [], loading: false });
-      return () => {};
-    }
 
-    const fetchGroups = async () => {
-      try {
-        const data = await queryCollection(COLLECTIONS.CHATS, [
+    // Single real-time subscription — no redundant initial fetch
+    let unsub: (() => void) | null = null;
+    try {
+      unsub = subscribeToCollection(
+        COLLECTIONS.CHATS,
+        [
           where('type', '==', 'group'),
           where('participants', 'array-contains', userId),
           orderBy('updatedAt', 'desc'),
           limit(50),
-        ]);
-
-        const groups: Chat[] = (data || []).map((d: any) => ({
-          id: d.id,
-          type: 'group',
-          participants: d.participants || [],
-          name: d.name || 'Group',
-          avatar: d.avatar || '',
-          lastMessage: d.lastMessage || '',
-          updatedAt: d.updatedAt || '',
-          unreadCount: d.unreadCount || 0,
-          isMuted: d.isMuted || false,
-          admins: d.admins || [],
-          createdBy: d.createdBy || '',
-          description: d.description || '',
-        }));
-
-        set({ groups, loading: false });
-      } catch {
-        set({ loading: false });
-      }
-    };
-
-    fetchGroups();
-
-    let unsub: (() => void) | null = null;
-    try {
-      unsub = subscribeToCollection(COLLECTIONS.CHATS, [
-        where('type', '==', 'group'),
-        where('participants', 'array-contains', userId),
-        orderBy('updatedAt', 'desc'),
-      ], (data) => {
-        const groups: Chat[] = (data || []).map((d: any) => ({
-          id: d.id,
-          type: 'group',
-          participants: d.participants || [],
-          name: d.name || 'Group',
-          avatar: d.avatar || '',
-          lastMessage: d.lastMessage || '',
-          updatedAt: d.updatedAt || '',
-          unreadCount: d.unreadCount || 0,
-          isMuted: d.isMuted || false,
-          admins: d.admins || [],
-          createdBy: d.createdBy || '',
-          description: d.description || '',
-        }));
-        set({ groups, loading: false });
-      });
+        ],
+        (data) => {
+          const groups: Chat[] = (data || []).map((d: Record<string, unknown>) => ({
+            id: d.id as string,
+            type: 'group',
+            participants: (d.participants as string[]) || [],
+            name: (d.name as string) || 'Group',
+            avatar: (d.avatar as string) || '',
+            lastMessage: (d.lastMessage as string | Message) || '',
+            updatedAt: (d.updatedAt as string | Date) || '',
+            unreadCount: (d.unreadCount as number) || 0,
+            isMuted: (d.isMuted as boolean) || false,
+            admins: (d.admins as string[]) || [],
+            createdBy: (d.createdBy as string) || '',
+            description: (d.description as string) || '',
+          }));
+          set({ groups, loading: false });
+        },
+      );
     } catch {
-      // ignore
+      set({ loading: false });
     }
 
     return () => { if (unsub) unsub(); };
@@ -192,20 +161,22 @@ export const useGroupStore = create<GroupStore>((set) => ({
       const admins = (chat.admins || []).filter((a: string) => a !== userId);
 
       if (participants.length === 0) {
-        await deleteDocById(COLLECTIONS.CHATS, groupId);
         const msgs = await querySubcollection(COLLECTIONS.CHATS, groupId, COLLECTIONS.MESSAGES, []);
-        for (const msg of msgs) {
-          await deleteSubcollectionDoc(COLLECTIONS.CHATS, groupId, COLLECTIONS.MESSAGES, msg.id);
-        }
+        await Promise.all([
+          deleteDocById(COLLECTIONS.CHATS, groupId),
+          ...msgs.map((msg) => deleteSubcollectionDoc(COLLECTIONS.CHATS, groupId, COLLECTIONS.MESSAGES, msg.id)),
+        ]);
       } else {
-        await updateDocById(COLLECTIONS.CHATS, groupId, { participants, admins, updatedAt: serverTimestamp() });
-        await addDocToSubcollection(COLLECTIONS.CHATS, groupId, COLLECTIONS.MESSAGES, {
-          chatId: groupId,
-          senderId: 'system',
-          content: 'A member left the group',
-          type: 'system',
-          timestamp: serverTimestamp(),
-        });
+        await Promise.all([
+          updateDocById(COLLECTIONS.CHATS, groupId, { participants, admins, updatedAt: serverTimestamp() }),
+          addDocToSubcollection(COLLECTIONS.CHATS, groupId, COLLECTIONS.MESSAGES, {
+            chatId: groupId,
+            senderId: 'system',
+            content: 'A member left the group',
+            type: 'system',
+            timestamp: serverTimestamp(),
+          }),
+        ]);
       }
     } catch {
       return;
@@ -241,10 +212,11 @@ export const useGroupStore = create<GroupStore>((set) => ({
       if (replyTo) msgData.replyTo = replyTo;
 
       await addDocToSubcollection(COLLECTIONS.CHATS, groupId, COLLECTIONS.MESSAGES, msgData);
+      const safeContent = typeof content === 'string' ? content.slice(0, 4000) : '';
       await updateDocById(COLLECTIONS.CHATS, groupId, {
-        lastMessage: content,
+        lastMessage: safeContent,
         updatedAt: serverTimestamp(),
-        unreadCount: { _increment: 1 },
+        unreadCount: increment(1),
       });
     } catch {
       return;
@@ -255,6 +227,18 @@ export const useGroupStore = create<GroupStore>((set) => ({
     if (!isFirestoreAvailable()) { return; }
     try {
       await deleteSubcollectionDoc(COLLECTIONS.CHATS, _groupId, COLLECTIONS.MESSAGES, messageId);
+    } catch {
+      return;
+    }
+  },
+
+  deleteGroupMessageForEveryone: async (_groupId, messageId) => {
+    if (!isFirestoreAvailable()) { return; }
+    try {
+      await updateSubcollectionDoc(COLLECTIONS.CHATS, _groupId, COLLECTIONS.MESSAGES, messageId, {
+        type: 'deleted',
+        content: 'This message was deleted',
+      });
     } catch {
       return;
     }
@@ -273,8 +257,7 @@ export const useGroupStore = create<GroupStore>((set) => ({
     if (!isFirestoreAvailable()) { return; }
     try {
       if (!userId) return;
-      const msgs = await querySubcollection(COLLECTIONS.CHATS, _groupId, COLLECTIONS.MESSAGES, []);
-      const found = msgs.find((m: any) => m.id === messageId);
+      const found = await getDocById(`${COLLECTIONS.CHATS}/${_groupId}/${COLLECTIONS.MESSAGES}`, messageId);
       if (!found) return;
       const reactions = (found.reactions as Record<string, string[]>) || {};
       const users = reactions[emoji] || [];
@@ -288,8 +271,7 @@ export const useGroupStore = create<GroupStore>((set) => ({
   },
 
   subscribeGroupMessages: (groupId: string) => {
-    if (!groupId) return () => {};
-    if (!isFirestoreAvailable()) { return () => {}; }
+    if (!groupId || !isFirestoreAvailable()) return () => {};
 
     const mapMsg = (d: Record<string, unknown>): Message => ({
       id: d.id as string,
@@ -298,7 +280,7 @@ export const useGroupStore = create<GroupStore>((set) => ({
       content: (d.content as string) || '',
       type: (d.type as Message['type']) || 'text',
       mediaUrl: (d.mediaUrl as string) || '',
-      timestamp: ((rawTs: any) => rawTs && typeof rawTs === 'object' && 'toDate' in rawTs ? rawTs.toDate() : rawTs ? new Date(rawTs as string) : new Date())(d.createdAt ?? d.timestamp),
+      timestamp: ((rawTs: unknown) => rawTs && typeof rawTs === 'object' && 'toDate' in rawTs ? (rawTs as { toDate(): Date }).toDate() : rawTs ? new Date(rawTs as string) : new Date())(d.createdAt ?? d.timestamp),
       read: (d.read as boolean) || false,
       edited: (d.edited as boolean) || false,
       reactions: (d.reactions as Record<string, string[]>) || {},
@@ -308,26 +290,11 @@ export const useGroupStore = create<GroupStore>((set) => ({
       transferData: d.transferData as Message['transferData'],
     });
 
-    const fetchInitial = async () => {
-      try {
-        const data = await querySubcollection(COLLECTIONS.CHATS, groupId, COLLECTIONS.MESSAGES, [
-          orderBy('timestamp', 'asc'),
-          limit(50),
-        ]);
-
-        const msgs: Message[] = (data || []).map((d: any) => mapMsg(d));
-        set((s) => ({ groupMessages: { ...s.groupMessages, [groupId]: msgs } }));
-      } catch {
-        // ignore
-      }
-    };
-
-    fetchInitial();
-
+    // Single real-time subscription — no redundant initial fetch
     let unsub: (() => void) | null = null;
     try {
-      unsub = subscribeToSubcollection(COLLECTIONS.CHATS, groupId, COLLECTIONS.MESSAGES, [orderBy('timestamp', 'asc')], (data) => {
-        const msgs: Message[] = (data || []).map((d: any) => mapMsg(d));
+      unsub = subscribeToSubcollection(COLLECTIONS.CHATS, groupId, COLLECTIONS.MESSAGES, [orderBy('timestamp', 'asc'), limit(50)], (data) => {
+        const msgs: Message[] = (data || []).map((d: Record<string, unknown>) => mapMsg(d));
         set((s) => ({ groupMessages: { ...s.groupMessages, [groupId]: msgs } }));
       });
     } catch {
@@ -341,10 +308,10 @@ export const useGroupStore = create<GroupStore>((set) => ({
     if (!isFirestoreAvailable()) { return; }
     try {
       const msgs = await querySubcollection(COLLECTIONS.CHATS, groupId, COLLECTIONS.MESSAGES, []);
-      for (const msg of msgs) {
-        await deleteSubcollectionDoc(COLLECTIONS.CHATS, groupId, COLLECTIONS.MESSAGES, msg.id);
-      }
-      await deleteDocById(COLLECTIONS.CHATS, groupId);
+      await Promise.all([
+        deleteDocById(COLLECTIONS.CHATS, groupId),
+        ...msgs.map((msg) => deleteSubcollectionDoc(COLLECTIONS.CHATS, groupId, COLLECTIONS.MESSAGES, msg.id)),
+      ]);
     } catch {
       return;
     }

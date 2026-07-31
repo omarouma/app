@@ -1,18 +1,43 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronUp } from 'lucide-react';
 
-export default function ScrollToTop() {
+interface ScrollToTopProps {
+  scrollContainerRef?: React.RefObject<HTMLElement>;
+}
+
+export default function ScrollToTop({ scrollContainerRef }: ScrollToTopProps) {
   const [visible, setVisible] = useState(false);
+  const savedScrollContainerRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
-    const handleScroll = () => setVisible(window.scrollY > 400);
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
+    const scrollContainer = scrollContainerRef?.current || (typeof window !== 'undefined' ? window : null);
+    savedScrollContainerRef.current = scrollContainer as HTMLElement | null;
+
+    if (!scrollContainer) return;
+
+    const handleScroll = () => {
+      const scrollY = scrollContainer === window 
+        ? window.scrollY 
+        : (scrollContainer as HTMLElement).scrollTop;
+      setVisible(scrollY > 400);
+    };
+
+    (scrollContainer as EventTarget).addEventListener('scroll', handleScroll, { passive: true });
+    handleScroll(); // Check initial scroll position
+
+    return () => {
+      (scrollContainer as EventTarget).removeEventListener('scroll', handleScroll);
+    };
+  }, [scrollContainerRef]);
 
   const scrollToTop = () => {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    const scrollContainer = savedScrollContainerRef.current || window;
+    if (scrollContainer === window) {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } else {
+      (scrollContainer as HTMLElement).scrollTo({ top: 0, behavior: 'smooth' });
+    }
   };
 
   return (

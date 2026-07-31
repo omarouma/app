@@ -35,6 +35,8 @@ const defaultSettings: ThemeSettings = {
     quietHours: false,
     quietHoursStart: '22:00',
     quietHoursEnd: '07:00',
+    soundProfile: 'gaga' as const,
+    vibrationEnabled: true,
   },
   privacy: {
     lastSeen: 'everyone',
@@ -89,22 +91,17 @@ export const useUserSettings = create<SettingsStore>()(
         const newSettings = mergeSettings(get().settings, partial);
         set({ settings: newSettings });
 
-        // Sync to Firestore if available
         if (isFirestoreAvailable()) {
           try {
-            const userId = localStorage.getItem('gaga_current_user_id');
+            // Dynamic import to avoid circular dependency with useAuthStore
+            const { useAuthStore } = await import('@/store/useAuthStore');
+            const userId = useAuthStore.getState().user?.id;
             if (userId) {
               const columnUpdates: Record<string, any> = { settings: newSettings };
               const privacy = newSettings.privacy as any;
-              if (privacy?.whoCanSendRequests !== undefined) {
-                columnUpdates.friendRequestPrivacy = privacy.whoCanSendRequests;
-              }
-              if (privacy?.hideFriendList !== undefined) {
-                columnUpdates.hideFriendList = privacy.hideFriendList;
-              }
-              if (privacy?.hideOnlineStatus !== undefined) {
-                columnUpdates.hideOnlineStatus = privacy.hideOnlineStatus;
-              }
+              if (privacy?.whoCanSendRequests !== undefined) columnUpdates.friendRequestPrivacy = privacy.whoCanSendRequests;
+              if (privacy?.hideFriendList !== undefined) columnUpdates.hideFriendList = privacy.hideFriendList;
+              if (privacy?.hideOnlineStatus !== undefined) columnUpdates.hideOnlineStatus = privacy.hideOnlineStatus;
               await setDocById(COLLECTIONS.USERS, userId, columnUpdates);
             }
           } catch {
@@ -148,31 +145,9 @@ export const useUserSettings = create<SettingsStore>()(
 
 export const useSoundStore = create<{ playSound: (type: string) => void }>(() => ({
   playSound: (type: string) => {
-    // Simple sound player using Web Audio API
-    try {
-      const ctx = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-
-      if (type === 'MESSAGE_RECEIVED') {
-        osc.frequency.setValueAtTime(800, ctx.currentTime);
-        osc.frequency.setValueAtTime(1200, ctx.currentTime + 0.1);
-        gain.gain.setValueAtTime(0.1, ctx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
-        osc.start(ctx.currentTime);
-        osc.stop(ctx.currentTime + 0.3);
-      } else if (type === 'CALL_INCOMING') {
-        osc.frequency.setValueAtTime(600, ctx.currentTime);
-        osc.frequency.setValueAtTime(800, ctx.currentTime + 0.2);
-        gain.gain.setValueAtTime(0.1, ctx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5);
-        osc.start(ctx.currentTime);
-        osc.stop(ctx.currentTime + 0.5);
-      }
-    } catch {
-      // Audio not supported
-    }
+    import('@/lib/sounds').then(({ safePlay, playMessageReceived, playNotification, vibrateMessageReceived, vibrateNotification }) => {
+      if (type === 'MESSAGE_RECEIVED') safePlay(playMessageReceived, vibrateMessageReceived);
+      else if (type === 'CALL_INCOMING') safePlay(playNotification, vibrateNotification);
+    }).catch(() => {});
   },
 }));

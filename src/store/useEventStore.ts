@@ -64,7 +64,7 @@ function mapEvent(d: Record<string, unknown>): EventData {
     invited: (d.invited as string[]) || [],
     privacy: (d.privacy as 'public' | 'friends' | 'private') || 'public',
     cost: (d.cost as number) || undefined,
-    currency: (d.currency as 'BDT' | 'USD') || undefined,
+    currency: (d.currency as 'USD' | 'BDT') || 'USD',
     isOnline: (d.isOnline as boolean) || false,
     onlineLink: (d.onlineLink as string) || undefined,
     category: (d.category as string) || undefined,

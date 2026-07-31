@@ -40,16 +40,17 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
 
 
   const startCall = useCallback(async (targetUser: { id: string; currentUserId?: string }, mode: 'video' | 'voice') => {
+    if (!targetUser.currentUserId) return;
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: true,
         video: mode === 'video',
       });
       setLocalStream(stream);
-    } catch (err) {
-      console.error('Media error:', err);
+    } catch {
+      // media access denied — call proceeds without local stream
     }
-    return _startCall(targetUser.id, targetUser.currentUserId || '', mode);
+    return _startCall(targetUser.id, targetUser.currentUserId, mode);
   }, [_startCall]);
 
   const acceptCall = useCallback(async () => {
@@ -59,8 +60,8 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
         video: callTypeRef.current === 'video',
       });
       setLocalStream(stream);
-    } catch (err) {
-      console.error('Media error:', err);
+    } catch {
+      // media access denied — call proceeds without local stream
     }
     await _acceptCall();
   }, [_acceptCall]);

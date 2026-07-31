@@ -1,24 +1,44 @@
 import { useEffect, useCallback } from 'react';
 import { pushNotificationService } from '@/services/pushNotificationService';
 import { useAuthStore } from '@/store/useAuthStore';
+import { getSupabaseSafe } from '@/lib/supabase';
+
+async function savePushSubscription(userId: string, sub: PushSubscription) {
+  const supabase = getSupabaseSafe();
+  if (!supabase) return;
+  try {
+    await supabase
+      .from('users')
+      .update({ push_subscription: JSON.stringify(sub) })
+      .eq('id', userId);
+  } catch { /* ignore */ }
+}
 
 export function usePushNotifications() {
-  const { user } = useAuthStore();
+  const user = useAuthStore((s) => s.user);
 
   const init = useCallback(async () => {
-    const supported = await pushNotificationService.init();
-    if (supported && Notification.permission === 'default') {
-      // Don't auto-request — let user trigger via UI
-    }
+    await pushNotificationService.init();
   }, []);
 
   useEffect(() => {
-    init();
-  }, [init]);
+    if (!user?.id) return;
+    init().then(async () => {
+      if (Notification.permission !== 'granted') return;
+      const sub = await pushNotificationService.subscribeToPush();
+      if (sub) await savePushSubscription(user.id, sub);
+    }).catch(() => {});
+  }, [user?.id, init]);
 
   const requestPermission = useCallback(async () => {
-    return await pushNotificationService.requestPermission();
-  }, []);
+    const granted = await pushNotificationService.requestPermission();
+    if (granted && user?.id) {
+      const sub = await pushNotificationService.subscribeToPush();
+      if (sub) await savePushSubscription(user.id, sub);
+    }
+    return granted;
+  }, [user]);
+
 
   return {
     requestPermission,

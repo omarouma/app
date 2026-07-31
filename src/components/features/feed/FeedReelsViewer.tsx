@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -6,10 +6,18 @@ import {
   Play, Send, ChevronLeft, MoreHorizontal, UserPlus, Download, BarChart3, Camera, Loader,
   Flag, Check, UserCheck, X
 } from 'lucide-react';
+
+const filters: Record<string, string> = {
+  none: '',
+  warm: 'sepia(0.3) contrast(1.1)',
+  cool: 'hue-rotate(180deg) saturate(0.8)',
+  bw: 'grayscale(1)',
+  vivid: 'saturate(1.5) contrast(1.2)',
+  fade: 'brightness(1.1) contrast(0.9) saturate(0.8)',
+};
 import { useAuthStore } from '@/store/useAuthStore';
 import { useFriendStore } from '@/store/useFriendStore';
 import { useReelStore } from '@/store/useReelStore';
-import { useChatStore } from '@/store/useChatStore';
 import EmptyState from '@/components/EmptyState';
 import LoadingSkeleton from '@/components/LoadingSkeleton';
 import { getDefaultAvatar } from '@/lib/utils';
@@ -24,24 +32,27 @@ export default function FeedReelsViewer({ onClose }: FeedReelsViewerProps) {
   const navigate = useNavigate();
   const { user } = useAuthStore();
   const { friends, subscribeFriends, followUser, unfollowUser } = useFriendStore();
-  const { reels, loading, subscribeReels, likeReel, unlikeReel, saveReel, shareReel, commentOnReel, viewReel, loadMoreReels, refreshReels } = useReelStore();
-  const { createDirectChat, sendMessage } = useChatStore();
+  const { reels, loading, subscribeReels, likeReel, unlikeReel, saveReel, shareReel, commentOnReel, viewReel, loadMoreReels, externalReels, searchExternalVideos, searchingExternal, clearExternalReels } = useReelStore();
+  
   const [activeIndex, setActiveIndex] = useState(0);
   const [localLiked, setLocalLiked] = useState<Record<string, boolean>>({});
   const [localSaved, setLocalSaved] = useState<Record<string, boolean>>({});
   const [localFollowed, setLocalFollowed] = useState<Record<string, boolean>>({});
   const [muted, setMuted] = useState(true);
-  const [, setPlaying] = useState<Record<string, boolean>>({});
+  const [paused, setPaused] = useState(false);
+  const [showHeartAnim, setShowHeartAnim] = useState(false);
+  const [playbackSpeed, setPlaybackSpeed] = useState(1);
+  const [showSpeedMenu, setShowSpeedMenu] = useState(false);
+  const [videoProgress, setVideoProgress] = useState(0);
   const [showComments, setShowComments] = useState<Reel | null>(null);
   const [showInsights, setShowInsights] = useState<Reel | null>(null);
   const [showShareOptions, setShowShareOptions] = useState<Reel | null>(null);
   const [showMoreOptions, setShowMoreOptions] = useState<Reel | null>(null);
   const [commentText, setCommentText] = useState('');
   const [feedType, setFeedType] = useState<'foryou' | 'following'>('foryou');
+  const lastTapRef = useRef(0);
   const scrollRef = useRef<HTMLDivElement>(null);
   const videoRefs = useRef<Record<string, HTMLVideoElement | null>>({});
-  const progressTimers = useRef<Record<string, number>>({});
-
   // ─── Real-time subscription ───
   useEffect(() => {
     const unsub = subscribeReels();
@@ -55,12 +66,57 @@ export default function FeedReelsViewer({ onClose }: FeedReelsViewerProps) {
     return () => unsub();
   }, [subscribeFriends, user?.id]);
 
-  const friendIds = new Set(friends.map(f => f.id));
-  const followingIds = new Set(user?.following || []);
+  // ─── Auto-load external YouTube/Pexels videos when no user reels exist ───
+  const loadedExternalRef = useRef(false);
+  useEffect(() => {
+    if (loading || loadedExternalRef.current || searchingExternal) return;
+    if (feedType === 'foryou' && reels.length === 0) {
+      loadedExternalRef.current = true;
+      searchExternalVideos('trending', undefined);
+    }
+  }, [loading, searchingExternal, feedType, reels.length, searchExternalVideos]);
 
-  const displayReels = feedType === 'following'
-    ? reels.filter(r => friendIds.has(r.userId) || r.userId === user?.id || followingIds.has(r.userId))
-    : reels;
+  // ─── Clear external reels when switching to 'following' ───
+  useEffect(() => {
+    if (feedType === 'following') {
+      clearExternalReels();
+    }
+  }, [feedType, clearExternalReels]);
+
+  const friendIds = useMemo(() => new Set(friends.map(f => f.id)), [friends]);
+  const followingIds = useMemo(() => new Set(user?.following || []), [user?.following]);
+
+  // ─── Merge user reels + external reels, interleaved ───
+  const mergedReels = useMemo(() => {
+    if (feedType === 'following') {
+      return reels.filter(r => friendIds.has(r.userId) || r.userId === user?.id || followingIds.has(r.userId));
+    }
+    // Interleave: user reels first, then fill gaps with external reels
+    const userReels = [...reels];
+    const externals = [...externalReels];
+    
+    if (userReels.length === 0 && externals.length === 0) return [];
+    if (userReels.length === 0) return externals;
+    if (externals.length === 0) return userReels;
+
+    // Interleave: place external reels every 4th position
+    const result: Reel[] = [];
+    let userIdx = 0;
+    let extIdx = 0;
+    while (userIdx < userReels.length || extIdx < externals.length) {
+      // Add 3 user reels (or remaining)
+      for (let i = 0; i < 3 && userIdx < userReels.length; i++) {
+        result.push(userReels[userIdx++]);
+      }
+      // Add 1 external reel
+      if (extIdx < externals.length) {
+        result.push(externals[extIdx++]);
+      }
+    }
+    return result;
+  }, [reels, externalReels, feedType, friendIds, followingIds, user?.id]);
+
+  const displayReels = mergedReels;
 
   // Auto-play/pause based on active index
   useEffect(() => {
@@ -70,15 +126,15 @@ export default function FeedReelsViewer({ onClose }: FeedReelsViewerProps) {
       if (!video) return;
       if (id === reel.id) {
         video.muted = muted;
+        video.playbackRate = playbackSpeed;
         video.play().catch(() => {});
-        setPlaying(prev => ({ ...prev, [id]: true }));
       } else {
         video.pause();
         video.currentTime = 0;
-        setPlaying(prev => ({ ...prev, [id]: false }));
       }
     });
-  }, [activeIndex, displayReels, muted]);
+  }, [activeIndex, displayReels, muted, playbackSpeed]);
+
 
   // Track view when reel becomes active (3 second watch)
   useEffect(() => {
@@ -96,13 +152,45 @@ export default function FeedReelsViewer({ onClose }: FeedReelsViewerProps) {
     const height = scrollRef.current.clientHeight;
     const index = Math.round(scrollTop / height);
     if (index !== activeIndex && index >= 0 && index < displayReels.length) {
+      setPaused(false);
+      setVideoProgress(0);
       setActiveIndex(index);
     }
+
     // Load more when near bottom
     if (scrollTop + height >= scrollRef.current.scrollHeight - 200 && !loading && displayReels.length > 0) {
       loadMoreReels();
     }
   }, [activeIndex, displayReels.length, loading, loadMoreReels]);
+
+  const handleDoubleTap = (reel: Reel) => {
+    const now = new Date().getTime();
+    if (now - lastTapRef.current < 300) {
+      if (!isLiked(reel)) {
+        handleLike(reel);
+        setShowHeartAnim(true);
+        setTimeout(() => setShowHeartAnim(false), 900);
+      }
+    }
+    lastTapRef.current = now;
+  };
+
+  const handleTogglePause = (reel: Reel) => {
+    const video = videoRefs.current[reel.id];
+    if (!video) return;
+    if (video.paused) { video.play().catch(() => {}); setPaused(false); }
+    else { video.pause(); setPaused(true); }
+  };
+
+  const handleSpeedChange = (speed: number) => {
+    setPlaybackSpeed(speed);
+    const reel = displayReels[activeIndex];
+    if (reel) {
+      const video = videoRefs.current[reel.id];
+      if (video) video.playbackRate = speed;
+    }
+    setShowSpeedMenu(false);
+  };
 
   const handleLike = async (reel: Reel) => {
     if (!user?.id) { toast.error('Please log in'); return; }
@@ -138,13 +226,13 @@ export default function FeedReelsViewer({ onClose }: FeedReelsViewerProps) {
 
   const handleCopyLink = async (reel: Reel) => {
     try {
-      await navigator.clipboard.writeText(`https://oumagachat.web.app/reel/${reel.id}`);
+      await navigator.clipboard.writeText(`https://gagachat.app/reel/${reel.id}`);
       toast.success('Link copied to clipboard');
     } catch { toast.error('Failed to copy'); }
     setShowShareOptions(null);
   };
 
-  const handleShareToChat = async (reel: Reel) => {
+  const handleShareToChat = async () => {
     if (!user?.id) return;
     navigate('/chats');
     toast.success('Select a chat to share to');
@@ -154,8 +242,10 @@ export default function FeedReelsViewer({ onClose }: FeedReelsViewerProps) {
   const handleDownload = async (reel: Reel) => {
     if (!reel.videoUrl) { toast.error('No video to download'); return; }
     try {
+      const url = new URL(reel.videoUrl);
+      if (!['https:', 'http:'].includes(url.protocol)) { toast.error('Invalid video URL'); return; }
       const a = document.createElement('a');
-      a.href = reel.videoUrl;
+      a.href = url.href;
       a.download = `gaga-reel-${reel.id.slice(0, 8)}.mp4`;
       a.target = '_blank';
       a.rel = 'noopener';
@@ -185,12 +275,12 @@ export default function FeedReelsViewer({ onClose }: FeedReelsViewerProps) {
     }
   };
 
-  const handleReport = (reel: Reel) => {
+  const handleReport = () => {
     toast.success('Report submitted. Thank you for keeping GaGa Chat safe.');
     setShowMoreOptions(null);
   };
 
-  const handleNotInterested = (reel: Reel) => {
+  const handleNotInterested = () => {
     toast.success('We\'ll show you fewer reels like this');
     setShowMoreOptions(null);
   };
@@ -292,6 +382,11 @@ export default function FeedReelsViewer({ onClose }: FeedReelsViewerProps) {
                 playsInline
                 className="absolute inset-0 w-full h-full object-cover"
                 poster={reel.thumbnailUrl}
+                style={{ filter: filters[(reel as { filter?: string }).filter || 'none'] || '' }}
+                onTimeUpdate={(e) => {
+                  const v = e.currentTarget;
+                  if (v.duration) setVideoProgress(v.currentTime / v.duration);
+                }}
               />
             ) : (
               <div className="absolute inset-0 bg-gradient-to-br from-[#1a1a1a] to-[#0d0d0d] flex items-center justify-center">
@@ -304,27 +399,62 @@ export default function FeedReelsViewer({ onClose }: FeedReelsViewerProps) {
             {/* Gradient overlay */}
             <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-black/30 pointer-events-none" />
 
-            {/* Play/Pause overlay tap */}
+            {/* Play/Pause + double-tap like overlay */}
             <button type="button" className="absolute inset-0 z-10"
-              onClick={() => {
-                const video = videoRefs.current[reel.id];
-                if (!video) return;
-                if (video.paused) {
-                  video.play().catch(() => {});
-                  setPlaying(prev => ({ ...prev, [reel.id]: true }));
-                } else {
-                  video.pause();
-                  setPlaying(prev => ({ ...prev, [reel.id]: false }));
-                }
-              }}
+              onClick={() => { handleDoubleTap(reel); handleTogglePause(reel); }}
             />
 
-            {/* Mute toggle */}
-            <button type="button" onClick={() => setMuted(!muted)}
-              className="absolute top-20 right-4 z-20 p-2 rounded-full bg-black/40 text-white"
-            >
-              {muted ? <VolumeX size={18} /> : <Volume2 size={18} />}
-            </button>
+            {/* Double-tap heart animation */}
+            <AnimatePresence>
+              {showHeartAnim && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.5 }}
+                  animate={{ opacity: 1, scale: 1.4 }}
+                  exit={{ opacity: 0, scale: 2 }}
+                  className="absolute inset-0 flex items-center justify-center pointer-events-none z-20"
+                >
+                  <Heart size={90} className="text-red-500 fill-red-500 drop-shadow-2xl" />
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* Paused indicator */}
+            {paused && (
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-20">
+                <div className="w-16 h-16 rounded-full bg-black/50 flex items-center justify-center">
+                  <Play size={32} className="text-white fill-white ml-1" />
+                </div>
+              </div>
+            )}
+
+            {/* Mute + Speed controls */}
+            <div className="absolute top-20 right-4 z-20 flex flex-col gap-2">
+              <button type="button" onClick={() => setMuted(!muted)}
+                className="p-2 rounded-full bg-black/40 text-white">
+                {muted ? <VolumeX size={18} /> : <Volume2 size={18} />}
+              </button>
+              <div className="relative">
+                <button type="button" onClick={() => setShowSpeedMenu(!showSpeedMenu)}
+                  className="p-2 rounded-full bg-black/40 text-white text-[10px] font-bold w-9 h-9 flex items-center justify-center">
+                  {playbackSpeed}x
+                </button>
+                <AnimatePresence>
+                  {showSpeedMenu && (
+                    <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }}
+                      className="absolute right-10 top-0 bg-[#1a1a1a] rounded-xl overflow-hidden shadow-xl border border-white/10 z-30">
+                      {[0.5, 0.75, 1, 1.25, 1.5, 2].map(s => (
+                        <button key={s} type="button" onClick={() => handleSpeedChange(s)}
+                          className={`block w-full px-4 py-2 text-xs font-medium text-left transition-colors ${
+                            playbackSpeed === s ? 'bg-[#00C300] text-black' : 'text-white hover:bg-white/10'
+                          }`}>
+                          {s}x
+                        </button>
+                      ))}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            </div>
 
             {/* Right side actions */}
             <div className="absolute right-3 bottom-24 z-20 flex flex-col items-center gap-5">
@@ -460,21 +590,9 @@ export default function FeedReelsViewer({ onClose }: FeedReelsViewerProps) {
               )}
             </div>
 
-            {/* Progress indicator */}
-            <div className="absolute top-1 left-4 right-4 z-20 flex gap-1">
-              {displayReels.map((_, i) => (
-                <div key={i} className="h-0.5 flex-1 rounded-full bg-white/30 overflow-hidden">
-                  {i === activeIndex && (
-                    <motion.div
-                      className="h-full bg-white"
-                      initial={{ width: '0%' }}
-                      animate={{ width: '100%' }}
-                      transition={{ duration: 5, ease: 'linear' }}
-                    />
-                  )}
-                  {i < activeIndex && <div className="h-full bg-white" />}
-                </div>
-              ))}
+            {/* Video progress bar at bottom */}
+            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-white/20 z-20">
+              <div className="h-full bg-[#00C300] transition-all duration-100" style={{ width: `${videoProgress * 100}%` }} />
             </div>
           </div>
         ))}
@@ -636,7 +754,7 @@ export default function FeedReelsViewer({ onClose }: FeedReelsViewerProps) {
               </button>
               <button
                 type="button"
-                onClick={() => handleShareToChat(showShareOptions)}
+                onClick={() => handleShareToChat()}
                 className="w-full flex items-center gap-3 p-3 rounded-xl bg-[#2a2a2a] text-white hover:bg-[#333] transition-colors"
               >
                 <MessageCircle size={18} /> Share to Chat
@@ -648,7 +766,7 @@ export default function FeedReelsViewer({ onClose }: FeedReelsViewerProps) {
                     navigator.share({
                       title: 'GaGa Chat Reel',
                       text: showShareOptions.caption || 'Check out this reel',
-                      url: `https://oumagachat.web.app/reel/${showShareOptions.id}`,
+                      url: `https://gagachat.app/reel/${showShareOptions.id}`,
                     });
                     setShowShareOptions(null);
                   }}
@@ -693,7 +811,7 @@ export default function FeedReelsViewer({ onClose }: FeedReelsViewerProps) {
               <h3 className="text-white font-semibold mb-2">Options</h3>
               <button
                 type="button"
-                onClick={() => { handleNotInterested(showMoreOptions); }}
+                onClick={() => { handleNotInterested(); }}
                 className="w-full flex items-center gap-3 p-3 rounded-xl bg-[#2a2a2a] text-white hover:bg-[#333] transition-colors"
               >
                 <X size={18} /> Not Interested
@@ -708,7 +826,7 @@ export default function FeedReelsViewer({ onClose }: FeedReelsViewerProps) {
               {showMoreOptions.userId !== user?.id && (
                 <button
                   type="button"
-                  onClick={() => handleReport(showMoreOptions)}
+                  onClick={() => handleReport()}
                   className="w-full flex items-center gap-3 p-3 rounded-xl bg-[#2a2a2a] text-[#FF3B30] hover:bg-[#333] transition-colors"
                 >
                   <Flag size={18} /> Report

@@ -4,29 +4,43 @@ export function toDate(date: string | Date | null | undefined): Date | null {
   return typeof date === 'string' ? new Date(date) : date;
 }
 
-export function formatTime(date: string | Date | null | undefined): string {
+export function formatTime(date: string | Date | null | undefined, locale?: string): string {
   const d = toDate(date);
-  if (!d) return '';
+  if (!d || isNaN(d.getTime())) return '';
 
   const now = new Date();
   const diff = now.getTime() - d.getTime();
   const oneDay = 24 * 60 * 60 * 1000;
 
   if (diff < oneDay && d.getDate() === now.getDate()) {
-    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    return d.toLocaleTimeString(locale ?? [], { hour: '2-digit', minute: '2-digit' });
   }
 
   const yesterday = new Date(now);
   yesterday.setDate(yesterday.getDate() - 1);
-  if (d.getDate() === yesterday.getDate() && d.getMonth() === yesterday.getMonth() && d.getFullYear() === yesterday.getFullYear()) {
+  if (
+    d.getDate() === yesterday.getDate() &&
+    d.getMonth() === yesterday.getMonth() &&
+    d.getFullYear() === yesterday.getFullYear()
+  ) {
     return 'Yesterday';
   }
 
   if (d.getFullYear() === now.getFullYear()) {
-    return d.toLocaleDateString([], { month: 'short', day: 'numeric' });
+    return d.toLocaleDateString(locale ?? [], { month: 'short', day: 'numeric' });
   }
 
-  return d.toLocaleDateString([], { year: 'numeric', month: 'short', day: 'numeric' });
+  return d.toLocaleDateString(locale ?? [], { year: 'numeric', month: 'short', day: 'numeric' });
+}
+
+export function formatDateSeparator(date: Date): string {
+  const now = new Date();
+  const d = new Date(date);
+  if (d.toDateString() === now.toDateString()) return 'Today';
+  const yesterday = new Date(now);
+  yesterday.setDate(yesterday.getDate() - 1);
+  if (d.toDateString() === yesterday.toDateString()) return 'Yesterday';
+  return d.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
 }
 
 export function formatLastSeen(date: string | Date | null | undefined): string {

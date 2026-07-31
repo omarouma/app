@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Split, Search, Loader, Coins, Banknote, DollarSign, Check, Users } from 'lucide-react';
+import { X, Split, Search, Loader, Coins, DollarSign, Check, Users } from 'lucide-react';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useWalletStore, type CurrencyCode } from '@/store/useWalletStore';
 import { useFriendStore } from '@/store/useFriendStore';
@@ -69,7 +69,7 @@ export default function SplitBillModal({ open, onClose }: SplitBillModalProps) {
     setSending(false);
 
     if (result) {
-      toast.success(`Split ${currency === 'GAGA' ? numAmount + ' GAGA' : currency === 'BDT' ? '৳' + numAmount : '$' + numAmount} with ${selectedFriendIds.size} friend${selectedFriendIds.size > 1 ? 's' : ''}`);
+      toast.success(`Split ${currency === 'GAGA' ? numAmount + ' GAGA' : '$' + numAmount.toFixed(2)} with ${selectedFriendIds.size} friend${selectedFriendIds.size > 1 ? 's' : ''}`);
       setTotalAmount('');
       setDescription('');
       setSelectedFriendIds(new Set());
@@ -124,7 +124,6 @@ export default function SplitBillModal({ open, onClose }: SplitBillModalProps) {
               <div className="flex gap-2">
                 {([
                   { code: 'GAGA' as CurrencyCode, icon: Coins, label: 'GAGA' },
-                  { code: 'BDT' as CurrencyCode, icon: Banknote, label: 'BDT' },
                   { code: 'USD' as CurrencyCode, icon: DollarSign, label: 'USD' },
                 ]).map((c) => (
                   <button type="button" key={c.code}
@@ -146,7 +145,7 @@ export default function SplitBillModal({ open, onClose }: SplitBillModalProps) {
               <label className="text-[#8D8D8D] text-xs mb-1 block">Total Amount</label>
               <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8D8D8D] text-lg font-bold">
-                  {currency === 'GAGA' ? 'G' : currency === 'BDT' ? '৳' : '$'}
+                  {currency === 'GAGA' ? 'G' : '$'}
                 </span>
                 <input
                   type="number"
@@ -168,7 +167,7 @@ export default function SplitBillModal({ open, onClose }: SplitBillModalProps) {
                   </span>
                 </div>
                 <span className="text-[#00C300] font-bold">
-                  {currency === 'GAGA' ? perPerson.toFixed(2) + ' GAGA' : currency === 'BDT' ? '৳' + perPerson.toFixed(2) : '$' + perPerson.toFixed(2)} each
+                  {currency === 'GAGA' ? perPerson.toFixed(2) + ' GAGA' : '$' + perPerson.toFixed(2)} each
                 </span>
               </div>
             )}

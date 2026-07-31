@@ -1,5 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, Shield, UserPlus } from 'lucide-react';
@@ -13,21 +12,26 @@ import { toast } from 'sonner';
 export default function BlockedUsersPage() {
   const navigate = useNavigate();
   const { user } = useAuthStore();
-  const { blockedUsers, loadingBlocked, unblockUser, getBlockedUsers } = useFriendStore();
+  const { blockedUsers, loadingBlocked, unblockUser, getBlockedUsers, subscribeBlockedUsers } = useFriendStore();
+  const unsubRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
-    if (user?.id) {
+    if (!user?.id) return;
+    if (typeof subscribeBlockedUsers === 'function') {
+      unsubRef.current = subscribeBlockedUsers(user.id);
+    } else {
       getBlockedUsers(user.id);
     }
-  }, [user?.id, getBlockedUsers]);
+    return () => { unsubRef.current?.(); };
+  }, [user?.id, getBlockedUsers, subscribeBlockedUsers]);
 
   const handleUnblock = async (blockedId: string) => {
     if (!user?.id) return;
     try {
       await unblockUser(blockedId, user.id);
       toast.success('User unblocked');
-    } catch (err: any) {
-      toast.error(err.message || 'Failed to unblock user');
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Failed to unblock user');
     }
   };
 

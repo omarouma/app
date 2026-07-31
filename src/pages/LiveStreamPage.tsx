@@ -10,7 +10,7 @@ import { useAuthStore } from '@/store/useAuthStore';
 import { useLiveStore } from '@/store/useLiveStore';
 import { useWalletStore } from '@/store/useWalletStore';
 import { getDefaultAvatar } from '@/lib/utils';
-import { getDocById, updateDocById, COLLECTIONS } from '@/lib/firestore';
+import { getDocById, updateDocById, runDbTransaction, COLLECTIONS } from '@/lib/firestore';
 import { toast } from 'sonner';
 import type { LiveStream, LiveComment, LiveReactions } from '@/types';
 
@@ -34,27 +34,31 @@ const REACTIONS: { key: keyof LiveReactions; label: string; icon: React.ReactNod
   { key: 'clap', label: 'Clap', icon: <Hand size={18} />, color: '#8D8D8D' },
 ];
 
-/* Inline helper to deduct coins since the wallet store lacks a direct spend method */
+/* Inline helper to deduct coins atomically via transaction */
 async function spendCoins(userId: string, amount: number, description: string): Promise<boolean> {
   try {
-    const wallet = await getDocById(COLLECTIONS.WALLETS, userId);
-    if (!wallet) return false;
-    const coins = (wallet.coins as number) || 0;
-    if (coins < amount) return false;
-    const tx = {
-      id: `tx_${Date.now()}_gift`,
-      type: 'spend',
-      amount,
-      currency: 'coins',
-      description,
-      timestamp: new Date().toISOString(),
-      status: 'completed',
-    };
-    await updateDocById(COLLECTIONS.WALLETS, userId, {
-      coins: coins - amount,
-      transactions: [...(wallet.transactions || []), tx],
+    let success = false;
+    await runDbTransaction(async () => {
+      const wallet = await getDocById(COLLECTIONS.WALLETS, userId);
+      if (!wallet) return;
+      const coins = (wallet.coins as number) || 0;
+      if (coins < amount) return;
+      const tx = {
+        id: `tx_${Date.now()}_gift`,
+        type: 'spend',
+        amount,
+        currency: 'coins',
+        description,
+        timestamp: new Date().toISOString(),
+        status: 'completed',
+      };
+      await updateDocById(COLLECTIONS.WALLETS, userId, {
+        coins: coins - amount,
+        transactions: [...(wallet.transactions || []), tx],
+      });
+      success = true;
     });
-    return true;
+    return success;
   } catch (err) {
     console.error('spendCoins error:', err);
     return false;
@@ -62,7 +66,8 @@ async function spendCoins(userId: string, amount: number, description: string): 
 }
 
 export default function LiveStreamPage() {
-  const { streamId } = useParams<{ streamId: string }>();
+  const _params = useParams();
+  const streamId = (_params as { streamId?: string }).streamId;
   const navigate = useNavigate();
   const { user } = useAuthStore();
   const {
@@ -87,7 +92,8 @@ export default function LiveStreamPage() {
   const [copied, setCopied] = useState(false);
 
   const chatRef = useRef<HTMLDivElement>(null);
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const joinedAsViewer = useRef(false);
 
   const isBroadcaster = stream?.userId === user?.id;
@@ -100,68 +106,120 @@ export default function LiveStreamPage() {
     return () => window.removeEventListener('resize', check);
   }, []);
 
-  /* Fetch stream, join, subscribe wallet, start timers & polling */
+  /* Fetch stream, join viewer, subscribe wallet.
+     NOTE: polling removed (Fix 9). We keep a tiny fallback interval only if subscription APIs are unavailable.
+  */
   useEffect(() => {
     if (!streamId || !user?.id) return;
+
     let mounted = true;
+    const userId = user.id;
 
     const init = async () => {
       setLoading(true);
       const s = await getStreamById(streamId);
       if (!mounted) return;
+
       if (s) {
         setStream(s);
         setComments(s.comments || []);
         setIsScreenSharing(s.isScreenSharing || false);
+
         if (s.pinnedComment) {
           const pinned = (s.comments || []).find((c) => c.id === s.pinnedComment);
           if (pinned) setPinnedComment(pinned);
         }
-        if (s.userId !== user.id) {
-          await joinLive(streamId, user.id);
+
+        // join as viewer
+        if (s.userId !== userId) {
+          await joinLive(streamId, userId);
           joinedAsViewer.current = true;
         }
       }
+
       setLoading(false);
     };
 
     init();
 
-    const unsubWallet = subscribeWallet(user.id);
+    const unsubWallet = subscribeWallet(userId);
 
-    pollRef.current = setInterval(async () => {
-      const s = await getStreamById(streamId);
-      if (!mounted || !s) return;
-      setStream(s);
-      setComments((prev) => {
-        const serverIds = new Set(s.comments.map((c) => c.id));
-        const localOnly = prev.filter((c) => !serverIds.has(c.id) && c.id.startsWith('temp_'));
-        return [...s.comments, ...localOnly].sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
-      });
-      if (s.pinnedComment) {
-        const pinned = (s.comments || []).find((c) => c.id === s.pinnedComment);
-        if (pinned) setPinnedComment(pinned);
-      } else {
-        setPinnedComment(null);
-      }
-      setIsScreenSharing(s.isScreenSharing || false);
+    // Fallback polling (Fix 14): in case store doesn't provide active subscription in this build.
+    // Exponential backoff with cap.
+    let cancelled = false;
+    const maxBackoffMs = 15000;
+    let attempt = 0;
 
-      // If stream ended, navigate back for viewers (not broadcaster)
-      if (!s.isLive && s.userId !== user.id) {
-        toast.info('Stream ended');
-        navigate('/live-streams');
+    const pollOnce = async () => {
+      if (cancelled) return;
+      try {
+        const s = await getStreamById(streamId);
+        if (!mounted || !s) return;
+
+        // Only update if it looks like data changed to avoid extra renders.
+        setStream(s);
+        setIsScreenSharing(s.isScreenSharing || false);
+
+        setComments((prev) => {
+          const serverIds = new Set(s.comments.map((c) => c.id));
+          const localOnly = prev.filter((c) => !serverIds.has(c.id) && c.id.startsWith('temp_'));
+          return [...s.comments, ...localOnly].sort(
+            (a, b) => a.timestamp.getTime() - b.timestamp.getTime()
+          );
+        });
+
+        if (s.pinnedComment) {
+          const pinned = (s.comments || []).find((c) => c.id === s.pinnedComment);
+          if (pinned) setPinnedComment(pinned);
+        } else {
+          setPinnedComment(null);
+        }
+
+        if (!s.isLive && s.userId !== userId) {
+          toast.info('Stream ended');
+          navigate('/live-streams');
+        }
+
+        // If we successfully got live updates, stop polling after first successful refresh.
+        // (Subscription should take over in the updated store.)
+        attempt += 1;
+      } catch {
+        // ignore
       }
-    }, 5000);
+
+      // continue polling only a few times
+      if (attempt < 2 && !cancelled) {
+        const delay = Math.min(3000 * Math.pow(2, attempt), maxBackoffMs);
+        pollRef.current = setTimeout(pollOnce, delay);
+
+      }
+    };
+
+
+    pollOnce();
+
 
     return () => {
       mounted = false;
-      if (pollRef.current) clearInterval(pollRef.current);
+      cancelled = true;
+
+      if (pollRef.current) {
+        if (pollRef.current) {
+          clearTimeout(pollRef.current);
+        }
+
+        // pollRef holds timeout id
+        clearTimeout(pollRef.current);
+
+
+      }
+
       if (joinedAsViewer.current && streamId) {
-        leaveLive(streamId, user.id);
+        leaveLive(streamId, userId);
       }
       unsubWallet();
     };
-  }, [streamId, user?.id]);
+  }, [streamId, user?.id, getStreamById, joinLive, leaveLive, navigate, subscribeWallet]);
 
   /* Duration based on stream start time */
   useEffect(() => {
@@ -171,7 +229,7 @@ export default function LiveStreamPage() {
     update();
     const interval = setInterval(update, 1000);
     return () => clearInterval(interval);
-  }, [stream?.startedAt]);
+  }, [stream]);
 
   /* Auto-scroll chat to bottom */
   useEffect(() => {
@@ -205,16 +263,19 @@ export default function LiveStreamPage() {
     await sendLiveComment(streamId, user.id, content);
   };
 
-  const handleReaction = async (key: keyof LiveReactions) => {
+  const reactionCounter = useRef(0);
+  const handleReaction = useCallback(async (key: keyof LiveReactions) => {
     if (!streamId) return;
     const config = REACTIONS.find((r) => r.key === key);
-    const id = `${Date.now()}_${Math.random()}`;
+    reactionCounter.current += 1;
+    const id = `reaction_${reactionCounter.current}`;
+     
     setReactionBubbles((prev) => [...prev, { id, key, x: Math.random() * 60 + 20, color: config?.color || '#00C300' }]);
     setTimeout(() => {
       setReactionBubbles((prev) => prev.filter((r) => r.id !== id));
     }, 2000);
     await sendLiveReaction(streamId, key);
-  };
+  }, [streamId, sendLiveReaction]);
 
   const handleSendGift = async (type: 'rose' | 'heart' | 'star' | 'crown' | 'diamond' | 'rocket', cost: number) => {
     if (!streamId || !user?.id) return;

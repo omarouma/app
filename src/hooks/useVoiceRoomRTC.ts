@@ -1,11 +1,10 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import {
   isFirestoreAvailable,
-  updateDocById,
   addDocToSubcollection,
-  subscribeToDoc,
-  deleteDocById,
+  querySubcollection,
 } from '@/lib/firestore';
+import { getSupabaseSafe } from '@/lib/supabase';
 
 // ─── Simple STUN servers (no TURN needed for local testing) ───
 const ICE_SERVERS: RTCIceServer[] = [
@@ -17,6 +16,15 @@ interface PeerConnection {
   userId: string;
   pc: RTCPeerConnection;
   audioElement?: HTMLAudioElement;
+}
+
+interface SignalData {
+  type: 'offer' | 'answer' | 'ice-candidate';
+  from: string;
+  to?: string;
+  sdp?: string;
+  candidate?: string;
+  timestamp?: number;
 }
 
 export function useVoiceRoomRTC(roomId: string, userId: string) {
@@ -31,13 +39,22 @@ export function useVoiceRoomRTC(roomId: string, userId: string) {
 
   // ─── Get microphone access ───
   const startLocalStream = useCallback(async () => {
+    // Request permission explicitly before accessing the device
+    if ('permissions' in navigator) {
+      try {
+        const result = await navigator.permissions.query({ name: 'microphone' as PermissionName });
+        if (result.state === 'denied') {
+          setError('Microphone access denied. Please enable it in your browser settings.');
+          return null;
+        }
+      } catch { /* permissions API not supported — proceed */ }
+    }
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       setLocalStream(stream);
       localStreamRef.current = stream;
       return stream;
-    } catch (err) {
-      console.error('[WebRTC] Failed to get microphone:', err);
+    } catch {
       setError('Microphone access denied. Please allow microphone permissions.');
       return null;
     }
@@ -103,15 +120,11 @@ export function useVoiceRoomRTC(roomId: string, userId: string) {
           candidate: JSON.stringify(event.candidate.toJSON()),
           timestamp: Date.now(),
         });
-      } catch (err) {
-        console.error('[WebRTC] Failed to send ICE candidate:', err);
-      }
+      } catch { /* ICE candidate send failed — non-fatal */ }
     };
 
     pc.onconnectionstatechange = () => {
-      if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed') {
-        console.warn(`[WebRTC] Connection to ${targetUserId} ${pc.connectionState}`);
-      }
+      // connection state changes are expected — no logging needed in production
     };
 
     return pc;
@@ -144,16 +157,16 @@ export function useVoiceRoomRTC(roomId: string, userId: string) {
   }, [createPeerConnection, roomId, userId]);
 
   // ─── Handle incoming signals (offers, answers, ICE) ───
-  const handleSignal = useCallback(async (signal: any) => {
+  const handleSignal = useCallback(async (signal: unknown) => {
     if (!localStreamRef.current) return;
-    const { type, from, to, sdp, candidate } = signal;
+    const { type, from, to, sdp, candidate } = signal as SignalData;
 
     // Only handle signals intended for us
     if (to && to !== userId) return;
 
     let peer = peersRef.current.get(from);
 
-    if (type === 'offer') {
+    if (type === 'offer' && sdp) {
       if (!peer) {
         const pc = createPeerConnection(from, localStreamRef.current);
         peer = { userId: from, pc };
@@ -177,91 +190,118 @@ export function useVoiceRoomRTC(roomId: string, userId: string) {
       setConnectedPeers(prev => prev.includes(from) ? prev : [...prev, from]);
     }
 
-    if (type === 'answer' && peer) {
+    if (type === 'answer' && peer && sdp) {
       await peer.pc.setRemoteDescription(new RTCSessionDescription({ type: 'answer', sdp }));
     }
 
-    if (type === 'ice-candidate' && peer) {
+    if (type === 'ice-candidate' && peer && candidate) {
       try {
         const iceCandidate = new RTCIceCandidate(JSON.parse(candidate));
         await peer.pc.addIceCandidate(iceCandidate);
-      } catch (err) {
-        console.error('[WebRTC] Failed to add ICE candidate:', err);
-      }
+      } catch { /* ICE candidate add failed — non-fatal */ }
     }
   }, [createPeerConnection, roomId, userId]);
 
   // ─── Listen for incoming signals ───
   useEffect(() => {
-    if (!roomId || !userId || !isFirestoreAvailable()) return;
+    if (!roomId || !userId) return;
 
-    // Subscribe to signals subcollection
-    const unsub = subscribeToDoc('voiceRooms', roomId, (data) => {
-      if (!data) return;
-      // We need to listen to the signals subcollection
-      // Since subscribeToDoc listens to the doc, we'll poll for signals
-      // In a real app, you'd use a dedicated subcollection listener
-    });
+    // Try Supabase realtime first
+    const supabase = getSupabaseSafe();
+    if (supabase) {
+      // Initial fetch of recent signals
+      const fetchSignals = async () => {
+        const { data } = await supabase
+          .from('voice_room_signals')
+          .select('*')
+          .eq('room_id', roomId)
+          .eq('to', userId)
+          .gte('created_at', new Date(Date.now() - 30000).toISOString());
+        (data || []).forEach((s) => handleSignal(s));
+      };
+      fetchSignals();
 
-    // Use a polling approach for signals (Firestore real-time subcollection)
+      const channel = supabase
+        .channel(`voice_signals_${roomId}_${userId}`)
+        .on('postgres_changes', {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'voice_room_signals',
+          filter: `room_id=eq.${roomId}`,
+        }, (payload) => {
+          const signal = payload.new;
+          if (signal?.to === userId) handleSignal(signal);
+        })
+        .subscribe();
+
+      return () => { supabase.removeChannel(channel); };
+    }
+
+    // Fallback: Firestore polling
+    if (!isFirestoreAvailable()) return;
+
     const pollSignals = async () => {
       try {
-        const { querySubcollection } = await import('@/lib/firestore');
         const signals = await querySubcollection('voiceRooms', roomId, 'signals', [
-          // @ts-ignore
-          { field: 'timestamp', op: '>', value: Date.now() - 30000 },
-          { field: 'to', op: '==', value: userId },
+          { _type: 'where', field: 'timestamp', op: '>', value: Date.now() - 30000 },
+          { _type: 'where', field: 'to', op: '==', value: userId },
         ]);
-        (signals || []).forEach((s: any) => handleSignal(s));
-      } catch (err) {
+        (signals || []).forEach((s: unknown) => handleSignal(s));
+      } catch {
         // ignore polling errors
       }
     };
 
     const interval = setInterval(pollSignals, 3000);
-    return () => {
-      unsub();
-      clearInterval(interval);
-    };
+    return () => clearInterval(interval);
   }, [roomId, userId, handleSignal]);
 
-  // ─── Detect local speaking activity ───
+  // ─── Detect local speaking activity via AudioContext AnalyserNode ───
   useEffect(() => {
-    if (!localStreamRef.current) return;
+    if (!localStream) return;
     let animationId: number;
+    let audioCtx: AudioContext | null = null;
+    let analyser: AnalyserNode | null = null;
 
-    const checkSpeaking = () => {
-      try {
-        // Simple audio level detection using getUserMedia constraints
-        // In a real implementation, you'd use AudioContext + AnalyserNode
-        // For now, just track if mic is unmuted and active
-        const audioTrack = localStreamRef.current?.getAudioTracks()[0];
-        if (audioTrack && audioTrack.enabled && !audioTrack.muted) {
-          // Simulate speaking detection with randomness for demo
-          setIsSpeaking(Math.random() > 0.7);
-        } else {
-          setIsSpeaking(false);
-        }
-      } catch { /* ignore */ }
-      animationId = requestAnimationFrame(checkSpeaking);
+    try {
+      audioCtx = new AudioContext();
+      analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 256;
+      const source = audioCtx.createMediaStreamSource(localStream);
+      source.connect(analyser);
+      const data = new Uint8Array(analyser.frequencyBinCount);
+
+      const check = () => {
+        analyser!.getByteFrequencyData(data);
+        const avg = data.reduce((s, v) => s + v, 0) / data.length;
+        setIsSpeaking(avg > 10);
+        animationId = requestAnimationFrame(check);
+      };
+      animationId = requestAnimationFrame(check);
+    } catch {
+      // AudioContext setup failed — leave isSpeaking as-is
+    }
+
+    return () => {
+      cancelAnimationFrame(animationId);
+      audioCtx?.close().catch(() => {});
     };
-
-    animationId = requestAnimationFrame(checkSpeaking);
-    return () => cancelAnimationFrame(animationId);
   }, [localStream]);
 
   // ─── Cleanup on unmount ───
   useEffect(() => {
+    const peersSnapshot = peersRef.current;
+    const unsubs = unsubRefs.current.slice();
     return () => {
-      peersRef.current.forEach(({ pc, audioElement }) => {
+      peersSnapshot.forEach(({ pc, audioElement }) => {
         pc.close();
         if (audioElement) {
           audioElement.remove();
         }
       });
-      peersRef.current.clear();
+      peersSnapshot.clear();
       stopLocalStream();
-      unsubRefs.current.forEach(u => u());
+      unsubs.forEach(u => u());
     };
   }, [stopLocalStream]);
 

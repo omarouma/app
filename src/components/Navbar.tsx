@@ -22,7 +22,8 @@ export default function Navbar() {
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 50);
-    window.addEventListener('scroll', handleScroll);
+    handleScroll();
+    window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
@@ -99,7 +100,14 @@ export default function Navbar() {
             )}
           </div>
 
-          <button type="button" className="md:hidden text-[#111111]" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
+          <button
+            type="button"
+            aria-controls="mobile-menu"
+            aria-expanded={mobileMenuOpen}
+            aria-label={mobileMenuOpen ? 'Close navigation menu' : 'Open navigation menu'}
+            className="md:hidden text-[#111111]"
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+          >
             {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
           </button>
         </div>
@@ -108,10 +116,12 @@ export default function Navbar() {
       <AnimatePresence>
         {mobileMenuOpen && (
           <motion.div
+            id="mobile-menu"
+            role="menu"
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
-            className="md:hidden bg-white border-t border-[#EBEBEB]"
+            className="md:hidden bg-white dark:bg-slate-950 border-t border-[#EBEBEB] dark:border-slate-800"
           >
             <div className="px-4 py-4 space-y-3">
               {navLinks.map((link) => (

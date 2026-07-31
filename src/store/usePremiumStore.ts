@@ -30,7 +30,7 @@ export const PREMIUM_PLANS: PremiumPlan[] = [
     name: 'Free',
     description: 'Start chatting with the basics',
     price: 0,
-    currency: 'BDT',
+    currency: 'USD',
     duration: 'monthly',
     features: [
       'Unlimited messaging',
@@ -46,8 +46,8 @@ export const PREMIUM_PLANS: PremiumPlan[] = [
     id: 'premium',
     name: 'Premium',
     description: 'Unlock the full experience',
-    price: 199,
-    currency: 'BDT',
+    price: 1.99,
+    currency: 'USD',
     duration: 'monthly',
     features: [
       'Everything in Free',
@@ -67,8 +67,8 @@ export const PREMIUM_PLANS: PremiumPlan[] = [
     id: 'vip',
     name: 'VIP',
     description: 'For power users who want it all',
-    price: 499,
-    currency: 'BDT',
+    price: 4.99,
+    currency: 'USD',
     duration: 'monthly',
     features: [
       'Everything in Premium',
@@ -87,8 +87,8 @@ export const PREMIUM_PLANS: PremiumPlan[] = [
     id: 'creator',
     name: 'Creator',
     description: 'Monetize your content & grow',
-    price: 999,
-    currency: 'BDT',
+    price: 9.99,
+    currency: 'USD',
     duration: 'monthly',
     features: [
       'Everything in VIP',

@@ -20,9 +20,9 @@ export default function DesktopCallsView() {
   useEffect(() => {
     if (!user?.id) return;
     const unsub = subscribeCalls(user.id);
-    // Schedule to satisfy react-hooks/set-state-in-effect
-    queueMicrotask(() => setLoading(false));
-    return unsub;
+    // Use setTimeout instead of queueMicrotask for compatibility
+    const timeout = setTimeout(() => setLoading(false), 100);
+    return () => { clearTimeout(timeout); unsub(); };
   }, [user?.id, subscribeCalls]);
 
 

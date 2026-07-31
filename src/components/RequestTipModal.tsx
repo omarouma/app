@@ -19,11 +19,10 @@ interface RequestTipModalProps {
   contentType?: 'post' | 'reel' | 'live' | 'story';
 }
 
-type TipCurrency = 'coins' | 'BDT' | 'USD';
+type TipCurrency = 'coins' | 'USD';
 
 const currencySymbols: Record<TipCurrency, string> = {
   coins: 'G',
-  BDT: '৳',
   USD: '$',
 };
 
@@ -51,9 +50,7 @@ export default function RequestTipModal({
   const balance =
     currency === 'coins'
       ? wallet?.coins || 0
-      : currency === 'BDT'
-      ? wallet?.bdtBalance || 0
-      : 0; // USD not stored in wallet demo
+      : wallet?.usdBalance || wallet?.bdtBalance || 0;
 
   const effectiveAmount = customAmount ? parseFloat(customAmount) : amount ? parseFloat(amount) : 0;
 
@@ -195,8 +192,7 @@ export default function RequestTipModal({
                   <div className="flex gap-2">
                     {([
                       { code: 'coins' as TipCurrency, icon: Coins, label: 'Gaga Coins' },
-                      { code: 'BDT' as TipCurrency, icon: Banknote, label: 'BDT' },
-                      { code: 'USD' as TipCurrency, icon: Coins, label: 'USD' },
+                      { code: 'USD' as TipCurrency, icon: Banknote, label: 'USD' },
                     ]).map((c) => (
                       <button type="button" key={c.code}
                         onClick={() => setCurrency(c.code)}
@@ -215,9 +211,7 @@ export default function RequestTipModal({
                     <span className="text-[#111111] font-medium">
                       {currency === 'coins'
                         ? `${wallet?.coins || 0} coins`
-                        : currency === 'BDT'
-                        ? `৳${(wallet?.bdtBalance || 0).toFixed(2)}`
-                        : '—'}
+                        : `$${(wallet?.usdBalance || wallet?.bdtBalance || 0).toFixed(2)}`}
                     </span>
                   </div>
                 </div>

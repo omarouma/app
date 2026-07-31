@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef } from 'react';
+import { safeGetStorageItem, safeSetStorageItem } from '@/lib/safeStorage';
 import type { Message } from '@/types';
 
 interface ScheduledMessage {
@@ -17,7 +18,7 @@ const STORAGE_KEY = 'gaga_scheduled_messages';
 
 function getScheduledMessages(): ScheduledMessage[] {
   try {
-    const stored = localStorage.getItem(STORAGE_KEY);
+    const stored = safeGetStorageItem(STORAGE_KEY);
     return stored ? JSON.parse(stored) : [];
   } catch {
     return [];
@@ -25,11 +26,7 @@ function getScheduledMessages(): ScheduledMessage[] {
 }
 
 function saveScheduledMessages(msgs: ScheduledMessage[]) {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(msgs));
-  } catch {
-    // Ignore localStorage errors (quota exceeded, etc.)
-  }
+  safeSetStorageItem(STORAGE_KEY, JSON.stringify(msgs));
 }
 
 export function addScheduledMessage(msg: Omit<ScheduledMessage, 'id' | 'createdAt'>): ScheduledMessage {
@@ -78,6 +75,9 @@ export function useScheduledMessages(
   sendMessage: (chatId: string, senderId: string, content: string, type?: string, mediaUrl?: string, replyTo?: Message | string) => Promise<void>
 ) {
   const processedRef = useRef<Set<string>>(new Set());
+  // E1: stable ref so getPending never changes identity between renders
+  const chatIdRef = useRef(chatId);
+  useEffect(() => { chatIdRef.current = chatId; }, [chatId]);
 
   // Check for overdue scheduled messages on mount and periodically
   const checkAndSend = useCallback(async () => {
@@ -107,28 +107,30 @@ export function useScheduledMessages(
     // Check immediately on mount
     checkAndSend();
 
-    // Check periodically every 10 seconds
-    const interval = setInterval(checkAndSend, 10000);
+    // Only poll if there are pending messages
+    const pending = getPendingScheduledMessages(chatId);
+    if (pending.length === 0) return;
 
-    // Cleanup old messages periodically
-    const cleanupInterval = setInterval(cleanupOldScheduledMessages, 60 * 60 * 1000); // every hour
+    const interval = setInterval(checkAndSend, 10000);
+    const cleanupInterval = setInterval(cleanupOldScheduledMessages, 60 * 60 * 1000);
 
     return () => {
       clearInterval(interval);
       clearInterval(cleanupInterval);
     };
-  }, [checkAndSend]);
+  }, [checkAndSend, chatId]);
 
   return {
-    schedule: (params: {
+    schedule: useCallback((params: {
       senderId: string;
       content: string;
       type: string;
       mediaUrl?: string;
       replyTo?: string;
-      scheduledAt: number; // timestamp
-    }) => addScheduledMessage({ chatId, ...params }),
-    getPending: () => getPendingScheduledMessages(chatId),
-    cancel: (id: string) => removeScheduledMessage(id),
+      scheduledAt: number;
+    }) => addScheduledMessage({ chatId: chatIdRef.current, ...params }), []),
+    // E1: stable function reference — reads chatIdRef at call time, never re-created
+    getPending: useCallback(() => getPendingScheduledMessages(chatIdRef.current), []),
+    cancel: useCallback((id: string) => removeScheduledMessage(id), []),
   };
 }

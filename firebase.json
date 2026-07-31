@@ -27,7 +27,7 @@
     "trailingSlash": false,
     "headers": [
       {
-        "source": "/**/*.@(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)",
+        "source": "/**/*.@(js|css|png|jpg|jpeg|gif|ico|svg|webp|woff|woff2|ttf|eot|mp4|webm)",
         "headers": [
           { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
         ]
@@ -36,11 +36,13 @@
         "source": "/index.html",
         "headers": [
           { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" },
-          { "key": "Content-Security-Policy", "value": "default-src 'self'; connect-src 'self' https://*.googleapis.com https://*.google.com https://*.cloudinary.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://firestore.googleapis.com https://firebaseinstallations.googleapis.com wss://*.googleapis.com https://*.supabase.co wss://*.supabase.co; script-src 'self' 'unsafe-inline' https://www.googletagmanager.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://*.cloudinary.com https://res.cloudinary.com https://*.googleusercontent.com https://*.unsplash.com; font-src 'self'; media-src 'self' blob: https://*.cloudinary.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self';" },
+          { "key": "Content-Security-Policy", "value": "default-src 'self'; connect-src 'self' https://*.googleapis.com https://*.google.com https://*.cloudinary.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://firestore.googleapis.com https://firebaseinstallations.googleapis.com https://fcm.googleapis.com wss://*.googleapis.com https://*.supabase.co wss://*.supabase.co https://api.dicebear.com https://*.firebasedatabase.app wss://*.firebasedatabase.app https://oumagachat.web.app https://gagachat.app; script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://www.googletagmanager.com/gtag/ https://www.youtube.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://*.cloudinary.com https://res.cloudinary.com https://*.googleusercontent.com https://*.unsplash.com https://api.dicebear.com https://i.ytimg.com; font-src 'self'; media-src 'self' blob: https://*.cloudinary.com; worker-src 'self'; frame-src https://www.youtube.com https://www.youtube-nocookie.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self';" },
           { "key": "X-Content-Type-Options", "value": "nosniff" },
           { "key": "X-Frame-Options", "value": "DENY" },
           { "key": "X-XSS-Protection", "value": "1; mode=block" },
-          { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" }
+          { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
+          { "key": "Strict-Transport-Security", "value": "max-age=31536000; includeSubDomains; preload" },
+          { "key": "Permissions-Policy", "value": "camera=(self), microphone=(self), geolocation=(self), notifications=(self)" }
         ]
       },
       {

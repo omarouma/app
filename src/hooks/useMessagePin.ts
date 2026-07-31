@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { isFirestoreAvailable, getDocById, subscribeToDoc } from '@/lib/firestore';
+import { isFirestoreAvailable, subscribeToDoc } from '@/lib/firestore';
 import type { PinnedMessage } from '@/types';
 
 export function useMessagePin(chatId: string | undefined) {
@@ -8,13 +8,8 @@ export function useMessagePin(chatId: string | undefined) {
   useEffect(() => {
     if (!chatId || !isFirestoreAvailable()) return;
 
-    const fetchPinned = async () => {
-      const data = await getDocById('chats', chatId);
-      setPinnedMessages(data?.pinnedMessages || data?.pinned_messages || []);
-    };
-
-    fetchPinned();
-
+    // The real-time subscription delivers the initial state on first emission,
+    // so a separate getDocById fetch is redundant and wastes a read.
     const unsubscribe = subscribeToDoc('chats', chatId, (data) => {
       if (!data) return;
       setPinnedMessages(data?.pinnedMessages || data?.pinned_messages || []);

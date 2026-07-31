@@ -22,6 +22,14 @@ function getIceServers(): RTCIceServer[] {
   const turnCred = import.meta.env.VITE_TURN_SERVER_CREDENTIAL;
   if (turnUrl && turnUser && turnCred) {
     servers.push({ urls: turnUrl, username: turnUser, credential: turnCred });
+  } else if (turnUrl || turnUser || turnCred) {
+    // Partial TURN config — warn but don't block
+    if (import.meta.env.DEV) {
+      console.warn(
+        '[WebRTC] TURN server partially configured. Set all three: VITE_TURN_SERVER_URL, VITE_TURN_SERVER_USERNAME, VITE_TURN_SERVER_CREDENTIAL. ' +
+        'Without a TURN server, calls may fail on strict NAT networks.'
+      );
+    }
   }
   return servers;
 }
@@ -65,7 +73,14 @@ export class WebRTCCall {
   }
 
   private setState(state: WebRTCCallState) {
-    this.onStateChange?.(state);
+    // Use a stable reference to avoid stale closures
+    const cb = this.onStateChange;
+    if (cb) cb(state);
+  }
+
+  /** Update the state-change callback so stale closures are replaced */
+  setOnStateChange(cb: ((state: WebRTCCallState) => void) | undefined) {
+    this.onStateChange = cb;
   }
 
   private ensurePeerConnection() {
@@ -82,24 +97,101 @@ export class WebRTCCall {
     this._pc.onconnectionstatechange = () => {
       const s = this._pc?.connectionState;
       if (s === 'connected') this.setState('connected');
-      if (s === 'failed' || s === 'disconnected' || s === 'closed') this.setState('ended');
+      if (s === 'failed') {
+        // Attempt ICE restart before giving up
+        if (this._pc && this._pc.signalingState !== 'closed') {
+          this._pc.restartIce();
+        } else {
+          this.setState('ended');
+        }
+      }
+      if (s === 'disconnected' || s === 'closed') this.setState('ended');
+    };
+
+    this._pc.oniceconnectionstatechange = () => {
+      const s = this._pc?.iceConnectionState;
+      if (s === 'failed') {
+        if (this._pc && this._pc.signalingState !== 'closed') {
+          this._pc.restartIce();
+        }
+      }
+      if (s === 'disconnected') {
+        // Give 5s for ICE to recover before ending
+        setTimeout(() => {
+          if (this._pc?.iceConnectionState === 'disconnected') this.setState('ended');
+        }, 5000);
+      }
     };
 
     return this._pc;
   }
 
   private async startLocalMedia() {
+    // Use recommended audio constraints for better call quality across devices
     const constraints: MediaStreamConstraints = {
-      audio: true,
-      video: this.isVideo,
+      audio: {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true,
+      },
+      video: this.isVideo
+        ? {
+            width: { ideal: 1280 },
+            height: { ideal: 720 },
+            frameRate: { ideal: 30, max: 60 },
+            // facingMode is left to callers (flipCamera handles switching)
+          }
+        : false,
     };
 
-    this.localStream = await navigator.mediaDevices.getUserMedia(constraints);
+    // Check microphone permission when supported to surface clearer errors earlier
+    try {
+      // navigator.permissions may not support 'microphone' everywhere
+      // If query fails, fall back to calling getUserMedia which will surface the proper error
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const permApi = (navigator as any).permissions;
+      if (permApi && typeof permApi.query === 'function') {
+        try {
+          const micPerm = await navigator.permissions.query({ name: 'microphone' as PermissionName });
+          if (micPerm.state === 'denied') throw new Error('Microphone permission denied');
+        } catch (err) {
+          // Ignore permission query errors and proceed to getUserMedia
+        }
+      }
+    } catch (e) {
+      // Continue to getUserMedia; browsers will prompt as needed
+    }
+
+    try {
+      this.localStream = await navigator.mediaDevices.getUserMedia(constraints);
     if (this.onLocalStream && this.localStream) this.onLocalStream(this.localStream);
 
     const pc = this.ensurePeerConnection();
-    for (const track of this.localStream.getTracks()) {
-      pc.addTrack(track, this.localStream);
+    // Prefer transceivers when available to have better control over SDP and direction
+    try {
+      // If browser supports addTransceiver use it for predictable behavior
+      if (typeof pc.addTransceiver === 'function') {
+        for (const track of this.localStream.getTracks()) {
+          try {
+            pc.addTransceiver(track, { direction: 'sendrecv' });
+          } catch {
+            pc.addTrack(track, this.localStream);
+          }
+        }
+      } else {
+        for (const track of this.localStream.getTracks()) {
+          pc.addTrack(track, this.localStream);
+        }
+      }
+    } catch (e) {
+      // Fallback to simple addTrack on any unexpected error
+      for (const track of this.localStream.getTracks()) pc.addTrack(track, this.localStream);
+    }
+    } catch (e) {
+      // Bubble a friendly error to caller
+      const err = e instanceof Error ? e : new Error('Failed to access media devices');
+      this.setState('error');
+      throw err;
     }
   }
 
@@ -163,19 +255,18 @@ export class WebRTCCall {
   private async handleSignalingData(sig: SignalingData) {
     const pc = this.ensurePeerConnection();
 
-    // Handle remote description
+    // Handle remote description (offer for callee, answer for caller)
     if (this.isCaller && sig.answer && !this.remoteDescSet) {
       try {
         await pc.setRemoteDescription(new RTCSessionDescription(sig.answer as RTCSessionDescriptionInit));
         this.remoteDescSet = true;
-        this.setState('connected');
-        for (const ice of sig.calleeIce || []) {
-          await pc.addIceCandidate(new RTCIceCandidate(ice));
-        }
-        for (const ice of this.pendingIce) {
-          await pc.addIceCandidate(new RTCIceCandidate(ice));
+        // Do NOT call setState('connected') here — wait for onconnectionstatechange
+        const allIce = [...(sig.calleeIce || []), ...this.pendingIce];
+        for (const ice of allIce) {
+          try { await pc.addIceCandidate(new RTCIceCandidate(ice)); } catch { /* ignore */ }
         }
         this.pendingIce = [];
+        this.lastCalleeIceCount = (sig.calleeIce || []).length;
       } catch (e) {
         void e;
       }
@@ -185,17 +276,14 @@ export class WebRTCCall {
         this.remoteDescSet = true;
         const answer = await pc.createAnswer();
         await pc.setLocalDescription(answer);
-
-        // Write answer back
         await this.writeAnswer({ sdp: answer.sdp || null, type: answer.type });
-        this.setState('connected');
-        for (const ice of sig.callerIce || []) {
-          await pc.addIceCandidate(new RTCIceCandidate(ice));
-        }
-        for (const ice of this.pendingIce) {
-          await pc.addIceCandidate(new RTCIceCandidate(ice));
+        // Do NOT call setState('connected') here — wait for onconnectionstatechange
+        const allIce = [...(sig.callerIce || []), ...this.pendingIce];
+        for (const ice of allIce) {
+          try { await pc.addIceCandidate(new RTCIceCandidate(ice)); } catch { /* ignore */ }
         }
         this.pendingIce = [];
+        this.lastCallerIceCount = (sig.callerIce || []).length;
       } catch (e) {
         void e;
       }
@@ -267,6 +355,14 @@ export class WebRTCCall {
       const supabase = getSupabase();
       if (supabase) {
         const field = isCaller ? 'caller_ice' : 'callee_ice';
+        // Use array_append via RPC to avoid read-modify-write race
+        const { error } = await supabase.rpc('append_ice_candidate', {
+          p_call_id: this.callId,
+          p_field: field,
+          p_candidate: candidate,
+        });
+        if (!error) return;
+        // Fallback to read-modify-write if RPC not available
         const { data: current } = await supabase
           .from('call_signaling')
           .select(field)
@@ -315,8 +411,8 @@ export class WebRTCCall {
 
     await this.writeOffer({ sdp: offer.sdp || null, type: offer.type });
 
-    // Start listening for answer
-    this.initSignaling();
+    // Start listening for answer — must await so channel is ready before ICE fires
+    await this.initSignaling();
 
     // Handle ICE candidates
     pc.onicecandidate = async (e) => {
@@ -336,8 +432,8 @@ export class WebRTCCall {
 
     await this.startLocalMedia();
 
-    // Start listening for offer
-    this.initSignaling();
+    // Start listening for offer — must await so channel is ready before ICE fires
+    await this.initSignaling();
 
     // Handle ICE candidates
     const pc = this.ensurePeerConnection();
@@ -410,15 +506,14 @@ export class WebRTCCall {
         const pc = this.ensurePeerConnection();
         const sender = pc.getSenders().find((s) => s.track?.kind === 'video');
         if (sender) {
-          sender.replaceTrack(newTrack);
+          sender.replaceTrack(newTrack).catch(() => newTrack.stop());
         }
 
         oldTrack.stop();
-        // Replace old track in local stream
         const oldTracks = this.localStream!.getTracks().filter((t) => t !== oldTrack);
         this.localStream = new MediaStream([...oldTracks, newTrack]);
         if (this.onLocalStream) this.onLocalStream(this.localStream);
       })
-      .catch(() => {});
+      .catch(() => { /* camera flip not supported on this device */ });
   }
 }

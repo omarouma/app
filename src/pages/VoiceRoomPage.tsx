@@ -1,43 +1,42 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Mic, MicOff, Hand, X, Users, Share2, PhoneOff, Volume2, VolumeX,
-  Crown, UserPlus, MessageSquare, ChevronLeft, MoreHorizontal
+  Mic, MicOff, Hand, X, Users, PhoneOff,
+  Crown, MessageSquare, ChevronLeft, MoreHorizontal
 } from 'lucide-react';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useVoiceRoomStore } from '@/store/useVoiceRoomStore';
-import { useFriendStore } from '@/store/useFriendStore';
 import { useVoiceRoomRTC } from '@/hooks/useVoiceRoomRTC';
 import { getDefaultAvatar } from '@/lib/utils';
-import { toast } from 'sonner';
 
 export default function VoiceRoomPage() {
-  const { roomId } = useParams<{ roomId: string }>();
+  const _params = useParams();
+  const roomId = (_params as { roomId?: string }).roomId;
   const navigate = useNavigate();
   const { user } = useAuthStore();
   const {
     rooms, activeRoom, subscribeRooms, joinRoom, leaveRoom,
     raiseHand, lowerHand, promoteToSpeaker, demoteToListener, endRoom
   } = useVoiceRoomStore();
-  const { friends } = useFriendStore();
 
   // WebRTC audio streaming
   const rtc = useVoiceRoomRTC(roomId || '', user?.id || '');
   const { isMuted } = rtc;
 
-  const [isSpeaker, setIsSpeaker] = useState(false);
+  const room = rooms.find(r => r.id === roomId) || activeRoom;
+  // eslint-disable-next-line react-hooks/preserve-manual-memoization
+  const isSpeaker = useMemo(() => {
+    return room && user?.id ? (room.speakerIds.includes(user.id) || room.hostId === user.id) : false;
+  }, [room, user?.id]);
   const [hasHandRaised, setHasHandRaised] = useState(false);
   const [showParticipants, setShowParticipants] = useState(false);
   const [showChat, setShowChat] = useState(false);
   const [chatMessages, setChatMessages] = useState<Array<{ id: string; userId: string; name: string; text: string; timestamp: Date }>>([]);
   const [chatInput, setChatInput] = useState('');
-
-  const room = rooms.find(r => r.id === roomId) || activeRoom;
   const isHost = room?.hostId === user?.id;
   const isCoHost = !!user?.id && room?.coHostIds.includes(user?.id) || false;
   const canManage = isHost || isCoHost;
-  const isParticipant = room?.participants.includes(user?.id || '');
 
   // Start local audio stream when user becomes a speaker
   useEffect(() => {
@@ -55,14 +54,14 @@ export default function VoiceRoomPage() {
     } else if (!isSpeaker) {
       rtc.stopLocalStream();
     }
-  }, [isSpeaker, room?.speakerIds?.join(','), user?.id]);
+  }, [isSpeaker, room, user, rtc]);
 
   // Connect to new speakers when they join
   useEffect(() => {
     if (!isSpeaker || !user?.id || !room) return;
     const newSpeakers = room.speakerIds.filter(sid => sid !== user.id && !rtc.connectedPeers.includes(sid));
     newSpeakers.forEach(sid => rtc.connectToPeer(sid));
-  }, [room?.speakerIds?.join(','), isSpeaker, user?.id, rtc.connectedPeers.join(',')]);
+  }, [room, isSpeaker, user, rtc]);
 
   // Join room on mount
   useEffect(() => {
@@ -74,14 +73,10 @@ export default function VoiceRoomPage() {
       leaveRoom(roomId, user.id);
       rtc.stopLocalStream();
     };
-  }, [roomId, user?.id]);
+  }, [roomId, user, joinRoom, leaveRoom, subscribeRooms, rtc]);
 
   // Determine if user is speaker
-  useEffect(() => {
-    if (room && user?.id) {
-      setIsSpeaker(room.speakerIds.includes(user.id) || room.hostId === user.id);
-    }
-  }, [room, user?.id]);
+
 
   const handleLeave = async () => {
     if (!roomId || !user?.id) return;

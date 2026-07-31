@@ -6,8 +6,8 @@ interface Translations {
 
 const en: Translations = {
   appName: 'GaGa Chat',
-  tagline: "The #1 Free Messaging & Video Calling App",
-  login: 'Login',
+  tagline: "A Global Free Messaging & Video Calling App",
+  login: "Login",
   signup: 'Sign Up',
   logout: 'Log Out',
   email: 'Email',
@@ -87,7 +87,7 @@ const en: Translations = {
   vote: 'Vote',
   coins: 'Coins',
   gagaCoins: 'Gaga Coins',
-  bdtBalance: 'BDT Balance',
+  bdtBalance: 'Fiat Balance',
   deposit: 'Deposit',
   withdraw: 'Withdraw',
   transfer: 'Transfer',
@@ -215,7 +215,7 @@ const en: Translations = {
   groupChatDesc: 'Create groups with up to 500 members.',
   secure: 'Secure',
   secureDesc: 'End-to-end encryption keeps your conversations private.',
-  gagaCoinsDesc: 'Earn coins by using the app and convert them to BDT.',
+  gagaCoinsDesc: 'Earn coins by using the app and redeem rewards.',
   howItWorks: 'How It Works',
   step1: 'Sign up with your phone number or email',
   step2: 'Add friends and start chatting',
@@ -235,7 +235,7 @@ const en: Translations = {
   foundersName: 'Ouma Ga',
   foundersTitle: 'Founder & Developer, GaGa Chat',
   messagesDaily: 'Messages Daily',
-  districts: 'Districts',
+  districts: 'Regions',
   countries: 'Countries',
   featuresDesc: 'A complete messaging platform built for modern communication',
   howItWorksDesc: 'Get started in 3 simple steps',
@@ -265,7 +265,7 @@ const en: Translations = {
 
 const bn: Translations = {
   appName: 'গগা চ্যাট',
-  tagline: 'বাংলাদেশের #১ ফ্রি মেসেজিং অ্যাপ',
+  tagline: 'একটি বিশ্বব্যাপী ফ্রি মেসেজিং অ্যাপ',
   login: 'লগইন',
   signup: 'সাইন আপ',
   logout: 'লগআউট',
@@ -346,7 +346,7 @@ const bn: Translations = {
   vote: 'ভোট দিন',
   coins: 'কয়েন',
   gagaCoins: 'গগা কয়েন',
-  bdtBalance: 'বিডিটি ব্যালেন্স',
+  bdtBalance: 'ফিয়াট ব্যালেন্স',
   deposit: 'ডিপোজিট',
   withdraw: 'উত্তোলন',
   transfer: 'ট্রান্সফার',
@@ -463,18 +463,18 @@ const bn: Translations = {
   webClient: 'ওয়েব ক্লায়েন্ট',
   logoutFromAllDevices: 'সব ডিভাইস থেকে লগআউট করুন',
   welcome: 'গগা চ্যাটে স্বাগতম',
-  welcomeMessage: 'বাংলাদেশের জন্য ফ্রি মেসেজিং, ভয়েস ও ভিডিও কল। ভিপিএন ছাড়াই।',
+  welcomeMessage: 'বিশ্বব্যাপী ফ্রি মেসেজিং, ভয়েস ও ভিডিও কল। ভিপিএন ছাড়াই।',
   getStarted: 'শুরু করুন',
   learnMore: 'আরও জানুন',
   features: 'ফিচার',
   freeMessaging: 'ফ্রি মেসেজিং',
-  freeMessagingDesc: 'বাংলাদেশের যে কোনো জায়গায় যে কাউকে বিনামূল্যে বার্তা পাঠান।',
+  freeMessagingDesc: 'বিশ্বের যে কোনো জায়গায় যে কাউকে বিনামূল্যে বার্তা পাঠান।',
   voiceVideoCalls: 'ভয়েস ও ভিডিও কল',
   voiceVideoCallsDesc: 'ভিপিএন ছাড়াই ক্রিস্টাল ক্লিয়ার এইচডি কল।',
   groupChatDesc: '৫০০ সদস্য পর্যন্ত গ্রুপ তৈরি করুন।',
   secure: 'নিরাপদ',
   secureDesc: 'এন্ড-টু-এন্ড এনক্রিপশন আপনার কথোপকথন গোপন রাখে।',
-  gagaCoinsDesc: 'অ্যাপ ব্যবহার করে কয়েন আয় করুন এবং বিডিটিতে রূপান্তর করুন।',
+  gagaCoinsDesc: 'অ্যাপ ব্যবহার করে কয়েন আয় করুন এবং পুরস্কার রিডিম করুন।',
   howItWorks: 'এটি কিভাবে কাজ করে',
   step1: 'আপনার ফোন নম্বর বা ইমেইল দিয়ে সাইন আপ করুন',
   step2: 'বন্ধু যোগ করুন এবং চ্যাট শুরু করুন',
@@ -494,7 +494,7 @@ const bn: Translations = {
   foundersName: 'ওউমা গা',
   foundersTitle: 'ফাউন্ডার এবং ডেভেলপার, গগা চ্যাট',
   messagesDaily: 'প্রতিদিনের বার্তা',
-  districts: 'জেলা',
+  districts: 'অঞ্চল',
   countries: 'দেশ',
   featuresDesc: 'আধুনিক যোগাযোগের জন্য তৈরি একটি সম্পূর্ণ মেসেজিং প্ল্যাটফর্ম',
   howItWorksDesc: '৩টি সহজ ধাপে শুরু করুন',
@@ -538,7 +538,7 @@ const es: Translations = {
   availableOn: 'Disponible en Web, Android e iOS',
   back: 'Atrás',
   backup: 'Copia de seguridad',
-  bdtBalance: 'Saldo BDT',
+  bdtBalance: 'Saldo Fiat',
   bengali: 'Bengalí',
   block: 'Bloquear',
   blockedUsers: 'Usuarios bloqueados',
@@ -611,7 +611,7 @@ const es: Translations = {
   friendsOfFriends: 'Amigos de amigos',
   friendsOnly: 'Solo amigos',
   gagaCoins: 'Monedas Gaga',
-  gagaCoinsDesc: 'Gana monedas usando la app y conviértelas a BDT.',
+  gagaCoinsDesc: 'Gana monedas usando la app y canjea recompensas.',
   gallery: 'Galería',
   getStarted: 'Empezar',
   gif: 'GIF',
@@ -796,7 +796,7 @@ const fr: Translations = {
   availableOn: 'Disponible sur Web, Android et iOS',
   back: 'Retour',
   backup: 'Sauvegarde',
-  bdtBalance: 'Solde BDT',
+  bdtBalance: 'Solde Fiat',
   bengali: 'Bengali',
   block: 'Bloquer',
   blockedUsers: 'Utilisateurs bloqués',
@@ -869,7 +869,7 @@ const fr: Translations = {
   friendsOfFriends: 'Amis d\'amis',
   friendsOnly: 'Amis seulement',
   gagaCoins: 'Pièces Gaga',
-  gagaCoinsDesc: 'Gagnez des pièces en utilisant l\'app et convertissez-les en BDT.',
+  gagaCoinsDesc: 'Gagnez des pièces en utilisant l\'app et échangez des récompenses.',
   gallery: 'Galerie',
   getStarted: 'Commencer',
   gif: 'GIF',
@@ -1054,7 +1054,7 @@ const ar: Translations = {
   availableOn: 'متاح على الويب وأندرويد وiOS',
   back: 'رجوع',
   backup: 'نسخ احتياطي',
-  bdtBalance: 'رصيد BDT',
+  bdtBalance: 'رصيد فيات',
   bengali: 'البنغالية',
   block: 'حظر',
   blockedUsers: 'المستخدمون المحظورون',
@@ -1127,7 +1127,7 @@ const ar: Translations = {
   friendsOfFriends: 'أصدقاء الأصدقاء',
   friendsOnly: 'الأصدقاء فقط',
   gagaCoins: 'عملات جاجا',
-  gagaCoinsDesc: 'اكسب العملات باستخدام التطبيق وتحويلها إلى BDT.',
+  gagaCoinsDesc: 'اكسب العملات باستخدام التطبيق وتحويلها إلى العملات الورقية.',
   gallery: 'معرض الصور',
   getStarted: 'ابدأ',
   gif: 'GIF',
@@ -1385,7 +1385,7 @@ const zh: Translations = {
   friendsOfFriends: '好友的好友',
   friendsOnly: '仅好友',
   gagaCoins: '嘎嘎金币',
-  gagaCoinsDesc: '使用应用赚取金币并兑换为BDT。',
+  gagaCoinsDesc: '使用应用赚取金币并兑换为法币。',
   gallery: '相册',
   getStarted: '开始使用',
   gif: '动图',
@@ -1557,7 +1557,15 @@ const zh: Translations = {
 
 const dictionaries: Record<LangCode, Translations> = { en, bn, es, fr, ar, zh };
 
-let currentLang: LangCode = (localStorage.getItem('gaga_language') as LangCode) || 'en';
+function getInitialLang(): LangCode {
+  try {
+    return (typeof window !== 'undefined' && localStorage.getItem('gaga_language') as LangCode) || 'en';
+  } catch {
+    return 'en';
+  }
+}
+
+let currentLang: LangCode = getInitialLang();
 
 export function setLanguage(lang: LangCode) {
   currentLang = lang;

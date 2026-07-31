@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Coins, Banknote, ArrowRightLeft, Send, Loader } from 'lucide-react';
+import { X, Coins, Banknote, Send, Loader } from 'lucide-react';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useWalletStore } from '@/store/useWalletStore';
 
@@ -12,23 +12,20 @@ interface TransferModalProps {
   toUserName?: string;
 }
 
-type TransferType = 'coins' | 'bdt';
+type TransferType = 'coins' | 'usd';
 
 export default function TransferModal({ open, onClose, chatId, toUserId, toUserName }: TransferModalProps) {
   const { user } = useAuthStore();
-  const { wallet, sendFromChat, convert } = useWalletStore();
+  const { wallet, sendFromChat } = useWalletStore();
   const [tab, setTab] = useState<TransferType>('coins');
   const [amount, setAmount] = useState('');
   const [note, setNote] = useState('');
   const [sending, setSending] = useState(false);
   const [success, setSuccess] = useState('');
   const [error, setError] = useState('');
-  const [showConvert, setShowConvert] = useState(false);
-  const [convertAmount, setConvertAmount] = useState('');
-  const [converting, setConverting] = useState(false);
 
   const coins = wallet?.coins || 0;
-  const bdt = wallet?.bdtBalance || 0;
+  const usd = wallet?.usdBalance || wallet?.bdtBalance || 0;
 
   const handleSend = async () => {
     setError(''); setSuccess('');
@@ -42,41 +39,17 @@ export default function TransferModal({ open, onClose, chatId, toUserId, toUserN
       if (numAmount > coins) { setError('Insufficient coins'); setSending(false); return; }
       result = await sendFromChat(user.id, user.name || 'User', chatId, toUserId, numAmount, 'GAGA', note);
     } else {
-      if (numAmount > bdt) { setError('Insufficient BDT balance'); setSending(false); return; }
-      result = await sendFromChat(user.id, user.name || 'User', chatId, toUserId, numAmount, 'BDT', note);
+      if (numAmount > usd) { setError('Insufficient USD balance'); setSending(false); return; }
+      result = await sendFromChat(user.id, user.name || 'User', chatId, toUserId, numAmount, 'USD', note);
     }
     setSending(false);
     if (result) {
-      setSuccess(`${tab === 'coins' ? numAmount + ' Gaga Coins' : '\u09F3' + numAmount + ' BDT'} sent!`);
+      setSuccess(`${tab === 'coins' ? numAmount + ' Gaga Coins' : '$' + numAmount.toFixed(2) + ' USD'} sent!`);
       setAmount('');
       setNote('');
       setTimeout(() => { setSuccess(''); onClose(); }, 1500);
     } else {
       setError('Transfer failed. Please try again.');
-    }
-  };
-
-  const handleConvert = async () => {
-    setError('');
-    const numAmount = parseFloat(convertAmount);
-    if (!numAmount || numAmount <= 0) return;
-    setConverting(true);
-    let result = false;
-    if (tab === 'coins') {
-      if (numAmount > coins) { setError('Insufficient coins'); setConverting(false); return; }
-      if (!user) { setError('Not logged in'); setConverting(false); return; }
-      result = await convert(user.id, numAmount, 'GAGA', 'BDT');
-    } else {
-      if (numAmount > bdt) { setError('Insufficient BDT'); setConverting(false); return; }
-      if (!user) { setError('Not logged in'); setConverting(false); return; }
-      result = await convert(user.id, numAmount, 'BDT', 'GAGA');
-    }
-    setConverting(false);
-    if (result) {
-      setConvertAmount('');
-      setShowConvert(false);
-      setSuccess('Conversion successful!');
-      setTimeout(() => setSuccess(''), 2000);
     }
   };
 
@@ -116,12 +89,12 @@ export default function TransferModal({ open, onClose, chatId, toUserId, toUserN
             >
               <Coins size={16} /> Gaga Coins
             </button>
-            <button type="button" onClick={() => { setTab('bdt'); setError(''); setSuccess(''); }}
+            <button type="button" onClick={() => { setTab('usd'); setError(''); setSuccess(''); }}
               className={`flex-1 py-3 text-sm font-medium flex items-center justify-center gap-2 transition-colors ${
-                tab === 'bdt' ? 'text-[#00C300] border-b-2 border-[#00C300]' : 'text-[#8D8D8D]'
+                tab === 'usd' ? 'text-[#00C300] border-b-2 border-[#00C300]' : 'text-[#8D8D8D]'
               }`}
             >
-              <Banknote size={16} /> BDT
+              <Banknote size={16} /> USD
             </button>
           </div>
 
@@ -130,7 +103,7 @@ export default function TransferModal({ open, onClose, chatId, toUserId, toUserN
             <div className="bg-[#F5F5F5] rounded-xl p-3 flex items-center justify-between">
               <span className="text-[#8D8D8D] text-sm">Available</span>
               <span className="text-[#111111] font-bold">
-                {tab === 'coins' ? `${coins} coins` : `\u09F3${bdt.toFixed(2)}`}
+                {tab === 'coins' ? `${coins} coins` : `$${usd.toFixed(2)}`}
               </span>
             </div>
 
@@ -139,7 +112,7 @@ export default function TransferModal({ open, onClose, chatId, toUserId, toUserN
               <label className="text-[#8D8D8D] text-xs mb-1 block">Amount</label>
               <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8D8D8D] text-lg">
-                  {tab === 'coins' ? '\u20BF' : '\u09F3'}
+                  {tab === 'coins' ? '\u20BF' : '$'}
                 </span>
                 <input
                   type="number"
@@ -162,49 +135,6 @@ export default function TransferModal({ open, onClose, chatId, toUserId, toUserN
               />
             </div>
 
-            {/* Convert button */}
-            <button type="button" onClick={() => setShowConvert(!showConvert)}
-              className="flex items-center gap-2 text-[#00C300] text-sm font-medium hover:underline"
-            >
-              <ArrowRightLeft size={14} /> Convert {tab === 'coins' ? 'coins to BDT' : 'BDT to coins'}
-            </button>
-
-            {/* Convert Panel */}
-            <AnimatePresence>
-              {showConvert && (
-                <motion.div
-                  initial={{ height: 0, opacity: 0 }}
-                  animate={{ height: 'auto', opacity: 1 }}
-                  exit={{ height: 0, opacity: 0 }}
-                  className="overflow-hidden"
-                >
-                  <div className="bg-[#F5F5F5] rounded-xl p-3 space-y-2">
-                    <p className="text-xs text-[#8D8D8D]">
-                      {tab === 'coins'
-                        ? `1 coin = \u09F30.85 BDT. You'll get \u09F3${(parseFloat(convertAmount || '0') * 0.85).toFixed(2)}`
-                        : `\u09F31 = 1 coin. You'll get ${Math.round(parseFloat(convertAmount || '0'))} coins`
-                      }
-                    </p>
-                    <div className="flex gap-2">
-                      <input
-                        type="number"
-                        value={convertAmount}
-                        onChange={e => setConvertAmount(e.target.value)}
-                        placeholder={`Amount to convert`}
-                        className="flex-1 bg-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#00C300]"
-                      />
-                      <button type="button" onClick={handleConvert}
-                        disabled={converting}
-                        className="bg-[#00C300] text-white px-4 py-2 rounded-lg text-sm font-bold active:bg-[#00A300] disabled:opacity-50"
-                      >
-                        {converting ? <Loader size={14} className="animate-spin" /> : 'Convert'}
-                      </button>
-                    </div>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-
             {/* Error/Success */}
             {error && <p className="text-[#FF3B30] text-xs">{error}</p>}
             {success && <p className="text-[#00C300] text-xs font-medium">{success}</p>}
@@ -214,7 +144,7 @@ export default function TransferModal({ open, onClose, chatId, toUserId, toUserN
               disabled={sending || !amount}
               className="w-full bg-[#00C300] hover:bg-[#00A300] text-white rounded-xl py-3.5 font-bold text-sm transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
             >
-              {sending ? <Loader size={16} className="animate-spin" /> : <><Send size={16} /> Send {tab === 'coins' ? 'Coins' : 'BDT'}</>}
+              {sending ? <Loader size={16} className="animate-spin" /> : <><Send size={16} /> Send {tab === 'coins' ? 'Coins' : 'USD'}</>}
             </button>
           </div>
         </motion.div>

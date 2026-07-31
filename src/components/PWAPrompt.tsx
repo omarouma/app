@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Download, X, Share, Smartphone } from 'lucide-react';
 import { usePwaInstall } from '@/hooks/usePwaInstall';
+import { safeGetStorageItem, safeSetStorageItem } from '@/lib/safeStorage';
 
 export default function PWAPrompt() {
   const { canInstall, installed, triggerInstall } = usePwaInstall();
@@ -10,7 +11,7 @@ export default function PWAPrompt() {
   const [dismissed, setDismissed] = useState(false);
 
   useEffect(() => {
-    const isDismissed = localStorage.getItem('pwa-prompt-dismissed');
+    const isDismissed = safeGetStorageItem('pwa-prompt-dismissed');
     if (isDismissed || installed) return;
 
     const timer = setTimeout(() => {
@@ -29,7 +30,7 @@ export default function PWAPrompt() {
   const handleDismiss = () => {
     setShowPrompt(false);
     setDismissed(true);
-    localStorage.setItem('pwa-prompt-dismissed', 'true');
+    safeSetStorageItem('pwa-prompt-dismissed', 'true');
   };
 
   const handleInstall = async () => {
@@ -101,6 +102,9 @@ export default function PWAPrompt() {
               animate={{ y: 0 }}
               exit={{ y: 100 }}
               transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="pwa-install-title"
               className="bg-white rounded-t-3xl p-6 w-full max-w-lg"
               onClick={e => e.stopPropagation()}
             >
@@ -109,7 +113,7 @@ export default function PWAPrompt() {
                   <div className="w-10 h-10 rounded-xl bg-[#00C300] flex items-center justify-center">
                     <Smartphone size={20} className="text-white" />
                   </div>
-                  <h3 className="text-[#111111] font-bold text-lg">Install GaGa Chat</h3>
+                  <h3 id="pwa-install-title" className="text-[#111111] font-bold text-lg">Install GaGa Chat</h3>
                 </div>
                 <button type="button" onClick={() => setShowIosGuide(false)} className="text-[#8D8D8D] p-1 hover:bg-gray-100 rounded-full">
                   <X size={20} />

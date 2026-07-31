@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Send, Search, Loader, Coins, Banknote, DollarSign } from 'lucide-react';
+import { X, Send, Search, Loader, Coins, DollarSign } from 'lucide-react';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useWalletStore, type CurrencyCode } from '@/store/useWalletStore';
 import { useFriendStore } from '@/store/useFriendStore';
@@ -33,9 +33,7 @@ export default function SendToFriendModal({ open, onClose }: SendToFriendModalPr
   const balance =
     currency === 'GAGA'
       ? wallet?.coins || 0
-      : currency === 'BDT'
-      ? wallet?.bdtBalance || 0
-      : wallet?.usd_balance || 0;
+      : wallet?.usdBalance || wallet?.bdtBalance || 0;
 
   const handleSend = async () => {
     const numAmount = parseFloat(amount);
@@ -68,7 +66,7 @@ export default function SendToFriendModal({ open, onClose }: SendToFriendModalPr
     setSending(false);
 
     if (result) {
-      toast.success(`Sent ${currency === 'GAGA' ? numAmount + ' GAGA' : currency === 'BDT' ? '৳' + numAmount : '$' + numAmount} to ${selectedFriend?.name || 'User'}`);
+      toast.success(`Sent ${currency === 'GAGA' ? numAmount + ' GAGA' : '$' + numAmount.toFixed(2)} to ${selectedFriend?.name || 'User'}`);
       setAmount('');
       setNote('');
       setSelectedFriendId('');
@@ -173,7 +171,6 @@ export default function SendToFriendModal({ open, onClose }: SendToFriendModalPr
               <div className="flex gap-2">
                 {([
                   { code: 'GAGA' as CurrencyCode, icon: Coins, label: 'GAGA' },
-                  { code: 'BDT' as CurrencyCode, icon: Banknote, label: 'BDT' },
                   { code: 'USD' as CurrencyCode, icon: DollarSign, label: 'USD' },
                 ]).map((c) => (
                   <button type="button" key={c.code}
@@ -194,7 +191,7 @@ export default function SendToFriendModal({ open, onClose }: SendToFriendModalPr
             <div className="bg-[#F5F5F5] rounded-xl p-3 flex items-center justify-between">
               <span className="text-[#8D8D8D] text-sm">Available</span>
               <span className="text-[#111111] font-bold">
-                {currency === 'GAGA' ? `${balance} GAGA` : currency === 'BDT' ? `৳${balance.toFixed(2)}` : `$${balance.toFixed(2)}`}
+                {currency === 'GAGA' ? `${balance} GAGA` : `$${balance.toFixed(2)}`}
               </span>
             </div>
 
@@ -203,7 +200,7 @@ export default function SendToFriendModal({ open, onClose }: SendToFriendModalPr
               <label className="text-[#8D8D8D] text-xs mb-1 block">Amount</label>
               <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8D8D8D] text-lg font-bold">
-                  {currency === 'GAGA' ? 'G' : currency === 'BDT' ? '৳' : '$'}
+                  {currency === 'GAGA' ? 'G' : '$'}
                 </span>
                 <input
                   type="number"

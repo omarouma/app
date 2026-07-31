@@ -38,3 +38,23 @@ BEGIN
     EXECUTE format('alter publication supabase_realtime add table %s;', t);
   END IF;
 END $$;
+
+-- ============================================
+-- Atomic ICE Candidate Append RPC Function
+-- Used by webrtc.ts to avoid read-modify-write race
+-- ============================================
+CREATE OR REPLACE FUNCTION public.append_ice_candidate(
+  p_call_id text,
+  p_field text,
+  p_candidate jsonb
+) RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+BEGIN
+  EXECUTE format(
+    'UPDATE public.call_signaling SET %I = %I || $1::jsonb, updated_at = now() WHERE call_id = $2',
+    p_field, p_field
+  ) USING p_candidate, p_call_id;
+END;
+$$;

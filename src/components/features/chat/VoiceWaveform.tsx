@@ -1,0 +1,155 @@
+import { useState, useRef, useEffect, useCallback, memo } from 'react';
+import { Play, Pause } from 'lucide-react';
+
+interface VoiceWaveformProps {
+  audioUrl: string;
+  duration?: number;
+  isOwnMessage?: boolean;
+}
+
+export const VoiceWaveform = memo(function VoiceWaveform({ audioUrl, duration: propDuration, isOwnMessage }: VoiceWaveformProps) {
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(propDuration || 0);
+  const [playbackRate, setPlaybackRate] = useState(1);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  // Generate fake waveform bars for visualization
+  const waveformBars = useCallback(() => {
+    const bars: number[] = [];
+    const count = 40;
+    for (let i = 0; i < count; i++) {
+      // Simulate realistic audio waveform
+      const center = count / 2;
+      const distance = Math.abs(i - center) / center;
+      const value = Math.max(0.1, Math.sin((i / count) * Math.PI * 4) * (1 - distance * 0.5) + (Math.random() * 0.3));
+      bars.push(value);
+    }
+    return bars;
+  }, []);
+
+  const bars = waveformBars();
+
+  useEffect(() => {
+    const audio = new Audio(audioUrl);
+    audioRef.current = audio;
+
+    audio.addEventListener('loadedmetadata', () => {
+      setDuration(audio.duration);
+    });
+
+    audio.addEventListener('timeupdate', () => {
+      setCurrentTime(audio.currentTime);
+    });
+
+    audio.addEventListener('ended', () => {
+      setIsPlaying(false);
+      setCurrentTime(0);
+    });
+
+    return () => {
+      audio.pause();
+      audio.src = '';
+    };
+  }, [audioUrl]);
+
+  useEffect(() => {
+    if (audioRef.current) {
+      audioRef.current.playbackRate = playbackRate;
+    }
+  }, [playbackRate]);
+
+  const togglePlayPause = useCallback(() => {
+    if (!audioRef.current) return;
+    if (isPlaying) {
+      audioRef.current.pause();
+    } else {
+      audioRef.current.play();
+    }
+    setIsPlaying(!isPlaying);
+  }, [isPlaying]);
+
+  const seekTo = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    if (!audioRef.current || !duration) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const percent = x / rect.width;
+    audioRef.current.currentTime = percent * duration;
+  }, [duration]);
+
+  const formatTime = (seconds: number) => {
+    const m = Math.floor(seconds / 60);
+    const s = Math.floor(seconds % 60);
+    return `${m}:${s.toString().padStart(2, '0')}`;
+  };
+
+  const progress = duration > 0 ? (currentTime / duration) * 100 : 0;
+
+  const cyclePlaybackRate = () => {
+    const rates = [1, 1.5, 2, 0.5];
+    const idx = rates.indexOf(playbackRate);
+    setPlaybackRate(rates[(idx + 1) % rates.length]);
+  };
+
+  return (
+    <div className={`flex items-center gap-2 min-w-[200px] max-w-full py-1 ${isOwnMessage ? 'text-white' : 'text-[#111111]'}`}>
+      {/* Play/Pause Button */}
+      <button
+        type="button"
+        onClick={togglePlayPause}
+        className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 transition-colors ${
+          isOwnMessage ? 'bg-white/20 hover:bg-white/30' : 'bg-[#00C300]/10 hover:bg-[#00C300]/20'
+        }`}
+        aria-label={isPlaying ? 'Pause' : 'Play'}
+      >
+        {isPlaying ? <Pause size={14} fill="currentColor" /> : <Play size={14} fill="currentColor" className="ml-0.5" />}
+      </button>
+
+      {/* Waveform Visualization */}
+      <div
+        className="flex-1 flex items-center gap-[2px] h-8 cursor-pointer relative"
+        onClick={seekTo}
+      >
+        {bars.map((height, i) => {
+          const barProgress = i / bars.length;
+          const isPlayed = barProgress <= progress / 100;
+          return (
+            <div
+              key={i}
+              className="flex-1 rounded-full transition-colors"
+              style={{
+                height: `${Math.max(4, height * 28)}px`,
+                backgroundColor: isPlayed
+                  ? (isOwnMessage ? 'rgba(255,255,255,0.9)' : '#00C300')
+                  : (isOwnMessage ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.15)'),
+              }}
+            />
+          );
+        })}
+        {/* Progress indicator */}
+        <div
+          className="absolute left-0 top-0 h-full pointer-events-none"
+          style={{ width: `${progress}%` }}
+        />
+      </div>
+
+      {/* Time & Speed Controls */}
+      <div className="flex flex-col items-end gap-0.5 shrink-0">
+        <span className={`text-[10px] font-medium ${isOwnMessage ? 'text-white/80' : 'text-[#8D8D8D]'}`}>
+          {formatTime(currentTime)} / {formatTime(duration)}
+        </span>
+        <button
+          type="button"
+          onClick={cyclePlaybackRate}
+          className={`text-[9px] px-1 py-0.5 rounded font-bold transition-colors ${
+            isOwnMessage ? 'bg-white/20 text-white/90 hover:bg-white/30' : 'bg-[#F5F5F5] text-[#8D8D8D] hover:bg-[#EBEBEB]'
+          }`}
+          aria-label="Change playback speed"
+        >
+          {playbackRate}x
+        </button>
+      </div>
+    </div>
+  );
+});
+

@@ -44,15 +44,20 @@ export default function TimelineCard({ post, index, onDelete, onEdit, onShare, o
 
   const handleLike = async () => {
     if (!currentUser) return;
+    const prevLikes = [...localLikes];
     const nextLikes = isLiked
       ? localLikes.filter(id => id !== currentUser.id)
       : [...localLikes, currentUser.id];
+    // Optimistic update
     setLocalLikes(nextLikes);
-    if (!isFirestoreAvailable()) return;
+    // Rollback on failure
     try {
-      await updateDocById(COLLECTIONS.POSTS, post.id, { likes: nextLikes });
+      if (isFirestoreAvailable()) {
+        await updateDocById(COLLECTIONS.POSTS, post.id, { likes: nextLikes });
+      }
     } catch {
-      setLocalLikes(localLikes);
+      setLocalLikes(prevLikes);
+      toast.error('Failed to update like');
     }
   };
 
@@ -113,15 +118,20 @@ export default function TimelineCard({ post, index, onDelete, onEdit, onShare, o
 
   const handleSave = async () => {
     if (!currentUser) return;
+    const prevSaved = isSaved;
     const nextSaved = isSaved
       ? (currentUser.savedPosts || []).filter(id => id !== post.id)
       : [...(currentUser.savedPosts || []), post.id];
+    // Optimistic update
     setIsSaved(!isSaved);
-    if (!isFirestoreAvailable()) return;
+    // Rollback on failure
     try {
-      await updateDocById(COLLECTIONS.USERS, currentUser.id, { savedPosts: nextSaved });
+      if (isFirestoreAvailable()) {
+        await updateDocById(COLLECTIONS.USERS, currentUser.id, { savedPosts: nextSaved });
+      }
     } catch {
-      setIsSaved(isSaved);
+      setIsSaved(prevSaved);
+      toast.error('Failed to save post');
     }
   };
 
@@ -143,9 +153,7 @@ export default function TimelineCard({ post, index, onDelete, onEdit, onShare, o
     }
   };
 
-  const renderHashtags = (text: string) => {
-    const youtubeIds = findYouTubeIds(text);
-    // If there are YouTube links, we'll show them as embeds below, so filter them out of the text
+  const renderHashtags = (text: string) => {    // If there are YouTube links, we'll show them as embeds below, so filter them out of the text
     let cleanText = text;
     const youtubePattern = /https?:\/\/(?:www\.)?(?:youtube\.com\/watch\?v=[a-zA-Z0-9_-]{11}|youtu\.be\/[a-zA-Z0-9_-]{11}|youtube\.com\/embed\/[a-zA-Z0-9_-]{11}|youtube\.com\/shorts\/[a-zA-Z0-9_-]{11})/gi;
     cleanText = cleanText.replace(youtubePattern, '');
@@ -168,18 +176,18 @@ export default function TimelineCard({ post, index, onDelete, onEdit, onShare, o
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
+      initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: index * 0.1 }}
-      className="bg-white border border-[#EBEBEB] rounded-2xl p-4 space-y-3 relative"
+      transition={{ delay: Math.min(index * 0.05, 0.3) }}
+      className="bg-white border-b border-[#EBEBEB] space-y-3 relative"
     >
       {/* Author */}
-      <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-full bg-[#F5F5F5] flex items-center justify-center overflow-hidden">
-          {sanitizeMediaUrl(userAvatar) ? <img src={sanitizeMediaUrl(userAvatar)} className="w-full h-full object-cover" alt="User avatar" /> : <img src={getDefaultAvatar(post.userId || userName || 'U')} className="w-full h-full object-cover" alt="User avatar" />}
+      <div className="flex items-center gap-3 px-4 pt-4">
+        <div className="w-10 h-10 rounded-full bg-[#F5F5F5] flex items-center justify-center overflow-hidden shrink-0">
+          {sanitizeMediaUrl(userAvatar || post.userAvatar) ? <img src={sanitizeMediaUrl(userAvatar || post.userAvatar)} className="w-full h-full object-cover" alt="User avatar" /> : <img src={getDefaultAvatar(post.userId || userName || 'U')} className="w-full h-full object-cover" alt="User avatar" />}
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-[#111111] font-medium text-sm">{userName || 'User'}</p>
+          <p className="text-[#111111] font-semibold text-[15px]">{userName || post.userName || 'User'}</p>
           <div className="flex items-center gap-1.5">
             <p className="text-[#8D8D8D] text-xs">{formatTime(post.timestamp)}</p>
             <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${vis.color}`}>{vis.text}</span>
@@ -228,14 +236,14 @@ export default function TimelineCard({ post, index, onDelete, onEdit, onShare, o
 
       {/* Content */}
       {post.content && (
-        <p className="text-[#111111] text-sm leading-relaxed whitespace-pre-wrap" onClick={handleDoubleTap}>
+        <p className="text-[#111111] text-[15px] leading-relaxed whitespace-pre-wrap px-4" onClick={handleDoubleTap}>
           {renderHashtags(post.content)}
         </p>
       )}
 
       {/* Poll */}
       {post.pollData && (
-        <div className="bg-gradient-to-br from-[#F5F5F5] to-white rounded-xl p-4 space-y-3 border border-[#EBEBEB]">
+        <div className="bg-gradient-to-br from-[#F5F5F5] to-white rounded-xl p-4 space-y-3 border border-[#EBEBEB] mx-4">
           <p className="text-sm font-semibold text-[#111111] flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-[#00C300] animate-pulse"></span>
             {post.pollData.question}
@@ -276,7 +284,7 @@ export default function TimelineCard({ post, index, onDelete, onEdit, onShare, o
         const ids = findYouTubeIds(post.content || '');
         if (ids.length === 0) return null;
         return (
-          <div className="space-y-2">
+          <div className="space-y-2 px-4">
             {ids.map(id => (
               <YouTubeEmbed key={id} videoId={id} />
             ))}
@@ -286,15 +294,29 @@ export default function TimelineCard({ post, index, onDelete, onEdit, onShare, o
 
       {/* Images */}
       {post.images && post.images.length > 0 && (
-        <div className={`grid gap-2 ${post.images.length === 1 ? 'grid-cols-1' : post.images.length === 2 ? 'grid-cols-2' : 'grid-cols-3'}`}>
+        <div className={`gap-0.5 ${
+          post.images.length === 1 ? 'block' :
+          post.images.length === 2 ? 'grid grid-cols-2' :
+          post.images.length === 3 ? 'grid grid-cols-2' :
+          'grid grid-cols-2'
+        }`}>
           {post.images.map((img, i) => (
-            <img
+            <div
               key={i}
-              src={img}
-              alt="Cover image"
-              className="w-full rounded-xl object-cover max-h-72 cursor-pointer"
-              onClick={() => onImageClick?.(img)}
-            />
+              className={`overflow-hidden ${
+                post.images.length === 1 ? 'w-full' :
+                post.images.length === 3 && i === 0 ? 'col-span-2' : ''
+              }`}
+            >
+              <img
+                src={img}
+                alt="Post image"
+                className={`w-full object-cover cursor-pointer hover:opacity-95 transition-opacity ${
+                  post.images.length === 1 ? 'max-h-[400px]' : 'h-48'
+                }`}
+                onClick={() => onImageClick?.(img)}
+              />
+            </div>
           ))}
         </div>
       )}
@@ -314,62 +336,91 @@ export default function TimelineCard({ post, index, onDelete, onEdit, onShare, o
       </AnimatePresence>
 
       {/* Engagement Stats */}
-      <div className="flex items-center gap-4 text-xs text-[#8D8D8D] px-1">
-        <span>{localLikes.length} likes</span>
-        <span>{localComments.length} comments</span>
-        <span>{localShares} shares</span>
-      </div>
+      {(localLikes.length > 0 || localComments.length > 0 || localShares > 0) && (
+        <div className="flex items-center gap-3 text-xs text-[#8D8D8D] px-4">
+          {localLikes.length > 0 && (
+            <span className="flex items-center gap-1">
+              <Heart size={11} className="fill-[#FF3B30] text-[#FF3B30]" />
+              {localLikes.length}
+            </span>
+          )}
+          {localComments.length > 0 && <span>{localComments.length} comment{localComments.length !== 1 ? 's' : ''}</span>}
+          {localShares > 0 && <span>{localShares} share{localShares !== 1 ? 's' : ''}</span>}
+        </div>
+      )}
 
       {/* Actions */}
-      <div className="flex items-center gap-5 pt-2 border-t border-[#EBEBEB]">
+      <div className="flex items-center gap-1 px-2 py-1 border-t border-[#EBEBEB]">
         <button type="button" onClick={handleLike}
-          className={`flex items-center gap-1.5 transition-colors ${isLiked ? 'text-[#FF3B30]' : 'text-[#8D8D8D] hover:text-[#111111]'}`}
+          className={`flex items-center gap-1.5 flex-1 justify-center py-2 rounded-xl transition-colors text-sm font-medium ${
+            isLiked ? 'text-[#FF3B30]' : 'text-[#8D8D8D] hover:bg-[#F5F5F5]'
+          }`}
         >
           <Heart size={18} className={isLiked ? 'fill-current' : ''} />
+          <span className="text-xs">{isLiked ? 'Liked' : 'Like'}</span>
         </button>
         <button type="button" onClick={() => setShowComments(!showComments)}
-          className="flex items-center gap-1.5 text-[#8D8D8D] hover:text-[#111111] transition-colors"
+          className="flex items-center gap-1.5 flex-1 justify-center py-2 rounded-xl text-[#8D8D8D] hover:bg-[#F5F5F5] transition-colors"
         >
           <MessageCircle size={18} />
+          <span className="text-xs">Comment</span>
         </button>
-        <button type="button" onClick={handleShare} className="text-[#8D8D8D] hover:text-[#111111] transition-colors">
+        <button type="button" onClick={handleShare}
+          className="flex items-center gap-1.5 flex-1 justify-center py-2 rounded-xl text-[#8D8D8D] hover:bg-[#F5F5F5] transition-colors"
+        >
           <Share2 size={18} />
+          <span className="text-xs">Share</span>
         </button>
         <button type="button" onClick={() => onTip?.(post)}
-          className="flex items-center gap-1 text-[#8D8D8D] hover:text-[#FFD700] transition-colors"
+          className="flex items-center gap-1.5 flex-1 justify-center py-2 rounded-xl text-[#8D8D8D] hover:text-[#FFD700] hover:bg-[#FFF9E6] transition-colors"
           title="Tip creator"
         >
           <Sparkles size={16} />
+          <span className="text-xs">Tip</span>
         </button>
-        <button type="button" onClick={handleSave} className={`ml-auto transition-colors ${isSaved ? 'text-[#00C300]' : 'text-[#8D8D8D] hover:text-[#111111]'}`}>
+        <button type="button" onClick={handleSave}
+          className={`flex items-center gap-1.5 flex-1 justify-center py-2 rounded-xl transition-colors ${
+            isSaved ? 'text-[#00C300]' : 'text-[#8D8D8D] hover:bg-[#F5F5F5]'
+          }`}
+        >
           <Bookmark size={18} className={isSaved ? 'fill-current' : ''} />
+          <span className="text-xs">{isSaved ? 'Saved' : 'Save'}</span>
         </button>
       </div>
 
       {/* Comments */}
       <AnimatePresence>
         {showComments && (
-          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} className="space-y-3 pt-2">
+          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} className="space-y-2 px-4 pb-3">
             {localComments.map((comment) => {
               const isCommentLiked = likedCommentIds.has(comment.id);
               const isOwnComment = comment.userId === currentUser?.id;
               return (
                 <div key={comment.id} className="flex gap-2">
-                  <div className="w-7 h-7 rounded-full bg-[#F5F5F5] flex items-center justify-center shrink-0">
-                    <span className="text-[#8D8D8D] text-xs font-bold">U</span>
+                  <div className="w-8 h-8 rounded-full bg-[#F5F5F5] flex items-center justify-center shrink-0 overflow-hidden">
+                    {sanitizeMediaUrl((comment as PostComment & { userAvatar?: string }).userAvatar) ? (
+                      <img src={sanitizeMediaUrl((comment as PostComment & { userAvatar?: string }).userAvatar)} className="w-full h-full object-cover" alt="" />
+                    ) : (
+                      <img src={getDefaultAvatar(comment.userId || 'U')} className="w-full h-full object-cover" alt="" />
+                    )}
                   </div>
-                  <div className="bg-[#F5F5F5] rounded-xl px-3 py-2 flex-1">
+                  <div className="bg-[#F5F5F5] rounded-2xl px-3 py-2 flex-1">
+                    <p className="text-[#111111] text-xs font-semibold mb-0.5">
+                      {(comment as PostComment & { userName?: string }).userName || 'User'}
+                    </p>
                     <p className="text-[#111111] text-sm">{comment.content}</p>
                     <div className="flex items-center gap-3 mt-1">
                       <p className="text-[#C7C7CC] text-[10px]">{formatTime(comment.timestamp)}</p>
                       <button type="button" onClick={() => handleCommentLike(comment.id)}
-                        className={`text-[10px] flex items-center gap-0.5 ${isCommentLiked ? 'text-[#FF3B30]' : 'text-[#8D8D8D]'}`}
+                        className={`text-[10px] flex items-center gap-0.5 font-medium ${
+                          isCommentLiked ? 'text-[#FF3B30]' : 'text-[#8D8D8D]'
+                        }`}
                       >
                         <ThumbsUp size={10} /> Like
                       </button>
                       {isOwnComment && (
                         <button type="button" onClick={() => handleCommentDelete(comment.id)}
-                          className="text-[10px] text-[#FF3B30]"
+                          className="text-[10px] text-[#FF3B30] font-medium"
                         >
                           Delete
                         </button>
@@ -379,15 +430,22 @@ export default function TimelineCard({ post, index, onDelete, onEdit, onShare, o
                 </div>
               );
             })}
-            <div className="flex gap-2">
-              <input
-                value={commentText}
-                onChange={e => setCommentText(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && handleComment()}
-                placeholder="Write a comment..."
-                className="flex-1 bg-[#F5F5F5] rounded-xl px-3 py-2 text-[#111111] text-sm placeholder:text-[#8D8D8D] focus:outline-none focus:ring-2 focus:ring-[#00C300]"
-              />
-              <button type="button" onClick={handleComment} className="text-[#00C300] hover:text-[#00A300] px-3 text-sm font-medium">Post</button>
+            <div className="flex gap-2 pt-1">
+              <div className="w-8 h-8 rounded-full bg-[#F5F5F5] flex items-center justify-center shrink-0 overflow-hidden">
+                <img src={getDefaultAvatar(currentUser?.id || 'me')} className="w-full h-full object-cover" alt="" />
+              </div>
+              <div className="flex-1 flex items-center gap-2 bg-[#F5F5F5] rounded-full px-3 py-1.5">
+                <input
+                  value={commentText}
+                  onChange={e => setCommentText(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && handleComment()}
+                  placeholder="Write a comment..."
+                  className="flex-1 bg-transparent text-[#111111] text-sm placeholder:text-[#8D8D8D] focus:outline-none"
+                />
+                {commentText.trim() && (
+                  <button type="button" onClick={handleComment} className="text-[#00C300] text-sm font-semibold shrink-0">Post</button>
+                )}
+              </div>
             </div>
           </motion.div>
         )}

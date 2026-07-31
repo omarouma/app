@@ -49,8 +49,10 @@ export default function EventsPage() {
   const [creating, setCreating] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Fetch events based on tab
+  // Subscribe to events for real-time updates + fetch on tab change
   useEffect(() => {
+    const unsub = subscribeEvents();
+
     if (activeTab === 'upcoming') {
       getUpcomingEvents(50);
     } else if (activeTab === 'my-events' && user?.id) {
@@ -64,7 +66,6 @@ export default function EventsPage() {
             getNearbyEvents(loc.lat, loc.lng, 50);
           },
           () => {
-            // fallback to user profile location
             if (user?.latitude && user?.longitude) {
               const loc = { lat: user.latitude, lng: user.longitude };
               setUserLocation(loc);
@@ -78,13 +79,9 @@ export default function EventsPage() {
         getNearbyEvents(loc.lat, loc.lng, 50);
       }
     }
-  }, [activeTab, user?.id, user?.latitude, user?.longitude, getUpcomingEvents, getMyEvents, getNearbyEvents]);
 
-  // Subscribe to events for real-time updates
-  useEffect(() => {
-    const unsub = subscribeEvents();
     return () => unsub();
-  }, [subscribeEvents]);
+  }, [activeTab, user?.id, user?.latitude, user?.longitude, getUpcomingEvents, getMyEvents, getNearbyEvents, subscribeEvents]);
 
   const now = new Date();
 
@@ -162,7 +159,7 @@ export default function EventsPage() {
         endDate,
         privacy: createPrivacy,
         cost: createCost ? parseFloat(createCost) : undefined,
-        currency: 'BDT',
+        currency: 'USD',
         isOnline: createIsOnline,
         category: createCategory,
         capacity: createCapacity ? parseInt(createCapacity) : undefined,

@@ -1,9 +1,9 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { create } from 'zustand';
 import {
-  isFirestoreAvailable, COLLECTIONS, addDocToCollection,
-  updateDocById, deleteDocById, subscribeToCollection, queryCollection,
-  serverTimestamp, arrayUnion, arrayRemove
+  isFirestoreAvailable, addDocToCollection,
+  updateDocById, subscribeToCollection, queryCollection,
+  serverTimestamp, arrayUnion, arrayRemove, COLLECTIONS
 } from '@/lib/firestore';
 import { where, orderBy } from '@/lib/firestore';
 import { toast } from 'sonner';
@@ -89,7 +89,7 @@ export const useVoiceRoomStore = create<VoiceRoomStore>((set, get) => ({
       return null;
     }
     try {
-      const roomId = await addDocToCollection('voiceRooms', {
+      const roomId = await addDocToCollection(COLLECTIONS.VOICE_ROOMS, {
         ...data,
         hostId: userId,
         participants: [userId],
@@ -112,7 +112,7 @@ export const useVoiceRoomStore = create<VoiceRoomStore>((set, get) => ({
   joinRoom: async (roomId, userId) => {
     if (!isFirestoreAvailable()) return;
     try {
-      await updateDocById('voiceRooms', roomId, {
+      await updateDocById(COLLECTIONS.VOICE_ROOMS, roomId, {
         participants: arrayUnion(userId),
         listenerCount: (get().rooms.find(r => r.id === roomId)?.listenerCount || 0) + 1,
       });
@@ -140,7 +140,7 @@ export const useVoiceRoomStore = create<VoiceRoomStore>((set, get) => ({
         updates.isLive = false;
         updates.endedAt = serverTimestamp();
       }
-      await updateDocById('voiceRooms', roomId, updates);
+      await updateDocById(COLLECTIONS.VOICE_ROOMS, roomId, updates);
       set({ activeRoom: null });
     } catch (err) {
       console.error('leaveRoom error:', err);
@@ -150,7 +150,7 @@ export const useVoiceRoomStore = create<VoiceRoomStore>((set, get) => ({
   raiseHand: async (roomId, userId) => {
     if (!isFirestoreAvailable()) return;
     try {
-      await updateDocById('voiceRooms', roomId, {
+      await updateDocById(COLLECTIONS.VOICE_ROOMS, roomId, {
         raisedHands: arrayUnion(userId),
       });
       toast.success('Hand raised');
@@ -162,7 +162,7 @@ export const useVoiceRoomStore = create<VoiceRoomStore>((set, get) => ({
   lowerHand: async (roomId, userId) => {
     if (!isFirestoreAvailable()) return;
     try {
-      await updateDocById('voiceRooms', roomId, {
+      await updateDocById(COLLECTIONS.VOICE_ROOMS, roomId, {
         raisedHands: arrayRemove(userId),
       });
     } catch (err) {
@@ -173,7 +173,7 @@ export const useVoiceRoomStore = create<VoiceRoomStore>((set, get) => ({
   promoteToSpeaker: async (roomId, userId) => {
     if (!isFirestoreAvailable()) return;
     try {
-      await updateDocById('voiceRooms', roomId, {
+      await updateDocById(COLLECTIONS.VOICE_ROOMS, roomId, {
         speakerIds: arrayUnion(userId),
         raisedHands: arrayRemove(userId),
       });
@@ -186,7 +186,7 @@ export const useVoiceRoomStore = create<VoiceRoomStore>((set, get) => ({
   demoteToListener: async (roomId, userId) => {
     if (!isFirestoreAvailable()) return;
     try {
-      await updateDocById('voiceRooms', roomId, {
+      await updateDocById(COLLECTIONS.VOICE_ROOMS, roomId, {
         speakerIds: arrayRemove(userId),
       });
     } catch (err) {
@@ -202,7 +202,7 @@ export const useVoiceRoomStore = create<VoiceRoomStore>((set, get) => ({
         toast.error('Only the host can end the room');
         return;
       }
-      await updateDocById('voiceRooms', roomId, {
+      await updateDocById(COLLECTIONS.VOICE_ROOMS, roomId, {
         isLive: false,
         endedAt: serverTimestamp(),
       });
@@ -222,7 +222,7 @@ export const useVoiceRoomStore = create<VoiceRoomStore>((set, get) => ({
     set({ loading: true });
     try {
       const unsub = subscribeToCollection(
-        'voiceRooms',
+        COLLECTIONS.VOICE_ROOMS,
         [where('isLive', '==', true), orderBy('startedAt', 'desc')],
         (data) => {
           const rooms = (data || []).map(mapRoom);
@@ -240,7 +240,7 @@ export const useVoiceRoomStore = create<VoiceRoomStore>((set, get) => ({
   getRoomById: async (roomId) => {
     if (!isFirestoreAvailable()) return null;
     try {
-      const data = await queryCollection('voiceRooms', [where('id', '==', roomId)]);
+      const data = await queryCollection(COLLECTIONS.VOICE_ROOMS, [where('id', '==', roomId)]);
       return data.length > 0 ? mapRoom(data[0]) : null;
     } catch (err) {
       console.error('getRoomById error:', err);
@@ -251,7 +251,7 @@ export const useVoiceRoomStore = create<VoiceRoomStore>((set, get) => ({
   searchRooms: async (query) => {
     if (!isFirestoreAvailable()) return [];
     try {
-      const data = await queryCollection('voiceRooms', [
+      const data = await queryCollection(COLLECTIONS.VOICE_ROOMS, [
         where('isLive', '==', true),
         where('title', '>=', query),
         where('title', '<=', query + '\uf8ff'),
@@ -266,7 +266,7 @@ export const useVoiceRoomStore = create<VoiceRoomStore>((set, get) => ({
   getPopularRooms: async (limitCount = 20) => {
     if (!isFirestoreAvailable()) return [];
     try {
-      const data = await queryCollection('voiceRooms', [
+      const data = await queryCollection(COLLECTIONS.VOICE_ROOMS, [
         where('isLive', '==', true),
         orderBy('listenerCount', 'desc'),
       ]);

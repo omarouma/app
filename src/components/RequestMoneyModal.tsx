@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, HandCoins, Search, Loader, Coins, Banknote, DollarSign } from 'lucide-react';
+import { X, HandCoins, Search, Loader, Coins, DollarSign } from 'lucide-react';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useWalletStore, type CurrencyCode } from '@/store/useWalletStore';
 import { useFriendStore } from '@/store/useFriendStore';
@@ -57,7 +57,7 @@ export default function RequestMoneyModal({ open, onClose }: RequestMoneyModalPr
     setSending(false);
 
     if (result) {
-      toast.success(`Requested ${currency === 'GAGA' ? numAmount + ' GAGA' : currency === 'BDT' ? '৳' + numAmount : '$' + numAmount} from ${selectedFriend?.name || 'User'}`);
+      toast.success(`Requested ${currency === 'GAGA' ? numAmount + ' GAGA' : '$' + numAmount.toFixed(2)} from ${selectedFriend?.name || 'User'}`);
       setAmount('');
       setNote('');
       setSelectedFriendId('');
@@ -162,7 +162,6 @@ export default function RequestMoneyModal({ open, onClose }: RequestMoneyModalPr
               <div className="flex gap-2">
                 {([
                   { code: 'GAGA' as CurrencyCode, icon: Coins, label: 'GAGA' },
-                  { code: 'BDT' as CurrencyCode, icon: Banknote, label: 'BDT' },
                   { code: 'USD' as CurrencyCode, icon: DollarSign, label: 'USD' },
                 ]).map((c) => (
                   <button type="button" key={c.code}
@@ -184,7 +183,7 @@ export default function RequestMoneyModal({ open, onClose }: RequestMoneyModalPr
               <label className="text-[#8D8D8D] text-xs mb-1 block">Amount</label>
               <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8D8D8D] text-lg font-bold">
-                  {currency === 'GAGA' ? 'G' : currency === 'BDT' ? '৳' : '$'}
+                  {currency === 'GAGA' ? 'G' : '$'}
                 </span>
                 <input
                   type="number"

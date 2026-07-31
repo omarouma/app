@@ -10,20 +10,20 @@ interface WithdrawModalProps {
 }
 
 export default function WithdrawModal({ open, onClose }: WithdrawModalProps) {
-  const [method, setMethod] = useState<'nagad' | 'bkash' | 'paypal'>('nagad');
-  const [phone, setPhone] = useState('');
+  const [method, setMethod] = useState<'paypal'>('paypal');
+  const [email, setEmail] = useState('');
   const [amount, setAmount] = useState('');
   const [confirming, setConfirming] = useState(false);
   const { withdraw, wallet } = useWalletStore();
   const { user } = useAuthStore();
 
-  const bdtAmount = Number(amount) || 0;
-  const canWithdraw = wallet && bdtAmount >= 50 && bdtAmount <= wallet.bdtBalance;
+  const usdAmount = Number(amount) || 0;
+  const canWithdraw = wallet && usdAmount >= 5 && usdAmount <= (wallet.usdBalance || 0);
 
   const handleWithdraw = async () => {
     if (!user || !canWithdraw) return;
     if (!confirming) { setConfirming(true); return; }
-    await withdraw(user.id, bdtAmount, 'BDT', method.toUpperCase(), phone);
+    await withdraw(user.id, usdAmount, 'USD', method.toUpperCase(), email);
     onClose();
   };
 
@@ -52,45 +52,45 @@ export default function WithdrawModal({ open, onClose }: WithdrawModalProps) {
             </div>
 
             <div className="flex gap-2 mb-4">
-              {(['nagad', 'bkash', 'paypal'] as const).map(m => (
+              {(['paypal'] as const).map(m => (
                 <button type="button" key={m}
                   onClick={() => setMethod(m)}
                   className={`flex-1 py-2 rounded-xl border text-sm font-medium transition-all ${
                     method === m ? 'border-[#00C300] bg-[#00C300]/5 text-[#00C300]' : 'border-[#EBEBEB] text-[#8D8D8D] hover:border-[#C7C7CC]'
                   }`}
                 >
-                  {m === 'nagad' ? 'Nagad' : m === 'bkash' ? 'bKash' : 'PayPal'}
+                  {m === 'paypal' ? 'PayPal' : m}
                 </button>
               ))}
             </div>
 
             <div className="space-y-3 mb-4">
               <div>
-                <label className="text-[#8D8D8D] text-xs mb-1 block">Phone / Account</label>
+                <label className="text-[#8D8D8D] text-xs mb-1 block">PayPal Email</label>
                 <input
-                  value={phone}
-                  onChange={e => setPhone(e.target.value)}
-                  placeholder={method === 'paypal' ? 'PayPal email' : '01XXXXXXXXX'}
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                  placeholder="your@email.com"
                   className="w-full bg-[#F5F5F5] border border-[#EBEBEB] rounded-xl px-4 py-3 text-[#111111] text-sm focus:outline-none focus:ring-2 focus:ring-[#00C300]"
                 />
               </div>
               <div>
-                <label className="text-[#8D8D8D] text-xs mb-1 block">Amount (BDT)</label>
+                <label className="text-[#8D8D8D] text-xs mb-1 block">Amount (USD)</label>
                 <input
                   type="number"
                   value={amount}
                   onChange={e => setAmount(e.target.value)}
-                  placeholder="Minimum 50"
+                  placeholder="Minimum 5"
                   className="w-full bg-[#F5F5F5] border border-[#EBEBEB] rounded-xl px-4 py-3 text-[#111111] text-sm focus:outline-none focus:ring-2 focus:ring-[#00C300]"
                 />
               </div>
             </div>
 
-            {bdtAmount > 0 && (
+            {usdAmount > 0 && (
               <div className="bg-[#F5F5F5] rounded-xl p-4 mb-4 space-y-2">
                 <div className="flex justify-between text-sm">
                   <span className="text-[#8D8D8D]">Amount</span>
-                  <span className="text-[#111111] font-medium">{`\u09F3${bdtAmount.toFixed(2)}`}</span>
+                  <span className="text-[#111111] font-medium">{`$${usdAmount.toFixed(2)}`}</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-[#8D8D8D]">Method</span>
@@ -98,15 +98,15 @@ export default function WithdrawModal({ open, onClose }: WithdrawModalProps) {
                 </div>
                 <div className="border-t border-[#EBEBEB] pt-2 flex justify-between">
                   <span className="text-[#111111] font-medium">Total</span>
-                  <span className="text-[#00C300] font-bold">{`\u09F3${bdtAmount.toFixed(2)} BDT`}</span>
+                  <span className="text-[#00C300] font-bold">{`$${usdAmount.toFixed(2)} USD`}</span>
                 </div>
               </div>
             )}
 
-            {bdtAmount > 0 && !canWithdraw && (
+            {usdAmount > 0 && !canWithdraw && (
               <div className="flex items-center gap-2 bg-[#FF3B30]/10 rounded-xl p-3 mb-4 text-[#FF3B30] text-xs">
                 <AlertTriangle size={14} />
-                {bdtAmount < 50 ? 'Minimum \u09F350 BDT required' : 'Insufficient balance'}
+                {usdAmount < 5 ? 'Minimum $5 USD required' : 'Insufficient balance'}
               </div>
             )}
 

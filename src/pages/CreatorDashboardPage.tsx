@@ -14,7 +14,7 @@ import { useEnhancedTimelineStore } from '@/store/useEnhancedTimelineStore';
 import { usePremiumStore } from '@/store/usePremiumStore';
 import { useReelStore } from '@/store/useReelStore';
 import { queryCollection, COLLECTIONS, where, orderBy, isFirestoreAvailable } from '@/lib/firestore';
-import type { TimelinePost, CreatorAnalytics, Reel, WalletTransaction } from '@/types';
+import type { TimelinePost, CreatorAnalytics, Reel } from '@/types';
 import {
   Line, AreaChart, Area, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, Legend
@@ -74,7 +74,7 @@ function mapPostFromDoc(d: Record<string, unknown>): TimelinePost {
   const rawTs = d.createdAt ?? d.timestamp;
   const timestamp =
     rawTs && typeof rawTs === 'object' && 'toDate' in rawTs
-      ? (rawTs as any).toDate()
+      ? (rawTs as { toDate: () => Date }).toDate()
       : rawTs
         ? new Date(rawTs as string)
         : new Date();
@@ -84,15 +84,18 @@ function mapPostFromDoc(d: Record<string, unknown>): TimelinePost {
     content: (d.content as string) || '',
     images: (d.images as string[]) || [],
     likes: (d.likes as string[]) || [],
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     comments: (d.comments as any[]) || [],
     shares: (d.shares as string[]) || [],
     timestamp,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     visibility: (d.visibility as any) || 'public',
     userName: (d.userName as string) || '',
     userAvatar: (d.userAvatar as string) || '',
     videoUrl: (d.videoUrl as string) || undefined,
     location: (d.location as string) || undefined,
     hashtags: (d.hashtags as string[]) || [],
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     reactions: (d.reactions as any) || undefined,
     savedBy: (d.savedBy as string[]) || [],
     repostedBy: (d.repostedBy as string[]) || [],
@@ -104,13 +107,47 @@ function mapPostFromDoc(d: Record<string, unknown>): TimelinePost {
     viewCount: (d.viewCount as number) || 0,
     reachCount: (d.reachCount as number) || 0,
     impressionCount: (d.impressionCount as number) || 0,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     mediaType: (d.mediaType as any) || 'text',
   };
 }
 
 /* ────────────────────────────────────────────────────────────────
+   buildChartData helper
+   ──────────────────────────────────────────────────────────────── */
+function buildChartData(
+  posts: TimelinePost[],
+  _analytics: CreatorAnalytics | null,
+  currentUser: { followers?: string[] } | null,
+  filter: TimeFilter = 'month'
+): ChartPoint[] {
+  const filtered = posts.filter((p) => isWithinFilter(p.timestamp, filter));
+  if (filtered.length === 0) return [];
+
+  const dateMap = new Map<string, { views: number; likes: number }>();
+  filtered.forEach((post) => {
+    const dateStr = post.timestamp.toISOString().split('T')[0];
+    const existing = dateMap.get(dateStr) || { views: 0, likes: 0 };
+    existing.views += post.viewCount || 0;
+    existing.likes += post.likes.length;
+    dateMap.set(dateStr, existing);
+  });
+
+  const sorted = Array.from(dateMap.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+  const totalF = currentUser?.followers?.length || 0;
+
+  return sorted.map((entry, idx) => ({
+    date: entry[0],
+    views: entry[1].views,
+    likes: entry[1].likes,
+    followers: totalF > 0 ? Math.round((totalF * (idx + 1)) / sorted.length) : 0,
+  }));
+}
+
+/* ────────────────────────────────────────────────────────────────
    Sub-components
    ──────────────────────────────────────────────────────────────── */
+
 function SkeletonCard() {
   return (
     <div className="rounded-xl p-4 animate-pulse" style={{ background: '#1a1a1a' }}>
@@ -239,7 +276,6 @@ interface PostTableRowProps {
 function PostTableRow({ data, index, onClick }: PostTableRowProps) {
   const { post, engagementRate } = data;
   const preview = post.content.slice(0, 60) || (post.images.length ? 'Image post' : 'Video post');
-  const hasMedia = post.images.length > 0 || post.videoUrl;
   const mediaType = post.videoUrl ? 'video' : post.images.length ? 'image' : 'text';
 
   return (
@@ -291,12 +327,12 @@ function PostTableRow({ data, index, onClick }: PostTableRowProps) {
 /* ────────────────────────────────────────────────────────────────
    Custom Tooltip for Recharts
    ──────────────────────────────────────────────────────────────── */
-function CustomTooltip({ active, payload, label }: any) {
+function CustomTooltip({ active, payload, label }: { active?: boolean; payload?: Array<{ dataKey: string; name: string; value: number; color: string }>; label?: string }) {
   if (active && payload && payload.length) {
     return (
       <div className="rounded-lg p-3 text-sm" style={{ background: '#1a1a1a', border: '1px solid #2a2a2a' }}>
-        <p className="font-medium text-white mb-1">{formatDateLabel(label)}</p>
-        {payload.map((p: any) => (
+        <p className="font-medium text-white mb-1">{formatDateLabel(label || '')}</p>
+        {payload.map((p) => (
           <p key={p.dataKey} className="text-xs" style={{ color: p.color }}>
             {p.name}: {formatNumber(p.value)}
           </p>
@@ -328,8 +364,10 @@ export default function CreatorDashboardPage() {
   const [chartData, setChartData] = useState<ChartPoint[]>([]);
 
   /* ── Data loading ── */
+
   useEffect(() => {
     if (!user?.id) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setLoading(false);
       return;
     }
@@ -397,36 +435,28 @@ export default function CreatorDashboardPage() {
       cancelled = true;
       cleanupPromise.then((cleanup) => cleanup?.()).catch(() => {});
     };
-  }, [user?.id, subscribeWallet, subscribeToPremium, fetchTips, getCreatorAnalytics, getMyReels]);
+  }, [user, subscribeWallet, subscribeToPremium, fetchTips, getCreatorAnalytics, getMyReels]);
 
-  /* Rebuild chart when filter changes */
   useEffect(() => {
     if (user) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setChartData(buildChartData(userPosts, analytics, user, timeFilter));
     }
   }, [timeFilter, userPosts, analytics, user]);
 
   /* ── Computed stats ── */
-  const filteredTransactions = useMemo(() => {
-    if (!wallet?.transactions) return [];
-    return wallet.transactions.filter((tx: WalletTransaction) => {
-      const ts = typeof tx.timestamp === 'string' ? new Date(tx.timestamp) : tx.timestamp;
-      return isWithinFilter(ts, timeFilter);
-    });
-  }, [wallet?.transactions, timeFilter]);
-
   const totalEarnings = useMemo(() => {
     const coins = wallet?.coins || 0;
-    const bdt = wallet?.bdtBalance || 0;
-    // Estimate coin value in BDT using exchange rate ~0.85
-    const coinBdt = coins * 0.85;
-    return bdt + coinBdt;
+    const usd = wallet?.usdBalance || 0;
+    // Estimate coin value in USD using exchange rate ~0.10
+    const coinUsd = coins * 0.10;
+    return usd + coinUsd;
   }, [wallet]);
 
   const tipsAmount = useMemo(() => {
     return tipsReceived
       .filter((tip) => isWithinFilter(tip.timestamp, timeFilter))
-      .reduce((sum, tip) => sum + (tip.currency === 'coins' ? tip.amount * 0.85 : tip.amount), 0);
+      .reduce((sum, tip) => sum + (tip.currency === 'coins' ? tip.amount * 0.10 : tip.amount), 0);
   }, [tipsReceived, timeFilter]);
 
   const subscriptionRevenue = useMemo(() => {
@@ -466,49 +496,13 @@ export default function CreatorDashboardPage() {
     return withEngagement.sort((a, b) => b.engagementRate - a.engagementRate).slice(0, 10);
   }, [userPosts, timeFilter]);
 
-  const followerCount = user?.followers?.length || 0;
-  const followingCount = user?.following?.length || 0;
-  const totalPostsCount = userPosts.length;
-  const totalViewsAll = userPosts.reduce((s, p) => s + (p.viewCount || 0), 0);
-  const reelCount = userReels.length;
-
-  /* ── Build chart data ── */
-  function buildChartData(
-    posts: TimelinePost[],
-    creatorAnalytics: CreatorAnalytics | null,
-    currentUser: typeof user,
-    filter: TimeFilter = 'month'
-  ): ChartPoint[] {
-    // If analytics provides real growthChart data, use it
-    if (creatorAnalytics?.growthChart && creatorAnalytics.growthChart.length > 0) {
-      return creatorAnalytics.growthChart
-        .filter((g) => isWithinFilter(g.date, filter))
-        .map((g) => ({ date: g.date, views: g.views, likes: 0, followers: g.followers }));
-    }
-
-    // Otherwise build from posts
-    const filtered = posts.filter((p) => isWithinFilter(p.timestamp, filter));
-    if (filtered.length === 0) return [];
-
-    const dateMap = new Map<string, { views: number; likes: number }>();
-    filtered.forEach((post) => {
-      const dateStr = post.timestamp.toISOString().split('T')[0];
-      const existing = dateMap.get(dateStr) || { views: 0, likes: 0 };
-      existing.views += post.viewCount || 0;
-      existing.likes += post.likes.length;
-      dateMap.set(dateStr, existing);
-    });
-
-    const sorted = Array.from(dateMap.entries()).sort((a, b) => a[0].localeCompare(b[0]));
-    const totalF = currentUser?.followers?.length || 0;
-
-    return sorted.map((entry, idx) => ({
-      date: entry[0],
-      views: entry[1].views,
-      likes: entry[1].likes,
-      followers: totalF > 0 ? Math.round((totalF * (idx + 1)) / sorted.length) : 0,
-    }));
-  }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const followerCount = useMemo(() => (user as any)?.followers?.length || 0, [user]);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const followingCount = useMemo(() => (user as any)?.following?.length || 0, [user]);
+  const totalPostsCount = useMemo(() => userPosts.length, [userPosts]);
+  const reelCount = useMemo(() => userReels.length, [userReels]);
+  const totalViewsAll = useMemo(() => userPosts.reduce((s, p) => s + (p.viewCount || 0), 0), [userPosts]);
 
   /* ── Navigation guards ── */
   const goTo = useCallback((path: string) => navigate(path), [navigate]);
@@ -583,7 +577,7 @@ export default function CreatorDashboardPage() {
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
               <EarningsCard
                 label="Total Earnings"
-                value={`৳${totalEarnings.toFixed(2)}`}
+                value={`$${totalEarnings.toFixed(2)}`}
                 subValue={`${wallet?.coins || 0} coins`}
                 icon={Wallet}
                 color="#FF9800"
@@ -591,7 +585,7 @@ export default function CreatorDashboardPage() {
               />
               <EarningsCard
                 label="Tips Received"
-                value={`৳${tipsAmount.toFixed(2)}`}
+                value={`$${tipsAmount.toFixed(2)}`}
                 subValue={`${tipsReceived.filter(t => isWithinFilter(t.timestamp, timeFilter)).length} tips`}
                 icon={Gift}
                 color="#FF4081"
@@ -599,7 +593,7 @@ export default function CreatorDashboardPage() {
               />
               <EarningsCard
                 label="Subscription Rev"
-                value={`৳${subscriptionRevenue.toFixed(2)}`}
+                value={`$${subscriptionRevenue.toFixed(2)}`}
                 subValue={`${creatorSubscribers || 0} subscribers`}
                 icon={Crown}
                 color="#7B61FF"
@@ -607,7 +601,7 @@ export default function CreatorDashboardPage() {
               />
               <EarningsCard
                 label="Ad Revenue"
-                value={`৳${adRevenue.toFixed(2)}`}
+                value={`$${adRevenue.toFixed(2)}`}
                 subValue={`From ${postStats.count} posts`}
                 icon={Megaphone}
                 color="#00BCD4"

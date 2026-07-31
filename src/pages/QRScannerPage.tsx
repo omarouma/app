@@ -587,8 +587,8 @@ export default function QRScannerPage() {
                   <p className="text-[#8D8D8D] text-[10px]">GAGA</p>
                 </div>
                 <div>
-                  <p className="text-[#2196F3] font-bold">৳{(wallet?.bdtBalance || 0).toFixed(0)}</p>
-                  <p className="text-[#8D8D8D] text-[10px]">BDT</p>
+                  <p className="text-[#2196F3] font-bold">${(wallet?.usdBalance || wallet?.bdtBalance || 0).toFixed(2)}</p>
+                  <p className="text-[#8D8D8D] text-[10px]">USD</p>
                 </div>
               </div>
 
@@ -612,7 +612,7 @@ export default function QRScannerPage() {
               <p className="text-white/60 text-xs text-center">What others can do with your QR</p>
               {[
                 { icon: UserPlus, text: 'Add you as a friend' },
-                { icon: Wallet, text: 'Send you Gaga Coins or BDT' },
+                { icon: Wallet, text: 'Send you Gaga Coins or USD' },
                 { icon: ScanLine, text: 'View your profile or join group' },
               ].map((tip, i) => (
                 <div key={i} className="flex items-center gap-3 px-4 py-2 bg-white/5 rounded-xl">

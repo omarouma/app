@@ -1,9 +1,9 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import {
-  Send, ArrowLeft, Sparkles, Copy, Trash2, RefreshCw, Bot, User, Wand2,
-  Image as ImageIcon, Lightbulb, HelpCircle, Zap, Loader, X
+  Send, ArrowLeft, Sparkles, Copy, Trash2,Bot,Wand2,
+  Image as ImageIcon, Lightbulb, HelpCircle, Zap,X
 } from 'lucide-react';
 import { useAuthStore } from '@/store/useAuthStore';
 import { getDefaultAvatar } from '@/lib/utils';
@@ -26,13 +26,7 @@ const SUGGESTED_PROMPTS = [
   { icon: Sparkles, text: 'Motivate me with a quote' },
 ];
 
-const AI_PERSONALITIES = {
-  friendly: 'You are GaGa AI, a friendly and helpful assistant for a social messaging app called GaGa Chat. You are warm, encouraging, and use emojis. Keep responses concise and engaging.',
-  creative: 'You are GaGa AI, a creative and witty assistant for GaGa Chat. You help users with content ideas, captions, and creative writing. Be playful and imaginative.',
-  advisor: 'You are GaGa AI, a wise and helpful advisor for GaGa Chat. You give practical advice about social media, communication, and making the most of the app.',
-};
-
-function generateAIResponse(userMessage: string, personality: keyof typeof AI_PERSONALITIES): string {
+function generateAIResponse(userMessage: string): string {
   const lower = userMessage.toLowerCase();
 
   // Quick responses for common queries
@@ -100,7 +94,6 @@ export default function AIChatPage() {
   ]);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
-  const [personality, setPersonality] = useState<keyof typeof AI_PERSONALITIES>('friendly');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -128,7 +121,7 @@ export default function AIChatPage() {
 
     // Simulate AI thinking delay
     setTimeout(() => {
-      const response = generateAIResponse(userMsg.content, personality);
+      const response = generateAIResponse(userMsg.content);
       const aiMsg: AIMessage = {
         id: `ai_${Date.now()}`,
         role: 'assistant',

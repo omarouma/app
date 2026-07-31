@@ -5,7 +5,7 @@ import {
   ArrowLeft, Check, Sparkles, Crown, Zap, Star,
   Copy, Share2, Gift, Clock, Shield, Palette, BarChart3,
   Headphones, Megaphone, Globe, ArrowRight, Loader, Coins,
-  Banknote, DollarSign
+  DollarSign
 } from 'lucide-react';
 import { useAuthStore } from '@/store/useAuthStore';
 import {
@@ -18,7 +18,6 @@ import {
 import { toast } from 'sonner';
 
 const currencySymbols: Record<string, string> = {
-  BDT: '৳',
   USD: '$',
   coins: 'G',
 };
@@ -38,7 +37,7 @@ export default function PremiumPage() {
     getDaysRemaining,
   } = usePremiumStore();
 
-  const [selectedCurrency, setSelectedCurrency] = useState<'BDT' | 'USD' | 'coins'>('BDT');
+  const [selectedCurrency, setSelectedCurrency] = useState<'USD' | 'coins'>('USD');
   const [activePlan, setActivePlan] = useState<string | null>(null);
   const [upgrading, setUpgrading] = useState(false);
   const [showReferral, setShowReferral] = useState(false);
@@ -203,7 +202,6 @@ export default function PremiumPage() {
         {/* Currency Selector */}
         <div className="flex justify-center gap-2">
           {([
-            { code: 'BDT' as const, icon: Banknote, label: 'BDT' },
             { code: 'USD' as const, icon: DollarSign, label: 'USD' },
             { code: 'coins' as const, icon: Coins, label: 'Coins' },
           ]).map((c) => (
@@ -419,7 +417,7 @@ export default function PremiumPage() {
         <div className="text-center space-y-2 pb-4">
           <div className="flex items-center justify-center gap-1 text-xs text-[#8D8D8D]">
             <Shield size={12} />
-            <span>Secure payment via bKash, Nagad, Visa, or Gaga Coins</span>
+            <span>Secure payment via Visa, Mastercard, PayPal, or Gaga Coins</span>
           </div>
           <div className="flex items-center justify-center gap-1 text-xs text-[#8D8D8D]">
             <Globe size={12} />

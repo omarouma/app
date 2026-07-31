@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { safeGetStorageItem, safeSetStorageItem } from '@/lib/safeStorage';
 import type { Message } from '@/types';
 
 export interface SavedMessage {
@@ -15,27 +16,41 @@ export interface SavedMessage {
 
 const STORAGE_KEY = 'gaga_saved_messages';
 
-export function useSavedMessages(userId: string | undefined) {
-  const [saved, setSaved] = useState<SavedMessage[]>([]);
-  const [loading] = useState(false);
+function loadFromStorage(userId: string): SavedMessage[] {
+  const raw = safeGetStorageItem(`${STORAGE_KEY}_${userId}`);
+  if (!raw) return [];
+  try { return JSON.parse(raw) as SavedMessage[]; } catch { return []; }
+}
 
-  // Load from localStorage on mount
+export function useSavedMessages(userId: string | undefined) {
+  const [saved, setSaved] = useState<SavedMessage[]>(() =>
+    userId ? loadFromStorage(userId) : []
+  );
+
+  // Track previous userId to detect account switches
+  const prevUserIdRef = useRef(userId);
+
+  // Ref-based Set for stable O(1) lookups in isSaved
+  const savedIdsRef = useRef(new Set<string>());
+
+  // Sync the ref Set whenever saved array changes
   useEffect(() => {
-    if (!userId) return;
-    const key = `${STORAGE_KEY}_${userId}`;
-    try {
-      const raw = localStorage.getItem(key);
-      if (raw) queueMicrotask(() => setSaved(JSON.parse(raw)));
-    } catch { /* noop */ }
+    savedIdsRef.current = new Set(saved.map(s => s.id));
+  }, [saved]);
+
+  // When userId changes, reload from storage
+  useEffect(() => {
+    if (prevUserIdRef.current === userId) return;
+    prevUserIdRef.current = userId;
+    setTimeout(() => {
+      setSaved(userId ? loadFromStorage(userId) : []);
+    }, 0);
   }, [userId]);
 
   // Persist to localStorage whenever saved changes
   useEffect(() => {
     if (!userId) return;
-    const key = `${STORAGE_KEY}_${userId}`;
-    try {
-      localStorage.setItem(key, JSON.stringify(saved));
-    } catch { /* noop */ }
+    safeSetStorageItem(`${STORAGE_KEY}_${userId}`, JSON.stringify(saved));
   }, [saved, userId]);
 
   const saveMessage = useCallback((msg: Message, senderName: string) => {
@@ -61,12 +76,12 @@ export function useSavedMessages(userId: string | undefined) {
   }, []);
 
   const isSaved = useCallback((messageId: string) => {
-    return saved.some(p => p.id === messageId);
-  }, [saved]);
+    return savedIdsRef.current.has(messageId);
+  }, []);
 
   const clearAll = useCallback(() => {
     setSaved([]);
   }, []);
 
-  return { saved, loading, saveMessage, unsaveMessage, isSaved, clearAll };
+  return { saved, saveMessage, unsaveMessage, isSaved, clearAll };
 }

@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { create } from 'zustand';
 import {
   isFirestoreAvailable,
@@ -15,7 +14,7 @@ import {
   increment,
 } from '@/lib/firestore';
 import { where, orderBy, limit } from '@/lib/firestore';
-import type { TimelinePost, PostReactions, BookmarkCollection, Hashtag, FeedFilter, PostAnalytics, CreatorAnalytics, UserReport } from '@/types';
+import type { TimelinePost, PostReactions, BookmarkCollection, Hashtag, FeedFilter, PostAnalytics, CreatorAnalytics, UserReport, PostComment, PostPollData } from '@/types';
 
 interface EnhancedTimelineStore {
   posts: TimelinePost[];
@@ -70,7 +69,7 @@ interface EnhancedTimelineStore {
   unpinFromProfile: (postId: string, userId: string) => Promise<void>;
 
   // Create post
-  createPost: (userId: string, content: string, images: string[], visibility: string) => Promise<void>;
+  createPost: (userId: string, content: string, images: string[], visibility: string, pollData?: { question: string; options: { text: string; votes: string[] }[]; totalVotes: number }, location?: string, scheduledAt?: string, contentWarning?: boolean, hashtags?: string[]) => Promise<void>;
 
   // Analytics
   recordPostView: (postId: string, userId: string) => Promise<void>;
@@ -88,10 +87,16 @@ const mapPost = (d: Record<string, unknown>): TimelinePost => ({
   content: (d.content as string) || '',
   images: (d.images as string[]) || [],
   likes: (d.likes as string[]) || [],
-  comments: (d.comments as any[]) || [],
+  comments: (d.comments as PostComment[]) || [],
   shares: (d.shares as string[]) || [],
-  timestamp: ((rawTs: any) => rawTs && typeof rawTs === 'object' && 'toDate' in rawTs ? rawTs.toDate() : rawTs ? new Date(rawTs as string) : new Date())(d.createdAt ?? d.timestamp),
-  visibility: (d.visibility as any) || 'public',
+  timestamp: (() => {
+    const ts = d.createdAt ?? d.timestamp;
+    if (ts && typeof ts === 'object' && 'toDate' in ts && typeof (ts as { toDate: () => Date }).toDate === 'function') {
+      return (ts as { toDate: () => Date }).toDate();
+    }
+    return ts ? new Date(ts as string) : new Date();
+  })(),
+  visibility: (d.visibility as TimelinePost['visibility']) || 'public',
   userName: (d.userName as string) || '',
   userAvatar: (d.userAvatar as string) || '',
   videoUrl: (d.videoUrl as string) || undefined,
@@ -106,15 +111,19 @@ const mapPost = (d: Record<string, unknown>): TimelinePost => ({
   repostedBy: (d.repostedBy as string[]) || [],
   originalPostId: (d.originalPostId as string) || undefined,
   edited: (d.edited as boolean) || false,
-  editedAt: d.editedAt ? (d.editedAt as any).toDate?.() || new Date(d.editedAt as string) : undefined,
+  editedAt: d.editedAt ? (
+    typeof d.editedAt === 'object' && 'toDate' in d.editedAt 
+      ? (d.editedAt as { toDate: () => Date }).toDate() 
+      : new Date(d.editedAt as string)
+  ) : undefined,
   pinned: (d.pinned as boolean) || false,
   commentCount: (d.commentCount as number) || 0,
   shareCount: (d.shareCount as number) || 0,
   viewCount: (d.viewCount as number) || 0,
   reachCount: (d.reachCount as number) || 0,
   impressionCount: (d.impressionCount as number) || 0,
-  mediaType: (d.mediaType as any) || 'text',
-  pollData: (d.pollData as any) || undefined,
+  mediaType: (d.mediaType as TimelinePost['mediaType']) || 'text',
+  pollData: (d.pollData as PostPollData) || undefined,
 });
 
 const mapHashtag = (d: Record<string, unknown>): Hashtag => ({
@@ -134,17 +143,25 @@ const mapReport = (d: Record<string, unknown>): UserReport => ({
   reportedId: (d.reportedId as string) || '',
   reason: (d.reason as string) || '',
   details: (d.details as string) || undefined,
-  status: (d.status as any) || 'pending',
+  status: (d.status as UserReport['status']) || 'pending',
   reviewedBy: (d.reviewedBy as string) || undefined,
-  reviewedAt: d.reviewedAt ? (d.reviewedAt as any).toDate?.() || new Date(d.reviewedAt as string) : undefined,
+  reviewedAt: d.reviewedAt ? (
+    typeof d.reviewedAt === 'object' && 'toDate' in d.reviewedAt 
+      ? (d.reviewedAt as { toDate: () => Date }).toDate() 
+      : new Date(d.reviewedAt as string)
+  ) : undefined,
   actionTaken: (d.actionTaken as string) || undefined,
-  createdAt: d.createdAt ? (d.createdAt as any).toDate?.() || new Date(d.createdAt as string) : new Date(),
+  createdAt: d.createdAt ? (
+    typeof d.createdAt === 'object' && 'toDate' in d.createdAt 
+      ? (d.createdAt as { toDate: () => Date }).toDate() 
+      : new Date(d.createdAt as string)
+  ) : new Date(),
   contentId: (d.contentId as string) || undefined,
-  contentType: (d.contentType as any) || undefined,
-  severity: (d.severity as any) || 'medium',
+  contentType: (d.contentType as UserReport['contentType']) || undefined,
+  severity: (d.severity as UserReport['severity']) || 'medium',
 });
 
-export const useEnhancedTimelineStore = create<EnhancedTimelineStore>((set, get) => ({
+export const useEnhancedTimelineStore = create<EnhancedTimelineStore>((set) => ({ 
   posts: [],
   savedPosts: [],
   trendingHashtags: [],
@@ -207,7 +224,7 @@ export const useEnhancedTimelineStore = create<EnhancedTimelineStore>((set, get)
   savePost: async (postId, userId, collectionId) => {
     if (!isFirestoreAvailable()) return;
     try {
-      await addDocToCollection('bookmarks', {
+      await addDocToCollection(COLLECTIONS.BOOKMARKS, {
         userId,
         postId,
         collectionId: collectionId || null,
@@ -222,9 +239,9 @@ export const useEnhancedTimelineStore = create<EnhancedTimelineStore>((set, get)
   unsavePost: async (postId, userId) => {
     if (!isFirestoreAvailable()) return;
     try {
-      const existing = await queryCollection('bookmarks', [where('userId', '==', userId), where('postId', '==', postId)]);
+      const existing = await queryCollection(COLLECTIONS.BOOKMARKS, [where('userId', '==', userId), where('postId', '==', postId)]);
       if (existing && existing.length > 0) {
-        await deleteDocById('bookmarks', existing[0].id as string);
+        await deleteDocById(COLLECTIONS.BOOKMARKS, existing[0].id as string);
       }
       await updateDocById(COLLECTIONS.POSTS, postId, { savedBy: arrayRemove(userId) });
     } catch (err) {
@@ -235,7 +252,7 @@ export const useEnhancedTimelineStore = create<EnhancedTimelineStore>((set, get)
   getSavedPosts: async (userId) => {
     set({ loadingSaved: true });
     try {
-      const bookmarks = await queryCollection('bookmarks', [where('userId', '==', userId), orderBy('timestamp', 'desc')]);
+      const bookmarks = await queryCollection(COLLECTIONS.BOOKMARKS, [where('userId', '==', userId), orderBy('timestamp', 'desc')]);
       const postIds = (bookmarks || []).map((b) => b.postId as string);
       const posts: TimelinePost[] = [];
       for (const id of postIds) {
@@ -251,7 +268,7 @@ export const useEnhancedTimelineStore = create<EnhancedTimelineStore>((set, get)
   createCollection: async (userId, name, description, isPrivate) => {
     if (!isFirestoreAvailable()) return;
     try {
-      await addDocToCollection('bookmarkCollections', {
+      await addDocToCollection(COLLECTIONS.BOOKMARK_COLLECTIONS, {
         userId,
         name,
         description: description || '',
@@ -267,13 +284,13 @@ export const useEnhancedTimelineStore = create<EnhancedTimelineStore>((set, get)
   addToCollection: async (postId, collectionId, userId) => {
     if (!isFirestoreAvailable()) return;
     try {
-      await addDocToCollection('bookmarks', {
+      await addDocToCollection(COLLECTIONS.BOOKMARKS, {
         userId,
         postId,
         collectionId,
         timestamp: serverTimestamp(),
       });
-      await updateDocById('bookmarkCollections', collectionId, { count: increment(1) as any });
+      await updateDocById(COLLECTIONS.BOOKMARK_COLLECTIONS, collectionId, { count: increment(1) as unknown as number });
     } catch (err) {
       console.error('[Timeline] addToCollection error:', err);
     }
@@ -282,15 +299,15 @@ export const useEnhancedTimelineStore = create<EnhancedTimelineStore>((set, get)
   removeFromCollection: async (postId, collectionId, userId) => {
     if (!isFirestoreAvailable()) return;
     try {
-      const existing = await queryCollection('bookmarks', [
+      const existing = await queryCollection(COLLECTIONS.BOOKMARKS, [
         where('userId', '==', userId),
         where('postId', '==', postId),
         where('collectionId', '==', collectionId),
       ]);
       if (existing && existing.length > 0) {
-        await deleteDocById('bookmarks', existing[0].id as string);
+        await deleteDocById(COLLECTIONS.BOOKMARKS, existing[0].id as string);
       }
-      await updateDocById('bookmarkCollections', collectionId, { count: increment(-1) as any });
+      await updateDocById(COLLECTIONS.BOOKMARK_COLLECTIONS, collectionId, { count: increment(-1) as unknown as number });
     } catch (err) {
       console.error('[Timeline] removeFromCollection error:', err);
     }
@@ -300,7 +317,7 @@ export const useEnhancedTimelineStore = create<EnhancedTimelineStore>((set, get)
   getTrendingHashtags: async (lim = 10) => {
     set({ loadingHashtags: true });
     try {
-      const data = await queryCollection('hashtags', [
+      const data = await queryCollection(COLLECTIONS.HASHTAGS, [
         where('trending', '==', true),
         orderBy('postCount', 'desc'),
         limit(lim),
@@ -315,7 +332,7 @@ export const useEnhancedTimelineStore = create<EnhancedTimelineStore>((set, get)
   followHashtag: async (hashtagId, userId) => {
     if (!isFirestoreAvailable()) return;
     try {
-      await updateDocById('hashtags', hashtagId, { followers: arrayUnion(userId) });
+      await updateDocById(COLLECTIONS.HASHTAGS, hashtagId, { followers: arrayUnion(userId) });
     } catch (err) {
       console.error('[Timeline] followHashtag error:', err);
     }
@@ -324,7 +341,7 @@ export const useEnhancedTimelineStore = create<EnhancedTimelineStore>((set, get)
   unfollowHashtag: async (hashtagId, userId) => {
     if (!isFirestoreAvailable()) return;
     try {
-      await updateDocById('hashtags', hashtagId, { followers: arrayRemove(userId) });
+      await updateDocById(COLLECTIONS.HASHTAGS, hashtagId, { followers: arrayRemove(userId) });
     } catch (err) {
       console.error('[Timeline] unfollowHashtag error:', err);
     }
@@ -333,7 +350,7 @@ export const useEnhancedTimelineStore = create<EnhancedTimelineStore>((set, get)
   searchHashtags: async (query) => {
     if (!isFirestoreAvailable()) return [];
     try {
-      const data = await queryCollection('hashtags', [
+      const data = await queryCollection(COLLECTIONS.HASHTAGS, [
         where('tag', '>=', query.toLowerCase()),
         where('tag', '<=', query.toLowerCase() + '\uf8ff'),
         limit(20),
@@ -362,7 +379,7 @@ export const useEnhancedTimelineStore = create<EnhancedTimelineStore>((set, get)
   reportPost: async (reporterId, reportedId, postId, reason, details, severity = 'medium') => {
     if (!isFirestoreAvailable()) return;
     try {
-      await addDocToCollection('reports', {
+      await addDocToCollection(COLLECTIONS.REPORTS, {
         reporterId,
         reportedId,
         contentId: postId,
@@ -381,7 +398,7 @@ export const useEnhancedTimelineStore = create<EnhancedTimelineStore>((set, get)
   reportComment: async (reporterId, reportedId, postId, commentId, reason, details) => {
     if (!isFirestoreAvailable()) return;
     try {
-      await addDocToCollection('reports', {
+      await addDocToCollection(COLLECTIONS.REPORTS, {
         reporterId,
         reportedId,
         contentId: postId,
@@ -401,7 +418,7 @@ export const useEnhancedTimelineStore = create<EnhancedTimelineStore>((set, get)
   reportUser: async (reporterId, reportedId, reason, details) => {
     if (!isFirestoreAvailable()) return;
     try {
-      await addDocToCollection('reports', {
+      await addDocToCollection(COLLECTIONS.REPORTS, {
         reporterId,
         reportedId,
         contentType: 'user',
@@ -419,7 +436,7 @@ export const useEnhancedTimelineStore = create<EnhancedTimelineStore>((set, get)
   getMyReports: async (userId) => {
     if (!isFirestoreAvailable()) return [];
     try {
-      const data = await queryCollection('reports', [where('reporterId', '==', userId), orderBy('createdAt', 'desc')]);
+      const data = await queryCollection(COLLECTIONS.REPORTS, [where('reporterId', '==', userId), orderBy('createdAt', 'desc')]);
       return (data || []).map(mapReport);
     } catch {
       return [];
@@ -427,15 +444,12 @@ export const useEnhancedTimelineStore = create<EnhancedTimelineStore>((set, get)
   },
 
   // --- Feed filters ---
-  getFilteredPosts: async (filter, userId) => {
+  getFilteredPosts: async (filter, _userId) => { (void _userId);
     set({ loading: true });
     try {
-      const constraints: any[] = [orderBy('timestamp', 'desc'), limit(50)];
+      const constraints: ReturnType<typeof where | typeof orderBy | typeof limit>[] = [orderBy('timestamp', 'desc'), limit(50)];
       if (filter.type && filter.type !== 'all') {
         constraints.unshift(where('mediaType', '==', filter.type));
-      }
-      if (filter.onlyFriends && userId) {
-        // This requires friendship data; simplified for now
       }
       if (filter.hashtags && filter.hashtags.length > 0) {
         constraints.unshift(where('hashtags', 'array-contains-any', filter.hashtags.slice(0, 10)));
@@ -451,11 +465,10 @@ export const useEnhancedTimelineStore = create<EnhancedTimelineStore>((set, get)
     }
   },
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  getFeedByType: async (type, _userId) => {
+  getFeedByType: async (type, _userId) => { (void _userId);
     if (!isFirestoreAvailable()) return;
     try {
-      const constraints: any[] = [orderBy('timestamp', 'desc'), limit(50)];
+      const constraints: ReturnType<typeof where | typeof orderBy | typeof limit>[] = [orderBy('timestamp', 'desc'), limit(50)];
       if (type !== 'all') {
         constraints.unshift(where('mediaType', '==', type));
       }
@@ -495,8 +508,17 @@ export const useEnhancedTimelineStore = create<EnhancedTimelineStore>((set, get)
         limit(200),
       ]);
       const posts = (data || [])
-        .filter((p: any) => p.timestamp && new Date(p.timestamp.toDate?.() || p.timestamp) >= cutoff)
-        .sort((a: any, b: any) => ((b.likes as string[])?.length || 0) - ((a.likes as string[])?.length || 0))
+        .filter((p: Record<string, unknown>) => {
+          const ts = p.timestamp ?? p.createdAt;
+          return ts && (
+            (typeof ts === 'object' && 'toDate' in ts ? (ts as { toDate: () => Date }).toDate() : new Date(ts as string)) >= cutoff
+          );
+        })
+        .sort((a: Record<string, unknown>, b: Record<string, unknown>) => {
+          const aLikes = (a.likes as string[])?.length || 0;
+          const bLikes = (b.likes as string[])?.length || 0;
+          return bLikes - aLikes;
+        })
         .slice(0, 50)
         .map(mapPost);
       set({ posts, loading: false });
@@ -505,8 +527,7 @@ export const useEnhancedTimelineStore = create<EnhancedTimelineStore>((set, get)
     }
   },
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  getRecommendedPosts: async (_userId) => {
+  getRecommendedPosts: async () => {
     set({ loading: true });
     try {
       // Simplified: combine recent posts from friends and trending posts
@@ -604,7 +625,7 @@ export const useEnhancedTimelineStore = create<EnhancedTimelineStore>((set, get)
     }
   },
 
-  createPost: async (userId, content, images, visibility) => {
+  createPost: async (userId, content, images, visibility, pollData, location, scheduledAt, contentWarning, hashtags) => {
     if (!isFirestoreAvailable()) return;
     try {
       const user = await getDocById(COLLECTIONS.USERS, userId);
@@ -632,8 +653,12 @@ export const useEnhancedTimelineStore = create<EnhancedTimelineStore>((set, get)
         shareCount: 0,
         pinned: false,
         edited: false,
-        hashtags: [],
+        hashtags: hashtags || [],
         mentions: [],
+        ...(pollData ? { pollData } : {}),
+        ...(location ? { location } : {}),
+        ...(scheduledAt ? { scheduledAt } : {}),
+        ...(contentWarning ? { contentWarning: 'sensitive' } : {}),
       });
     } catch (err) {
       console.error('[Timeline] createPost error:', err);
@@ -645,9 +670,9 @@ export const useEnhancedTimelineStore = create<EnhancedTimelineStore>((set, get)
     if (!isFirestoreAvailable()) return;
     try {
       await updateDocById(COLLECTIONS.POSTS, postId, {
-        viewCount: increment(1) as any,
-        reachCount: increment(1) as any,
-        viewedBy: arrayUnion(userId) as any,
+        viewCount: increment(1) as unknown as number,
+        reachCount: increment(1) as unknown as number,
+        viewedBy: arrayUnion(userId) as unknown as string[],
       });
     } catch (err) {
       console.error('[Timeline] recordPostView error:', err);
@@ -718,7 +743,7 @@ export const useEnhancedTimelineStore = create<EnhancedTimelineStore>((set, get)
         dailyActiveAudience: 0,
         watchTime: 0,
         revenue: 0,
-        revenueCurrency: 'BDT' as const,
+        revenueCurrency: 'USD' as const,
         tipsReceived: 0,
         subscriptionsCount: 0,
         growthChart: [],
@@ -742,9 +767,14 @@ export const useEnhancedTimelineStore = create<EnhancedTimelineStore>((set, get)
   subscribePosts: (_userId) => {
     let unsub: (() => void) | null = null;
     try {
-      unsub = subscribeToCollection(COLLECTIONS.POSTS, [orderBy('timestamp', 'desc')], () => {
-        get().refreshPosts();
-      });
+      unsub = subscribeToCollection(
+        COLLECTIONS.POSTS,
+        [where('visibility', '==', 'public'), orderBy('timestamp', 'desc'), limit(50)],
+        (data) => {
+          const posts = (data || []).map(mapPost);
+          set({ posts });
+        },
+      );
     } catch {
       // ignore
     }

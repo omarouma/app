@@ -10,6 +10,6 @@ export function useDocumentTitle(title: string) {
   }, [title]);
 }
 
-export function usePageTitle(title: string, suffix = ' | GaGa Chat') {
+export function usePageTitle(title: string, suffix = " | GaGaChat") {
   useDocumentTitle(`${title}${suffix}`);
 }

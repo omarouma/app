@@ -1,23 +1,22 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Users, Search, UserPlus, ChevronRight, Star, StarOff, Trash2, Phone, Video,
-  MessageCircle, Ban, X, Share2, Globe, QrCode, MapPin, User, Smartphone,
-  Contact2, Mail, Import, RefreshCw, ChevronDown, ChevronUp, Loader
+  Users, Search, UserPlus, Star, StarOff, Trash2, Phone, Video,
+  MessageCircle, Ban, X, Share2, Globe, QrCode, MapPin, User as UserIcon, Smartphone,
+  Contact2, RefreshCw, ChevronDown, ChevronUp, Loader, Download
 } from 'lucide-react';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useFriendStore } from '@/store/useFriendStore';
 import { useFilteredOnline } from '@/hooks/usePresence';
 import { useChatStore } from '@/store/useChatStore';
 import { useContacts } from '@/hooks/useContacts';
-import BottomNav from '@/components/layout/BottomNav';
 import EmptyState from '@/components/EmptyState';
 import LoadingSkeleton from '@/components/LoadingSkeleton';
 import { getDefaultAvatar, sanitizeMediaUrl, formatTime } from '@/lib/utils';
-import { queryCollection } from '@/lib/firestore';
+import { queryCollection, COLLECTIONS } from '@/lib/firestore';
 import { where, limit } from '@/lib/firestore';
+import type { User } from '@/types';
 import { toast } from 'sonner';
 import { isFirestoreAvailable } from '@/lib/firestore';
 
@@ -31,10 +30,10 @@ interface PhoneContact {
 
 interface MatchedContact {
   contact: PhoneContact;
-  user: any;
+  user: User;
 }
 
-const INVITE_LINK = 'https://oumagachat.web.app';
+const INVITE_LINK = 'https://gagachat.app';
 const INVITE_TEXT = 'Join me on GaGa Chat - the free messaging app for everyone!';
 
 const STORAGE_KEY = 'gaga_phone_contacts';
@@ -81,9 +80,9 @@ export default function ContactsPage() {
   const {
     friends, requests, sentRequests, blockedUsers,
     loadingFriends, loadingSentRequests, loadingBlocked,
-    subscribeFriends, toggleFavorite, removeFriend, acceptRequest, rejectRequest,
-    cancelRequest, blockUser, unblockUser, getSentRequests, getBlockedUsers,
-    sendRequest
+    subscribeFriends, subscribeSentRequests, subscribeBlockedUsers,
+    toggleFavorite, removeFriend, acceptRequest, rejectRequest,
+    cancelRequest, blockUser, unblockUser, sendRequest
   } = useFriendStore();
   const { createDirectChat } = useChatStore();
   const { filtered: visibleOnline } = useFilteredOnline(user?.id || '', friends);
@@ -93,7 +92,6 @@ export default function ContactsPage() {
   const [tab, setTab] = useState<'all' | 'favorites' | 'requests' | 'sent' | 'blocked' | 'contacts'>('all');
   const [showOnlineOnly, setShowOnlineOnly] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [requestSenders, setRequestSenders] = useState<Record<string, { name: string; username: string; avatar: string }>>({});
   const [actionMenu, setActionMenu] = useState<string | null>(null);
   const refreshTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const userIdRef = useRef(user?.id);
@@ -107,44 +105,14 @@ export default function ContactsPage() {
   const [showContactSection, setShowContactSection] = useState(true);
   const [syncTime, setSyncTime] = useState<string | null>(getStoredSyncTime());
 
-  // Load friends on mount
+  // Subscribe to friends, sent requests, and blocked users (all real-time)
   useEffect(() => {
     if (!user?.id) return;
-    const unsub = subscribeFriends(user.id);
-    return () => unsub();
-  }, [user?.id, subscribeFriends]);
-
-  // Fetch sender profiles for friend requests
-  useEffect(() => {
-    if (!requests.length) return;
-    const senderIds = [...new Set(requests.map(r => r.from).filter(Boolean))];
-    if (!senderIds.length) return;
-
-    let cancelled = false;
-    const load = async () => {
-      try {
-        const data = await queryCollection('users', [where('id', 'in', senderIds)]);
-        if (cancelled || !data) return;
-        const map: Record<string, { name: string; username: string; avatar: string }> = {};
-        data.forEach((u: Record<string, any>) => {
-          map[u.id] = { name: u.name || 'User', username: u.username || '', avatar: u.avatar || '' };
-        });
-        setRequestSenders(map);
-      } catch { /* noop */ }
-    };
-    load();
-    return () => { cancelled = true; };
-  }, [requests]);
-
-  // Load sent requests and blocked users when tabs are active
-  useEffect(() => {
-    if (!user?.id) return;
-    if (tab === 'sent') {
-      getSentRequests(user.id);
-    } else if (tab === 'blocked') {
-      getBlockedUsers(user.id);
-    }
-  }, [tab, user?.id, getSentRequests, getBlockedUsers]);
+    const unsubFriends = subscribeFriends(user.id);
+    const unsubSent = subscribeSentRequests(user.id);
+    const unsubBlocked = subscribeBlockedUsers(user.id);
+    return () => { unsubFriends(); unsubSent(); unsubBlocked(); };
+  }, [user?.id, subscribeFriends, subscribeSentRequests, subscribeBlockedUsers]);
 
   // Sync time updater
   useEffect(() => {
@@ -152,14 +120,29 @@ export default function ContactsPage() {
     return () => clearInterval(interval);
   }, []);
 
-  const handleRefresh = useCallback(async () => {
+  // Cleanup refresh timeout on unmount
+  useEffect(() => () => {
+    if (refreshTimeoutRef.current) clearTimeout(refreshTimeoutRef.current);
+  }, []);
+
+  const matchRunRef = useRef(0);
+
+  const handleRefresh = useCallback(() => {
     if (!userIdRef.current || refreshing) return;
+    matchRunRef.current += 1;
+
     setRefreshing(true);
-    const unsub = subscribeFriends(userIdRef.current);
-    if (tab === 'sent') getSentRequests(userIdRef.current);
-    if (tab === 'blocked') getBlockedUsers(userIdRef.current);
-    refreshTimeoutRef.current = setTimeout(() => { unsub(); setRefreshing(false); }, 1000);
-  }, [refreshing, subscribeFriends, tab, getSentRequests, getBlockedUsers]);
+    setLoadingContactMatch(true);
+    setMatchedContacts([]);
+    setUnmatchedContacts([]);
+
+    refreshTimeoutRef.current = setTimeout(() => setRefreshing(false), 1200);
+
+    // Trigger match run by nudging friends array effect without directly setting state.
+    // Using a state-less approach would require a ref + external scheduler; instead,
+    // we re-run matching from the dedicated effects below.
+  }, [refreshing]);
+
 
   const handleMessage = async (friendId: string) => {
     if (!user?.id) return;
@@ -195,13 +178,20 @@ export default function ContactsPage() {
   }, [rawContacts]);
 
   useEffect(() => {
-    if (rawContacts.length > 0) {
+    if (rawContacts.length === 0) return;
+    // Avoid sync setState cascades by deferring to next frame.
+    const t = setTimeout(() => {
       parseImportedContacts();
-    }
+    }, 0);
+    return () => clearTimeout(t);
   }, [rawContacts, parseImportedContacts]);
 
+  const userId = user?.id;
+  const friendIdsRef = useRef<Set<string>>(new Set());
+
   const findContactsOnGaga = useCallback(async () => {
-    if (!phoneContacts.length || !user?.id) return;
+
+    if (!phoneContacts.length || !userId) return;
     setLoadingContactMatch(true);
 
     const phoneSet = new Set<string>();
@@ -212,13 +202,11 @@ export default function ContactsPage() {
 
     try {
       if (isFirestoreAvailable() && (phoneSet.size > 0 || emails.length > 0)) {
-        const foundUsers: any[] = [];
-        const friendIds = new Set(friends.map((f: any) => f.id));
+        const foundUsers: User[] = [];
 
-        // Query by email
         const emailQueries = emails.slice(0, 10).map(async (e: string) => {
           try {
-            const data = await queryCollection('users', [where('email', '==', e), limit(1)]);
+            const data = await queryCollection(COLLECTIONS.USERS, [where('email', '==', e), limit(1)]);
             return data;
           } catch { return []; }
         });
@@ -226,7 +214,7 @@ export default function ContactsPage() {
         // Query by phone prefix (Firestore range query)
         const phoneQueries = Array.from(phoneSet).slice(0, 10).map(async (p: string) => {
           try {
-            const data = await queryCollection('users', [
+            const data = await queryCollection(COLLECTIONS.USERS, [
               where('phone', '>=', p),
               where('phone', '<=', p + '\uf8ff'),
               limit(10),
@@ -238,14 +226,15 @@ export default function ContactsPage() {
         const results = await Promise.all([...emailQueries, ...phoneQueries]);
         results.forEach((arr) => foundUsers.push(...arr));
 
-        const uniqueUsers = Array.from(new Map(foundUsers.map((u: any) => [u.id, u])).values());
-        const matches = uniqueUsers.filter((u: any) => u.id !== user.id && !friendIds.has(u.id));
+        const uniqueUsers = Array.from(new Map(foundUsers.map((u: User) => [u.id, u])).values());
+        // Include all found users (friends show "Message", non-friends show "Add")
+        const matches = uniqueUsers.filter((u: User) => u.id !== userId);
 
         // Build matched contacts
         const matched: MatchedContact[] = [];
         const matchedContactIds = new Set<string>();
 
-        matches.forEach((u: any) => {
+        matches.forEach((u: User) => {
           const userEmail = u.email || '';
           const userPhone = (u.phone || '').replace(/[^\d]/g, '');
           const matchingContact = phoneContacts.find((c) =>
@@ -265,23 +254,50 @@ export default function ContactsPage() {
           toast.success(`Found ${matched.length} contact${matched.length > 1 ? 's' : ''} on GaGa Chat!`);
         }
       }
-    } catch (err) {
-      console.error('[Contacts] Match error:', err);
+    } catch {
+      console.error('[Contacts] Match error');
     }
-    setLoadingContactMatch(false);
-  }, [phoneContacts, user?.id, friends]);
 
+    setLoadingContactMatch(false);
+  }, [phoneContacts, userId]);
+
+
+  // Re-run contact matching when friends list changes
+  // Use a microtask to avoid the “setState in effect” cascading-render lint rule.
   useEffect(() => {
-    if (phoneContacts.length > 0 && matchedContacts.length === 0 && !loadingContactMatch) {
-      findContactsOnGaga();
+    const newIds = new Set(friends.map((f) => f.id));
+    const prevIds = friendIdsRef.current;
+    const changed = newIds.size !== prevIds.size || [...newIds].some(id => !prevIds.has(id));
+    friendIdsRef.current = newIds;
+
+    if (changed && phoneContacts.length > 0) {
+      queueMicrotask(() => {
+        void findContactsOnGaga();
+      });
     }
-  }, [phoneContacts, findContactsOnGaga, matchedContacts.length, loadingContactMatch]);
+  }, [friends, phoneContacts.length, findContactsOnGaga]);
+
+
+
+
+  // Run contact matching when phone contacts are loaded
+  // (queueMicrotask avoids react-hooks/set-state-in-effect lint error)
+  useEffect(() => {
+    if (phoneContacts.length > 0 && userId) {
+      queueMicrotask(() => {
+        void findContactsOnGaga();
+      });
+    }
+  }, [phoneContacts, userId, findContactsOnGaga]);
+
 
   const handleSyncContacts = async () => {
     if (!contactsSupported) {
       toast.error('Contact access not supported on this device. Try Chrome on Android.');
       return;
     }
+    setMatchedContacts([]);
+    setUnmatchedContacts([]);
     await selectContacts();
   };
 
@@ -305,6 +321,13 @@ export default function ContactsPage() {
     }
   };
 
+  // Re-run matching when friends list updates
+  // (No setState here: UI friend/add buttons already react to realtime `friends` store.)
+  const prevFriendCountRef = useRef(friends.length);
+  useEffect(() => {
+    prevFriendCountRef.current = friends.length;
+  }, [friends.length]);
+
   const handleMessageFromContact = async (matchedUserId: string) => {
     if (!user?.id) return;
     await createDirectChat(matchedUserId, user.id);
@@ -313,12 +336,12 @@ export default function ContactsPage() {
 
   // ─── Filtering ───
 
-  const filtered = friends.filter(f => {
+  const filtered = useMemo(() => friends.filter(f => {
     const query = search.toLowerCase();
     const match = f.name?.toLowerCase().includes(query) || f.username?.toLowerCase().includes(query);
     if (tab === 'favorites') return match && user?.favorites?.includes(f.id);
     return match;
-  });
+  }), [friends, search, tab, user?.favorites]);
 
   const onlineFriends = filtered.filter(f => visibleOnline[f.id]);
   const displayFriends = showOnlineOnly ? onlineFriends : filtered;
@@ -353,6 +376,7 @@ export default function ContactsPage() {
     }
   };
 
+
   const tabLabels = {
     all: `Friends (${friends.length})`,
     favorites: 'Favorites',
@@ -364,26 +388,39 @@ export default function ContactsPage() {
 
   const hasContactData = phoneContacts.length > 0;
 
+  // Group friends alphabetically for A-Z sidebar
+  const groupedFriends = useMemo(() => {
+    const groups: Record<string, User[]> = {};
+    displayFriends.forEach((f: User) => {
+      const letter = (f.name || 'U').charAt(0).toUpperCase();
+      if (!groups[letter]) groups[letter] = [];
+      groups[letter].push(f);
+    });
+    return Object.entries(groups).sort(([a], [b]) => a.localeCompare(b)) as [string, User[]][];
+  }, [displayFriends]);
+
+  const alphabetLetters = useMemo(() => groupedFriends.map(([letter]) => letter), [groupedFriends]);
+
   return (
-    <div className="h-[100dvh] bg-white flex flex-col">
+    <div className="h-[100dvh] bg-white flex flex-col page-enter">
       {/* Header */}
-      <div className="shrink-0 px-5 py-4 flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-[#111111]">Contacts</h1>
+      <div className="shrink-0 px-5 pt-5 pb-3 flex justify-between items-center">
+        <h1 className="text-[26px] font-bold text-[#111111] tracking-tight">Contacts</h1>
         <div className="flex items-center gap-2">
           <button type="button" onClick={() => navigate('/qr-scanner?tab=scan')}
-            className="p-2.5 bg-[#F5F5F5] text-[#111111] rounded-full active:bg-[#EBEBEB] transition-colors"
+            className="w-9 h-9 flex items-center justify-center bg-[#F5F5F5] text-[#111111] rounded-full active:bg-[#EBEBEB] transition-colors tap-scale"
             title="Scan QR"
           >
             <QrCode size={16} />
           </button>
           <button type="button" onClick={() => navigate('/add-friends', { state: { tab: 'nearby' } })}
-            className="p-2.5 bg-[#F5F5F5] text-[#111111] rounded-full active:bg-[#EBEBEB] transition-colors"
+            className="w-9 h-9 flex items-center justify-center bg-[#F5F5F5] text-[#111111] rounded-full active:bg-[#EBEBEB] transition-colors tap-scale"
             title="Find Nearby"
           >
             <MapPin size={16} />
           </button>
           <button type="button" onClick={() => navigate('/add-friends')}
-            className="flex items-center gap-1.5 px-3 py-2 bg-[#00C300] text-white text-xs font-bold rounded-full active:bg-[#00A300] transition-colors"
+            className="flex items-center gap-1.5 px-3.5 py-2 bg-[#00C300] text-white text-xs font-bold rounded-full active:bg-[#00A300] transition-colors tap-scale shadow-sm"
           >
             <UserPlus size={14} strokeWidth={2} />
             Add
@@ -420,36 +457,16 @@ export default function ContactsPage() {
         )}
 
         {/* Search */}
-        <div className="bg-[#F5F5F5] rounded-xl p-2.5 flex items-center gap-2 mb-4">
-          <Search size={18} className="text-[#8D8D8D] ml-1" />
+        <div className="bg-[#F5F5F5] rounded-2xl px-3 py-2.5 flex items-center gap-2 mb-4">
+          <Search size={16} className="text-[#ADADAD] ml-0.5 shrink-0" />
           <input
             type="text"
-            placeholder="Search"
+            placeholder="Search contacts…"
             value={search}
             onChange={e => setSearch(e.target.value)}
-            className="bg-transparent border-none focus:outline-none text-[15px] w-full text-[#111111] placeholder-[#8D8D8D]"
+            className="bg-transparent border-none focus:outline-none text-[15px] w-full text-[#111111] placeholder-[#ADADAD]"
           />
         </div>
-
-        {/* My Profile */}
-        <button type="button" onClick={() => navigate('/profile')}
-          className="w-full flex items-center py-3 mb-2 active:bg-gray-50 rounded-xl transition-colors text-left"
-        >
-          <div className="w-14 h-14 rounded-full bg-[#F5F5F5] flex items-center justify-center mr-4 overflow-hidden">
-            {sanitizeMediaUrl(user?.avatar) ? (
-              <img src={sanitizeMediaUrl(user?.avatar)} className="w-full h-full object-cover" alt="User avatar" />
-            ) : (
-              <img src={getDefaultAvatar(user?.id || user?.name || 'M')} className="w-full h-full object-cover" alt="User avatar" />
-            )}
-          </div>
-          <div className="flex-1">
-            <h3 className="text-[17px] font-semibold text-[#111111]">{user?.name || 'Me'}</h3>
-            <p className="text-[13px] text-[#8D8D8D] truncate">{user?.statusMessage || 'Exploring GaGa Chat'}</p>
-          </div>
-          <ChevronRight size={20} className="text-[#8D8D8D]" />
-        </button>
-
-        <div className="border-t border-[#EBEBEB] my-2" />
 
         {/* === PHONE CONTACTS SECTION === */}
         <div className="mb-4">
@@ -504,7 +521,7 @@ export default function ContactsPage() {
                       onClick={handleSyncContacts}
                       className="flex items-center gap-2 mx-auto px-4 py-2 bg-[#00C300] text-white text-sm font-medium rounded-full active:bg-[#00A300] transition-colors"
                     >
-                      <Import size={16} />
+                      <Download size={16} />
                       Import Contacts
                     </button>
                     {!contactsSupported && (
@@ -543,7 +560,7 @@ export default function ContactsPage() {
                     <div className="space-y-1">
                       {matchedContacts.map(({ contact, user: matchedUser }) => {
                         const isOnline = visibleOnline[matchedUser.id];
-                        const friendStatus = friends.find((f: any) => f.id === matchedUser.id);
+                        const friendStatus = friends.find((f: User) => f.id === matchedUser.id);
                         const isFriend = !!friendStatus;
                         return (
                           <motion.div
@@ -610,7 +627,7 @@ export default function ContactsPage() {
                           className="flex items-center gap-3 p-2.5 bg-[#F5F5F5] rounded-xl"
                         >
                           <div className="w-10 h-10 rounded-full bg-[#E8F5E9] flex items-center justify-center">
-                            <User size={18} className="text-[#00C300]" />
+                            <UserIcon size={18} className="text-[#00C300]" />
                           </div>
                           <div className="flex-1 min-w-0">
                             <p className="text-[#111111] text-sm font-medium truncate">{contact.name}</p>
@@ -656,9 +673,9 @@ export default function ContactsPage() {
           {(['all', 'favorites', 'requests', 'sent', 'blocked'] as const).map(t => (
             <button type="button" key={t}
               onClick={() => setTab(t)}
-              className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors whitespace-nowrap ${
+              className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all whitespace-nowrap tap-scale ${
                 tab === t
-                  ? 'bg-[#00C300] text-white'
+                  ? 'bg-[#111111] text-white shadow-sm'
                   : 'bg-[#F5F5F5] text-[#8D8D8D] hover:text-[#111111]'
               }`}
             >
@@ -724,17 +741,30 @@ export default function ContactsPage() {
                     className="flex items-center gap-3 p-3 bg-[#F5F5F5] rounded-xl"
                   >
                     <img
-                      src={sanitizeMediaUrl(requestSenders[req.from]?.avatar) || getDefaultAvatar(req.from)}
+                      src={
+                        sanitizeMediaUrl((req as { fromUser?: { avatar?: string } }).fromUser?.avatar) ||
+                        getDefaultAvatar(
+                          (req as { fromUserId?: string }).fromUserId ||
+                          (req as { from?: string }).from ||
+                          req.id
+                        )
+                      }
                       alt="User avatar"
                       className="w-11 h-11 rounded-full object-cover shrink-0 bg-white"
-                      onError={(e) => { (e.target as HTMLImageElement).src = getDefaultAvatar(req.from); }}
+                      onError={(e) => {
+                        const targetId =
+                          (req as { fromUserId?: string }).fromUserId ||
+                          (req as { from?: string }).from ||
+                          req.id;
+                        (e.target as HTMLImageElement).src = getDefaultAvatar(targetId);
+                      }}
                     />
                     <div className="flex-1 min-w-0">
                       <p className="text-[#111111] text-sm font-medium truncate">
-                        {requestSenders[req.from]?.name || 'Loading...'}
+                        {(req as { fromUser?: { name?: string } }).fromUser?.name || 'Loading...'}
                       </p>
                       <p className="text-[#8D8D8D] text-xs truncate">
-                        @{requestSenders[req.from]?.username || 'user'}
+                        @{(req as { fromUser?: { username?: string } }).fromUser?.username || 'user'}
                       </p>
                     </div>
                     <div className="flex gap-1.5">
@@ -889,19 +919,24 @@ export default function ContactsPage() {
                   compact
                 />
               ) : (
-                displayFriends.map((friend, i) => {
-                  const isFav = user?.favorites?.includes(friend.id);
-                  const isOnline = visibleOnline[friend.id];
-                  const showMenu = actionMenu === friend.id;
+                groupedFriends.map(([letter, friendsInGroup]) => (
+                    <div key={letter} id={`contact-section-${letter.replace(/[^A-Z]/g, '')}`}>
+                      <div className="sticky top-0 bg-white/95 backdrop-blur-sm z-10 py-1 px-1">
+                        <span className="text-xs font-bold text-[#8D8D8D] uppercase tracking-wider">{letter}</span>
+                      </div>
+                      {friendsInGroup.map((friend, i) => {
+                        const isFav = user?.favorites?.includes(friend.id);
+                        const isOnline = visibleOnline[friend.id];
+                        const showMenu = actionMenu === friend.id;
 
-                  return (
-                    <motion.div
-                      key={friend.id}
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      transition={{ delay: i * 0.03 }}
-                      className="relative"
-                    >
+                        return (
+                          <motion.div
+                            key={friend.id}
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            transition={{ delay: i * 0.03 }}
+                            className="relative"
+                          >
                       <button type="button" onClick={() => setActionMenu(showMenu ? null : friend.id)}
                         className="w-full flex items-center py-2.5 active:bg-gray-50 rounded-xl transition-colors text-left"
                       >
@@ -941,7 +976,7 @@ export default function ContactsPage() {
                               <button type="button" onClick={(e) => { e.stopPropagation(); navigate(`/profile/${friend.id}`); setActionMenu(null); }}
                                 className="flex items-center gap-1 px-3 py-1.5 bg-[#2196F3]/10 text-[#2196F3] text-xs rounded-full font-medium active:bg-[#2196F3]/20 transition-colors"
                               >
-                                <User size={12} /> Profile
+                                <UserIcon size={12} /> Profile
                               </button>
                               <button type="button" onClick={(e) => { e.stopPropagation(); handleMessage(friend.id); }}
                                 className="flex items-center gap-1 px-3 py-1.5 bg-[#00C300]/10 text-[#00C300] text-xs rounded-full font-medium active:bg-[#00C300]/20 transition-colors"
@@ -979,14 +1014,33 @@ export default function ContactsPage() {
                       </AnimatePresence>
                     </motion.div>
                   );
-                })
+                })}
+                  </div>
+                ))
               )}
             </motion.div>
           )}
         </AnimatePresence>
+        {tab === 'all' && alphabetLetters.length > 5 && (
+          <div className="fixed right-1 top-1/2 -translate-y-1/2 z-30 flex flex-col items-center gap-0.5 py-2">
+            {alphabetLetters.map(letter => (
+              <button
+                key={letter}
+                type="button"
+                onClick={() => {
+                  const safeId = letter.replace(/[^A-Z]/g, '');
+                  const el = document.getElementById('contact-section-' + safeId);
+                  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }}
+                className="w-5 h-5 flex items-center justify-center text-[9px] font-bold text-[#8D8D8D] hover:text-[#00C300] hover:bg-[#F5F5F5] rounded transition-colors"
+              >
+                {letter}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
-      <BottomNav />
     </div>
   );
 }

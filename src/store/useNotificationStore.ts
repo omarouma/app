@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { create } from 'zustand';
 import {
   COLLECTIONS,
@@ -10,6 +9,20 @@ import {
 } from '@/lib/firestore';
 import type { AppNotification } from '@/types';
 import { where, orderBy } from '@/lib/firestore';
+
+
+type FirestoreTimestamp = { toDate: () => Date };
+function isFirestoreTs(val: unknown): val is FirestoreTimestamp {
+  return typeof val === 'object' && val !== null && 'toDate' in val;
+}
+type AppNotificationType = AppNotification['type'];
+const validNotificationTypes: Set<string> = new Set([
+  'message', 'call', 'reaction', 'mention', 'group_invite', 
+  'friend_request', 'money_received', 'group_call', 'post_like', 
+  'comment', 'friend_removed', 'blocked_interaction', 'story_view', 
+  'live_start', 'follow', 'repost', 'tip', 'premium_expiry', 
+  'achievement', 'streak', 'nearby_post', 'trending', 'tagged'
+]);
 
 interface NotificationStore {
   notifications: AppNotification[];
@@ -38,25 +51,48 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
 
     set({ loading: true });
 
+
     let unsub: (() => void) | null = null;
     try {
       unsub = subscribeToCollection(COLLECTIONS.NOTIFICATIONS, [
         where('userId', '==', userId),
         orderBy('timestamp', 'desc'),
       ], (data) => {
-        const notifications: AppNotification[] = (data || []).map((d: any) => ({
-          id: d.id,
-          userId: d.userId || '',
-          type: d.type || 'message',
-          title: sanitize(d.title),
-          body: sanitize(d.body),
-          read: d.read || false,
-          data: d.data || {},
-          timestamp: ((rawTs: any) => rawTs && typeof rawTs === 'object' && 'toDate' in rawTs ? rawTs.toDate() : rawTs ? new Date(rawTs as string | number | Date) : new Date())(d.createdAt ?? d.timestamp),
-        }));
+        const notifications: AppNotification[] = (data || []).map((d: Record<string, unknown>) => {
+          const rawTs = d.createdAt ?? d.timestamp;
+          let timestamp: Date;
+          if (isFirestoreTs(rawTs)) {
+            timestamp = rawTs.toDate();
+          } else if (rawTs) {
+            timestamp = new Date(rawTs as string | number | Date);
+          } else {
+            timestamp = new Date();
+          }
+          const rawType = d.type as string;
+          const type: AppNotificationType = validNotificationTypes.has(rawType) 
+            ? (rawType as AppNotificationType) 
+            : 'message';
+          const rawData = (d.data as Record<string, unknown>) || {};
+          const safeData: Record<string, unknown> = {};
+          for (const [k, v] of Object.entries(rawData)) {
+            safeData[sanitize(k)] = typeof v === 'string' ? sanitize(v) : v;
+          }
+          return {
+            id: d.id as string,
+            userId: (d.userId as string) || '',
+            type,
+            title: sanitize(d.title),
+            body: sanitize(d.body),
+            read: (d.read as boolean) || false,
+            data: safeData,
+            timestamp,
+          };
+        });
+        const unreadCount = notifications.filter((n) => !n.read).length;
+
         set({
           notifications,
-          unreadCount: notifications.filter((n) => !n.read).length,
+          unreadCount,
           loading: false,
         });
       });
@@ -77,9 +113,13 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
 
   markAllRead: async () => {
     try {
-      const { notifications } = get();
-      const unread = notifications.filter((n) => !n.read);
+      const unread = get().notifications.filter((n) => !n.read);
       if (unread.length === 0) return;
+      // Optimistic update first
+      set((s) => ({
+        notifications: s.notifications.map((n) => ({ ...n, read: true })),
+        unreadCount: 0,
+      }));
       await batchWrite(
         unread.map((n) => ({
           collection: COLLECTIONS.NOTIFICATIONS,
@@ -87,10 +127,6 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
           data: { read: true },
         }))
       );
-      set((s) => ({
-        notifications: s.notifications.map((n) => ({ ...n, read: true })),
-        unreadCount: 0,
-      }));
     } catch {
       return;
     }
