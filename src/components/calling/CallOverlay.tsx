@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from 'react';
+ import { useEffect, useRef, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -14,6 +14,7 @@ import {
   vibrateIncomingCall, vibrateCallConnected,
 } from '@/lib/sounds';
 import { sanitizeMediaUrl, getDefaultAvatar } from '@/lib/utils';
+import { toast } from 'sonner';
 
 function formatDuration(s: number) {
   const m = Math.floor(s / 60);
@@ -72,7 +73,7 @@ export default function CallOverlay() {
     }
   }, [isSpeakerOn]);
 
-  // ── Ringtone ──────────────────────────────────────────────────────────────
+// ── Ringtone ──────────────────────────────────────────────────────────────
   useEffect(() => {
     if (isIncoming) {
       ringtoneRef.current = playIncomingCall();
@@ -81,7 +82,33 @@ export default function CallOverlay() {
       playOutgoingCall();
     }
     return () => { ringtoneRef.current?.stop(); ringtoneRef.current = null; };
-  }, [isIncoming, currentCall?.status]);
+  }, [isIncoming, currentCall, incomingCall]);
+
+  // ── Ring timeout (45s) ────────────────────────────────────────────────────
+  useEffect(() => {
+    if (isConnected) return;
+    if (!currentCall && !incomingCall) return;
+    const isRinging = isIncoming || currentCall?.status === 'calling';
+    if (!isRinging) return;
+
+    const timeout = setTimeout(() => {
+      ringtoneRef.current?.stop();
+      ringtoneRef.current = null;
+      stopAllSounds();
+      toast.info('Call not answered');
+      if (isIncoming) {
+        useCallStore.getState().rejectCall();
+      } else {
+        webrtcRef.current?.endCall();
+        webrtcRef.current = null;
+        initializedCallId.current = null;
+        useCallStore.getState().endCall();
+      }
+    }, 45_000);
+
+    return () => clearTimeout(timeout);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- reset ring timeout only on these granular call transitions
+  }, [isConnected, isIncoming, currentCall?.status, currentCall?.id, incomingCall?.id]);
 
   // ── Call duration timer ───────────────────────────────────────────────────
   useEffect(() => {
@@ -157,6 +184,7 @@ export default function CallOverlay() {
     if (!incomingCall || !currentUser) return;
     // Guard against double-accept if component re-renders during async flow
     if (initializedCallId.current === incomingCall.id) return;
+    // Set immediately to block the currentCall useEffect from also initializing WebRTC
     initializedCallId.current = incomingCall.id;
 
     ringtoneRef.current?.stop();
@@ -209,7 +237,7 @@ export default function CallOverlay() {
   }, []);
 
   const handleToggleVideo = useCallback(() => {
-    setIsVideoOn((prev) => { webrtcRef.current?.toggleVideo(!prev); return !prev; });
+    setIsVideoOn((prev) => { webrtcRef.current?.toggleVideo(prev); return !prev; });
   }, []);
 
   if (!currentCall && !incomingCall) return null;
