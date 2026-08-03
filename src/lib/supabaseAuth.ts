@@ -123,26 +123,39 @@ export async function signIn(
   const { data, error } = await supabase.auth.signInWithPassword({ email, password });
   if (error) return { success: false, error: error.message };
   if (data.user) {
-    // Try to fetch profile; if missing, upsert a minimal row and return a basic user
     let user = await fetchUserProfile(data.user.id);
     if (!user) {
       const displayName = data.user.user_metadata?.name || email.split('@')[0];
       try {
         await supabase.from('users').upsert({
-          id: data.user.id,
-          email,
-          name: displayName,
-          display_name: displayName,
+          id: data.user.id, email, name: displayName, display_name: displayName,
           created_at: new Date().toISOString(),
         }, { onConflict: 'id' });
       } catch { /* ignore */ }
       user = await fetchUserProfile(data.user.id);
     }
     if (user) return { success: true, user };
-    // Fallback: return minimal user so login still succeeds
     return { success: true, user: { id: data.user.id, email, name: email.split('@')[0] } as User };
   }
   return { success: false, error: 'Login failed' };
+}
+
+export async function signInWithPhone(
+  phone: string,
+  password: string,
+): Promise<{ success: boolean; error?: string; user?: User }> {
+  const supabase = getSupabaseSafe();
+  if (!supabase) return { success: false, error: 'Supabase not configured' };
+
+  // Phone users sign in via email derived from phone stored in their profile
+  const { data: rows } = await supabase
+    .from('users')
+    .select('email')
+    .eq('phone', phone)
+    .single();
+
+  if (!rows?.email) return { success: false, error: 'No account found with this phone number' };
+  return signIn(rows.email, password);
 }
 
 export async function signUp(
@@ -163,35 +176,62 @@ export async function signUp(
   if (error) return { success: false, error: error.message };
 
   if (data.user) {
-    // Try manual insert as fallback in case DB trigger doesn't fire yet
     try {
       await supabase.from('users').upsert({
-        id: data.user.id,
-        email,
-        name: displayName,
-        display_name: displayName,
+        id: data.user.id, email, name: displayName, display_name: displayName,
         created_at: new Date().toISOString(),
       }, { onConflict: 'id' });
     } catch { /* trigger handles it */ }
 
     if (!data.session) {
-      return {
-        success: true,
-        needsEmailVerification: true,
-        user: { id: data.user.id, email, name: displayName } as User,
-      };
+      return { success: true, needsEmailVerification: true, user: { id: data.user.id, email, name: displayName } as User };
     }
 
     const user = await fetchUserProfile(data.user.id);
     if (user) return { success: true, user };
-    return {
-      success: true,
-      needsEmailVerification: true,
-      user: { id: data.user.id, email, name: displayName } as User,
-    };
+    return { success: true, needsEmailVerification: true, user: { id: data.user.id, email, name: displayName } as User };
   }
 
   return { success: false, error: 'Signup failed' };
+}
+
+export async function signUpWithPhone(
+  phone: string,
+  password: string,
+  name?: string,
+): Promise<{ success: boolean; error?: string; user?: User; needsEmailVerification?: boolean }> {
+  const supabase = getSupabaseSafe();
+  if (!supabase) return { success: false, error: 'Supabase not configured' };
+
+  // Use phone as email prefix so Supabase auth (email-based) still works
+  const syntheticEmail = `${phone.replace(/\D/g, '')}@phone.gagachat.app`;
+  const displayName = name || `User${phone.slice(-4)}`;
+
+  const result = await signUp(syntheticEmail, password, displayName);
+  if (!result.success) return result;
+
+  // Store real phone number on the user row
+  if (result.user?.id) {
+    try {
+      await supabase.from('users').update({ phone }).eq('id', result.user.id);
+    } catch { /* ignore */ }
+  }
+
+  return { ...result, needsEmailVerification: false };
+}
+
+export async function sendMagicLink(
+  email: string,
+): Promise<{ success: boolean; error?: string }> {
+  const supabase = getSupabaseSafe();
+  if (!supabase) return { success: false, error: 'Supabase not configured' };
+
+  const { error } = await supabase.auth.signInWithOtp({
+    email,
+    options: { shouldCreateUser: true },
+  });
+  if (error) return { success: false, error: error.message };
+  return { success: true };
 }
 
 export async function signOut() {

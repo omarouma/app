@@ -2,383 +2,422 @@ import { useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  ArrowLeft, Mail, User, Lock, Eye, EyeOff,
-  Check, Loader, AlertCircle,
-  Home,
+  Mail, Phone, Lock, Eye, EyeOff, User, ArrowLeft,
+  Check, Loader, AlertCircle, Sparkles, Home, Send,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { toast } from 'sonner';
 import Logo from '@/components/Logo';
 
-// ─── Glassmorphism Floating Bubbles (brand colors) ───
-const floatingBubbles = [
-  { size: 240, top: '5%', left: '8%', color: '#00C300', opacity: 0.08, delay: 0 },
-  { size: 180, top: '55%', left: '3%', color: '#00C300', opacity: 0.06, delay: 1.2 },
-  { size: 140, top: '18%', left: '38%', color: '#FF9800', opacity: 0.06, delay: 0.6 },
-  { size: 300, top: '35%', left: '18%', color: '#00C300', opacity: 0.05, delay: 2.1 },
-  { size: 160, top: '70%', left: '22%', color: '#FF4081', opacity: 0.06, delay: 1.8 },
-  { size: 200, top: '10%', left: '55%', color: '#00C300', opacity: 0.07, delay: 0.9 },
-  { size: 100, top: '60%', left: '48%', color: '#2196F3', opacity: 0.05, delay: 2.5 },
-  { size: 180, top: '25%', left: '72%', color: '#00C300', opacity: 0.06, delay: 1.5 },
-  { size: 140, top: '78%', left: '68%', color: '#FF9800', opacity: 0.06, delay: 0.3 },
-  { size: 80, top: '2%', left: '85%', color: '#FF4081', opacity: 0.05, delay: 2.8 },
-];
+// ─── Types ────────────────────────────────────────────────────
+type Screen = 'landing' | 'login-email' | 'login-phone' | 'signup-email' | 'signup-phone' | 'magic' | 'forgot';
+type InputTab = 'email' | 'phone';
 
-function FloatingBubble({ size, top, left, color, opacity, delay }: typeof floatingBubbles[0]) {
+// ─── Helpers ──────────────────────────────────────────────────
+function isValidEmail(v: string) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v); }
+function isValidPhone(v: string) { return /^\+?[0-9]{7,15}$/.test(v.replace(/[\s\-()]/g, '')); }
+function normalizePhone(v: string) {
+  const digits = v.replace(/[\s\-()]/g, '');
+  return digits.startsWith('+') ? digits : `+${digits}`;
+}
+
+function passwordStrength(p: string) {
+  return (
+    (p.length >= 8 ? 1 : 0) +
+    (/[A-Z]/.test(p) ? 1 : 0) +
+    (/[a-z]/.test(p) ? 1 : 0) +
+    (/[0-9]/.test(p) ? 1 : 0) +
+    (/[^A-Za-z0-9]/.test(p) ? 1 : 0)
+  );
+}
+
+// ─── Sub-components ───────────────────────────────────────────
+function Bubble({ size, top, left, color, opacity, delay }: { size: number; top: string; left: string; color: string; opacity: number; delay: number }) {
   return (
     <motion.div
-      className="absolute rounded-full"
-      style={{ width: size, height: size, top, left, backgroundColor: color, opacity, zIndex: 1, filter: 'blur(80px)' }}
-      initial={{ opacity: 0, scale: 0.5 }}
-      animate={{ opacity: 1, scale: 1, y: [0, -20, 0, -10, 0], x: [0, 10, 0, -6, 0] }}
-      transition={{
-        opacity: { duration: 1, delay: delay * 0.3 },
-        scale: { duration: 1.2, delay: delay * 0.3 },
-        y: { duration: 8 + delay, repeat: Infinity, ease: 'easeInOut' },
-        x: { duration: 9 + delay, repeat: Infinity, ease: 'easeInOut' },
-      }}
+      className="absolute rounded-full pointer-events-none"
+      style={{ width: size, height: size, top, left, backgroundColor: color, opacity, filter: 'blur(70px)' }}
+      animate={{ y: [0, -18, 0], x: [0, 8, 0] }}
+      transition={{ duration: 7 + delay, repeat: Infinity, ease: 'easeInOut', delay }}
     />
   );
 }
 
-function ErrorMsg({ error }: { error: string }) {
-  return error ? (
-    <p className="text-red-500 text-sm flex items-center gap-1.5 bg-red-50 px-3 py-2 rounded-xl">
-      <AlertCircle size={14} /> {error}
-    </p>
+const BUBBLES = [
+  { size: 260, top: '2%',  left: '5%',  color: '#00C300', opacity: 0.07, delay: 0 },
+  { size: 180, top: '55%', left: '2%',  color: '#00C300', opacity: 0.05, delay: 1.2 },
+  { size: 200, top: '10%', left: '60%', color: '#FF9800', opacity: 0.05, delay: 0.8 },
+  { size: 300, top: '40%', left: '20%', color: '#00C300', opacity: 0.04, delay: 2 },
+  { size: 150, top: '72%', left: '65%', color: '#FF4081', opacity: 0.05, delay: 1.6 },
+  { size: 120, top: '20%', left: '80%', color: '#2196F3', opacity: 0.04, delay: 2.4 },
+];
+
+function ErrorMsg({ msg }: { msg: string }) {
+  return msg ? (
+    <motion.p initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }}
+      className="flex items-center gap-2 text-red-500 text-xs bg-red-50 border border-red-100 px-3 py-2.5 rounded-xl">
+      <AlertCircle size={13} className="shrink-0" /> {msg}
+    </motion.p>
   ) : null;
 }
 
-function SuccessMsg({ success }: { success: string }) {
-  return success ? (
-    <p className="text-[#00C300] text-sm flex items-center gap-1.5 bg-[#00C300]/5 px-3 py-2 rounded-xl">
-      <Check size={14} /> {success}
-    </p>
+function SuccessMsg({ msg }: { msg: string }) {
+  return msg ? (
+    <motion.p initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }}
+      className="flex items-center gap-2 text-[#00C300] text-xs bg-[#00C300]/5 border border-[#00C300]/20 px-3 py-2.5 rounded-xl">
+      <Check size={13} className="shrink-0" /> {msg}
+    </motion.p>
   ) : null;
 }
 
-function AgreeCheckbox({ agreed, setAgreed, navigate }: { agreed: boolean; setAgreed: (v: boolean) => void; navigate: (path: string) => void }) {
+function InputField({ icon: Icon, type = 'text', value, onChange, placeholder, right }: {
+  icon: React.ElementType; type?: string; value: string;
+  onChange: (v: string) => void; placeholder: string; right?: React.ReactNode;
+}) {
   return (
-    <label className="flex items-start gap-2 cursor-pointer text-[#8D8D8D] text-xs leading-relaxed">
+    <div className="relative">
+      <Icon size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-[#ABABAB] z-10" />
       <input
-        type="checkbox"
-        checked={agreed}
-        onChange={(event) => setAgreed(event.target.checked)}
-        className="sr-only"
+        type={type} value={value} onChange={e => onChange(e.target.value)}
+        placeholder={placeholder}
+        className="w-full bg-[#F7F7F7] border border-transparent focus:border-[#00C300]/40 rounded-2xl pl-11 pr-11 py-3.5 text-sm text-[#111] placeholder:text-[#C0C0C0] outline-none transition-all"
       />
-      <span className={`w-5 h-5 rounded-lg border transition-colors flex items-center justify-center shrink-0 mt-0.5 ${agreed ? 'bg-[#00C300] border-[#00C300]' : 'border-[#C7C7CC]'}`}>
-        {agreed && <Check size={12} className="text-white" />}
+      {right && <div className="absolute right-3 top-1/2 -translate-y-1/2">{right}</div>}
+    </div>
+  );
+}
+
+function PasswordField({ value, onChange, placeholder = 'Password' }: { value: string; onChange: (v: string) => void; placeholder?: string }) {
+  const [show, setShow] = useState(false);
+  return (
+    <InputField
+      icon={Lock} type={show ? 'text' : 'password'} value={value} onChange={onChange} placeholder={placeholder}
+      right={
+        <button type="button" onClick={() => setShow(s => !s)} className="text-[#ABABAB] hover:text-[#555] transition-colors p-1">
+          {show ? <EyeOff size={16} /> : <Eye size={16} />}
+        </button>
+      }
+    />
+  );
+}
+
+function StrengthBar({ password }: { password: string }) {
+  if (!password) return null;
+  const s = passwordStrength(password);
+  const color = s <= 2 ? 'bg-red-400' : s <= 3 ? 'bg-orange-400' : 'bg-[#00C300]';
+  const label = s <= 2 ? 'Weak' : s <= 3 ? 'Fair' : s === 4 ? 'Good' : 'Strong';
+  return (
+    <div className="space-y-1 px-0.5">
+      <div className="flex gap-1 h-1">
+        {[0,1,2,3].map(i => <div key={i} className={`flex-1 rounded-full ${s > i ? color : 'bg-[#E8E8E8]'}`} />)}
+      </div>
+      <p className="text-[10px] text-[#ABABAB]">{label} password</p>
+    </div>
+  );
+}
+
+function AgreeBox({ agreed, setAgreed, navigate }: { agreed: boolean; setAgreed: (v: boolean) => void; navigate: (p: string) => void }) {
+  return (
+    <label className="flex items-start gap-2.5 cursor-pointer">
+      <input type="checkbox" checked={agreed} onChange={e => setAgreed(e.target.checked)} className="sr-only" />
+      <span className={`w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0 mt-0.5 transition-colors ${agreed ? 'bg-[#00C300] border-[#00C300]' : 'border-[#D0D0D0]'}`}>
+        {agreed && <Check size={11} className="text-white" />}
       </span>
-      <span>
+      <span className="text-[11px] text-[#888] leading-relaxed">
         I agree to the{' '}
-        <button type="button" onClick={() => navigate('/terms')} className="text-[#00C300] font-medium hover:underline">User Agreement</button>
+        <button type="button" onClick={() => navigate('/terms')} className="text-[#00C300] font-semibold hover:underline">Terms</button>
         {' '}and{' '}
-        <button type="button" onClick={() => navigate('/privacy')} className="text-[#00C300] font-medium hover:underline">Privacy Policy</button>
+        <button type="button" onClick={() => navigate('/privacy')} className="text-[#00C300] font-semibold hover:underline">Privacy Policy</button>
       </span>
     </label>
   );
 }
 
-type AuthMode = 'password' | 'signup';
+function PrimaryBtn({ loading, disabled, children }: { loading?: boolean; disabled?: boolean; children: React.ReactNode }) {
+  return (
+    <button type="submit"
+      className="w-full py-3.5 bg-gradient-to-r from-[#00C300] to-[#00A300] hover:from-[#00A300] hover:to-[#008800] text-white rounded-2xl text-sm font-bold transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-lg shadow-[#00C300]/25 active:scale-[0.98]"
+      disabled={loading || disabled}>
+      {loading ? <Loader size={17} className="animate-spin" /> : children}
+    </button>
+  );
+}
 
+function Card({ children }: { children: React.ReactNode }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 24, scale: 0.97 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, y: -16, scale: 0.97 }}
+      transition={{ duration: 0.35, type: 'spring', bounce: 0.2 }}
+      className="bg-white/85 backdrop-blur-2xl rounded-3xl shadow-2xl border border-white/60 p-7 w-full relative overflow-hidden"
+    >
+      <div className="absolute top-0 right-0 w-28 h-28 bg-gradient-to-bl from-[#00C300]/8 to-transparent rounded-bl-full pointer-events-none" />
+      {children}
+    </motion.div>
+  );
+}
+
+function LogoHeader({ subtitle }: { subtitle: string }) {
+  return (
+    <div className="flex flex-col items-center mb-6">
+      <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#00C300] to-[#00A300] flex items-center justify-center shadow-lg shadow-[#00C300]/30 mb-3">
+        <Logo size={36} />
+      </div>
+      <h1 className="font-extrabold text-[#111] text-base tracking-tight">GaGa Chat</h1>
+      <p className="text-[#ABABAB] text-[11px] mt-0.5">{subtitle}</p>
+    </div>
+  );
+}
+
+function BackBtn({ onClick }: { onClick: () => void }) {
+  return (
+    <button type="button" onClick={onClick} className="flex items-center gap-1.5 text-[#ABABAB] hover:text-[#333] text-xs mb-5 transition-colors">
+      <ArrowLeft size={14} /> Back
+    </button>
+  );
+}
+
+function TabSwitch({ tab, setTab }: { tab: InputTab; setTab: (t: InputTab) => void }) {
+  return (
+    <div className="flex bg-[#F2F2F2] rounded-2xl p-1 mb-5">
+      {(['email', 'phone'] as InputTab[]).map(t => (
+        <button key={t} type="button" onClick={() => setTab(t)}
+          className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-semibold transition-all ${tab === t ? 'bg-white shadow text-[#111]' : 'text-[#ABABAB]'}`}>
+          {t === 'email' ? <Mail size={13} /> : <Phone size={13} />}
+          {t === 'email' ? 'Email' : 'Phone'}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+// ─── Main Component ───────────────────────────────────────────
 export default function AuthView() {
   const navigate = useNavigate();
-  const { login, signup, resetPassword } = useAuth();
-  const [mode, setMode] = useState<AuthMode>('password');
+  const auth = useAuth();
+  const [screen, setScreen] = useState<Screen>('landing');
+  const [tab, setTab] = useState<InputTab>('email');
 
-  // Form states
+  // Fields
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [confirmPw, setConfirmPw] = useState('');
+  const [agreed, setAgreed] = useState(false);
+
+  // UI state
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  const [agreed, setAgreed] = useState(false);
-  const [forgotMode, setForgotMode] = useState(false);
 
-  const resetForm = () => { setError(''); setSuccess(''); setLoading(false); };
-  const switchMode = (m: AuthMode) => { setMode(m); resetForm(); };
+  const reset = () => { setError(''); setSuccess(''); };
+  const go = (s: Screen) => { reset(); setScreen(s); };
 
-  const handleEmailLogin = async () => {
-    setError(''); setLoading(true);
-    const result = await login(email, password);
+  // ─── Handlers ───────────────────────────────────────────────
+  const handleLogin = async (e: FormEvent) => {
+    e.preventDefault(); reset();
+    if (tab === 'email') {
+      if (!isValidEmail(email)) { setError('Enter a valid email'); return; }
+    } else {
+      if (!isValidPhone(phone)) { setError('Enter a valid phone number (e.g. +8801XXXXXXXXX)'); return; }
+    }
+    if (!password) { setError('Enter your password'); return; }
+    setLoading(true);
+    const result = tab === 'email'
+      ? await auth.login(email, password)
+      : await auth.loginWithPhone(normalizePhone(phone), password);
     setLoading(false);
-    if (result.needsEmailVerification) { toast.info('Please verify your email first'); return; }
     if (!result.success) setError(result.error || 'Login failed');
   };
 
-  const handleEmailSignup = async () => {
-    setError('');
+  const handleSignup = async (e: FormEvent) => {
+    e.preventDefault(); reset();
     if (!name.trim()) { setError('Enter your name'); return; }
-    if (!email.trim()) { setError('Enter your email'); return; }
-    if (password.length < 8) { setError('Password must be at least 8 characters'); return; }
-    if (!/[A-Z]/.test(password)) { setError('Password must contain at least one uppercase letter'); return; }
-    if (!/[a-z]/.test(password)) { setError('Password must contain at least one lowercase letter'); return; }
-    if (!/[0-9]/.test(password)) { setError('Password must contain at least one number'); return; }
-    if (!/[^A-Za-z0-9]/.test(password)) { setError('Password must contain at least one special character'); return; }
-    if (password !== confirmPassword) { setError('Passwords do not match'); return; }
+    if (tab === 'email') {
+      if (!isValidEmail(email)) { setError('Enter a valid email'); return; }
+    } else {
+      if (!isValidPhone(phone)) { setError('Enter a valid phone number (e.g. +8801XXXXXXXXX)'); return; }
+    }
+    if (passwordStrength(password) < 3) { setError('Password too weak — add uppercase, number, or special character'); return; }
+    if (password !== confirmPw) { setError('Passwords do not match'); return; }
     if (!agreed) { setError('Please agree to the terms'); return; }
     setLoading(true);
-    const result = await signup(name, email, password);
+    const result = tab === 'email'
+      ? await auth.signup(name, email, password)
+      : await auth.signupWithPhone(name, normalizePhone(phone), password);
     setLoading(false);
     if (result.success) {
       if (result.needsEmailVerification) {
-        toast.success('Account created! Please check your email and click the verification link.');
+        toast.success('Account created! Check your email for a verification link from GaGa Chat.');
+        go('login-email');
       } else {
-        toast.success('Account created! Welcome to GaGa Chat.');
+        toast.success('Welcome to GaGa Chat! 🎉');
       }
-      setMode('password');
     } else {
       setError(result.error || 'Signup failed');
     }
   };
 
-  const handleForgotPassword = async () => {
-    setError('');
-    if (!email.trim()) { setError('Enter your email'); return; }
+  const handleMagicLink = async (e: FormEvent) => {
+    e.preventDefault(); reset();
+    if (!isValidEmail(email)) { setError('Enter a valid email'); return; }
     setLoading(true);
-    const result = await resetPassword(email);
+    const result = await auth.sendMagicLink(email);
     setLoading(false);
-    if (result.success) { setSuccess('Reset link sent!'); setTimeout(() => setForgotMode(false), 2000); }
-    else { setError(result.error || 'Failed to send reset link'); }
+    if (result.success) setSuccess('Magic link sent! Check your inbox — the email is from GaGa Chat.');
+    else setError(result.error || 'Failed to send link');
   };
 
-  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if (forgotMode) {
-      await handleForgotPassword();
-      return;
-    }
-
-    if (mode === 'signup') {
-      await handleEmailSignup();
-      return;
-    }
-
-    await handleEmailLogin();
+  const handleForgot = async (e: FormEvent) => {
+    e.preventDefault(); reset();
+    if (!isValidEmail(email)) { setError('Enter a valid email'); return; }
+    setLoading(true);
+    const result = await auth.resetPassword(email);
+    setLoading(false);
+    if (result.success) { setSuccess('Reset link sent! Check your inbox.'); setTimeout(() => go('login-email'), 2500); }
+    else setError(result.error || 'Failed to send reset link');
   };
 
+  // ─── Screens ─────────────────────────────────────────────────
   return (
-    <div className="min-h-[100dvh] bg-gradient-to-br from-[#E8F5E9] via-[#FFF3E0] to-[#FCE4EC] relative overflow-hidden flex items-center justify-center px-4">
-      {/* Floating Bubbles */}
-      <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
-        {floatingBubbles.map((bubble, i) => <FloatingBubble key={i} {...bubble} />)}
+    <div className="min-h-[100dvh] bg-gradient-to-br from-[#E8F5E9] via-[#FFFDE7] to-[#FCE4EC] relative overflow-hidden flex items-center justify-center px-4 py-8">
+      <div className="fixed inset-0 pointer-events-none overflow-hidden">
+        {BUBBLES.map((b, i) => <Bubble key={i} {...b} />)}
       </div>
 
-      {/* Back to Home */}
-      <button
-        type="button"
-        onClick={() => navigate('/')}
-        className="absolute top-5 left-5 z-20 flex items-center gap-2 px-4 py-2 bg-white/60 backdrop-blur-sm rounded-full border border-white/50 text-[#111111] text-sm font-medium hover:bg-white transition-colors shadow-sm"
-      >
-        <Home size={16} /> Home
+      <button type="button" onClick={() => navigate('/')}
+        className="absolute top-5 left-5 z-20 flex items-center gap-1.5 px-3.5 py-2 bg-white/70 backdrop-blur-sm rounded-full border border-white/50 text-[#555] text-xs font-medium hover:bg-white transition-all shadow-sm">
+        <Home size={14} /> Home
       </button>
 
-      {/* Content */}
-      <div className="relative z-10 w-full max-w-md">
+      <div className="relative z-10 w-full max-w-sm">
         <AnimatePresence mode="wait">
-          <motion.div
-            key={mode + (forgotMode ? '-forgot' : '')}
-            initial={{ opacity: 0, y: 20, scale: 0.98 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -20, scale: 0.98 }}
-            transition={{ duration: 0.4, type: 'spring' }}
-            className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/50 p-8 w-full relative overflow-hidden"
-          >
-            {/* Decorative corner */}
-            <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-bl from-[#00C300]/10 to-transparent rounded-bl-full" />
 
-            {forgotMode ? (
-              /* ─── FORGOT PASSWORD ─── */
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="flex items-center justify-center mb-6">
-                  <div className="text-center">
-                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#00C300] to-[#00A300] flex items-center justify-center shadow-md mx-auto mb-3">
-                      <Logo size={32} />
-                    </div>
-                    <h2 className="font-bold text-[#111111] text-sm">GaGa Chat</h2>
-                    <p className="text-[#8D8D8D] text-[10px]">Reset Password</p>
-                  </div>
-                </div>
-                <div className="mb-4">
-                  <button type="button" onClick={() => setForgotMode(false)} className="flex items-center gap-1 text-[#8D8D8D] text-sm hover:text-[#111111] mb-4 transition-colors">
-                    <ArrowLeft size={16} /> Back to login
-                  </button>
-                  <h3 className="text-lg font-bold text-[#111111] mb-1">Reset Password</h3>
-                  <p className="text-[#8D8D8D] text-sm mb-6">Enter your email to receive reset instructions</p>
-                </div>
-                <div className="space-y-4">
-                  <div className="relative">
-                    <Mail size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-[#8D8D8D] z-10" />
-                    <input
-                      type="email"
-                      value={email}
-                      onChange={e => setEmail(e.target.value)}
-                      placeholder="Email address"
-                      className="w-full bg-[#F5F5F5] rounded-xl pl-12 pr-4 py-3.5 text-sm text-[#111111] placeholder:text-[#C7C7CC] outline-none focus:ring-2 focus:ring-[#00C300]/30 transition-all"
-                      onKeyDown={e => e.key === 'Enter' && handleForgotPassword()}
-                    />
-                  </div>
-                  <ErrorMsg error={error} />
-                  <SuccessMsg success={success} />
-                  <button type="submit" className="w-full py-3.5 bg-[#00C300] hover:bg-[#00A300] text-white rounded-xl text-sm font-bold transition-colors disabled:opacity-50 flex items-center justify-center gap-2 shadow-lg shadow-[#00C300]/20" disabled={loading}>
-                    {loading ? <Loader size={18} className="animate-spin" /> : 'Send Reset Link'}
-                  </button>
-                </div>
-              </form>
-            ) : mode === 'signup' ? (
-              /* ─── SIGNUP ─── */
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="flex items-center justify-center mb-6">
-                  <div className="text-center">
-                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#00C300] to-[#00A300] flex items-center justify-center shadow-md mx-auto mb-3">
-                      <Logo size={32} />
-                    </div>
-                    <h2 className="font-bold text-[#111111] text-sm">GaGa Chat</h2>
-                    <p className="text-[#8D8D8D] text-[10px]">Create your account</p>
-                  </div>
-                </div>
-                <div className="space-y-3 max-h-[55vh] overflow-y-auto pr-1">
-                  <div className="relative">
-                    <User size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-[#8D8D8D] z-10" />
-                    <input
-                      value={name}
-                      onChange={e => setName(e.target.value)}
-                      placeholder="Full name"
-                      className="w-full bg-[#F5F5F5] rounded-xl pl-12 pr-4 py-3.5 text-sm text-[#111111] placeholder:text-[#C7C7CC] outline-none focus:ring-2 focus:ring-[#00C300]/30 transition-all"
-                      onKeyDown={e => e.key === 'Enter' && handleEmailSignup()}
-                    />
-                  </div>
-                  <div className="relative">
-                    <Mail size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-[#8D8D8D] z-10" />
-                    <input
-                      type="email"
-                      value={email}
-                      onChange={e => setEmail(e.target.value)}
-                      placeholder="Email address"
-                      className="w-full bg-[#F5F5F5] rounded-xl pl-12 pr-4 py-3.5 text-sm text-[#111111] placeholder:text-[#C7C7CC] outline-none focus:ring-2 focus:ring-[#00C300]/30 transition-all"
-                      onKeyDown={e => e.key === 'Enter' && handleEmailSignup()}
-                    />
-                  </div>
-                  <div className="relative">
-                    <Lock size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-[#8D8D8D] z-10" />
-                    <input
-                      type={showPassword ? 'text' : 'password'}
-                      value={password}
-                      onChange={e => setPassword(e.target.value)}
-                      placeholder="Password (min 8 chars)"
-                      className="w-full bg-[#F5F5F5] rounded-xl pl-12 pr-12 py-3.5 text-sm text-[#111111] placeholder:text-[#C7C7CC] outline-none focus:ring-2 focus:ring-[#00C300]/30 transition-all"
-                      onKeyDown={e => e.key === 'Enter' && handleEmailSignup()}
-                    />
-                    <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-4 top-1/2 -translate-y-1/2 text-[#8D8D8D] hover:text-[#111111]">
-                      {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+          {/* ── LANDING ── */}
+          {screen === 'landing' && (
+            <Card key="landing">
+              <LogoHeader subtitle="Connect. Share. Belong." />
+
+              <div className="space-y-3">
+                <button type="button" onClick={() => { reset(); setTab('email'); go('login-email'); }}
+                  className="w-full flex items-center gap-3 px-4 py-3.5 bg-gradient-to-r from-[#00C300] to-[#00A300] text-white rounded-2xl text-sm font-bold shadow-lg shadow-[#00C300]/25 hover:from-[#00A300] hover:to-[#008800] transition-all active:scale-[0.98]">
+                  <Mail size={18} /> Sign in with Email
+                </button>
+
+                <button type="button" onClick={() => { reset(); setTab('phone'); go('login-phone'); }}
+                  className="w-full flex items-center gap-3 px-4 py-3.5 bg-white border-2 border-[#E8E8E8] hover:border-[#00C300]/40 text-[#111] rounded-2xl text-sm font-bold transition-all active:scale-[0.98]">
+                  <Phone size={18} className="text-[#00C300]" /> Sign in with Phone
+                </button>
+
+                <button type="button" onClick={() => { reset(); go('magic'); }}
+                  className="w-full flex items-center gap-3 px-4 py-3.5 bg-white border-2 border-[#E8E8E8] hover:border-[#00C300]/40 text-[#111] rounded-2xl text-sm font-bold transition-all active:scale-[0.98]">
+                  <Sparkles size={18} className="text-[#FF9800]" /> Magic Link (no password)
+                </button>
+              </div>
+
+              <div className="mt-5 pt-4 border-t border-[#F0F0F0] text-center">
+                <p className="text-[#ABABAB] text-xs">
+                  New here?{' '}
+                  <button type="button" onClick={() => { reset(); setTab('email'); go('signup-email'); }}
+                    className="text-[#00C300] font-bold hover:underline">Create account</button>
+                </p>
+              </div>
+            </Card>
+          )}
+
+          {/* ── LOGIN (email or phone via tab) ── */}
+          {(screen === 'login-email' || screen === 'login-phone') && (
+            <Card key="login">
+              <BackBtn onClick={() => go('landing')} />
+              <LogoHeader subtitle="Welcome back" />
+              <form onSubmit={handleLogin} className="space-y-3">
+                <TabSwitch tab={tab} setTab={t => { reset(); setTab(t); }} />
+                {tab === 'email'
+                  ? <InputField icon={Mail} type="email" value={email} onChange={setEmail} placeholder="Email address" />
+                  : <InputField icon={Phone} value={phone} onChange={setPhone} placeholder="Phone number (e.g. +8801XXXXXXXXX)" />
+                }
+                <PasswordField value={password} onChange={setPassword} />
+                {tab === 'email' && (
+                  <div className="flex justify-end">
+                    <button type="button" onClick={() => go('forgot')} className="text-[10px] text-[#00C300] font-semibold hover:underline">
+                      Forgot password?
                     </button>
                   </div>
-                  <div className="relative">
-                    <Lock size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-[#8D8D8D] z-10" />
-                    <input
-                      type={showConfirmPassword ? 'text' : 'password'}
-                      value={confirmPassword}
-                      onChange={e => setConfirmPassword(e.target.value)}
-                      placeholder="Confirm password"
-                      className="w-full bg-[#F5F5F5] rounded-xl pl-12 pr-12 py-3.5 text-sm text-[#111111] placeholder:text-[#C7C7CC] outline-none focus:ring-2 focus:ring-[#00C300]/30 transition-all"
-                      onKeyDown={e => e.key === 'Enter' && handleEmailSignup()}
-                    />
-                    <button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)} className="absolute right-4 top-1/2 -translate-y-1/2 text-[#8D8D8D] hover:text-[#111111]">
-                      {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                    </button>
-                  </div>
-
-                  {password.length > 0 && (
-                    <div className="space-y-1 px-1">
-                      <div className="flex gap-1 h-1">
-                        {[0, 1, 2, 3].map((i) => {
-                          const strength =
-                            (password.length >= 8 ? 1 : 0) +
-                            (/[A-Z]/.test(password) ? 1 : 0) +
-                            (/[a-z]/.test(password) ? 1 : 0) +
-                            (/[0-9]/.test(password) ? 1 : 0) +
-                            (/[^A-Za-z0-9]/.test(password) ? 1 : 0);
-                          const filled = strength > i;
-                          const color = strength <= 2 ? 'bg-red-400' : strength <= 3 ? 'bg-orange-400' : 'bg-[#00C300]';
-                          return <div key={i} className={`flex-1 rounded-full ${filled ? color : 'bg-[#EBEBEB]'}`} />;
-                        })}
-                      </div>
-                      <p className="text-[10px] text-[#8D8D8D]">
-                        {password.length < 8 ? 'Min 8 chars' : /[A-Z]/.test(password) && /[a-z]/.test(password) && /[0-9]/.test(password) && /[^A-Za-z0-9]/.test(password) ? 'Strong password' : 'Add uppercase, lowercase, number, special char'}
-                      </p>
-                    </div>
-                  )}
-
-                  <AgreeCheckbox agreed={agreed} setAgreed={setAgreed} navigate={navigate} />
-                  <ErrorMsg error={error} />
-                  <SuccessMsg success={success} />
-                  <button type="submit" className="w-full py-3.5 bg-[#00C300] hover:bg-[#00A300] text-white rounded-xl text-sm font-bold transition-colors disabled:opacity-50 flex items-center justify-center gap-2 shadow-lg shadow-[#00C300]/20" disabled={loading || !agreed}>
-                    {loading ? <Loader size={18} className="animate-spin" /> : 'Create Account'}
-                  </button>
-                  <p className="text-center text-[#8D8D8D] text-sm">
-                    Already have an account?{' '}
-                    <button type="button" onClick={() => switchMode('password')} className="text-[#00C300] font-bold hover:underline">Sign In</button>
-                  </p>
-                </div>
+                )}
+                <ErrorMsg msg={error} />
+                <PrimaryBtn loading={loading}>Sign In</PrimaryBtn>
+                <p className="text-center text-[11px] text-[#ABABAB]">
+                  No account?{' '}
+                  <button type="button" onClick={() => go('signup-email')} className="text-[#00C300] font-bold hover:underline">Sign up</button>
+                </p>
               </form>
-            ) : (
-              /* ─── PASSWORD LOGIN ─── */
-              <form onSubmit={handleSubmit}>
-                <div className="flex items-center justify-center mb-6">
-                  <div className="text-center">
-                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#00C300] to-[#00A300] flex items-center justify-center shadow-md mx-auto mb-3">
-                      <Logo size={32} />
-                    </div>
-                    <h2 className="font-bold text-[#111111] text-sm">GaGa Chat</h2>
-                    <p className="text-[#8D8D8D] text-[10px]">Log in with password</p>
-                  </div>
-                </div>
-                <div className="space-y-4">
-                  <div className="relative">
-                    <Mail size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-[#8D8D8D] z-10" />
-                    <input
-                      type="email"
-                      value={email}
-                      onChange={e => setEmail(e.target.value)}
-                      placeholder="Email address"
-                      className="w-full bg-[#F5F5F5] rounded-xl pl-12 pr-4 py-3.5 text-sm text-[#111111] placeholder:text-[#C7C7CC] outline-none focus:ring-2 focus:ring-[#00C300]/30 transition-all"
-                      onKeyDown={e => e.key === 'Enter' && handleEmailLogin()}
-                    />
-                  </div>
-                  <div className="relative">
-                    <Lock size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-[#8D8D8D] z-10" />
-                    <input
-                      type={showPassword ? 'text' : 'password'}
-                      value={password}
-                      onChange={e => setPassword(e.target.value)}
-                      placeholder="Password"
-                      className="w-full bg-[#F5F5F5] rounded-xl pl-12 pr-12 py-3.5 text-sm text-[#111111] placeholder:text-[#C7C7CC] outline-none focus:ring-2 focus:ring-[#00C300]/30 transition-all"
-                      onKeyDown={e => e.key === 'Enter' && handleEmailLogin()}
-                    />
-                    <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-4 top-1/2 -translate-y-1/2 text-[#8D8D8D] hover:text-[#111111]">
-                      {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                    </button>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <button type="button" onClick={() => setForgotMode(true)} className="text-[#00C300] text-xs font-medium hover:underline">Forgot password?</button>
-                  </div>
-                  <ErrorMsg error={error} />
-                  <SuccessMsg success={success} />
-                  <button type="submit" className="w-full py-3.5 bg-[#00C300] hover:bg-[#00A300] text-white rounded-xl text-sm font-bold transition-colors disabled:opacity-50 flex items-center justify-center gap-2 shadow-lg shadow-[#00C300]/20" disabled={loading}>
-                    {loading ? <Loader size={18} className="animate-spin" /> : 'Log In'}
-                  </button>
-                  <p className="text-center text-[#8D8D8D] text-sm">
-                    New to GaGa?{' '}
-                    <button type="button" onClick={() => switchMode('signup')} className="text-[#00C300] font-bold hover:underline">Sign up here</button>
-                  </p>
-                </div>
+            </Card>
+          )}
+
+          {/* ── SIGNUP ── */}
+          {(screen === 'signup-email' || screen === 'signup-phone') && (
+            <Card key="signup">
+              <BackBtn onClick={() => go('landing')} />
+              <LogoHeader subtitle="Create your account" />
+              <form onSubmit={handleSignup} className="space-y-3">
+                <TabSwitch tab={tab} setTab={t => { reset(); setTab(t); }} />
+                <InputField icon={User} value={name} onChange={setName} placeholder="Full name" />
+                {tab === 'email'
+                  ? <InputField icon={Mail} type="email" value={email} onChange={setEmail} placeholder="Email address" />
+                  : <InputField icon={Phone} value={phone} onChange={setPhone} placeholder="Phone number (e.g. +8801XXXXXXXXX)" />
+                }
+                <PasswordField value={password} onChange={setPassword} placeholder="Create password" />
+                <StrengthBar password={password} />
+                <PasswordField value={confirmPw} onChange={setConfirmPw} placeholder="Confirm password" />
+                <AgreeBox agreed={agreed} setAgreed={setAgreed} navigate={navigate} />
+                <ErrorMsg msg={error} />
+                <PrimaryBtn loading={loading} disabled={!agreed}>Create Account</PrimaryBtn>
+                <p className="text-center text-[11px] text-[#ABABAB]">
+                  Already have an account?{' '}
+                  <button type="button" onClick={() => go('login-email')} className="text-[#00C300] font-bold hover:underline">Sign in</button>
+                </p>
               </form>
-            )}
-          </motion.div>
+            </Card>
+          )}
+
+          {/* ── MAGIC LINK ── */}
+          {screen === 'magic' && (
+            <Card key="magic">
+              <BackBtn onClick={() => go('landing')} />
+              <LogoHeader subtitle="Sign in without a password" />
+              <form onSubmit={handleMagicLink} className="space-y-3">
+                <p className="text-[12px] text-[#888] text-center -mt-2 mb-1">
+                  We'll send a one-tap sign-in link to your email — no password needed.
+                </p>
+                <InputField icon={Mail} type="email" value={email} onChange={setEmail} placeholder="Email address" />
+                <ErrorMsg msg={error} />
+                <SuccessMsg msg={success} />
+                <PrimaryBtn loading={loading}>
+                  <Send size={15} /> Send Magic Link
+                </PrimaryBtn>
+              </form>
+            </Card>
+          )}
+
+          {/* ── FORGOT PASSWORD ── */}
+          {screen === 'forgot' && (
+            <Card key="forgot">
+              <BackBtn onClick={() => go('login-email')} />
+              <LogoHeader subtitle="Reset your password" />
+              <form onSubmit={handleForgot} className="space-y-3">
+                <p className="text-[12px] text-[#888] text-center -mt-2 mb-1">
+                  Enter your email and we'll send a reset link from GaGa Chat.
+                </p>
+                <InputField icon={Mail} type="email" value={email} onChange={setEmail} placeholder="Email address" />
+                <ErrorMsg msg={error} />
+                <SuccessMsg msg={success} />
+                <PrimaryBtn loading={loading}>Send Reset Link</PrimaryBtn>
+              </form>
+            </Card>
+          )}
+
         </AnimatePresence>
       </div>
     </div>
