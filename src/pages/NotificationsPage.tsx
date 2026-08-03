@@ -85,6 +85,8 @@ export default function NotificationsPage() {
   const [filterType, setFilterType] = useState<string | 'all'>('all');
   const [showFilter, setShowFilter] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+
+  const changeFilter = (type: string | 'all') => { setFilterType(type); setSelectedIds([]); };
   const [selectMode, setSelectMode] = useState(false);
   const { requestPermission, isSupported } = usePushNotifications();
 
@@ -108,12 +110,6 @@ export default function NotificationsPage() {
     const unsub = subscribe(user.id);
     return () => { if (typeof unsub === 'function') unsub(); };
   }, [user?.id, subscribe]);
-
-  // Clear selection when filter changes to avoid stale selected IDs
-  useEffect(() => {
-    setSelectedIds([]);
-  }, [filterType]);
-
 
   const filtered = useMemo(() => {
     let list = [...notifications];
@@ -287,7 +283,7 @@ export default function NotificationsPage() {
               className="overflow-hidden border-t border-[#EBEBEB]"
             >
               <div className="flex gap-2 p-3 overflow-x-auto scrollbar-hide">
-                <button type="button" onClick={() => setFilterType('all')}
+                <button type="button" onClick={() => changeFilter('all')}
                   className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${
                     filterType === 'all' ? 'bg-[#00C300] text-white' : 'bg-[#F5F5F5] text-[#8D8D8D]'
                   }`}
@@ -296,7 +292,7 @@ export default function NotificationsPage() {
                 </button>
                 {Object.entries(typeLabels).map(([type, label]) => (
                   <button type="button" key={type}
-                    onClick={() => setFilterType(type)}
+                    onClick={() => changeFilter(type)}
                     className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${
                       filterType === type ? 'bg-[#00C300] text-white' : 'bg-[#F5F5F5] text-[#8D8D8D]'
                     }`}

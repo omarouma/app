@@ -123,7 +123,7 @@ export default function SearchPage() {
           const postData = await queryCollection<TimelinePost>(COLLECTIONS.POSTS, [
             where('content', '>=', term),
             where('content', '<=', term + '\uf8ff'),
-            orderBy('timestamp', 'desc'),
+            orderBy('createdAt', 'desc'),
             limit(20),
           ]);
           (postData || []).forEach((p) => {

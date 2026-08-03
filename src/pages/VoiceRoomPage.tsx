@@ -24,8 +24,8 @@ export default function VoiceRoomPage() {
   const rtc = useVoiceRoomRTC(roomId || '', user?.id || '');
   const { isMuted } = rtc;
 
-const room = rooms.find(r => r.id === roomId) || activeRoom;
-  const isSpeaker = room && user?.id ? (room.speakerIds.includes(user.id) || room.hostId === user.id) : false;
+  const room = rooms.find(r => r.id === roomId) || activeRoom;
+  const isSpeaker = !!(room && user?.id && (room.speakerIds.includes(user.id) || room.hostId === user.id));
   const [hasHandRaised, setHasHandRaised] = useState(false);
   const [showParticipants, setShowParticipants] = useState(false);
   const [showChat, setShowChat] = useState(false);
