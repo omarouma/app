@@ -1,8 +1,8 @@
 
 // Bump this when you want clients to reload on a *real* version change.
 // Do NOT couple to cache name alone.
-const SW_VERSION = '2.1.0';
-const CACHE_NAME = 'gagachat-v2';
+const SW_VERSION = '2.3.0';
+const CACHE_NAME = 'gagachat-v4';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',

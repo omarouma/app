@@ -38,6 +38,7 @@ const BottomNav = memo(function BottomNav() {
             key={to}
             to={to}
             aria-label={label}
+            end={to === '/chats'}
             className="flex flex-col items-center gap-0.5 flex-1 min-w-0 py-1 tap-scale"
           >
             {({ isActive }) => (
@@ -63,7 +64,8 @@ const BottomNav = memo(function BottomNav() {
                   {badge > 0 && (
                     <span
                       className="absolute -top-1 -right-2.5 bg-[#FF3B30] text-white text-[9px] font-bold rounded-full min-w-[16px] h-4 flex items-center justify-center border-2 border-white px-0.5 badge-pulse"
-                      aria-label={`${badge} unread`}
+                      aria-label={`${badge} unread notifications`}
+                      role="status"
                     >
                       {badge > 99 ? '99+' : badge}
                     </span>

@@ -264,15 +264,13 @@ export function PexelsModalPlayer({ video, onClose }: PexelsModalPlayerProps) {
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape') { onClose(); return; }
+      if (e.key === ' ') {
         e.preventDefault();
         if (!videoRef.current) return;
-        if (videoRef.current.paused) {
-          void videoRef.current.play();
-        } else {
-          videoRef.current.pause();
-        }
-
+        if (videoRef.current.paused) { void videoRef.current.play(); }
+        else { videoRef.current.pause(); }
+      }
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);

@@ -5,6 +5,7 @@ import {
   updateDocById,
   addDocToCollection,
   subscribeToCollection,
+  getDocById,
   serverTimestamp,
   isFirestoreAvailable,
 } from '@/lib/firestore';
@@ -129,6 +130,42 @@ export const useCallStore = create<CallStore>((set, get) => ({
     let unsubIncoming: (() => void) | null = null;
     let unsubOutgoing: (() => void) | null = null;
 
+    // ── Missed-call timeout ──
+    // If an incoming call stays in 'calling' longer than this, mark it missed.
+    const MISSED_CALL_MS = 45_000;
+    const missedTimers = new Map<string, ReturnType<typeof setTimeout>>();
+
+    const scheduleMissedTimeout = (callId: string) => {
+      if (missedTimers.has(callId)) return;
+      const timer = setTimeout(async () => {
+        missedTimers.delete(callId);
+        if (!isFirestoreAvailable()) return;
+        try {
+          // Only flip to 'missed' if the call is still 'calling' — if it was
+          // accepted, rejected, or ended meanwhile, leave it as-is.
+          const data = await getDocById(COLLECTIONS.CALL_HISTORY, callId);
+          if (!data) return;
+          if ((data as Record<string, unknown>).status !== 'calling') return;
+          // The call rang unanswered — clear the active/incoming UI and record it.
+          const cur = get().currentCall;
+          const inc = get().incomingCall;
+          if (cur?.id === callId) set({ currentCall: null, connectedAt: null });
+          if (inc?.id === callId) set({ incomingCall: null });
+          await updateDocById(COLLECTIONS.CALL_HISTORY, callId, {
+            status: 'missed',
+            endedAt: serverTimestamp(),
+            duration: 0,
+          });
+        } catch { /* ignore — non-fatal */ }
+      }, MISSED_CALL_MS);
+      missedTimers.set(callId, timer);
+    };
+
+    const clearMissedTimeout = (callId: string) => {
+      const t = missedTimers.get(callId);
+      if (t) { clearTimeout(t); missedTimers.delete(callId); }
+    };
+
     const mergeHistory = (callerData: Record<string, unknown>[], calleeData: Record<string, unknown>[]) => {
       const seen = new Set<string>();
       const merged = [...callerData, ...calleeData]
@@ -179,7 +216,9 @@ export const useCallStore = create<CallStore>((set, get) => ({
               // Only update if this matches our current call or there's no current call
               const cur = get().currentCall;
               if (!cur || cur.id === call.id) {
-                set({ currentCall: call, connectedAt: Date.now() });
+                // Only reset connectedAt if we're transitioning to connected (not already connected)
+                const wasConnected = cur?.status === 'connected';
+                set({ currentCall: call, ...(wasConnected ? {} : { connectedAt: Date.now() }) });
               }
             } else if (call.status === 'rejected' || call.status === 'ended' || call.status === 'missed') {
               const cur = get().currentCall;
@@ -207,6 +246,8 @@ export const useCallStore = create<CallStore>((set, get) => ({
             if (!curIncoming || curIncoming.id !== call.id) {
               set({ incomingCall: call });
             }
+            // Start a timeout so unanswered calls become 'missed'.
+            scheduleMissedTimeout(call.id);
           } else {
             // Only clear incomingCall if it's still in 'calling' state
             // Do NOT clear it if it moved to 'connected' (acceptCall handles that transition)
@@ -216,6 +257,9 @@ export const useCallStore = create<CallStore>((set, get) => ({
                 (d: Record<string, unknown>) => d.id === inc.id
               );
               const matchingStatus = matchingCall?.status as string | undefined;
+              if (matchingStatus && matchingStatus !== 'calling') {
+                clearMissedTimeout(inc.id);
+              }
               // Clear only if explicitly rejected/ended/missed — not on 'connected'
               if (matchingStatus === 'rejected' || matchingStatus === 'ended' || matchingStatus === 'missed') {
                 const cur = get().currentCall;
@@ -233,6 +277,9 @@ export const useCallStore = create<CallStore>((set, get) => ({
     }
 
     return () => {
+      // Clear any pending missed-call timers on unsubscribe.
+      missedTimers.forEach((t) => clearTimeout(t));
+      missedTimers.clear();
       if (unsubIncoming) unsubIncoming();
       if (unsubOutgoing) unsubOutgoing();
     };

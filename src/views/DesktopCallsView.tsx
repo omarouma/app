@@ -7,6 +7,7 @@ import { useFriendStore } from '@/store/useFriendStore';
 import { useNavigate } from 'react-router-dom';
 import EmptyState from '@/components/EmptyState';
 import { formatTime, getDefaultAvatar, sanitizeMediaUrl } from '@/lib/utils';
+import type { CallRecord } from '@/types';
 
 export default function DesktopCallsView() {
   const { user } = useAuthStore();
@@ -15,18 +16,16 @@ export default function DesktopCallsView() {
   const navigate = useNavigate();
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<'all' | 'missed'>('all');
-  const [loading, setLoading] = useState(true);
+  const [ready, setReady] = useState(false);
 
   useEffect(() => {
     if (!user?.id) return;
     const unsub = subscribeCalls(user.id);
-    // Use setTimeout instead of queueMicrotask for compatibility
-    const timeout = setTimeout(() => setLoading(false), 100);
+    const timeout = setTimeout(() => setReady(true), 150);
     return () => { clearTimeout(timeout); unsub(); };
   }, [user?.id, subscribeCalls]);
 
-
-  const getCallIcon = (call: typeof history[0]) => {
+  const getCallIcon = (call: CallRecord) => {
     if (call.status === 'missed') return <PhoneMissed size={16} className="text-[#FF3B30]" />;
     if (call.initiatorId === user?.id) return <PhoneOutgoing size={16} className="text-[#00C300]" />;
     return <PhoneIncoming size={16} className="text-[#00C300]" />;
@@ -81,7 +80,7 @@ export default function DesktopCallsView() {
       </div>
 
       <div className="flex-1 overflow-y-auto scrollbar-hide">
-        {loading ? (
+        {!ready ? (
           <div className="p-4 space-y-3">
             {[1, 2, 3, 4].map(i => (
               <div key={i} className="flex items-center gap-3 animate-pulse p-3">
@@ -127,7 +126,7 @@ export default function DesktopCallsView() {
                   </div>
                   <p className="text-[#8D8D8D] text-xs">
                     {call.type === 'video' ? 'Video' : 'Voice'} call &bull; {formatTime(call.timestamp)}
-                    {call.duration ? ` &bull; ${formatDuration(call.duration)}` : ''}
+                    {call.duration ? ` \u2022 ${formatDuration(call.duration)}` : ''}
                   </p>
                 </div>
                 <div className="flex items-center gap-1">

@@ -290,13 +290,29 @@ export const useGroupStore = create<GroupStore>((set) => ({
       transferData: d.transferData as Message['transferData'],
     });
 
-    // Single real-time subscription — no redundant initial fetch
+    // Single real-time subscription — no redundant initial fetch.
+    // Fetch newest-first (bounded) then reverse for chronological UI, with id dedupe.
     let unsub: (() => void) | null = null;
     try {
-      unsub = subscribeToSubcollection(COLLECTIONS.CHATS, groupId, COLLECTIONS.MESSAGES, [orderBy('timestamp', 'asc'), limit(50)], (data) => {
-        const msgs: Message[] = (data || []).map((d: Record<string, unknown>) => mapMsg(d));
-        set((s) => ({ groupMessages: { ...s.groupMessages, [groupId]: msgs } }));
-      });
+      unsub = subscribeToSubcollection(
+        COLLECTIONS.CHATS,
+        groupId,
+        COLLECTIONS.MESSAGES,
+        [orderBy('createdAt', 'desc'), limit(100)],
+        (data) => {
+          const raw = data || [];
+          const msgs: Message[] = [];
+          const seen = new Set<string>();
+          // Server messages come back newest-first → reverse for display
+          for (let i = raw.length - 1; i >= 0; i--) {
+            const m = mapMsg(raw[i]);
+            if (seen.has(m.id)) continue;
+            seen.add(m.id);
+            msgs.push(m);
+          }
+          set((s) => ({ groupMessages: { ...s.groupMessages, [groupId]: msgs } }));
+        },
+      );
     } catch {
       // ignore
     }

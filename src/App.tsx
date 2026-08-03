@@ -26,6 +26,7 @@ import { safeGetBooleanStorageItem } from '@/lib/safeStorage';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import ScrollToTop from '@/components/ScrollToTop';
 import BottomNav from '@/components/layout/BottomNav';
+import NetworkStatusBanner from '@/components/NetworkStatusBanner';
 import '@/styles/dark-mode.css';
 
 function usePortraitLock(enabled: boolean) {
@@ -410,7 +411,8 @@ function AppContent() {
     location.pathname !== '/';
 
   return (
-    <div className="w-screen bg-white" style={{ minHeight: '100dvh' }}>
+    <div id="main-content" className="w-screen bg-white dark:bg-[#0d0d0d]" style={{ minHeight: '100dvh' }}>
+      <NetworkStatusBanner />
       <Suspense fallback={<PageLoader />}>
         <Routes location={location}>
             {/* Public routes */}

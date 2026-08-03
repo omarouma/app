@@ -1,140 +1,145 @@
--- ============================================
--- GaGa Chat Supabase Schema Migration
--- Run this in your Supabase SQL Editor
--- https://app.supabase.com/project/xqeriudcoozuvcmzniow
--- ============================================
+-- ============================================================
+-- GaGa Chat — Supabase SQL Migration
+-- ============================================================
+-- Run this in your Supabase SQL Editor (https://app.supabase.com/project/_/sql)
+-- to set up the required database objects for call signaling.
+-- ============================================================
 
--- ============================================
--- USERS TABLE
--- ============================================
-ALTER TABLE users ADD COLUMN IF NOT EXISTS username text;
-ALTER TABLE users ADD COLUMN IF NOT EXISTS status text DEFAULT 'offline';
-ALTER TABLE users ADD COLUMN IF NOT EXISTS last_seen timestamptz;
-ALTER TABLE users ADD COLUMN IF NOT EXISTS latitude numeric;
-ALTER TABLE users ADD COLUMN IF NOT EXISTS longitude numeric;
-ALTER TABLE users ADD COLUMN IF NOT EXISTS coins integer DEFAULT 0;
-ALTER TABLE users ADD COLUMN IF NOT EXISTS bdt_balance numeric DEFAULT 0;
-ALTER TABLE users ADD COLUMN IF NOT EXISTS friends text[] DEFAULT '{}';
-ALTER TABLE users ADD COLUMN IF NOT EXISTS followers text[] DEFAULT '{}';
-ALTER TABLE users ADD COLUMN IF NOT EXISTS following text[] DEFAULT '{}';
-ALTER TABLE users ADD COLUMN IF NOT EXISTS blocked_users text[] DEFAULT '{}';
-ALTER TABLE users ADD COLUMN IF NOT EXISTS favorites text[] DEFAULT '{}';
-ALTER TABLE users ADD COLUMN IF NOT EXISTS hide_online_status boolean DEFAULT false;
-ALTER TABLE users ADD COLUMN IF NOT EXISTS hide_friend_list boolean DEFAULT false;
-ALTER TABLE users ADD COLUMN IF NOT EXISTS friend_request_privacy text DEFAULT 'everyone';
-ALTER TABLE users ADD COLUMN IF NOT EXISTS group_add_privacy text DEFAULT 'everyone';
-ALTER TABLE users ADD COLUMN IF NOT EXISTS close_friends text[] DEFAULT '{}';
-ALTER TABLE users ADD COLUMN IF NOT EXISTS disappearing_messages_default integer DEFAULT 0;
-ALTER TABLE users ADD COLUMN IF NOT EXISTS chat_locks jsonb DEFAULT '{}';
-ALTER TABLE users ADD COLUMN IF NOT EXISTS broadcast_lists text[] DEFAULT '{}';
-ALTER TABLE users ADD COLUMN IF NOT EXISTS achievements text[] DEFAULT '{}';
-ALTER TABLE users ADD COLUMN IF NOT EXISTS streak_days integer DEFAULT 0;
-ALTER TABLE users ADD COLUMN IF NOT EXISTS referral_code text;
-ALTER TABLE users ADD COLUMN IF NOT EXISTS referral_count integer DEFAULT 0;
-ALTER TABLE users ADD COLUMN IF NOT EXISTS is_premium boolean DEFAULT false;
-ALTER TABLE users ADD COLUMN IF NOT EXISTS premium_expires_at timestamptz;
-ALTER TABLE users ADD COLUMN IF NOT EXISTS cover_image text;
+-- ─── 1. append_ice_candidate RPC ─────────────────────────────
+-- Used by src/lib/webrtc.ts to atomically append ICE candidates
+-- to the call_signaling table without read-modify-write races.
+-- If this RPC does not exist, the code falls back to read-modify-write,
+-- which works but is slightly less reliable under high concurrency.
 
--- ============================================
--- CHATS TABLE
--- ============================================
-ALTER TABLE chats ADD COLUMN IF NOT EXISTS last_message text;
-ALTER TABLE chats ADD COLUMN IF NOT EXISTS unread_count integer DEFAULT 0;
-ALTER TABLE chats ADD COLUMN IF NOT EXISTS is_muted boolean DEFAULT false;
-ALTER TABLE chats ADD COLUMN IF NOT EXISTS admins text[] DEFAULT '{}';
-ALTER TABLE chats ADD COLUMN IF NOT EXISTS disappearing_messages integer DEFAULT 0;
-ALTER TABLE chats ADD COLUMN IF NOT EXISTS chat_locked boolean DEFAULT false;
-ALTER TABLE chats ADD COLUMN IF NOT EXISTS lock_type text;
-ALTER TABLE chats ADD COLUMN IF NOT EXISTS lock_value text;
-ALTER TABLE chats ADD COLUMN IF NOT EXISTS archived boolean DEFAULT false;
-ALTER TABLE chats ADD COLUMN IF NOT EXISTS pinned_messages jsonb DEFAULT '[]';
-ALTER TABLE chats ADD COLUMN IF NOT EXISTS description text;
+CREATE OR REPLACE FUNCTION append_ice_candidate(
+  p_call_id TEXT,
+  p_field TEXT,
+  p_candidate JSONB
+)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+BEGIN
+  EXECUTE format(
+    'UPDATE call_signaling SET %I = COALESCE(%I, ''[]''::jsonb) || $1, updated_at = now() WHERE call_id = $2',
+    p_field, p_field
+  ) USING p_candidate::jsonb, p_call_id;
+END;
+$$;
 
--- ============================================
--- MESSAGES TABLE
--- ============================================
-ALTER TABLE messages ADD COLUMN IF NOT EXISTS contact_card jsonb;
-ALTER TABLE messages ADD COLUMN IF NOT EXISTS disappearing_timer integer DEFAULT 0;
-ALTER TABLE messages ADD COLUMN IF NOT EXISTS disappearing_initiated_at timestamptz;
-ALTER TABLE messages ADD COLUMN IF NOT EXISTS destroyed boolean DEFAULT false;
+-- ─── 2. call_signaling table ─────────────────────────────────
+-- Stores WebRTC signaling data (offer, answer, ICE candidates)
+-- for 1:1 audio/video calls.
 
--- ============================================
--- POSTS TABLE
--- ============================================
-ALTER TABLE posts ADD COLUMN IF NOT EXISTS images text[] DEFAULT '{}';
-ALTER TABLE posts ADD COLUMN IF NOT EXISTS likes text[] DEFAULT '{}';
-ALTER TABLE posts ADD COLUMN IF NOT EXISTS comments jsonb DEFAULT '[]';
-ALTER TABLE posts ADD COLUMN IF NOT EXISTS shares text[] DEFAULT '{}';
-ALTER TABLE posts ADD COLUMN IF NOT EXISTS user_name text;
-ALTER TABLE posts ADD COLUMN IF NOT EXISTS user_avatar text;
-ALTER TABLE posts ADD COLUMN IF NOT EXISTS poll_data jsonb;
+CREATE TABLE IF NOT EXISTS call_signaling (
+  call_id TEXT PRIMARY KEY,
+  offer JSONB,
+  answer JSONB,
+  caller_ice JSONB DEFAULT '[]'::jsonb,
+  callee_ice JSONB DEFAULT '[]'::jsonb,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
 
--- ============================================
--- STORIES TABLE
--- ============================================
-ALTER TABLE stories ADD COLUMN IF NOT EXISTS viewed_by text[] DEFAULT '{}';
-ALTER TABLE stories ADD COLUMN IF NOT EXISTS user_name text;
-ALTER TABLE stories ADD COLUMN IF NOT EXISTS user_avatar text;
+-- Enable RLS (optional — can be disabled if using the function)
+ALTER TABLE call_signaling ENABLE ROW LEVEL SECURITY;
 
--- ============================================
--- REELS TABLE
--- ============================================
-ALTER TABLE reels ADD COLUMN IF NOT EXISTS music_title text;
-ALTER TABLE reels ADD COLUMN IF NOT EXISTS music_url text;
-ALTER TABLE reels ADD COLUMN IF NOT EXISTS filters text[] DEFAULT '{}';
-ALTER TABLE reels ADD COLUMN IF NOT EXISTS effects text[] DEFAULT '{}';
-ALTER TABLE reels ADD COLUMN IF NOT EXISTS speed numeric;
-ALTER TABLE reels ADD COLUMN IF NOT EXISTS voiceover text;
-ALTER TABLE reels ADD COLUMN IF NOT EXISTS captions text;
-ALTER TABLE reels ADD COLUMN IF NOT EXISTS duration integer DEFAULT 0;
-ALTER TABLE reels ADD COLUMN IF NOT EXISTS likes text[] DEFAULT '{}';
-ALTER TABLE reels ADD COLUMN IF NOT EXISTS comments jsonb DEFAULT '[]';
-ALTER TABLE reels ADD COLUMN IF NOT EXISTS shares text[] DEFAULT '{}';
-ALTER TABLE reels ADD COLUMN IF NOT EXISTS saved_by text[] DEFAULT '{}';
-ALTER TABLE reels ADD COLUMN IF NOT EXISTS viewed_by text[] DEFAULT '{}';
-ALTER TABLE reels ADD COLUMN IF NOT EXISTS user_name text;
-ALTER TABLE reels ADD COLUMN IF NOT EXISTS user_avatar text;
-ALTER TABLE reels ADD COLUMN IF NOT EXISTS tags text[] DEFAULT '{}';
-ALTER TABLE reels ADD COLUMN IF NOT EXISTS mentions text[] DEFAULT '{}';
-ALTER TABLE reels ADD COLUMN IF NOT EXISTS remix_of text;
-ALTER TABLE reels ADD COLUMN IF NOT EXISTS duet_with text;
-ALTER TABLE reels ADD COLUMN IF NOT EXISTS template text;
-ALTER TABLE reels ADD COLUMN IF NOT EXISTS view_count integer DEFAULT 0;
-ALTER TABLE reels ADD COLUMN IF NOT EXISTS reactions jsonb;
+-- Allow authenticated users to read/write their own signaling rows
+CREATE POLICY "call_signaling_all" ON call_signaling
+  FOR ALL
+  TO authenticated
+  USING (true)
+  WITH CHECK (true);
 
--- ============================================
--- BLOCKED USERS TABLE
--- ============================================
-ALTER TABLE blocked_users ADD COLUMN IF NOT EXISTS reason text;
+-- ─── 3. live_stream_signals table ────────────────────────────
+-- Stores WebRTC signaling for live streaming (one-to-many).
+-- Used by src/hooks/useLiveStreamRTC.ts.
 
--- ============================================
--- CALL HISTORY TABLE
--- ============================================
-ALTER TABLE call_history ADD COLUMN IF NOT EXISTS ended_at timestamptz;
+CREATE TABLE IF NOT EXISTS live_stream_signals (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  stream_id TEXT NOT NULL,
+  type TEXT NOT NULL,
+  "from" TEXT NOT NULL,
+  "to" TEXT,
+  sdp TEXT,
+  candidate TEXT,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
 
--- ============================================
--- INDEXES FOR PERFORMANCE
--- ============================================
-CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
-CREATE INDEX IF NOT EXISTS idx_users_name ON users(name);
-CREATE INDEX IF NOT EXISTS idx_chats_participants ON chats USING gin(participants);
-CREATE INDEX IF NOT EXISTS idx_chats_updated_at ON chats(updated_at DESC);
-CREATE INDEX IF NOT EXISTS idx_messages_chat_id ON messages(chat_id);
-CREATE INDEX IF NOT EXISTS idx_messages_created_at ON messages(created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_friend_requests_from ON friend_requests(from_user_id);
-CREATE INDEX IF NOT EXISTS idx_friend_requests_to ON friend_requests(to_user_id);
-CREATE INDEX IF NOT EXISTS idx_friendships_user ON friendships(user_id);
-CREATE INDEX IF NOT EXISTS idx_posts_user_id ON posts(user_id);
-CREATE INDEX IF NOT EXISTS idx_posts_created_at ON posts(created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_stories_user_id ON stories(user_id);
-CREATE INDEX IF NOT EXISTS idx_reels_user_id ON reels(user_id);
-CREATE INDEX IF NOT EXISTS idx_reels_created_at ON reels(created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_blocked_users_blocker ON blocked_users(blocker_id);
-CREATE INDEX IF NOT EXISTS idx_call_history_caller ON call_history(caller);
-CREATE INDEX IF NOT EXISTS idx_call_history_callee ON call_history(callee);
-CREATE INDEX IF NOT EXISTS idx_users_latitude ON users(latitude) WHERE latitude IS NOT NULL;
-CREATE INDEX IF NOT EXISTS idx_users_longitude ON users(longitude) WHERE longitude IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_live_stream_signals_stream_id
+  ON live_stream_signals (stream_id, created_at);
 
--- ============================================
--- DONE
--- ============================================
+ALTER TABLE live_stream_signals ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "live_stream_signals_all" ON live_stream_signals
+  FOR ALL
+  TO authenticated
+  USING (true)
+  WITH CHECK (true);
+
+-- ─── 4. voice_room_signals table ─────────────────────────────
+-- Stores WebRTC signaling for voice rooms (multi-party audio).
+-- Used by src/hooks/useVoiceRoomRTC.ts.
+
+CREATE TABLE IF NOT EXISTS voice_room_signals (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  room_id TEXT NOT NULL,
+  type TEXT NOT NULL,
+  "from" TEXT NOT NULL,
+  "to" TEXT,
+  sdp TEXT,
+  candidate TEXT,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_voice_room_signals_room_id
+  ON voice_room_signals (room_id, created_at);
+
+ALTER TABLE voice_room_signals ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "voice_room_signals_all" ON voice_room_signals
+  FOR ALL
+  TO authenticated
+  USING (true)
+  WITH CHECK (true);
+
+-- ─── 5. Enable realtime for signaling tables ─────────────────
+-- Required for live WebRTC signaling to work via Supabase Realtime.
+
+ALTER PUBLICATION supabase_realtime ADD TABLE call_signaling;
+ALTER PUBLICATION supabase_realtime ADD TABLE live_stream_signals;
+ALTER PUBLICATION supabase_realtime ADD TABLE voice_room_signals;
+
+-- ─── 6. presence table (if not already created) ──────────────
+-- Used by src/hooks/usePresence.ts for online/offline tracking.
+
+CREATE TABLE IF NOT EXISTS presence (
+  user_id TEXT PRIMARY KEY,
+  is_online BOOLEAN DEFAULT false,
+  last_seen TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+ALTER TABLE presence ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "presence_all" ON presence
+  FOR ALL
+  TO authenticated
+  USING (true)
+  WITH CHECK (true);
+
+ALTER PUBLICATION supabase_realtime ADD TABLE presence;
+
+-- ─── 7. delete_user RPC (for account deletion) ───────────────
+-- Used by src/lib/supabaseAuth.ts to delete a user account.
+
+CREATE OR REPLACE FUNCTION delete_user()
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+BEGIN
+  DELETE FROM auth.users WHERE id = auth.uid();
+END;
+$$;

@@ -17,7 +17,9 @@ export default function DesktopChatView() {
   const navigate = useNavigate();
   const [search, setSearch] = useState('');
 
-  const routeChatId = user?.id && userId ? `dm_${[user.id, userId].sort().join('_')}` : null;
+  const routeChatId = user?.id && userId && userId !== user.id
+    ? `dm_${[user.id, userId].sort().join('_')}`
+    : null;
 
   useEffect(() => {
     if (!user?.id) return;
@@ -26,30 +28,32 @@ export default function DesktopChatView() {
   }, [user?.id, subscribeChats]);
 
   useEffect(() => {
-    if (!routeChatId || !user?.id) return;
+    if (!routeChatId || !user?.id || !userId) return;
     let cancelled = false;
-    createDirectChat(userId!, user.id)
-      .then(() => {
-        if (!cancelled) {
-          // Route selection is driven by URL; no local state update needed.
-        }
-      })
-      .catch(() => {
-        // If a direct chat cannot be created, allow the user to choose another chat from the list.
-      });
-    return () => {
-      cancelled = true;
-    };
+    createDirectChat(userId, user.id).catch(() => {
+      if (!cancelled) { /* allow user to pick another chat */ }
+    });
+    return () => { cancelled = true; };
   }, [routeChatId, user?.id, userId, createDirectChat]);
+
+  // Memoize friend lookup maps once to avoid rebuilding per-item in filteredChats
+  const friendNameMap = useMemo(
+    () => Object.fromEntries(friends.map(f => [f.id, { name: f.name }])),
+    [friends]
+  );
+  const friendAvatarMap = useMemo(
+    () => Object.fromEntries(friends.map(f => [f.id, { avatar: f.avatar }])),
+    [friends]
+  );
 
   const filteredChats = useMemo(() => chats.filter(c => {
     if (!search) return true;
-    const name = getChatName(c, Object.fromEntries(friends.map(f => [f.id, { name: f.name }])), user?.id || '');
+    const name = getChatName(c, friendNameMap, user?.id || '');
     return name.toLowerCase().includes(search.toLowerCase());
-  }), [chats, friends, search, user?.id]);
+  }), [chats, friendNameMap, search, user?.id]);
 
-  const activeChat = chats.find(c => c.id === routeChatId);
-  const activeUserId = activeChat?.participants.find(p => p !== user?.id) || '';
+  const activeChat = routeChatId ? chats.find(c => c.id === routeChatId) : null;
+  const activeUserId = activeChat?.participants.find(p => p !== user?.id) ?? '';
 
   return (
     <div className="h-full flex bg-white">
@@ -86,8 +90,8 @@ export default function DesktopChatView() {
             filteredChats.map(chat => {
               const isGroup = chat.type === 'group';
               const otherId = chat.participants.find(p => p !== user?.id) || '';
-              const name = getChatName(chat, Object.fromEntries(friends.map(f => [f.id, { name: f.name }])), user?.id || '');
-              const avatar = getChatAvatar(chat, Object.fromEntries(friends.map(f => [f.id, { avatar: f.avatar }])), user?.id || '');
+              const name = getChatName(chat, friendNameMap, user?.id || '');
+              const avatar = getChatAvatar(chat, friendAvatarMap, user?.id || '');
               const lastMsg = typeof chat.lastMessage === 'string' ? chat.lastMessage : 'No messages';
               const isActive = routeChatId === chat.id;
 
@@ -100,9 +104,7 @@ export default function DesktopChatView() {
                       navigate(`/group/${chat.id}`);
                       return;
                     }
-                    if (otherId) {
-                      navigate(`/chat/${otherId}`);
-                    }
+                    if (otherId) navigate(`/chat/${otherId}`);
                   }}
                   className={`w-full flex items-center gap-3 p-3 text-left transition-colors ${
                     isActive ? 'bg-[#00C300]/5' : 'hover:bg-[#F5F5F5]'
@@ -136,7 +138,7 @@ export default function DesktopChatView() {
 
       {/* Chat Area */}
       <div className="flex-1 bg-white">
-        {routeChatId && activeChat ? (
+        {routeChatId && activeChat && activeUserId ? (
           <ChatRoom chatId={routeChatId} userId={activeUserId} />
         ) : (
           <div className="h-full flex flex-col items-center justify-center bg-[#F5F5F5]">

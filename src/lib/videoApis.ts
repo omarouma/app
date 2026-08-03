@@ -144,7 +144,7 @@ export function youtubeToReel(video: YouTubeVideo, category?: string): Reel {
   return {
     id: `yt-${video.id}`,
     userId: `yt-channel`,
-    videoUrl: `https://www.youtube.com/embed/${video.id}?autoplay=1&mute=1&playsinline=1&rel=0`,
+    videoUrl: `https://www.youtube.com/embed/${video.id}?autoplay=1&mute=0&playsinline=1&rel=0&modestbranding=1`,
     thumbnailUrl: video.thumbnail,
     caption: video.title,
     musicTitle: undefined,
@@ -156,7 +156,7 @@ export function youtubeToReel(video: YouTubeVideo, category?: string): Reel {
     viewedBy: [],
     timestamp: new Date(video.publishedAt),
     userName: video.channelTitle,
-    userAvatar: '',
+    userAvatar: `https://i.ytimg.com/vi/${video.id}/default.jpg`,
     tags: ['youtube', category?.toLowerCase() || 'external'],
     viewCount: parseInt(video.viewCount || '0', 10),
     category: category || 'External',

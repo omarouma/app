@@ -33,7 +33,7 @@ import TransferModal from '@/components/TransferModal';
 import { ChatHeader } from './ChatHeader';
 import { MessageItem } from './MessageItem';
 import { InputBar } from './InputBar';
-import { Virtuoso } from 'react-virtuoso';
+import { Virtuoso, type VirtuosoHandle } from 'react-virtuoso';
 import { toast } from 'sonner';
 
 const BG_OPTIONS = [
@@ -275,6 +275,19 @@ export default function ChatRoom({ chatId, userId, onBack }: {
     };
   }, [chatId, currentUser?.id, subscribeMessages, markAsRead]);
 
+  // Debounced live markAsRead — keep read receipts fresh as new messages
+  // arrive while the room is open without hammering the DB on every event.
+  const markReadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (!lastMessage || !currentUser?.id) return;
+    if (lastMessage.senderId === currentUser.id) return;
+    if (markReadTimerRef.current) clearTimeout(markReadTimerRef.current);
+    markReadTimerRef.current = setTimeout(() => {
+      markAsRead(chatId, currentUser?.id);
+    }, 1500);
+    return () => { if (markReadTimerRef.current) clearTimeout(markReadTimerRef.current); };
+  }, [lastMessage, chatId, currentUser?.id, markAsRead]);
+
 
   // Push notification for new messages when app is not focused
   useEffect(() => {
@@ -290,7 +303,7 @@ export default function ChatRoom({ chatId, userId, onBack }: {
       chatId,
       lastMessage.senderId
     );
-  }, [lastMessage, chatId, currentUser?.id, displayUser?.name]);
+}, [lastMessage, chatId, currentUser?.id, displayUser?.name]);
 
   // Close context menu on click outside
   useEffect(() => {
@@ -512,6 +525,10 @@ export default function ChatRoom({ chatId, userId, onBack }: {
 
   const handleRetry = useCallback(async (msg: Message) => {
     if (!currentUser) return;
+    // Remove the failed optimistic message before resending to avoid duplicates
+    useChatStore.setState((s) => ({
+      messages: { ...s.messages, [chatId]: (s.messages[chatId] ?? []).filter((m) => m.id !== msg.id) },
+    }));
     try {
       await sendMessage(chatId, currentUser.id, msg.content, msg.type, msg.mediaUrl, msg.replyTo);
       toast.success('Message resent');
@@ -521,75 +538,7 @@ export default function ChatRoom({ chatId, userId, onBack }: {
   }, [chatId, currentUser, sendMessage]);
 
   const loadingOlderRef = useRef(false);
-  const virtuosoRef = useRef<any>(null);
-
-  const MessageRow = ({ index }: { index: number }) => {
-    const msg = filteredMsgs[index];
-    const isMe = msg.senderId === currentUser?.id;
-    const prevMsg = index > 0 ? filteredMsgs[index - 1] : null;
-    const isSameSender = prevMsg && prevMsg.senderId === msg.senderId;
-    const showAvatar = !isMe && !isSameSender;
-    const msgDate = formatDateSeparator(msg.timestamp);
-    const showDate = dateSeparatorMap.get(msg.id) || false;
-    const isNew = initialLatestTimestampRef.current !== null &&
-      msg.timestamp.getTime() > initialLatestTimestampRef.current;
-    const prevIsNew = prevMsg && initialLatestTimestampRef.current !== null &&
-      prevMsg.timestamp.getTime() > initialLatestTimestampRef.current;
-    const showUnreadSeparator = isNew && !prevIsNew && index > 0 && hasNewMessages;
-    const isSelected = selectedMessages.has(msg.id);
-    const isSearchMatch = searchQuery
-      ? msg.content.toLowerCase().includes(searchQuery.toLowerCase())
-      : false;
-
-    return (
-      <div>
-        <MessageItem
-          key={msg.id}
-          msg={msg}
-          isMe={isMe}
-          showAvatar={showAvatar}
-          showDate={showDate}
-          msgDate={msgDate}
-          showUnreadSeparator={showUnreadSeparator}
-          isSelected={isSelected}
-          isSearchMatch={isSearchMatch}
-          editingMessageId={editingMessageId}
-          editInput={editInput}
-          selectionMode={selectionMode}
-          selectedReactionMsg={selectedReactionMsg}
-          displayUser={displayUser}
-          userId={userId}
-          currentUserId={currentUser?.id || ''}
-          msgs={msgs}
-          translatedText={translations[msg.id]}
-          isTranslating={translatingIds.has(msg.id)}
-          onContextMenu={handleContextMenu}
-          onTouchStart={handleTouchStart}
-          onTouchMove={handleTouchMove}
-          onTouchEnd={handleTouchEnd}
-          onMouseDown={handleMouseDown}
-          onMouseUp={handleMouseUp}
-          onMouseLeave={handleMouseUp}
-          onClick={handleMsgClick}
-          onDoubleClick={handleDoubleClick}
-          onReact={handleReact}
-          onSetReactionMsg={handleSetReactionMsg}
-          onEditInputChange={handleEditInputChange}
-          onEditSave={handleEditSave}
-          onEditCancel={handleEditCancel}
-          onSetReplyingTo={handleSetReplyingTo}
-          onSetLightbox={handleSetLightbox}
-          onVotePoll={handleVotePoll}
-          onNavigate={handleNavigate}
-          onRetry={handleRetry}
-          
-          
-          
-          chatId={chatId}
-        />
-      </div>
-    );
-  };
+  const virtuosoRef = useRef<VirtuosoHandle | null>(null);
 
   const handleSend = useCallback(async () => {
     if (!currentUser) return;

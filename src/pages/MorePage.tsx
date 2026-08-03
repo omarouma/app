@@ -1,5 +1,5 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-import { useState } from 'react';
+
+import { useState, type ComponentType } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
@@ -17,6 +17,14 @@ import BottomNav from '@/components/layout/BottomNav';
 import Logo from '@/components/Logo';
 import { toast } from 'sonner';
 
+type NavItem = {
+  icon: ComponentType<{ size?: number; className?: string }>;
+  label: string;
+  subtitle: string;
+  color: string;
+  bg: string;
+} & ({ to: string; action?: never } | { to?: never; action: () => void });
+
 export default function MorePage() {
   const navigate = useNavigate();
   const { user } = useAuthStore();
@@ -33,7 +41,7 @@ export default function MorePage() {
     }
   };
 
-  const sections = [
+  const sections: Array<{ title: string; items: NavItem[] }> = [
     {
       title: 'New & Exciting',
       items: [
@@ -69,7 +77,7 @@ export default function MorePage() {
         {
           icon: Coins,
           label: 'My Wallet',
-          subtitle: `${(wallet?.coins || 0).toLocaleString()} GAGA \u00b7 $${(wallet?.usdBalance || wallet?.bdtBalance || 0).toFixed(2)}`,
+          subtitle: `${(wallet?.coins || 0).toLocaleString()} GAGA · $${(wallet?.usdBalance || wallet?.bdtBalance || 0).toFixed(2)}`,
           to: '/wallet',
           color: 'text-[#00C300]',
           bg: 'bg-[#00C300]/10',
@@ -168,8 +176,8 @@ export default function MorePage() {
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   transition={{ delay: ii * 0.03 }}
-                  onClick={() => {
-                    if ((item as any).action) (item as any).action();
+onClick={() => {
+                    if ('action' in item && item.action) item.action();
                     else if (item.to) navigate(item.to);
                   }}
                   className="w-full flex items-center gap-3 px-4 py-3.5 hover:bg-[#EBEBEB] transition-colors text-left border-b border-white/50 last:border-b-0"
@@ -228,7 +236,7 @@ export default function MorePage() {
             <div className="space-y-2 text-sm text-[#8D8D8D]">
               <p>Free messaging & video calls</p>
               <p>End-to-end encryption for your privacy</p>
-              <p>\u00a9 2026 GaGa Chat. All rights reserved.</p>
+              <p>© 2026 GaGa Chat. All rights reserved.</p>
             </div>
             <button type="button" onClick={() => setShowAbout(false)} className="w-full mt-6 py-3 bg-[#00C300] text-white rounded-xl text-sm font-bold">
               Close

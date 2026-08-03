@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Users, Search, UserPlus, Star, StarOff, Trash2, Phone, Video, X, Ban, MessageCircle, QrCode, MapPin } from 'lucide-react';
 import { useAuthStore } from '@/store/useAuthStore';
@@ -24,7 +24,6 @@ export default function DesktopContactsView() {
   const [tab, setTab] = useState<'all' | 'favorites' | 'requests' | 'sent' | 'blocked'>('all');
   const [actionMenu, setActionMenu] = useState<string | null>(null);
 
-  // Real-time subscriptions for all data
   useEffect(() => {
     if (!user?.id) return;
     const unsubFriends = subscribeFriends(user.id);
@@ -33,13 +32,22 @@ export default function DesktopContactsView() {
     return () => { unsubFriends(); unsubSent(); unsubBlocked(); };
   }, [user?.id, subscribeFriends, subscribeSentRequests, subscribeBlockedUsers]);
 
-  const filtered = friends.filter(f => {
-    const match = f.name?.toLowerCase().includes(search.toLowerCase()) || f.username?.toLowerCase().includes(search.toLowerCase());
+  // Close action menu on outside click
+  useEffect(() => {
+    if (!actionMenu) return;
+    const handler = () => setActionMenu(null);
+    window.addEventListener('click', handler);
+    return () => window.removeEventListener('click', handler);
+  }, [actionMenu]);
+
+  const filtered = useMemo(() => friends.filter(f => {
+    const match = f.name?.toLowerCase().includes(search.toLowerCase()) ||
+      f.username?.toLowerCase().includes(search.toLowerCase());
     if (tab === 'favorites') return match && user?.favorites?.includes(f.id);
     return match;
-  });
+  }), [friends, search, tab, user?.favorites]);
 
-  const handleBlock = async (friendId: string) => {
+  const handleBlock = useCallback(async (friendId: string) => {
     if (!user?.id) return;
     try {
       await blockUser(friendId, user.id);
@@ -48,16 +56,46 @@ export default function DesktopContactsView() {
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : 'Failed to block user');
     }
-  };
+  }, [user?.id, blockUser]);
 
-  const handleCancel = async (requestId: string) => {
+  const handleRemoveFriend = useCallback(async (friendId: string) => {
+    if (!user?.id) return;
+    try {
+      await removeFriend(friendId, user.id);
+      toast.success('Friend removed');
+      setActionMenu(null);
+    } catch {
+      toast.error('Failed to remove friend');
+    }
+  }, [user?.id, removeFriend]);
+
+  const handleToggleFavorite = useCallback(async (friendId: string) => {
+    if (!user?.id) return;
+    try {
+      await toggleFavorite(friendId, user.id, user.favorites || []);
+    } catch {
+      toast.error('Failed to update favorites');
+    }
+  }, [user?.id, user?.favorites, toggleFavorite]);
+
+  const handleCancel = useCallback(async (requestId: string) => {
     try {
       await cancelRequest(requestId);
       toast.success('Request cancelled');
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : 'Failed to cancel request');
     }
-  };
+  }, [cancelRequest]);
+
+  const handleUnblock = useCallback(async (blockedId: string) => {
+    if (!user?.id) return;
+    try {
+      await unblockUser(blockedId, user.id);
+      toast.success('User unblocked');
+    } catch {
+      toast.error('Failed to unblock user');
+    }
+  }, [user?.id, unblockUser]);
 
   const tabLabels = {
     all: `All (${friends.length})`,
@@ -103,11 +141,11 @@ export default function DesktopContactsView() {
             className="w-full bg-[#F5F5F5] border-none rounded-xl pl-10 pr-4 py-2.5 text-[#111111] text-sm focus:outline-none focus:ring-2 focus:ring-[#00C300] placeholder:text-[#8D8D8D]"
           />
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 overflow-x-auto scrollbar-hide">
           {(['all', 'favorites', 'requests', 'sent', 'blocked'] as const).map(t => (
             <button type="button" key={t}
               onClick={() => setTab(t)}
-              className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+              className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
                 tab === t ? 'bg-[#00C300] text-white' : 'bg-[#F5F5F5] text-[#8D8D8D] hover:text-[#111111]'
               }`}
             >
@@ -248,10 +286,7 @@ export default function DesktopContactsView() {
                       <p className="text-[#8D8D8D] text-xs">@{record.blockedUser?.username || record.blockedId?.slice(0, 8)}</p>
                       {record.reason && <p className="text-[#8D8D8D] text-[10px] mt-0.5 truncate">Reason: {record.reason}</p>}
                     </div>
-                    <button type="button" onClick={async () => {
-                        try { await unblockUser(record.blockedId, user?.id || ''); toast.success('User unblocked'); }
-                        catch { toast.error('Failed to unblock user'); }
-                      }}
+                    <button type="button" onClick={() => handleUnblock(record.blockedId)}
                       className="flex items-center gap-1 px-3 py-1.5 bg-white text-[#00C300] text-xs rounded-full font-medium hover:bg-gray-100 transition-colors"
                     >
                       <UserPlus size={12} /> Unblock
@@ -286,7 +321,7 @@ export default function DesktopContactsView() {
               ) : (
                 filtered.map((friend, i) => {
                   const isFav = user?.favorites?.includes(friend.id);
-                  const isOnline = visibleOnline[friend.id];
+                  const isOnline = !!visibleOnline[friend.id];
                   const showMenu = actionMenu === friend.id;
 
                   return (
@@ -297,7 +332,8 @@ export default function DesktopContactsView() {
                       transition={{ delay: i * 0.03 }}
                       className="relative"
                     >
-                      <button type="button" onClick={() => setActionMenu(showMenu ? null : friend.id)}
+                      <button type="button"
+                        onClick={(e) => { e.stopPropagation(); setActionMenu(showMenu ? null : friend.id); }}
                         className="w-full flex items-center gap-3 p-4 hover:bg-[#F5F5F5] transition-colors text-left"
                       >
                         <div className="relative">
@@ -331,7 +367,7 @@ export default function DesktopContactsView() {
                             exit={{ opacity: 0, height: 0 }}
                             className="overflow-hidden bg-white border-t border-[#EBEBEB]"
                           >
-                            <div className="flex gap-2 px-14 py-2">
+                            <div className="flex flex-wrap gap-2 px-14 py-2">
                               <button type="button" onClick={(e) => { e.stopPropagation(); navigate(`/chat/${friend.id}`); }}
                                 className="flex items-center gap-1 px-3 py-1.5 bg-[#00C300]/10 text-[#00C300] text-xs rounded-full font-medium hover:bg-[#00C300]/20 transition-colors"
                               >
@@ -347,7 +383,7 @@ export default function DesktopContactsView() {
                               >
                                 <Video size={12} /> Video
                               </button>
-                              <button type="button" onClick={(e) => { e.stopPropagation(); toggleFavorite(friend.id, user?.id || '', user?.favorites || []); }}
+                              <button type="button" onClick={(e) => { e.stopPropagation(); handleToggleFavorite(friend.id); }}
                                 className="flex items-center gap-1 px-3 py-1.5 bg-[#FF9800]/10 text-[#FF9800] text-xs rounded-full font-medium hover:bg-[#FF9800]/20 transition-colors"
                               >
                                 {isFav ? <><StarOff size={12} /> Unstar</> : <><Star size={12} /> Star</>}
@@ -357,7 +393,7 @@ export default function DesktopContactsView() {
                               >
                                 <Ban size={12} /> Block
                               </button>
-                              <button type="button" onClick={(e) => { e.stopPropagation(); removeFriend(friend.id, user?.id || ''); setActionMenu(null); }}
+                              <button type="button" onClick={(e) => { e.stopPropagation(); handleRemoveFriend(friend.id); }}
                                 className="flex items-center gap-1 px-3 py-1.5 bg-[#FF3B30]/10 text-[#FF3B30] text-xs rounded-full font-medium hover:bg-[#FF3B30]/20 transition-colors"
                               >
                                 <Trash2 size={12} /> Remove

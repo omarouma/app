@@ -1,1088 +1,487 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useState, useRef, useCallback } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  ArrowLeft, Camera, QrCode, ChevronRight, Edit2, MessageCircle,
-  Link2, Copy, Check, Share2, MapPin, Globe, Phone, Mail, Ban,
-  UserPlus, Loader, ImagePlus, Settings, Shield, Video, Flag, Star, Users,
-  Bell, Radio, Mic, Trophy, Sparkles, Search, Play, Calendar, ShoppingBag,
-  Hash, Bookmark, BarChart3, Crown, Gift, Coins,
+  ArrowLeft, Settings, Edit3, Share2, Camera, Check, X,
+  MapPin, Link2, Mail, Phone, Users, Heart, Image, BadgeCheck,
+  Copy, QrCode,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/useAuthStore';
-import { useAuth } from '@/context/AuthContext';
 import { useFriendStore } from '@/store/useFriendStore';
-import { useGroupStore } from '@/store/useGroupStore';
-import { isFirestoreAvailable, COLLECTIONS, getDocById, queryCollection, subscribeToDoc, subscribeToCollection } from '@/lib/firestore';
-import { updateUserProfile } from '@/lib/supabaseAuth';
-import { formatLastSeen } from '@/lib/timeUtils';
-import { uploadMediaBlob } from '@/lib/storage';
-import { buildGagaChatUri, buildGagaChatWebUrl, getDefaultAvatar, sanitizeMediaUrl } from '@/lib/utils';
-import { where, orderBy, limit } from '@/lib/firestore';
+import { buildGagaChatWebUrl, getDefaultAvatar, sanitizeMediaUrl } from '@/lib/utils';
+import { isFirestoreAvailable, COLLECTIONS, updateDocById } from '@/lib/firestore';
 import { toast } from 'sonner';
-import type { TimelinePost, User, PostComment, FriendRequest, SentRequest, Chat } from '@/types';
-
-type FriendRequestWithAliases = Partial<FriendRequest & SentRequest> & {
-  to_user_id?: string;
-  toUserId?: string;
-  receiver_id?: string;
-  receiverId?: string;
-  from_user_id?: string;
-  fromUserId?: string;
-  sender_id?: string;
-  senderId?: string;
-};
-
-// QR Code SVG component
-function QRCodeSVG({ data, size = 180 }: { data: string; size?: number }) {
-  const [svg, setSvg] = useState('');
-  useEffect(() => {
-    // Only generate QR for safe URI schemes
-    const safe = /^gagachat:\/\/[a-zA-Z0-9/_\-.]+$/.test(data) || /^https:\/\/gagachat\.app\/[a-zA-Z0-9/_\-.]+$/.test(data);
-    if (!safe) { setSvg(''); return; }
-    import('qrcode').then((QR) => {
-      QR.toString(data, { type: 'svg', width: size, margin: 2, color: { dark: '#111111', light: '#ffffff' } })
-        .then(setSvg).catch(() => setSvg(''));
-    });
-  }, [data, size]);
-  if (!svg) return <div className={`w-[${size}px] h-[${size}px] bg-gray-100 rounded-lg animate-pulse`} />;
-  return <div dangerouslySetInnerHTML={{ __html: svg }} className="w-full h-full flex items-center justify-center" />;
-}
-
-// Wallet icon component
-function WalletIcon(props: { size: number; strokeWidth: number; className: string }) {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" width={props.size} height={props.size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={props.strokeWidth} strokeLinecap="round" strokeLinejoin="round" className={props.className}>
-      <path d="M21 12V7H5a2 2 0 0 1 0-4h14v4" /><path d="M3 5v14a2 2 0 0 0 2 2h16v-5" /><path d="M18 12a2 2 0 0 0 0 4h4v-4Z" />
-    </svg>
-  );
-}
 
 export default function ProfilePage() {
+  const { userId: paramUserId } = useParams<{ userId?: string }>();
   const navigate = useNavigate();
-  const _params = useParams();
-  const viewUserId = (_params as { userId?: string }).userId;
   const { user, setUser } = useAuthStore();
-  const { logout } = useAuth();
-  const {
-    getUserById, sendRequest, getFriendStatus, getMutualFriendsCount,
-    cancelRequest, acceptRequest, rejectRequest, blockUser, unblockUser,
-    reportUser, removeFriend, sentRequests, requests, toggleFavorite
-  } = useFriendStore();
-  const { groups } = useGroupStore();
-  const [viewUser, setViewUser] = useState<User | null>(null);
-  const [loadingViewUser, setLoadingViewUser] = useState(false);
+  const { friends } = useFriendStore();
+
+  const isOwnProfile = !paramUserId || paramUserId === user?.id;
+  const displayUser = isOwnProfile ? user : null;
+
+  // Edit state
   const [editing, setEditing] = useState(false);
+  const [editName, setEditName] = useState(user?.name || '');
+  const [editBio, setEditBio] = useState(user?.bio || '');
+  const [editLocation, setEditLocation] = useState(user?.location || '');
+  const [editWebsite, setEditWebsite] = useState(user?.website || '');
   const [saving, setSaving] = useState(false);
-  const [showQr, setShowQr] = useState(false);
-  const [showAvatarViewer, setShowAvatarViewer] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
-  const [copied, setCopied] = useState(false);
-  const [posts, setPosts] = useState<TimelinePost[]>([]);
-  const [loadingPosts, setLoadingPosts] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [showShareSheet, setShowShareSheet] = useState(false);
 
-  const [friendStatus, setFriendStatus] = useState<string>('not_friends');
-  const [mutualCount, setMutualCount] = useState(0);
-  const [mutualGroups, setMutualGroups] = useState<Chat[]>([]);
-  const [loadingStatus, setLoadingStatus] = useState(false);
-  const [showReportModal, setShowReportModal] = useState(false);
-  const [reportReason, setReportReason] = useState('');
-  const [reportDetails, setReportDetails] = useState('');
-  const [processingAction, setProcessingAction] = useState(false);
-  const [isFavorited, setIsFavorited] = useState(false);
+  const avatarInputRef = useRef<HTMLInputElement>(null);
+  const profileUrl = displayUser ? buildGagaChatWebUrl(displayUser.id) : '';
 
-  const isViewingOther = !!viewUserId;
-  const displayUserNullable = viewUser || user;
-  const targetUserId = viewUserId || user?.id;
-
-  // Load view user when viewing another profile
-  useEffect(() => {
-    if (!viewUserId) { setViewUser(null); return; }
-    let cancelled = false;
-    setLoadingViewUser(true);
-    getUserById(viewUserId)
-      .then((u) => {
-        if (!cancelled) {
-          setViewUser(u);
-          setLoadingViewUser(false);
-        }
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setViewUser(null);
-          setLoadingViewUser(false);
-        }
-      });
-    return () => { cancelled = true; };
-  }, [viewUserId, getUserById]);
-
-  // Load friend status and mutual count when viewing another user
-  useEffect(() => {
-    if (!isViewingOther || !user?.id || !viewUserId) return;
-    setLoadingStatus(true);
-    const loadStatus = async () => {
-      try {
-        const status = await getFriendStatus(user.id, viewUserId);
-        setFriendStatus(status);
-        const mutual = await getMutualFriendsCount(user.id, viewUserId);
-        setMutualCount(mutual);
-        const fav = user.favorites?.includes(viewUserId) || false;
-        setIsFavorited(fav);
-      } catch { /* noop */ } finally {
-        setLoadingStatus(false);
-      }
-    };
-    loadStatus();
-  }, [isViewingOther, user?.id, viewUserId, getFriendStatus, getMutualFriendsCount, user?.favorites]);
-
-  // Compute mutual groups when viewing another user
-  useEffect(() => {
-    if (!isViewingOther || !user?.id || !viewUserId) return;
-    const shared = groups.filter(g => {
-      const participants = g.participants || [];
-      return participants.includes(user!.id) && participants.includes(viewUserId);
-    });
-    setMutualGroups(shared);
-  }, [isViewingOther, user, user?.id, viewUserId, groups]);
-
-  // Real-time sync: subscribe to user profile changes (only when viewing another user)
-  useEffect(() => {
-    if (!isFirestoreAvailable() || !targetUserId || !viewUserId) return;
-    const fetchProfile = async () => {
-      try {
-        const data = await getDocById(COLLECTIONS.USERS, targetUserId);
-        if (!data) return;
-        const updatedUser = {
-          id: data.id,
-          name: data.name || 'User',
-          displayName: data.displayName || data.name || 'User',
-          username: data.username || '',
-          email: data.email || '',
-          phone: data.phone || '',
-          avatar: data.avatar || '',
-          status: data.status || 'offline',
-          statusMessage: data.statusMessage || '',
-          lastSeen: data.lastSeen ? new Date(data.lastSeen) : null,
-          coins: data.coins || 0,
-          savedPosts: data.savedPosts || [],
-          blockedUsers: data.blockedUsers || [],
-          favorites: data.favorites || [],
-          friends: data.friends || [],
-          bio: data.bio || '',
-          location: data.location || '',
-          website: data.website || '',
-          verified: data.verified || false,
-        } as User;
-        if (viewUserId) {
-          setViewUser(updatedUser);
-        } else if (user?.id === targetUserId) {
-          setUser(updatedUser);
-        }
-      } catch {
-        // Silently ignore — user may not exist or firestore may be down
-      }
-    };
-    fetchProfile();
-    const unsubscribe = subscribeToDoc(COLLECTIONS.USERS, targetUserId, (data) => {
-      if (!data) return;
-      const updatedUser = {
-        id: data.id,
-        name: data.name || 'User',
-        displayName: data.displayName || data.name || 'User',
-        username: data.username || '',
-        email: data.email || '',
-        phone: data.phone || '',
-        avatar: data.avatar || '',
-        status: data.status || 'offline',
-        statusMessage: data.statusMessage || '',
-        lastSeen: data.lastSeen ? new Date(data.lastSeen) : null,
-        coins: data.coins || 0,
-        savedPosts: data.savedPosts || [],
-        blockedUsers: data.blockedUsers || [],
-        favorites: data.favorites || [],
-        friends: data.friends || [],
-        bio: data.bio || '',
-        location: data.location || '',
-        website: data.website || '',
-        verified: data.verified || false,
-      } as User;
-      if (viewUserId) {
-        setViewUser(updatedUser);
-      } else if (user?.id === targetUserId) {
-        setUser(updatedUser);
-      }
-    });
-    return () => unsubscribe();
-  }, [targetUserId, viewUserId, user?.id, setUser]);
-
-  // Form states
-  const [form, setForm] = useState({
-    displayName: user?.displayName || '',
-    name: user?.name || '',
-    bio: user?.bio || '',
-    statusMessage: user?.statusMessage || '',
-    location: user?.location || '',
-    website: user?.website || '',
-    phone: user?.phone || '',
-  });
-
-  // Sync form when user changes
-  useEffect(() => {
-    if (user) {
-      setForm({
-        displayName: user.displayName || '',
-        name: user.name || '',
-        bio: user.bio || '',
-        statusMessage: user.statusMessage || '',
-        location: user.location || '',
-        website: user.website || '',
-        phone: user.phone || '',
-      });
-    }
+  const startEdit = useCallback(() => {
+    setEditName(user?.name || '');
+    setEditBio(user?.bio || '');
+    setEditLocation(user?.location || '');
+    setEditWebsite(user?.website || '');
+    setEditing(true);
   }, [user]);
 
-  const fetchPosts = useCallback(async () => {
-    if (!targetUserId) return;
-    setLoadingPosts(true);
-    try {
-      if (isFirestoreAvailable()) {
-        const data = await queryCollection(COLLECTIONS.POSTS, [
-          where('userId', '==', targetUserId),
-          orderBy('timestamp', 'desc'),
-          limit(30),
-        ]);
-        let list: TimelinePost[] = data.map((d: Record<string, unknown>) => ({
-          id: (d.id as string) || '', userId: (d.userId as string) || '', content: (d.content as string) || '',
-          images: (d.images as string[]) || [], likes: (d.likes as string[]) || [], comments: (d.comments as PostComment[]) || [],
-          shares: (d.shares as string[]) || [], timestamp: d.timestamp ? new Date(d.timestamp as string) : new Date(),
-          visibility: (d.visibility as TimelinePost['visibility']) || 'public',
-        }));
-        // Visibility filter when viewing another user's profile
-        if (isViewingOther && user?.id) {
-          const isFriend = friendStatus === 'friends';
-          list = list.filter((post) => {
-            if (post.visibility === 'private') return false;
-            if (post.visibility === 'friends' && !isFriend) return false;
-            return true;
-          });
-        }
-        setPosts(list);
-      }
-    } catch { /* noop */ }
-    setLoadingPosts(false);
-  }, [targetUserId, isViewingOther, user?.id, friendStatus]);
+  const cancelEdit = useCallback(() => setEditing(false), []);
 
-  useEffect(() => {
-    fetchPosts();
-  }, [fetchPosts]);
-
-  useEffect(() => {
-    if (!isFirestoreAvailable() || !targetUserId) return;
-    const unsubscribe = subscribeToCollection(COLLECTIONS.POSTS, [
-      where('userId', '==', targetUserId),
-      orderBy('timestamp', 'desc'),
-    ], () => fetchPosts());
-    return () => unsubscribe();
-  }, [targetUserId, fetchPosts]);
-
-  const handleSave = async () => {
-    if (!user) return;
+  const saveEdit = useCallback(async () => {
+    if (!user?.id || !isFirestoreAvailable()) return;
     setSaving(true);
     try {
-      const updated = { ...user, ...form };
-      
-      // Update in Supabase
-      const success = await updateUserProfile(user.id, form);
-      if (success) {
-        // Update app state
-        setUser(updated);
-        toast.success('Profile updated');
-        setEditing(false);
-      } else {
-        toast.error('Failed to update profile');
-      }
-    } catch { 
-      toast.error('Failed to update profile');
+      const updates = {
+        name: editName.trim(),
+        bio: editBio.trim(),
+        location: editLocation.trim(),
+        website: editWebsite.trim(),
+      };
+      await updateDocById(COLLECTIONS.USERS, user.id, updates);
+      setUser({ ...user, ...updates });
+      setEditing(false);
+      toast.success('Profile updated');
+    } catch {
+      toast.error('Failed to save profile');
+    } finally {
+      setSaving(false);
     }
-    setSaving(false);
-  };
+  }, [user, editName, editBio, editLocation, editWebsite, setUser]);
 
-  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAvatarUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file || !user) return;
+    if (!file || !user?.id) return;
+    if (file.size > 5 * 1024 * 1024) { toast.error('Image must be under 5MB'); return; }
     setUploadingAvatar(true);
     try {
-      // Upload to storage (Cloudinary or similar)
-      const url = await uploadMediaBlob({ kind: 'avatars', userId: user.id, file });
-
-      // Update in Supabase
-      const updatedUser = { ...user, avatar: url };
-      const success = await updateUserProfile(user.id, { avatar: url });
-      if (success) {
-        // Update app state
-        setUser(updatedUser);
-        toast.success('Avatar updated');
-      } else {
-        toast.error('Failed to update avatar');
-      }
-    } catch { 
-      toast.error('Failed to update avatar');
+      const { uploadMediaBlob } = await import('@/lib/storage');
+      const url = await uploadMediaBlob({ kind: 'avatars', file, mimeType: file.type });
+      await updateDocById(COLLECTIONS.USERS, user.id, { avatar: url });
+      setUser({ ...user, avatar: url });
+      toast.success('Avatar updated');
+    } catch {
+      toast.error('Failed to upload avatar');
     } finally {
       setUploadingAvatar(false);
+      if (avatarInputRef.current) avatarInputRef.current.value = '';
     }
-  };
+  }, [user, setUser]);
 
-  const handleCopyLink = async () => {
-    const link = displayUser ? buildGagaChatWebUrl(displayUser.id) : '';
-    try {
-      await navigator.clipboard.writeText(link);
-      setCopied(true);
-      toast.success('Profile link copied');
-      const t = setTimeout(() => setCopied(false), 2000);
-      return () => clearTimeout(t);
-    } catch { toast.error('Failed to copy'); }
-  };
+  const handleCopyLink = useCallback(() => {
+    navigator.clipboard.writeText(profileUrl);
+    toast.success('Profile link copied');
+    setShowShareSheet(false);
+  }, [profileUrl]);
 
-  const handleShare = async () => {
-    const link = displayUser ? buildGagaChatWebUrl(displayUser.id) : '';
-    try {
-      if (navigator.share) {
-        await navigator.share({ title: `Add ${displayUser?.name} on GaGa Chat`, text: `Connect with me on GaGa Chat!`, url: link });
-      } else {
-        await handleCopyLink();
-      }
-    } catch { /* cancelled */ }
-  };
+  const handleNativeShare = useCallback(() => {
+    if (navigator.share) {
+      navigator.share({ title: `${displayUser?.name} on GaGa Chat`, url: profileUrl });
+    } else {
+      handleCopyLink();
+    }
+    setShowShareSheet(false);
+  }, [displayUser?.name, profileUrl, handleCopyLink]);
 
-  const handleToggleFavorite = async () => {
-    if (!user?.id || !displayUser?.id) return;
-    setProcessingAction(true);
-    try {
-      await toggleFavorite(displayUser.id, user.id, user.favorites || []);
-      setIsFavorited(!isFavorited);
-      toast.success(isFavorited ? 'Removed from favorites' : 'Added to favorites');
-    } catch { /* noop */ }
-    setProcessingAction(false);
-  };
+  const stats = [
+    { label: 'Friends', value: user?.friends?.length ?? friends.length },
+    { label: 'Posts', value: 0 },
+    { label: 'Followers', value: user?.followers?.length ?? 0 },
+    { label: 'Following', value: user?.following?.length ?? 0 },
+  ];
 
-  const profileLink = displayUserNullable ? buildGagaChatWebUrl(displayUserNullable.id) : '';
-  const qrCodeData = displayUserNullable ? buildGagaChatUri(displayUserNullable.id) : '';
-
-  // Friend action helpers
-  const findSentRequest = (toUserId: string) => {
-    return sentRequests.find((r: FriendRequestWithAliases) =>
-      (r.toUserId === toUserId) || (r.to_user_id === toUserId) ||
-      (r.receiverId === toUserId) || (r.receiver_id === toUserId)
-    );
-  };
-
-  const findReceivedRequest = (fromUserId: string) => {
-    return requests.find((r: FriendRequestWithAliases) =>
-      (r.from === fromUserId) || (r.fromUserId === fromUserId) || (r.from_user_id === fromUserId) ||
-      (r.senderId === fromUserId) || (r.sender_id === fromUserId)
-    );
-  };
-
-  const handleAddFriend = async () => {
-    if (!user?.id || !displayUser?.id) return;
-    setProcessingAction(true);
-    try {
-      await sendRequest(displayUser.id, user.id);
-      toast.success('Friend request sent');
-      setFriendStatus('request_sent');
-    } catch { /* noop */ }
-    setProcessingAction(false);
-  };
-
-  const handleCancelRequest = async () => {
-    if (!user?.id || !displayUser?.id) return;
-    const req = findSentRequest(displayUser.id);
-    if (!req) return;
-    setProcessingAction(true);
-    try {
-      await cancelRequest(req.id);
-      toast.success('Friend request cancelled');
-      setFriendStatus('not_friends');
-    } catch { /* noop */ }
-    setProcessingAction(false);
-  };
-
-  const handleAcceptRequest = async () => {
-    if (!user?.id || !displayUser?.id) return;
-    const req = findReceivedRequest(displayUser.id);
-    if (!req) return;
-    setProcessingAction(true);
-    try {
-      await acceptRequest(req.id);
-      toast.success('Friend request accepted');
-      setFriendStatus('friends');
-    } catch { /* noop */ }
-    setProcessingAction(false);
-  };
-
-  const handleRejectRequest = async () => {
-    if (!user?.id || !displayUser?.id) return;
-    const req = findReceivedRequest(displayUser.id);
-    if (!req) return;
-    setProcessingAction(true);
-    try {
-      await rejectRequest(req.id);
-      toast.success('Friend request declined');
-      setFriendStatus('not_friends');
-    } catch { /* noop */ }
-    setProcessingAction(false);
-  };
-
-  const handleRemoveFriend = async () => {
-    if (!user?.id || !displayUser?.id) return;
-    setProcessingAction(true);
-    try {
-      await removeFriend(displayUser.id, user.id);
-      toast.success('Friend removed');
-      setFriendStatus('not_friends');
-    } catch { /* noop */ }
-    setProcessingAction(false);
-  };
-
-  const handleBlockUser = async () => {
-    if (!user?.id || !displayUser?.id) return;
-    setProcessingAction(true);
-    try {
-      await blockUser(displayUser.id, user.id);
-      toast.success('User blocked');
-      setFriendStatus('blocked');
-    } catch { /* noop */ }
-    setProcessingAction(false);
-  };
-
-  const handleUnblockUser = async () => {
-    if (!user?.id || !displayUser?.id) return;
-    setProcessingAction(true);
-    try {
-      await unblockUser(displayUser.id, user.id);
-      toast.success('User unblocked');
-      setFriendStatus('not_friends');
-    } catch { /* noop */ }
-    setProcessingAction(false);
-  };
-
-  const handleReportSubmit = async () => {
-    if (!user?.id || !displayUser?.id || !reportReason) return;
-    setProcessingAction(true);
-    try {
-      await reportUser({ reporterId: user.id, reportedId: displayUser.id, reason: reportReason, details: reportDetails });
-      toast.success('Report submitted');
-      setShowReportModal(false);
-      setReportReason('');
-      setReportDetails('');
-    } catch { /* noop */ }
-    setProcessingAction(false);
-  };
-
-  const reportOptions = ['Spam', 'Harassment', 'Inappropriate content', 'Fake account', 'Other'];
-
-  if (loadingViewUser || (!displayUserNullable && isViewingOther)) {
+  if (!displayUser) {
     return (
       <div className="min-h-[100dvh] bg-[#F5F5F5] flex items-center justify-center">
-        <Loader size={32} className="text-[#00C300] animate-spin" />
+        <p className="text-[#8D8D8D] text-sm">Profile not found</p>
       </div>
     );
   }
 
-  if (!displayUserNullable) {
-    return (
-      <div className="min-h-[100dvh] bg-[#F5F5F5] flex items-center justify-center">
-        <Loader size={32} className="text-[#00C300] animate-spin" />
-      </div>
-    );
-  }
-
-  // After guards, displayUser is guaranteed non-null
-  const displayUser = displayUserNullable;
-
-  const renderActionButtons = () => {
-    if (loadingStatus) {
-      return <Loader size={20} className="text-[#00C300] animate-spin" />;
-    }
-
-    switch (friendStatus) {
-      case 'not_friends':
-        return (
-          <div className="flex gap-2 flex-wrap justify-center">
-            <button type="button" onClick={handleAddFriend} disabled={processingAction} className="flex items-center gap-1.5 px-4 py-2 bg-[#00C300] rounded-full text-sm font-medium text-white active:bg-[#00A300] transition-colors disabled:opacity-50">
-              <UserPlus size={14} /> Add Friend
-            </button>
-            <button type="button" onClick={handleBlockUser} disabled={processingAction} className="flex items-center gap-1.5 px-4 py-2 bg-[#F5F5F5] rounded-full text-sm font-medium text-[#111111] active:bg-[#EBEBEB] transition-colors disabled:opacity-50">
-              <Ban size={14} /> Block
-            </button>
-            <button type="button" onClick={() => setShowReportModal(true)} disabled={processingAction} className="flex items-center gap-1.5 px-4 py-2 bg-[#F5F5F5] rounded-full text-sm font-medium text-[#111111] active:bg-[#EBEBEB] transition-colors disabled:opacity-50">
-              <Flag size={14} /> Report
-            </button>
-          </div>
-        );
-      case 'request_sent':
-        return (
-          <div className="flex gap-2 flex-wrap justify-center">
-            <button type="button" onClick={handleCancelRequest} disabled={processingAction} className="flex items-center gap-1.5 px-4 py-2 bg-[#FF9800] rounded-full text-sm font-medium text-white active:bg-[#F57C00] transition-colors disabled:opacity-50">
-              <Ban size={14} /> Cancel Request
-            </button>
-            <button type="button" onClick={handleBlockUser} disabled={processingAction} className="flex items-center gap-1.5 px-4 py-2 bg-[#F5F5F5] rounded-full text-sm font-medium text-[#111111] active:bg-[#EBEBEB] transition-colors disabled:opacity-50">
-              <Ban size={14} /> Block
-            </button>
-          </div>
-        );
-      case 'request_received':
-        return (
-          <div className="flex gap-2 flex-wrap justify-center">
-            <button type="button" onClick={handleAcceptRequest} disabled={processingAction} className="flex items-center gap-1.5 px-4 py-2 bg-[#00C300] rounded-full text-sm font-medium text-white active:bg-[#00A300] transition-colors disabled:opacity-50">
-              <Check size={14} /> Accept Request
-            </button>
-            <button type="button" onClick={handleRejectRequest} disabled={processingAction} className="flex items-center gap-1.5 px-4 py-2 bg-[#FF3B30] rounded-full text-sm font-medium text-white active:bg-[#D32F2F] transition-colors disabled:opacity-50">
-              <Ban size={14} /> Decline
-            </button>
-            <button type="button" onClick={handleBlockUser} disabled={processingAction} className="flex items-center gap-1.5 px-4 py-2 bg-[#F5F5F5] rounded-full text-sm font-medium text-[#111111] active:bg-[#EBEBEB] transition-colors disabled:opacity-50">
-              <Ban size={14} /> Block
-            </button>
-          </div>
-        );
-      case 'friends':
-        return (
-          <div className="flex gap-2 flex-wrap justify-center">
-            <button type="button" onClick={() => navigate(`/chat/${displayUser.id}`)} className="flex items-center gap-1.5 px-4 py-2 bg-[#00C300] rounded-full text-sm font-medium text-white active:bg-[#00A300] transition-colors">
-              <MessageCircle size={14} /> Message
-            </button>
-            <button type="button" onClick={handleToggleFavorite} disabled={processingAction} className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium transition-colors disabled:opacity-50 ${isFavorited ? 'bg-yellow-100 text-yellow-700 active:bg-yellow-200' : 'bg-[#F5F5F5] text-[#111111] active:bg-[#EBEBEB]'}`}>
-              <Star size={14} className={isFavorited ? 'fill-yellow-500 text-yellow-500' : ''} /> {isFavorited ? 'Favorited' : 'Favorite'}
-            </button>
-            <button type="button" onClick={() => navigate('/call', { state: { userId: displayUser.id, mode: 'voice' } })} className="flex items-center gap-1.5 px-4 py-2 bg-[#F5F5F5] rounded-full text-sm font-medium text-[#111111] active:bg-[#EBEBEB] transition-colors">
-              <Phone size={14} /> Call
-            </button>
-            <button type="button" onClick={() => navigate('/call', { state: { userId: displayUser.id, mode: 'video' } })} className="flex items-center gap-1.5 px-4 py-2 bg-[#F5F5F5] rounded-full text-sm font-medium text-[#111111] active:bg-[#EBEBEB] transition-colors">
-              <Video size={14} /> Video Call
-            </button>
-            <button type="button" onClick={handleRemoveFriend} disabled={processingAction} className="flex items-center gap-1.5 px-4 py-2 bg-[#FF3B30] rounded-full text-sm font-medium text-white active:bg-[#D32F2F] transition-colors disabled:opacity-50">
-              <Ban size={14} /> Remove Friend
-            </button>
-            <button type="button" onClick={handleBlockUser} disabled={processingAction} className="flex items-center gap-1.5 px-4 py-2 bg-[#F5F5F5] rounded-full text-sm font-medium text-[#111111] active:bg-[#EBEBEB] transition-colors disabled:opacity-50">
-              <Ban size={14} /> Block
-            </button>
-          </div>
-        );
-      case 'blocked':
-        return (
-          <div className="flex gap-2 flex-wrap justify-center">
-            <button type="button" onClick={handleUnblockUser} disabled={processingAction} className="flex items-center gap-1.5 px-4 py-2 bg-[#00C300] rounded-full text-sm font-medium text-white active:bg-[#00A300] transition-colors disabled:opacity-50">
-              <Check size={14} /> Unblock
-            </button>
-            <button type="button" onClick={() => setShowReportModal(true)} disabled={processingAction} className="flex items-center gap-1.5 px-4 py-2 bg-[#F5F5F5] rounded-full text-sm font-medium text-[#111111] active:bg-[#EBEBEB] transition-colors disabled:opacity-50">
-              <Flag size={14} /> Report
-            </button>
-          </div>
-        );
-      default:
-        return (
-          <div className="flex gap-2 flex-wrap justify-center">
-            <span className="text-sm text-[#8D8D8D]">Unable to load actions</span>
-          </div>
-        );
-    }
-  };
+  const avatarSrc = sanitizeMediaUrl(displayUser.avatar) || getDefaultAvatar(displayUser.id || displayUser.name || 'U');
 
   return (
-    <div className="min-h-[100dvh] bg-[#F5F5F5] page-enter">
+    <div className="min-h-[100dvh] bg-[#F5F5F5]">
       {/* Header */}
-      <div className="bg-white border-b border-[#EBEBEB]">
-        <div className="flex items-center gap-3 px-4 py-3">
-          <button type="button" onClick={() => navigate(-1)} className="p-2 -ml-2 active:bg-gray-100 rounded-full text-[#111111] tap-scale">
-            <ArrowLeft size={22} />
-          </button>
-          <h1 className="text-[17px] font-bold text-[#111111]">{isViewingOther ? displayUser.name || 'Profile' : 'Profile'}</h1>
-          {!isViewingOther && (
-            <button type="button" onClick={() => setEditing(!editing)} className="ml-auto p-2 active:bg-gray-100 rounded-full text-[#8D8D8D] tap-scale">
-              {editing ? <Ban size={18} /> : <Edit2 size={18} />}
+      <div className="sticky top-0 z-20 bg-white/95 backdrop-blur-sm border-b border-[#EBEBEB] px-4 py-3 flex items-center justify-between">
+        <button
+          type="button"
+          onClick={() => navigate(-1)}
+          className="p-2 rounded-full hover:bg-[#F5F5F5] transition-colors"
+          aria-label="Go back"
+        >
+          <ArrowLeft size={22} className="text-[#111111]" />
+        </button>
+        <h1 className="text-[17px] font-bold text-[#111111]">
+          {isOwnProfile ? 'My Profile' : displayUser.name}
+        </h1>
+        <div className="flex items-center gap-1">
+          {isOwnProfile && (
+            <button
+              type="button"
+              onClick={() => navigate('/settings')}
+              className="p-2 rounded-full hover:bg-[#F5F5F5] transition-colors"
+              aria-label="Open settings"
+            >
+              <Settings size={20} className="text-[#8D8D8D]" />
             </button>
           )}
         </div>
       </div>
 
-      {/* Profile Card */}
-      <div className="bg-white pb-6 mb-3">
-        {/* Cover gradient */}
-        <div className="h-24 bg-gradient-to-br from-[#00C300]/20 via-[#00C300]/10 to-transparent" />
-        <div className="flex flex-col items-center -mt-12">
-          {/* Avatar */}
-          <div className="relative mb-3">
-            <div
-              className={`w-24 h-24 rounded-full bg-[#F5F5F5] flex items-center justify-center border-4 border-white overflow-hidden shadow-md ${
-                !isViewingOther ? 'cursor-pointer' : ''
-              }`}
-              onClick={() => {
-                if (!isViewingOther) fileInputRef.current?.click();
-                else if (sanitizeMediaUrl(displayUser.avatar)) setShowAvatarViewer(true);
-              }}
-            >
-              {uploadingAvatar ? (
-                <Loader size={28} className="text-[#00C300] animate-spin" />
-              ) : sanitizeMediaUrl(displayUser.avatar) ? (
-                <img src={sanitizeMediaUrl(displayUser.avatar)} className="w-full h-full object-cover" alt="User avatar" />
-              ) : (
-                <img src={getDefaultAvatar(displayUser.id || displayUser.name || 'U')} className="w-full h-full object-cover" alt="User avatar" />
+      <div className="max-w-2xl mx-auto px-4 py-4 space-y-3">
+        {/* Avatar + Name card */}
+        <div className="bg-white rounded-2xl p-5 shadow-sm">
+          <div className="flex flex-col items-center">
+            {/* Avatar with stories ring + upload */}
+            <div className="relative mb-3">
+              <div className={`p-[3px] rounded-full ${displayUser.isPremium ? 'bg-gradient-to-tr from-[#FFD700] via-[#FF9800] to-[#FF4081]' : 'bg-gradient-to-tr from-[#00C300] to-[#00FF00]'}`}>
+                <div className="p-[2px] bg-white rounded-full">
+                  <div className="w-24 h-24 rounded-full overflow-hidden bg-[#F5F5F5] relative">
+                    <img
+                      src={avatarSrc}
+                      className="w-full h-full object-cover"
+                      alt={`${displayUser.name}'s avatar`}
+                    />
+                    {uploadingAvatar && (
+                      <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                        <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+              {isOwnProfile && (
+                <button
+                  type="button"
+                  onClick={() => avatarInputRef.current?.click()}
+                  className="absolute bottom-0 right-0 w-8 h-8 bg-[#00C300] rounded-full flex items-center justify-center border-2 border-white shadow-sm hover:bg-[#00A300] transition-colors"
+                  aria-label="Change avatar"
+                >
+                  <Camera size={14} className="text-white" />
+                </button>
               )}
+              <input
+                ref={avatarInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleAvatarUpload}
+                aria-label="Upload avatar"
+              />
             </div>
-            {!isViewingOther && (
-              <button type="button" onClick={() => fileInputRef.current?.click()}
-                disabled={uploadingAvatar}
-                className="absolute bottom-0 right-0 w-8 h-8 rounded-full bg-[#00C300] flex items-center justify-center border-2 border-white shadow-sm disabled:opacity-50 tap-scale"
-              >
-                {uploadingAvatar ? <Loader size={12} className="text-white animate-spin" /> : <Camera size={14} className="text-white" />}
-              </button>
-            )}
-            <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} />
-          </div>
 
-          <div className="flex items-center gap-1">
-            <h2 className="text-xl font-bold text-[#111111]">{displayUser.displayName || displayUser.name}</h2>
-            {displayUser.verified && (
-              <span className="text-[#00C300]">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M9 12l2 2 4-4" />
-                  <circle cx="12" cy="12" r="10" />
-                </svg>
-              </span>
-            )}
-          </div>
-          <p className="text-[#8D8D8D] text-sm">@{displayUser.username || 'user'}</p>
-          {displayUser.statusMessage && <p className="text-[#111111] text-sm mt-1">{displayUser.statusMessage}</p>}
-          {displayUser.bio && <p className="text-[#8D8D8D] text-sm mt-1 max-w-xs text-center">{displayUser.bio}</p>}
-
-          {/* Online/Last Seen Status with privacy respect */}
-          {displayUser.status && (
-            <div className="flex items-center gap-1.5 mt-1">
-              <span className={`w-2 h-2 rounded-full ${displayUser.status === 'online' ? 'bg-[#00C300]' : 'bg-[#8D8D8D]'}`} />
-              <span className="text-[#8D8D8D] text-xs">
-                {displayUser.status === 'online'
-                  ? 'Online'
-                  : (!isViewingOther || friendStatus === 'friends')
-                    ? (displayUser.lastSeen ? `Last seen ${formatLastSeen(displayUser.lastSeen)}` : 'Offline')
-                    : 'Offline'}
-              </span>
-            </div>
-          )}
-
-          {/* Location & Website badges */}
-          <div className="flex items-center gap-3 mt-2">
-            {displayUser.location && (
-              <span className="flex items-center gap-1 text-[#8D8D8D] text-xs">
-                <MapPin size={12} /> {displayUser.location}
-              </span>
-            )}
-            {displayUser.website && (
-              <a href={displayUser.website} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-[#00C300] text-xs hover:underline">
-                <Globe size={12} /> Website
-              </a>
-            )}
-          </div>
-
-          {/* Stats */}
-          <div className="flex items-center gap-0 mt-4 w-full max-w-xs bg-[#F8F8F8] rounded-2xl overflow-hidden">
-            <div className="flex-1 text-center py-3 cursor-pointer tap-scale" onClick={() => navigate('/contacts')}>
-              <span className="text-[#111111] font-bold text-lg block leading-tight">{(displayUser.friends || []).length}</span>
-              <span className="text-[#8D8D8D] text-[11px]">Friends</span>
-            </div>
-            <div className="w-px h-8 bg-[#EBEBEB]" />
-            <div className="flex-1 text-center py-3">
-              <span className="text-[#111111] font-bold text-lg block leading-tight">{posts.length}</span>
-              <span className="text-[#8D8D8D] text-[11px]">Posts</span>
-            </div>
-            <div className="w-px h-8 bg-[#EBEBEB]" />
-            <div className="flex-1 text-center py-3">
-              <span className="text-[#111111] font-bold text-lg block leading-tight">{(displayUser.coins || 0).toLocaleString()}</span>
-              <span className="text-[#8D8D8D] text-[11px]">Coins</span>
-            </div>
-            {isViewingOther && (
-              <>
-                <div className="w-px h-8 bg-[#EBEBEB]" />
-                <div className="flex-1 text-center py-3">
-                  <span className="text-[#111111] font-bold text-lg block leading-tight">{mutualCount}</span>
-                  <span className="text-[#8D8D8D] text-[11px]">Mutual</span>
-                </div>
-              </>
-            )}
-          </div>
-
-          {/* Quick Actions */}
-          <div className="flex gap-2 mt-4">
-            {isViewingOther ? (
-              renderActionButtons()
+            {/* Name + username */}
+            {editing ? (
+              <input
+                value={editName}
+                onChange={e => setEditName(e.target.value)}
+                className="text-xl font-bold text-[#111111] text-center bg-[#F5F5F5] rounded-xl px-3 py-1.5 w-full max-w-xs focus:outline-none focus:ring-2 focus:ring-[#00C300] mb-1"
+                placeholder="Your name"
+                aria-label="Edit name"
+                maxLength={50}
+              />
             ) : (
-              <>
-                <button type="button" onClick={handleCopyLink} className="flex items-center gap-1.5 px-4 py-2 bg-[#F5F5F5] rounded-full text-sm font-medium text-[#111111] active:bg-[#EBEBEB] transition-colors">
-                  {copied ? <Check size={14} className="text-[#00C300]" /> : <Copy size={14} />}
-                  {copied ? 'Copied' : 'Copy Link'}
-                </button>
-                <button type="button" onClick={() => setShowQr(true)} className="flex items-center gap-1.5 px-4 py-2 bg-[#F5F5F5] rounded-full text-sm font-medium text-[#111111] active:bg-[#EBEBEB] transition-colors">
-                  <QrCode size={14} /> QR Code
-                </button>
-                <button type="button" onClick={handleShare} className="flex items-center gap-1.5 px-4 py-2 bg-[#00C300] rounded-full text-sm font-medium text-white active:bg-[#00A300] transition-colors">
-                  <Share2 size={14} /> Share
-                </button>
-              </>
+              <div className="flex items-center gap-1.5 mb-1">
+                <h2 className="text-xl font-bold text-[#111111]">
+                  {displayUser.displayName || displayUser.name || 'Your profile'}
+                </h2>
+                {displayUser.verified && (
+                  <BadgeCheck size={18} className="text-[#00C300] shrink-0" aria-label="Verified" />
+                )}
+                {displayUser.isPremium && (
+                  <span className="text-[10px] bg-gradient-to-r from-[#FFD700] to-[#FF9800] text-white px-2 py-0.5 rounded-full font-bold">
+                    PRO
+                  </span>
+                )}
+              </div>
+            )}
+            <p className="text-sm text-[#8D8D8D] mb-2">@{displayUser.username || 'user'}</p>
+
+            {/* Bio */}
+            {editing ? (
+              <textarea
+                value={editBio}
+                onChange={e => setEditBio(e.target.value)}
+                className="w-full max-w-xs bg-[#F5F5F5] rounded-xl px-3 py-2 text-sm text-[#111111] text-center resize-none focus:outline-none focus:ring-2 focus:ring-[#00C300] mb-2"
+                placeholder="Write a bio..."
+                rows={2}
+                maxLength={150}
+                aria-label="Edit bio"
+              />
+            ) : (
+              displayUser.bio && (
+                <p className="text-sm text-[#8D8D8D] text-center max-w-xs mb-2">{displayUser.bio}</p>
+              )
+            )}
+
+            {/* Location + Website (edit mode) */}
+            {editing && (
+              <div className="w-full max-w-xs space-y-2 mb-3">
+                <div className="flex items-center gap-2 bg-[#F5F5F5] rounded-xl px-3 py-2">
+                  <MapPin size={14} className="text-[#8D8D8D] shrink-0" />
+                  <input
+                    value={editLocation}
+                    onChange={e => setEditLocation(e.target.value)}
+                    className="flex-1 bg-transparent text-sm text-[#111111] focus:outline-none"
+                    placeholder="Location"
+                    aria-label="Edit location"
+                    maxLength={60}
+                  />
+                </div>
+                <div className="flex items-center gap-2 bg-[#F5F5F5] rounded-xl px-3 py-2">
+                  <Link2 size={14} className="text-[#8D8D8D] shrink-0" />
+                  <input
+                    value={editWebsite}
+                    onChange={e => setEditWebsite(e.target.value)}
+                    className="flex-1 bg-transparent text-sm text-[#111111] focus:outline-none"
+                    placeholder="Website"
+                    aria-label="Edit website"
+                    maxLength={100}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Location + Website (view mode) */}
+            {!editing && (displayUser.location || displayUser.website) && (
+              <div className="flex flex-wrap items-center justify-center gap-3 mb-3">
+                {displayUser.location && (
+                  <span className="flex items-center gap-1 text-xs text-[#8D8D8D]">
+                    <MapPin size={12} /> {displayUser.location}
+                  </span>
+                )}
+                {displayUser.website && (
+                  <a
+                    href={displayUser.website.startsWith('http') ? displayUser.website : `https://${displayUser.website}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1 text-xs text-[#00C300] hover:underline"
+                  >
+                    <Link2 size={12} /> {displayUser.website.replace(/^https?:\/\//, '')}
+                  </a>
+                )}
+              </div>
+            )}
+
+            {/* Action buttons */}
+            {isOwnProfile && (
+              <div className="flex gap-2 mt-1">
+                {editing ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={saveEdit}
+                      disabled={saving}
+                      className="flex items-center gap-1.5 px-5 py-2 bg-[#00C300] text-white rounded-full text-sm font-medium hover:bg-[#00A300] transition-colors disabled:opacity-50"
+                      aria-label="Save profile changes"
+                    >
+                      <Check size={14} /> {saving ? 'Saving…' : 'Save'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={cancelEdit}
+                      className="flex items-center gap-1.5 px-5 py-2 bg-[#F5F5F5] text-[#111111] rounded-full text-sm font-medium hover:bg-[#EBEBEB] transition-colors"
+                      aria-label="Cancel editing"
+                    >
+                      <X size={14} /> Cancel
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      onClick={startEdit}
+                      className="flex items-center gap-1.5 px-5 py-2 bg-[#F5F5F5] text-[#111111] rounded-full text-sm font-medium hover:bg-[#EBEBEB] transition-colors"
+                      aria-label="Edit profile"
+                    >
+                      <Edit3 size={14} /> Edit Profile
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowShareSheet(true)}
+                      className="flex items-center gap-1.5 px-5 py-2 bg-[#F5F5F5] text-[#111111] rounded-full text-sm font-medium hover:bg-[#EBEBEB] transition-colors"
+                      aria-label="Share profile"
+                    >
+                      <Share2 size={14} /> Share
+                    </button>
+                  </>
+                )}
+              </div>
             )}
           </div>
         </div>
-      </div>
 
-      {/* Mutual Groups - when viewing another user */}
-      {isViewingOther && mutualGroups.length > 0 && (
-        <div className="bg-white border-y border-[#EBEBEB] p-4 mb-4">
-          <div className="flex items-center gap-2 mb-3">
-            <Users size={18} className="text-[#00C300]" />
-            <h3 className="text-sm font-semibold text-[#111111]">Mutual Groups ({mutualGroups.length})</h3>
-          </div>
-          <div className="flex gap-3 overflow-x-auto scrollbar-hide">
-            {mutualGroups.map(g => (
-              <button
-                type="button"
-                key={g.id}
-                onClick={() => navigate(`/group/${g.id}`)}
-                className="flex items-center gap-2 min-w-[160px] p-2.5 bg-[#F5F5F5] rounded-xl text-left hover:bg-[#EBEBEB] transition-colors"
-              >
-                <div className="w-10 h-10 rounded-full bg-[#E8F5E9] flex items-center justify-center shrink-0 overflow-hidden">
-                  {g.avatar ? (
-                    <img src={sanitizeMediaUrl(g.avatar)} className="w-full h-full object-cover" alt="Group avatar" />
-                  ) : (
-                    <Users size={18} className="text-[#00C300]" />
-                  )}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-[#111111] text-sm font-medium truncate">{g.name || 'Group'}</p>
-                  <p className="text-[#8D8D8D] text-xs">{(g.participants || []).length} members</p>
-                </div>
-              </button>
+        {/* Stats bar */}
+        <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
+          <div className="grid grid-cols-4 divide-x divide-[#EBEBEB]">
+            {stats.map(({ label, value }) => (
+              <div key={label} className="flex flex-col items-center py-4 px-2">
+                <span className="text-lg font-bold text-[#111111]">{value.toLocaleString()}</span>
+                <span className="text-[11px] text-[#8D8D8D] mt-0.5">{label}</span>
+              </div>
             ))}
           </div>
         </div>
-      )}
 
-      {/* Edit Form - only for current user */}
-      <AnimatePresence>
-        {editing && !isViewingOther && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            className="bg-white border-y border-[#EBEBEB] p-4 mb-4 space-y-3 overflow-hidden"
-          >
-            <h3 className="text-sm font-semibold text-[#111111] mb-2">Edit Profile</h3>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="text-[#8D8D8D] text-xs mb-1 block">Name</label>
-                <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-                  className="w-full bg-[#F5F5F5] rounded-xl px-4 py-2.5 text-[#111111] text-sm focus:outline-none focus:ring-2 focus:ring-[#00C300]" />
-              </div>
-              <div>
-                <label className="text-[#8D8D8D] text-xs mb-1 block">Display Name</label>
-                <input value={form.displayName} onChange={e => setForm(f => ({ ...f, displayName: e.target.value }))}
-                  className="w-full bg-[#F5F5F5] rounded-xl px-4 py-2.5 text-[#111111] text-sm focus:outline-none focus:ring-2 focus:ring-[#00C300]" />
-              </div>
-            </div>
-            <div>
-              <label className="text-[#8D8D8D] text-xs mb-1 block">Status Message</label>
-              <input value={form.statusMessage} onChange={e => setForm(f => ({ ...f, statusMessage: e.target.value }))}
-                className="w-full bg-[#F5F5F5] rounded-xl px-4 py-2.5 text-[#111111] text-sm focus:outline-none focus:ring-2 focus:ring-[#00C300]" />
-            </div>
-            <div>
-              <label className="text-[#8D8D8D] text-xs mb-1 block">Bio</label>
-              <textarea value={form.bio} onChange={e => setForm(f => ({ ...f, bio: e.target.value }))}
-                className="w-full bg-[#F5F5F5] rounded-xl px-4 py-2.5 text-[#111111] text-sm focus:outline-none focus:ring-2 focus:ring-[#00C300] resize-none min-h-[60px]"
-                maxLength={160} />
-              <p className="text-[#C7C7CC] text-[10px] text-right mt-0.5">{form.bio.length}/160</p>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="text-[#8D8D8D] text-xs mb-1 block">Location</label>
-                <input value={form.location} onChange={e => setForm(f => ({ ...f, location: e.target.value }))}
-                  className="w-full bg-[#F5F5F5] rounded-xl px-4 py-2.5 text-[#111111] text-sm focus:outline-none focus:ring-2 focus:ring-[#00C300]" />
-              </div>
-              <div>
-                <label className="text-[#8D8D8D] text-xs mb-1 block">Website</label>
-                <input value={form.website} onChange={e => setForm(f => ({ ...f, website: e.target.value }))}
-                  className="w-full bg-[#F5F5F5] rounded-xl px-4 py-2.5 text-[#111111] text-sm focus:outline-none focus:ring-2 focus:ring-[#00C300]" />
-              </div>
-            </div>
-            <div>
-              <label className="text-[#8D8D8D] text-xs mb-1 block">Phone</label>
-              <input value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))}
-                className="w-full bg-[#F5F5F5] rounded-xl px-4 py-2.5 text-[#111111] text-sm focus:outline-none focus:ring-2 focus:ring-[#00C300]" />
-            </div>
-            <button type="button" onClick={handleSave}
-              disabled={saving}
-              className="w-full bg-[#00C300] hover:bg-[#00A300] text-white rounded-xl py-3 text-sm font-bold transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-            >
-              {saving ? <Loader size={16} className="animate-spin" /> : <Check size={16} />}
-              Save Changes
-            </button>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Menu + More sections - only for own profile */}
-      {!isViewingOther && (() => {
-        const moreSections = [
-          {
-            title: 'Quick Actions',
-            items: [
-              { icon: QrCode, label: 'My QR Code', color: 'text-[#00C300]', bg: 'bg-[#00C300]/10', action: () => setShowQr(true) },
-              { icon: WalletIcon, label: 'My Wallet', color: 'text-[#00C300]', bg: 'bg-[#00C300]/10', to: '/wallet' },
-              { icon: Bell, label: 'Notifications', color: 'text-[#FF3B30]', bg: 'bg-[#FF3B30]/10', to: '/notifications' },
-              { icon: Shield, label: 'Privacy & Security', color: 'text-[#8B5CF6]', bg: 'bg-[#8B5CF6]/10', to: '/privacy' },
-              { icon: Settings, label: 'Settings', color: 'text-[#111111]', bg: 'bg-[#F5F5F5]', to: '/settings' },
-            ],
-          },
-          {
-            title: 'New & Exciting',
-            items: [
-              { icon: Radio, label: 'Voice Rooms', color: 'text-[#00C300]', bg: 'bg-[#00C300]/10', to: '/voice-rooms' },
-              { icon: Mic, label: 'Live Streams', color: 'text-[#FF3B30]', bg: 'bg-[#FF3B30]/10', to: '/live-streams' },
-              { icon: Trophy, label: 'Daily Challenges', color: 'text-[#FF4081]', bg: 'bg-[#FF4081]/10', to: '/challenges' },
-              { icon: Sparkles, label: 'GaGa AI', color: 'text-[#8B5CF6]', bg: 'bg-[#8B5CF6]/10', to: '/ai-chat' },
-            ],
-          },
-          {
-            title: 'Social & Discover',
-            items: [
-              { icon: Search, label: 'Search', color: 'text-[#2196F3]', bg: 'bg-[#2196F3]/10', to: '/search' },
-              { icon: Play, label: 'Reels', color: 'text-[#FF4081]', bg: 'bg-[#FF4081]/10', to: '/reels' },
-              { icon: Calendar, label: 'Events', color: 'text-[#FF9800]', bg: 'bg-[#FF9800]/10', to: '/events' },
-              { icon: ShoppingBag, label: 'Marketplace', color: 'text-[#4CAF50]', bg: 'bg-[#4CAF50]/10', to: '/marketplace' },
-              { icon: Hash, label: 'Hashtags', color: 'text-[#00BCD4]', bg: 'bg-[#00BCD4]/10', to: '/hashtags' },
-              { icon: Bookmark, label: 'Bookmarks', color: 'text-[#FFD700]', bg: 'bg-[#FFD700]/10', to: '/bookmarks' },
-            ],
-          },
-          {
-            title: 'Creator & Rewards',
-            items: [
-              { icon: BarChart3, label: 'Analytics', color: 'text-[#8B5CF6]', bg: 'bg-[#8B5CF6]/10', to: '/analytics' },
-              { icon: Crown, label: 'Premium', color: 'text-[#FF9800]', bg: 'bg-[#FF9800]/10', to: '/premium' },
-              { icon: Coins, label: 'Wallet', color: 'text-[#00C300]', bg: 'bg-[#00C300]/10', to: '/wallet' },
-              { icon: Gift, label: 'GaGa Rewards', color: 'text-[#FF9800]', bg: 'bg-[#FF9800]/10', to: '/rewards' },
-            ],
-          },
-        ];
-        return moreSections.map((section) => (
-          <div key={section.title} className="bg-white border-y border-[#EBEBEB] mb-4">
-            <p className="text-[#8D8D8D] text-[11px] font-medium uppercase tracking-wider px-4 pt-3 pb-1">{section.title}</p>
-            {section.items.map((item, idx, arr) => (
-              <button type="button" key={item.label}
-                onClick={() => { if ('action' in item && item.action) item.action(); else if ('to' in item && item.to) navigate(item.to); }}
-                className={`w-full flex items-center gap-3 px-4 py-3 active:bg-gray-50 text-left ${
-                  idx !== arr.length - 1 ? 'border-b border-[#EBEBEB]' : ''
-                }`}
-              >
-                <div className={`w-9 h-9 rounded-xl ${item.bg} flex items-center justify-center shrink-0`}>
-                  <item.icon size={18} className={item.color} strokeWidth={1.5} />
-                </div>
-                <span className="flex-1 text-[15px] text-[#111111]">{item.label}</span>
-                <ChevronRight size={18} className="text-[#C7C7CC]" />
-              </button>
-            ))}
-          </div>
-        ));
-      })()}
-
-      {/* Contact Info - only for own profile */}
-      {!isViewingOther && (
-        <div className="bg-white border-y border-[#EBEBEB] mb-4 p-4">
-          <h3 className="text-sm font-semibold text-[#111111] mb-3">Contact Info</h3>
-          <div className="space-y-3">
+        {/* Contact info */}
+        {(displayUser.email || displayUser.phone || profileUrl) && (
+          <div className="bg-white rounded-2xl p-4 shadow-sm space-y-3">
+            <h3 className="text-sm font-semibold text-[#111111]">Contact Info</h3>
             {displayUser.email && (
-              <div className="flex items-center gap-3">
-                <Mail size={16} className="text-[#8D8D8D]" />
-                <span className="text-[#111111] text-sm">{displayUser.email}</span>
+              <div className="flex items-center gap-3 text-sm text-[#111111]">
+                <Mail size={16} className="text-[#8D8D8D] shrink-0" aria-hidden="true" />
+                <span className="truncate">{displayUser.email}</span>
               </div>
             )}
             {displayUser.phone && (
-              <div className="flex items-center gap-3">
-                <Phone size={16} className="text-[#8D8D8D]" />
-                <span className="text-[#111111] text-sm">{displayUser.phone}</span>
+              <div className="flex items-center gap-3 text-sm text-[#111111]">
+                <Phone size={16} className="text-[#8D8D8D] shrink-0" aria-hidden="true" />
+                <span>{displayUser.phone}</span>
               </div>
             )}
-            <div className="flex items-center gap-3">
-              <Link2 size={16} className="text-[#8D8D8D]" />
-              <a
-                href={profileLink}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-[#00C300] text-xs hover:underline truncate max-w-[200px]"
+            <div className="flex items-center gap-3 text-sm text-[#00C300]">
+              <Link2 size={16} className="text-[#8D8D8D] shrink-0" aria-hidden="true" />
+              <button
+                type="button"
+                onClick={handleCopyLink}
+                className="truncate hover:underline text-left"
+                aria-label="Copy profile link"
               >
-                {profileLink}
-              </a>
+                {profileUrl}
+              </button>
             </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Posts Grid */}
-      <div className="bg-white p-4">
-        <h3 className="text-sm font-semibold text-[#111111] mb-3">Posts</h3>
-        {loadingPosts ? (
-          <div className="flex justify-center py-8">
-            <Loader size={20} className="animate-spin text-[#00C300]" />
-          </div>
-        ) : (
-          <div className="grid grid-cols-3 gap-1">
-            {posts.map((post) => (
-              <div key={post.id} className="aspect-square bg-[#F5F5F5] rounded-lg overflow-hidden">
-                {post.images && post.images[0] ? (
-                  <img src={post.images[0]} className="w-full h-full object-cover" alt="Post image" />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center p-2">
-                    <p className="text-[#8D8D8D] text-xs line-clamp-3">{post.content}</p>
-                  </div>
-                )}
-              </div>
+        {/* Quick actions */}
+        {isOwnProfile && (
+          <div className="grid grid-cols-3 gap-3">
+            {[
+              { icon: Image, label: 'Posts', action: () => navigate('/timeline') },
+              { icon: Users, label: 'Friends', action: () => navigate('/contacts') },
+              { icon: Heart, label: 'Saved', action: () => navigate('/saved-messages') },
+            ].map(({ icon: Icon, label, action }) => (
+              <button
+                key={label}
+                type="button"
+                onClick={action}
+                className="bg-white rounded-2xl p-4 shadow-sm flex flex-col items-center gap-2 hover:bg-[#F5F5F5] transition-colors"
+                aria-label={label}
+              >
+                <Icon size={22} className="text-[#00C300]" />
+                <span className="text-xs font-medium text-[#111111]">{label}</span>
+              </button>
             ))}
-            {posts.length === 0 && (
-              <div className="col-span-3 py-12 text-center text-[#8D8D8D] text-sm">
-                <ImagePlus size={24} className="mx-auto mb-2 text-[#EBEBEB]" />
-                No posts yet
-              </div>
-            )}
           </div>
+        )}
+
+        {/* QR Code shortcut */}
+        {isOwnProfile && (
+          <button
+            type="button"
+            onClick={() => navigate('/qr-scanner')}
+            className="w-full bg-white rounded-2xl p-4 shadow-sm flex items-center gap-3 hover:bg-[#F5F5F5] transition-colors"
+            aria-label="View my QR code"
+          >
+            <div className="w-10 h-10 rounded-xl bg-[#00C300]/10 flex items-center justify-center shrink-0">
+              <QrCode size={20} className="text-[#00C300]" />
+            </div>
+            <div className="flex-1 text-left">
+              <p className="text-sm font-medium text-[#111111]">My QR Code</p>
+              <p className="text-xs text-[#8D8D8D]">Share your profile instantly</p>
+            </div>
+            <ArrowLeft size={18} className="text-[#C7C7CC] rotate-180" aria-hidden="true" />
+          </button>
         )}
       </div>
 
-      {/* Avatar Viewer Modal */}
+      {/* Share sheet */}
       <AnimatePresence>
-        {showAvatarViewer && sanitizeMediaUrl(displayUser.avatar) && (
+        {showShareSheet && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/90 z-[100] flex items-center justify-center"
-            onClick={() => setShowAvatarViewer(false)}
-          >
-            <motion.img
-              initial={{ scale: 0.8 }}
-              animate={{ scale: 1 }}
-              exit={{ scale: 0.8 }}
-              src={sanitizeMediaUrl(displayUser.avatar)}
-              className="max-w-[90%] max-h-[80%] object-contain rounded-2xl"
-              alt="Avatar"
-              onClick={(e) => e.stopPropagation()}
-            />
-            <button type="button" onClick={() => setShowAvatarViewer(false)}
-              className="absolute top-4 right-4 p-2 bg-white/20 rounded-full text-white hover:bg-white/30"
-            >
-              <Ban size={24} />
-            </button>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Logout - only for own profile */}
-      {!isViewingOther && (
-        <div className="p-4 mt-4">
-          <button type="button" onClick={logout}
-            className="w-full py-3 bg-[#FF3B30]/10 text-[#FF3B30] rounded-xl font-semibold text-sm active:bg-[#FF3B30]/20 transition-colors"
-          >
-            Log Out
-          </button>
-        </div>
-      )}
-
-      {/* QR Code Modal */}
-      <AnimatePresence>
-        {showQr && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4"
-            onClick={() => setShowQr(false)}
+            className="fixed inset-0 bg-black/50 z-50 flex items-end justify-center"
+            onClick={() => setShowShareSheet(false)}
           >
             <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-white rounded-3xl p-6 max-w-sm w-full"
+              initial={{ y: '100%' }}
+              animate={{ y: 0 }}
+              exit={{ y: '100%' }}
+              transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+              className="bg-white rounded-t-3xl p-6 w-full max-w-lg"
               onClick={e => e.stopPropagation()}
             >
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-bold text-[#111111]">My QR Code</h2>
-                <button type="button" onClick={() => setShowQr(false)} className="p-1 text-[#8D8D8D]"><Ban size={18} /></button>
-              </div>
-              <div className="bg-[#F5F5F5] rounded-2xl p-6 mb-4">
-                <div className="w-52 h-52 mx-auto bg-white rounded-xl p-3">
-                  <QRCodeSVG data={qrCodeData} size={200} />
-                </div>
-                <p className="text-center text-[#8D8D8D] text-xs mt-3">Scan to add {user?.name || 'you'} on GaGa Chat</p>
-              </div>
-              <div className="flex gap-2">
-                <button type="button" onClick={handleCopyLink} className="flex-1 flex items-center justify-center gap-2 py-3 bg-[#F5F5F5] text-[#111111] rounded-xl text-sm font-bold">
-                  <Copy size={16} /> Copy Link
+              <div className="w-10 h-1 bg-[#EBEBEB] rounded-full mx-auto mb-5" />
+              <h3 className="text-base font-bold text-[#111111] mb-4">Share Profile</h3>
+              <div className="space-y-2">
+                <button
+                  type="button"
+                  onClick={handleNativeShare}
+                  className="w-full flex items-center gap-3 p-3.5 rounded-xl hover:bg-[#F5F5F5] transition-colors text-left"
+                  aria-label="Share via system share sheet"
+                >
+                  <div className="w-10 h-10 rounded-xl bg-[#00C300]/10 flex items-center justify-center shrink-0">
+                    <Share2 size={18} className="text-[#00C300]" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-[#111111]">Share via…</p>
+                    <p className="text-xs text-[#8D8D8D]">Use your device's share options</p>
+                  </div>
                 </button>
-                <button type="button" onClick={handleShare} className="flex-1 flex items-center justify-center gap-2 py-3 bg-[#00C300] text-white rounded-xl text-sm font-bold">
-                  <Share2 size={16} /> Share
+                <button
+                  type="button"
+                  onClick={handleCopyLink}
+                  className="w-full flex items-center gap-3 p-3.5 rounded-xl hover:bg-[#F5F5F5] transition-colors text-left"
+                  aria-label="Copy profile link"
+                >
+                  <div className="w-10 h-10 rounded-xl bg-[#2196F3]/10 flex items-center justify-center shrink-0">
+                    <Copy size={18} className="text-[#2196F3]" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-[#111111]">Copy Link</p>
+                    <p className="text-xs text-[#8D8D8D] truncate max-w-[220px]">{profileUrl}</p>
+                  </div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { navigate('/qr-scanner'); setShowShareSheet(false); }}
+                  className="w-full flex items-center gap-3 p-3.5 rounded-xl hover:bg-[#F5F5F5] transition-colors text-left"
+                  aria-label="Show QR code"
+                >
+                  <div className="w-10 h-10 rounded-xl bg-[#8B5CF6]/10 flex items-center justify-center shrink-0">
+                    <QrCode size={18} className="text-[#8B5CF6]" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-[#111111]">Show QR Code</p>
+                    <p className="text-xs text-[#8D8D8D]">Let others scan to find you</p>
+                  </div>
                 </button>
               </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Report Modal */}
-      <AnimatePresence>
-        {showReportModal && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4"
-            onClick={() => setShowReportModal(false)}
-          >
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-white rounded-3xl p-6 max-w-sm w-full"
-              onClick={e => e.stopPropagation()}
-            >
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-bold text-[#111111]">Report User</h2>
-                <button type="button" onClick={() => setShowReportModal(false)} className="p-1 text-[#8D8D8D]"><Ban size={18} /></button>
-              </div>
-              <p className="text-[#8D8D8D] text-sm mb-3">Why are you reporting {displayUser.name}?</p>
-              <div className="space-y-2 mb-3">
-                {reportOptions.map((option) => (
-                  <button type="button" key={option}
-                    onClick={() => setReportReason(option)}
-                    className={`w-full flex items-center justify-between px-4 py-2.5 rounded-xl text-sm transition-colors ${
-                      reportReason === option ? 'bg-[#00C300]/10 text-[#00C300] font-medium' : 'bg-[#F5F5F5] text-[#111111]'
-                    }`}
-                  >
-                    {option}
-                    {reportReason === option && <Check size={16} />}
-                  </button>
-                ))}
-              </div>
-              <div className="mb-4">
-                <label className="text-[#8D8D8D] text-xs mb-1 block">Details (optional)</label>
-                <textarea
-                  value={reportDetails}
-                  onChange={e => setReportDetails(e.target.value)}
-                  className="w-full bg-[#F5F5F5] rounded-xl px-4 py-2.5 text-[#111111] text-sm focus:outline-none focus:ring-2 focus:ring-[#00C300] resize-none min-h-[60px]"
-                  placeholder="Add more details..."
-                  maxLength={500}
-                />
-                <p className="text-[#C7C7CC] text-[10px] text-right mt-0.5">{reportDetails.length}/500</p>
-              </div>
-              <button type="button" onClick={handleReportSubmit}
-                disabled={!reportReason || processingAction}
-                className="w-full bg-[#FF3B30] hover:bg-[#D32F2F] text-white rounded-xl py-3 text-sm font-bold transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              <button
+                type="button"
+                onClick={() => setShowShareSheet(false)}
+                className="w-full mt-4 py-3 bg-[#F5F5F5] text-[#111111] rounded-xl text-sm font-bold"
               >
-                {processingAction ? <Loader size={16} className="animate-spin" /> : <Flag size={16} />}
-                Submit Report
+                Cancel
               </button>
             </motion.div>
           </motion.div>

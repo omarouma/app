@@ -19,7 +19,7 @@ import { where, orderBy, limit } from '@/lib/firestore';
 import { toast } from 'sonner';
 import type { LiveStream, LiveComment, LiveGift, LiveReactions } from '@/types';
 
-const COLLECTION_LIVE = 'liveStreams';
+const COLLECTION_LIVE = COLLECTIONS.LIVE_STREAMS;
 
 interface LiveStore {
   activeStreams: LiveStream[];
@@ -113,7 +113,7 @@ export const useLiveStore = create<LiveStore>((set) => ({
       toast.error('Failed to start live stream');
       return null;
     }
-  },
+},
 
   endLive: async (streamId) => {
     if (!isFirestoreAvailable()) return;
@@ -149,7 +149,7 @@ export const useLiveStore = create<LiveStore>((set) => ({
       if (!stream) return;
       const viewers = (stream.viewers as string[]) || [];
       const newViewers = viewers.filter(id => id !== userId);
-      const newCount = Math.max(0, (stream.viewerCount as number) || 0 - 1);
+      const newCount = Math.max(0, ((stream.viewerCount as number) || 0) - 1);
       await updateDocById(COLLECTION_LIVE, streamId, {
         viewers: newViewers,
         viewerCount: newCount,

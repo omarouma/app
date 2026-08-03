@@ -1,7 +1,7 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
+﻿/* eslint-disable @typescript-eslint/no-explicit-any */
 import { create } from 'zustand';
 import {
-  isSupabaseAvailable,
+  isFirestoreAvailable,
   COLLECTIONS,
   getDocById,
   updateDocById,
@@ -14,8 +14,8 @@ import {
   arrayUnion,
   arrayRemove,
   increment,
-} from '@/lib/supabaseDb';
-import { where, orderBy, limit, startAfter } from '@/lib/supabaseDb';
+} from '@/lib/firestore';
+import { where, orderBy, limit, startAfter } from '@/lib/firestore';
 import { toast } from 'sonner';
 import type { Reel } from '@/types';
 
@@ -105,8 +105,8 @@ export const useReelStore = create<ReelStore>((set, get) => ({
   lastTimestamp: null,
   activeCategory: null,
 
-  createReel: async (userId, data) => {
-    if (!isSupabaseAvailable()) return;
+createReel: async (userId, data) => {
+    if (!isFirestoreAvailable()) return;
     try {
       const user = await getDocById(COLLECTIONS.USERS, userId);
       await addDocToCollection(COLLECTION_REELS, {
@@ -129,8 +129,8 @@ export const useReelStore = create<ReelStore>((set, get) => ({
     }
   },
 
-  deleteReel: async (reelId) => {
-    if (!isSupabaseAvailable()) return;
+deleteReel: async (reelId) => {
+    if (!isFirestoreAvailable()) return;
     try {
       await deleteDocById(COLLECTION_REELS, reelId);
       set({ reels: get().reels.filter(r => r.id !== reelId) });
@@ -141,8 +141,8 @@ export const useReelStore = create<ReelStore>((set, get) => ({
     }
   },
 
-  likeReel: async (reelId, userId) => {
-    if (!isSupabaseAvailable()) return;
+likeReel: async (reelId, userId) => {
+    if (!isFirestoreAvailable()) return;
     try {
       await updateDocById(COLLECTION_REELS, reelId, {
         likes: arrayUnion(userId),
@@ -153,8 +153,8 @@ export const useReelStore = create<ReelStore>((set, get) => ({
     }
   },
 
-  unlikeReel: async (reelId, userId) => {
-    if (!isSupabaseAvailable()) return;
+unlikeReel: async (reelId, userId) => {
+    if (!isFirestoreAvailable()) return;
     try {
       await updateDocById(COLLECTION_REELS, reelId, {
         likes: arrayRemove(userId),
@@ -165,8 +165,8 @@ export const useReelStore = create<ReelStore>((set, get) => ({
     }
   },
 
-  commentOnReel: async (reelId, userId, content) => {
-    if (!isSupabaseAvailable()) return;
+commentOnReel: async (reelId, userId, content) => {
+    if (!isFirestoreAvailable()) return;
     try {
       const user = await getDocById(COLLECTIONS.USERS, userId);
       await addDocToSubcollection(COLLECTION_REELS, reelId, 'comments', {
@@ -185,7 +185,7 @@ export const useReelStore = create<ReelStore>((set, get) => ({
   },
 
   saveReel: async (reelId, userId) => {
-    if (!isSupabaseAvailable()) return;
+    if (!isFirestoreAvailable()) return;
     try {
       const reel = await getDocById(COLLECTION_REELS, reelId);
       if (!reel) return;
@@ -204,7 +204,7 @@ export const useReelStore = create<ReelStore>((set, get) => ({
   },
 
   shareReel: async (reelId, userId) => {
-    if (!isSupabaseAvailable()) return;
+    if (!isFirestoreAvailable()) return;
     try {
       await updateDocById(COLLECTION_REELS, reelId, {
         shares: arrayUnion(userId),
@@ -217,7 +217,7 @@ export const useReelStore = create<ReelStore>((set, get) => ({
   },
 
   viewReel: async (reelId, userId) => {
-    if (!isSupabaseAvailable()) return;
+    if (!isFirestoreAvailable()) return;
     try {
       await updateDocById(COLLECTION_REELS, reelId, {
         viewedBy: arrayUnion(userId),
@@ -227,7 +227,7 @@ export const useReelStore = create<ReelStore>((set, get) => ({
   },
 
   getReels: async (limitCount = 20) => {
-    if (!isSupabaseAvailable()) return [];
+    if (!isFirestoreAvailable()) return [];
     try {
       const data = await queryCollection(COLLECTION_REELS, [
         orderBy('timestamp', 'desc'),
@@ -241,7 +241,7 @@ export const useReelStore = create<ReelStore>((set, get) => ({
   },
 
   getMyReels: async (userId) => {
-    if (!isSupabaseAvailable()) return [];
+    if (!isFirestoreAvailable()) return [];
     try {
       const data = await queryCollection(COLLECTION_REELS, [
         where('userId', '==', userId),
@@ -255,7 +255,7 @@ export const useReelStore = create<ReelStore>((set, get) => ({
   },
 
   getTrendingReels: async (limitCount = 50) => {
-    if (!isSupabaseAvailable()) return [];
+    if (!isFirestoreAvailable()) return [];
     try {
       const data = await queryCollection(COLLECTION_REELS, [
         orderBy('viewCount', 'desc'),
@@ -269,7 +269,7 @@ export const useReelStore = create<ReelStore>((set, get) => ({
   },
 
   getReelsByTag: async (tag, limitCount = 50) => {
-    if (!isSupabaseAvailable()) return [];
+    if (!isFirestoreAvailable()) return [];
     try {
       const data = await queryCollection(COLLECTION_REELS, [
         where('tags', 'array-contains', tag),
@@ -284,7 +284,7 @@ export const useReelStore = create<ReelStore>((set, get) => ({
   },
 
   getReelsByCategory: async (category, limitCount = 50) => {
-    if (!isSupabaseAvailable()) return [];
+    if (!isFirestoreAvailable()) return [];
     try {
       const data = await queryCollection(COLLECTION_REELS, [
         where('category', '==', category),
@@ -307,9 +307,7 @@ export const useReelStore = create<ReelStore>((set, get) => ({
     const lastTs = state.lastTimestamp;
     const category = state.activeCategory;
 
-    let data: Record<string, unknown>[] = [];
-
-    if (!isSupabaseAvailable()) {
+    if (!isFirestoreAvailable()) {
       set({ loadingMore: false, hasMore: false });
       return;
     }
@@ -329,7 +327,7 @@ export const useReelStore = create<ReelStore>((set, get) => ({
 
       constraints.push(limit(limitCount));
 
-      data = await queryCollection(COLLECTION_REELS, constraints);
+      const data = await queryCollection(COLLECTION_REELS, constraints);
       const newReels = (data || []).map(mapReel);
 
       if (newReels.length === 0) {
@@ -354,7 +352,7 @@ export const useReelStore = create<ReelStore>((set, get) => ({
   },
 
   getForYouReels: async (limitCount = 50) => {
-    if (!isSupabaseAvailable()) {
+    if (!isFirestoreAvailable()) {
       return [];
     }
     try {
@@ -372,7 +370,7 @@ export const useReelStore = create<ReelStore>((set, get) => ({
   },
 
   subscribeReels: () => {
-    if (!isSupabaseAvailable()) {
+    if (!isFirestoreAvailable()) {
       set({ reels: [], loading: false, hasMore: false });
       return () => {};
     }
@@ -410,13 +408,13 @@ export const useReelStore = create<ReelStore>((set, get) => ({
     const category = state.activeCategory;
     set({ loading: true, reels: [], hasMore: true, lastTimestamp: null });
 
-    if (!isSupabaseAvailable()) {
+    if (!isFirestoreAvailable()) {
       set({ reels: [], loading: false, hasMore: false });
       return;
     }
 
     try {
-      let data: Record<string, unknown>[] = [];
+let data: Record<string, unknown>[];
       if (category) {
         data = await queryCollection(COLLECTION_REELS, [
           where('category', '==', category),
@@ -442,7 +440,7 @@ export const useReelStore = create<ReelStore>((set, get) => ({
     }
   },
 
-  // ── External Video Methods ──────────────────────────────
+  // â”€â”€ External Video Methods â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   searchExternalVideos: async (query, category) => {
     const { searchExternalVideos } = await import('@/lib/videoApis');
     set({ searchingExternal: true });

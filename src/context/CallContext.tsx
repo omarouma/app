@@ -80,6 +80,26 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
     initiatorId: currentCall.initiatorId,
   } : null;
 
+  const muteAudio = useCallback(() => {
+    setIsMuted(m => {
+      const next = !m;
+      if (localStream) {
+        for (const t of localStream.getAudioTracks()) t.enabled = !next;
+      }
+      return next;
+    });
+  }, [localStream]);
+
+  const toggleVideo = useCallback(() => {
+    setIsVideoOn(v => {
+      const next = !v;
+      if (localStream) {
+        for (const t of localStream.getVideoTracks()) t.enabled = next;
+      }
+      return next;
+    });
+  }, [localStream]);
+
   const value: CallContextValue = {
     activeCall,
     isCallActive: !!currentCall && currentCall.status !== 'ended' && currentCall.status !== 'rejected',
@@ -92,8 +112,8 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
     acceptCall,
     endCall,
     rejectCall: _rejectCall,
-    muteAudio: () => setIsMuted(m => !m),
-    toggleVideo: () => setIsVideoOn(v => !v),
+    muteAudio,
+    toggleVideo,
   };
 
   return (

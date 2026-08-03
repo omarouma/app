@@ -8,8 +8,24 @@ const TAB_ID = Math.random().toString(36).slice(2, 8);
 
 // ─── Shared online-state bus ───────────────────────────────────────────
 let sharedOnlineMap: Record<string, boolean> = {};
+let sharedPresenceInfo: Record<string, { isOnline: boolean; lastSeen: number }> = {};
 let firebaseUnsub: (() => void) | null = null;
 let listenerCount = 0;
+
+const PRESENCE_STALE_MS = 90_000;
+
+function computeOnlineMapFromInfo() {
+  const now = Date.now();
+  const out: Record<string, boolean> = {};
+  for (const [id, info] of Object.entries(sharedPresenceInfo)) {
+    if (info.isOnline && now - info.lastSeen < PRESENCE_STALE_MS) out[id] = true;
+  }
+  return out;
+}
+
+function syncBroadcast() {
+  broadcastMap(computeOnlineMapFromInfo());
+}
 
 function broadcastMap(map: Record<string, boolean>) {
   sharedOnlineMap = { ...map };
@@ -18,6 +34,7 @@ function broadcastMap(map: Record<string, boolean>) {
 
 export function resetPresenceState() {
   sharedOnlineMap = {};
+  sharedPresenceInfo = {};
   if (firebaseUnsub) { firebaseUnsub(); firebaseUnsub = null; }
   listenerCount = 0;
   broadcastMap({});
@@ -143,8 +160,8 @@ export function useTrackPresence(userId: string | undefined) {
             { user_id: userId, is_online: isOnline, last_seen: now, updated_at: now },
             { onConflict: 'user_id' },
           );
-          sharedOnlineMap[userId] = isOnline;
-          broadcastMap({ ...sharedOnlineMap });
+          sharedPresenceInfo[userId] = { isOnline, lastSeen: Date.parse(now) || Date.now() };
+          syncBroadcast();
         } catch { /* ignore */ }
       };
 
@@ -152,12 +169,19 @@ export function useTrackPresence(userId: string | undefined) {
         if (writeTimer) clearTimeout(writeTimer);
         writeTimer = setTimeout(() => writePresence(true), 300);
       };
-      const markOffline = () => { writePresence(false).catch(() => {}); };
+      const markOfflineLocal = () => {
+        sharedPresenceInfo[userId] = { isOnline: false, lastSeen: Date.now() };
+        syncBroadcast();
+      };
+      const markOffline = () => { markOfflineLocal(); writePresence(false).catch(() => {}); };
       const handleBeforeUnload = () => { markOffline(); };
+      const handlePageHide = () => { markOffline(); };
       const onVisibility = () => {
         if (document.visibilityState === 'hidden') markOffline();
         else markOnline();
       };
+      const handleOnline = () => { markOnline(); };
+      const handleOffline = () => { markOfflineLocal(); };
 
       // Always tear down any existing channel BEFORE creating a new one.
       // This prevents the "cannot add postgres_changes callbacks after subscribe()"
@@ -180,10 +204,11 @@ export function useTrackPresence(userId: string | undefined) {
           { event: '*', schema: 'public', table: 'presence' },
           ({ new: row }) => {
             if (mountIdRef.current !== myMountId) return;
-            const r = row as { user_id?: string; is_online?: boolean } | null;
+            const r = row as { user_id?: string; is_online?: boolean; last_seen?: string; updated_at?: string } | null;
             if (r?.user_id) {
-              sharedOnlineMap[r.user_id] = !!r.is_online;
-              broadcastMap({ ...sharedOnlineMap });
+              const ts = Date.parse(r.last_seen || r.updated_at || '') || Date.now();
+              sharedPresenceInfo[r.user_id] = { isOnline: !!r.is_online, lastSeen: ts };
+              syncBroadcast();
             }
           },
         );
@@ -197,12 +222,28 @@ export function useTrackPresence(userId: string | undefined) {
       channelRef.current = channel;
 
       markOnline();
+
+      // Heartbeat — keeps presence alive while the tab is open & visible.
+      // Without this, "online" goes stale after ~1 min even if the user is
+      // actively using the app (only visibilitychange/beforeunload fire otherwise).
+      const heartbeat = setInterval(() => {
+        if (document.visibilityState === 'hidden') return;
+        writePresence(true).catch(() => {});
+      }, 30_000);
+
+      const sweep = setInterval(() => { syncBroadcast(); }, 15_000);
+
       window.addEventListener('beforeunload', handleBeforeUnload);
+      window.addEventListener('pagehide', handlePageHide);
+      window.addEventListener('online', handleOnline);
+      window.addEventListener('offline', handleOffline);
       document.addEventListener('visibilitychange', onVisibility);
 
       return () => {
         isDestroyed = true;
         if (writeTimer) clearTimeout(writeTimer);
+        clearInterval(heartbeat);
+        clearInterval(sweep);
         markOffline();
 
         if (channelRef.current) {
@@ -211,6 +252,9 @@ export function useTrackPresence(userId: string | undefined) {
         }
 
         window.removeEventListener('beforeunload', handleBeforeUnload);
+        window.removeEventListener('pagehide', handlePageHide);
+        window.removeEventListener('online', handleOnline);
+        window.removeEventListener('offline', handleOffline);
         document.removeEventListener('visibilitychange', onVisibility);
       };
     }
@@ -245,11 +289,19 @@ export function useTrackPresence(userId: string | undefined) {
     const handleBeforeUnload = () => { markOffline(); };
 
     markOnline().catch(() => {});
+
+    // Heartbeat — keeps presence alive while the tab is open & visible.
+    const heartbeat = setInterval(() => {
+      if (document.visibilityState === 'hidden') return;
+      markOnline().catch(() => {});
+    }, 30_000);
+
     window.addEventListener('beforeunload', handleBeforeUnload);
     document.addEventListener('visibilitychange', onVisibility);
 
     return () => {
       listenerCount--;
+      clearInterval(heartbeat);
       markOffline();
       if (listenerCount <= 0 && firebaseUnsub) { firebaseUnsub(); firebaseUnsub = null; }
       window.removeEventListener('beforeunload', handleBeforeUnload);

@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { motion, useScroll, useTransform } from 'framer-motion';
 import {
   ArrowRight, Eye, EyeOff, CheckCircle, Zap, BarChart3, TrendingUp, Users, Wallet, Video, Music, Palette, BookOpen, Briefcase, Gamepad2, Camera, Globe, Star, Crown, Heart, MessageCircle, Sparkles, ArrowUpRight, Play, BadgeCheck, Flame, Utensils, Dumbbell, Plane, Shirt, Home, Baby, Car, Dog, Flower2, Wrench, Palette as PaletteIcon, Gamepad2 as GamepadIcon, ShoppingBag
-} from 'lucide-react';import { useAuth } from '@/context/AuthContext';
+} from 'lucide-react';
+import { useAuth } from '@/context/AuthContext';
 import Logo from '@/components/Logo';
 import { toast } from 'sonner';
 
@@ -44,7 +45,7 @@ const topicCircles = [
 // ─── Creator Stats ───
 const creatorStats = [
   { value: '50K+', label: 'Active Creators', icon: Users },
-  { value: '\u09f32M+', label: 'Creator Earnings', icon: Wallet },
+{ value: '৳2M+', label: 'Creator Earnings', icon: Wallet },
   { value: '1B+', label: 'Monthly Views', icon: Eye },
   { value: '99%', label: 'Satisfaction', icon: Heart },
 ];
@@ -565,7 +566,7 @@ export default function CreatorCenterPage() {
               <button type="button" onClick={() => navigate('/terms')} className="text-[#8D8D8D] text-xs hover:text-[#111111] transition-colors">Terms</button>
               <button type="button" onClick={() => navigate('/help')} className="text-[#8D8D8D] text-xs hover:text-[#111111] transition-colors">Help</button>
             </div>
-            <p className="text-[#8D8D8D] text-xs">\u00a9 2026 GaGa Chat. All rights reserved.</p>
+            <p className="text-[#8D8D8D] text-xs">© 2026 GaGa Chat. All rights reserved.</p>
           </div>
         </footer>
       </div>

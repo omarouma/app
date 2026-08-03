@@ -1,8 +1,0 @@
-/* GaGa Chat - App-specific styles */
-/* Allow page scrolling; route-level layouts manage their own scroll containers. */
-#root {
-  height: 100dvh;
-  width: 100vw;
-  overflow: auto;
-}
-

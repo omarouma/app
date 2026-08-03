@@ -80,6 +80,13 @@ export default defineConfig(({ mode }) => {
             if (id.includes('@radix-ui')) return 'ui-radix';
             if (id.includes('node_modules/react') || id.includes('react-dom') || id.includes('react-router')) return 'react-vendor';
             if (id.includes('zustand') || id.includes('sonner') || id.includes('clsx') || id.includes('tailwind-merge')) return 'utils';
+            // Split heavy page groups into separate async chunks
+            if (id.includes('/pages/Timeline') || id.includes('/pages/Reels') || id.includes('/pages/CreateReels')) return 'chunk-feed';
+            if (id.includes('/pages/Wallet') || id.includes('/pages/GagaRewards') || id.includes('/pages/Premium')) return 'chunk-wallet';
+            if (id.includes('/pages/Marketplace') || id.includes('/pages/Events') || id.includes('/pages/Hashtags')) return 'chunk-discover';
+            if (id.includes('/pages/Admin') || id.includes('/pages/Analytics') || id.includes('/pages/CreatorDashboard') || id.includes('/pages/CreatorCenter')) return 'chunk-creator';
+            if (id.includes('/pages/LiveStream') || id.includes('/pages/VoiceRoom') || id.includes('/pages/AiChat')) return 'chunk-live';
+            if (id.includes('/views/Landing') || id.includes('/views/Auth')) return 'chunk-landing';
           },
         },
       },

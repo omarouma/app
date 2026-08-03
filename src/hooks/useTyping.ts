@@ -24,6 +24,7 @@ export function useTyping(chatId: string | undefined) {
   const stopTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isTypingRef = useRef(false);
   const unsubRef = useRef<(() => void) | null>(null);
+  const typingTsRef = useRef<Record<string, number>>({});
 
   const userNameCacheRef = useRef<Map<string, string>>(new Map());
 
@@ -67,18 +68,21 @@ export function useTyping(chatId: string | undefined) {
               ...prev,
               [data.user_id]: String(userName).replace(/[<>"&]/g, '').slice(0, 50),
             }));
+            typingTsRef.current[data.user_id] = ts || now;
           } else {
             setTypingUsers((prev) => {
               const next = { ...prev };
               delete next[data.user_id];
               return next;
             });
+            delete typingTsRef.current[data.user_id];
           }
         })
         .subscribe();
 
       return () => {
         supabase.removeChannel(channel);
+        typingTsRef.current = {};
         setTypingUsers({});
       };
     }
@@ -91,6 +95,7 @@ export function useTyping(chatId: string | undefined) {
       }
       const now = Date.now();
       const users: Record<string, string> = {};
+      const tsMap: Record<string, number> = {};
       Object.entries(data).forEach(([key, value]) => {
         if (key === 'id' || key === user.id) return;
         const typed = value as { name: string; timestamp: unknown };
@@ -98,8 +103,10 @@ export function useTyping(chatId: string | undefined) {
         const ts = (typed.timestamp as { toMillis?: () => number }).toMillis?.() || new Date(typed.timestamp as string).getTime();
         if (now - ts < 6000) {
           users[key] = String(typed.name ?? '').replace(/[<>"&]/g, '').slice(0, 50);
+          tsMap[key] = ts || now;
         }
       });
+      typingTsRef.current = tsMap;
       setTypingUsers(users);
     });
 
@@ -108,6 +115,7 @@ export function useTyping(chatId: string | undefined) {
     return () => {
       unsub();
       unsubRef.current = null;
+      typingTsRef.current = {};
       setTypingUsers({});
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -118,6 +126,31 @@ export function useTyping(chatId: string | undefined) {
       if (stopTimerRef.current) clearTimeout(stopTimerRef.current);
     };
   }, []);
+
+  useEffect(() => {
+    if (!chatId || !user) return;
+    const interval = setInterval(() => {
+      const now = Date.now();
+      let changed = false;
+      const nextTs = { ...typingTsRef.current };
+      for (const [id, ts] of Object.entries(nextTs)) {
+        if (now - ts >= 6000) {
+          delete nextTs[id];
+          changed = true;
+        }
+      }
+      if (!changed) return;
+      typingTsRef.current = nextTs;
+      setTypingUsers((prev) => {
+        const next = { ...prev };
+        for (const id of Object.keys(prev)) {
+          if (!nextTs[id]) delete next[id];
+        }
+        return next;
+      });
+    }, 2000);
+    return () => clearInterval(interval);
+  }, [chatId, user?.id]);
 
   const broadcast = useCallback(
     async (isTyping: boolean) => {
@@ -174,6 +207,21 @@ export function useTyping(chatId: string | undefined) {
       broadcast(false);
     }
   }, [broadcast]);
+
+  useEffect(() => {
+    if (!chatId || !user) return;
+    const onVisibility = () => { if (document.visibilityState === 'hidden') stopTyping(); };
+    const onBeforeUnload = () => { stopTyping(); };
+    const onPageHide = () => { stopTyping(); };
+    window.addEventListener('beforeunload', onBeforeUnload);
+    window.addEventListener('pagehide', onPageHide);
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      window.removeEventListener('beforeunload', onBeforeUnload);
+      window.removeEventListener('pagehide', onPageHide);
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
+  }, [chatId, user?.id, stopTyping]);
 
   return { typingUsers, sendTyping, stopTyping };
 }

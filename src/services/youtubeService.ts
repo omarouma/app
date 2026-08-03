@@ -1,5 +1,3 @@
-import { toast } from 'sonner';
-
 const YOUTUBE_API_BASE = 'https://www.googleapis.com/youtube/v3';
 const API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
 
@@ -16,8 +14,10 @@ export interface YouTubeVideo {
   likeCount?: string;
 }
 
-const CACHE_KEY = 'gaga_youtube_trending';
+const CACHE_KEY_TRENDING = 'gaga_youtube_trending';
+const CACHE_KEY_PREFIX = 'gaga_youtube_search_';
 const CACHE_DURATION = 30 * 60 * 1000; // 30 minutes
+const DEFAULT_REGION = import.meta.env.VITE_YOUTUBE_REGION || 'US';
 
 // Demo videos as fallback when no API key or API fails
 const DEMO_VIDEOS: YouTubeVideo[] = [
@@ -95,9 +95,9 @@ const DEMO_VIDEOS: YouTubeVideo[] = [
   },
 ];
 
-function getCached(): YouTubeVideo[] | null {
+function getCached(key: string): YouTubeVideo[] | null {
   try {
-    const raw = localStorage.getItem(CACHE_KEY);
+    const raw = localStorage.getItem(key);
     if (!raw) return null;
     const { data, timestamp } = JSON.parse(raw);
     if (Date.now() - timestamp > CACHE_DURATION) return null;
@@ -107,9 +107,9 @@ function getCached(): YouTubeVideo[] | null {
   }
 }
 
-function setCached(data: YouTubeVideo[]) {
+function setCached(key: string, data: YouTubeVideo[]) {
   try {
-    localStorage.setItem(CACHE_KEY, JSON.stringify({ data, timestamp: Date.now() }));
+    localStorage.setItem(key, JSON.stringify({ data, timestamp: Date.now() }));
   } catch {
     // ignore
   }
@@ -142,34 +142,29 @@ function parseYouTubeResponse(items: any[]): YouTubeVideo[] {
  * Fetch trending YouTube videos.
  * Uses the YouTube Data API v3 if a key is available; otherwise falls back to demo data.
  */
-export async function fetchTrendingVideos(regionCode = 'US', maxResults = 12): Promise<YouTubeVideo[]> {
-  // Return cached if available
-  const cached = getCached();
+export async function fetchTrendingVideos(regionCode = DEFAULT_REGION, maxResults = 20): Promise<YouTubeVideo[]> {
+  const cacheKey = `${CACHE_KEY_TRENDING}_${regionCode}`;
+  const cached = getCached(cacheKey);
   if (cached) return cached;
 
   if (!API_KEY) {
-    console.warn('[YouTube] No VITE_YOUTUBE_API_KEY found; using demo data. Add a restricted key to .env for real data.');
-    setCached(DEMO_VIDEOS);
+    console.warn('[YouTube] No VITE_YOUTUBE_API_KEY — using demo data.');
+    setCached(cacheKey, DEMO_VIDEOS);
     return DEMO_VIDEOS;
   }
 
   try {
     const url = `${YOUTUBE_API_BASE}/videos?part=snippet,contentDetails,statistics&chart=mostPopular&regionCode=${regionCode}&maxResults=${maxResults}&key=${API_KEY}`;
     const res = await fetch(url);
-    if (!res.ok) {
-      const err = await res.text();
-      console.error('[YouTube] API error:', err);
-      throw new Error('YouTube API error');
-    }
+    if (!res.ok) throw new Error(`YouTube API ${res.status}`);
     const data = await res.json();
-    const items = data.items || [];
-    const parsed = parseYouTubeResponse(items);
-    setCached(parsed);
-    return parsed;
+    const parsed = parseYouTubeResponse(data.items || []);
+    const result = parsed.length > 0 ? parsed : DEMO_VIDEOS;
+    setCached(cacheKey, result);
+    return result;
   } catch (err) {
-    console.error('[YouTube] Failed to fetch trending videos:', err);
-    toast.error('YouTube feed unavailable. Showing demo videos.');
-    setCached(DEMO_VIDEOS);
+    console.error('[YouTube] fetchTrendingVideos failed:', err);
+    setCached(cacheKey, DEMO_VIDEOS);
     return DEMO_VIDEOS;
   }
 }
@@ -177,20 +172,26 @@ export async function fetchTrendingVideos(regionCode = 'US', maxResults = 12): P
 /**
  * Search YouTube videos by query.
  */
-export async function searchYouTube(query: string, maxResults = 12): Promise<YouTubeVideo[]> {
+export async function searchYouTube(query: string, maxResults = 20): Promise<YouTubeVideo[]> {
   if (!API_KEY) {
     const q = query.toLowerCase();
     return DEMO_VIDEOS.filter(v => v.title.toLowerCase().includes(q) || v.channelTitle.toLowerCase().includes(q));
   }
 
+  const cacheKey = `${CACHE_KEY_PREFIX}${query}_${maxResults}`;
+  const cached = getCached(cacheKey);
+  if (cached) return cached;
+
   try {
     const url = `${YOUTUBE_API_BASE}/search?part=snippet&type=video&q=${encodeURIComponent(query)}&maxResults=${maxResults}&key=${API_KEY}`;
     const res = await fetch(url);
-    if (!res.ok) throw new Error('YouTube search error');
+    if (!res.ok) throw new Error(`YouTube search ${res.status}`);
     const data = await res.json();
-    return parseYouTubeResponse(data.items || []);
+    const parsed = parseYouTubeResponse(data.items || []);
+    setCached(cacheKey, parsed);
+    return parsed;
   } catch (err) {
-    console.error('[YouTube] Search failed:', err);
+    console.error('[YouTube] searchYouTube failed:', err);
     const q = query.toLowerCase();
     return DEMO_VIDEOS.filter(v => v.title.toLowerCase().includes(q));
   }
@@ -261,5 +262,7 @@ export function formatPublishedAt(dateStr: string): string {
  * Clear the YouTube cache.
  */
 export function clearYouTubeCache() {
-  localStorage.removeItem(CACHE_KEY);
+  Object.keys(localStorage)
+    .filter(k => k.startsWith('gaga_youtube_'))
+    .forEach(k => localStorage.removeItem(k));
 }

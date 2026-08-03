@@ -117,11 +117,14 @@ export default function ChatsPage() {
     };
   }, []);
 
+  const unsubChatsRef = useRef<(() => void) | null>(null);
+  const unsubGroupsRef = useRef<(() => void) | null>(null);
+
   useEffect(() => {
     if (!user) return;
-    const unsubChats = subscribeChats(user.id);
-    const unsubGroups = subscribeGroups(user.id);
-    return () => { unsubChats(); unsubGroups(); };
+    unsubChatsRef.current = subscribeChats(user.id);
+    unsubGroupsRef.current = subscribeGroups(user.id);
+    return () => { unsubChatsRef.current?.(); unsubGroupsRef.current?.(); };
   }, [user, subscribeChats, subscribeGroups]);
 
   // Memoised derived lists
@@ -173,9 +176,11 @@ export default function ChatsPage() {
   const handleRefresh = useCallback(() => {
     if (!user?.id || refreshing) return;
     setRefreshing(true);
-    // Re-subscribe to get the latest data immediately
-    subscribeChatsRef.current(user.id);
-    subscribeGroupsRef.current(user.id);
+    // Unsubscribe old listeners before re-subscribing to prevent leaks
+    unsubChatsRef.current?.();
+    unsubGroupsRef.current?.();
+    unsubChatsRef.current = subscribeChatsRef.current(user.id);
+    unsubGroupsRef.current = subscribeGroupsRef.current(user.id);
     refreshTimeoutRef.current = setTimeout(() => setRefreshing(false), 800);
   }, [user?.id, refreshing]);
 
@@ -267,15 +272,15 @@ export default function ChatsPage() {
           )}
         </div>
         <div className="flex gap-2 text-[#111111]">
-          <button type="button" onClick={() => navigate('/add-friends')}
+<button type="button" onClick={() => navigate('/add-friends')}
             className="w-9 h-9 flex items-center justify-center bg-[#F5F5F5] hover:bg-[#EBEBEB] rounded-full transition-colors tap-scale"
-            title="Add friends"
+            aria-label="Add friends"
           >
             <UserPlus size={18} strokeWidth={1.8} />
           </button>
           <button type="button" onClick={() => navigate('/create-group')}
             className="w-9 h-9 flex items-center justify-center bg-[#F5F5F5] hover:bg-[#EBEBEB] rounded-full transition-colors tap-scale"
-            title="New group"
+            aria-label="Create new group"
           >
             <Plus size={18} strokeWidth={1.8} />
           </button>

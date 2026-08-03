@@ -170,20 +170,20 @@ export default function WalletPage() {
       {/* Header */}
       <div className="bg-gradient-to-br from-[#00C300] to-[#00A300] text-white">
         <div className="flex items-center gap-3 p-4">
-          <button type="button" onClick={() => navigate(-1)} className="p-2 -ml-2 active:bg-white/20 rounded-full text-white transition-colors">
+<button type="button" onClick={() => navigate(-1)} className="p-2 -ml-2 active:bg-white/20 rounded-full text-white transition-colors" aria-label="Go back">
             <ArrowLeft size={22} />
           </button>
           <h1 className="text-lg font-bold">My Wallet</h1>
           <div className="ml-auto flex gap-2">
             <button type="button" onClick={() => setShowSecurity(true)}
               className="p-2 active:bg-white/20 rounded-full text-white/90 hover:text-white transition-colors"
-              title="Security"
+              aria-label="Security settings"
             >
               <Shield size={20} />
             </button>
             <button type="button" onClick={() => lockWallet()}
               className="p-2 active:bg-white/20 rounded-full text-white/90 hover:text-white transition-colors"
-              title="Lock wallet"
+              aria-label="Lock wallet"
             >
               <Lock size={20} />
             </button>

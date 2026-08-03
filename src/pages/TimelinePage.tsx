@@ -18,8 +18,7 @@ import TimelineCard from '@/components/features/timeline/TimelineCard';
 import BottomNav from '@/components/layout/BottomNav';
 import EmptyState from '@/components/EmptyState';
 import LoadingSkeleton from '@/components/LoadingSkeleton';
-import AdBanner from '@/components/AdBanner';
-import { MOCK_ADS } from '@/lib/mockAds';
+import { FeedAd } from '@/components/GoogleAd';
 import RequestTipModal from '@/components/RequestTipModal';
 import FeedReelsViewer from '@/components/features/feed/FeedReelsViewer';
 import YouTubeFeed from '@/components/features/feed/YouTubeFeed';
@@ -74,7 +73,6 @@ export default function TimelinePage() {
   const [showReportModal, setShowReportModal] = useState(false);
   const [reportPost, setReportPost] = useState<TimelinePost | null>(null);
   const [reportReason, setReportReason] = useState('');
-  const [dismissedAds, setDismissedAds] = useState<Set<string>>(new Set());
   const [showReelsStrip] = useState(true);
   const [showTrending] = useState(true);
   const [suggestedUsers, setSuggestedUsers] = useState<Array<{ id: string; name: string; avatar?: string; username?: string }>>([]);
@@ -495,43 +493,6 @@ export default function TimelinePage() {
     } finally {
       setUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
-    }
-  };
-
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const handleLike = async (postId: string) => {
-    if (!user || !isFirestoreAvailable()) return;
-    try {
-      const post = posts.find(p => p.id === postId);
-      if (!post) return;
-      const liked = post.likes.includes(user.id);
-      const newLikes = liked ? post.likes.filter(id => id !== user.id) : [...post.likes, user.id];
-      await updateDocById(COLLECTIONS.POSTS, postId, { likes: newLikes });
-      setPosts(prev => prev.map(p => p.id === postId ? { ...p, likes: newLikes } : p));
-    } catch {
-      toast.error('Failed to like post');
-    }
-  };
-
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const handleComment = async (postId: string, commentText: string) => {
-    if (!user || !isFirestoreAvailable() || !commentText.trim()) return;
-    try {
-      const post = posts.find(p => p.id === postId);
-      if (!post) return;
-      const newComments = [...(post.comments || []), {
-        id: `c_${Date.now()}`,
-        userId: user.id,
-        content: commentText.trim(),
-        timestamp: new Date(),
-        likes: [],
-        userName: user.name || '',
-        userAvatar: user.avatar || '',
-      }];
-      await updateDocById(COLLECTIONS.POSTS, postId, { comments: newComments });
-      setPosts(prev => prev.map(p => p.id === postId ? { ...p, comments: newComments } : p));
-    } catch {
-      toast.error('Failed to add comment');
     }
   };
 
@@ -958,13 +919,9 @@ export default function TimelinePage() {
                   userName={post.userName}
                   userAvatar={post.userAvatar}
                 />
-                {index > 0 && index % 3 === 0 && !dismissedAds.has('timeline_' + index) && (
-                  <div className="px-4">
-                    <AdBanner
-                      {...MOCK_ADS[0]}
-                      onDismiss={() => setDismissedAds(prev => new Set([...prev, 'timeline_' + index]))}
-                      variant="compact"
-                    />
+                {index > 0 && index % 5 === 0 && (
+                  <div className="px-4 py-2">
+                    <FeedAd />
                   </div>
                 )}
               </div>

@@ -3,14 +3,13 @@ import {
   isFirestoreAvailable,
   addDocToSubcollection,
   querySubcollection,
+  where,
 } from '@/lib/firestore';
 import { getSupabaseSafe } from '@/lib/supabase';
+import { getIceServers } from '@/lib/webrtc';
 
-// ─── Simple STUN servers (no TURN needed for local testing) ───
-const ICE_SERVERS: RTCIceServer[] = [
-  { urls: 'stun:stun.l.google.com:19302' },
-  { urls: 'stun:stun1.l.google.com:19302' },
-];
+// ─── ICE servers — STUN + optional TURN (shared with 1:1 calls) ───
+const ICE_SERVERS: RTCIceServer[] = getIceServers();
 
 interface PeerConnection {
   userId: string;
@@ -243,8 +242,8 @@ export function useVoiceRoomRTC(roomId: string, userId: string) {
     const pollSignals = async () => {
       try {
         const signals = await querySubcollection('voiceRooms', roomId, 'signals', [
-          { _type: 'where', field: 'timestamp', op: '>', value: Date.now() - 30000 },
-          { _type: 'where', field: 'to', op: '==', value: userId },
+          where('timestamp', '>', Date.now() - 30000),
+          where('to', '==', userId),
         ]);
         (signals || []).forEach((s: unknown) => handleSignal(s));
       } catch {

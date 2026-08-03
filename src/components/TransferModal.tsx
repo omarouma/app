@@ -33,17 +33,17 @@ export default function TransferModal({ open, onClose, chatId, toUserId, toUserN
     if (!numAmount || numAmount <= 0) { setError('Enter a valid amount'); return; }
     if (!user) { setError('Please login first'); return; }
 
-    setSending(true);
-    let result = false;
+setSending(true);
+    let transferSuccess: boolean;
     if (tab === 'coins') {
       if (numAmount > coins) { setError('Insufficient coins'); setSending(false); return; }
-      result = await sendFromChat(user.id, user.name || 'User', chatId, toUserId, numAmount, 'GAGA', note);
+      transferSuccess = await sendFromChat(user.id, user.name || 'User', chatId, toUserId, numAmount, 'GAGA', note);
     } else {
       if (numAmount > usd) { setError('Insufficient USD balance'); setSending(false); return; }
-      result = await sendFromChat(user.id, user.name || 'User', chatId, toUserId, numAmount, 'USD', note);
+      transferSuccess = await sendFromChat(user.id, user.name || 'User', chatId, toUserId, numAmount, 'USD', note);
     }
     setSending(false);
-    if (result) {
+    if (transferSuccess) {
       setSuccess(`${tab === 'coins' ? numAmount + ' Gaga Coins' : '$' + numAmount.toFixed(2) + ' USD'} sent!`);
       setAmount('');
       setNote('');

@@ -502,6 +502,11 @@ const FK_COLUMN: Record<string, Record<string, string>> = {
   [COLLECTIONS.GROUPS]: {
     members: 'group_id',
   },
+  [COLLECTIONS.LIVE_STREAMS]: {
+    comments: 'stream_id',
+    gifts: 'stream_id',
+    signals: 'stream_id',
+  },
 };
 
 function fkColumn(parentTable: string, subTable: string): string {
@@ -624,20 +629,125 @@ export function subscribeToCollection<T = any>(
   const supabase = getDb();
   if (!supabase) return () => {};
 
-  const refetch = () =>
-    queryCollection<T>(table, constraints).then(onData).catch(() => {});
+  const getFieldValue = (obj: any, path: string) => {
+    if (!obj || !path) return undefined;
+    if (!path.includes('.')) return obj[path];
+    return path.split('.').reduce((acc, key) => (acc && typeof acc === 'object' ? acc[key] : undefined), obj);
+  };
 
-  // Initial fetch
+  const toComparable = (v: any) => {
+    if (v == null) return v;
+    if (v instanceof Date) return v.getTime();
+    if (typeof v === 'number') return v;
+    if (typeof v === 'string') {
+      const t = Date.parse(v);
+      return Number.isNaN(t) ? v : t;
+    }
+    return v;
+  };
+
+  const matchesWhere = (row: any, c: Extract<QueryConstraint, { _type: 'where' }>) => {
+    const v = getFieldValue(row, c.field);
+    switch (c.op) {
+      case '==': return v === c.value;
+      case '!=': return v !== c.value;
+      case '>': return toComparable(v) > toComparable(c.value);
+      case '>=': return toComparable(v) >= toComparable(c.value);
+      case '<': return toComparable(v) < toComparable(c.value);
+      case '<=': return toComparable(v) <= toComparable(c.value);
+      case 'in': return Array.isArray(c.value) && c.value.includes(v);
+      case 'array-contains': return Array.isArray(v) && v.includes(c.value);
+      case 'array-contains-any': return Array.isArray(v) && Array.isArray(c.value) && v.some((x) => c.value.includes(x));
+      default: return true;
+    }
+  };
+
+  const matchesWheres = (row: any) =>
+    constraints.every((c) => (c._type === 'where' ? matchesWhere(row, c) : true));
+
+  const applyOrderLimit = (items: (T & { id: string })[]) => {
+    let orderField: string | null = null;
+    let orderDir: 'asc' | 'desc' = 'asc';
+    let limitCount: number | null = null;
+    for (const c of constraints) {
+      if (c._type === 'orderBy') {
+        orderField = c.field;
+        orderDir = c.direction;
+      } else if (c._type === 'limit') {
+        limitCount = c.count;
+      }
+    }
+
+    let out = items;
+    if (orderField) {
+      out = [...out].sort((a: any, b: any) => {
+        const av = toComparable(getFieldValue(a, orderField!));
+        const bv = toComparable(getFieldValue(b, orderField!));
+        if (av === bv) return 0;
+        if (av == null) return orderDir === 'asc' ? -1 : 1;
+        if (bv == null) return orderDir === 'asc' ? 1 : -1;
+        return (av > bv ? 1 : -1) * (orderDir === 'asc' ? 1 : -1);
+      });
+    }
+    if (typeof limitCount === 'number') out = out.slice(0, limitCount);
+    return out;
+  };
+
+  const hasStartAfter = constraints.some((c) => c._type === 'startAfter');
+  let current: (T & { id: string })[] = [];
+
+  const refetch = async () => {
+    const data = await queryCollection<T>(table, constraints).catch(() => []);
+    current = data;
+    onData(current);
+  };
+
   refetch();
 
-  // Debounce realtime refetches to avoid a DB round-trip per keystroke/message
   let debounceTimer: ReturnType<typeof setTimeout> | null = null;
   const debouncedRefetch = () => {
     if (debounceTimer) clearTimeout(debounceTimer);
-    debounceTimer = setTimeout(refetch, 150);
+    debounceTimer = setTimeout(() => { refetch().catch(() => {}); }, 150);
   };
 
-  // Build realtime filter from first applicable constraint (eq or array-contains)
+  const handleChange = (payload: any) => {
+    if (hasStartAfter) {
+      debouncedRefetch();
+      return;
+    }
+
+    const eventType = payload?.eventType as string | undefined;
+    const newRow = payload?.new as Record<string, any> | null | undefined;
+    const oldRow = payload?.old as Record<string, any> | null | undefined;
+
+    const id = (newRow && (newRow as any).id) || (oldRow && (oldRow as any).id);
+    if (!id) return;
+
+    if (eventType === 'DELETE') {
+      current = current.filter((x) => x.id !== id);
+      onData(applyOrderLimit(current));
+      return;
+    }
+
+    if (!newRow) {
+      debouncedRefetch();
+      return;
+    }
+
+    const item = { ...toCamel(newRow), id } as T & { id: string };
+    const matches = matchesWheres(item);
+
+    const idx = current.findIndex((x) => x.id === id);
+    if (matches) {
+      if (idx >= 0) current[idx] = item;
+      else current.push(item);
+    } else if (idx >= 0) {
+      current.splice(idx, 1);
+    }
+
+    onData(applyOrderLimit(current));
+  };
+
   const filterC = constraints.find(
     (c): c is Extract<QueryConstraint, { _type: 'where' }> =>
       c._type === 'where' && (c.op === '==' || c.op === 'array-contains'),
@@ -656,7 +766,7 @@ export function subscribeToCollection<T = any>(
   const filterConfig = filter ? { filter } : {};
   const channel = supabase
     .channel(channelId)
-    .on('postgres_changes', { event: '*', schema: 'public', table, ...filterConfig }, debouncedRefetch)
+    .on('postgres_changes', { event: '*', schema: 'public', table, ...filterConfig }, handleChange)
     .subscribe();
 
   return () => {

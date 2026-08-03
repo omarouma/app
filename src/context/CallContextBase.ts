@@ -8,7 +8,7 @@ export interface CallContextValue {
   isMuted: boolean;
   isVideoOn: boolean;
   callDuration: number;
-  startCall: (user: { id: string }, mode: 'video' | 'voice') => Promise<string | undefined>;
+  startCall: (user: { id: string; currentUserId?: string }, mode: 'video' | 'voice') => Promise<string | undefined>;
   acceptCall: () => Promise<void>;
   endCall: () => Promise<void>;
   rejectCall: () => Promise<void>;

@@ -24,18 +24,15 @@ export default function VoiceRoomPage() {
   const rtc = useVoiceRoomRTC(roomId || '', user?.id || '');
   const { isMuted } = rtc;
 
-  const room = rooms.find(r => r.id === roomId) || activeRoom;
-  // eslint-disable-next-line react-hooks/preserve-manual-memoization
-  const isSpeaker = useMemo(() => {
-    return room && user?.id ? (room.speakerIds.includes(user.id) || room.hostId === user.id) : false;
-  }, [room, user?.id]);
+const room = rooms.find(r => r.id === roomId) || activeRoom;
+  const isSpeaker = useMemo(() => room && user?.id ? (room.speakerIds.includes(user.id) || room.hostId === user.id) : false, [room, user]);
   const [hasHandRaised, setHasHandRaised] = useState(false);
   const [showParticipants, setShowParticipants] = useState(false);
   const [showChat, setShowChat] = useState(false);
   const [chatMessages, setChatMessages] = useState<Array<{ id: string; userId: string; name: string; text: string; timestamp: Date }>>([]);
   const [chatInput, setChatInput] = useState('');
   const isHost = room?.hostId === user?.id;
-  const isCoHost = !!user?.id && room?.coHostIds.includes(user?.id) || false;
+const isCoHost = !!(user?.id && room?.coHostIds.includes(user.id));
   const canManage = isHost || isCoHost;
 
   // Start local audio stream when user becomes a speaker
@@ -155,7 +152,7 @@ export default function VoiceRoomPage() {
       {/* Header */}
       <div className="shrink-0 px-4 py-3 border-b border-[#1a1a1a] flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <button type="button" onClick={() => navigate('/voice-rooms')} className="p-2 -ml-2">
+          <button type="button" onClick={() => navigate('/voice-rooms')} className="p-2 -ml-2" aria-label="Back to voice rooms">
             <ChevronLeft size={22} />
           </button>
           <div className="min-w-0">
@@ -167,13 +164,13 @@ export default function VoiceRoomPage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <button type="button" onClick={() => setShowParticipants(!showParticipants)} className="p-2 rounded-full bg-[#1a1a1a]">
+          <button type="button" onClick={() => setShowParticipants(!showParticipants)} className="p-2 rounded-full bg-[#1a1a1a]" aria-label="Toggle participants list">
             <Users size={18} />
           </button>
-          <button type="button" onClick={() => setShowChat(!showChat)} className="p-2 rounded-full bg-[#1a1a1a]">
+          <button type="button" onClick={() => setShowChat(!showChat)} className="p-2 rounded-full bg-[#1a1a1a]" aria-label="Toggle room chat">
             <MessageSquare size={18} />
           </button>
-          <button type="button" className="p-2 rounded-full bg-[#1a1a1a]">
+          <button type="button" className="p-2 rounded-full bg-[#1a1a1a]" aria-label="More options">
             <MoreHorizontal size={18} />
           </button>
         </div>
@@ -266,10 +263,11 @@ export default function VoiceRoomPage() {
       <div className="shrink-0 px-4 py-4 border-t border-[#1a1a1a]">
         <div className="flex items-center justify-center gap-4">
           {/* Mute toggle - uses real WebRTC */}
-          {isSpeaker && (
+{isSpeaker && (
             <button
               type="button"
               onClick={rtc.toggleMute}
+              aria-label={rtc.isMuted ? 'Unmute microphone' : 'Mute microphone'}
               className={`w-14 h-14 rounded-full flex items-center justify-center transition-colors ${
                 rtc.isMuted ? 'bg-[#FF3B30]/20 text-[#FF3B30]' : 'bg-[#00C300]/20 text-[#00C300]'
               }`}
@@ -283,6 +281,7 @@ export default function VoiceRoomPage() {
             <button
               type="button"
               onClick={handleRaiseHand}
+              aria-label={hasHandRaised ? 'Lower hand' : 'Raise hand'}
               className={`w-14 h-14 rounded-full flex items-center justify-center transition-colors ${
                 hasHandRaised ? 'bg-[#00C300]/20 text-[#00C300]' : 'bg-[#1a1a1a] text-white'
               }`}
@@ -296,6 +295,7 @@ export default function VoiceRoomPage() {
             <button
               type="button"
               onClick={handleEndRoom}
+              aria-label="End room"
               className="w-14 h-14 rounded-full bg-[#FF3B30] flex items-center justify-center text-white"
             >
               <PhoneOff size={24} />
@@ -304,6 +304,7 @@ export default function VoiceRoomPage() {
             <button
               type="button"
               onClick={handleLeave}
+              aria-label="Leave room"
               className="w-14 h-14 rounded-full bg-[#FF3B30] flex items-center justify-center text-white"
             >
               <PhoneOff size={24} />

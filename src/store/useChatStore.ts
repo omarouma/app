@@ -17,7 +17,6 @@ import {
   subscribeToSubcollection,
   serverTimestamp,
   increment,
-  batchWrite,
 } from '@/lib/firestore';
 import type { Chat, Message, MessageType, PollData, TransferData, PinnedMessage } from '@/types';
 import { checkMessageRateLimit } from '@/hooks/useMessageRateLimiter';
@@ -200,31 +199,46 @@ export const useChatStore = create<ChatStore>((set, get) => ({
 
     let unsub: (() => void) | null = null;
     try {
-      // Order by createdAt (client-set Date) so pending writes with serverTimestamp() sentinel
-      // don't sort to the top before the server resolves the timestamp
-      unsub = subscribeToSubcollection(COLLECTIONS.CHATS, chatId, COLLECTIONS.MESSAGES, [orderBy('createdAt', 'asc')], (data) => {
-        const incoming = (data || []).map((d) => mapMessage(d));
-        set((s) => {
-          const existing = s.messages[chatId] || [];
-          // Merge server messages with existing optimistic messages (localId)
-          // Server messages replace by id; optimistic local messages (with localId) are preserved and appended
-          const serverMap = new Map<string, Message>();
-          incoming.forEach((m) => serverMap.set(m.id, m));
+      // Fetch newest-first (bounded by limit) then reverse for chronological UI.
+      // This keeps the subscription window on the *most recent* messages and avoids
+      // unbounded growth on long-lived chats. Optimistic local messages are preserved.
+      unsub = subscribeToSubcollection(
+        COLLECTIONS.CHATS,
+        chatId,
+        COLLECTIONS.MESSAGES,
+        [orderBy('createdAt', 'desc'), limit(100)],
+        (data) => {
+          const raw = data || [];
+          set((s) => {
+            const existing = s.messages[chatId] || [];
+            const merged: Message[] = [];
+            const seenIds = new Set<string>();
+            const seenLocalIds = new Set<string>();
 
-          const merged: Message[] = [];
-          // Add server messages in order
-          incoming.forEach((m) => merged.push(m));
+            // Server messages come back newest-first from the query → reverse for display
+            for (let i = raw.length - 1; i >= 0; i--) {
+              const m = mapMessage(raw[i]);
+              if (seenIds.has(m.id)) continue;
+              seenIds.add(m.id);
+              if (m.localId) seenLocalIds.add(m.localId);
+              merged.push(m);
+            }
 
-          // Preserve optimistic local messages that haven't been confirmed yet
-          const optimistic = existing.filter((m) => m.localId && !merged.some((mm) => mm.localId === m.localId));
-          if (optimistic.length > 0) merged.push(...optimistic);
+            // Preserve optimistic local messages that haven't been confirmed yet
+            for (const m of existing) {
+              if (m.localId && !seenLocalIds.has(m.localId) && !seenIds.has(m.id)) {
+                merged.push(m);
+                seenLocalIds.add(m.localId);
+              }
+            }
 
-          return {
-            messages: { ...s.messages, [chatId]: merged },
-            hasMore: { ...s.hasMore, [chatId]: (data || []).length >= 50 },
-          };
-        });
-      });
+            return {
+              messages: { ...s.messages, [chatId]: merged },
+              hasMore: { ...s.hasMore, [chatId]: raw.length >= 100 },
+            };
+          });
+        },
+      );
     } catch {
       // ignore
     }
@@ -413,13 +427,17 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       // Fast path: reset chat-level counters
       await updateDocById(COLLECTIONS.CHATS, chatId, { unreadCount: 0, lastMessageRead: true });
       if (currentUserId) {
-        const msgs = await querySubcollection(COLLECTIONS.CHATS, chatId, COLLECTIONS.MESSAGES, [
-          where('senderId', '!=', currentUserId),
+        // PostgREST-safe query: a single filter (read == false) with a limit.
+        // Supabase cannot combine `neq` + `eq` on a subcollection without a
+        // composite index, so we filter senderId in-memory instead.
+        const unread = await querySubcollection(COLLECTIONS.CHATS, chatId, COLLECTIONS.MESSAGES, [
           where('read', '==', false),
-          limit(50),
+          limit(100),
         ]);
-        if (msgs.length > 0) {
-          const unreadIds = msgs.map((m) => m.id);
+        const unreadIds = unread
+          .filter((m) => (m as Record<string, unknown>).senderId !== currentUserId)
+          .map((m) => m.id);
+        if (unreadIds.length > 0) {
           // Optimistic update
           set((s) => ({
             messages: {
@@ -429,13 +447,11 @@ export const useChatStore = create<ChatStore>((set, get) => ({
               ),
             },
           }));
-          // Batch all read:true updates
-          await batchWrite(
-            unreadIds.map((msgId) => ({
-              collection: `${COLLECTIONS.CHATS}/${chatId}/${COLLECTIONS.MESSAGES}`,
-              docId: msgId,
-              data: { read: true },
-            }))
+          // Mark each unread message as read via the subcollection helper
+          await Promise.all(
+            unreadIds.map((msgId) =>
+              updateSubcollectionDoc(COLLECTIONS.CHATS, chatId, COLLECTIONS.MESSAGES, msgId, { read: true })
+            )
           );
         }
       }
@@ -485,7 +501,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       if (current.length === 0) return;
       const oldest = current[0];
       const data = await querySubcollection(COLLECTIONS.CHATS, chatId, COLLECTIONS.MESSAGES, [
-        orderBy('timestamp', 'desc'),
+        orderBy('createdAt', 'desc'),
         startAfter(oldest.timestamp),
         limit(50),
       ]);

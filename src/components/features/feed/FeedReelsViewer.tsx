@@ -76,10 +76,11 @@ export default function FeedReelsViewer({ onClose }: FeedReelsViewerProps) {
     }
   }, [loading, searchingExternal, feedType, reels.length, searchExternalVideos]);
 
-  // ─── Clear external reels when switching to 'following' ───
+  // ─── Clear external reels when switching to 'following'; reset load flag when switching back ───
   useEffect(() => {
     if (feedType === 'following') {
       clearExternalReels();
+      loadedExternalRef.current = false;
     }
   }, [feedType, clearExternalReels]);
 

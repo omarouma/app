@@ -97,11 +97,11 @@ export default function YouTubeFeed() {
     }
   }, [videoSource, activeCategory]);
 
-  const handleSearch = async (e?: React.FormEvent) => {
+  const handleSearch = (e?: React.FormEvent) => {
     e?.preventDefault();
-    if (!searchQuery.trim()) { loadVideos(); return; }
+    if (!searchQuery.trim()) { void loadVideos(); return; }
     setActiveCategory(0);
-    loadVideos(searchQuery.trim());
+    void loadVideos(searchQuery.trim());
   };
 
   const handleRefresh = () => {
@@ -206,7 +206,7 @@ export default function YouTubeFeed() {
             className="w-full bg-[#1a1a1a] text-white pl-9 pr-9 py-2.5 rounded-xl text-sm placeholder:text-[#8D8D8D] focus:outline-none focus:ring-2 focus:ring-red-500/50"
           />
           {searchQuery && (
-            <button type="button" onClick={() => { setSearchQuery(''); loadVideos(); }}
+            <button type="button" onClick={() => { setSearchQuery(''); void loadVideos(); }}
               className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8D8D8D] hover:text-white">
               <X size={14} />
             </button>

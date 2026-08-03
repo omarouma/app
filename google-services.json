@@ -1,0 +1,40 @@
+{
+  "project_info": {
+    "project_number": "545448312835",
+    "firebase_url": "https://oumagachat-default-rtdb.asia-southeast1.firebasedatabase.app",
+    "project_id": "oumagachat",
+    "storage_bucket": "oumagachat.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:545448312835:android:d57316588ac5a8f9cd8e36",
+        "android_client_info": {
+          "package_name": "gagachat.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "545448312835-tj9n8msagdijgjae3ol5pqqvg910opih.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDae1gz_UQ0jHMyekzLkHpBJaauha_xgQM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "545448312835-tj9n8msagdijgjae3ol5pqqvg910opih.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

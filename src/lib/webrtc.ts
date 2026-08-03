@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { getSupabase, isSupabaseConfigured } from './supabase';
 import { getFirestoreDB } from './firebase';
 import { subscribeToDoc, setDocById, updateDocById, arrayUnion } from './firestore';
@@ -12,7 +11,7 @@ interface SignalingData {
   calleeIce?: RTCIceCandidateInit[];
 }
 
-function getIceServers(): RTCIceServer[] {
+export function getIceServers(): RTCIceServer[] {
   const servers: RTCIceServer[] = [
     { urls: 'stun:stun.l.google.com:19302' },
     { urls: 'stun:stun1.l.google.com:19302' },
@@ -116,10 +115,18 @@ export class WebRTCCall {
         }
       }
       if (s === 'disconnected') {
-        // Give 5s for ICE to recover before ending
+        // Attempt an ICE restart to recover the media path before giving up.
+        try {
+          if (this._pc && this._pc.signalingState !== 'closed') {
+            this._pc.restartIce();
+          }
+        } catch { /* ignore */ }
+        // Give the restart 8s to re-establish the connection before ending.
         setTimeout(() => {
-          if (this._pc?.iceConnectionState === 'disconnected') this.setState('ended');
-        }, 5000);
+          if (this._pc?.iceConnectionState === 'disconnected') {
+            this.setState('ended');
+          }
+        }, 8000);
       }
     };
 
@@ -148,45 +155,35 @@ export class WebRTCCall {
     try {
       // navigator.permissions may not support 'microphone' everywhere
       // If query fails, fall back to calling getUserMedia which will surface the proper error
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const permApi = (navigator as any).permissions;
+      const permApi = (navigator as unknown as { permissions?: { query: (desc: PermissionDescriptor) => Promise<PermissionStatus> } }).permissions;
       if (permApi && typeof permApi.query === 'function') {
         try {
           const micPerm = await navigator.permissions.query({ name: 'microphone' as PermissionName });
           if (micPerm.state === 'denied') throw new Error('Microphone permission denied');
-        } catch (err) {
-          // Ignore permission query errors and proceed to getUserMedia
-        }
+        } catch { /* ignore */ }
       }
-    } catch (e) {
-      // Continue to getUserMedia; browsers will prompt as needed
-    }
+    } catch { /* ignore */ }
 
     try {
       this.localStream = await navigator.mediaDevices.getUserMedia(constraints);
-    if (this.onLocalStream && this.localStream) this.onLocalStream(this.localStream);
+      if (this.onLocalStream && this.localStream) this.onLocalStream(this.localStream);
 
-    const pc = this.ensurePeerConnection();
-    // Prefer transceivers when available to have better control over SDP and direction
-    try {
-      // If browser supports addTransceiver use it for predictable behavior
-      if (typeof pc.addTransceiver === 'function') {
-        for (const track of this.localStream.getTracks()) {
-          try {
-            pc.addTransceiver(track, { direction: 'sendrecv' });
-          } catch {
+      const pc = this.ensurePeerConnection();
+      // Prefer transceivers when available to have better control over SDP and direction
+      try {
+        // If browser supports addTransceiver use it for predictable behavior
+        if (typeof pc.addTransceiver === 'function') {
+          for (const track of this.localStream.getTracks()) {
+            try {
+              pc.addTransceiver(track, { direction: 'sendrecv' });
+            } catch { /* ignore */ }
+          }
+        } else {
+          for (const track of this.localStream.getTracks()) {
             pc.addTrack(track, this.localStream);
           }
         }
-      } else {
-        for (const track of this.localStream.getTracks()) {
-          pc.addTrack(track, this.localStream);
-        }
-      }
-    } catch (e) {
-      // Fallback to simple addTrack on any unexpected error
-      for (const track of this.localStream.getTracks()) pc.addTrack(track, this.localStream);
-    }
+      } catch { /* ignore */ }
     } catch (e) {
       // Bubble a friendly error to caller
       const err = e instanceof Error ? e : new Error('Failed to access media devices');
@@ -201,13 +198,10 @@ export class WebRTCCall {
     const supabase = getSupabase();
     if (!supabase) return;
 
-    // Ensure signaling row exists
+    // Ensure signaling row exists WITHOUT wiping an existing offer/answer/ICE
+    // (upsert only sets the provided columns — new rows get the DB defaults).
     await supabase.from('call_signaling').upsert({
       call_id: this.callId,
-      offer: null,
-      answer: null,
-      caller_ice: [],
-      callee_ice: [],
       updated_at: new Date().toISOString(),
     }, { onConflict: 'call_id' });
 
@@ -220,16 +214,37 @@ export class WebRTCCall {
         table: 'call_signaling',
         filter: `call_id=eq.${this.callId}`,
       }, async (payload) => {
-        const data = payload.new as any;
+        const data = payload.new as Record<string, unknown> | null;
         if (!data) return;
         await this.handleSignalingData({
+          offer: data.offer as { sdp: string; type: string } | undefined,
+          answer: data.answer as { sdp: string; type: string } | undefined,
+          callerIce: (data.caller_ice as RTCIceCandidateInit[]) || [],
+          calleeIce: (data.callee_ice as RTCIceCandidateInit[]) || [],
+        });
+      })
+      .subscribe();
+
+    // Supabase realtime does NOT replay the current row on subscribe.
+    // Fetch the existing offer/answer once so a callee that joins after the
+    // offer was written still receives it.
+    Promise.resolve(
+      supabase
+        .from('call_signaling')
+        .select('offer, answer, caller_ice, callee_ice')
+        .eq('call_id', this.callId)
+        .single()
+    )
+      .then(({ data }) => {
+        if (!data || !this.callId) return;
+        void this.handleSignalingData({
           offer: data.offer,
           answer: data.answer,
           callerIce: data.caller_ice || [],
           calleeIce: data.callee_ice || [],
         });
       })
-      .subscribe();
+      .catch(() => { /* row may not exist yet — caller writes it next */ });
 
     this.signalingUnsub = () => supabase.removeChannel(channel);
   }
@@ -267,9 +282,7 @@ export class WebRTCCall {
         }
         this.pendingIce = [];
         this.lastCalleeIceCount = (sig.calleeIce || []).length;
-      } catch (e) {
-        void e;
-      }
+      } catch { /* ignore */ }
     } else if (!this.isCaller && sig.offer && !this.remoteDescSet) {
       try {
         await pc.setRemoteDescription(new RTCSessionDescription(sig.offer as RTCSessionDescriptionInit));
@@ -284,9 +297,7 @@ export class WebRTCCall {
         }
         this.pendingIce = [];
         this.lastCallerIceCount = (sig.callerIce || []).length;
-      } catch (e) {
-        void e;
-      }
+      } catch { /* ignore */ }
     }
 
     // Handle new ICE candidates after remote description is set
@@ -299,7 +310,7 @@ export class WebRTCCall {
         for (const ice of newIce) {
           try {
             await pc.addIceCandidate(new RTCIceCandidate(ice));
-          } catch (e) { void e; }
+          } catch { /* ignore */ }
         }
         if (this.isCaller) this.lastCalleeIceCount = currentCount;
         else this.lastCallerIceCount = currentCount;
@@ -368,7 +379,7 @@ export class WebRTCCall {
           .select(field)
           .eq('call_id', this.callId)
           .single();
-        const existing = (current as any)?.[field] || [];
+        const existing = ((current as Record<string, unknown>)?.[field] as RTCIceCandidateInit[] | undefined) || [];
         await supabase.from('call_signaling').update({
           [field]: [...existing, candidate],
           updated_at: new Date().toISOString(),
@@ -419,7 +430,7 @@ export class WebRTCCall {
       if (!e.candidate || !this.callId) return;
       try {
         await this.appendIceCandidate(e.candidate.toJSON(), true);
-      } catch (err) { void err; }
+      } catch { /* ignore */ }
     };
 
     return callId;
@@ -441,7 +452,7 @@ export class WebRTCCall {
       if (!e.candidate || !this.callId) return;
       try {
         await this.appendIceCandidate(e.candidate.toJSON(), false);
-      } catch (err) { void err; }
+      } catch { /* ignore */ }
     };
 
     return callId;
@@ -457,15 +468,11 @@ export class WebRTCCall {
       if (this.localStream) {
         for (const t of this.localStream.getTracks()) t.stop();
       }
-    } catch (e) {
-      void e;
-    }
+    } catch { /* ignore */ }
 
     try {
       this._pc?.close();
-    } catch (e) {
-      void e;
-    }
+    } catch { /* ignore */ }
 
     this.localStream = null;
     this.remoteStream = null;
@@ -517,3 +524,4 @@ export class WebRTCCall {
       .catch(() => { /* camera flip not supported on this device */ });
   }
 }
+

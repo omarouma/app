@@ -16,9 +16,11 @@ export function getDefaultAvatar(seed: string): string {
 export function sanitizeMediaUrl(url: string | undefined | null): string {
   if (!url) return '';
   const trimmed = url.trim();
-  // Block dangerous URI schemes
+  if (!trimmed) return '';
+
   const lower = trimmed.toLowerCase();
-  if (lower.startsWith('javascript:') || lower.startsWith('vbscript:') || lower.startsWith('data:text') || lower.startsWith('data:application')) return '';
+  const blockedPrefixes = ['javascript:', 'vbscript:', 'data:text', 'data:application'];
+  if (blockedPrefixes.some((prefix) => lower.startsWith(prefix))) return '';
   if (trimmed.startsWith('blob:')) return trimmed;
   if (trimmed.startsWith('data:image/')) return trimmed;
   if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) return trimmed;

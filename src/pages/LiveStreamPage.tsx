@@ -4,13 +4,14 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   ChevronLeft, Users, Heart, Flame, Star, ThumbsUp, Smile, Hand,
   MessageSquare, Gift, Share2, Monitor, PhoneOff, Zap, X, Crown,
-  Send, Pin, Radio, Video, Copy, Check
+  Send, Pin, Radio, Video, Copy, Check, Mic, MicOff, VideoOff, RotateCw,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useLiveStore } from '@/store/useLiveStore';
 import { useWalletStore } from '@/store/useWalletStore';
 import { getDefaultAvatar } from '@/lib/utils';
 import { getDocById, updateDocById, runDbTransaction, COLLECTIONS } from '@/lib/firestore';
+import { useLiveStreamRTC } from '@/hooks/useLiveStreamRTC';
 import { toast } from 'sonner';
 import type { LiveStream, LiveComment, LiveReactions } from '@/types';
 
@@ -84,7 +85,6 @@ export default function LiveStreamPage() {
   const [showGiftPanel, setShowGiftPanel] = useState(false);
   const [showShareSheet, setShowShareSheet] = useState(false);
   const [reactionBubbles, setReactionBubbles] = useState<Array<{ id: string; key: string; x: number; color: string }>>([]);
-  const [isScreenSharing, setIsScreenSharing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [showChat, setShowChat] = useState(false);
   const [pinnedComment, setPinnedComment] = useState<LiveComment | null>(null);
@@ -93,10 +93,50 @@ export default function LiveStreamPage() {
 
   const chatRef = useRef<HTMLDivElement>(null);
   const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const remoteVideoRef = useRef<HTMLVideoElement>(null);
+  const localVideoRef = useRef<HTMLVideoElement>(null);
 
   const joinedAsViewer = useRef(false);
 
-  const isBroadcaster = stream?.userId === user?.id;
+  const isBroadcaster = !!stream && stream.userId === user?.id;
+
+  // ─── Real WebRTC streaming ──────────────────────────────────────────────
+  const rtc = useLiveStreamRTC(streamId || '', user?.id || '', isBroadcaster, stream?.userId);
+
+  // Attach remote stream to the viewer video element
+  useEffect(() => {
+    if (remoteVideoRef.current && rtc.remoteStream) {
+      remoteVideoRef.current.srcObject = rtc.remoteStream;
+    }
+  }, [rtc.remoteStream]);
+
+  // Attach local stream to the broadcaster preview element
+  useEffect(() => {
+    if (localVideoRef.current && rtc.localStream) {
+      localVideoRef.current.srcObject = rtc.localStream;
+    }
+  }, [rtc.localStream]);
+
+  // Broadcaster: start camera + mic once the stream record is loaded
+  useEffect(() => {
+    if (isBroadcaster && stream && user?.id && !rtc.isLive && !rtc.error) {
+      rtc.startBroadcast();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isBroadcaster, stream]);
+
+  // Viewer: create WebRTC offer toward the broadcaster
+  useEffect(() => {
+    if (!isBroadcaster && stream && user?.id && stream.isLive && !rtc.isConnecting && !rtc.remoteStream) {
+      rtc.joinStream();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isBroadcaster, stream]);
+
+  // Surface RTC errors
+  useEffect(() => {
+    if (rtc.error) toast.error(rtc.error);
+  }, [rtc.error]);
 
   /* Responsive desktop check */
   useEffect(() => {
@@ -106,9 +146,7 @@ export default function LiveStreamPage() {
     return () => window.removeEventListener('resize', check);
   }, []);
 
-  /* Fetch stream, join viewer, subscribe wallet.
-     NOTE: polling removed (Fix 9). We keep a tiny fallback interval only if subscription APIs are unavailable.
-  */
+  /* Fetch stream, join viewer, subscribe wallet. */
   useEffect(() => {
     if (!streamId || !user?.id) return;
 
@@ -123,7 +161,6 @@ export default function LiveStreamPage() {
       if (s) {
         setStream(s);
         setComments(s.comments || []);
-        setIsScreenSharing(s.isScreenSharing || false);
 
         if (s.pinnedComment) {
           const pinned = (s.comments || []).find((c) => c.id === s.pinnedComment);
@@ -144,8 +181,7 @@ export default function LiveStreamPage() {
 
     const unsubWallet = subscribeWallet(userId);
 
-    // Fallback polling (Fix 14): in case store doesn't provide active subscription in this build.
-    // Exponential backoff with cap.
+    // Fallback polling in case subscription APIs are unavailable
     let cancelled = false;
     const maxBackoffMs = 15000;
     let attempt = 0;
@@ -156,9 +192,7 @@ export default function LiveStreamPage() {
         const s = await getStreamById(streamId);
         if (!mounted || !s) return;
 
-        // Only update if it looks like data changed to avoid extra renders.
         setStream(s);
-        setIsScreenSharing(s.isScreenSharing || false);
 
         setComments((prev) => {
           const serverIds = new Set(s.comments.map((c) => c.id));
@@ -180,39 +214,23 @@ export default function LiveStreamPage() {
           navigate('/live-streams');
         }
 
-        // If we successfully got live updates, stop polling after first successful refresh.
-        // (Subscription should take over in the updated store.)
         attempt += 1;
       } catch {
         // ignore
       }
 
-      // continue polling only a few times
       if (attempt < 2 && !cancelled) {
         const delay = Math.min(3000 * Math.pow(2, attempt), maxBackoffMs);
         pollRef.current = setTimeout(pollOnce, delay);
-
       }
     };
 
-
     pollOnce();
-
 
     return () => {
       mounted = false;
       cancelled = true;
-
-      if (pollRef.current) {
-        if (pollRef.current) {
-          clearTimeout(pollRef.current);
-        }
-
-        // pollRef holds timeout id
-        clearTimeout(pollRef.current);
-
-
-      }
+      if (pollRef.current) clearTimeout(pollRef.current);
 
       if (joinedAsViewer.current && streamId) {
         leaveLive(streamId, userId);
@@ -269,7 +287,7 @@ export default function LiveStreamPage() {
     const config = REACTIONS.find((r) => r.key === key);
     reactionCounter.current += 1;
     const id = `reaction_${reactionCounter.current}`;
-     
+
     setReactionBubbles((prev) => [...prev, { id, key, x: Math.random() * 60 + 20, color: config?.color || '#00C300' }]);
     setTimeout(() => {
       setReactionBubbles((prev) => prev.filter((r) => r.id !== id));
@@ -303,14 +321,15 @@ export default function LiveStreamPage() {
 
   const handleToggleScreenShare = async () => {
     if (!streamId || !isBroadcaster) return;
-    const next = !isScreenSharing;
-    setIsScreenSharing(next);
+    const next = !rtc.isScreenSharing;
+    await rtc.toggleScreenShare();
     await toggleScreenShare(streamId, next);
   };
 
   const handleEndStream = async () => {
     if (!streamId || !isBroadcaster) return;
     if (!window.confirm('End your live stream?')) return;
+    rtc.leaveStream();
     await endLive(streamId);
     await saveReplay(streamId, '');
     toast.success('Stream ended');
@@ -319,6 +338,7 @@ export default function LiveStreamPage() {
 
   const handleLeave = async () => {
     if (!streamId || !user?.id) return;
+    rtc.leaveStream();
     if (!isBroadcaster) {
       await leaveLive(streamId, user.id);
     }
@@ -372,23 +392,43 @@ export default function LiveStreamPage() {
 
   return (
     <div className="h-[100dvh] bg-[#0d0d0d] text-white flex flex-col md:flex-row overflow-hidden">
-      {/* Video / Stream Placeholder Area */}
+      {/* Video / Stream Area */}
       <div className="relative flex-1 bg-black flex flex-col min-h-0">
-        <div className="relative flex-1 flex items-center justify-center bg-gradient-to-br from-[#0d0d0d] to-[#1a1a1a]">
-          <div className="text-center">
-            <motion.div
-              animate={{ opacity: [0.5, 1, 0.5] }}
-              transition={{ repeat: Infinity, duration: 2 }}
-            >
-              <Video size={48} className="text-[#8D8D8D] mx-auto mb-3" />
-            </motion.div>
-            <p className="text-[#8D8D8D] text-sm font-medium">{isBroadcaster ? 'You are live' : 'Live Stream'}</p>
-            {isScreenSharing && (
-              <p className="text-[#00C300] text-xs mt-1 flex items-center justify-center gap-1">
-                <Monitor size={12} /> Screen Sharing
+        <div className="relative flex-1 flex items-center justify-center bg-black overflow-hidden">
+          {/* Real WebRTC video — broadcaster sees local preview, viewers see the stream */}
+          {isBroadcaster ? (
+            <video
+              ref={localVideoRef}
+              autoPlay muted playsInline
+              className="absolute inset-0 w-full h-full object-cover"
+            />
+          ) : (
+            <video
+              ref={remoteVideoRef}
+              autoPlay playsInline
+              className="absolute inset-0 w-full h-full object-cover"
+            />
+          )}
+
+          {/* Fallback poster while connecting */}
+          {!isBroadcaster && !rtc.remoteStream && (
+            <div className="relative z-10 text-center">
+              <motion.div
+                animate={{ opacity: [0.5, 1, 0.5] }}
+                transition={{ repeat: Infinity, duration: 2 }}
+              >
+                <Video size={48} className="text-[#8D8D8D] mx-auto mb-3" />
+              </motion.div>
+              <p className="text-[#8D8D8D] text-sm font-medium">
+                {rtc.isConnecting ? 'Connecting to stream…' : 'Live Stream'}
               </p>
-            )}
-          </div>
+              {rtc.isScreenSharing && (
+                <p className="text-[#00C300] text-xs mt-1 flex items-center justify-center gap-1">
+                  <Monitor size={12} /> Screen Sharing
+                </p>
+              )}
+            </div>
+          )}
 
           {/* Floating reaction bubbles */}
           <AnimatePresence>
@@ -410,7 +450,7 @@ export default function LiveStreamPage() {
           </AnimatePresence>
 
           {/* Top overlay info */}
-          <div className="absolute top-0 left-0 right-0 p-4 bg-gradient-to-b from-black/70 to-transparent">
+          <div className="absolute top-0 left-0 right-0 p-4 bg-gradient-to-b from-black/70 to-transparent z-20">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2 min-w-0">
                 <button type="button" onClick={handleLeave} className="p-2 rounded-full bg-black/40 backdrop-blur-sm shrink-0">
@@ -426,17 +466,27 @@ export default function LiveStreamPage() {
               </div>
               <div className="flex items-center gap-2 shrink-0">
                 <div className="bg-black/40 backdrop-blur-sm px-2.5 py-1 rounded-full text-xs flex items-center gap-1">
-                  <Users size={12} /> {stream.viewerCount || 0}
+                  <Users size={12} /> {isBroadcaster ? rtc.viewers.length : stream.viewerCount || 0}
                 </div>
                 {isBroadcaster && (
-                  <button
-                    type="button"
-                    onClick={handleToggleScreenShare}
-                    className={`p-2 rounded-full backdrop-blur-sm ${isScreenSharing ? 'bg-[#00C300]/40 text-[#00C300]' : 'bg-black/40'}`}
-                    title="Toggle screen share"
-                  >
-                    <Monitor size={18} />
-                  </button>
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => rtc.flipCamera()}
+                      className="p-2 rounded-full bg-black/40 backdrop-blur-sm"
+                      title="Flip camera"
+                    >
+                      <RotateCw size={18} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleToggleScreenShare}
+                      className={`p-2 rounded-full backdrop-blur-sm ${rtc.isScreenSharing ? 'bg-[#00C300]/40 text-[#00C300]' : 'bg-black/40'}`}
+                      title="Toggle screen share"
+                    >
+                      <Monitor size={18} />
+                    </button>
+                  </>
                 )}
                 <button type="button" onClick={() => setShowShareSheet(true)} className="p-2 rounded-full bg-black/40 backdrop-blur-sm">
                   <Share2 size={18} />
@@ -451,9 +501,29 @@ export default function LiveStreamPage() {
           </div>
 
           {/* Bottom overlay controls */}
-          <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/70 to-transparent">
+          <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/70 to-transparent z-20">
             {isBroadcaster ? (
               <div className="flex items-center justify-center gap-4">
+                <button
+                  type="button"
+                  onClick={rtc.toggleMute}
+                  className={`w-12 h-12 rounded-full flex items-center justify-center backdrop-blur-sm ${
+                    rtc.isMuted ? 'bg-[#FF3B30]/70 text-white' : 'bg-black/40 text-white'
+                  }`}
+                  title={rtc.isMuted ? 'Unmute' : 'Mute'}
+                >
+                  {rtc.isMuted ? <MicOff size={20} /> : <Mic size={20} />}
+                </button>
+                <button
+                  type="button"
+                  onClick={rtc.toggleCamera}
+                  className={`w-12 h-12 rounded-full flex items-center justify-center backdrop-blur-sm ${
+                    rtc.isCameraOff ? 'bg-[#FF3B30]/70 text-white' : 'bg-black/40 text-white'
+                  }`}
+                  title={rtc.isCameraOff ? 'Turn camera on' : 'Turn camera off'}
+                >
+                  {rtc.isCameraOff ? <VideoOff size={20} /> : <Video size={20} />}
+                </button>
                 <button
                   type="button"
                   onClick={handleEndStream}
@@ -683,3 +753,4 @@ export default function LiveStreamPage() {
     </div>
   );
 }
+

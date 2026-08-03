@@ -46,6 +46,12 @@ const stats = [
   { value: 'Early', labelKey: 'earlyAccess' },
 ];
 
+const highlights = [
+  'Private by design',
+  'No VPN required',
+  'Creator monetization',
+];
+
 export default function LandingView() {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -82,18 +88,18 @@ export default function LandingView() {
               <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
                 className="inline-flex items-center gap-2 bg-[#00C300]/10 border border-[#00C300]/20 rounded-full px-4 py-1.5 mb-4">
                 <span className="w-2 h-2 rounded-full bg-[#00C300] animate-pulse" />
-                <span className="text-[#00C300] text-sm font-medium">Early Access — Be a Founding User</span>
+                <span className="text-[#00C300] text-sm font-medium">Trusted global communication platform</span>
               </motion.div>
 
               <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-[#111111] leading-tight mb-6">
-                {t('welcome')}
+                Modern messaging, calls, and creator tools in one app.
               </h1>
-              <p className="text-[#8D8D8D] text-base sm:text-lg max-w-lg mb-8 leading-relaxed">
-                {t('welcomeMessage')}
+              <p className="text-[#8D8D8D] text-base sm:text-lg max-w-xl mb-8 leading-relaxed">
+                GaGa Chat brings private conversations, high-quality voice and video, live experiences, and monetization tools together for people, teams, and creators worldwide.
               </p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
                 <button type="button" onClick={() => navigate('/auth')}
-                  className="bg-[#00C300] hover:bg-[#00A300] text-white rounded-full px-8 py-4 text-base font-bold transition-colors flex items-center justify-center gap-2"
+                  className="bg-[#00C300] hover:bg-[#00A300] text-white rounded-full px-8 py-4 text-base font-bold transition-all shadow-lg shadow-[#00C300]/20 hover:shadow-[#00C300]/30 flex items-center justify-center gap-2"
                 >
                   {t('getStarted')} <ArrowRight size={18} />
                 </button>
@@ -112,15 +118,36 @@ export default function LandingView() {
                   </a>
                 )}
               </div>
-              {/* App Store Badges */}
-              <div className="mt-6 flex items-center gap-4 justify-center lg:justify-start">
-                <div className="flex items-center gap-2 text-[#8D8D8D] text-xs">
-                  <span className="w-8 h-8 rounded-lg bg-black flex items-center justify-center text-white text-[10px] font-bold">App<br/>Store</span>
-                  <span>{t('comingSoon')}</span>
+
+              <div className="mt-6 flex flex-wrap items-center gap-3 justify-center lg:justify-start">
+                {highlights.map((item) => (
+                  <div key={item} className="rounded-full border border-[#EBEBEB] bg-white/80 px-3 py-1.5 text-sm text-[#4B4B4B] shadow-sm">
+                    {item}
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-8 rounded-2xl border border-[#EBEBEB] bg-white/90 p-4 shadow-sm max-w-xl mx-auto lg:mx-0">
+                <div className="flex items-center justify-between text-sm mb-3">
+                  <span className="font-semibold text-[#111111]">Built for reliability</span>
+                  <span className="text-[#00C300] font-medium">No VPN required</span>
                 </div>
-                <div className="flex items-center gap-2 text-[#8D8D8D] text-xs">
-                  <span className="w-8 h-8 rounded-lg bg-[#00C300] flex items-center justify-center text-white text-[10px] font-bold">Play<br/>Store</span>
-                  <span>{t('comingSoon')}</span>
+                <div className="grid sm:grid-cols-3 gap-3">
+                  <div className="rounded-xl bg-[#F5F5F5] p-3 text-left">
+                    <Shield size={16} className="text-[#00C300] mb-2" />
+                    <p className="text-sm font-semibold text-[#111111]">Secure</p>
+                    <p className="text-xs text-[#8D8D8D]">Protected by design</p>
+                  </div>
+                  <div className="rounded-xl bg-[#F5F5F5] p-3 text-left">
+                    <Globe size={16} className="text-[#00C300] mb-2" />
+                    <p className="text-sm font-semibold text-[#111111]">Global</p>
+                    <p className="text-xs text-[#8D8D8D]">Works worldwide</p>
+                  </div>
+                  <div className="rounded-xl bg-[#F5F5F5] p-3 text-left">
+                    <Zap size={16} className="text-[#00C300] mb-2" />
+                    <p className="text-sm font-semibold text-[#111111]">Fast</p>
+                    <p className="text-xs text-[#8D8D8D]">Instant experience</p>
+                  </div>
                 </div>
               </div>
             </motion.div>
@@ -202,8 +229,12 @@ export default function LandingView() {
       <section id="features" className="py-24 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className="text-center mb-16">
+            <div className="inline-flex items-center gap-2 bg-[#00C300]/10 border border-[#00C300]/20 rounded-full px-4 py-1.5 mb-4">
+              <MessageCircle size={14} className="text-[#00C300]" />
+              <span className="text-[#00C300] text-sm font-medium">Everything you need in one place</span>
+            </div>
             <h2 className="text-3xl sm:text-4xl font-bold text-[#111111] mb-4">{t('features')}</h2>
-            <p className="text-[#8D8D8D] max-w-lg mx-auto">{t('featuresDesc')}</p>
+            <p className="text-[#8D8D8D] max-w-2xl mx-auto">From private conversation to creator monetization, every experience is designed to feel polished, fast, and effortless.</p>
           </motion.div>
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {features.map((f, i) => (
@@ -468,7 +499,7 @@ export default function LandingView() {
                 {['secureAuth', 'selfDestruct', 'secureStorage', 'webStandards'].map(item => (
                   <li key={item} className="flex items-center gap-3 text-[#111111] text-sm">
                     <div className="w-5 h-5 rounded-full bg-[#00C300]/10 flex items-center justify-center shrink-0">
-                      <span className="text-[#00C300] text-xs">\u2713</span>
+                      <span className="text-[#00C300] text-xs">✓</span>
                     </div>
                     {t(item)}
                   </li>
@@ -553,7 +584,7 @@ export default function LandingView() {
                 <motion.div key={testimonial.name} initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: i * 0.1 }}
                   className="bg-[#F5F5F5] border border-[#EBEBEB] rounded-2xl p-6 hover:border-[#00C300]/30 transition-all hover:shadow-lg hover:-translate-y-1">
                   <div className="flex gap-0.5 mb-4">
-                    {[1, 2, 3, 4, 5].map(s => <span key={s} className="text-[#00C300] text-sm">\u2605</span>)}
+                    {[1, 2, 3, 4, 5].map(s => <span key={s} className="text-[#00C300] text-sm">★</span>)}
                   </div>
                   <p className="text-[#111111] text-sm leading-relaxed mb-5">&ldquo;{testimonial.text}&rdquo;</p>
                   <div className="flex items-center gap-3">
@@ -641,7 +672,7 @@ export default function LandingView() {
                   </div>
                   <div className="flex items-center justify-between text-xs text-[#8D8D8D] mt-1">
                     <span>Rating</span>
-                    <span className="font-medium text-[#00C300]">4.9 \u2605</span>
+                    <span className="font-medium text-[#00C300]">4.9 ★</span>
                   </div>
                 </div>
                 <button type="button" onClick={() => navigate('/auth')}

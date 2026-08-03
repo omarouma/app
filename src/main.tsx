@@ -17,7 +17,11 @@ declare global {
 }
 
 // Initialize Firebase before React renders
-initFirebase();
+try {
+  initFirebase();
+} catch (error) {
+  console.warn('Firebase bootstrap skipped:', error);
+}
 
 // Clean up stale localStorage entries once on startup (non-blocking)
 try { runStorageCleanup(); } catch { /* ignore */ }
@@ -28,10 +32,14 @@ try { runStorageCleanup(); } catch { /* ignore */ }
 if (typeof window !== 'undefined' && typeof window.gtag === 'function') {
   const gaMeasurementId = import.meta.env.VITE_GA_MEASUREMENT_ID;
   if (gaMeasurementId) {
-    window.gtag('config', gaMeasurementId, {
-      send_page_view: false,
-      cookie_flags: 'SameSite=None;Secure',
-    });
+    try {
+      window.gtag('config', gaMeasurementId, {
+        send_page_view: false,
+        cookie_flags: 'SameSite=None;Secure',
+      });
+    } catch (error) {
+      console.warn('GA bootstrap skipped:', error);
+    }
   }
 }
 
@@ -44,7 +52,11 @@ if (
   !ALLOWED_HOSTS.has(window.location.hostname) &&
   !window.location.hostname.endsWith('.localhost')
 ) {
-  window.location.replace(`https://${CANONICAL}${window.location.pathname}${window.location.search}${window.location.hash}`);
+  try {
+    window.location.replace(`https://${CANONICAL}${window.location.pathname}${window.location.search}${window.location.hash}`);
+  } catch (error) {
+    console.warn('Canonical redirect skipped:', error);
+  }
 }
 
 // Auto-reload on stale chunk errors (after new deploy)

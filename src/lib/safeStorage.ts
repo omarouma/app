@@ -7,6 +7,14 @@ export function safeGetStorageItem(key: string): string | null {
   }
 }
 
+export function safeSetJsonStorageItem<T>(key: string, value: T): boolean {
+  try {
+    return safeSetStorageItem(key, JSON.stringify(value));
+  } catch {
+    return false;
+  }
+}
+
 export function safeSetStorageItem(key: string, value: string): boolean {
   try {
     if (typeof window === 'undefined' || !window.localStorage) return false;

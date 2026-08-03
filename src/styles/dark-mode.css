@@ -1,136 +1,100 @@
-/* ── Global Dark Mode Overrides ───────────────────
-   Applied when <html> has .dark class (set by ThemeProvider).
-   Covers all major pages without modifying each component.
-   ───────────────────────────────────────────────── */
+/* ── Dark Mode Overrides ──────────────────────────
+   Uses CSS variables from index.css where possible.
+   Hardcoded overrides only for legacy Tailwind classes.
+   ─────────────────────────────────────────────── */
 
-/* Base page backgrounds */
 html.dark body,
 html.dark #root {
-  background-color: #0a0a0a;
+  background-color: hsl(var(--background));
+  color: hsl(var(--foreground));
 }
 
-/* Force dark backgrounds on light elements */
+/* Transition all color-bearing properties on theme switch */
+html.dark *,
+html.dark *::before,
+html.dark *::after {
+  transition: background-color 0.25s ease, border-color 0.25s ease, color 0.25s ease, box-shadow 0.25s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html.dark *,
+  html.dark *::before,
+  html.dark *::after {
+    transition: none !important;
+  }
+}
+
+/* Legacy Tailwind class overrides */
 html.dark [class*="bg-[#F0F2F5]"],
 html.dark [class*="bg-white"]:not([class*="bg-[#00C300]"]):not([class*="text-[#00C300]"]) {
-  background-color: #0a0a0a !important;
+  background-color: hsl(var(--background)) !important;
 }
 
-/* Text colors */
 html.dark [class*="text-[#111111]"],
 html.dark [class*="text-black"] {
-  color: #f0f0f0 !important;
+  color: hsl(var(--foreground)) !important;
 }
 
 html.dark [class*="text-[#333333]"] {
-  color: #cccccc !important;
+  color: hsl(var(--muted-foreground)) !important;
 }
 
-/* Secondary backgrounds */
 html.dark [class*="bg-[#F5F5F5]"],
 html.dark [class*="bg-gray-50"] {
-  background-color: #1a1a1a !important;
+  background-color: hsl(var(--secondary)) !important;
 }
 
 html.dark [class*="bg-[#EBEBEB]"] {
-  background-color: #262626 !important;
+  background-color: hsl(var(--muted)) !important;
 }
 
-/* Borders */
 html.dark [class*="border-[#EBEBEB]"],
 html.dark [class*="border-gray-200"] {
-  border-color: #333333 !important;
+  border-color: hsl(var(--border)) !important;
 }
 
-/* Message bubbles - sent */
-html.dark [class*="bg-[#00C300]"] {
-  /* Keep accent green */
-}
-
-/* Message bubbles - received */
 html.dark [class*="bg-white shadow"]:not([class*="rounded-full"]) {
-  background-color: #1a1a1a !important;
+  background-color: hsl(var(--card)) !important;
   box-shadow: 0 1px 3px rgba(0,0,0,0.5) !important;
 }
 
-/* Input fields */
 html.dark input:not([type="checkbox"]):not([type="radio"]),
 html.dark textarea {
-  background-color: #262626 !important;
-  color: #f0f0f0 !important;
-  border-color: #333333 !important;
+  background-color: hsl(var(--input)) !important;
+  color: hsl(var(--foreground)) !important;
+  border-color: hsl(var(--border)) !important;
 }
 
 html.dark input::placeholder,
 html.dark textarea::placeholder {
-  color: #666666 !important;
+  color: hsl(var(--muted-foreground)) !important;
 }
 
-/* Friend banners */
-html.dark [class*="bg-[#FFF3E0]"] {
-  background-color: #2a1f0f !important;
-}
+html.dark [class*="bg-[#FFF3E0]"] { background-color: #2a1f0f !important; }
+html.dark [class*="bg-[#E8F5E9]"]:not([class*="bg-[#00C300]"]) { background-color: #1b2a1b !important; }
+html.dark [class*="bg-[#FFEBEE]"] { background-color: #2a0f0f !important; }
+html.dark [class*="bg-[#E3F2FD]"] { background-color: #0f1f2a !important; }
+html.dark [class*="bg-[#FFFDE7]"] { background-color: #2a2a0f !important; }
+html.dark [class*="bg-[#F3E5F5]"] { background-color: #1f1b2a !important; }
+html.dark [class*="bg-[#E0F7FA]"] { background-color: #0f2020 !important; }
+html.dark [class*="bg-[#FFF8E1]"] { background-color: #2a2510 !important; }
 
-html.dark [class*="bg-[#E8F5E9]"]:not([class*="bg-[#00C300]"]) {
-  background-color: #1b2a1b !important;
-}
-
-html.dark [class*="bg-[#FFEBEE]"] {
-  background-color: #2a0f0f !important;
-}
-
-html.dark [class*="bg-[#E3F2FD]"] {
-  background-color: #0f1f2a !important;
-}
-
-/* Navigation bars */
 html.dark [class*="bg-white/90"],
 html.dark [class*="bg-white/80"],
 html.dark [class*="bg-white/95"] {
-  background-color: rgba(26, 26, 26, 0.95) !important;
+  background-color: rgba(13, 13, 13, 0.95) !important;
 }
 
-/* Bottom nav */
 html.dark [class*="border-t border-[#EBEBEB]"],
 html.dark [class*="border-t border-gray-200"] {
-  background-color: rgba(26, 26, 26, 0.95) !important;
-  border-color: #333333 !important;
+  background-color: rgba(13, 13, 13, 0.95) !important;
+  border-color: hsl(var(--border)) !important;
 }
 
-/* Cards */
 html.dark [class*="rounded-2xl bg-white"],
 html.dark [class*="rounded-xl bg-white"] {
-  background-color: #1a1a1a !important;
+  background-color: hsl(var(--card)) !important;
 }
 
-/* Settings backgrounds */
-html.dark [class*="bg-[#FFFDE7]"] {
-  background-color: #2a2a0f !important;
-}
-
-html.dark [class*="bg-[#F3E5F5]"] {
-  background-color: #1f1b2a !important;
-}
-
-html.dark [class*="bg-[#E0F7FA]"] {
-  background-color: #0f2020 !important;
-}
-
-html.dark [class*="bg-[#FFF8E1]"] {
-  background-color: #2a2510 !important;
-}
-
-/* Scrollbars */
-html.dark ::-webkit-scrollbar-track {
-  background: #1a1a1a;
-}
-
-html.dark ::-webkit-scrollbar-thumb {
-  background: #444444;
-}
-
-/* Keep these elements as-is (already dark or accent) */
-html.dark [class*="bg-black"],
-html.dark [class*="bg-[#1a1a1a]"],
-html.dark [class*="bg-[#00C300]"] {
-  /* Already dark or accent - no override needed */
-}
+html.dark ::-webkit-scrollbar-track { background: hsl(var(--background)); }
+html.dark ::-webkit-scrollbar-thumb { background: hsl(var(--border)); }
