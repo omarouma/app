@@ -272,7 +272,7 @@ export default function ChatsPage() {
           )}
         </div>
         <div className="flex gap-2 text-[#111111]">
-<button type="button" onClick={() => navigate('/add-friends')}
+          <button type="button" onClick={() => navigate('/add-friends')}
             className="w-9 h-9 flex items-center justify-center bg-[#F5F5F5] hover:bg-[#EBEBEB] rounded-full transition-colors tap-scale"
             aria-label="Add friends"
           >
@@ -318,7 +318,7 @@ export default function ChatsPage() {
 
       {/* Chat List */}
       <div
-        className="flex-1 overflow-y-auto scrollbar-hide scroll-smooth relative"
+        className="flex-1 overflow-y-auto scrollbar-hide scroll-smooth relative pb-nav"
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
         onTouchCancel={handleTouchEnd}

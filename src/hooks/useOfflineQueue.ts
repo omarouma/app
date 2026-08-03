@@ -135,7 +135,10 @@ export function useOfflineQueue() {
     if (navigator.onLine) processQueue().catch(() => {});
 
     refreshStats();
-    const interval = setInterval(refreshStats, 3000);
+    // Only poll stats when there are queued messages
+    const interval = setInterval(() => {
+      if (getQueue().length > 0) refreshStats();
+    }, 5000);
 
     return () => {
       window.removeEventListener('online', handleOnline);

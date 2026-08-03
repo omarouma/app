@@ -13,7 +13,6 @@ import { isFirestoreAvailable, queryCollection, COLLECTIONS } from '@/lib/firest
 import { where, orderBy, limit } from '@/lib/firestore';
 import { getDefaultAvatar, formatTime } from '@/lib/utils';
 import type { Chat, TimelinePost, User as UserType, EventData, MarketplaceItem, Hashtag } from '@/types';
-import BottomNav from '@/components/layout/BottomNav';
 
 const TABS = [
   { key: 'all', label: 'All', icon: Search },
@@ -399,7 +398,6 @@ export default function SearchPage() {
         )}
       </div>
 
-      <BottomNav />
     </div>
   );
 }

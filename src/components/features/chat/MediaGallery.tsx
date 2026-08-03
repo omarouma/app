@@ -21,7 +21,7 @@ export const MediaGallery = memo(function MediaGallery({ images, initialIndex, o
   const [scale, setScale] = useState(1);
   const [isZoomed, setIsZoomed] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
-  const goToRef = useRef<(direction: 'prev' | 'next') => void>(undefined!);
+  const goToRef = useRef<(direction: 'prev' | 'next') => void>(() => {});
 
   const current = images[currentIndex];
 
@@ -197,7 +197,7 @@ export const MediaGallery = memo(function MediaGallery({ images, initialIndex, o
         {/* Thumbnails strip */}
         {images.length > 1 && (
           <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent px-4 py-3">
-            <div className="flex justify-center gap-2">
+            <div className="flex justify-center gap-2 overflow-x-auto scrollbar-hide">
               {images.map((img, i) => (
                 <button
                   type="button"
@@ -207,11 +207,13 @@ export const MediaGallery = memo(function MediaGallery({ images, initialIndex, o
                     i === currentIndex ? 'border-white opacity-100' : 'border-transparent opacity-50 hover:opacity-80'
                   }`}
                 >
-                  <img
-                    src={img.url}
-                    className="w-full h-full object-cover"
-                    alt={`Thumbnail ${i + 1}`}
-                  />
+                  {img.type === 'video' ? (
+                    <div className="w-full h-full bg-[#333] flex items-center justify-center">
+                      <span className="text-white text-lg">▶</span>
+                    </div>
+                  ) : (
+                    <img src={img.url} className="w-full h-full object-cover" alt={`Thumbnail ${i + 1}`} />
+                  )}
                 </button>
               ))}
             </div>

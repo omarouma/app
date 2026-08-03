@@ -8,7 +8,6 @@ import {
 import { useAuthStore } from '@/store/useAuthStore';
 import { useTimelineStore } from '@/store/useTimelineStore';
 import { useChatStore } from '@/store/useChatStore';
-import BottomNav from '@/components/layout/BottomNav';
 import { toast } from 'sonner';
 
 interface SharedData {
@@ -327,7 +326,6 @@ export default function ShareTargetPage() {
         </motion.div>
       )}
 
-      <BottomNav />
     </div>
   );
 }

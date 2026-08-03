@@ -8,7 +8,6 @@ import {
 import { useAuthStore } from '@/store/useAuthStore';
 import { useEventStore } from '@/store/useEventStore';
 import { toast } from 'sonner';
-import BottomNav from '@/components/layout/BottomNav';
 import EmptyState from '@/components/EmptyState';
 import LoadingSkeleton from '@/components/LoadingSkeleton';
 import { getDefaultAvatar } from '@/lib/utils';
@@ -548,7 +547,6 @@ export default function EventsPage() {
         )}
       </AnimatePresence>
 
-      <BottomNav />
     </div>
   );
 }

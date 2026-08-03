@@ -211,6 +211,11 @@
   overflow: auto;
 }
 
+/* Bottom nav safe padding — applied to mobile page scroll containers */
+.pb-nav {
+  padding-bottom: calc(58px + env(safe-area-inset-bottom));
+}
+
 
 @keyframes animate-scan {
   0% { top: 0; }

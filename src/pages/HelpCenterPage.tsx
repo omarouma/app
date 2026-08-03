@@ -5,7 +5,6 @@ import {
   ArrowLeft, MessageCircle, Phone, Wallet, Shield,
   HelpCircle, ChevronDown, Mail, Crown
 } from 'lucide-react';
-import BottomNav from '@/components/layout/BottomNav';
 
 const FAQS = [
   {
@@ -198,7 +197,6 @@ export default function HelpCenterPage() {
         </div>
       </div>
 
-      <BottomNav />
     </div>
   );
 }

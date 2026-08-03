@@ -85,7 +85,8 @@ export default function NotificationsPage() {
   const [filterType, setFilterType] = useState<string | 'all'>('all');
   const [showFilter, setShowFilter] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const [selectMode, setSelectMode] = useState(false); const { requestPermission, isSupported } = usePushNotifications();
+  const [selectMode, setSelectMode] = useState(false);
+  const { requestPermission, isSupported } = usePushNotifications();
 
   const [showSettings, setShowSettings] = useState(false);
   const [mutedTypes, setMutedTypes] = useState<string[]>(() => {
@@ -110,12 +111,7 @@ export default function NotificationsPage() {
 
   // Clear selection when filter changes to avoid stale selected IDs
   useEffect(() => {
-    // Avoid setState render loop triggered by React warnings in this effect.
-    // Defer clearing selection to the next frame.
-    const id = window.requestAnimationFrame(() => {
-      setSelectedIds([]);
-    });
-    return () => window.cancelAnimationFrame(id);
+    setSelectedIds([]);
   }, [filterType]);
 
 
@@ -262,26 +258,26 @@ export default function NotificationsPage() {
         </div>
 
         {/* Push Notification Permission Banner */}
-      {isSupported && Notification.permission === 'default' && (
-        <motion.div
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-[#00C300]/10 border-b border-[#00C300]/20 px-4 py-3 flex items-center gap-3"
-        >
-          <BellRing size={18} className="text-[#00C300] shrink-0" />
-          <div className="flex-1">
-            <p className="text-[#111111] text-sm font-medium">Enable push notifications</p>
-            <p className="text-[#8D8D8D] text-xs">Get notified about messages and calls</p>
-          </div>
-          <button type="button" onClick={requestPermission}
-            className="px-3 py-1.5 bg-[#00C300] text-white text-xs rounded-full font-medium active:bg-[#00A300] transition-colors"
+        {isSupported && Notification.permission === 'default' && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-[#00C300]/10 border-b border-[#00C300]/20 px-4 py-3 flex items-center gap-3"
           >
-            Enable
-          </button>
-        </motion.div>
-      )}
+            <BellRing size={18} className="text-[#00C300] shrink-0" />
+            <div className="flex-1">
+              <p className="text-[#111111] text-sm font-medium">Enable push notifications</p>
+              <p className="text-[#8D8D8D] text-xs">Get notified about messages and calls</p>
+            </div>
+            <button type="button" onClick={requestPermission}
+              className="px-3 py-1.5 bg-[#00C300] text-white text-xs rounded-full font-medium active:bg-[#00A300] transition-colors"
+            >
+              Enable
+            </button>
+          </motion.div>
+        )}
 
-      {/* Filter Bar */}
+        {/* Filter Bar */}
         <AnimatePresence>
           {showFilter && (
             <motion.div

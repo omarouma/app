@@ -32,5 +32,5 @@ export function useChatScrollBehavior(msgsLength: number) {
     []
   );
 
-  return { messagesEndRef, messagesContainerRef, showScrollBtn, scrollToBottom };
+  return { messagesEndRef, messagesContainerRef, showScrollBtn, scrollToBottom, shouldAutoScrollRef };
 }

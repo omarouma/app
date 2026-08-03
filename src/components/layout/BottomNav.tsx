@@ -22,10 +22,10 @@ const BottomNav = memo(function BottomNav() {
     [chats, groups]
   );
 
-  const tabs = tabDefs.map(t => ({
+  const tabs = useMemo(() => tabDefs.map(t => ({
     ...t,
     badge: t.to === '/chats' ? totalUnread : t.to === '/profile' ? notifUnread : 0,
-  }));
+  })), [totalUnread, notifUnread]);
 
   return (
     <nav

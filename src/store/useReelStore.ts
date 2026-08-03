@@ -7,7 +7,6 @@ import {
   updateDocById,
   deleteDocById,
   addDocToCollection,
-  addDocToSubcollection,
   queryCollection,
   subscribeToCollection,
   serverTimestamp,
@@ -69,6 +68,7 @@ function mapReel(d: Record<string, unknown>): Reel {
     musicTitle: (d.musicTitle as string) || undefined,
     musicUrl: (d.musicUrl as string) || undefined,
     filters: (d.filters as string[]) || undefined,
+    filter: (d.filter as string) || undefined,
     effects: (d.effects as string[]) || undefined,
     speed: (d.speed as number) || undefined,
     voiceover: (d.voiceover as string) || undefined,
@@ -105,7 +105,7 @@ export const useReelStore = create<ReelStore>((set, get) => ({
   lastTimestamp: null,
   activeCategory: null,
 
-createReel: async (userId, data) => {
+  createReel: async (userId, data) => {
     if (!isFirestoreAvailable()) return;
     try {
       const user = await getDocById(COLLECTIONS.USERS, userId);
@@ -129,7 +129,7 @@ createReel: async (userId, data) => {
     }
   },
 
-deleteReel: async (reelId) => {
+  deleteReel: async (reelId) => {
     if (!isFirestoreAvailable()) return;
     try {
       await deleteDocById(COLLECTION_REELS, reelId);
@@ -141,7 +141,7 @@ deleteReel: async (reelId) => {
     }
   },
 
-likeReel: async (reelId, userId) => {
+  likeReel: async (reelId, userId) => {
     if (!isFirestoreAvailable()) return;
     try {
       await updateDocById(COLLECTION_REELS, reelId, {
@@ -153,7 +153,7 @@ likeReel: async (reelId, userId) => {
     }
   },
 
-unlikeReel: async (reelId, userId) => {
+  unlikeReel: async (reelId, userId) => {
     if (!isFirestoreAvailable()) return;
     try {
       await updateDocById(COLLECTION_REELS, reelId, {
@@ -165,18 +165,25 @@ unlikeReel: async (reelId, userId) => {
     }
   },
 
-commentOnReel: async (reelId, userId, content) => {
+  commentOnReel: async (reelId, userId, content) => {
     if (!isFirestoreAvailable()) return;
     try {
       const user = await getDocById(COLLECTIONS.USERS, userId);
-      await addDocToSubcollection(COLLECTION_REELS, reelId, 'comments', {
+      // Coerce serverTimestamp to a string/Date so it can be stored inside the
+      // comments array (arrays in Firestore/Supabase cannot hold serverTimestamp()).
+      const comment = {
+        id: `c_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
         userId,
         content,
-        timestamp: serverTimestamp(),
+        timestamp: new Date().toISOString(),
         userName: user?.name || '',
         userAvatar: user?.avatar || '',
         likes: [],
-      });
+      };
+      const reel = await getDocById(COLLECTION_REELS, reelId);
+      if (!reel) return;
+      const comments = (reel.comments as any[]) || [];
+      await updateDocById(COLLECTION_REELS, reelId, { comments: [...comments, comment] });
       toast.success('Comment added');
     } catch (err) {
       console.error('commentOnReel error:', err);
@@ -414,7 +421,7 @@ commentOnReel: async (reelId, userId, content) => {
     }
 
     try {
-let data: Record<string, unknown>[];
+      let data: Record<string, unknown>[];
       if (category) {
         data = await queryCollection(COLLECTION_REELS, [
           where('category', '==', category),

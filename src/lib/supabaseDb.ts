@@ -20,7 +20,7 @@ export function getDb() {
 // Supabase schema may be missing columns. Retry without unknown columns
 // so the app keeps working while the admin runs supabase_migration.sql.
 
-const MAX_COLUMN_RETRIES = 5;
+const MAX_COLUMN_RETRIES = 20;
 
 function isColumnMissingError(error: any): boolean {
   if (!error) return false;

@@ -58,19 +58,19 @@ export function AudioRecorder({ onSend, onCancel }: AudioRecorderProps) {
 
   const stopMedia = useCallback(() => {
     stopTimer();
-    if (streamRef.current) streamRef.current.getTracks().forEach((t) => t.stop());
+    if (mediaRecorderRef.current) {
+      try { mediaRecorderRef.current.stop(); } catch { /* noop */ }
+      mediaRecorderRef.current = null;
+    }
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((t) => t.stop());
+      streamRef.current = null;
+    }
   }, [stopTimer]);
 
   useEffect(() => {
-    // Schedule start to satisfy react-hooks purity/lint rules
-    const t = queueMicrotask(() => {
-      void startRecording();
-    });
-    return () => {
-      // Cleanup immediately
-      stopMedia();
-      void t;
-    };
+    void startRecording();
+    return () => { stopMedia(); };
   }, [startRecording, stopMedia]);
 
 

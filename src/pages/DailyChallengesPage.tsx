@@ -8,7 +8,6 @@ import { useAuthStore } from '@/store/useAuthStore';
 import { useChallengeStore } from '@/store/useChallengeStore';
 import { getLevelProgress } from '@/store/useChallengeStore';
 import { getDefaultAvatar } from '@/lib/utils';
-import BottomNav from '@/components/layout/BottomNav';
 import LoadingSkeleton from '@/components/LoadingSkeleton';
 
 const ICON_MAP: Record<string, React.ComponentType<{ size?: number; className?: string }>> = {
@@ -293,7 +292,6 @@ export default function DailyChallengesPage() {
         )}
       </div>
 
-      <BottomNav />
     </div>
   );
 }

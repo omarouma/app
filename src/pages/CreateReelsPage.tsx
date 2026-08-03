@@ -13,7 +13,8 @@ import { REEL_CATEGORIES } from '@/lib/demoReels';
 import { toast } from 'sonner';
 
 const DRAFT_KEY = 'gaga_reel_draft';
-const MAX_FILE_SIZE = 500 * 1024 * 1024; // 500MB
+// Aligned with storage.ts MAX_VIDEO_SIZE (50MB) so validation matches the actual upload limit.
+const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
 const MAX_DURATION = 600; // 10 minutes
 
 const safeStorage = {
@@ -498,8 +499,8 @@ export default function CreateReelsPage() {
               <Video size={28} className="text-[#8D8D8D] group-hover:text-[#00C300]" />
             </div>
             <div className="text-center">
-              <p className="text-white font-medium text-sm">Upload a video</p>
-              <p className="text-[#8D8D8D] text-xs mt-1">MP4, MOV, WEBM up to 500MB</p>
+<p className="text-white font-medium text-sm">Upload a video</p>
+              <p className="text-[#8D8D8D] text-xs mt-1">MP4, MOV, WEBM up to 50MB</p>
               <p className="text-[#8D8D8D] text-xs">Up to 10 minutes</p>
             </div>
             <div className="flex items-center gap-2 text-[#00C300] text-xs font-medium">

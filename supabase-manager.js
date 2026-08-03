@@ -21,8 +21,8 @@ if (fs.existsSync(envPath)) {
 }
 
 // Get Supabase credentials (from .env.example if .env doesn't exist)
-const supabaseUrl = envVars.VITE_SUPABASE_URL || 'https://xqeriudcoozuvcmzniow.supabase.co';
-const supabaseAnonKey = envVars.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhxZXJpdWRjb296dXZjbXpuaW93Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIzNzk0NjgsImV4cCI6MjA5Nzk1NTQ2OH0.711eomd0Vyw1jBaZOOxvy753ZSUeLkcotKpq4AkpHBg';
+const supabaseUrl = envVars.VITE_SUPABASE_URL || 'https://alzwgikndwbecuqmlrca.supabase.co';
+const supabaseAnonKey = envVars.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFsendnaWtuZHdiZWN1cW1scmNhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU3Nzc0OTcsImV4cCI6MjEwMTM1MzQ5N30.4QI10WfQYvenslEFNTon3HbRbP1dZVDqas9zSz-zB7w';
 
 // Initialize Supabase client
 const supabase = createClient(supabaseUrl, supabaseAnonKey);

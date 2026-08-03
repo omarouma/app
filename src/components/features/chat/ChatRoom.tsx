@@ -23,6 +23,7 @@ import { useMessagePin } from '@/hooks/useMessagePin';
 import { useSavedMessages } from '@/hooks/useSavedMessages';
 import { useScheduledMessages } from '@/hooks/useScheduledMessages';
 import { useDisappearingTimers } from '@/hooks/useDisappearingTimers';
+import { useChatScrollBehavior } from '@/hooks/useChatScrollBehavior';
 import { getDefaultAvatar, sanitizeMediaUrl } from '@/lib/utils';
 import { SWIPE_THRESHOLD, REPORT_OPTIONS, formatDateSeparator } from '@/lib/chatConstants';
 
@@ -102,12 +103,15 @@ export default function ChatRoom({ chatId, userId, onBack }: {
   const [reportReason, setReportReason] = useState('');
   const [reportDetails, setReportDetails] = useState('');
   const [processingAction, setProcessingAction] = useState(false);
-  const [showScrollBtn, setShowScrollBtn] = useState(false);
   const [lastSeen, setLastSeen] = useState<string | null>(null);
   const [lightboxImage, setLightboxImage] = useState<string | null>(null);
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [showDeleteForEveryoneConfirm, setShowDeleteForEveryoneConfirm] = useState<string | null>(null);
-  const shouldAutoScrollRef = useRef(true);
+
+  const msgs = useMemo(() => messages[chatId] ?? [], [messages, chatId]);
+
+  // Scroll behavior — hook owns refs, auto-scroll, and scroll button visibility
+  const { messagesEndRef, messagesContainerRef, showScrollBtn, scrollToBottom, shouldAutoScrollRef } = useChatScrollBehavior(msgs.length);
 
   // Unread separator tracking
   const initialLatestTimestampRef = useRef<number | null>(null);
@@ -133,14 +137,8 @@ export default function ChatRoom({ chatId, userId, onBack }: {
   const [showBgPicker, setShowBgPicker] = useState(false);
   const [chatBg, setChatBg] = useState<string>(() => localStorage.getItem(`chat_bg_${chatId}`) || '');
 
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  const messagesContainerRef = useRef<HTMLDivElement>(null);
-
-
-
   const otherUser = friends.find(f => f.id === userId);
   const [otherUserProfile, setOtherUserProfile] = useState<{ name: string; avatar: string; id: string } | null>(null);
-  const msgs = useMemo(() => messages[chatId] ?? [], [messages, chatId]);
   const isUserOnline = !!visibleOnline[userId];
 
   // Disappearing messages timer - must be after msgs is declared
@@ -234,7 +232,7 @@ export default function ChatRoom({ chatId, userId, onBack }: {
     setReplyingTo(null);
     setHasNewMessages(false);
     initialLatestTimestampRef.current = null;
-    shouldAutoScrollRef.current = true;
+    shouldAutoScrollRef.current = true; // reset on chat switch
     setContextMenu(null);
     setSelectionMode(false);
     setSelectedMessages(new Set());
@@ -380,28 +378,6 @@ export default function ChatRoom({ chatId, userId, onBack }: {
     if (!input.trim()) stopTyping();
     return () => { stopTyping(); };
   }, [input, stopTyping]);
-
-  // Scroll detection: show scroll-to-bottom button + auto-scroll when at bottom
-  useEffect(() => {
-    const container = messagesContainerRef.current;
-    if (!container) return;
-    const handleScroll = () => {
-      const threshold = 100;
-      const atBottom = container.scrollHeight - container.scrollTop - container.clientHeight < threshold;
-      setShowScrollBtn(!atBottom);
-      shouldAutoScrollRef.current = atBottom;
-    };
-    container.addEventListener('scroll', handleScroll, { passive: true });
-    handleScroll();
-    return () => container.removeEventListener('scroll', handleScroll);
-  }, [chatId]);
-
-  // Scroll to bottom when new messages arrive and user is already at bottom
-  useEffect(() => {
-    if (shouldAutoScrollRef.current) {
-      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }
-  }, [msgs.length]);
 
   // Fetch last seen — resets properly when userId or online status changes
   useEffect(() => {
@@ -1021,7 +997,6 @@ export default function ChatRoom({ chatId, userId, onBack }: {
 
   const insertEmoji = useCallback((emoji: string) => {
     setInput(prev => prev + emoji);
-    setShowEmojiPicker(false);
   }, []);
 
   const handleReportSubmit = useCallback(async () => {
@@ -1280,12 +1255,11 @@ export default function ChatRoom({ chatId, userId, onBack }: {
           )}
 
           {filteredMsgs.length > 0 && (
-            <div className="h-full">
-              <Virtuoso
-                ref={virtuosoRef}
-                data={filteredMsgs}
-                initialTopMostItemIndex={Math.max(0, filteredMsgs.length - 1)}
-                itemContent={(index, msg) => {
+            <Virtuoso
+              ref={virtuosoRef}
+              data={filteredMsgs}
+              initialTopMostItemIndex={Math.max(0, filteredMsgs.length - 1)}
+              itemContent={(index, msg) => {
                   const isMe = msg.senderId === currentUser?.id;
                   const prevMsg = index > 0 ? filteredMsgs[index - 1] : null;
                   const isSameSender = prevMsg && prevMsg.senderId === msg.senderId;
@@ -1348,7 +1322,7 @@ export default function ChatRoom({ chatId, userId, onBack }: {
                   );
                 }}
                 startReached={async () => {
-                  if (hasMore && hasMore[chatId] && !loadingOlderRef.current) {
+                  if (hasMore[chatId] && !loadingOlderRef.current) {
                     loadingOlderRef.current = true;
                     try { await loadOlderMessages(chatId); } catch { /* ignore */ }
                     loadingOlderRef.current = false;
@@ -1356,13 +1330,11 @@ export default function ChatRoom({ chatId, userId, onBack }: {
                 }}
                 rangeChanged={(range) => {
                   const atBottom = range.endIndex >= filteredMsgs.length - 1;
-                  setShowScrollBtn(!atBottom);
                   shouldAutoScrollRef.current = atBottom;
                 }}
                 followOutput={shouldAutoScrollRef.current ? 'smooth' : false}
-                style={{ height: '100%' }}
+                style={{ height: '100%', minHeight: '200px' }}
               />
-            </div>
           )}
           
           {/* Typing indicator */}
@@ -1397,7 +1369,7 @@ export default function ChatRoom({ chatId, userId, onBack }: {
               initial={{ opacity: 0, scale: 0.8, y: 8 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.8, y: 8 }}
-              onClick={() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })}
+              onClick={scrollToBottom}
               className="absolute bottom-4 right-4 w-10 h-10 bg-white rounded-full shadow-lg border border-[#EBEBEB] flex items-center justify-center text-[#8D8D8D] hover:text-[#111111] z-20 transition-colors tap-scale"
               title="Scroll to bottom"
               aria-label="Scroll to bottom"

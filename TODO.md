@@ -1,41 +1,22 @@
-# GaGa Chat - Complete Production Polish Plan
+# GaGa Chat — Fixing ESLint & Code Quality Issues
 
-## Phase 1: Critical Bug Fixes & Cleanup 🚨
+## Progress Tracker
 
-- [ ] 1.1 Fix broken Unicode escapes in CreatorCenterPage.tsx
-- [ ] 1.2 Delete empty `ProfilePage.tsx.new` file
-- [ ] 1.3 Delete empty `in` file at root
-- [ ] 1.4 Remove unused `App.css` import from `App.tsx` and delete file
-- [ ] 1.5 SSR-safety: fix `useIsMobile` hook
-- [ ] 1.6 Delete empty `tsc-out.txt`
+### Phase 1: Fix `AddFriendsPage.tsx` (33 no-explicit-any errors)
+- [ ] 1.1 Type `mapUser(u: any)` → `mapUser(u: Record<string, unknown>)`
+- [ ] 1.2 Type `catch (err: any)` → `catch (err: unknown)` with error message helper
+- [ ] 1.3 Replace `(user as any).verified` → `user.verified`
+- [ ] 1.4 Type request lookups (`s.find((s: any)`, `reqList.find((r: any)`)
+- [ ] 1.5 Remove `any` from `requests.filter((r: any)`, `suggestions.map((u: any)`
+- [ ] 1.6 Type `pendingRequests.map((req: any)`, `sentRequests.map((req: any)`
+- [ ] 1.7 Type `findNearbyUsers`/`findContactsOnGaga` `(u: any)`, `(c: any)`, `(f: any)`
 
-## Phase 2: Profile Page Redesign 🎨
+### Phase 2: Fix `NotificationsPage.tsx` (1 set-state-in-effect error)
+- [ ] 2.1 Remove `useEffect(() => setSelectedIds([]))` and reset via `changeFilter` helper
 
-- [ ] 2.1 Complete profile redesign with editable fields, avatar, stats
-- [ ] 2.2 Add stories ring display
-- [ ] 2.3 Add posts/friends/followers stats
+### Phase 3: Code quality — `TimelinePage.tsx`
+- [ ] 3.1 Consolidate duplicate `@/lib/firestore` imports
 
-## Phase 3: UI Polish & Accessibility ✨
-
-- [ ] 3.1 Add skip-to-content link
-- [ ] 3.2 Add `prefers-reduced-motion` respect to framer-motion components
-- [ ] 3.3 Improve BottomNav with active tab transitions
-- [ ] 3.4 Improve aria-label coverage
-- [ ] 3.5 Add animated page transitions
-
-## Phase 4: Performance Optimization ⚡
-
-- [ ] 4.1 Ensure all images use LazyImage component
-- [ ] 4.2 Optimize bundle chunks in vite.config.ts
-
-## Phase 5: CSS & Theme Refinements 🎭
-
-- [ ] 5.1 Properly integrate CSS architecture
-- [ ] 5.2 Add custom font (Inter)
-- [ ] 5.3 Fix dark-mode overrides to use CSS variables
-- [ ] 5.4 Add dark-mode transitions
-
-## Phase 6: Build & Validate
-
-- [ ] 6.1 Run `npm run build`
-- [ ] 6.2 Verify bundle sizes
+### Verification
+- [ ] `npm run lint` — no ESLint errors
+- [ ] `npx tsc --noEmit` — no TypeScript errors

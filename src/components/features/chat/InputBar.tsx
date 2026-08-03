@@ -43,6 +43,7 @@ export function InputBar({
 }: InputBarProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const photoInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -89,7 +90,7 @@ export function InputBar({
                       type="button"
                       onClick={() => {
                         if (item.label === 'Photos') photoInputRef.current?.click();
-                        else if (item.label === 'Camera') videoInputRef.current?.click();
+                        else if (item.label === 'Camera') cameraInputRef.current?.click();
                         else if (item.label === 'Location') { onLocationShare(); }
                         else if (item.label === 'File') fileInputRef.current?.click();
                         else if (item.label === 'Audio') { onStartRecording(); }
@@ -104,7 +105,8 @@ export function InputBar({
                   </div>
                 );
               })}
-              <input ref={photoInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => { onPhotoUpload(e); }} aria-label="Upload photo" />
+              <input ref={photoInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => { onPhotoUpload(e); }} aria-label="Upload photo" />
+              <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => { onPhotoUpload(e); }} aria-label="Take photo" />
               <input ref={videoInputRef} type="file" accept="video/*" className="hidden" onChange={(e) => { onVideoUpload(e); }} aria-label="Upload video" />
               <input ref={fileInputRef} type="file" className="hidden" onChange={(e) => { onFileUpload(e); }} aria-label="Upload file" />
             </div>
@@ -150,7 +152,7 @@ export function InputBar({
               placeholder="Aa"
               className="flex-1 py-2 text-[15px] focus:outline-none bg-transparent text-[#111111] placeholder:text-[#8D8D8D]"
             />
-            <button type="button" className="text-gray-400 p-1 hover:text-gray-600 transition-colors mx-1" onClick={onToggleEmojiPicker} aria-label="Open emoji picker">
+            <button type="button" className={`p-1 transition-colors mx-1 ${showEmojiPicker ? 'text-[#00C300]' : 'text-gray-400 hover:text-gray-600'}`} onClick={onToggleEmojiPicker} aria-label="Open emoji picker">
               <Smile size={20} strokeWidth={1.5} />
             </button>
             {!input.trim() && (
@@ -185,12 +187,12 @@ export function InputBar({
       <AnimatePresence>
         {showEmojiPicker && (
           <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 10 }}
-            className="shrink-0 z-20 bg-[#F5F5F5] border-t border-[#EBEBEB] px-3 py-2"
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="shrink-0 z-20 bg-white border-t border-[#EBEBEB] px-3 py-2 overflow-hidden"
           >
-            <EmojiPicker onEmojiSelect={onEmojiSelect} />
+            <EmojiPicker onEmojiSelect={(emoji) => { onEmojiSelect(emoji); onToggleEmojiPicker(); }} />
           </motion.div>
         )}
       </AnimatePresence>

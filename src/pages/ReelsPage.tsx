@@ -1,12 +1,23 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-import { useState, useEffect, useRef, useCallback, type KeyboardEvent } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo, type KeyboardEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Heart, MessageCircle, Share2, Bookmark, Music, Volume2, VolumeX,
   Play, Send, ChevronLeft, MoreHorizontal, UserPlus, Download, BarChart3,
-  Loader, TrendingUp, Search, X
+  Loader, TrendingUp, Search, X, Check
 } from 'lucide-react';
+import { useAuthStore } from '@/store/useAuthStore';
+import { useFriendStore } from '@/store/useFriendStore';
+import { useReelStore } from '@/store/useReelStore';
+import { REEL_CATEGORIES, generateDemoReels } from '@/lib/demoReels';
+import { isExternalReel, isYouTubeReel } from '@/lib/videoApis';
+import YouTubePlayer from '@/components/YouTubePlayer';
+import { hasAnyVideoKey } from '@/config/videoApis';
+import EmptyState from '@/components/EmptyState';
+import LoadingSkeleton from '@/components/LoadingSkeleton';
+import { getDefaultAvatar, sanitizeText } from '@/lib/utils';
+import { toast } from 'sonner';
+import type { Reel } from '@/types';
 
 const filters: Record<string, string> = {
   none: '',
@@ -16,19 +27,6 @@ const filters: Record<string, string> = {
   vivid: 'saturate(1.5) contrast(1.2)',
   fade: 'brightness(1.1) contrast(0.9) saturate(0.8)',
 };
-import { useAuthStore } from '@/store/useAuthStore';
-import { useFriendStore } from '@/store/useFriendStore';
-import { useReelStore } from '@/store/useReelStore';
-import { REEL_CATEGORIES } from '@/lib/demoReels';
-import { isExternalReel, isYouTubeReel } from '@/lib/videoApis';
-import YouTubePlayer from '@/components/YouTubePlayer';
-import { hasAnyVideoKey } from '@/config/videoApis';
-import BottomNav from '@/components/layout/BottomNav';
-import EmptyState from '@/components/EmptyState';
-import LoadingSkeleton from '@/components/LoadingSkeleton';
-import { getDefaultAvatar, sanitizeText } from '@/lib/utils';
-import { toast } from 'sonner';
-import type { Reel } from '@/types';
 
 type FeedTab = 'foryou' | 'following' | 'trending';
 
@@ -55,11 +53,13 @@ export default function ReelsPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [showSearch, setShowSearch] = useState(false);
   const [searchMode, setSearchMode] = useState(false);
-  const [, setPlaying] = useState<Record<string, boolean>>({});
+  const [heartAnimReel, setHeartAnimReel] = useState<string | null>(null);
+  const [followedUsers, setFollowedUsers] = useState<Set<string>>(new Set());
   const scrollRef = useRef<HTMLDivElement>(null);
   const videoRefs = useRef<Record<string, HTMLVideoElement | null>>({});
   const loadingMoreRef = useRef(false);
   const lastLoadIndexRef = useRef(0);
+  const lastTapRef = useRef<Record<string, number>>({});
 
   // Subscribe to reels on mount
   useEffect(() => {
@@ -74,38 +74,32 @@ export default function ReelsPage() {
     return () => unsub();
   }, [subscribeFriends, user?.id]);
 
-  const friendIds = new Set(friends.map(f => f.id));
+  const friendIds = useMemo(() => new Set(friends.map(f => f.id)), [friends]);
 
   // Filter reels based on feed type, category, and search mode
-  const displayReels = (() => {
+  const displayReels = useMemo(() => {
     // Search mode: show external reels + matching local reels
     if (searchMode) {
+      const q = searchQuery.toLowerCase();
       const localMatch = reels.filter(r =>
-        r.caption.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        r.category?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        r.tags?.some(t => t.toLowerCase().includes(searchQuery.toLowerCase()))
+        r.caption.toLowerCase().includes(q) ||
+        r.category?.toLowerCase().includes(q) ||
+        r.tags?.some(t => t.toLowerCase().includes(q))
       );
-      // Mix external and local, deduplicate by id
       const seen = new Set<string>();
       const mixed: Reel[] = [];
-      const all = [...externalReels, ...localMatch];
-      for (const r of all) {
-        if (!seen.has(r.id)) {
-          seen.add(r.id);
-          mixed.push(r);
-        }
+      for (const r of [...externalReels, ...localMatch]) {
+        if (!seen.has(r.id)) { seen.add(r.id); mixed.push(r); }
       }
       return mixed;
     }
 
     let result = reels;
 
-    // Category filter (highest priority)
     if (selectedCategory) {
       result = result.filter(r => r.category === selectedCategory);
     }
 
-    // Feed type filter
     if (feedType === 'following') {
       result = result.filter(r => friendIds.has(r.userId) || r.userId === user?.id);
     } else if (feedType === 'trending') {
@@ -117,7 +111,7 @@ export default function ReelsPage() {
     }
 
     return result;
-  })();
+  }, [searchMode, searchQuery, reels, externalReels, selectedCategory, feedType, friendIds, user?.id]);
 
   // Auto-play/pause based on active index
   useEffect(() => {
@@ -127,10 +121,8 @@ export default function ReelsPage() {
       if (!video) return;
       if (id === reel.id) {
         video.play().catch(() => {});
-        setPlaying(prev => ({ ...prev, [id]: true }));
       } else {
         video.pause();
-        setPlaying(prev => ({ ...prev, [id]: false }));
       }
     });
   }, [activeIndex, displayReels]);
@@ -143,16 +135,14 @@ export default function ReelsPage() {
 
     // Small delay to let video elements mount
     const timeout = setTimeout(() => {
-      Object.entries(videoRefs.current).forEach(([id, video]) => {
+      Object.entries(videoRefs.current).forEach(([, video]) => {
         if (!video) return;
         const observer = new IntersectionObserver(
           ([entry]) => {
             if (entry.isIntersecting && entry.intersectionRatio >= 0.6) {
               video.play().catch(() => {});
-              setPlaying(prev => ({ ...prev, [id]: true }));
             } else {
               video.pause();
-              setPlaying(prev => ({ ...prev, [id]: false }));
             }
           },
           { root: container, threshold: 0.6 }
@@ -180,6 +170,32 @@ export default function ReelsPage() {
     return () => clearTimeout(timer);
   }, [activeIndex, displayReels, user?.id]);
 
+  // Keyboard navigation
+  useEffect(() => {
+    const handler = (e: globalThis.KeyboardEvent) => {
+      if (e.key === 'ArrowDown' || e.key === 'ArrowRight') {
+        const next = Math.min(activeIndex + 1, displayReels.length - 1);
+        scrollRef.current?.scrollTo({ top: next * (scrollRef.current.clientHeight), behavior: 'smooth' });
+      } else if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') {
+        const prev = Math.max(activeIndex - 1, 0);
+        scrollRef.current?.scrollTo({ top: prev * (scrollRef.current.clientHeight), behavior: 'smooth' });
+      } else if (e.key === 'm') {
+        setMuted(m => !m);
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [activeIndex, displayReels.length]);
+
+  // Show demo reels when no real reels and not loading
+  const demoReels = useRef(generateDemoReels(12));
+  const effectiveReels = useMemo(
+    () => !loading && !searchMode && displayReels.length === 0 && !searchingExternal
+      ? demoReels.current
+      : displayReels,
+    [loading, searchMode, displayReels, searchingExternal]
+  );
+
   // Infinite scroll + active index tracking
   const handleScroll = useCallback(() => {
     if (!scrollRef.current) return;
@@ -192,7 +208,7 @@ export default function ReelsPage() {
     }
 
     // Infinite scroll: load more when near bottom
-    const isNearBottom = index >= displayReels.length - 3;
+    const isNearBottom = index >= effectiveReels.length - 3;
     if (isNearBottom && hasMore && !loadingMore && !loadingMoreRef.current) {
       if (index > lastLoadIndexRef.current) {
         loadingMoreRef.current = true;
@@ -202,7 +218,7 @@ export default function ReelsPage() {
         });
       }
     }
-  }, [activeIndex, displayReels.length, hasMore, loadingMore, loadMoreReels]);
+  }, [activeIndex, effectiveReels.length, hasMore, loadingMore, loadMoreReels]);
 
   // Handle feed type change
   const handleFeedTypeChange = (type: FeedTab) => {
@@ -213,12 +229,8 @@ export default function ReelsPage() {
     lastLoadIndexRef.current = 0;
     if (scrollRef.current) scrollRef.current.scrollTop = 0;
 
-    if (type === 'trending') {
-      // Refresh to get latest for trending calculation
-      refreshReels();
-    } else {
-      refreshReels();
-    }
+    // Refresh to get latest reels for the selected feed type
+    refreshReels();
   };
 
   // Handle category change
@@ -259,6 +271,16 @@ export default function ReelsPage() {
     setSearchMode(false);
     setShowSearch(false);
     clearExternalReels();
+  };
+
+  const handleFollow = (userId: string) => {
+    if (!user?.id || userId === user.id) return;
+    setFollowedUsers(prev => {
+      const next = new Set(prev);
+      if (next.has(userId)) next.delete(userId);
+      else next.add(userId);
+      return next;
+    });
   };
 
   const handleLike = async (reel: Reel) => {
@@ -335,15 +357,15 @@ export default function ReelsPage() {
     refreshReels();
   };
 
-  const isLiked = (reel: Reel) => {
+  const isLiked = useCallback((reel: Reel) => {
     if (localLiked[reel.id] !== undefined) return localLiked[reel.id];
     return user?.id ? reel.likes.includes(user.id) : false;
-  };
+  }, [localLiked, user?.id]);
 
-  const isSaved = (reel: Reel) => {
+  const isSaved = useCallback((reel: Reel) => {
     if (localSaved[reel.id] !== undefined) return localSaved[reel.id];
     return user?.id ? reel.savedBy.includes(user.id) : false;
-  };
+  }, [localSaved, user?.id]);
 
   return (
     <div className="h-full flex flex-col bg-black relative">
@@ -460,26 +482,13 @@ export default function ReelsPage() {
         onScroll={handleScroll}
         className="flex-1 overflow-y-auto snap-y snap-mandatory scroll-smooth"
       >
-        {loading && displayReels.length === 0 && (
+        {loading && effectiveReels.length === 0 && (
           <div className="h-full flex items-center justify-center">
             <LoadingSkeleton />
           </div>
         )}
 
-        {!loading && displayReels.length === 0 && !searchingExternal && (
-          <div className="h-full flex items-center justify-center">
-            <EmptyState
-              icon={Play}
-              title={searchMode ? 'No results found' : feedType === 'following' ? 'No reels from friends' : 'No reels yet'}
-              description={searchMode
-                ? hasAnyVideoKey() ? 'Try a different search term.' : 'Add YouTube/Pexels API keys in config to search external videos.'
-                : feedType === 'following' ? 'Follow friends to see their reels here.' : 'Be the first to share a reel!'
-              }
-            />
-          </div>
-        )}
-
-        {searchingExternal && displayReels.length === 0 && (
+        {searchingExternal && effectiveReels.length === 0 && (
           <div className="h-full flex items-center justify-center">
             <div className="flex flex-col items-center gap-3">
               <Loader size={32} className="text-white/50 animate-spin" />
@@ -488,7 +497,17 @@ export default function ReelsPage() {
           </div>
         )}
 
-        {displayReels.map((reel, reelIndex) => (
+        {!loading && searchMode && effectiveReels.length === 0 && !searchingExternal && (
+          <div className="h-full flex items-center justify-center">
+            <EmptyState
+              icon={Play}
+              title="No results found"
+              description={hasAnyVideoKey() ? 'Try a different search term.' : 'Add YouTube/Pexels API keys in config to search external videos.'}
+            />
+          </div>
+        )}
+
+        {effectiveReels.map((reel, reelIndex) => (
           <div
             key={reel.id}
             className="h-full w-full snap-start relative shrink-0 overflow-hidden"
@@ -525,7 +544,7 @@ export default function ReelsPage() {
                 preload={reelIndex <= activeIndex + 2 ? 'auto' : 'metadata'}
                 className="absolute inset-0 w-full h-full object-cover"
                 poster={reel.thumbnailUrl}
-                style={{ filter: filters[(reel as any).filter || 'none'] || '' }}
+                style={{ filter: filters[(reel as { filter?: string }).filter || 'none'] || '' }}
               />
             ) : (
               <div className="absolute inset-0 bg-gradient-to-br from-[#1a1a1a] to-[#0d0d0d] flex items-center justify-center">
@@ -538,40 +557,69 @@ export default function ReelsPage() {
             {/* Gradient overlay */}
             <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-black/30 pointer-events-none" />
 
-            {/* Play/Pause overlay tap */}
+            {/* Play/Pause overlay tap + double-tap to like */}
             <button type="button" className="absolute inset-0 z-10"
               onClick={() => {
+                const now = Date.now();
+                const lastTap = lastTapRef.current[reel.id] || 0;
+                if (now - lastTap < 300) {
+                  // Double-tap: like the reel
+                  if (!isLiked(reel)) handleLike(reel);
+                  setHeartAnimReel(reel.id);
+                  setTimeout(() => setHeartAnimReel(null), 900);
+                  lastTapRef.current[reel.id] = 0;
+                  return;
+                }
+                lastTapRef.current[reel.id] = now;
                 const video = videoRefs.current[reel.id];
                 if (!video) return;
-                if (video.paused) {
-                  video.play().catch(() => {});
-                  setPlaying(prev => ({ ...prev, [reel.id]: true }));
-                } else {
-                  video.pause();
-                  setPlaying(prev => ({ ...prev, [reel.id]: false }));
-                }
+                if (video.paused) video.play().catch(() => {});
+                else video.pause();
               }}
             />
 
+            {/* Double-tap heart animation */}
+            <AnimatePresence>
+              {heartAnimReel === reel.id && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.5 }}
+                  animate={{ opacity: 1, scale: 1.4 }}
+                  exit={{ opacity: 0, scale: 2 }}
+                  className="absolute inset-0 flex items-center justify-center pointer-events-none z-20"
+                >
+                  <Heart size={90} className="text-red-500 fill-red-500 drop-shadow-2xl" />
+                </motion.div>
+              )}
+            </AnimatePresence>
+
             {/* Mute toggle */}
             <button type="button" onClick={() => setMuted(!muted)}
-              className="absolute top-28 right-4 z-20 p-2 rounded-full bg-black/40 text-white"
+              className="absolute bottom-36 right-3 z-20 p-2 rounded-full bg-black/40 text-white"
             >
               {muted ? <VolumeX size={18} /> : <Volume2 size={18} />}
             </button>
 
             {/* Right side actions */}
             <div className="absolute right-3 bottom-24 z-20 flex flex-col items-center gap-5">
-              {/* Avatar */}
+              {/* Avatar + Follow */}
               <div className="relative">
                 <img
                   src={reel.userAvatar || getDefaultAvatar(reel.userId)}
                   alt={reel.userName}
                   className="w-10 h-10 rounded-full object-cover border border-white/20"
                 />
-                <button type="button" className="absolute -bottom-2 left-1/2 -translate-x-1/2 bg-[#00C300] rounded-full p-0.5">
-                  <UserPlus size={12} className="text-black" />
-                </button>
+                {reel.userId !== user?.id && (
+                  <button
+                    type="button"
+                    onClick={() => handleFollow(reel.userId)}
+                    className="absolute -bottom-2 left-1/2 -translate-x-1/2 rounded-full p-0.5 transition-colors"
+                    style={{ background: followedUsers.has(reel.userId) ? '#8D8D8D' : '#00C300' }}
+                  >
+                    {followedUsers.has(reel.userId)
+                      ? <Check size={12} className="text-white" />
+                      : <UserPlus size={12} className="text-black" />}
+                  </button>
+                )}
               </div>
 
               {/* Like */}
@@ -632,9 +680,18 @@ export default function ReelsPage() {
                   className="w-8 h-8 rounded-full object-cover"
                 />
                 <span className="text-white font-semibold text-sm">{sanitizeText(reel.userName) || 'User'}</span>
-                <button type="button" className="px-3 py-1 rounded-full border border-white/30 text-white text-xs font-medium">
-                  Follow
-                </button>
+                {reel.userId !== user?.id && (
+                  <button
+                    type="button"
+                    onClick={() => handleFollow(reel.userId)}
+                    className="px-3 py-1 rounded-full border text-xs font-medium transition-colors"
+                    style={followedUsers.has(reel.userId)
+                      ? { borderColor: '#8D8D8D', color: '#8D8D8D' }
+                      : { borderColor: 'rgba(255,255,255,0.3)', color: 'white' }}
+                  >
+                    {followedUsers.has(reel.userId) ? 'Following' : 'Follow'}
+                  </button>
+                )}
               </div>
               <p className="text-white text-sm leading-relaxed mb-2 line-clamp-2">
                 {sanitizeText(reel.caption)}
@@ -667,27 +724,24 @@ export default function ReelsPage() {
               )}
             </div>
 
-            {/* Progress indicator */}
-            <div className="absolute top-1 left-4 right-4 z-20 flex gap-1">
-              {displayReels.map((_, i) => (
-                <div key={i} className="h-0.5 flex-1 rounded-full bg-white/30 overflow-hidden">
-                  {i === activeIndex && (
-                    <motion.div
-                      className="h-full bg-white"
-                      initial={{ width: '0%' }}
-                      animate={{ width: '100%' }}
-                      transition={{ duration: 5, ease: 'linear' }}
-                    />
-                  )}
-                  {i < activeIndex && <div className="h-full bg-white" />}
-                </div>
-              ))}
+            {/* Progress indicator — single bar for current reel */}
+            <div className="absolute top-1 left-4 right-4 z-20">
+              <div className="h-0.5 rounded-full bg-white/30 overflow-hidden">
+                {reelIndex === activeIndex && (
+                  <motion.div
+                    className="h-full bg-white"
+                    initial={{ width: '0%' }}
+                    animate={{ width: '100%' }}
+                    transition={{ duration: reel.duration > 0 ? reel.duration : 15, ease: 'linear' }}
+                  />
+                )}
+              </div>
             </div>
           </div>
         ))}
 
         {/* Loading more indicator */}
-        {loadingMore && displayReels.length > 0 && (
+        {loadingMore && effectiveReels.length > 0 && (
           <div className="h-20 flex items-center justify-center">
             <Loader size={24} className="text-white/50 animate-spin" />
           </div>
@@ -719,7 +773,7 @@ export default function ReelsPage() {
                 {showComments.comments.length === 0 ? (
                   <p className="text-center text-[#8D8D8D] text-sm py-8">No comments yet</p>
                 ) : (
-                  showComments.comments.map((comment: any) => (
+                  showComments.comments.map((comment) => (
                     <div key={comment.id || comment.userId + comment.timestamp} className="flex gap-3">
                       <img
                         src={comment.userAvatar || getDefaultAvatar(comment.userId)}
@@ -813,7 +867,6 @@ export default function ReelsPage() {
         )}
       </AnimatePresence>
 
-      <BottomNav />
     </div>
   );
 }

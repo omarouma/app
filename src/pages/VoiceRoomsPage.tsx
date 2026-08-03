@@ -9,7 +9,6 @@ import { useAuthStore } from '@/store/useAuthStore';
 import { useVoiceRoomStore } from '@/store/useVoiceRoomStore';
 import { useFriendStore } from '@/store/useFriendStore';
 import { getDefaultAvatar } from '@/lib/utils';
-import BottomNav from '@/components/layout/BottomNav';
 import EmptyState from '@/components/EmptyState';
 import LoadingSkeleton from '@/components/LoadingSkeleton';
 const ROOM_CATEGORIES = [
@@ -213,7 +212,6 @@ export default function VoiceRoomsPage() {
         )}
       </div>
 
-      <BottomNav />
 
       {/* Create Room Modal */}
       <AnimatePresence>

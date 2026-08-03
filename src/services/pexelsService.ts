@@ -32,6 +32,7 @@ export interface PexelsVideo {
   description: string;
   thumbnail: string;
   url: string;
+  videoUrl: string;
   duration: number;
   width: number;
   height: number;
@@ -53,6 +54,7 @@ const DEMO_PEXELS_VIDEOS: PexelsVideo[] = [
     description: 'Scenic footage of mountains and lakes.',
     thumbnail: 'https://images.pexels.com/videos/3054792/3054792-hd.mp4?auto=compress&cs=tinysrgb&w=1200',
     url: 'https://www.pexels.com/video/beautiful-nature-landscape-3054792/',
+    videoUrl: 'https://www.pexels.com/video/beautiful-nature-landscape-3054792/',
     duration: 30,
     width: 1920,
     height: 1080,
@@ -64,6 +66,7 @@ const DEMO_PEXELS_VIDEOS: PexelsVideo[] = [
     description: 'Busy city streets at night.',
     thumbnail: 'https://images.pexels.com/videos/3246245/3246245-hd.mp4?auto=compress&cs=tinysrgb&w=1200',
     url: 'https://www.pexels.com/video/urban-city-timelapse-3246245/',
+    videoUrl: 'https://www.pexels.com/video/urban-city-timelapse-3246245/',
     duration: 25,
     width: 1920,
     height: 1080,
@@ -101,6 +104,7 @@ function parsePexelsResponse(items: PexelsApiVideo[]): PexelsVideo[] {
       description: item.description || '',
       thumbnail,
       url,
+      videoUrl: url,
       duration: item.duration || 0,
       width: item.width || 0,
       height: item.height || 0,

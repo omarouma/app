@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback, memo } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo, memo } from 'react';
 import { Play, Pause } from 'lucide-react';
 
 interface VoiceWaveformProps {
@@ -14,25 +14,25 @@ export const VoiceWaveform = memo(function VoiceWaveform({ audioUrl, duration: p
   const [playbackRate, setPlaybackRate] = useState(1);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
-  // Generate fake waveform bars for visualization
-  const waveformBars = useCallback(() => {
-    const bars: number[] = [];
+  // Generate stable waveform bars seeded from audioUrl
+  const bars = useMemo(() => {
     const count = 40;
-    for (let i = 0; i < count; i++) {
-      // Simulate realistic audio waveform
+    // Simple deterministic seed from URL chars
+    let seed = audioUrl.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0);
+    const rand = () => { seed = (seed * 1664525 + 1013904223) & 0xffffffff; return (seed >>> 0) / 0xffffffff; };
+    return Array.from({ length: count }, (_, i) => {
       const center = count / 2;
       const distance = Math.abs(i - center) / center;
-      const value = Math.max(0.1, Math.sin((i / count) * Math.PI * 4) * (1 - distance * 0.5) + (Math.random() * 0.3));
-      bars.push(value);
-    }
-    return bars;
-  }, []);
-
-  const bars = waveformBars();
+      return Math.max(0.1, Math.sin((i / count) * Math.PI * 4) * (1 - distance * 0.5) + rand() * 0.3);
+    });
+  }, [audioUrl]);
 
   useEffect(() => {
     const audio = new Audio(audioUrl);
     audioRef.current = audio;
+    setIsPlaying(false);
+    setCurrentTime(0);
+    setDuration(propDuration || 0);
 
     audio.addEventListener('loadedmetadata', () => {
       setDuration(audio.duration);
@@ -50,8 +50,9 @@ export const VoiceWaveform = memo(function VoiceWaveform({ audioUrl, duration: p
     return () => {
       audio.pause();
       audio.src = '';
+      audioRef.current = null;
     };
-  }, [audioUrl]);
+  }, [audioUrl, propDuration]);
 
   useEffect(() => {
     if (audioRef.current) {
@@ -60,13 +61,15 @@ export const VoiceWaveform = memo(function VoiceWaveform({ audioUrl, duration: p
   }, [playbackRate]);
 
   const togglePlayPause = useCallback(() => {
-    if (!audioRef.current) return;
+    const audio = audioRef.current;
+    if (!audio) return;
     if (isPlaying) {
-      audioRef.current.pause();
+      audio.pause();
+      setIsPlaying(false);
     } else {
-      audioRef.current.play();
+      audio.play().catch(() => setIsPlaying(false));
+      setIsPlaying(true);
     }
-    setIsPlaying(!isPlaying);
   }, [isPlaying]);
 
   const seekTo = useCallback((e: React.MouseEvent<HTMLDivElement>) => {

@@ -625,7 +625,7 @@ export const useEnhancedTimelineStore = create<EnhancedTimelineStore>((set) => (
     }
   },
 
-  createPost: async (userId, content, images, visibility, pollData, location, scheduledAt, contentWarning, hashtags) => {
+createPost: async (userId, content, images, visibility, pollData, location, scheduledAt, contentWarning, hashtags) => {
     if (!isFirestoreAvailable()) return;
     try {
       const user = await getDocById(COLLECTIONS.USERS, userId);
@@ -633,35 +633,26 @@ export const useEnhancedTimelineStore = create<EnhancedTimelineStore>((set) => (
         userId,
         content,
         images: images || [],
+        // Also persist to the `media_urls` column (snake-cased during insert)
+        // so the feed can render images regardless of which column is read.
+        mediaUrls: images || [],
         visibility: visibility || 'public',
         likes: [],
         comments: [],
         shares: [],
-        savedBy: [],
-        repostedBy: [],
-        reactions: {
-          like: [], love: [], haha: [], wow: [], sad: [], angry: [], clap: [], fire: [],
-        },
+        // Persist optional post-composer fields that were previously ignored.
+        ...(location ? { location } : {}),
+        ...(scheduledAt ? { scheduledAt } : {}),
+        ...(contentWarning ? { contentWarning: contentWarning ? 'yes' : undefined } : {}),
+        ...(hashtags && hashtags.length > 0 ? { hashtags } : {}),
         timestamp: serverTimestamp(),
         userName: user?.name || '',
         userAvatar: user?.avatar || '',
-        mediaType: images.length > 0 ? 'photo' : 'text',
-        viewCount: 0,
-        reachCount: 0,
-        impressionCount: 0,
-        commentCount: 0,
-        shareCount: 0,
-        pinned: false,
-        edited: false,
-        hashtags: hashtags || [],
-        mentions: [],
         ...(pollData ? { pollData } : {}),
-        ...(location ? { location } : {}),
-        ...(scheduledAt ? { scheduledAt } : {}),
-        ...(contentWarning ? { contentWarning: 'sensitive' } : {}),
       });
     } catch (err) {
       console.error('[Timeline] createPost error:', err);
+      throw err;
     }
   },
 

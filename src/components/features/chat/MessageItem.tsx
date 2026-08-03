@@ -6,6 +6,7 @@ import {
 import { formatTime, getDefaultAvatar, sanitizeMediaUrl } from '@/lib/utils';
 import { reactionEmojis } from '@/lib/chatConstants';
 import { ReadReceipt } from './ReadReceipt';
+import { VoiceWaveform } from './VoiceWaveform';
 import type { Message } from '@/types';
 import type { ReactionEmoji } from '@/lib/chatConstants';
 
@@ -32,7 +33,7 @@ export interface MessageItemProps {
   onContextMenu: (e: React.MouseEvent, msg: Message) => void;
   onTouchStart: (e: React.TouchEvent) => void;
   onTouchMove: (e: React.TouchEvent) => void;
-  onTouchEnd: (msg: Message) => void;
+  onTouchEnd: () => void;
   onMouseDown: (msg: Message) => void;
   onMouseUp: () => void;
   onMouseLeave: () => void;
@@ -191,7 +192,7 @@ export const MessageItem = memo(function MessageItem(props: MessageItemProps) {
           initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
           className={`flex ${isMe ? 'justify-end' : 'justify-start'} ${isSelected ? 'opacity-70' : ''}`}
           onContextMenu={(e: React.MouseEvent) => { if (msg.type !== 'deleted') onContextMenu(e, msg); }}
-          onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={() => onTouchEnd(msg)}
+          onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}
           onMouseDown={() => onMouseDown(msg)} onMouseUp={onMouseUp} onMouseLeave={onMouseLeave}
           onClick={() => onClick(msg)}
         >
@@ -226,7 +227,9 @@ export const MessageItem = memo(function MessageItem(props: MessageItemProps) {
 
             {/* Voice Message */}
             {msg.type === 'voice' && msg.mediaUrl && (
-              <audio src={msg.mediaUrl} className="max-w-full mb-1" controls />
+              <div className={`rounded-2xl mb-1 px-3 py-2 ${isMe ? 'bg-[#00C300]' : 'bg-white'}`}>
+                <VoiceWaveform audioUrl={msg.mediaUrl} isOwnMessage={isMe} />
+              </div>
             )}
 
             {/* File */}
@@ -315,7 +318,7 @@ export const MessageItem = memo(function MessageItem(props: MessageItemProps) {
             )}
 
             {/* Read Receipt */}
-            <ReadReceipt isMe={isMe} timestamp={msg.timestamp} read={msg.read} />
+            <ReadReceipt isMe={isMe} timestamp={msg.timestamp} read={msg.read} deliveryStatus={msg.deliveryStatus} edited={msg.edited} />
             {/* Retry on failed */}
             {msg.deliveryStatus === 'failed' && onRetry && (
               <button

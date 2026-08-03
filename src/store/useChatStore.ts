@@ -412,10 +412,11 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       if (!found) return;
       const reactions = (found.reactions as Record<string, string[]>) || {};
       const users = reactions[emoji] || [];
-      if (!users.includes(userId)) {
-        reactions[emoji] = [...users, userId];
-        await updateSubcollectionDoc(COLLECTIONS.CHATS, _chatId, COLLECTIONS.MESSAGES, messageId, { reactions });
-      }
+      // Toggle: remove if already reacted, add if not
+      reactions[emoji] = users.includes(userId)
+        ? users.filter((id) => id !== userId)
+        : [...users, userId];
+      await updateSubcollectionDoc(COLLECTIONS.CHATS, _chatId, COLLECTIONS.MESSAGES, messageId, { reactions });
     } catch {
       return;
     }

@@ -5,7 +5,7 @@ import {
   querySubcollection,
   where,
 } from '@/lib/firestore';
-import { getSupabaseSafe } from '@/lib/supabase';
+import { getSupabaseSafe, isSupabaseConfigured } from '@/lib/supabase';
 import { getIceServers } from '@/lib/webrtc';
 
 // ─── ICE servers — STUN + optional TURN (shared with 1:1 calls) ───
@@ -110,15 +110,26 @@ export function useVoiceRoomRTC(roomId: string, userId: string) {
 
     // Handle ICE candidates
     pc.onicecandidate = async (event) => {
-      if (!event.candidate || !isFirestoreAvailable()) return;
+      if (!event.candidate) return;
       try {
-        await addDocToSubcollection('voiceRooms', roomId, 'signals', {
-          type: 'ice-candidate',
-          from: userId,
-          to: targetUserId,
-          candidate: JSON.stringify(event.candidate.toJSON()),
-          timestamp: Date.now(),
-        });
+        const supabase = getSupabaseSafe();
+        if (supabase) {
+          await supabase.from('voice_room_signals').insert({
+            room_id: roomId,
+            type: 'ice-candidate',
+            from: userId,
+            to: targetUserId,
+            candidate: JSON.stringify(event.candidate.toJSON()),
+          });
+        } else if (isFirestoreAvailable()) {
+          await addDocToSubcollection('voiceRooms', roomId, 'signals', {
+            type: 'ice-candidate',
+            from: userId,
+            to: targetUserId,
+            candidate: JSON.stringify(event.candidate.toJSON()),
+            timestamp: Date.now(),
+          });
+        }
       } catch { /* ICE candidate send failed — non-fatal */ }
     };
 
@@ -141,8 +152,17 @@ export function useVoiceRoomRTC(roomId: string, userId: string) {
     const offer = await pc.createOffer();
     await pc.setLocalDescription(offer);
 
-    // Send offer via Firestore
-    if (isFirestoreAvailable()) {
+    // Send offer via Supabase or Firestore fallback
+    const supabaseOffer = getSupabaseSafe();
+    if (supabaseOffer) {
+      await supabaseOffer.from('voice_room_signals').insert({
+        room_id: roomId,
+        type: 'offer',
+        from: userId,
+        to: targetUserId,
+        sdp: offer.sdp,
+      });
+    } else if (isFirestoreAvailable()) {
       await addDocToSubcollection('voiceRooms', roomId, 'signals', {
         type: 'offer',
         from: userId,
@@ -176,8 +196,17 @@ export function useVoiceRoomRTC(roomId: string, userId: string) {
       const answer = await peer.pc.createAnswer();
       await peer.pc.setLocalDescription(answer);
 
-      // Send answer
-      if (isFirestoreAvailable()) {
+      // Send answer via Supabase or Firestore fallback
+      const supabaseAnswer = getSupabaseSafe();
+      if (supabaseAnswer) {
+        await supabaseAnswer.from('voice_room_signals').insert({
+          room_id: roomId,
+          type: 'answer',
+          from: userId,
+          to: from,
+          sdp: answer.sdp,
+        });
+      } else if (isFirestoreAvailable()) {
         await addDocToSubcollection('voiceRooms', roomId, 'signals', {
           type: 'answer',
           from: userId,
@@ -206,7 +235,7 @@ export function useVoiceRoomRTC(roomId: string, userId: string) {
     if (!roomId || !userId) return;
 
     // Try Supabase realtime first
-    const supabase = getSupabaseSafe();
+    const supabase = isSupabaseConfigured() ? getSupabaseSafe() : null;
     if (supabase) {
       // Initial fetch of recent signals
       const fetchSignals = async () => {

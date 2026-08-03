@@ -20,8 +20,10 @@ export const ReadReceipt = memo(function ReadReceipt({ isMe, timestamp, read, de
   }
 
   // Enhanced delivery status rendering
+  const status = deliveryStatus ?? (read ? 'read' : 'sent');
+
   if (deliveryStatus) {
-    switch (deliveryStatus) {
+    switch (status) {
       case 'sending':
         return (
           <div className="text-[10px] mt-1 text-right text-white/70">
@@ -82,7 +84,7 @@ export const ReadReceipt = memo(function ReadReceipt({ isMe, timestamp, read, de
     <div className="text-[10px] mt-1 text-right text-white/70">
       <span className="inline-flex items-center gap-0.5">
         <svg width="14" height="10" viewBox="0 0 14 10" fill="none" className="inline-block">
-          {read ? (
+          {status === 'read' ? (
             <>
               <path d="M1 5L4 8L9 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
               <path d="M5 5L8 8L13 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />

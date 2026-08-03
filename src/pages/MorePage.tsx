@@ -13,7 +13,6 @@ import { useAuthStore } from '@/store/useAuthStore';
 import { useAuth } from '@/context/AuthContext';
 import { useWalletStore } from '@/store/useWalletStore';
 import { useUserSettings } from '@/store/useSettingsStore';
-import BottomNav from '@/components/layout/BottomNav';
 import Logo from '@/components/Logo';
 import { toast } from 'sonner';
 
@@ -178,7 +177,7 @@ export default function MorePage() {
                   transition={{ delay: ii * 0.03 }}
 onClick={() => {
                     if ('action' in item && item.action) item.action();
-                    else if (item.to) navigate(item.to);
+                    else if ('to' in item && item.to) navigate(item.to);
                   }}
                   className="w-full flex items-center gap-3 px-4 py-3.5 hover:bg-[#EBEBEB] transition-colors text-left border-b border-white/50 last:border-b-0"
                 >
@@ -208,9 +207,7 @@ onClick={() => {
           </motion.button>
           <p className="text-center text-[#C7C7CC] text-[10px] mt-2">GaGa Chat v2.0.0 &bull; Built with care</p>
         </div>
-      </div>
-
-      <BottomNav />
+</div>
 
       {/* About Dialog */}
       {showAbout && (

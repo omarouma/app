@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { safeGetStorageItem, safeSetStorageItem } from '@/lib/safeStorage';
 import type { Message } from '@/types';
 
@@ -103,11 +103,17 @@ export function useScheduledMessages(
     }
   }, [chatId, sendMessage]);
 
+  const [pendingCount, setPendingCount] = useState(0);
+
+  // Refresh pending count so interval restarts when new messages are scheduled
+  useEffect(() => {
+    setPendingCount(getPendingScheduledMessages(chatId).length);
+  }, [chatId]);
+
   useEffect(() => {
     // Check immediately on mount
     checkAndSend();
 
-    // Only poll if there are pending messages
     const pending = getPendingScheduledMessages(chatId);
     if (pending.length === 0) return;
 
@@ -118,7 +124,7 @@ export function useScheduledMessages(
       clearInterval(interval);
       clearInterval(cleanupInterval);
     };
-  }, [checkAndSend, chatId]);
+  }, [checkAndSend, chatId, pendingCount]);
 
   return {
     schedule: useCallback((params: {

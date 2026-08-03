@@ -15,7 +15,6 @@ import {
 } from '@/lib/firestore';
 import { where, orderBy, limit, startAfter, queryCollection } from '@/lib/firestore';
 import TimelineCard from '@/components/features/timeline/TimelineCard';
-import BottomNav from '@/components/layout/BottomNav';
 import EmptyState from '@/components/EmptyState';
 import LoadingSkeleton from '@/components/LoadingSkeleton';
 import { FeedAd } from '@/components/GoogleAd';
@@ -546,7 +545,7 @@ export default function TimelinePage() {
       .map(([tag]) => tag);
   }, [posts]);
 
-  const filteredPosts = posts.filter(p => {
+  const filteredPosts = useMemo(() => posts.filter(p => {
     if (feedFilter === 'public' && p.visibility !== 'public') return false;
     if (feedFilter === 'friends' && p.visibility !== 'friends') return false;
     if (feedFilter === 'mine' && p.userId !== user?.id) return false;
@@ -555,7 +554,10 @@ export default function TimelinePage() {
       return (p.content || '').toLowerCase().includes(term) || (p.userName || '').toLowerCase().includes(term);
     }
     return true;
-  });
+  }), [posts, feedFilter, postSearch, user?.id]);
+
+  const handleLoadMoreRef = useRef(handleLoadMore);
+  handleLoadMoreRef.current = handleLoadMore;
 
   // Auto-load more posts on scroll near bottom
   useEffect(() => {
@@ -571,9 +573,6 @@ export default function TimelinePage() {
     el.addEventListener('scroll', onScroll);
     return () => el.removeEventListener('scroll', onScroll);
   }, [loading, loadingMore, hasMore]);
-
-  const handleLoadMoreRef = useRef(handleLoadMore);
-  handleLoadMoreRef.current = handleLoadMore;
 
   const handleRefresh = async () => {
     if (refreshing) return;
@@ -691,7 +690,7 @@ export default function TimelinePage() {
       )}
 
       {/* Scrollable content */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto pb-nav">
         {/* === STORIES TAB === */}
         {feedTab === 'stories' && (
           <div className="px-4 py-6 space-y-6">
@@ -763,7 +762,6 @@ export default function TimelinePage() {
                   </button>
                 ))}
               </div>
-              <input type="file" ref={storyFileInputRef} accept="image/*,video/*" className="hidden" onChange={handleStoryUpload} />
             </div>
 
             {/* Reels Strip */}
@@ -961,10 +959,7 @@ export default function TimelinePage() {
         {feedTab === 'videos' && (
           <YouTubeFeed />
         )}
-      </div>
-
-      {/* Bottom nav */}
-      <BottomNav />
+</div>
 
       {/* Story viewer with progress bar and tap navigation */}
       <AnimatePresence>

@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -20,39 +19,43 @@ import { where, limit, isFirestoreAvailable, updateDocById, queryCollection } fr
 
 type FriendStatus = 'not_friends' | 'request_sent' | 'request_received' | 'friends' | 'blocked' | 'self';
 
+function errorMessage(err: unknown, fallback: string): string {
+  return err instanceof Error ? err.message : fallback;
+}
+
 // ─── Helpers ───
 
-function mapUser(u: any): User {
+function mapUser(u: Record<string, unknown>): User {
   return {
-    id: u.id,
-    name: u.name || 'User',
-    displayName: u.displayName || u.name || 'User',
-    username: u.username || '',
-    email: u.email || '',
-    phone: u.phone || '',
-    avatar: u.avatar || '',
-    statusMessage: u.statusMessage || '',
-    status: u.status || 'offline',
-    lastSeen: u.lastSeen || u.lastSeen || undefined,
-    coins: u.coins || 0,
-    bdtBalance: u.bdtBalance || u.bdtBalance || 0,
-    savedPosts: u.savedPosts || [],
-    blockedUsers: u.blockedUsers || [],
-    favorites: u.favorites || [],
-    friends: u.friends || [],
-    bio: u.bio || '',
-    location: u.location || '',
-    website: u.website || '',
-    coverImage: u.coverImage || u.coverImage || '',
-    latitude: u.latitude ?? undefined,
-    longitude: u.longitude ?? undefined,
-    verified: u.verified || false,
-    isAdmin: u.isAdmin || u.isAdmin || false,
-    friendRequestPrivacy: u.friendRequestPrivacy || u.friendRequestPrivacy || 'everyone',
-    hideFriendList: u.hideFriendList || u.hideFriendList || false,
-    hideOnlineStatus: u.hideOnlineStatus || u.hideOnlineStatus || false,
-    interests: u.interests || [],
-    friendCount: u.friendCount || u.friendCount || 0,
+    id: u.id as string,
+    name: (u.name as string) || 'User',
+    displayName: (u.displayName as string) || (u.name as string) || 'User',
+    username: (u.username as string) || '',
+    email: (u.email as string) || '',
+    phone: (u.phone as string) || '',
+    avatar: (u.avatar as string) || '',
+    statusMessage: (u.statusMessage as string) || '',
+    status: (u.status as string) || 'offline',
+    lastSeen: (u.lastSeen as Date | undefined) || undefined,
+    coins: (u.coins as number) || 0,
+    bdtBalance: (u.bdtBalance as number) || 0,
+    savedPosts: (u.savedPosts as string[]) || [],
+    blockedUsers: (u.blockedUsers as string[]) || [],
+    favorites: (u.favorites as string[]) || [],
+    friends: (u.friends as string[]) || [],
+    bio: (u.bio as string) || '',
+    location: (u.location as string) || '',
+    website: (u.website as string) || '',
+    coverImage: (u.coverImage as string) || '',
+    latitude: (u.latitude as number) ?? undefined,
+    longitude: (u.longitude as number) ?? undefined,
+    verified: (u.verified as boolean) || false,
+    isAdmin: (u.isAdmin as boolean) || false,
+    friendRequestPrivacy: (u.friendRequestPrivacy as 'everyone' | 'friends_of_friends' | 'nobody') || 'everyone',
+    hideFriendList: (u.hideFriendList as boolean) || false,
+    hideOnlineStatus: (u.hideOnlineStatus as boolean) || false,
+    interests: (u.interests as string[]) || [],
+    friendCount: (u.friendCount as number) || 0,
   };
 }
 
@@ -104,7 +107,7 @@ function UserCard({ user, status = 'not_friends', mutualCount = 0, distance, sug
         }
         case 'cancel': {
           const { sentRequests: sr } = useFriendStore.getState();
-          const req = sr.find((s: any) => s.toUserId === user.id);
+          const req = sr.find((s) => s.toUserId === user.id);
           if (req) {
             await cancelRequest(req.id);
             toast.success('Request cancelled');
@@ -113,7 +116,7 @@ function UserCard({ user, status = 'not_friends', mutualCount = 0, distance, sug
         }
         case 'accept': {
           const { requests: reqList } = useFriendStore.getState();
-          const req = reqList.find((r: any) => r.from === user.id && r.status === 'pending');
+          const req = reqList.find((r) => r.from === user.id && r.status === 'pending');
           if (req) {
             await acceptRequest(req.id);
             toast.success('Friend request accepted');
@@ -123,7 +126,7 @@ function UserCard({ user, status = 'not_friends', mutualCount = 0, distance, sug
         }
         case 'reject': {
           const { requests: reqList } = useFriendStore.getState();
-          const req = reqList.find((r: any) => r.from === user.id && r.status === 'pending');
+          const req = reqList.find((r) => r.from === user.id && r.status === 'pending');
           if (req) {
             await rejectRequest(req.id);
             toast.success('Request declined');
@@ -140,8 +143,8 @@ function UserCard({ user, status = 'not_friends', mutualCount = 0, distance, sug
           break;
         }
       }
-    } catch (err: any) {
-      toast.error(err?.message || 'Action failed');
+    } catch (err: unknown) {
+      toast.error(errorMessage(err, 'Action failed'));
     }
     setLoading(false);
   };
@@ -237,7 +240,7 @@ function UserCard({ user, status = 'not_friends', mutualCount = 0, distance, sug
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-1">
           <p className="text-[#111111] text-sm font-medium truncate">{user.name || 'User'}</p>
-          {(user as any).verified && <BadgeCheck size={14} className="text-[#00C300] shrink-0" />}
+          {user.verified && <BadgeCheck size={14} className="text-[#00C300] shrink-0" />}
         </div>
         <p className="text-[#8D8D8D] text-xs truncate">@{user.username || 'user'}</p>
         {user.bio && (
@@ -331,7 +334,7 @@ export default function AddFriendsPage() {
     try {
       const results = await searchUsers(query, currentUser.id);
       setSearchResults(results);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Search error:', err);
       toast.error('Search failed');
     }
@@ -348,7 +351,7 @@ export default function AddFriendsPage() {
       }
     }, 300);
     return () => clearTimeout(timer);
-  }, [searchQuery, handleSearch, currentUser]);
+  }, [searchQuery, handleSearch]);
 
   // Fetch statuses and mutual counts for search results
   useEffect(() => {
@@ -389,7 +392,7 @@ export default function AddFriendsPage() {
     setLoadingSuggestions(true);
     try {
       const recs = await getSuggestedFriends(currentUser.id);
-      setSuggestions(recs as any);
+      setSuggestions(recs as (User & { mutualCount: number; score: number; distance?: number })[]);
     } catch (err) {
       console.error(err);
       toast.error('Failed to load suggestions');
@@ -488,8 +491,8 @@ export default function AddFriendsPage() {
           .filter((u: any) => u.distance < 50)
           .sort((a: any, b: any) => a.distance - b.distance);
 
-        const friendIds = new Set(friends.map((f: any) => f.id));
-        setNearbyUsers(withDist.filter((u: any) => !friendIds.has(u.id)));
+        const friendIdSet = new Set(friends.map((f: any) => f.id));
+        setNearbyUsers(withDist.filter((u: any) => !friendIdSet.has(u.id)));
 
         if (withDist.length === 0) {
           toast.info('No users found nearby. Invite friends to join!');
@@ -538,8 +541,8 @@ export default function AddFriendsPage() {
         });
         const results = await Promise.all([...emailQueries, ...phoneQueries]);
         results.forEach((arr: User[]) => foundUsers.push(...arr));
-        const friendIds = new Set(friends.map((f: any) => f.id));
-        const matches = foundUsers.filter((u: any) => u.id !== currentUser.id && !friendIds.has(u.id));
+        const friendIdSet = new Set(friends.map((f: any) => f.id));
+        const matches = foundUsers.filter((u: any) => u.id !== currentUser.id && !friendIdSet.has(u.id));
         const uniqueMatches = Array.from(new Map(matches.map((u: any) => [u.id, u])).values());
         setContactMatches(uniqueMatches);
         if (uniqueMatches.length > 0) {
@@ -1219,9 +1222,11 @@ function QRManualAdd({ onAdd }: { onAdd: (data: string) => void }) {
     if (!file) return;
     setScanning(true);
     try {
+      const objectUrl = URL.createObjectURL(file);
       const img = new Image();
-      img.src = URL.createObjectURL(file);
+      img.src = objectUrl;
       await new Promise((res) => { img.onload = res; });
+      URL.revokeObjectURL(objectUrl);
       const canvas = document.createElement('canvas');
       canvas.width = img.width;
       canvas.height = img.height;

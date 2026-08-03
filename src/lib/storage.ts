@@ -95,6 +95,22 @@ const LOCAL_STORAGE_KEY = 'gaga_media_fallback';
 // Max file size for localStorage fallback (2 MB)
 const MAX_FALLBACK_SIZE = 2 * 1024 * 1024;
 
+// Map upload "kind" to the Firebase Storage top-level folder that matches
+// storage.rules (e.g. avatars/{userId}/**, posts/{userId}/**). This ensures
+// the Firebase fallback upload path is allowed by the rules.
+const KIND_TO_STORAGE_ROOT: Record<string, string> = {
+  avatars: 'avatars',
+  posts: 'posts',
+  stories: 'stories',
+  reels: 'reels',
+  chats: 'messages',
+  voice: 'messages',
+  marketplace: 'marketplace',
+  events: 'events',
+  groups: 'groups',
+  live: 'live',
+};
+
 function buildDynamicFolder(opts: CloudinaryUploadOpts): string {
   const userPart = opts.userId ? String(opts.userId) : 'anonymous';
   const kind = (
@@ -104,7 +120,9 @@ function buildDynamicFolder(opts: CloudinaryUploadOpts): string {
         ? String(opts.folder)
         : 'media'
   ).replace(/[^a-zA-Z0-9_-]/g, '');
-  return `gagachat/${userPart}/${kind}`;
+  // Root folder that matches storage.rules (or 'media' as a safe fallback).
+  const root = KIND_TO_STORAGE_ROOT[kind] || 'media';
+  return `${root}/${userPart}`;
 }
 
 function inferResourceType(file: Blob | File): 'image' | 'video' | 'raw' {
@@ -210,29 +228,54 @@ async function uploadWithFallback(
   opts: CloudinaryUploadOpts
 ): Promise<string> {
   if (!file || file.size === 0) throw new Error('Cannot upload empty file.');
-  if (!CLOUDINARY_CLOUD_NAME || !CLOUDINARY_UPLOAD_PRESET) {
-    throw new Error('Cloudinary is not configured. Set VITE_CLOUDINARY_CLOUD_NAME and VITE_CLOUDINARY_UPLOAD_PRESET in .env');
-  }
-  try {
-    return await cloudinaryUpload(file, opts);
-  } catch {
+
+  const errors: string[] = [];
+
+  // 1) Try Cloudinary first — ONLY if actually configured. Empty/bogus keys
+  //    previously threw before reaching any fallback, breaking avatar/post
+  //    uploads even though Firebase Storage was configured.
+  if (CLOUDINARY_CLOUD_NAME && CLOUDINARY_UPLOAD_PRESET) {
     try {
-      const fbStorage = getFirebaseStorage();
-      if (fbStorage) {
-        const folder = buildDynamicFolder(opts);
-        const fileName = opts.fileName || `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-        const firebaseUrl = await uploadToFirebaseStorage(`${folder}/${fileName}`, file, opts.contentType);
-        return firebaseUrl;
-      }
-    } catch { /* ignore */ }
-    try {
-      return await idbFallback(file);
-    } catch { /* ignore */ }
-    if (file.size <= MAX_FALLBACK_SIZE && inferResourceType(file) === 'image') {
-      return localStorageFallback(file);
+      return await cloudinaryUpload(file, opts);
+    } catch (err) {
+      errors.push(`Cloudinary: ${err instanceof Error ? err.message : String(err)}`);
     }
-    throw new Error(`Upload failed. Please configure Cloudinary.`);
   }
+
+  // 2) Fall back to Firebase Storage (configured in this project).
+  try {
+    const fbStorage = getFirebaseStorage();
+    if (fbStorage) {
+      const folder = buildDynamicFolder(opts);
+      const fileName = opts.fileName || `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+      const firebaseUrl = await uploadToFirebaseStorage(`${folder}/${fileName}`, file, opts.contentType);
+      return firebaseUrl;
+    }
+  } catch (err) {
+    errors.push(`Firebase: ${err instanceof Error ? err.message : String(err)}`);
+  }
+
+  // 3) Prefer the localStorage base64 fallback for small images FIRST because it
+  //    returns a displayable data URL that persists across reloads. The IndexedDB
+  //    fallback returns a synthetic `idb://` URL that images can't render directly,
+  //    so it is only used as a last resort (e.g. non-image blobs over the 2MB cap).
+  if (file.size <= MAX_FALLBACK_SIZE && inferResourceType(file) === 'image') {
+    try {
+      return await localStorageFallback(file);
+    } catch (err) {
+      errors.push(`localStorage: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+
+  // 4) IndexedDB synthetic URL fallback (resolvable via getIDBBlob).
+  try {
+    return await idbFallback(file);
+  } catch (err) {
+    errors.push(`IndexedDB: ${err instanceof Error ? err.message : String(err)}`);
+  }
+
+  console.error('[storage] all upload paths failed:', errors);
+  throw new Error('Media upload failed. Please try again or contact support.');
 }
 
 // ── App-compatible export ──

@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Phone, Video, ArrowLeft, Search, PhoneMissed, Trash2, Filter } from 'lucide-react';
@@ -7,7 +7,6 @@ import { useAuthStore } from '@/store/useAuthStore';
 import { useCallStore } from '@/store/useCallStore';
 import { useFriendStore } from '@/store/useFriendStore';
 import { usePageTitle } from '@/hooks/useDocumentTitle';
-import BottomNav from '@/components/layout/BottomNav';
 import LoadingSkeleton from '@/components/LoadingSkeleton';
 import EmptyState from '@/components/EmptyState';
 import { toast } from 'sonner';
@@ -53,7 +52,7 @@ export default function CallsPage() {
     return f?.name || 'Unknown';
   };
 
-  const filteredCalls = (history || []).filter((call) => {
+  const filteredCalls = useMemo(() => (history || []).filter((call) => {
     const direction = getCallDirection(call);
     if (activeTab === 'missed') return call.status === 'missed';
     if (activeTab === 'outgoing') return direction === 'outgoing';
@@ -65,7 +64,8 @@ export default function CallsPage() {
     const otherId = getOtherUserId(call);
     const name = getUserName(otherId).toLowerCase();
     return name.includes(q) || otherId.toLowerCase().includes(q);
-  });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }), [history, activeTab, searchQuery, friends, user?.id]);
 
   const handleCall = (type: 'voice' | 'video', userId: string) => {
     if (!isFirestoreAvailable()) {
@@ -145,7 +145,7 @@ export default function CallsPage() {
           )}
         </AnimatePresence>
       </div>
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto pb-nav">
         {loading ? (
           <LoadingSkeleton count={4} variant="list" />
         ) : filteredCalls.length === 0 ? (
@@ -181,7 +181,6 @@ export default function CallsPage() {
           </div>
         )}
       </div>
-      <BottomNav />
     </div>
   );
 }

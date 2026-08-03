@@ -411,7 +411,7 @@ function AppContent() {
     location.pathname !== '/';
 
   return (
-    <div id="main-content" className="w-screen bg-white dark:bg-[#0d0d0d]" style={{ minHeight: '100dvh' }}>
+    <div id="main-content" className={`w-screen bg-white dark:bg-[#0d0d0d]${showBottomNav ? ' pb-nav' : ''}`} style={{ minHeight: '100dvh' }}>
       <NetworkStatusBanner />
       <Suspense fallback={<PageLoader />}>
         <Routes location={location}>

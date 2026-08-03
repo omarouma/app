@@ -37,8 +37,8 @@ const CATEGORIES = [
   { id: 'greetings', label: 'Greetings', icon: '👋' },
 ];
 
-// GIF API configuration
-const GIF_API_KEY = 'AIzaSyB8TqCqKFTCRxBGGQ1nYqFJeQJtGqBPSPw'; // Demo key
+// GIF API — key should be set via environment variable
+const GIF_API_KEY = import.meta.env.VITE_TENOR_API_KEY || '';
 const GIF_API_URL = 'https://tenor.googleapis.com/v2/search';
 
 interface StickerPickerProps {
@@ -60,9 +60,13 @@ export const StickerPicker = memo(function StickerPicker({ onSelect, onClose }: 
       return [];
     }
   });
-  const searchTimeoutRef = useRef<ReturnType<typeof setTimeout>>(undefined!);
+  const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const searchGifs = useCallback(async (query: string) => {
+    if (!GIF_API_KEY) {
+      setGifs([]);
+      return;
+    }
     if (!query.trim()) {
       setGifs(recentGifs.slice(0, 12));
       return;

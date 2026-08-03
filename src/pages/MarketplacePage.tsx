@@ -9,7 +9,6 @@ import { useAuthStore } from '@/store/useAuthStore';
 import { useMarketplaceStore } from '@/store/useMarketplaceStore';
 import { useChatStore } from '@/store/useChatStore';
 import { toast } from 'sonner';
-import BottomNav from '@/components/layout/BottomNav';
 import EmptyState from '@/components/EmptyState';
 import LoadingSkeleton from '@/components/LoadingSkeleton';
 import { getDefaultAvatar } from '@/lib/utils';
@@ -551,7 +550,6 @@ export default function MarketplacePage() {
         )}
       </AnimatePresence>
 
-      <BottomNav />
     </div>
   );
 }

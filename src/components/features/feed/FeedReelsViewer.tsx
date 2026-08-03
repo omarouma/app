@@ -18,6 +18,8 @@ const filters: Record<string, string> = {
 import { useAuthStore } from '@/store/useAuthStore';
 import { useFriendStore } from '@/store/useFriendStore';
 import { useReelStore } from '@/store/useReelStore';
+import { isYouTubeReel } from '@/lib/videoApis';
+import YouTubePlayer from '@/components/YouTubePlayer';
 import EmptyState from '@/components/EmptyState';
 import LoadingSkeleton from '@/components/LoadingSkeleton';
 import { getDefaultAvatar } from '@/lib/utils';
@@ -368,13 +370,25 @@ export default function FeedReelsViewer({ onClose }: FeedReelsViewerProps) {
           </div>
         )}
 
-        {displayReels.map((reel) => (
+{displayReels.map((reel, reelIndex) => (
           <div
             key={reel.id}
             className="h-full w-full snap-start relative shrink-0 overflow-hidden"
           >
             {/* Video / Placeholder */}
-            {reel.videoUrl ? (
+            {isYouTubeReel(reel) ? (
+              <YouTubePlayer
+                videoId={reel.id.replace('yt-', '')}
+                playing={reelIndex === activeIndex}
+                muted={muted}
+                thumbnail={reel.thumbnailUrl || ''}
+                onClick={() => {
+                  if (reelIndex !== activeIndex && scrollRef.current) {
+                    scrollRef.current.scrollTo({ top: reelIndex * scrollRef.current.clientHeight, behavior: 'smooth' });
+                  }
+                }}
+              />
+            ) : reel.videoUrl ? (
               <video
                 ref={el => { videoRefs.current[reel.id] = el; }}
                 src={reel.videoUrl}
@@ -400,9 +414,19 @@ export default function FeedReelsViewer({ onClose }: FeedReelsViewerProps) {
             {/* Gradient overlay */}
             <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-black/30 pointer-events-none" />
 
-            {/* Play/Pause + double-tap like overlay */}
+            {/* Play/Pause + double-tap like overlay (single tap toggles pause, double-tap likes) */}
             <button type="button" className="absolute inset-0 z-10"
-              onClick={() => { handleDoubleTap(reel); handleTogglePause(reel); }}
+              onClick={() => {
+                const now = Date.now();
+                const isDouble = now - lastTapRef.current < 300;
+                lastTapRef.current = now;
+                // Double-tap triggers like; single tap toggles pause.
+                if (isDouble) {
+                  handleDoubleTap(reel);
+                } else {
+                  handleTogglePause(reel);
+                }
+              }}
             />
 
             {/* Double-tap heart animation */}

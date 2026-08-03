@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -25,14 +25,14 @@ export default function VoiceRoomPage() {
   const { isMuted } = rtc;
 
 const room = rooms.find(r => r.id === roomId) || activeRoom;
-  const isSpeaker = useMemo(() => room && user?.id ? (room.speakerIds.includes(user.id) || room.hostId === user.id) : false, [room, user]);
+  const isSpeaker = room && user?.id ? (room.speakerIds.includes(user.id) || room.hostId === user.id) : false;
   const [hasHandRaised, setHasHandRaised] = useState(false);
   const [showParticipants, setShowParticipants] = useState(false);
   const [showChat, setShowChat] = useState(false);
   const [chatMessages, setChatMessages] = useState<Array<{ id: string; userId: string; name: string; text: string; timestamp: Date }>>([]);
   const [chatInput, setChatInput] = useState('');
   const isHost = room?.hostId === user?.id;
-const isCoHost = !!(user?.id && room?.coHostIds.includes(user.id));
+const isCoHost = !!(user?.id && room?.coHostIds?.includes(user.id));
   const canManage = isHost || isCoHost;
 
   // Start local audio stream when user becomes a speaker
@@ -433,7 +433,7 @@ function SpeakerAvatar({ userId, isHost, isCoHost, isMe, isMuted }: {
           </div>
         )}
       </div>
-      <p className="text-[10px] text-[#8D8D8D] mt-1 truncate">{isMe ? 'You' : 'User'}</p>
+      <p className="text-[10px] text-[#8D8D8D] mt-1 truncate">{isMe ? 'You' : `User ${userId.slice(0, 6)}`}</p>
     </div>
   );
 }
@@ -447,7 +447,7 @@ function ParticipantRow({ userId, isHost, isSpeaker, isMe, canManage, onPromote,
       <img src={getDefaultAvatar(userId)} alt="User" className="w-10 h-10 rounded-full object-cover" />
       <div className="flex-1 min-w-0">
         <p className="text-white text-sm font-medium">
-          {isMe ? 'You' : 'User'}
+          {isMe ? 'You' : `User ${userId.slice(0, 6)}`}
           {isHost && <span className="text-[#FFD700] text-xs ml-1">Host</span>}
           {isSpeaker && !isHost && <span className="text-[#00C300] text-xs ml-1">Speaker</span>}
         </p>
