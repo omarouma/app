@@ -56,7 +56,8 @@ CREATE TABLE IF NOT EXISTS users (
   achievements TEXT[] DEFAULT '{}',
   disappearing_messages_default INTEGER DEFAULT 0,
   chat_locks JSONB DEFAULT '{}',
-  broadcast_lists TEXT[] DEFAULT '{}'
+  broadcast_lists TEXT[] DEFAULT '{}',
+  push_subscription TEXT
 );
 
 CREATE INDEX IF NOT EXISTS idx_users_email ON users (email);
@@ -292,6 +293,7 @@ CREATE TABLE IF NOT EXISTS reels (
   views_count INTEGER DEFAULT 0,
   shares_count INTEGER DEFAULT 0,
   tags TEXT[] DEFAULT '{}',
+  category TEXT,
   duration INTEGER,
   created_at TIMESTAMPTZ DEFAULT now(),
   updated_at TIMESTAMPTZ DEFAULT now()
@@ -299,6 +301,9 @@ CREATE TABLE IF NOT EXISTS reels (
 
 CREATE INDEX IF NOT EXISTS idx_reels_user_id ON reels (user_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_reels_created_at ON reels (created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_reels_views_count ON reels (views_count DESC);
+CREATE INDEX IF NOT EXISTS idx_reels_tags ON reels USING GIN (tags);
+CREATE INDEX IF NOT EXISTS idx_reels_category ON reels (category, created_at DESC);
 
 ALTER TABLE reels ENABLE ROW LEVEL SECURITY;
 
@@ -747,7 +752,30 @@ CREATE POLICY "hashtags_all" ON hashtags
   FOR ALL TO authenticated USING (true) WITH CHECK (true);
 
 -- ============================================================
--- 26. RPCs
+-- 26. AUTO-UPDATE TRIGGERS
+-- ============================================================
+CREATE OR REPLACE FUNCTION update_updated_at()
+RETURNS TRIGGER LANGUAGE plpgsql AS $$
+BEGIN
+  NEW.updated_at = now();
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS users_updated_at ON users;
+CREATE TRIGGER users_updated_at
+  BEFORE UPDATE ON users FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+DROP TRIGGER IF EXISTS chats_updated_at ON chats;
+CREATE TRIGGER chats_updated_at
+  BEFORE UPDATE ON chats FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+DROP TRIGGER IF EXISTS messages_updated_at ON messages;
+CREATE TRIGGER messages_updated_at
+  BEFORE UPDATE ON messages FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+-- ============================================================
+-- 27. RPCs
 -- ============================================================
 
 -- Append ICE candidate atomically (used by WebRTC 1:1 calls)
@@ -774,37 +802,31 @@ END;
 $$;
 
 -- ============================================================
--- 27. ENABLE REALTIME
+-- 28. ENABLE REALTIME
 -- ============================================================
--- Core chat tables
-ALTER PUBLICATION supabase_realtime ADD TABLE messages;
-ALTER PUBLICATION supabase_realtime ADD TABLE chats;
-ALTER PUBLICATION supabase_realtime ADD TABLE typing;
-ALTER PUBLICATION supabase_realtime ADD TABLE presence;
-ALTER PUBLICATION supabase_realtime ADD TABLE notifications;
-
--- Social tables
-ALTER PUBLICATION supabase_realtime ADD TABLE posts;
-ALTER PUBLICATION supabase_realtime ADD TABLE reels;
-ALTER PUBLICATION supabase_realtime ADD TABLE stories;
-ALTER PUBLICATION supabase_realtime ADD TABLE comments;
-
--- Friend / social graph
-ALTER PUBLICATION supabase_realtime ADD TABLE friend_requests;
-ALTER PUBLICATION supabase_realtime ADD TABLE friendships;
-
--- WebRTC signaling
-ALTER PUBLICATION supabase_realtime ADD TABLE call_signaling;
-ALTER PUBLICATION supabase_realtime ADD TABLE live_stream_signals;
-ALTER PUBLICATION supabase_realtime ADD TABLE voice_room_signals;
-
--- Live / voice
-ALTER PUBLICATION supabase_realtime ADD TABLE live_streams;
-ALTER PUBLICATION supabase_realtime ADD TABLE voice_rooms;
+DO $$
+DECLARE
+  tbl TEXT;
+  tables TEXT[] := ARRAY[
+    'messages','chats','typing','presence','notifications',
+    'posts','reels','stories','comments',
+    'friend_requests','friendships',
+    'call_signaling','live_stream_signals','voice_room_signals',
+    'live_streams','voice_rooms','users'
+  ];
+BEGIN
+  FOREACH tbl IN ARRAY tables LOOP
+    BEGIN
+      EXECUTE format('ALTER PUBLICATION supabase_realtime ADD TABLE %I', tbl);
+    EXCEPTION WHEN duplicate_object THEN NULL;
+    END;
+  END LOOP;
+END $$;
 
 -- ============================================================
 -- DONE
 -- ============================================================
--- All tables, RLS policies, indexes, triggers, RPCs, and
--- realtime subscriptions are now configured for production.
+-- Single master file — replaces supabase_migration.sql,
+-- supabase_fix_rls.sql, and supabase_patch.sql.
+-- Safe to re-run (fully idempotent).
 -- ============================================================
