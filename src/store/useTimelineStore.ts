@@ -78,19 +78,24 @@ export const useTimelineStore = create<TimelineStore>((set) => ({
     const fetchPosts = async () => {
       try {
         const data = await queryCollection(COLLECTIONS.POSTS, [
-          orderBy('timestamp', 'desc'),
+          orderBy('createdAt', 'desc'),
           limit(50),
         ]);
 
-        // Enrich posts with user data
-        const posts: TimelinePost[] = [];
-        for (const d of data || []) {
+        const userIds = [...new Set((data || []).map((d: any) => d.userId as string).filter(Boolean))];
+        const userMap: Record<string, any> = {};
+        await Promise.all(userIds.map(async (uid) => {
+          const u = await getDocById(COLLECTIONS.USERS, uid);
+          if (u) userMap[uid] = u;
+        }));
+
+        const posts: TimelinePost[] = (data || []).map((d: any) => {
           const post = mapPost(d);
-          const user = await getDocById(COLLECTIONS.USERS, post.userId);
-          post.userName = (user?.name as string) || post.userName || '';
-          post.userAvatar = (user?.avatar as string) || post.userAvatar || '';
-          posts.push(post);
-        }
+          const u = userMap[post.userId];
+          post.userName = (u?.name as string) || post.userName || '';
+          post.userAvatar = (u?.avatar as string) || post.userAvatar || '';
+          return post;
+        });
         set({ posts, loadingPosts: false });
       } catch {
         set({ loadingPosts: false });
@@ -101,7 +106,7 @@ export const useTimelineStore = create<TimelineStore>((set) => ({
 
     let unsub: (() => void) | null = null;
     try {
-      unsub = subscribeToCollection(COLLECTIONS.POSTS, [orderBy('timestamp', 'desc')], () => {
+      unsub = subscribeToCollection(COLLECTIONS.POSTS, [orderBy('createdAt', 'desc'), limit(50)], () => {
         fetchPosts();
       });
     } catch {
@@ -124,12 +129,12 @@ export const useTimelineStore = create<TimelineStore>((set) => ({
 
     const fetchStories = async () => {
       try {
-        // Fetch stories from friends + self
         const friendships = await queryCollection(COLLECTIONS.FRIENDSHIPS, [
           where('userId', '==', userId),
         ]);
         const friendIds = (friendships || []).map((f: any) => f.friendId as string);
-        const allIds = [...new Set([...friendIds, userId])];
+        // Supabase 'in' operator supports max 10 items — chunk if needed
+        const allIds = [...new Set([...friendIds, userId])].slice(0, 10);
 
         if (allIds.length === 0) {
           set({ stories: [], loadingStories: false });
@@ -138,19 +143,24 @@ export const useTimelineStore = create<TimelineStore>((set) => ({
 
         const data = await queryCollection(COLLECTIONS.STORIES, [
           where('userId', 'in', allIds),
-          orderBy('timestamp', 'desc'),
+          orderBy('createdAt', 'desc'),
           limit(50),
         ]);
 
-        // Enrich stories with user data
-        const stories: Story[] = [];
-        for (const d of data || []) {
+        const userIds = [...new Set((data || []).map((d: any) => d.userId as string).filter(Boolean))];
+        const userMap: Record<string, any> = {};
+        await Promise.all(userIds.map(async (uid) => {
+          const u = await getDocById(COLLECTIONS.USERS, uid);
+          if (u) userMap[uid] = u;
+        }));
+
+        const stories: Story[] = (data || []).map((d: any) => {
           const story = mapStory(d);
-          const user = await getDocById(COLLECTIONS.USERS, story.userId);
-          story.userName = (user?.name as string) || story.userName || '';
-          story.userAvatar = (user?.avatar as string) || story.userAvatar || '';
-          stories.push(story);
-        }
+          const u = userMap[story.userId];
+          story.userName = (u?.name as string) || story.userName || '';
+          story.userAvatar = (u?.avatar as string) || story.userAvatar || '';
+          return story;
+        });
         set({ stories, loadingStories: false });
       } catch {
         set({ loadingStories: false });
@@ -167,11 +177,12 @@ export const useTimelineStore = create<TimelineStore>((set) => ({
         const friendships = await queryCollection(COLLECTIONS.FRIENDSHIPS, [where('userId', '==', userId)]);
         if (cancelled) return;
         const friendIds = (friendships || []).map((f: any) => f.friendId as string);
-        const allIds = [...new Set([...friendIds, userId])];
+        const allIds = [...new Set([...friendIds, userId])].slice(0, 10);
         if (allIds.length > 0) {
           unsub = subscribeToCollection(COLLECTIONS.STORIES, [
             where('userId', 'in', allIds),
-            orderBy('timestamp', 'desc'),
+            orderBy('createdAt', 'desc'),
+            limit(50),
           ], () => { fetchStories().catch(() => {}); });
         }
       } catch {
@@ -199,7 +210,7 @@ export const useTimelineStore = create<TimelineStore>((set) => ({
         images,
         visibility,
         likes: [],
-        timestamp: serverTimestamp(),
+        createdAt: serverTimestamp(),
         userName: user?.name || '',
         userAvatar: user?.avatar || '',
       });
@@ -278,7 +289,7 @@ export const useTimelineStore = create<TimelineStore>((set) => ({
         mediaUrl,
         type,
         viewedBy: [],
-        timestamp: serverTimestamp(),
+        createdAt: serverTimestamp(),
         userName: user?.name || '',
         userAvatar: user?.avatar || '',
       });

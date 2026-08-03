@@ -44,13 +44,17 @@ if (typeof window !== 'undefined' && typeof window.gtag === 'function') {
 }
 
 // Redirect non-canonical domains to the primary domain (production only)
-const CANONICAL = 'gagachat.app';
-const ALLOWED_HOSTS = new Set([CANONICAL, 'oumagachat.web.app', 'oumagachat.firebaseapp.com', 'localhost']);
+// Primary hosting: oumagachat.web.app
+// Custom domain (if configured): gagachat.app
+const CANONICAL = 'oumagachat.web.app';
+const ALLOWED_HOSTS = new Set([CANONICAL, 'oumagachat.firebaseapp.com', 'gagachat.app', 'localhost']);
 if (
   typeof window !== 'undefined' &&
   import.meta.env.PROD &&
   !ALLOWED_HOSTS.has(window.location.hostname) &&
-  !window.location.hostname.endsWith('.localhost')
+  !window.location.hostname.endsWith('.localhost') &&
+  !window.location.hostname.endsWith('.web.app') &&
+  !window.location.hostname.endsWith('.firebaseapp.com')
 ) {
   try {
     window.location.replace(`https://${CANONICAL}${window.location.pathname}${window.location.search}${window.location.hash}`);

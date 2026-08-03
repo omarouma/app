@@ -28,3 +28,12 @@ dist-ssr
 *.sln
 *.sw?
 .copilot-assistant/
+
+# Sensitive credential files
+"supabase for gaga chat app.Project id alzwgikndwbecuqmlrca.txt"
+supabase for gaga chat app*.txt
+tsc-out.txt
+tsc-check-new.txt
+deploy-*.txt
+eslint-targets.txt
+build-check.log

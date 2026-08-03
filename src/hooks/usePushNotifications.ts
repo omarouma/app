@@ -7,11 +7,12 @@ async function savePushSubscription(userId: string, sub: PushSubscription) {
   const supabase = getSupabaseSafe();
   if (!supabase) return;
   try {
+    // push_subscription column may not exist on older schemas — ignore column errors
     await supabase
       .from('users')
       .update({ push_subscription: JSON.stringify(sub) })
       .eq('id', userId);
-  } catch { /* ignore */ }
+  } catch { /* ignore — non-critical */ }
 }
 
 export function usePushNotifications() {
