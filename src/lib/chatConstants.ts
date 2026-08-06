@@ -39,13 +39,21 @@ export const attachmentOptions: AttachmentOption[] = [
   { iconKey: 'poll', label: 'Poll', color: 'bg-[#8B5CF6]' },
 ] as const;
 
+/** Format a Date into a human-readable date separator string. */
 export function formatDateSeparator(date: Date): string {
   const now = new Date();
   const d = new Date(date);
-  if (d.toDateString() === now.toDateString()) return 'Today';
+  const isToday =
+    d.getDate() === now.getDate() &&
+    d.getMonth() === now.getMonth() &&
+    d.getFullYear() === now.getFullYear();
+  if (isToday) return 'Today';
   const yesterday = new Date(now);
   yesterday.setDate(yesterday.getDate() - 1);
-  if (d.toDateString() === yesterday.toDateString()) return 'Yesterday';
-  return d.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
+  const isYesterday =
+    d.getDate() === yesterday.getDate() &&
+    d.getMonth() === yesterday.getMonth() &&
+    d.getFullYear() === yesterday.getFullYear();
+  if (isYesterday) return 'Yesterday';
+  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: d.getFullYear() !== now.getFullYear() ? 'numeric' : undefined });
 }
-

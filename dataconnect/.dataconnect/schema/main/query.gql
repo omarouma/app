@@ -1,0 +1,267 @@
+extend type Query {
+  """
+  ✨ Look up a single `Conversation` based on `id`, `key` or `first` and return selected fields (or `null` if not found).
+  """
+  conversation(
+    """
+    The unique ID of the object.
+    """
+    id: UUID
+
+    """
+    The key used to identify the object.
+    """
+    key: Conversation_Key
+
+    """
+    Fetch the first row based on the filters and ordering.
+    """
+    first: Conversation_FirstRow
+  ): Conversation @fdc_generated(from: "Conversation", purpose: QUERY_SINGLE)
+  """
+  ✨ Look up a single `Message` based on `id`, `key` or `first` and return selected fields (or `null` if not found).
+  """
+  message(
+    """
+    The unique ID of the object.
+    """
+    id: UUID
+
+    """
+    The key used to identify the object.
+    """
+    key: Message_Key
+
+    """
+    Fetch the first row based on the filters and ordering.
+    """
+    first: Message_FirstRow
+  ): Message @fdc_generated(from: "Message", purpose: QUERY_SINGLE)
+  """
+  ✨ Look up a single `Participant` based on `id`, `key` or `first` and return selected fields (or `null` if not found).
+  """
+  participant(
+    """
+    The unique ID of the object.
+    """
+    id: UUID
+
+    """
+    The key used to identify the object.
+    """
+    key: Participant_Key
+
+    """
+    Fetch the first row based on the filters and ordering.
+    """
+    first: Participant_FirstRow
+  ): Participant @fdc_generated(from: "Participant", purpose: QUERY_SINGLE)
+  """
+  ✨ Look up a single `User` based on `id`, `key` or `first` and return selected fields (or `null` if not found).
+  """
+  user(
+    """
+    The unique ID of the object.
+    """
+    id: UUID
+
+    """
+    The key used to identify the object.
+    """
+    key: User_Key
+
+    """
+    Fetch the first row based on the filters and ordering.
+    """
+    first: User_FirstRow
+  ): User @fdc_generated(from: "User", purpose: QUERY_SINGLE)
+  """
+  ✨ Look up a single `VirtualRoom` based on `id`, `key` or `first` and return selected fields (or `null` if not found).
+  """
+  virtualRoom(
+    """
+    The unique ID of the object.
+    """
+    id: UUID
+
+    """
+    The key used to identify the object.
+    """
+    key: VirtualRoom_Key
+
+    """
+    Fetch the first row based on the filters and ordering.
+    """
+    first: VirtualRoom_FirstRow
+  ): VirtualRoom @fdc_generated(from: "VirtualRoom", purpose: QUERY_SINGLE)
+  """
+  ✨ List `Conversation` objects in the table and return selected fields, optionally filtered by `where` conditions
+  """
+  conversations(
+    """
+    Filter condition to narrow down the query results.
+    """
+    where: Conversation_Filter
+
+    """
+    Order the query results by specific fields.
+    """
+    orderBy: [Conversation_Order!]
+
+    """
+    Number of rows to skip before starting to return the results.
+    """
+    offset: Int
+
+    """
+    Maximum number of rows to return (defaults to 100 rows).
+    """
+    limit: Int = 100
+
+    """
+    Set to true to return distinct results.
+    """
+    distinct: Boolean = false
+
+    """
+    Filter condition to apply to the groups of aggregate queries.
+    """
+    having: Conversation_Having
+  ): [Conversation!]! @fdc_generated(from: "Conversation", purpose: QUERY_MULTIPLE)
+  """
+  ✨ List `Message` objects in the table and return selected fields, optionally filtered by `where` conditions
+  """
+  messages(
+    """
+    Filter condition to narrow down the query results.
+    """
+    where: Message_Filter
+
+    """
+    Order the query results by specific fields.
+    """
+    orderBy: [Message_Order!]
+
+    """
+    Number of rows to skip before starting to return the results.
+    """
+    offset: Int
+
+    """
+    Maximum number of rows to return (defaults to 100 rows).
+    """
+    limit: Int = 100
+
+    """
+    Set to true to return distinct results.
+    """
+    distinct: Boolean = false
+
+    """
+    Filter condition to apply to the groups of aggregate queries.
+    """
+    having: Message_Having
+  ): [Message!]! @fdc_generated(from: "Message", purpose: QUERY_MULTIPLE)
+  """
+  ✨ List `Participant` objects in the table and return selected fields, optionally filtered by `where` conditions
+  """
+  participants(
+    """
+    Filter condition to narrow down the query results.
+    """
+    where: Participant_Filter
+
+    """
+    Order the query results by specific fields.
+    """
+    orderBy: [Participant_Order!]
+
+    """
+    Number of rows to skip before starting to return the results.
+    """
+    offset: Int
+
+    """
+    Maximum number of rows to return (defaults to 100 rows).
+    """
+    limit: Int = 100
+
+    """
+    Set to true to return distinct results.
+    """
+    distinct: Boolean = false
+
+    """
+    Filter condition to apply to the groups of aggregate queries.
+    """
+    having: Participant_Having
+  ): [Participant!]! @fdc_generated(from: "Participant", purpose: QUERY_MULTIPLE)
+  """
+  ✨ List `User` objects in the table and return selected fields, optionally filtered by `where` conditions
+  """
+  users(
+    """
+    Filter condition to narrow down the query results.
+    """
+    where: User_Filter
+
+    """
+    Order the query results by specific fields.
+    """
+    orderBy: [User_Order!]
+
+    """
+    Number of rows to skip before starting to return the results.
+    """
+    offset: Int
+
+    """
+    Maximum number of rows to return (defaults to 100 rows).
+    """
+    limit: Int = 100
+
+    """
+    Set to true to return distinct results.
+    """
+    distinct: Boolean = false
+
+    """
+    Filter condition to apply to the groups of aggregate queries.
+    """
+    having: User_Having
+  ): [User!]! @fdc_generated(from: "User", purpose: QUERY_MULTIPLE)
+  """
+  ✨ List `VirtualRoom` objects in the table and return selected fields, optionally filtered by `where` conditions
+  """
+  virtualRooms(
+    """
+    Filter condition to narrow down the query results.
+    """
+    where: VirtualRoom_Filter
+
+    """
+    Order the query results by specific fields.
+    """
+    orderBy: [VirtualRoom_Order!]
+
+    """
+    Number of rows to skip before starting to return the results.
+    """
+    offset: Int
+
+    """
+    Maximum number of rows to return (defaults to 100 rows).
+    """
+    limit: Int = 100
+
+    """
+    Set to true to return distinct results.
+    """
+    distinct: Boolean = false
+
+    """
+    Filter condition to apply to the groups of aggregate queries.
+    """
+    having: VirtualRoom_Having
+  ): [VirtualRoom!]! @fdc_generated(from: "VirtualRoom", purpose: QUERY_MULTIPLE)
+}

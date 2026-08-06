@@ -64,7 +64,7 @@ export default function YouTubeVideoCard({ video, index, onPlay }: YouTubeVideoC
             <div className="absolute inset-0 bg-black/30 group-hover:bg-black/10 transition-colors" />
             {/* Play button */}
             <div className="absolute inset-0 flex items-center justify-center">
-              <div className={`w-14 h-14 rounded-full flex items-center justify-center shadow-xl group-hover:scale-110 transition-all duration-200 ${isYouTube ? 'bg-red-600/90 group-hover:bg-red-600' : 'bg-blue-600/90 group-hover:bg-blue-600'}`}>
+              <div className={`w-14 h-14 rounded-full flex items-center justify-center shadow-xl group-hover:scale-110 transition-all duration-200 ${isYouTube ? 'bg-red-600/90 group-hover:bg-red-600' : 'bg-green-600/90 group-hover:bg-green-600'}`}>
                 <Play size={24} className="text-white fill-white ml-1" />
               </div>
             </div>
@@ -104,7 +104,7 @@ export default function YouTubeVideoCard({ video, index, onPlay }: YouTubeVideoC
           {('publishedAt' in video) && <span className="text-[10px] shrink-0">{formatPublishedAt(video.publishedAt)}</span>}
         </div>
         <div className="flex items-center gap-1.5 pt-0.5">
-          <div className={`w-2 h-2 rounded-full ${isYouTube ? 'bg-red-500' : 'bg-blue-500'}`} />
+          <div className={`w-2 h-2 rounded-full ${isYouTube ? 'bg-red-500' : 'bg-green-500'}`} />
           <span className="text-[10px] text-[#8D8D8D]">Tap to play in GaGa Chat</span>
         </div>
       </div>

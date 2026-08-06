@@ -4,6 +4,7 @@ import { MessageCircle, Phone, Users, User, Flame } from 'lucide-react';
 import { useChatStore } from '@/store/useChatStore';
 import { useGroupStore } from '@/store/useGroupStore';
 import { useNotificationStore } from '@/store/useNotificationStore';
+import { useIsMobile, useIsMounted } from '@/hooks/use-mobile';
 
 const tabDefs = [
   { to: '/contacts', label: 'People', icon: Users },
@@ -14,6 +15,8 @@ const tabDefs = [
 ];
 
 const BottomNav = memo(function BottomNav() {
+  const isMounted = useIsMounted();
+  const isMobile = useIsMobile();
   const chats = useChatStore((s) => s.chats);
   const groups = useGroupStore((s) => s.groups);
   const notifUnread = useNotificationStore((s) => s.unreadCount);
@@ -26,6 +29,8 @@ const BottomNav = memo(function BottomNav() {
     ...t,
     badge: t.to === '/chats' ? totalUnread : t.to === '/profile' ? notifUnread : 0,
   })), [totalUnread, notifUnread]);
+
+  if (!isMounted || !isMobile) return null;
 
   return (
     <nav

@@ -25,6 +25,8 @@ interface MessageBubbleProps {
   onSetLightbox: (url: string) => void;
   onDoubleClick: (msg: Message) => void;
   onReact: (msgId: string, reaction: string) => void;
+  onVotePoll?: (chatId: string, msgId: string, optionIndex: number, userId: string) => void;
+  chatId?: string;
   onEditSave: (msgId: string) => void;
   onEditCancel: () => void;
   onEditInputChange: (v: string) => void;
@@ -118,7 +120,7 @@ export const MessageBubble = memo(function MessageBubble(props: MessageBubblePro
     translatedText, isTranslating,
     onReplyClick, onSetLightbox, onDoubleClick, onReact,
     onEditSave, onEditCancel, onEditInputChange, onContextMenu, onReactionToggle,
-    onRetry,
+    onRetry, onVotePoll, chatId,
   } = props;
 
   const reactions = msg.reactions || {};
@@ -176,7 +178,7 @@ export const MessageBubble = memo(function MessageBubble(props: MessageBubblePro
                 const percent = total > 0 ? Math.round((votes.length / total) * 100) : 0;
                 const isVoted = votes.includes(currentUserId);
                 return (
-                  <button type="button" key={i} onClick={() => /* onVotePoll handled by parent */ {}}
+                  <button type="button" key={i} onClick={() => onVotePoll?.(chatId ?? '', msg.id, i, currentUserId)}
                     className={`w-full text-left px-3 py-2 rounded-xl text-sm transition-all relative overflow-hidden ${isVoted ? (isMe ? 'bg-white/30 text-white' : 'bg-[#8B5CF6]/10 text-[#8B5CF6]') : (isMe ? 'bg-white/10 text-white/90 hover:bg-white/20' : 'bg-[#F5F5F5] text-[#111111] hover:bg-[#EBEBEB]')}`}
                   >
                     {hasVoted && <div aria-hidden="true" className={`absolute left-0 top-0 h-full rounded-xl overflow-hidden ${isMe ? 'bg-white/20' : 'bg-[#8B5CF6]/10'}`} style={{ width: `${percent}%` }} />}

@@ -1,9 +1,17 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useAuthStore } from '@/store/useAuthStore';
 import { isSupabaseConfigured, getSupabase } from '@/lib/supabase';
 import { setDocById, subscribeToDoc, serverTimestamp } from '@/lib/firestore';
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+interface TypingUser {
+  name: string;
+  timestamp: number;
+}
+
+interface TypingState {
+  [userId: string]: TypingUser;
+}
+
 function isColumnMissingError(error: any): boolean {
   if (!error) return false;
   const code = error.code || '';
@@ -20,173 +28,135 @@ function isColumnMissingError(error: any): boolean {
 
 export function useTyping(chatId: string | undefined) {
   const { user } = useAuthStore();
-  const [typingUsers, setTypingUsers] = useState<Record<string, string>>({});
+  const [typingState, setTypingState] = useState<TypingState>({});
   const stopTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isTypingRef = useRef(false);
-  const unsubRef = useRef<(() => void) | null>(null);
-  const typingTsRef = useRef<Record<string, number>>({});
 
-  const userNameCacheRef = useRef<Map<string, string>>(new Map());
-
-  useEffect(() => {
-    if (!chatId || !user) {
-      queueMicrotask(() => setTypingUsers({}));
-      return;
-    }
+  const setupSubscription = useCallback((
+    onTypingEvent: (userId: string, name: string, isTyping: boolean, timestamp: number) => void,
+    fetchUserName: (userId: string) => Promise<string | undefined>
+  ) => {
+    if (!chatId || !user) return () => {};
 
     const supabase = isSupabaseConfigured() ? getSupabase() : null;
 
-    // ─── Supabase path ───
     if (supabase) {
       const channel = supabase
         .channel(`typing-${chatId}`)
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'typing', filter: `chat_id=eq.${chatId}` }, (payload) => {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'typing', filter: `chat_id=eq.${chatId}` }, async (payload) => {
           const data = payload.new as any;
           if (!data || data.user_id === user.id) return;
-          const now = Date.now();
+
           const ts = new Date(data.updated_at).getTime();
-          if (data.is_typing && now - ts < 6000) {
-            let userName = data.user_name || userNameCacheRef.current.get(data.user_id);
-            if (!userName) {
-              userName = 'User';
-              // Async fetch from users table
-              (async () => {
-                try {
-                  const { data: userRow } = await supabase.from('users').select('name').eq('id', data.user_id).single();
-                  if (userRow?.name) {
-                    userNameCacheRef.current.set(data.user_id, userRow.name);
-                    setTypingUsers((prev) => ({
-                      ...prev,
-                      [data.user_id]: String(userRow.name).replace(/[<>"&]/g, '').slice(0, 50),
-                    }));
-                  }
-                } catch { /* noop */ }
-              })();
-            }
-            setTypingUsers((prev) => ({
-              ...prev,
-              [data.user_id]: String(userName).replace(/[<>"&]/g, '').slice(0, 50),
-            }));
-            typingTsRef.current[data.user_id] = ts || now;
-          } else {
-            setTypingUsers((prev) => {
-              const next = { ...prev };
-              delete next[data.user_id];
-              return next;
-            });
-            delete typingTsRef.current[data.user_id];
-          }
+          const userName = data.user_name || await fetchUserName(data.user_id) || 'User';
+          onTypingEvent(data.user_id, userName, data.is_typing, ts);
         })
         .subscribe();
-
-      return () => {
-        supabase.removeChannel(channel);
-        typingTsRef.current = {};
-        setTypingUsers({});
-      };
+      return () => supabase.removeChannel(channel);
     }
 
-    // ─── Firebase fallback ───
-    const unsub = subscribeToDoc('typing', chatId, (data) => {
-      if (!data) {
-        setTypingUsers({});
-        return;
-      }
+    // Firebase fallback
+    return subscribeToDoc('typing', chatId, (data) => {
+      if (!data) return;
       const now = Date.now();
-      const users: Record<string, string> = {};
-      const tsMap: Record<string, number> = {};
       Object.entries(data).forEach(([key, value]) => {
         if (key === 'id' || key === user.id) return;
         const typed = value as { name: string; timestamp: unknown };
         if (!typed || typeof typed !== 'object') return;
-        const ts = (typed.timestamp as { toMillis?: () => number }).toMillis?.() || new Date(typed.timestamp as string).getTime();
-        if (now - ts < 6000) {
-          users[key] = String(typed.name ?? '').replace(/[<>"&]/g, '').slice(0, 50);
-          tsMap[key] = ts || now;
-        }
+        const ts = (typed.timestamp as { toMillis?: () => number })?.toMillis?.() || new Date(typed.timestamp as string).getTime();
+        onTypingEvent(key, typed.name, now - ts < 6000, ts);
       });
-      typingTsRef.current = tsMap;
-      setTypingUsers(users);
     });
+  }, [chatId, user]);
 
-    unsubRef.current = unsub;
+  useEffect(() => {
+    const userNameCache = new Map<string, string>();
+    const fetchUserName = async (userId: string): Promise<string | undefined> => {
+      if (userNameCache.has(userId)) return userNameCache.get(userId);
+      const supabase = isSupabaseConfigured() ? getSupabase() : null;
+      if (!supabase) return undefined;
+      try {
+        const { data } = await supabase.from('users').select('name').eq('id', userId).single();
+        if (data?.name) {
+          userNameCache.set(userId, data.name);
+          return data.name;
+        }
+      } catch { /* noop */ }
+      return undefined;
+    };
+
+    const handleTypingEvent = (userId: string, name: string, isTyping: boolean, timestamp: number) => {
+      const sanitizedName = String(name).replace(/[<>"&]/g, '').slice(0, 50);
+      setTypingState(prev => {
+        const now = Date.now();
+        if (isTyping && now - timestamp < 6000) {
+          if (prev[userId]?.name === sanitizedName) return prev;
+          return { ...prev, [userId]: { name: sanitizedName, timestamp } };
+        }
+        if (prev[userId]) {
+          const next = { ...prev };
+          delete next[userId];
+          return next;
+        }
+        return prev;
+      });
+    };
+
+    const unsub = setupSubscription(handleTypingEvent, fetchUserName);
 
     return () => {
       unsub();
-      unsubRef.current = null;
-      typingTsRef.current = {};
-      setTypingUsers({});
+      setTypingState({});
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [chatId, user?.id]);
-
-  useEffect(() => {
-    return () => {
-      if (stopTimerRef.current) clearTimeout(stopTimerRef.current);
-    };
-  }, []);
+  }, [setupSubscription]);
 
   useEffect(() => {
     if (!chatId || !user) return;
     const interval = setInterval(() => {
-      const now = Date.now();
-      let changed = false;
-      const nextTs = { ...typingTsRef.current };
-      for (const [id, ts] of Object.entries(nextTs)) {
-        if (now - ts >= 6000) {
-          delete nextTs[id];
-          changed = true;
-        }
-      }
-      if (!changed) return;
-      typingTsRef.current = nextTs;
-      setTypingUsers((prev) => {
+      setTypingState(prev => {
+        const now = Date.now();
+        let changed = false;
         const next = { ...prev };
-        for (const id of Object.keys(prev)) {
-          if (!nextTs[id]) delete next[id];
+        for (const id in next) {
+          if (now - next[id].timestamp >= 6000) {
+            delete next[id];
+            changed = true;
+          }
         }
-        return next;
+        return changed ? next : prev;
       });
     }, 2000);
     return () => clearInterval(interval);
-  }, [chatId, user?.id]);
+  }, [chatId, user]);
 
-  const broadcast = useCallback(
-    async (isTyping: boolean) => {
-      if (!chatId || !user) return;
+  const broadcast = useCallback(async (isTyping: boolean) => {
+    if (!chatId || !user) return;
+    const supabase = isSupabaseConfigured() ? getSupabase() : null;
 
-      const supabase = isSupabaseConfigured() ? getSupabase() : null;
-
-      if (supabase) {
-        const payload: Record<string, unknown> = {
-          id: `${chatId}_${user.id}`,
-          chat_id: chatId,
-          user_id: user.id,
-          user_name: user.name || 'User',
-          is_typing: isTyping,
-          updated_at: new Date().toISOString(),
-        };
-        try {
-          await supabase.from('typing').upsert(payload, { onConflict: 'id' });
-        } catch (err: unknown) {
-          if (isColumnMissingError(err)) {
-            delete payload.user_name;
-            await supabase.from('typing').upsert(payload, { onConflict: 'id' });
-          }
+    if (supabase) {
+      const payload = {
+        id: `${chatId}_${user.id}`,
+        chat_id: chatId,
+        user_id: user.id,
+        user_name: user.name || 'User',
+        is_typing: isTyping,
+        updated_at: new Date().toISOString(),
+      };
+      try {
+        await supabase.from('typing').upsert(payload, { onConflict: 'id' });
+      } catch (err) {
+if (isColumnMissingError(err)) {
+          const rest = { ...payload };
+          delete (rest as { user_name?: string }).user_name;
+          await supabase.from('typing').upsert(rest, { onConflict: 'id' });
         }
-        return;
       }
-
+    } else {
       await setDocById('typing', chatId, {
-        [user.id]: {
-          name: user.name || 'User',
-          timestamp: serverTimestamp(),
-        },
-      });
-    },
-    [chatId, user]
-  );
+        [user.id]: isTyping ? { name: user.name || 'User', timestamp: serverTimestamp() } : null,
+      }, true);
+    }
+  }, [chatId, user]);
 
   const sendTyping = useCallback(() => {
     if (!isTypingRef.current) {
@@ -201,7 +171,10 @@ export function useTyping(chatId: string | undefined) {
   }, [broadcast]);
 
   const stopTyping = useCallback(() => {
-    if (stopTimerRef.current) clearTimeout(stopTimerRef.current);
+    if (stopTimerRef.current) {
+      clearTimeout(stopTimerRef.current);
+      stopTimerRef.current = null;
+    }
     if (isTypingRef.current) {
       isTypingRef.current = false;
       broadcast(false);
@@ -209,19 +182,25 @@ export function useTyping(chatId: string | undefined) {
   }, [broadcast]);
 
   useEffect(() => {
-    if (!chatId || !user) return;
-    const onVisibility = () => { if (document.visibilityState === 'hidden') stopTyping(); };
-    const onBeforeUnload = () => { stopTyping(); };
-    const onPageHide = () => { stopTyping(); };
-    window.addEventListener('beforeunload', onBeforeUnload);
-    window.addEventListener('pagehide', onPageHide);
-    document.addEventListener('visibilitychange', onVisibility);
-    return () => {
-      window.removeEventListener('beforeunload', onBeforeUnload);
-      window.removeEventListener('pagehide', onPageHide);
-      document.removeEventListener('visibilitychange', onVisibility);
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') stopTyping();
     };
-  }, [chatId, user?.id, stopTyping]);
+    window.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('beforeunload', stopTyping);
+    return () => {
+      window.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('beforeunload', stopTyping);
+      stopTyping();
+    };
+  }, [stopTyping]);
+
+  const typingUsers = useMemo(() => {
+    const result: Record<string, string> = {};
+    for (const id in typingState) {
+      result[id] = typingState[id].name;
+    }
+    return result;
+  }, [typingState]);
 
   return { typingUsers, sendTyping, stopTyping };
 }

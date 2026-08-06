@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { create } from 'zustand';
 import {
   isFirestoreAvailable,
@@ -41,13 +40,15 @@ interface MarketplaceStore {
   subscribeListings: () => () => void;
 }
 
-function mapListing(d: Record<string, unknown>): MarketplaceItem {
+function mapListing(d: Record<string, unknown>, users?: Record<string, { name: string; avatar: string }>): MarketplaceItem {
   const createdAt = d.createdAt && typeof d.createdAt === 'object' && 'toDate' in d.createdAt
     ? (d.createdAt as any).toDate()
     : d.createdAt ? new Date(d.createdAt as string) : new Date();
+  const userId = d.userId as string;
+  const user = users?.[userId];
   return {
     id: d.id as string,
-    userId: d.userId as string,
+    userId,
     title: (d.title as string) || '',
     description: (d.description as string) || '',
     price: (d.price as number) || 0,
@@ -63,8 +64,8 @@ function mapListing(d: Record<string, unknown>): MarketplaceItem {
     favorites: (d.favorites as string[]) || [],
     views: (d.views as number) || 0,
     createdAt,
-    userName: (d.userName as string) || '',
-    userAvatar: (d.userAvatar as string) || '',
+    userName: user?.name || (d.userName as string) || '',
+    userAvatar: user?.avatar || (d.userAvatar as string) || '',
     offers: (d.offers as MarketplaceOffer[]) || [],
     chatRequests: (d.chatRequests as string[]) || [],
     tags: (d.tags as string[]) || [],
@@ -91,10 +92,9 @@ export const useMarketplaceStore = create<MarketplaceStore>((set, get) => ({
   favorites: [],
   loading: false,
 
-  createListing: async (userId, data) => {
+createListing: async (userId, data) => {
     if (!isFirestoreAvailable()) return;
     try {
-      const user = await getDocById(COLLECTIONS.USERS, userId);
       await addDocToCollection(COLLECTION_MARKETPLACE, {
         userId,
         ...data,
@@ -104,8 +104,6 @@ export const useMarketplaceStore = create<MarketplaceStore>((set, get) => ({
         offers: [],
         chatRequests: [],
         createdAt: serverTimestamp(),
-        userName: user?.name || '',
-        userAvatar: user?.avatar || '',
       });
       toast.success('Listing created');
     } catch (err) {
@@ -240,7 +238,13 @@ export const useMarketplaceStore = create<MarketplaceStore>((set, get) => ({
       const constraints: any[] = [where('status', '==', 'active'), orderBy('createdAt', 'desc'), limit(limitCount)];
       if (category) constraints.unshift(where('category', '==', category));
       const data = await queryCollection(COLLECTION_MARKETPLACE, constraints);
-      return (data || []).map(mapListing);
+      const userIds = [...new Set(data.map(d => d.userId as string))];
+      const userDocs = await Promise.all(userIds.map(id => getDocById(COLLECTIONS.USERS, id)));
+      const users = userDocs.reduce((acc, doc) => {
+        if (doc) acc[doc.id] = { name: doc.name as string, avatar: doc.avatar as string };
+        return acc;
+      }, {} as Record<string, { name: string; avatar: string }>);
+      return (data || []).map(d => mapListing(d, users));
     } catch (err) {
       console.error('getListings error:', err);
       return [];
@@ -254,7 +258,12 @@ export const useMarketplaceStore = create<MarketplaceStore>((set, get) => ({
         where('userId', '==', userId),
         orderBy('createdAt', 'desc'),
       ]);
-      return (data || []).map(mapListing);
+      const userDocs = await Promise.all([getDocById(COLLECTIONS.USERS, userId)]);
+      const users = userDocs.reduce((acc, doc) => {
+        if (doc) acc[doc.id] = { name: doc.name as string, avatar: doc.avatar as string };
+        return acc;
+      }, {} as Record<string, { name: string; avatar: string }>);
+      return (data || []).map(d => mapListing(d, users));
     } catch (err) {
       console.error('getMyListings error:', err);
       return [];
@@ -269,7 +278,13 @@ export const useMarketplaceStore = create<MarketplaceStore>((set, get) => ({
         where('status', '==', 'active'),
         orderBy('createdAt', 'desc'),
       ]);
-      return (data || []).map(mapListing);
+      const userIds = [...new Set(data.map(d => d.userId as string))];
+      const userDocs = await Promise.all(userIds.map(id => getDocById(COLLECTIONS.USERS, id)));
+      const users = userDocs.reduce((acc, doc) => {
+        if (doc) acc[doc.id] = { name: doc.name as string, avatar: doc.avatar as string };
+        return acc;
+      }, {} as Record<string, { name: string; avatar: string }>);
+      return (data || []).map(d => mapListing(d, users));
     } catch (err) {
       console.error('getFavorites error:', err);
       return [];
@@ -284,7 +299,13 @@ export const useMarketplaceStore = create<MarketplaceStore>((set, get) => ({
         orderBy('createdAt', 'desc'),
         limit(200),
       ]);
-      const listings = (data || []).map(mapListing).filter(l => {
+      const userIds = [...new Set(data.map(d => d.userId as string))];
+      const userDocs = await Promise.all(userIds.map(id => getDocById(COLLECTIONS.USERS, id)));
+      const users = userDocs.reduce((acc, doc) => {
+        if (doc) acc[doc.id] = { name: doc.name as string, avatar: doc.avatar as string };
+        return acc;
+      }, {} as Record<string, { name: string; avatar: string }>);
+      const listings = (data || []).map(d => mapListing(d, users)).filter(l => {
         if (l.lat === undefined || l.lng === undefined) return false;
         const dist = haversineDistance(lat, lng, l.lat, l.lng);
         return dist <= radiusKm;
@@ -304,8 +325,14 @@ export const useMarketplaceStore = create<MarketplaceStore>((set, get) => ({
       unsub = subscribeToCollection(
         COLLECTION_MARKETPLACE,
         [where('status', '==', 'active'), orderBy('createdAt', 'desc')],
-        (data) => {
-          const listings = (data || []).map(mapListing);
+        async (data) => {
+          const userIds = [...new Set(data.map(d => d.userId as string))];
+          const userDocs = await Promise.all(userIds.map(id => getDocById(COLLECTIONS.USERS, id)));
+          const users = userDocs.reduce((acc, doc) => {
+            if (doc) acc[doc.id] = { name: doc.name as string, avatar: doc.avatar as string };
+            return acc;
+          }, {} as Record<string, { name: string; avatar: string }>);
+          const listings = (data || []).map(d => mapListing(d, users));
           set({ listings, loading: false });
         }
       );

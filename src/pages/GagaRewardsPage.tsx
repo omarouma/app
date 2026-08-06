@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
@@ -112,7 +112,7 @@ export default function GagaRewardsPage() {
 
   const completedCount = missions.filter(m => m.completed).length;
 
-  const stakingAPY = useMemo(() => useWalletStore.getState().getStakingAPY(), []);
+  const stakingAPY = useWalletStore((s) => s.getStakingAPY());
 
   return (
     <div className="min-h-[100dvh] bg-[#F5F5F5]">

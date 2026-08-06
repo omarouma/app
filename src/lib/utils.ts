@@ -5,6 +5,8 @@ import { toDate, formatTime, formatLastSeen } from './timeUtils';
 export * from './timeUtils';
 export { toDate, formatTime, formatLastSeen };
 
+const isClient = typeof window !== 'undefined';
+
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
@@ -56,7 +58,7 @@ export function parseGagaChatUri(uri: string | null): string | null {
 }
 
 export function stopStreamTracks(stream: MediaStream | null) {
-  if (!stream) return;
+  if (!stream || !isClient) return;
   stream.getTracks().forEach(track => track.stop());
 }
 

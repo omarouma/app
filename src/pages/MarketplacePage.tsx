@@ -30,7 +30,7 @@ const conditionLabels: Record<string, string> = {
 const conditionColors: Record<string, string> = {
   new: 'bg-[#00C300] text-black',
   like_new: 'bg-[#00C300]/80 text-black',
-  good: 'bg-blue-500 text-white',
+good: 'bg-[#00C300] text-black',
   fair: 'bg-yellow-500 text-black',
   poor: 'bg-red-500 text-white',
 };

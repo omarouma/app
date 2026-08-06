@@ -1,3 +1,5 @@
+import env from '@/config/env';
+
 /*
   Media storage adapter.
 
@@ -17,11 +19,13 @@ export type CloudinaryUploadOpts = {
   folder?: string;
   fileName?: string;
   contentType?: string;
+  /** Called with a 0–100 progress value during the Cloudinary upload. */
+  onProgress?: (percent: number) => void;
 };
 
 // ── Cloudinary config ──
-const CLOUDINARY_CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || '';
-const CLOUDINARY_UPLOAD_PRESET = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET || '';
+const CLOUDINARY_CLOUD_NAME = env.VITE_CLOUDINARY_CLOUD_NAME || '';
+const CLOUDINARY_UPLOAD_PRESET = env.VITE_CLOUDINARY_UPLOAD_PRESET || '';
 
 // ── Upload size limits (aligned with Cloudinary free tier) ──
 export const MAX_UPLOAD_SIZE = 25 * 1024 * 1024; // 25 MB
@@ -33,14 +37,21 @@ export type UploadKind = 'chats' | 'voice' | 'avatars' | 'posts' | 'stories' | '
 /** Validates file size against upload limits. Returns null if valid, or an error string. */
 export function validateFileSize(file: Blob | File, kind?: string): string | null {
   if (!file || file.size === 0) return 'Cannot upload empty file.';
-  if (file.size > MAX_UPLOAD_SIZE)
-    return `File too large (${(file.size / 1024 / 1024).toFixed(1)}MB). Maximum is ${MAX_UPLOAD_SIZE / 1024 / 1024}MB.`;
+
+  // Check kind-specific limits FIRST so the stricter per-kind caps (avatars 10MB,
+  // voice 5MB) are enforced before the relaxed global video cap. This ensures a
+  // 30MB reel video passes here (50MB video cap) even though the old global 25MB
+  // cap would have wrongly rejected it.
   if (kind === 'avatars' && file.size > MAX_IMAGE_SIZE)
     return `Image too large (${(file.size / 1024 / 1024).toFixed(1)}MB). Maximum is ${MAX_IMAGE_SIZE / 1024 / 1024}MB.`;
   if (kind === 'voice' && file.size > MAX_VOICE_SIZE)
     return `Voice message too large (${(file.size / 1024 / 1024).toFixed(1)}MB). Maximum is ${MAX_VOICE_SIZE / 1024 / 1024}MB.`;
   if ((kind === 'posts' || kind === 'reels') && file.size > MAX_VIDEO_SIZE)
     return `Video too large (${(file.size / 1024 / 1024).toFixed(1)}MB). Maximum is ${MAX_VIDEO_SIZE / 1024 / 1024}MB.`;
+  // Global cap aligned with the largest allowed upload (videos) so it never
+  // rejects a file that a specific kind already permits.
+  if (file.size > MAX_VIDEO_SIZE)
+    return `File too large (${(file.size / 1024 / 1024).toFixed(1)}MB). Maximum is ${MAX_VIDEO_SIZE / 1024 / 1024}MB.`;
   return null;
 }
 
@@ -191,9 +202,46 @@ async function cloudinaryUpload(
   const folder = buildDynamicFolder(opts);
   form.append('folder', folder);
 
-  // Optional: use filename for better public_id
+// Optional: use filename for better public_id
   if (opts.fileName) {
     form.append('public_id', opts.fileName.replace(/[^a-zA-Z0-9_-]/g, '_'));
+  }
+
+  // If a progress callback is provided, use XMLHttpRequest so we can report
+  // real upload progress (fetch has no upload progress event). Otherwise keep
+  // the lightweight fetch path for callers that don't need progress.
+  if (opts.onProgress) {
+    return new Promise<string>((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', uploadUrl);
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable && e.total > 0) {
+          const pct = Math.min(99, Math.round((e.loaded / e.total) * 100));
+          opts.onProgress?.(pct);
+        }
+      };
+      xhr.onload = () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          try {
+            const data = JSON.parse(xhr.responseText) as { secure_url?: string; url?: string };
+            const url = data.secure_url || data.url;
+            if (url) {
+              opts.onProgress?.(100);
+              resolve(url);
+              return;
+            }
+            reject(new Error('Cloudinary upload returned no URL'));
+          } catch {
+            reject(new Error('Cloudinary upload returned an invalid response'));
+          }
+        } else {
+          reject(new Error(`Cloudinary upload failed: ${xhr.status} ${xhr.responseText}`));
+        }
+      };
+      xhr.onerror = () => reject(new Error('Cloudinary upload network error'));
+      xhr.onabort = () => reject(new Error('Cloudinary upload aborted'));
+      xhr.send(form);
+    });
   }
 
   const res = await fetch(uploadUrl, {
@@ -220,7 +268,7 @@ async function cloudinaryUpload(
   );
 }
 
-import { uploadToFirebaseStorage, getFirebaseStorage } from './firebase';
+import { uploadToSupabaseStorage } from './supabaseStorage';
 
 // ── Main upload function with fallback ──
 async function uploadWithFallback(
@@ -242,17 +290,26 @@ async function uploadWithFallback(
     }
   }
 
-  // 2) Fall back to Firebase Storage (configured in this project).
+  // 2) Fall back to Supabase Storage.
   try {
-    const fbStorage = getFirebaseStorage();
-    if (fbStorage) {
-      const folder = buildDynamicFolder(opts);
-      const fileName = opts.fileName || `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-      const firebaseUrl = await uploadToFirebaseStorage(`${folder}/${fileName}`, file, opts.contentType);
-      return firebaseUrl;
-    }
+    const folder = buildDynamicFolder(opts);
+    const ext = (() => {
+      const name = (file as File).name || '';
+      const m = name.match(/\.([a-zA-Z0-9]+)$/);
+      if (m) return `.${m[1]}`;
+      const t = (file as File).type || '';
+      if (t.startsWith('image/')) return `.${t.split('/')[1].split(';')[0]}`;
+      if (t.startsWith('video/')) return `.${t.split('/')[1].split(';')[0]}`;
+      if (t.startsWith('audio/')) return `.${t.split('/')[1].split(';')[0]}`;
+      return '';
+    })();
+    const fileName = opts.fileName
+      ? opts.fileName.replace(/[^a-zA-Z0-9._-]/g, '_')
+      : `${Date.now()}_${Math.random().toString(36).slice(2, 8)}${ext}`;
+    const supabaseUrl = await uploadToSupabaseStorage('media', `${folder}/${fileName}`, file, opts.contentType);
+    return supabaseUrl;
   } catch (err) {
-    errors.push(`Firebase: ${err instanceof Error ? err.message : String(err)}`);
+    errors.push(`Supabase: ${err instanceof Error ? err.message : String(err)}`);
   }
 
   // 3) Prefer the localStorage base64 fallback for small images FIRST because it
@@ -294,6 +351,7 @@ export async function uploadMediaBlob(
         fileName?: string;
         mimeType?: string;
         contentType?: string;
+        onProgress?: (percent: number) => void;
         file: Blob | File;
       },
   arg2: {
@@ -304,9 +362,10 @@ export async function uploadMediaBlob(
     fileName?: string;
     mimeType?: string;
     contentType?: string;
+    onProgress?: (percent: number) => void;
   } = {}
 ): Promise<string> {
-  // Object-style
+// Object-style
   if (typeof arg1 === 'object' && 'file' in arg1) {
     const opts = arg1;
     return uploadWithFallback(opts.file, {
@@ -315,6 +374,7 @@ export async function uploadMediaBlob(
       folder: opts.folder,
       fileName: opts.fileName,
       contentType: opts.contentType || opts.mimeType,
+      onProgress: opts.onProgress,
     });
   }
 
@@ -327,6 +387,7 @@ export async function uploadMediaBlob(
     folder: opts.folder,
     fileName: opts.fileName,
     contentType: opts.contentType || opts.mimeType,
+    onProgress: opts.onProgress,
   });
 }
 

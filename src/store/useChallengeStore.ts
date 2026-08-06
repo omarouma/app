@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { create } from 'zustand';
 import { toast } from 'sonner';
 import { isFirestoreAvailable, COLLECTIONS, getDocById, updateDocById } from '@/lib/firestore';
@@ -109,16 +108,16 @@ export const useChallengeStore = create<ChallengeStore>((set, get) => ({
         totalXp: (userDoc?.totalXp as number) || 0,
         level: (userDoc?.level as number) || 1,
         dailyStreak: (userDoc?.dailyStreak as number) || 0,
-        lastCheckIn: userDoc?.lastCheckIn ? new Date(userDoc.lastCheckIn as string) : null,
+        lastCheckIn: userDoc?.lastCheckIn ? new Date(userDoc.lastCheckIn as any) : null,
         coinsEarned: (userDoc?.coinsEarned as number) || 0,
         challengesCompleted: (userDoc?.challengesCompleted as number) || 0,
         badges: (userDoc?.badges as string[]) || [],
       };
 
-      // Check if it's a new day
-      const now = new Date();
-      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-      const lastCheck = stats.lastCheckIn ? new Date(stats.lastCheckIn.getFullYear(), stats.lastCheckIn.getMonth(), stats.lastCheckIn.getDate()) : null;
+// Check if it's a new day
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const lastCheck = stats.lastCheckIn;
       const isNewDay = !lastCheck || lastCheck.getTime() < today.getTime();
       const streakClaimed = !!(lastCheck && lastCheck.getTime() === today.getTime());
 
@@ -131,7 +130,7 @@ export const useChallengeStore = create<ChallengeStore>((set, get) => ({
           completed: false,
           claimed: false,
           expiresAt: new Date(today.getTime() + 24 * 60 * 60 * 1000),
-          createdAt: now,
+          createdAt: today,
         }));
         set({ challenges: newChallenges, userStats: { ...stats, dailyStreak: streakClaimed ? stats.dailyStreak : 0 }, streakClaimed: false });
       } else {
@@ -197,13 +196,14 @@ export const useChallengeStore = create<ChallengeStore>((set, get) => ({
   },
 
   checkInDaily: async (userId) => {
-    const { userStats, streakClaimed } = get();
-    if (streakClaimed) {
+    const { userStats } = get();
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    if (userStats.lastCheckIn && new Date(userStats.lastCheckIn.getFullYear(), userStats.lastCheckIn.getMonth(), userStats.lastCheckIn.getDate()).getTime() === today.getTime()) {
       toast.info('Already checked in today!');
       return;
     }
 
-    const now = new Date();
     const lastCheck = userStats.lastCheckIn;
     const yesterday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
     const isStreak = lastCheck && new Date(lastCheck.getFullYear(), lastCheck.getMonth(), lastCheck.getDate()).getTime() === yesterday.getTime();
@@ -221,7 +221,7 @@ export const useChallengeStore = create<ChallengeStore>((set, get) => ({
       coinsEarned: userStats.coinsEarned + streakBonus,
     };
 
-    set({ userStats: newStats, streakClaimed: true });
+    set({ userStats: newStats });
     toast.success(`Daily check-in! Streak: ${newStreak} days 🔥 +${streakBonus} coins, +${xpBonus} XP`);
 
     if (isFirestoreAvailable()) {
@@ -238,8 +238,7 @@ export const useChallengeStore = create<ChallengeStore>((set, get) => ({
     }
   },
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- interface requires this param
-  getLeaderboard: async (_limit = 50) => {
+getLeaderboard: async (_limit = 50) => {
     if (!isFirestoreAvailable()) return [];
     try {
       const data = await getDocById(COLLECTIONS.USERS, 'leaderboard');

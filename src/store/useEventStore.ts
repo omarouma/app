@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { create } from 'zustand';
 import {
   isFirestoreAvailable,
@@ -119,23 +118,7 @@ export const useEventStore = create<EventStore>((set, get) => ({
   editEvent: async (eventId, data) => {
     if (!isFirestoreAvailable()) return;
     try {
-      const update: Record<string, unknown> = {};
-      if (data.title !== undefined) update.title = data.title;
-      if (data.description !== undefined) update.description = data.description;
-      if (data.location !== undefined) update.location = data.location;
-      if (data.lat !== undefined) update.lat = data.lat;
-      if (data.lng !== undefined) update.lng = data.lng;
-      if (data.startDate !== undefined) update.startDate = data.startDate;
-      if (data.endDate !== undefined) update.endDate = data.endDate;
-      if (data.coverImage !== undefined) update.coverImage = data.coverImage;
-      if (data.privacy !== undefined) update.privacy = data.privacy;
-      if (data.cost !== undefined) update.cost = data.cost;
-      if (data.currency !== undefined) update.currency = data.currency;
-      if (data.isOnline !== undefined) update.isOnline = data.isOnline;
-      if (data.onlineLink !== undefined) update.onlineLink = data.onlineLink;
-      if (data.category !== undefined) update.category = data.category;
-      if (data.capacity !== undefined) update.capacity = data.capacity;
-      await updateDocById(COLLECTION_EVENTS, eventId, update);
+      await updateDocById(COLLECTION_EVENTS, eventId, data);
       toast.success('Event updated');
     } catch (err) {
       console.error('editEvent error:', err);

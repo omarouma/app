@@ -5,7 +5,7 @@ import type { PinnedMessage } from '@/types';
 export function useMessagePin(chatId: string | undefined) {
   const [pinnedMessages, setPinnedMessages] = useState<PinnedMessage[]>([]);
 
-  useEffect(() => {
+useEffect(() => {
     if (!chatId || !isFirestoreAvailable()) return;
 
     // The real-time subscription delivers the initial state on first emission,

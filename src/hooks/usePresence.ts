@@ -129,7 +129,6 @@ export function useFilteredOnline(currentUserId: string | undefined, friends: Us
 
 // ─── useTrackPresence ─────────────────────────────────────────────────
 export function useTrackPresence(userId: string | undefined) {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const channelRef = useRef<any>(null);
   // Monotonic counter — each effect invocation gets a unique ID so stale
   // async callbacks from a previous mount can be safely ignored.

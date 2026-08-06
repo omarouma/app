@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
+import { useIsMounted } from './use-mobile';
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
@@ -8,38 +9,33 @@ interface BeforeInstallPromptEvent extends Event {
 let deferredPrompt: BeforeInstallPromptEvent | null = null;
 
 export function usePwaInstall() {
+  const isMounted = useIsMounted();
   const [canInstall, setCanInstall] = useState(false);
   const [installed, setInstalled] = useState(false);
   const [isIOS, setIsIOS] = useState(false);
   const [showIOSGuide, setShowIOSGuide] = useState(false);
 
   useEffect(() => {
-    // Detect iOS Safari
+    if (!isMounted) return;
+
     const ua = window.navigator.userAgent;
-    const iOS = /iPad|iPhone|iPod/.test(ua) && !(window as unknown as Record<string, unknown>).MSStream;
-    queueMicrotask(() => setIsIOS(iOS));
+    const iOS = /iPad|iPhone|iPod/.test(ua) && !(window as any).MSStream;
+    setIsIOS(iOS);
 
-    // Already installed (standalone mode)
-    if (window.matchMedia('(display-mode: standalone)').matches || (window.navigator as unknown as Record<string, unknown>).standalone === true) {
-      queueMicrotask(() => setInstalled(true));
+    if (window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone) {
+      setInstalled(true);
       return;
     }
 
-    // iOS: show install guide instead of native prompt
-    if (iOS) {
-      // iOS doesn't support beforeinstallprompt, so we show a manual guide
-      return;
-    }
+    if (iOS) return;
 
-    // Use cached prompt if available (e.g. re-render)
-    if (deferredPrompt) {
-      queueMicrotask(() => setCanInstall(true));
-    }
+    // Event may have already fired before this hook mounted
+    if (deferredPrompt) setCanInstall(true);
 
     const handler = (e: Event) => {
       e.preventDefault();
       deferredPrompt = e as BeforeInstallPromptEvent;
-      setCanInstall(true);
+      if (isMounted) setCanInstall(true);
     };
 
     const installedHandler = () => {
@@ -54,7 +50,7 @@ export function usePwaInstall() {
       window.removeEventListener('beforeinstallprompt', handler);
       window.removeEventListener('appinstalled', installedHandler);
     };
-  }, []);
+  }, [isMounted]);
 
   const triggerInstall = useCallback(async () => {
     if (isIOS) {
@@ -62,13 +58,12 @@ export function usePwaInstall() {
       return;
     }
     if (!deferredPrompt) return;
-    await deferredPrompt.prompt();
-    const { outcome } = await deferredPrompt.userChoice;
-    if (outcome === 'accepted') {
-      setInstalled(true);
-      setCanInstall(false);
-    }
+    const prompt = deferredPrompt;
     deferredPrompt = null;
+    setCanInstall(false);
+    await prompt.prompt();
+    const { outcome } = await prompt.userChoice;
+    if (outcome === 'accepted') setInstalled(true);
   }, [isIOS]);
 
   const dismissIOSGuide = useCallback(() => setShowIOSGuide(false), []);

@@ -9,8 +9,7 @@ import { useEnhancedTimelineStore } from '@/store/useEnhancedTimelineStore';
 import { useEventStore } from '@/store/useEventStore';
 import { useMarketplaceStore } from '@/store/useMarketplaceStore';
 import { useGroupStore } from '@/store/useGroupStore';
-import { isFirestoreAvailable, queryCollection, COLLECTIONS } from '@/lib/firestore';
-import { where, orderBy, limit } from '@/lib/firestore';
+import { isFirestoreAvailable, queryCollection, COLLECTIONS, where, orderBy, limit } from '@/lib/firestore';
 import { getDefaultAvatar, formatTime } from '@/lib/utils';
 import type { Chat, TimelinePost, User as UserType, EventData, MarketplaceItem, Hashtag } from '@/types';
 

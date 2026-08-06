@@ -1,11 +1,13 @@
+import env from './env';
+
 // Video API configuration - add your API keys to enable external video sources
 // Get free API keys from:
 // - YouTube: https://console.cloud.google.com/apis/credentials
 // - Pexels: https://www.pexels.com/api/
 
 export const VIDEO_API_CONFIG = {
-  YOUTUBE_API_KEY: import.meta.env.VITE_YOUTUBE_API_KEY || '',
-  PEXELS_API_KEY: import.meta.env.VITE_PEXELS_API_KEY || '',
+  YOUTUBE_API_KEY: env.VITE_YOUTUBE_API_KEY || '',
+  PEXELS_API_KEY: env.VITE_PEXELS_API_KEY || '',
   ENABLE_YOUTUBE: true,
   ENABLE_PEXELS: true,
 };

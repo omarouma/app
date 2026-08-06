@@ -752,7 +752,270 @@ CREATE POLICY "hashtags_all" ON hashtags
   FOR ALL TO authenticated USING (true) WITH CHECK (true);
 
 -- ============================================================
--- 26. AUTO-UPDATE TRIGGERS
+-- 26. REPORTS (content moderation — AdminPage)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS reports (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  reporter_id TEXT NOT NULL,
+  reported_id TEXT NOT NULL,
+  reason TEXT,
+  details TEXT,
+  status TEXT DEFAULT 'pending',
+  reviewed_by TEXT,
+  reviewed_at TIMESTAMPTZ,
+  action_taken TEXT,
+  content_id TEXT,
+  content_type TEXT,
+  severity TEXT,
+  post_id TEXT,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_reports_status ON reports (status);
+CREATE INDEX IF NOT EXISTS idx_reports_reporter ON reports (reporter_id);
+CREATE INDEX IF NOT EXISTS idx_reports_reported ON reports (reported_id);
+CREATE INDEX IF NOT EXISTS idx_reports_created_at ON reports (created_at DESC);
+
+ALTER TABLE reports ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "reports_admin_all" ON reports;
+CREATE POLICY "reports_admin_all" ON reports
+  FOR ALL TO authenticated
+  USING (EXISTS (SELECT 1 FROM users WHERE users.id = auth.uid()::text AND users.is_admin = true))
+  WITH CHECK (EXISTS (SELECT 1 FROM users WHERE users.id = auth.uid()::text AND users.is_admin = true));
+
+DROP POLICY IF EXISTS "reports_insert_any_auth" ON reports;
+CREATE POLICY "reports_insert_any_auth" ON reports
+  FOR INSERT TO authenticated WITH CHECK (auth.uid()::text = reporter_id);
+
+DROP POLICY IF EXISTS "reports_select_own" ON reports;
+CREATE POLICY "reports_select_own" ON reports
+  FOR SELECT TO authenticated USING (auth.uid()::text = reporter_id);
+
+-- ============================================================
+-- 27. BOOKMARK COLLECTIONS
+-- ============================================================
+CREATE TABLE IF NOT EXISTS bookmark_collections (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id TEXT NOT NULL,
+  name TEXT DEFAULT 'Saved',
+  count INTEGER DEFAULT 0,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_bookmark_collections_user ON bookmark_collections (user_id);
+
+ALTER TABLE bookmark_collections ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "bookmark_collections_own" ON bookmark_collections;
+CREATE POLICY "bookmark_collections_own" ON bookmark_collections
+  FOR ALL TO authenticated
+  USING (auth.uid()::text = user_id)
+  WITH CHECK (auth.uid()::text = user_id);
+
+-- ============================================================
+-- 28. TIPS (Premium creator tipping)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS tips (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  from_user_id TEXT NOT NULL,
+  to_user_id TEXT NOT NULL,
+  from_user_name TEXT,
+  to_user_name TEXT,
+  amount NUMERIC(18,2) DEFAULT 0,
+  currency TEXT DEFAULT 'coins',
+  message TEXT,
+  content_id TEXT,
+  content_type TEXT,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_tips_from ON tips (from_user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_tips_to ON tips (to_user_id, created_at DESC);
+
+ALTER TABLE tips ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "tips_own" ON tips;
+CREATE POLICY "tips_own" ON tips
+  FOR ALL TO authenticated
+  USING (auth.uid()::text = from_user_id OR auth.uid()::text = to_user_id)
+  WITH CHECK (auth.uid()::text = from_user_id);
+
+-- ============================================================
+-- 29. SUBSCRIPTIONS (Premium plans)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS subscriptions (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  plan_id TEXT,
+  status TEXT DEFAULT 'active',
+  started_at TIMESTAMPTZ,
+  expires_at TIMESTAMPTZ,
+  auto_renew BOOLEAN DEFAULT false,
+  price NUMERIC(18,2) DEFAULT 0,
+  currency TEXT DEFAULT 'BDT',
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_subscriptions_user ON subscriptions (user_id);
+CREATE INDEX IF NOT EXISTS idx_subscriptions_status ON subscriptions (user_id, status);
+
+ALTER TABLE subscriptions ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "subscriptions_own" ON subscriptions;
+CREATE POLICY "subscriptions_own" ON subscriptions
+  FOR ALL TO authenticated
+  USING (auth.uid()::text = user_id)
+  WITH CHECK (auth.uid()::text = user_id);
+
+-- ============================================================
+-- 30. REFERRALS
+-- ============================================================
+CREATE TABLE IF NOT EXISTS referrals (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  referrer_id TEXT NOT NULL,
+  referred_id TEXT NOT NULL,
+  status TEXT DEFAULT 'rewarded',
+  reward_amount NUMERIC(18,2) DEFAULT 0,
+  currency TEXT DEFAULT 'coins',
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_referrals_referrer ON referrals (referrer_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_referrals_referred ON referrals (referred_id);
+
+ALTER TABLE referrals ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "referrals_own" ON referrals;
+CREATE POLICY "referrals_own" ON referrals
+  FOR ALL TO authenticated
+  USING (auth.uid()::text = referrer_id OR auth.uid()::text = referred_id)
+  WITH CHECK (auth.uid()::text = referrer_id);
+
+-- ============================================================
+-- 31. CREATOR SUBSCRIPTIONS (creator monetization)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS creator_subscriptions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  creator_id TEXT NOT NULL,
+  subscriber_id TEXT NOT NULL,
+  plan_id TEXT,
+  status TEXT DEFAULT 'active',
+  price NUMERIC(18,2) DEFAULT 0,
+  currency TEXT DEFAULT 'USD',
+  created_at TIMESTAMPTZ DEFAULT now(),
+  expires_at TIMESTAMPTZ,
+  UNIQUE (creator_id, subscriber_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_creator_subs_creator ON creator_subscriptions (creator_id);
+CREATE INDEX IF NOT EXISTS idx_creator_subs_subscriber ON creator_subscriptions (subscriber_id);
+
+ALTER TABLE creator_subscriptions ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "creator_subs_own" ON creator_subscriptions;
+CREATE POLICY "creator_subs_own" ON creator_subscriptions
+  FOR ALL TO authenticated
+  USING (auth.uid()::text = creator_id OR auth.uid()::text = subscriber_id)
+  WITH CHECK (auth.uid()::text = subscriber_id);
+
+-- ============================================================
+-- 31b. NOTIFICATION TRIGGERS
+-- ============================================================
+-- Auto-create a real-time notification when a friend request is sent.
+-- Uses SECURITY DEFINER so the recipient gets a notification even though
+-- the sender cannot insert rows on the recipient's behalf via RLS.
+CREATE OR REPLACE FUNCTION notify_on_friend_request()
+RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER AS $$
+DECLARE
+  sender_name TEXT;
+BEGIN
+  IF TG_OP = 'INSERT' AND NEW.status = 'pending' THEN
+    SELECT COALESCE(name, display_name, split_part(COALESCE(email, NEW.from_user_id), '@', 1), 'Someone')
+      INTO sender_name FROM users WHERE id = NEW.from_user_id;
+    INSERT INTO notifications (user_id, type, title, body, read, data, created_at, timestamp)
+    VALUES (
+      NEW.to_user_id,
+      'friend_request',
+      'New Friend Request',
+      COALESCE(sender_name, 'Someone') || ' wants to be your friend',
+      false,
+      jsonb_build_object('fromUserId', NEW.from_user_id, 'senderName', COALESCE(sender_name, 'Someone')),
+      now(),
+      now()
+    );
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS on_friend_request_created ON friend_requests;
+CREATE TRIGGER on_friend_request_created
+  AFTER INSERT ON friend_requests
+  FOR EACH ROW EXECUTE FUNCTION notify_on_friend_request();
+
+-- ─── Incoming-call notification trigger ────────────────────────
+-- When a call is created with status 'calling', insert a notification row for
+-- the callee so a backgrounded/foreground user gets a real-time ring via the
+-- notifications realtime channel (and optionally a push notification from the
+-- client-side push service that tails the notifications table).
+CREATE OR REPLACE FUNCTION notify_on_call()
+RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER AS $$
+DECLARE
+  caller_name TEXT;
+BEGIN
+  IF TG_OP = 'INSERT' AND NEW.status = 'calling' AND NEW.caller_id IS DISTINCT FROM NEW.callee_id THEN
+    SELECT COALESCE(name, display_name, split_part(COALESCE(email, NEW.caller_id), '@', 1), 'Someone')
+      INTO caller_name FROM users WHERE id = NEW.caller_id;
+    INSERT INTO notifications (user_id, type, title, body, read, data, created_at, timestamp)
+    VALUES (
+      NEW.callee_id,
+      'call',
+      'Incoming Call',
+      COALESCE(caller_name, 'Someone') || ' is calling you',
+      false,
+      jsonb_build_object('callId', NEW.id::text, 'fromUserId', NEW.caller_id, 'callerName', COALESCE(caller_name, 'Someone'), 'callType', NEW.type),
+      now(),
+      now()
+    );
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS on_call_created ON call_history;
+CREATE TRIGGER on_call_created
+  AFTER INSERT ON call_history
+  FOR EACH ROW EXECUTE FUNCTION notify_on_call();
+
+-- ─── Missed-call trigger ───────────────────────────────────────
+-- When a call transitions away from 'calling' without being answered, mark it
+-- as 'missed' server-side so the call shows up in both parties' history as a
+-- missed call even if the callee never opened the app.
+CREATE OR REPLACE FUNCTION mark_missed_call()
+RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER AS $$
+BEGIN
+  -- Fire ~45s after a call is created if it's still 'calling' (never answered).
+  PERFORM pg_sleep(45);
+  UPDATE call_history
+    SET status = 'missed', ended_at = COALESCE(ended_at, now())
+    WHERE id = OLD.id AND status = 'calling';
+  RETURN OLD;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS on_call_missed ON call_history;
+CREATE TRIGGER on_call_missed
+  AFTER INSERT ON call_history
+  FOR EACH ROW
+  WHEN (NEW.status = 'calling')
+  EXECUTE PROCEDURE mark_missed_call();
+
+-- ============================================================
+-- 32. AUTO-UPDATE TRIGGERS
 -- ============================================================
 CREATE OR REPLACE FUNCTION update_updated_at()
 RETURNS TRIGGER LANGUAGE plpgsql AS $$
@@ -807,12 +1070,13 @@ $$;
 DO $$
 DECLARE
   tbl TEXT;
-  tables TEXT[] := ARRAY[
+tables TEXT[] := ARRAY[
     'messages','chats','typing','presence','notifications',
     'posts','reels','stories','comments',
     'friend_requests','friendships',
     'call_signaling','live_stream_signals','voice_room_signals',
-    'live_streams','voice_rooms','users'
+    'live_streams','voice_rooms','call_history','groups','users',
+    'reports','bookmark_collections','tips','subscriptions','referrals','creator_subscriptions'
   ];
 BEGIN
   FOREACH tbl IN ARRAY tables LOOP

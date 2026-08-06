@@ -1,4 +1,4 @@
- import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -7,12 +7,8 @@ import {
 } from 'lucide-react';
 import { useCallStore } from '@/store/useCallStore';
 import { useAuthStore } from '@/store/useAuthStore';
-import { WebRTCCall, type WebRTCCallState } from '@/lib/webrtc';
-import {
-  stopAllSounds, playCallEnded, vibrateCallEnded,
-  playIncomingCall, playOutgoingCall, playCallConnected,
-  vibrateIncomingCall, vibrateCallConnected,
-} from '@/lib/sounds';
+import { useWebRTCManager } from '@/hooks/useWebRTCManager';
+import { stopAllSounds, playIncomingCall, playOutgoingCall, vibrateIncomingCall } from '@/lib/sounds';
 import { sanitizeMediaUrl, getDefaultAvatar } from '@/lib/utils';
 import { toast } from 'sonner';
 
@@ -23,23 +19,21 @@ function formatDuration(s: number) {
 
 export default function CallOverlay() {
   const navigate = useNavigate();
-  const { currentCall, incomingCall, acceptCall, rejectCall, endCall } = useCallStore();
+  const { currentCall, incomingCall, acceptCall, rejectCall } = useCallStore();
   const currentUser = useAuthStore((s) => s.user);
 
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
   const localVideoRef = useRef<HTMLVideoElement>(null);
-  const webrtcRef = useRef<WebRTCCall | null>(null);
-  const initializedCallId = useRef<string | null>(null);
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const ringtoneRef = useRef<{ stop: () => void } | null>(null);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
 
-  const [isMuted, setIsMuted] = useState(false);
-  const [isVideoOn, setIsVideoOn] = useState(true);
   const [isSpeakerOn, setIsSpeakerOn] = useState(true);
   const [callDuration, setCallDuration] = useState(0);
-  const [isConnected, setIsConnected] = useState(false);
   const [otherUser, setOtherUser] = useState<{ id: string; name: string; avatar?: string } | null>(null);
+
+const {
+    isConnected, localStream, remoteStream, isMuted, isVideoOn, quality,
+    endCall, toggleMute, toggleVideo, flipCamera,
+  } = useWebRTCManager();
 
   const isIncoming = !!incomingCall && !currentCall;
   const activeCall = currentCall ?? incomingCall;
@@ -48,203 +42,111 @@ export default function CallOverlay() {
     ? activeCall.participantIds.find((id) => id !== currentUser?.id) ?? null
     : null;
 
-  // ── Resolve other user info ───────────────────────────────────────────────
   useEffect(() => {
-    if (!otherUserId) { setOtherUser(null); return; }
+    if (localStream && localVideoRef.current) {
+      localVideoRef.current.srcObject = localStream;
+    }
+  }, [localStream]);
+
+  useEffect(() => {
+    if (remoteStream && remoteVideoRef.current) {
+      remoteVideoRef.current.srcObject = remoteStream;
+    }
+  }, [remoteStream]);
+
+  useEffect(() => {
+    if (!otherUserId) {
+      setOtherUser(null);
+      return;
+    }
     import('@/lib/firestore').then(({ getDocById, COLLECTIONS }) => {
-      getDocById(COLLECTIONS.USERS, otherUserId).then((data) => {
-        setOtherUser({
-          id: otherUserId,
-          name: (data?.name as string) || (data?.displayName as string) || 'User',
-          avatar: (data?.avatar as string) || undefined,
-        });
-      }).catch(() => setOtherUser({ id: otherUserId, name: 'User' }));
+      getDocById(COLLECTIONS.USERS, otherUserId)
+        .then((data) => {
+          setOtherUser({
+            id: otherUserId,
+            name: (data?.name as string) || (data?.displayName as string) || 'User',
+            avatar: (data?.avatar as string) || undefined,
+          });
+        })
+        .catch(() => setOtherUser({ id: otherUserId, name: 'User' }));
     }).catch(() => setOtherUser({ id: otherUserId, name: 'User' }));
   }, [otherUserId]);
 
-  // ── Speaker routing ───────────────────────────────────────────────────────
   useEffect(() => {
-    const el = remoteVideoRef.current ?? audioRef.current;
-    if (!el) return;
-    if ('setSinkId' in el && typeof (el as HTMLMediaElement & { setSinkId: (id: string) => Promise<void> }).setSinkId === 'function') {
-      (el as HTMLMediaElement & { setSinkId: (id: string) => Promise<void> })
-        .setSinkId(isSpeakerOn ? 'default' : '')
-        .catch(() => {});
+    const el = remoteVideoRef.current;
+    if (el && 'setSinkId' in el && typeof el.setSinkId === 'function') {
+      el.setSinkId(isSpeakerOn ? 'default' : '').catch(() => {});
     }
-  }, [isSpeakerOn]);
+  }, [isSpeakerOn, remoteStream]);
 
-// ── Ringtone ──────────────────────────────────────────────────────────────
   useEffect(() => {
     if (isIncoming) {
       ringtoneRef.current = playIncomingCall();
       vibrateIncomingCall();
     } else if (currentCall?.status === 'calling') {
-      playOutgoingCall();
+      ringtoneRef.current = playOutgoingCall();
     }
-    return () => { ringtoneRef.current?.stop(); ringtoneRef.current = null; };
-  }, [isIncoming, currentCall, incomingCall]);
-
-  // ── Ring timeout (45s) ────────────────────────────────────────────────────
-  useEffect(() => {
-    if (isConnected) return;
-    if (!currentCall && !incomingCall) return;
-    const isRinging = isIncoming || currentCall?.status === 'calling';
-    if (!isRinging) return;
-
-    const timeout = setTimeout(() => {
+    return () => {
       ringtoneRef.current?.stop();
       ringtoneRef.current = null;
-      stopAllSounds();
-      toast.info('Call not answered');
-      if (isIncoming) {
-        useCallStore.getState().rejectCall();
-      } else {
-        webrtcRef.current?.endCall();
-        webrtcRef.current = null;
-        initializedCallId.current = null;
-        useCallStore.getState().endCall();
-      }
-    }, 45_000);
+    };
+  }, [isIncoming, currentCall?.status]);
 
-    return () => clearTimeout(timeout);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- reset ring timeout only on these granular call transitions
-  }, [isConnected, isIncoming, currentCall?.status, currentCall?.id, incomingCall?.id]);
-
-  // ── Call duration timer ───────────────────────────────────────────────────
   useEffect(() => {
     if (isConnected) {
-      setCallDuration(0);
-      timerRef.current = setInterval(() => setCallDuration((d) => d + 1), 1000);
-    } else {
-      if (timerRef.current) clearInterval(timerRef.current);
+      ringtoneRef.current?.stop();
+      ringtoneRef.current = null;
     }
-    return () => { if (timerRef.current) clearInterval(timerRef.current); };
   }, [isConnected]);
 
-  // ── WebRTC init for outgoing calls ────────────────────────────────────────
   useEffect(() => {
-    if (!currentCall || !currentUser) return;
-    if (initializedCallId.current === currentCall.id) return;
-
-    const onStateChange = (state: WebRTCCallState) => {
-      if (state === 'connected') {
-        setIsConnected(true);
-        ringtoneRef.current?.stop();
-        ringtoneRef.current = null;
-        playCallConnected();
-        vibrateCallConnected();
-        useCallStore.getState().acceptCall();
-      }
-      if (state === 'ended') useCallStore.getState().endCall();
-    };
-
-    const webrtc = new WebRTCCall(
-      currentUser.id,
-      currentCall.participantIds.find((id) => id !== currentUser.id) ?? '',
-      currentCall.type === 'video',
-      onStateChange,
-      (stream) => { if (remoteVideoRef.current) remoteVideoRef.current.srcObject = stream; },
-      (stream) => { if (localVideoRef.current) localVideoRef.current.srcObject = stream; },
-    );
-    webrtcRef.current = webrtc;
-    initializedCallId.current = currentCall.id;
-
-    let cancelled = false;
-    const p = currentCall.initiatorId === currentUser.id
-      ? webrtc.startCall(currentCall.id)
-      : webrtc.answerCall(currentCall.id);
-    p.catch(() => { if (!cancelled) { webrtcRef.current = null; initializedCallId.current = null; } });
-
+    let timer: ReturnType<typeof setInterval> | null = null;
+    if (isConnected) {
+      setCallDuration(0);
+      timer = setInterval(() => setCallDuration((d) => d + 1), 1000);
+    }
     return () => {
-      cancelled = true;
-      if (initializedCallId.current === currentCall.id) {
-        try { webrtcRef.current?.endCall(); } catch { /* ignore */ }
-        webrtcRef.current = null;
-        initializedCallId.current = null;
-      }
+      if (timer) clearInterval(timer);
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentCall?.id, currentUser?.id]);
+  }, [isConnected]);
 
-  // ── Auto-navigate when call ends ──────────────────────────────────────────
   const prevHadCall = useRef(false);
   useEffect(() => {
-    if (currentCall || incomingCall) {
+    const hadCall = !!(currentCall || incomingCall);
+    if (hadCall) {
       prevHadCall.current = true;
     } else if (prevHadCall.current) {
       prevHadCall.current = false;
-      setIsConnected(false);
-      setCallDuration(0);
+      stopAllSounds();
       navigate('/calls', { replace: true });
     }
   }, [currentCall, incomingCall, navigate]);
 
-  // ── Handlers ─────────────────────────────────────────────────────────────
   const handleAccept = useCallback(async () => {
-    if (!incomingCall || !currentUser) return;
-    // Guard against double-accept if component re-renders during async flow
-    if (initializedCallId.current === incomingCall.id) return;
-    // Set immediately to block the currentCall useEffect from also initializing WebRTC
-    initializedCallId.current = incomingCall.id;
-
     ringtoneRef.current?.stop();
     ringtoneRef.current = null;
-
-    const callId = incomingCall.id;
-    // Resolve the actual caller — always the initiator
-    const callerId = incomingCall.initiatorId;
-
-    const onStateChange = (state: WebRTCCallState) => {
-      if (state === 'connected') { setIsConnected(true); playCallConnected(); vibrateCallConnected(); }
-      if (state === 'ended') useCallStore.getState().endCall();
-    };
-    const webrtc = new WebRTCCall(
-      currentUser.id, callerId, incomingCall.type === 'video',
-      onStateChange,
-      (stream) => { if (remoteVideoRef.current) remoteVideoRef.current.srcObject = stream; },
-      (stream) => { if (localVideoRef.current) localVideoRef.current.srcObject = stream; },
-    );
-    webrtcRef.current = webrtc;
-
-    // Answer WebRTC first so media is ready, then update Firestore status
-    await webrtc.answerCall(callId);
     await acceptCall();
-  }, [incomingCall, currentUser, acceptCall]);
+  }, [acceptCall]);
 
   const handleReject = useCallback(() => {
     ringtoneRef.current?.stop();
     ringtoneRef.current = null;
     stopAllSounds();
     rejectCall();
+    toast.info('Call rejected');
   }, [rejectCall]);
 
   const handleEndCall = useCallback(() => {
-    if (timerRef.current) clearInterval(timerRef.current);
-    ringtoneRef.current?.stop();
-    ringtoneRef.current = null;
-    webrtcRef.current?.endCall();
-    webrtcRef.current = null;
-    initializedCallId.current = null;
-    setIsConnected(false);
     stopAllSounds();
-    playCallEnded();
-    vibrateCallEnded();
     endCall();
   }, [endCall]);
 
-  const handleToggleMute = useCallback(() => {
-    setIsMuted((prev) => { webrtcRef.current?.toggleAudio(prev); return !prev; });
-  }, []);
-
-  const handleToggleVideo = useCallback(() => {
-    setIsVideoOn((prev) => { webrtcRef.current?.toggleVideo(prev); return !prev; });
-  }, []);
-
-  if (!currentCall && !incomingCall) return null;
+  if (!activeCall) return null;
 
   const avatarSrc = sanitizeMediaUrl(otherUser?.avatar)
     ? sanitizeMediaUrl(otherUser?.avatar)!
     : getDefaultAvatar(otherUser?.id ?? otherUser?.name ?? 'U');
+
 
   return (
     <AnimatePresence>
@@ -273,7 +175,7 @@ export default function CallOverlay() {
             />
             <button
               type="button"
-              onClick={() => webrtcRef.current?.flipCamera()}
+              onClick={flipCamera}
               className="absolute top-16 left-4 z-20 w-10 h-10 rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center text-white active:scale-95"
               aria-label="Flip camera"
             >
@@ -286,11 +188,20 @@ export default function CallOverlay() {
         <div className="relative z-10 flex flex-col h-full">
           {/* Top bar */}
           <div className="flex items-center justify-between px-5 pt-14 pb-4">
-            <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${isVideo ? 'bg-blue-500/20 text-blue-300' : 'bg-green-500/20 text-green-300'}`}>
+<span className={`text-xs font-medium px-2.5 py-1 rounded-full ${isVideo ? 'bg-blue-500/20 text-blue-300' : 'bg-green-500/20 text-green-300'}`}>
               {isVideo ? '📹 Video' : '🎙 Voice'}
             </span>
-            {isConnected && (
+{isConnected && (
               <span className="text-white/60 text-sm font-mono">{formatDuration(callDuration)}</span>
+            )}
+            {quality !== 'good' && isConnected && (
+              <span className={`text-[11px] font-medium px-2.5 py-1 rounded-full ${
+                quality === 'reconnecting'
+                  ? 'bg-amber-500/20 text-amber-300'
+                  : 'bg-orange-500/20 text-orange-300'
+              }`}>
+                {quality === 'reconnecting' ? 'Reconnecting…' : 'Poor connection'}
+              </span>
             )}
             <button
               type="button"
@@ -338,12 +249,12 @@ export default function CallOverlay() {
               )}
               {!isConnected && !isIncoming && (
                 <div className="flex items-center justify-center gap-1.5 mt-2">
-                  <motion.span
-                    className="w-2 h-2 rounded-full bg-blue-400"
+<motion.span
+                    className="w-2 h-2 rounded-full bg-green-400"
                     animate={{ opacity: [1, 0.3, 1] }}
                     transition={{ duration: 1.2, repeat: Infinity }}
                   />
-                  <span className="text-blue-400 text-xs font-medium">Ringing…</span>
+                  <span className="text-green-400 text-xs font-medium">Ringing…</span>
                 </div>
               )}
             </div>
@@ -384,7 +295,7 @@ export default function CallOverlay() {
                 <div className="flex items-center justify-center gap-6">
                   <ControlButton
                     active={isMuted}
-                    onClick={handleToggleMute}
+                    onClick={toggleMute}
                     label={isMuted ? 'Unmute' : 'Mute'}
                     icon={isMuted ? <MicOff size={22} /> : <Mic size={22} />}
                   />
@@ -394,12 +305,20 @@ export default function CallOverlay() {
                     label={isSpeakerOn ? 'Speaker' : 'Earpiece'}
                     icon={isSpeakerOn ? <Volume2 size={22} /> : <VolumeX size={22} />}
                   />
-                  {isVideo && (
+{isVideo && (
                     <ControlButton
                       active={!isVideoOn}
-                      onClick={handleToggleVideo}
+                      onClick={toggleVideo}
                       label={isVideoOn ? 'Camera' : 'Camera off'}
                       icon={isVideoOn ? <Video size={22} /> : <VideoOff size={22} />}
+                    />
+                  )}
+                  {isVideo && quality === 'poor' && (
+                    <ControlButton
+                      active={false}
+                      onClick={toggleVideo}
+                      label="Switch to voice"
+                      icon={<Phone size={22} />}
                     />
                   )}
                 </div>

@@ -1,8 +1,8 @@
 
-// Bump this when you want clients to reload on a *real* version change.
-// Do NOT couple to cache name alone.
-const SW_VERSION = '2.3.0';
-const CACHE_NAME = 'gagachat-v4';
+// SW_VERSION is auto-stamped from package.json via vite.config.ts __APP_VERSION__.
+// Bump package.json version on every deploy — clients will reload automatically.
+const SW_VERSION = (typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '2.3.0');
+const CACHE_NAME = `gagachat-v${SW_VERSION}`;
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
@@ -12,14 +12,10 @@ const ASSETS_TO_CACHE = [
   '/logo-192.png',
 ];
 
-// Install: cache core assets
-// Do NOT call skipWaiting() here — only skip waiting when the user explicitly
-// triggers an update (SKIP_WAITING message). Calling it unconditionally causes
-// the SW to activate on every page load and broadcast SW_VERSION, which triggers
-// an infinite reload loop in the client.
+// Install: cache core assets and immediately claim clients on first install
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS_TO_CACHE))
+    caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS_TO_CACHE)).catch(() => {})
   );
 });
 
@@ -37,8 +33,8 @@ self.addEventListener('activate', (event) => {
 
       // Broadcast version to all controlled clients after claiming
       try {
-        const clients = await self.clients.matchAll({ type: 'window', includeUncontrolled: false });
-        for (const client of clients) {
+        const allClients = await self.clients.matchAll({ type: 'window', includeUncontrolled: false });
+        for (const client of allClients) {
           client.postMessage({ type: 'SW_VERSION', version: SW_VERSION });
         }
       } catch {
@@ -53,15 +49,16 @@ self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
   const url = new URL(event.request.url);
 
-  // Never cache API, auth, realtime, or third-party requests
+  // Never cache API, auth, realtime, third-party, or AdSense requests
   if (
     url.pathname.startsWith('/api/') ||
     url.pathname.startsWith('/auth/') ||
     url.hostname.includes('supabase.co') ||
     url.hostname.includes('googleapis.com') ||
-    url.hostname.includes('firestore.googleapis.com') ||
     url.hostname.includes('cloudinary.com') ||
     url.hostname.includes('googletagmanager.com') ||
+    url.hostname.includes('googlesyndication.com') ||
+    url.hostname.includes('doubleclick.net') ||
     url.hostname.includes('dicebear.com')
   ) return;
 

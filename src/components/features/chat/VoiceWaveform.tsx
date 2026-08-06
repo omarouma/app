@@ -13,26 +13,36 @@ export const VoiceWaveform = memo(function VoiceWaveform({ audioUrl, duration: p
   const [duration, setDuration] = useState(propDuration || 0);
   const [playbackRate, setPlaybackRate] = useState(1);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [prevAudioUrl, setPrevAudioUrl] = useState(audioUrl);
 
-  // Generate stable waveform bars seeded from audioUrl
+  // React-recommended "adjusting state when props change" pattern (no refs during render).
+  if (prevAudioUrl !== audioUrl) {
+    setPrevAudioUrl(audioUrl);
+    setIsPlaying(false);
+    setCurrentTime(0);
+    setDuration(propDuration || 0);
+  }
+
+  // Generate stable waveform bars seeded from audioUrl (pure, no mutation)
   const bars = useMemo(() => {
     const count = 40;
-    // Simple deterministic seed from URL chars
-    let seed = audioUrl.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0);
-    const rand = () => { seed = (seed * 1664525 + 1013904223) & 0xffffffff; return (seed >>> 0) / 0xffffffff; };
+    const seed = audioUrl.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0);
+    const randAt = (s: number) => {
+      const local = (s * 1664525 + 1013904223) & 0xffffffff;
+      return (local >>> 0) / 0xffffffff;
+    };
     return Array.from({ length: count }, (_, i) => {
       const center = count / 2;
       const distance = Math.abs(i - center) / center;
-      return Math.max(0.1, Math.sin((i / count) * Math.PI * 4) * (1 - distance * 0.5) + rand() * 0.3);
+      const wave = Math.sin((i / count) * Math.PI * 4) * (1 - distance * 0.5);
+      const noise = randAt(seed + i * 97) * 0.3;
+      return Math.max(0.1, wave + noise);
     });
   }, [audioUrl]);
 
   useEffect(() => {
     const audio = new Audio(audioUrl);
     audioRef.current = audio;
-    setIsPlaying(false);
-    setCurrentTime(0);
-    setDuration(propDuration || 0);
 
     audio.addEventListener('loadedmetadata', () => {
       setDuration(audio.duration);
@@ -52,7 +62,7 @@ export const VoiceWaveform = memo(function VoiceWaveform({ audioUrl, duration: p
       audio.src = '';
       audioRef.current = null;
     };
-  }, [audioUrl, propDuration]);
+  }, [audioUrl]);
 
   useEffect(() => {
     if (audioRef.current) {

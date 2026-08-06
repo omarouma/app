@@ -4,8 +4,6 @@
   Provides the same interface as firestoreLegacy.ts so stores/pages need no changes.
   All field mapping (camelCase ↔ snake_case) happens here transparently.
 */
-/* eslint-disable @typescript-eslint/no-explicit-any */
-
 import { getSupabaseSafe } from './supabase';
 
 export function isSupabaseAvailable(): boolean {
@@ -96,10 +94,10 @@ async function updateWithFallback(
     if (isColumnMissingError(result.error)) {
       const col = extractMissingColumn(result.error);
       if (col && col in data) {
-          delete data[col];
+        delete data[col];
         retries++;
-        // Rebuild query with reduced data
-        query = supabase.from(table).update(data).eq('id', id);
+        // Rebuild query with reduced data so next iteration uses updated payload
+        query = supabase.from(table).update({ ...data }).eq('id', id);
         if (extraEq) {
           for (const [k, v] of Object.entries(extraEq)) {
             query = query.eq(k, v);
@@ -223,7 +221,9 @@ const FIELD_TO_DB: Record<string, string> = {
   lockValue: 'lock_value',
   storyId: 'story_id',
   reelId: 'reel_id',
-  callId: 'call_id',
+callId: 'call_id',
+  callerId: 'caller_id',
+  calleeId: 'callee_id',
   bdtBalance: 'bdt_balance',
   usdBalance: 'usd_balance',
   disappearingTimer: 'disappearing_timer',
@@ -447,7 +447,6 @@ export async function setDocById(
   table: string,
   id: string,
   data: any,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   _merge = true,
 ): Promise<void> {
   const supabase = getDb();
@@ -502,10 +501,13 @@ const FK_COLUMN: Record<string, Record<string, string>> = {
   [COLLECTIONS.GROUPS]: {
     members: 'group_id',
   },
-  [COLLECTIONS.LIVE_STREAMS]: {
+[COLLECTIONS.LIVE_STREAMS]: {
     comments: 'stream_id',
     gifts: 'stream_id',
     signals: 'stream_id',
+  },
+  [COLLECTIONS.VOICE_ROOMS]: {
+    signals: 'room_id',
   },
 };
 
@@ -592,6 +594,13 @@ export async function querySubcollection<T = any>(
 
 // ─── Real-time subscriptions ───────────────────────────────────────────
 
+// Module-level channel sequence counter. Each subscribeToCollection() call must
+// get a UNIQUE channel name — reusing a deterministic name (e.g.
+// `call_history:caller_id=eq.<userId>`) collides when the same filter is
+// subscribed twice (App-level `subscribeCalls` + page-level `subscribeToCallHistory`),
+// causing Supabase to reject adding a callback "after subscribe()".
+let channelSeq = 0;
+
 export function subscribeToDoc(
   table: string,
   id: string,
@@ -646,8 +655,13 @@ export function subscribeToCollection<T = any>(
     return v;
   };
 
+// Map a constraint field (which may be snake_case DB column OR camelCase) to the
+  // camelCase field name used on the mapped rows returned by toCamel()/mapRows().
+  // e.g. subcollection FK filters use 'chat_id' but rows expose 'chatId'.
+  const toCamelField = (f: string) => DB_TO_FIELD[f] ?? f;
+
   const matchesWhere = (row: any, c: Extract<QueryConstraint, { _type: 'where' }>) => {
-    const v = getFieldValue(row, c.field);
+    const v = getFieldValue(row, toCamelField(c.field));
     switch (c.op) {
       case '==': return v === c.value;
       case '!=': return v !== c.value;
@@ -678,11 +692,13 @@ export function subscribeToCollection<T = any>(
       }
     }
 
+// Normalize the order field to camelCase so it matches the mapped rows.
+    const orderFieldCamel = orderField ? toCamelField(orderField) : null;
     let out = items;
-    if (orderField) {
+    if (orderFieldCamel) {
       out = [...out].sort((a: any, b: any) => {
-        const av = toComparable(getFieldValue(a, orderField!));
-        const bv = toComparable(getFieldValue(b, orderField!));
+        const av = toComparable(getFieldValue(a, orderFieldCamel!));
+        const bv = toComparable(getFieldValue(b, orderFieldCamel!));
         if (av === bv) return 0;
         if (av == null) return orderDir === 'asc' ? -1 : 1;
         if (bv == null) return orderDir === 'asc' ? 1 : -1;
@@ -762,7 +778,14 @@ export function subscribeToCollection<T = any>(
     }
   }
 
-  const channelId = filter ? `${table}:${filter}` : `${table}:all:${Date.now()}`;
+// Each call to subscribeToCollection must get a UNIQUE channel name. Reusing a
+  // deterministic name (e.g. `call_history:caller_id=eq.<userId>`) collides when the
+  // same filter is subscribed twice (App-level `subscribeCalls` + page-level
+  // `subscribeToCallHistory`), causing Supabase to reject adding a callback
+  // "after subscribe()". The module-level counter below guarantees uniqueness.
+  const channelId = filter
+    ? `${table}:${filter}:${++channelSeq}`
+    : `${table}:all:${Date.now()}:${++channelSeq}`;
   const filterConfig = filter ? { filter } : {};
   const channel = supabase
     .channel(channelId)

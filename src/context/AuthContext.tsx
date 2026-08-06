@@ -17,7 +17,7 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<{ success: boolean; needsEmailVerification?: boolean; error?: string }>;
   loginWithPhone: (phone: string, password: string) => Promise<{ success: boolean; error?: string }>;
   signup: (name: string, email: string, password: string) => Promise<{ success: boolean; needsEmailVerification?: boolean; error?: string }>;
-  signupWithPhone: (name: string, phone: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  signupWithPhone: (name: string, phone: string, password: string) => Promise<{ success: boolean; needsEmailVerification?: boolean; error?: string }>;
   sendMagicLink: (email: string) => Promise<{ success: boolean; error?: string }>;
   resetPassword: (email: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
@@ -30,8 +30,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [needsEmailVerification, setNeedsEmailVerification] = useState(false);
 
   useEffect(() => {
-    const unsub = useAuthStore.getState().init();
-    return () => { if (typeof unsub === 'function') unsub(); };
+    const result = useAuthStore.getState().init();
+    const unsub = typeof result === 'function' ? result : null;
+    return () => { unsub?.(); };
   }, []);
 
   const notConfigured = { success: false, error: 'Authentication not configured.' };
@@ -79,6 +80,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = async () => {
     resetPresenceState();
     if (isSupabaseConfigured()) { try { await signOut(); } catch { /* ignore */ } }
+    // `signOut()` above triggers `onAuthStateChange` (SIGNED_OUT) in the store's
+    // `init()`, which tears down the real-time profile subscription and clears
+    // the user. The explicit `setUser(null)` below is a safety net for cases
+    // where the auth listener doesn't fire (e.g. offline / unconfigured).
     useAuthStore.getState().setUser(null);
   };
 

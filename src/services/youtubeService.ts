@@ -1,6 +1,52 @@
-const YOUTUBE_API_BASE = 'https://www.googleapis.com/youtube/v3';
-const API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
+import { z } from 'zod';
+import env from '@/config/env';
 
+const YOUTUBE_API_BASE = 'https://www.googleapis.com/youtube/v3';
+const API_KEY = env.VITE_YOUTUBE_API_KEY;
+
+// Zod Schemas for API validation
+const YouTubeThumbnailSchema = z.object({
+  url: z.string(),
+  width: z.number(),
+  height: z.number(),
+});
+
+const YouTubeSnippetSchema = z.object({
+  publishedAt: z.string(),
+  channelId: z.string(),
+  title: z.string(),
+  description: z.string(),
+  thumbnails: z.object({
+    default: YouTubeThumbnailSchema,
+    medium: YouTubeThumbnailSchema,
+    high: YouTubeThumbnailSchema,
+    standard: YouTubeThumbnailSchema.optional(),
+    maxres: YouTubeThumbnailSchema.optional(),
+  }),
+  channelTitle: z.string(),
+});
+
+const YouTubeContentDetailsSchema = z.object({
+  duration: z.string(),
+});
+
+const YouTubeStatisticsSchema = z.object({
+  viewCount: z.string(),
+  likeCount: z.string(),
+});
+
+const YouTubeVideoItemSchema = z.object({
+  id: z.union([z.string(), z.object({ videoId: z.string() })]),
+  snippet: YouTubeSnippetSchema,
+  contentDetails: YouTubeContentDetailsSchema.optional(),
+  statistics: YouTubeStatisticsSchema.optional(),
+});
+
+const _YouTubeApiResponseSchema = z.object({
+  items: z.array(YouTubeVideoItemSchema),
+});
+
+// Application's internal representation of a YouTube video
 export interface YouTubeVideo {
   id: string;
   title: string;
@@ -14,10 +60,11 @@ export interface YouTubeVideo {
   likeCount?: string;
 }
 
+
 const CACHE_KEY_TRENDING = 'gaga_youtube_trending';
 const CACHE_KEY_PREFIX = 'gaga_youtube_search_';
 const CACHE_DURATION = 30 * 60 * 1000; // 30 minutes
-const DEFAULT_REGION = import.meta.env.VITE_YOUTUBE_REGION || 'US';
+const DEFAULT_REGION = env.VITE_YOUTUBE_REGION || 'US';
 
 // Demo videos as fallback when no API key or API fails
 const DEMO_VIDEOS: YouTubeVideo[] = [
@@ -115,7 +162,6 @@ function setCached(key: string, data: YouTubeVideo[]) {
   }
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function parseYouTubeResponse(items: any[]): YouTubeVideo[] {
   return items.map(item => {
     const snippet = item.snippet || {};

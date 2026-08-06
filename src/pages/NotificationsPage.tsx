@@ -9,7 +9,6 @@ import {
 import { useNotificationStore } from '@/store/useNotificationStore';
 import { useAuthStore } from '@/store/useAuthStore';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
-import { isFirestoreAvailable, batchDelete } from '@/lib/firestore';
 import { formatTime } from '@/lib/timeUtils';
 import { toast } from 'sonner';
 import LoadingSkeleton from '@/components/LoadingSkeleton';
@@ -52,10 +51,10 @@ const typeLabels: Record<string, string> = {
   group_invite: 'Groups',
   friend_request: 'Friends',
   money_received: 'Money',
-  group_call: 'Calls',
+  group_call: 'Group Calls',
   post_like: 'Likes',
   comment: 'Comments',
-  friend_removed: 'Friends',
+  friend_removed: 'Unfriended',
   blocked_interaction: 'Security',
 };
 
@@ -81,7 +80,7 @@ function isThisWeek(date: Date) {
 export default function NotificationsPage() {
   const navigate = useNavigate();
   const { user } = useAuthStore();
-  const { notifications, markRead, markAllRead, subscribe, loading } = useNotificationStore();
+  const { notifications, markRead, markAllRead, deleteNotification, subscribe, loading } = useNotificationStore();
   const [filterType, setFilterType] = useState<string | 'all'>('all');
   const [showFilter, setShowFilter] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -113,11 +112,10 @@ export default function NotificationsPage() {
 
   const filtered = useMemo(() => {
     let list = [...notifications];
-    if (filterType !== 'all') {
-      list = list.filter(n => n.type === filterType);
-    }
+    if (filterType !== 'all') list = list.filter(n => n.type === filterType);
+    if (mutedTypes.length > 0) list = list.filter(n => !mutedTypes.includes(n.type));
     return list;
-  }, [notifications, filterType]);
+  }, [notifications, filterType, mutedTypes]);
 
   const grouped = useMemo(() => {
     const today: typeof filtered = [];
@@ -141,9 +139,7 @@ export default function NotificationsPage() {
   };
 
   const handleDeleteSelected = async () => {
-    if (isFirestoreAvailable()) {
-      await batchDelete(selectedIds.map(id => ({ collection: 'notifications', docId: id })));
-    }
+    await Promise.all(selectedIds.map(id => deleteNotification(id)));
     setSelectedIds([]);
     setSelectMode(false);
     toast.success('Notifications deleted');
@@ -236,7 +232,7 @@ export default function NotificationsPage() {
                 >
                   <Settings size={18} />
                 </button>
-                <button type="button" onClick={() => setSelectMode(!selectMode)}
+                <button type="button" onClick={() => { setSelectMode(s => !s); setSelectedIds([]); }}
                   className={`text-xs font-medium px-2 py-1 rounded-full transition-colors ${
                     selectMode ? 'bg-[#00C300] text-white' : 'text-[#00C300]'
                   }`}
@@ -254,7 +250,7 @@ export default function NotificationsPage() {
         </div>
 
         {/* Push Notification Permission Banner */}
-        {isSupported && Notification.permission === 'default' && (
+        {isSupported && typeof Notification !== 'undefined' && Notification.permission === 'default' && (
           <motion.div
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}

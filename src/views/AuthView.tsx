@@ -1,17 +1,61 @@
-import { useState, type FormEvent } from 'react';
+import { useState, useEffect, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Mail, Phone, Lock, Eye, EyeOff, User, ArrowLeft,
-  Check, Loader, AlertCircle, Sparkles, Home, Send,
+  Check, Loader, AlertCircle, Sparkles, Home, Send, MailCheck, Bell,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { toast } from 'sonner';
 import Logo from '@/components/Logo';
+import { pushNotificationService } from '@/services/pushNotificationService';
+import { safePlay, playNotification, vibrateNotification } from '@/lib/sounds';
+import { sendEmailVerification, fetchUserProfile } from '@/lib/supabaseAuth';
+import { isSupabaseConfigured, getSupabaseSafe } from '@/lib/supabase';
 
 // ─── Types ────────────────────────────────────────────────────
-type Screen = 'landing' | 'login-email' | 'login-phone' | 'signup-email' | 'signup-phone' | 'magic' | 'forgot';
+type Screen = 'landing' | 'login-email' | 'login-phone' | 'signup-email' | 'signup-phone' | 'magic' | 'forgot' | 'verify';
 type InputTab = 'email' | 'phone';
+
+const VERIFY_NOTIF_TAG = 'gaga_verify_account';
+
+async function fireVerifyNotification(email: string) {
+  // Play an audible verification alert + haptic on the phone
+  safePlay(playNotification, vibrateNotification);
+
+  // Also request + show a system notification prompting the user to verify in Gmail
+  try {
+    await pushNotificationService.init();
+    const granted = await pushNotificationService.requestPermission();
+    if (granted) {
+      await pushNotificationService.sendNotification({
+        title: 'Verify Your Account 🔐',
+        body: `Confirm your email (${email || 'your inbox'}) to activate your GaGa Chat account. Open Gmail and tap the verification link.`,
+        icon: '/logo-192.png',
+        badge: '/logo-192.png',
+        tag: VERIFY_NOTIF_TAG,
+        requireInteraction: true,
+        data: { type: 'verify', email },
+      });
+    }
+  } catch {
+    // Notifications may be unsupported — the in-app screen still guides the user.
+  }
+
+  // Fallback browser Notification if the PWA service worker path isn't ready
+  try {
+    if ('Notification' in window && Notification.permission === 'granted') {
+      new Notification('Verify Your Account 🔐', {
+        body: `Confirm your email (${email || 'your inbox'}) in Gmail to activate your GaGa Chat account.`,
+        icon: '/logo-192.png',
+        tag: VERIFY_NOTIF_TAG,
+        vibrate: [200, 100, 200],
+      } as NotificationOptions);
+    }
+  } catch {
+    /* ignore */
+  }
+}
 
 // ─── Helpers ──────────────────────────────────────────────────
 function isValidEmail(v: string) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v); }
@@ -29,6 +73,30 @@ function passwordStrength(p: string) {
     (/[0-9]/.test(p) ? 1 : 0) +
     (/[^A-Za-z0-9]/.test(p) ? 1 : 0)
   );
+}
+
+// Translate raw Supabase auth errors into clear, actionable messages.
+function translateAuthError(err: string): string {
+  const e = (err || '').toLowerCase();
+  if (e.includes('confirmation email') || e.includes('error sending') || e.includes('email not configured')) {
+    return 'We could not send the confirmation email. Please try again later or use phone sign-in.';
+  }
+  if (e.includes('rate limit') || e.includes('over_email_send_rate_limit') || e.includes('too many requests')) {
+    return 'Too many attempts. Please wait a few minutes and try again.';
+  }
+  if (e.includes('invalid login credentials') || e.includes('invalid_credentials')) {
+    return 'Incorrect email or password. Double-check your details, or use "Forgot password" to reset.';
+  }
+  if (e.includes('already registered') || e.includes('already been registered') || e.includes('user_already_exists')) {
+    return 'An account with this email already exists. Try signing in instead.';
+  }
+  if (e.includes('email not confirmed') || e.includes('email_not_confirmed')) {
+    return 'Please verify your email before signing in. Check your inbox for the confirmation link.';
+  }
+  if (e.includes('not configured') || e.includes('supabase')) {
+    return 'Authentication service is temporarily unavailable. Please try again later.';
+  }
+  return err;
 }
 
 // ─── Sub-components ───────────────────────────────────────────
@@ -70,16 +138,17 @@ function SuccessMsg({ msg }: { msg: string }) {
   ) : null;
 }
 
-function InputField({ icon: Icon, type = 'text', value, onChange, placeholder, right }: {
+function InputField({ icon: Icon, type = 'text', value, onChange, placeholder, right, autoComplete, autoFocus, name }: {
   icon: React.ElementType; type?: string; value: string;
   onChange: (v: string) => void; placeholder: string; right?: React.ReactNode;
+  autoComplete?: string; autoFocus?: boolean; name?: string;
 }) {
   return (
     <div className="relative">
       <Icon size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-[#ABABAB] z-10" />
       <input
         type={type} value={value} onChange={e => onChange(e.target.value)}
-        placeholder={placeholder}
+        placeholder={placeholder} autoComplete={autoComplete} autoFocus={autoFocus} name={name}
         className="w-full bg-[#F7F7F7] border border-transparent focus:border-[#00C300]/40 rounded-2xl pl-11 pr-11 py-3.5 text-sm text-[#111] placeholder:text-[#C0C0C0] outline-none transition-all"
       />
       {right && <div className="absolute right-3 top-1/2 -translate-y-1/2">{right}</div>}
@@ -87,11 +156,12 @@ function InputField({ icon: Icon, type = 'text', value, onChange, placeholder, r
   );
 }
 
-function PasswordField({ value, onChange, placeholder = 'Password' }: { value: string; onChange: (v: string) => void; placeholder?: string }) {
+function PasswordField({ value, onChange, placeholder = 'Password', autoComplete }: { value: string; onChange: (v: string) => void; placeholder?: string; autoComplete?: string }) {
   const [show, setShow] = useState(false);
   return (
     <InputField
       icon={Lock} type={show ? 'text' : 'password'} value={value} onChange={onChange} placeholder={placeholder}
+      autoComplete={autoComplete}
       right={
         <button type="button" onClick={() => setShow(s => !s)} className="text-[#ABABAB] hover:text-[#555] transition-colors p-1">
           {show ? <EyeOff size={16} /> : <Eye size={16} />}
@@ -212,12 +282,63 @@ export default function AuthView() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
+  const { isAuthenticated } = auth;
+
+  // Real-time auth state: if the user becomes authenticated (via login, magic-link,
+  // or after verifying their email in another tab), route them into the app.
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate('/contacts', { replace: true });
+    }
+  }, [isAuthenticated, navigate]);
+
+  // While the user is on the "Verify your account" screen, poll the auth session
+  // so that if they confirm their email in another tab (or via the magic/confirm
+  // link), this tab automatically signs them in and redirects — no manual refresh.
+  useEffect(() => {
+    if (screen !== 'verify') return;
+    const t = setInterval(async () => {
+      const supabase = getSupabaseSafe();
+      if (!supabase) return;
+      const { data } = await supabase.auth.getSession();
+      const sessionUser = data.session?.user;
+      if (!sessionUser) return;
+      const profile = await fetchUserProfile(sessionUser.id);
+      if (profile) {
+        auth.login(profile.email || '', '').catch(() => {});
+        navigate('/contacts', { replace: true });
+      }
+    }, 3000);
+    return () => clearInterval(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [screen]);
+
   const reset = () => { setError(''); setSuccess(''); };
   const go = (s: Screen) => { reset(); setScreen(s); };
+
+  // Resend verification email + replay notification/sound.
+  const handleResendVerify = async () => {
+    if (loading) return;
+    setLoading(true);
+    try {
+      if (isSupabaseConfigured()) {
+        const res = await sendEmailVerification();
+        if (!res.success) setError(res.error || 'Could not resend verification email');
+        else {
+          setSuccess('Verification email re-sent — check your inbox.');
+          toast.success('Verification email re-sent!');
+        }
+      }
+      void fireVerifyNotification(email);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // ─── Handlers ───────────────────────────────────────────────
   const handleLogin = async (e: FormEvent) => {
     e.preventDefault(); reset();
+    if (loading) return;
     if (tab === 'email') {
       if (!isValidEmail(email)) { setError('Enter a valid email'); return; }
     } else {
@@ -225,15 +346,20 @@ export default function AuthView() {
     }
     if (!password) { setError('Enter your password'); return; }
     setLoading(true);
-    const result = tab === 'email'
-      ? await auth.login(email, password)
-      : await auth.loginWithPhone(normalizePhone(phone), password);
-    setLoading(false);
-    if (!result.success) setError(result.error || 'Login failed');
+    try {
+      const result = tab === 'email'
+        ? await auth.login(email, password)
+        : await auth.loginWithPhone(normalizePhone(phone), password);
+      if (!result.success) setError(result.error || 'Login failed');
+      // On success, the useEffect above redirects automatically.
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleSignup = async (e: FormEvent) => {
     e.preventDefault(); reset();
+    if (loading) return;
     if (!name.trim()) { setError('Enter your name'); return; }
     if (tab === 'email') {
       if (!isValidEmail(email)) { setError('Enter a valid email'); return; }
@@ -244,40 +370,52 @@ export default function AuthView() {
     if (password !== confirmPw) { setError('Passwords do not match'); return; }
     if (!agreed) { setError('Please agree to the terms'); return; }
     setLoading(true);
-    const result = tab === 'email'
-      ? await auth.signup(name, email, password)
-      : await auth.signupWithPhone(name, normalizePhone(phone), password);
-    setLoading(false);
-    if (result.success) {
-      if (result.needsEmailVerification) {
-        toast.success('Account created! Check your email for a verification link from GaGa Chat.');
-        go('login-email');
+    try {
+      const result = tab === 'email'
+        ? await auth.signup(name, email, password)
+        : await auth.signupWithPhone(name, normalizePhone(phone), password);
+      if (result.success) {
+        if (result.needsEmailVerification) {
+          toast.success('Account created! A verification link is on its way to your inbox.');
+          void fireVerifyNotification(tab === 'email' ? email : phone);
+          go('verify');
+        } else {
+          toast.success(tab === 'phone' ? 'Phone account created! 🎉' : 'Welcome to GaGa Chat! 🎉');
+        }
       } else {
-        toast.success('Welcome to GaGa Chat! 🎉');
+        setError(translateAuthError(result.error || 'Signup failed'));
       }
-    } else {
-      setError(result.error || 'Signup failed');
+    } finally {
+      setLoading(false);
     }
   };
 
   const handleMagicLink = async (e: FormEvent) => {
     e.preventDefault(); reset();
+    if (loading) return;
     if (!isValidEmail(email)) { setError('Enter a valid email'); return; }
     setLoading(true);
-    const result = await auth.sendMagicLink(email);
-    setLoading(false);
-    if (result.success) setSuccess('Magic link sent! Check your inbox — the email is from GaGa Chat.');
-    else setError(result.error || 'Failed to send link');
+    try {
+      const result = await auth.sendMagicLink(email);
+      if (result.success) setSuccess('Magic link sent! Check your inbox — the email is from GaGa Chat.');
+      else setError(result.error || 'Failed to send link');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleForgot = async (e: FormEvent) => {
     e.preventDefault(); reset();
+    if (loading) return;
     if (!isValidEmail(email)) { setError('Enter a valid email'); return; }
     setLoading(true);
-    const result = await auth.resetPassword(email);
-    setLoading(false);
-    if (result.success) { setSuccess('Reset link sent! Check your inbox.'); setTimeout(() => go('login-email'), 2500); }
-    else setError(result.error || 'Failed to send reset link');
+    try {
+      const result = await auth.resetPassword(email);
+      if (result.success) { setSuccess('Reset link sent! Check your inbox.'); setTimeout(() => go('login-email'), 2500); }
+      else setError(result.error || 'Failed to send reset link');
+    } finally {
+      setLoading(false);
+    }
   };
 
   // ─── Screens ─────────────────────────────────────────────────
@@ -335,10 +473,10 @@ export default function AuthView() {
               <form onSubmit={handleLogin} className="space-y-3">
                 <TabSwitch tab={tab} setTab={t => { reset(); setTab(t); }} />
                 {tab === 'email'
-                  ? <InputField icon={Mail} type="email" value={email} onChange={setEmail} placeholder="Email address" />
-                  : <InputField icon={Phone} value={phone} onChange={setPhone} placeholder="Phone number (e.g. +8801XXXXXXXXX)" />
+                  ? <InputField icon={Mail} type="email" value={email} onChange={setEmail} placeholder="Email address" autoComplete="email" name="email" autoFocus />
+                  : <InputField icon={Phone} value={phone} onChange={setPhone} placeholder="Phone number (e.g. +8801XXXXXXXXX)" autoComplete="tel" name="phone" autoFocus />
                 }
-                <PasswordField value={password} onChange={setPassword} />
+                <PasswordField value={password} onChange={setPassword} autoComplete="current-password" />
                 {tab === 'email' && (
                   <div className="flex justify-end">
                     <button type="button" onClick={() => go('forgot')} className="text-[10px] text-[#00C300] font-semibold hover:underline">
@@ -363,14 +501,14 @@ export default function AuthView() {
               <LogoHeader subtitle="Create your account" />
               <form onSubmit={handleSignup} className="space-y-3">
                 <TabSwitch tab={tab} setTab={t => { reset(); setTab(t); }} />
-                <InputField icon={User} value={name} onChange={setName} placeholder="Full name" />
+                <InputField icon={User} value={name} onChange={setName} placeholder="Full name" autoComplete="name" name="name" autoFocus />
                 {tab === 'email'
-                  ? <InputField icon={Mail} type="email" value={email} onChange={setEmail} placeholder="Email address" />
-                  : <InputField icon={Phone} value={phone} onChange={setPhone} placeholder="Phone number (e.g. +8801XXXXXXXXX)" />
+                  ? <InputField icon={Mail} type="email" value={email} onChange={setEmail} placeholder="Email address" autoComplete="email" name="email" />
+                  : <InputField icon={Phone} value={phone} onChange={setPhone} placeholder="Phone number (e.g. +8801XXXXXXXXX)" autoComplete="tel" name="phone" />
                 }
-                <PasswordField value={password} onChange={setPassword} placeholder="Create password" />
+                <PasswordField value={password} onChange={setPassword} placeholder="Create password" autoComplete="new-password" />
                 <StrengthBar password={password} />
-                <PasswordField value={confirmPw} onChange={setConfirmPw} placeholder="Confirm password" />
+                <PasswordField value={confirmPw} onChange={setConfirmPw} placeholder="Confirm password" autoComplete="new-password" />
                 <AgreeBox agreed={agreed} setAgreed={setAgreed} navigate={navigate} />
                 <ErrorMsg msg={error} />
                 <PrimaryBtn loading={loading} disabled={!agreed}>Create Account</PrimaryBtn>
@@ -391,7 +529,7 @@ export default function AuthView() {
                 <p className="text-[12px] text-[#888] text-center -mt-2 mb-1">
                   We'll send a one-tap sign-in link to your email — no password needed.
                 </p>
-                <InputField icon={Mail} type="email" value={email} onChange={setEmail} placeholder="Email address" />
+                <InputField icon={Mail} type="email" value={email} onChange={setEmail} placeholder="Email address" autoComplete="email" name="email" autoFocus />
                 <ErrorMsg msg={error} />
                 <SuccessMsg msg={success} />
                 <PrimaryBtn loading={loading}>
@@ -410,11 +548,50 @@ export default function AuthView() {
                 <p className="text-[12px] text-[#888] text-center -mt-2 mb-1">
                   Enter your email and we'll send a reset link from GaGa Chat.
                 </p>
-                <InputField icon={Mail} type="email" value={email} onChange={setEmail} placeholder="Email address" />
+                <InputField icon={Mail} type="email" value={email} onChange={setEmail} placeholder="Email address" autoComplete="email" name="email" autoFocus />
                 <ErrorMsg msg={error} />
                 <SuccessMsg msg={success} />
                 <PrimaryBtn loading={loading}>Send Reset Link</PrimaryBtn>
               </form>
+            </Card>
+          )}
+
+          {/* ── VERIFY ACCOUNT ── */}
+          {screen === 'verify' && (
+            <Card key="verify">
+              <BackBtn onClick={() => go('login-email')} />
+              <div className="flex flex-col items-center text-center mb-5">
+                <div className="w-16 h-16 rounded-2xl bg-[#00C300]/10 flex items-center justify-center text-[#00C300] mb-3">
+                  <MailCheck size={34} />
+                </div>
+                <h2 className="font-extrabold text-[#111] text-lg tracking-tight">Verify your account</h2>
+                <p className="text-[#ABABAB] text-xs mt-1.5 max-w-[260px]">
+                  We sent a verification link to{' '}
+                  <span className="text-[#111] font-semibold">{email || 'your email'}</span>. Open your
+                  <span className="font-semibold text-[#111]"> Gmail inbox</span> and tap the link to activate your account.
+                </p>
+              </div>
+
+              <div className="space-y-3">
+                <button type="button" onClick={() => { try { window.open('https://mail.google.com', '_blank'); } catch { /* ignore */ } }}
+                  className="w-full flex items-center justify-center gap-2 py-3.5 bg-gradient-to-r from-[#00C300] to-[#00A300] text-white rounded-2xl text-sm font-bold shadow-lg shadow-[#00C300]/25 hover:from-[#00A300] hover:to-[#008800] transition-all active:scale-[0.98]">
+                  <Mail size={16} /> Open Gmail
+                </button>
+
+                <button type="button" onClick={() => { void handleResendVerify(); }}
+                  className="w-full flex items-center justify-center gap-2 py-3.5 bg-white border-2 border-[#E8E8E8] hover:border-[#00C300]/40 text-[#111] rounded-2xl text-sm font-bold transition-all active:scale-[0.98]">
+                  {loading ? <Loader size={16} className="animate-spin" /> : <Bell size={16} className="text-[#00C300]" />}
+                  {loading ? 'Resending...' : 'Resend email, notification & sound'}
+                </button>
+
+                <ErrorMsg msg={error} />
+                <SuccessMsg msg={success} />
+
+                <p className="text-[11px] text-[#ABABAB] text-center">
+                  Didn't get it? Check spam, or missing?{' '}
+                  <button type="button" onClick={() => go('login-email')} className="text-[#00C300] font-bold hover:underline">Sign in</button>
+                </p>
+              </div>
             </Card>
           )}
 

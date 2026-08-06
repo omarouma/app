@@ -1,5 +1,5 @@
 
-import { useState, type ComponentType } from 'react';
+import { useState, useEffect, type ComponentType } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
@@ -11,7 +11,7 @@ import {
 } from 'lucide-react';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useAuth } from '@/context/AuthContext';
-import { useWalletStore } from '@/store/useWalletStore';
+import { useWalletStore, formatCurrency } from '@/store/useWalletStore';
 import { useUserSettings } from '@/store/useSettingsStore';
 import Logo from '@/components/Logo';
 import { toast } from 'sonner';
@@ -28,9 +28,15 @@ export default function MorePage() {
   const navigate = useNavigate();
   const { user } = useAuthStore();
   const { logout } = useAuth();
-  const { wallet } = useWalletStore();
+  const { wallet, subscribeWallet } = useWalletStore();
   const [showAbout, setShowAbout] = useState(false);
   useUserSettings();
+
+  // Subscribe to real-time wallet updates so the balance shows correctly
+  useEffect(() => {
+    if (!user?.id) return;
+    return subscribeWallet(user.id);
+  }, [user?.id, subscribeWallet]);
 
   const handleLogout = async () => {
     if (window.confirm('Are you sure you want to log out?')) {
@@ -73,10 +79,9 @@ export default function MorePage() {
     {
       title: 'Wallet & Rewards',
       items: [
-        {
-          icon: Coins,
+        { icon: Coins,
           label: 'My Wallet',
-          subtitle: `${(wallet?.coins || 0).toLocaleString()} GAGA · $${(wallet?.usdBalance || wallet?.bdtBalance || 0).toFixed(2)}`,
+          subtitle: `${(wallet?.coins || 0).toLocaleString()} GAGA · ${formatCurrency(wallet?.usdBalance || 0, 'USD')}`,
           to: '/wallet',
           color: 'text-[#00C300]',
           bg: 'bg-[#00C300]/10',

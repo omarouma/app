@@ -19,6 +19,16 @@ import {
 import type { Chat, Message, GroupData } from '@/types';
 import { where, orderBy, limit } from '@/lib/firestore';
 
+type FirestoreTimestamp = { toDate: () => Date };
+function isFirestoreTs(v: unknown): v is FirestoreTimestamp {
+  return typeof v === 'object' && v !== null && 'toDate' in v;
+}
+function toDate(raw: unknown): Date {
+  if (isFirestoreTs(raw)) return raw.toDate();
+  if (raw) return new Date(raw as string | number | Date);
+  return new Date();
+}
+
 interface GroupStore {
   groups: Chat[];
   currentGroup: GroupData | null;
@@ -70,7 +80,7 @@ export const useGroupStore = create<GroupStore>((set) => ({
             name: (d.name as string) || 'Group',
             avatar: (d.avatar as string) || '',
             lastMessage: (d.lastMessage as string | Message) || '',
-            updatedAt: (d.updatedAt as string | Date) || '',
+            updatedAt: toDate(d.updatedAt),
             unreadCount: (d.unreadCount as number) || 0,
             isMuted: (d.isMuted as boolean) || false,
             admins: (d.admins as string[]) || [],
@@ -280,7 +290,7 @@ export const useGroupStore = create<GroupStore>((set) => ({
       content: (d.content as string) || '',
       type: (d.type as Message['type']) || 'text',
       mediaUrl: (d.mediaUrl as string) || '',
-      timestamp: ((rawTs: unknown) => rawTs && typeof rawTs === 'object' && 'toDate' in rawTs ? (rawTs as { toDate(): Date }).toDate() : rawTs ? new Date(rawTs as string) : new Date())(d.createdAt ?? d.timestamp),
+      timestamp: toDate(d.createdAt ?? d.timestamp),
       read: (d.read as boolean) || false,
       edited: (d.edited as boolean) || false,
       reactions: (d.reactions as Record<string, string[]>) || {},

@@ -1,33 +1,47 @@
-import { defineConfig, loadEnv, type Plugin } from 'vite'
+import { defineConfig, loadEnv } from 'vite'
+import { visualizer } from 'rollup-plugin-visualizer';
 import react from '@vitejs/plugin-react'
 import path from 'path'
+import { readFileSync } from 'fs'
+
+// Read version from package.json for SW_VERSION injection
+const pkg = JSON.parse(readFileSync('./package.json', 'utf-8')) as { version: string };
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
 
-  function envGuardPlugin(): Plugin {
-    return {
-      name: 'env-guard',
-      buildStart() {
-        const required = [
-          'VITE_SUPABASE_URL',
-          'VITE_SUPABASE_ANON_KEY',
-          'VITE_FIREBASE_API_KEY',
-          'VITE_FIREBASE_PROJECT_ID',
-          'VITE_FIREBASE_APP_ID',
-        ];
-        const missing = required.filter((k) => !env[k]);
-        if (missing.length) {
-          throw new Error(
-            `[env-guard] Missing required env vars: ${missing.join(', ')}\nCopy .env.example to .env and fill in the values.`
-          );
-        }
-      },
-    };
+  // Fail the build immediately if any required env var is missing
+  const REQUIRED = [
+    'VITE_SUPABASE_URL',
+    'VITE_SUPABASE_ANON_KEY',
+    'VITE_FIREBASE_API_KEY',
+    'VITE_FIREBASE_AUTH_DOMAIN',
+    'VITE_FIREBASE_PROJECT_ID',
+    'VITE_FIREBASE_STORAGE_BUCKET',
+    'VITE_FIREBASE_MESSAGING_SENDER_ID',
+    'VITE_FIREBASE_APP_ID',
+  ];
+  if (mode === 'production') {
+    const missing = REQUIRED.filter((k) => !env[k]);
+    if (missing.length > 0) {
+      throw new Error(`[env-guard] Missing required env vars:\n  ${missing.join('\n  ')}`);
+    }
   }
 
   return {
-    plugins: [react(), envGuardPlugin()],
+    plugins: [
+      react(),
+      visualizer({
+        filename: './stats.html',
+        open: true,
+        gzipSize: true,
+        brotliSize: true,
+      }),
+    ],
+    define: {
+      // Inject package version so sw.js can be stamped at build time
+      __APP_VERSION__: JSON.stringify(pkg.version),
+    },
     optimizeDeps: {
       include: ['lucide-react'],
       exclude: ['bcryptjs'],
@@ -57,11 +71,11 @@ export default defineConfig(({ mode }) => {
     },
     build: {
       outDir: 'dist',
-      sourcemap: false,
+      sourcemap: 'hidden', // Use 'hidden' for production to keep source maps private
       chunkSizeWarningLimit: 800,
       minify: 'esbuild',
       target: 'es2020',
-      reportCompressedSize: false,
+      reportCompressedSize: true,
       cssCodeSplit: true,
       rollupOptions: {
         output: {
@@ -69,24 +83,9 @@ export default defineConfig(({ mode }) => {
           chunkFileNames: 'assets/[name]-[hash].js',
           assetFileNames: 'assets/[name]-[hash][extname]',
           manualChunks: (id) => {
-            if (id.includes('node_modules/firebase/firestore') || id.includes('firebase/firestore')) return 'firebase-firestore';
-            if (id.includes('node_modules/firebase/auth') || id.includes('firebase/auth')) return 'firebase-auth';
-            if (id.includes('node_modules/firebase/storage') || id.includes('firebase/storage')) return 'firebase-storage';
-            if (id.includes('node_modules/firebase') || id.includes('firebase/')) return 'firebase-app';
-            if (id.includes('@supabase/supabase-js') || id.includes('node_modules/@supabase')) return 'supabase';
-            if (id.includes('framer-motion')) return 'motion';
-            if (id.includes('recharts') || id.includes('d3-')) return 'charts';
-            if (id.includes('lucide-react')) return 'icons';
-            if (id.includes('@radix-ui')) return 'ui-radix';
-            if (id.includes('node_modules/react') || id.includes('react-dom') || id.includes('react-router')) return 'react-vendor';
-            if (id.includes('zustand') || id.includes('sonner') || id.includes('clsx') || id.includes('tailwind-merge')) return 'utils';
-            // Split heavy page groups into separate async chunks
-            if (id.includes('/pages/Timeline') || id.includes('/pages/Reels') || id.includes('/pages/CreateReels')) return 'chunk-feed';
-            if (id.includes('/pages/Wallet') || id.includes('/pages/GagaRewards') || id.includes('/pages/Premium')) return 'chunk-wallet';
-            if (id.includes('/pages/Marketplace') || id.includes('/pages/Events') || id.includes('/pages/Hashtags')) return 'chunk-discover';
-            if (id.includes('/pages/Admin') || id.includes('/pages/Analytics') || id.includes('/pages/CreatorDashboard') || id.includes('/pages/CreatorCenter')) return 'chunk-creator';
-            if (id.includes('/pages/LiveStream') || id.includes('/pages/VoiceRoom') || id.includes('/pages/AiChat')) return 'chunk-live';
-            if (id.includes('/views/Landing') || id.includes('/views/Auth')) return 'chunk-landing';
+            if (id.includes('node_modules')) {
+              return id.toString().split('node_modules/')[1].split('/')[0].toString();
+            }
           },
         },
       },

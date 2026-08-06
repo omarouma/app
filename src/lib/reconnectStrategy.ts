@@ -17,8 +17,8 @@ export interface ReconnectConfig {
 }
 
 export interface ReconnectState {
-  attempt: number;
-  nextDelay: number;
+  readonly attempt: number;
+  readonly nextDelay: number;
   reset: () => void;
   getDelay: () => number;
   shouldRetry: () => boolean;
@@ -67,7 +67,15 @@ export function createReconnectStrategy(config?: ReconnectConfig): ReconnectStat
     return 'failed';
   }
 
-  return { attempt, nextDelay, reset, getDelay, shouldRetry, getStatus };
+  // Return live getters instead of stale snapshot values
+  return {
+    get attempt() { return attempt; },
+    get nextDelay() { return nextDelay; },
+    reset,
+    getDelay,
+    shouldRetry,
+    getStatus,
+  };
 }
 
 /**

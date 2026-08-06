@@ -1,18 +1,26 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useFriendStore } from '@/store/useFriendStore';
 import { useCallStore } from '@/store/useCallStore';
-import { PhoneOff, MessageSquare } from 'lucide-react';
+import { PhoneOff, MessageSquare, RotateCw } from 'lucide-react';
 
 export default function CallPage() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { userId, mode } = (location.state || {}) as { userId?: string; mode?: 'voice' | 'video' };
+const navState = (location.state || {}) as {
+    userId?: string;
+    mode?: 'voice' | 'video';
+    callType?: 'voice' | 'video';
+    isOutgoing?: boolean;
+  };
+  const userId = navState.userId;
+  const mode = navState.mode ?? navState.callType;
   const { user: currentUser } = useAuthStore();
   const { friends } = useFriendStore();
   const { startCall, endCall, currentCall } = useCallStore();
   const initiatedRef = useRef(false);
+  const [error, setError] = useState<string | null>(null);
 
   const friend = friends.find((f) => f.id === userId);
   const isVideo = mode === 'video';
@@ -21,7 +29,11 @@ export default function CallPage() {
     if (!userId || !currentUser || currentCall) return;
     if (initiatedRef.current) return;
     initiatedRef.current = true;
-    startCall(userId, currentUser.id, isVideo ? 'video' : 'voice').catch(() => {});
+    setError(null);
+    startCall(userId, currentUser.id, isVideo ? 'video' : 'voice')
+      .catch((err) => {
+        setError(err instanceof Error ? err.message : 'Failed to start the call.');
+      });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId, currentUser?.id, isVideo]);
 
@@ -37,6 +49,18 @@ export default function CallPage() {
     navigate('/calls', { replace: true });
   };
 
+  const handleRetry = () => {
+    initiatedRef.current = false;
+    setError(null);
+    if (userId && currentUser) {
+      initiatedRef.current = true;
+      startCall(userId, currentUser.id, isVideo ? 'video' : 'voice')
+        .catch((err) => {
+          setError(err instanceof Error ? err.message : 'Failed to start the call.');
+        });
+    }
+  };
+
   if (!userId || !currentUser) {
     return (
       <div className="h-[100dvh] bg-white flex flex-col items-center justify-center p-6 text-center">
@@ -46,6 +70,30 @@ export default function CallPage() {
           className="px-5 py-3 bg-[#00C300] text-white rounded-full text-sm font-semibold">
           Go to Chats
         </button>
+      </div>
+    );
+  }
+
+  // If media access failed, show a clear error with a retry option instead of
+  // silently showing a stuck "Connecting…" screen.
+  if (error) {
+    return (
+      <div className="h-[100dvh] bg-[#111111] flex flex-col items-center justify-center gap-4 p-6 text-center">
+        <p className="text-white font-semibold">{friend?.name || 'User'}</p>
+        <p className="text-[#FF6B6B] text-sm max-w-xs">{error}</p>
+        <p className="text-white/40 text-xs max-w-xs">
+          Make sure microphone{cameraNeeded(isVideo) ? ' and camera' : ''} permissions are allowed, then try again.
+        </p>
+        <div className="flex gap-3 mt-2">
+          <button type="button" onClick={handleRetry}
+            className="flex items-center gap-2 px-5 py-3 bg-[#00C300] text-white rounded-full text-sm font-semibold">
+            <RotateCw size={16} /> Retry
+          </button>
+          <button type="button" onClick={handleEndCall}
+            className="flex items-center gap-2 px-5 py-3 bg-white/10 text-white rounded-full text-sm">
+            <PhoneOff size={16} /> Cancel
+          </button>
+        </div>
       </div>
     );
   }
@@ -70,4 +118,8 @@ export default function CallPage() {
       </div>
     </div>
   );
+}
+
+function cameraNeeded(isVideo: boolean): boolean {
+  return isVideo;
 }

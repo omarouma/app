@@ -48,7 +48,7 @@ export function AudioRecorder({ onSend, onCancel }: AudioRecorderProps) {
       };
 
       recorder.start();
-      setIsRecording(true);
+      // isRecording already initializes to true — avoid synchronous setState in mount effect
       startTimer();
     } catch (err) {
       console.error('Recording error:', err);
@@ -79,9 +79,8 @@ export function AudioRecorder({ onSend, onCancel }: AudioRecorderProps) {
 
   const stopRecording = () => {
     if (mediaRecorderRef.current && isRecording) {
-      mediaRecorderRef.current.stop();
+      stopMedia();
       setIsRecording(false);
-      // stopTimer is already handled by onstop/stopMedia
     }
   };
 

@@ -13,7 +13,7 @@ import {
 } from '@/lib/firestore';
 import type { WalletData, WalletTransaction } from '@/types';
 
-export type CurrencyCode = 'GAGA' | 'USD' | 'coins' | 'BDT'; // BDT kept for backward compatibility
+export type CurrencyCode = 'GAGA' | 'USD' | 'coins' | 'BDT' | 'RMB' | 'INR'; // BDT kept for backward compatibility
 
 export interface ExchangeRate {
   from: CurrencyCode;
@@ -53,6 +53,8 @@ export function formatCurrency(amount: number, currency: CurrencyCode): string {
   if (currency === 'GAGA') return `${amount.toLocaleString()} GAGA`;
   if (currency === 'BDT') return `৳${amount.toFixed(2)}`; // BDT kept for backward compatibility
   if (currency === 'USD') return `$${amount.toFixed(2)}`;
+  if (currency === 'RMB') return `¥${amount.toFixed(2)}`;
+  if (currency === 'INR') return `₹${amount.toFixed(2)}`;
   return `${amount}`;
 }
 
@@ -60,6 +62,8 @@ export function getCurrencySymbol(currency: CurrencyCode): string {
   if (currency === 'GAGA') return 'G';
   if (currency === 'BDT') return '৳'; // BDT kept for backward compatibility
   if (currency === 'USD') return '$';
+  if (currency === 'RMB') return '¥';
+  if (currency === 'INR') return '₹';
   return '';
 }
 
@@ -298,7 +302,7 @@ export const useWalletStore = create<WalletStore>((set, get) => ({
         id: `tx_${Date.now()}_dep`,
         type: 'deposit',
         amount,
-        currency: (currency === 'GAGA' ? 'coins' : currency) as 'coins' | 'USD' | 'BDT',
+        currency: (currency === 'GAGA' ? 'coins' : currency) as 'coins' | 'USD' | 'BDT' | 'RMB' | 'INR',
         description: `Deposit ${formatCurrency(amount, currency)} via ${method}`,
         timestamp: new Date().toISOString(),
         status: 'completed',
@@ -353,7 +357,7 @@ export const useWalletStore = create<WalletStore>((set, get) => ({
         id: `tx_${Date.now()}_wd`,
         type: 'withdraw',
         amount,
-        currency: (currency === 'GAGA' ? 'coins' : currency) as 'coins' | 'USD' | 'BDT',
+        currency: (currency === 'GAGA' ? 'coins' : currency) as 'coins' | 'USD' | 'BDT' | 'RMB' | 'INR',
         description: `Withdraw ${formatCurrency(amount, currency)} to ${method} (${account})`,
         timestamp: new Date().toISOString(),
         status: 'pending',
@@ -438,8 +442,8 @@ export const useWalletStore = create<WalletStore>((set, get) => ({
         const senderBalance = (senderWallet?.[balanceKey] as number) || 0;
         if (senderBalance < amount) throw new Error('Insufficient balance.');
         const receiverWallet = await getDocById(COLLECTIONS.WALLETS, toUserId);
-        const tx: WalletTransaction = { id: `tx_${Date.now()}_send`, type: 'send', amount, currency: (currency === 'GAGA' ? 'coins' : currency) as 'coins' | 'BDT' | 'USD', description: `Sent ${formatCurrency(amount, currency)}${note ? ': ' + note : ''}`, timestamp: new Date().toISOString(), status: 'completed' };
-        const receiverTx: WalletTransaction = { id: `tx_${Date.now()}_recv`, type: 'receive', amount, currency: (currency === 'GAGA' ? 'coins' : currency) as 'coins' | 'BDT' | 'USD', description: `Received ${formatCurrency(amount, currency)} from ${fromUserName}${note ? ': ' + note : ''}`, timestamp: new Date().toISOString(), status: 'completed' };
+        const tx: WalletTransaction = { id: `tx_${Date.now()}_send`, type: 'send', amount, currency: (currency === 'GAGA' ? 'coins' : currency) as 'coins' | 'BDT' | 'USD' | 'RMB' | 'INR', description: `Sent ${formatCurrency(amount, currency)}${note ? ': ' + note : ''}`, timestamp: new Date().toISOString(), status: 'completed' };
+        const receiverTx: WalletTransaction = { id: `tx_${Date.now()}_recv`, type: 'receive', amount, currency: (currency === 'GAGA' ? 'coins' : currency) as 'coins' | 'BDT' | 'USD' | 'RMB' | 'INR', description: `Received ${formatCurrency(amount, currency)} from ${fromUserName}${note ? ': ' + note : ''}`, timestamp: new Date().toISOString(), status: 'completed' };
         await updateDocById(COLLECTIONS.WALLETS, fromUserId, { [balanceKey]: senderBalance - amount, transactions: [...(senderWallet?.transactions || []), tx] });
         await updateDocById(COLLECTIONS.WALLETS, toUserId, { [balanceKey]: ((receiverWallet?.[balanceKey] as number) || 0) + amount, transactions: [...(receiverWallet?.transactions || []), receiverTx] });
         transferOk = true;
@@ -455,7 +459,7 @@ export const useWalletStore = create<WalletStore>((set, get) => ({
           type: 'money_transfer',
           transferData: {
             amount,
-            currency: (currency === 'GAGA' ? 'coins' : currency) as 'coins' | 'BDT' | 'USD',
+            currency: (currency === 'GAGA' ? 'coins' : currency) as 'coins' | 'BDT' | 'USD' | 'RMB' | 'INR',
             fromUserId,
             toUserId,
             status: 'completed',
@@ -495,7 +499,7 @@ export const useWalletStore = create<WalletStore>((set, get) => ({
           id: `tx_${Date.now()}_send`,
           type: 'send',
           amount,
-          currency: (currency === 'GAGA' ? 'coins' : currency) as 'coins' | 'BDT' | 'USD',
+          currency: (currency === 'GAGA' ? 'coins' : currency) as 'coins' | 'BDT' | 'USD' | 'RMB' | 'INR',
           description: `Sent ${formatCurrency(amount, currency)} to ${toUserName}${note ? ': ' + note : ''}`,
           timestamp: new Date().toISOString(),
           status: 'completed',
@@ -504,7 +508,7 @@ export const useWalletStore = create<WalletStore>((set, get) => ({
           id: `tx_${Date.now()}_recv`,
           type: 'receive',
           amount,
-          currency: (currency === 'GAGA' ? 'coins' : currency) as 'coins' | 'BDT' | 'USD',
+          currency: (currency === 'GAGA' ? 'coins' : currency) as 'coins' | 'BDT' | 'USD' | 'RMB' | 'INR',
           description: `Received ${formatCurrency(amount, currency)}${note ? ': ' + note : ''}`,
           timestamp: new Date().toISOString(),
           status: 'completed',
@@ -542,7 +546,7 @@ export const useWalletStore = create<WalletStore>((set, get) => ({
           type: 'money_transfer',
           transferData: {
             amount,
-            currency: (currency === 'GAGA' ? 'coins' : currency) as 'coins' | 'BDT' | 'USD',
+            currency: (currency === 'GAGA' ? 'coins' : currency) as 'coins' | 'BDT' | 'USD' | 'RMB' | 'INR',
             fromUserId,
             toUserId,
             status: 'completed',

@@ -25,7 +25,29 @@ const promoCodes: Record<string, { coins: number; label: string }> = {
 const depositMethods = [
   { icon: CreditCard, label: 'Visa/Mastercard', color: 'bg-[#1A1F71]', currency: 'USD' as CurrencyCode },
   { icon: Banknote, label: 'Bank Transfer', color: 'bg-[#00C300]', currency: 'USD' as CurrencyCode },
+  { icon: Banknote, label: 'bKash', color: 'bg-[#E2136E]', currency: 'BDT' as CurrencyCode },
+  { icon: Banknote, label: 'Nagad', color: 'bg-[#F6921E]', currency: 'BDT' as CurrencyCode },
+  { icon: Banknote, label: 'Rocket', color: 'bg-[#8C3494]', currency: 'BDT' as CurrencyCode },
+  { icon: CreditCard, label: 'WeChat Pay', color: 'bg-[#07C160]', currency: 'RMB' as CurrencyCode },
+  { icon: CreditCard, label: 'Alipay', color: 'bg-[#1677FF]', currency: 'RMB' as CurrencyCode },
+  { icon: CreditCard, label: 'UPI', color: 'bg-[#2196F3]', currency: 'INR' as CurrencyCode },
 ];
+
+// All supported currencies for the wallet
+const ALL_CURRENCIES: { code: CurrencyCode; label: string; color: string }[] = [
+  { code: 'GAGA', label: 'Gaga Coins', color: 'text-[#00C300]' },
+  { code: 'USD', label: 'US Dollar', color: 'text-[#8B5CF6]' },
+  { code: 'BDT', label: 'Bangladeshi Taka', color: 'text-[#E2136E]' },
+  { code: 'RMB', label: 'Chinese Yuan', color: 'text-[#FF5722]' },
+  { code: 'INR', label: 'Indian Rupee', color: 'text-[#FF9800]' },
+];
+
+// Light haptic feedback (no-op fallback on unsupported devices)
+function haptic() {
+  try {
+    if ('vibrate' in navigator) navigator.vibrate?.(10);
+  } catch { /* noop */ }
+}
 
 export default function WalletPage() {
   const navigate = useNavigate();
@@ -81,11 +103,18 @@ export default function WalletPage() {
   const dailyInterest = getDailyInterestAmount(user?.id || '');
   const totalGagaValue = getTotalBalanceInGaga();
 
-  // Currency display data
-  const currencies: { code: CurrencyCode; balance: number; label: string; color: string }[] = [
-    { code: 'GAGA', balance: coins, label: 'Gaga Coins', color: 'text-[#00C300]' },
-    { code: 'USD', balance: usdBalance || 0, label: 'US Dollar', color: 'text-[#8B5CF6]' },
-  ];
+// Currency display data (balances for fiat currencies default to USD if not separately tracked)
+const w = wallet as unknown as Record<string, unknown> | undefined;
+  const num = (v: unknown) => (typeof v === 'number' ? v : Number(v) || 0);
+  const currencies: { code: CurrencyCode; balance: number; label: string; color: string }[] = ALL_CURRENCIES.map((c) => {
+    let balance = 0;
+    if (c.code === 'GAGA') balance = coins;
+    else if (c.code === 'USD') balance = usdBalance || 0;
+    else if (c.code === 'BDT') balance = num(w?.bdtBalance ?? w?.bdt_balance);
+    else if (c.code === 'RMB') balance = num(w?.rmbBalance ?? w?.rmb_balance);
+    else if (c.code === 'INR') balance = num(w?.inrBalance ?? w?.inr_balance);
+    return { ...c, balance };
+  });
 
   const handleRedeem = async () => {
     setPromoError(''); setPromoSuccess('');
@@ -199,9 +228,9 @@ export default function WalletPage() {
           >
             {/* Currency Tabs */}
             <div className="flex gap-2 mb-4">
-              {currencies.map(c => (
+{currencies.map(c => (
                 <button type="button" key={c.code}
-                  onClick={() => setActiveCurrency(c.code)}
+                  onClick={() => { haptic(); setActiveCurrency(c.code); }}
                   className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
                     activeCurrency === c.code
                       ? 'bg-white text-[#00C300]'

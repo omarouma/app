@@ -322,10 +322,11 @@ export function playIncomingCall(): { stop: () => void } {
   return { stop };
 }
 
-export function playOutgoingCall() {
-  if (!globalEnabled || !areCallSoundsEnabled() || isQuietHours()) return;
+export function playOutgoingCall(): { stop: () => void } {
+  if (!globalEnabled || !areCallSoundsEnabled() || isQuietHours()) return { stop: () => {} };
   playTone({ freq: 440, duration: 0.3, volume: 0.2, type: 'sine' });
   playTone({ freq: 440, duration: 0.3, volume: 0.2, type: 'sine', delay: 0.5 });
+  return { stop: () => {} };
 }
 
 export function playCallConnected() {

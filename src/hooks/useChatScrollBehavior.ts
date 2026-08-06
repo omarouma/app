@@ -1,36 +1,66 @@
-import { useRef, useState, useEffect, useCallback } from 'react';
+import { useRef, useState, useCallback } from 'react';
+import type { RefObject } from 'react';
+import type { VirtuosoHandle } from 'react-virtuoso';
+import type { Message } from '@/types';
 
-export function useChatScrollBehavior(msgsLength: number) {
+interface UseChatScrollBehaviorOptions {
+  chatId: string;
+  messages: Record<string, Message[]>;
+  virtuoso: RefObject<VirtuosoHandle | null>;
+  hasNewMessages: boolean;
+  setHasNewMessages: (v: boolean) => void;
+  initialLatestTimestampRef: RefObject<number | null>;
+}
+
+export function useChatScrollBehavior(opts: UseChatScrollBehaviorOptions | number) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const shouldAutoScrollRef = useRef(true);
   const [showScrollBtn, setShowScrollBtn] = useState(false);
+  const [isAtBottom, setIsAtBottom] = useState(true);
+  const virtuosoRef = useRef<VirtuosoHandle | null>(null);
 
-  // Register scroll listener once — not on every message
-  useEffect(() => {
-    const container = messagesContainerRef.current;
-    if (!container) return;
-    const handleScroll = () => {
-      const atBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 100;
-      setShowScrollBtn(!atBottom);
-      shouldAutoScrollRef.current = atBottom;
-    };
-    container.addEventListener('scroll', handleScroll, { passive: true });
-    handleScroll();
-    return () => container.removeEventListener('scroll', handleScroll);
+  // When called with the object form (ChatRoom), use the passed virtuoso ref
+  const resolvedVirtuosoRef = typeof opts === 'object' && 'virtuoso' in opts
+    ? opts.virtuoso as RefObject<VirtuosoHandle | null>
+    : virtuosoRef;
+
+  const msgs: Message[] = typeof opts === 'object' && 'messages' in opts && 'chatId' in opts
+    ? (opts.messages[opts.chatId] ?? [])
+    : [];
+
+  const unreadCount = 0;
+
+  const handleAtBottomStateChange = useCallback((atBottom: boolean) => {
+    shouldAutoScrollRef.current = atBottom;
+    setIsAtBottom(atBottom);
+    setShowScrollBtn(!atBottom);
   }, []);
 
-  // Auto-scroll when new messages arrive and user was already at bottom
-  useEffect(() => {
-    if (shouldAutoScrollRef.current) {
-      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }
-  }, [msgsLength]);
+  const scrollToBottom = useCallback(() => {
+    resolvedVirtuosoRef.current?.scrollToIndex({ index: 'LAST', behavior: 'smooth' });
+  }, [resolvedVirtuosoRef]);
 
-  const scrollToBottom = useCallback(
-    () => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }),
-    []
-  );
+  const checkScroll = useCallback(() => {
+    // no-op — scroll state is tracked via handleAtBottomStateChange
+  }, []);
 
-  return { messagesEndRef, messagesContainerRef, showScrollBtn, scrollToBottom, shouldAutoScrollRef };
+  const manualScroll = useCallback(() => {
+    scrollToBottom();
+  }, [scrollToBottom]);
+
+  return {
+    messagesEndRef,
+    messagesContainerRef,
+    showScrollBtn,
+    scrollToBottom,
+    shouldAutoScrollRef,
+    virtuosoRef: resolvedVirtuosoRef,
+    handleAtBottomStateChange,
+    isAtBottom,
+    checkScroll,
+    manualScroll,
+    msgs,
+    unreadCount,
+  };
 }

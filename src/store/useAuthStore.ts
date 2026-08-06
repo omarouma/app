@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { isSupabaseConfigured, getSupabaseSafe } from '@/lib/supabase';
-import { onAuthStateChange } from '@/lib/supabaseAuth';
+import { onAuthStateChange, subscribeToUserProfile } from '@/lib/supabaseAuth';
 import type { User } from '@/types';
 
 interface AuthStore {
@@ -43,10 +43,35 @@ export const useAuthStore = create<AuthStore>((set) => ({
       return () => {};
     }
 
+    // Tracks the currently active real-time profile subscription so it can be
+    // torn down when the auth user changes or logs out.
+    let profileUnsub: (() => void) | null = null;
+
     const unsub = onAuthStateChange((user) => {
+      // Always drop any previous real-time profile subscription before
+      // (re)opening one for a (potentially) different user.
+      if (profileUnsub) {
+        profileUnsub();
+        profileUnsub = null;
+      }
+
+      if (user?.id) {
+        // Keep the global user object in sync live (name, avatar, premium,
+        // status, privacy, etc.) across every tab via Supabase Realtime.
+        profileUnsub = subscribeToUserProfile(user.id, (profileUser) => {
+          if (profileUser) applyAuthUser(profileUser, set);
+        });
+      }
+
       applyAuthUser(user, set);
     });
 
-    return unsub;
+    return () => {
+      if (profileUnsub) {
+        profileUnsub();
+        profileUnsub = null;
+      }
+      unsub();
+    };
   },
 }));

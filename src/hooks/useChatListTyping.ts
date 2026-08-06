@@ -3,14 +3,21 @@ import { useAuthStore } from '@/store/useAuthStore';
 import { isSupabaseConfigured, getSupabase } from '@/lib/supabase';
 import { subscribeToDoc } from '@/lib/firestore';
 
-interface TypingState {
-  [chatId: string]: string; // chatId -> typing user name
+interface TypingInfo {
+  name: string;
+  timestamp: number;
 }
 
-// Unique per-tab id so multiple tabs/clients don't collide on the same channel.
-const TAB_ID = Math.random().toString(36).slice(2, 8);
+interface TypingState {
+  [chatId: string]: string; // Final output: chatId -> typing user name
+}
 
-// Stable 32-bit hash of the chat-id set so the channel name changes only when the set changes.
+interface InternalTypingState {
+  [chatId: string]: TypingInfo; // Internal state with timestamps
+}
+
+
+
 function hashChatIds(ids: string[]): string {
   let h = 2166136261;
   for (const id of ids) {
@@ -22,74 +29,62 @@ function hashChatIds(ids: string[]): string {
   return (h >>> 0).toString(36);
 }
 
-export function useChatListTyping(chatIds: string[]) {
+export function useChatListTyping(chatIdsKey: string) {
+  const chatIds = useMemo(() => chatIdsKey ? chatIdsKey.split(',') : [], [chatIdsKey]);
   const { user } = useAuthStore();
-  const [typingMap, setTypingMap] = useState<TypingState>({});
-  const unsubRef = useRef<(() => void)[]>([]);
-  const typingTsRef = useRef<Record<string, number>>({});
-  const chatIdSetRef = useRef<Set<string>>(new Set());
+  const [typingMap, setTypingMap] = useState<InternalTypingState>({});
+  const chatIdSetRef = useRef<Set<string>>(new Set(chatIds));
 
   useEffect(() => {
     chatIdSetRef.current = new Set(chatIds);
   }, [chatIds]);
 
-  const chatIdsKey = useMemo(() => chatIds.join(','), [chatIds]);
+  
   const channelName = useMemo(
-    () => `chat-list-typing-${TAB_ID}-${hashChatIds(chatIdsKey.split(','))}`,
+    () => `chat-list-typing-${hashChatIds(chatIdsKey.split(','))}`,
     [chatIdsKey]
   );
 
-  const initializedRef = useRef(false);
   useEffect(() => {
     if (!user?.id || chatIds.length === 0) {
-      if (!initializedRef.current) {
-        initializedRef.current = true;
-        // eslint-disable-next-line react-hooks/set-state-in-effect -- resets typing map when no chats
-        setTypingMap({});
-      }
-      typingTsRef.current = {};
+      setTypingMap({});
       return;
     }
 
     const supabase = isSupabaseConfigured() ? getSupabase() : null;
-    const newUnsubs: (() => void)[] = [];
+    const unsubs: (() => void)[] = [];
 
     if (supabase) {
-      // Single channel for all typing events — unique name per tab + chat set to
-      // avoid Supabase reusing/mixing a channel across different clients.
       const channel = supabase
         .channel(channelName)
-        .on('postgres_changes', {
-          event: '*',
-          schema: 'public',
-          table: 'typing',
-        }, (payload) => {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'typing' }, (payload) => {
           const data = payload.new as any;
           if (!data || data.user_id === user.id) return;
+
           const chatId = data.chat_id;
           if (!chatIdSetRef.current.has(chatId)) return;
 
-          const now = Date.now();
           const ts = new Date(data.updated_at).getTime();
+          const isTyping = data.is_typing && (Date.now() - ts < 6000);
 
-          if (data.is_typing && now - ts < 6000) {
-            typingTsRef.current[chatId] = ts || now;
-            setTypingMap(prev => ({ ...prev, [chatId]: data.user_name || 'Someone' }));
-          } else {
-            delete typingTsRef.current[chatId];
-            setTypingMap(prev => {
+          setTypingMap(prev => {
+            const current = prev[chatId];
+            if (isTyping) {
+              const newEntry = { name: data.user_name || 'Someone', timestamp: ts };
+              if (current?.name === newEntry.name && current?.timestamp === newEntry.timestamp) return prev;
+              return { ...prev, [chatId]: newEntry };
+            }
+            if (current) {
               const next = { ...prev };
               delete next[chatId];
               return next;
-            });
-          }
+            }
+            return prev;
+          });
         })
         .subscribe();
-
-      newUnsubs.push(() => supabase.removeChannel(channel));
+      unsubs.push(() => supabase.removeChannel(channel));
     } else {
-      // Firestore fallback - subscribe to each chat's typing doc
       chatIds.forEach(chatId => {
         const unsub = subscribeToDoc('typing', chatId, (data) => {
           if (!data) return;
@@ -101,62 +96,64 @@ export function useChatListTyping(chatIds: string[]) {
             if (key === 'id' || key === user.id) return;
             const typed = value as { name: string; timestamp: unknown };
             if (!typed || typeof typed !== 'object') return;
-            const ts = (typed.timestamp as { toMillis?: () => number }).toMillis?.() || new Date(typed.timestamp as string).getTime();
-            if (now - ts < 6000) {
+            const ts = (typed.timestamp as { toMillis?: () => number })?.toMillis?.() || new Date(typed.timestamp as string).getTime();
+            if (now - ts < 6000 && ts > typingTs) {
               typingName = String(typed.name ?? '').replace(/[<>&"]/g, '').slice(0, 30);
-              typingTs = ts || now;
+              typingTs = ts;
             }
           });
 
           setTypingMap(prev => {
-            const next = { ...prev };
+            const current = prev[chatId];
             if (typingName) {
-              typingTsRef.current[chatId] = typingTs || now;
-              next[chatId] = typingName;
-            } else {
-              delete typingTsRef.current[chatId];
-              delete next[chatId];
+              if (current?.name === typingName && current?.timestamp === typingTs) return prev;
+              return { ...prev, [chatId]: { name: typingName, timestamp: typingTs } };
             }
-            return next;
+            if (current) {
+              const next = { ...prev };
+              delete next[chatId];
+              return next;
+            }
+            return prev;
           });
         });
-        newUnsubs.push(unsub);
+        unsubs.push(unsub);
       });
     }
 
-    unsubRef.current = newUnsubs;
-
     return () => {
-      newUnsubs.forEach(u => u());
-      typingTsRef.current = {};
-      setTypingMap({});
+      unsubs.forEach(u => u());
     };
-  }, [chatIdsKey, chatIds, channelName, user?.id]);
+  }, [chatIdsKey, channelName, user?.id, chatIds]);
 
   useEffect(() => {
-    if (!user?.id || chatIds.length === 0) return;
+    if (chatIds.length === 0) return;
+
     const interval = setInterval(() => {
-      const now = Date.now();
-      let changed = false;
-      const nextTs = { ...typingTsRef.current };
-      for (const [chatId, ts] of Object.entries(nextTs)) {
-        if (now - ts >= 6000) {
-          delete nextTs[chatId];
-          changed = true;
-        }
-      }
-      if (!changed) return;
-      typingTsRef.current = nextTs;
-      setTypingMap((prev) => {
+      setTypingMap(prev => {
+        const now = Date.now();
+        let changed = false;
         const next = { ...prev };
-        for (const chatId of Object.keys(prev)) {
-          if (!nextTs[chatId]) delete next[chatId];
+        for (const chatId in next) {
+          if (now - next[chatId].timestamp >= 6000) {
+            delete next[chatId];
+            changed = true;
+          }
         }
-        return next;
+        return changed ? next : prev;
       });
     }, 2000);
-    return () => clearInterval(interval);
-  }, [chatIdsKey, chatIds.length, user?.id]);
 
-  return typingMap;
+    return () => clearInterval(interval);
+  }, [chatIds.length]);
+
+  const activeTypingMap = useMemo(() => {
+    const result: TypingState = {};
+    for (const chatId in typingMap) {
+      result[chatId] = typingMap[chatId].name;
+    }
+    return result;
+  }, [typingMap]);
+
+  return activeTypingMap;
 }

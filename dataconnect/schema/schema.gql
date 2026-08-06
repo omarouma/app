@@ -1,0 +1,33 @@
+type User @table {
+  username: String!
+  publicKey: String!
+  avatarConfig: String!
+  bio: String
+  statusMessage: String
+  lastActiveAt: Timestamp
+}
+
+type Conversation @table {
+  type: String!
+  createdAt: Timestamp!
+  lastMessagePreview: String
+}
+
+type Participant @table {
+  user: User!
+  conversation: Conversation!
+  role: String!
+}
+
+type Message @table {
+  conversation: Conversation!
+  sender: User!
+  encryptedContent: String!
+  timestamp: Timestamp!
+}
+
+type VirtualRoom @table {
+  name: String!
+  themeSettings: String!
+  owner: User
+}

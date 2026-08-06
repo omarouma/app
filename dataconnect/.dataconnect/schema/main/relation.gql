@@ -1,0 +1,480 @@
+extend type Conversation {
+  """
+  ✨ List `Message` objects in a one-to-many relationship (where `Message`.`conversation` is this object).
+  """
+  messages_on_conversation(
+    """
+    Filter condition to narrow down the query results.
+    """
+    where: Message_Filter
+
+    """
+    Order the query results by specific fields.
+    """
+    orderBy: [Message_Order!]
+
+    """
+    Number of rows to skip before starting to return the results.
+    """
+    offset: Int
+
+    """
+    Maximum number of rows to return (defaults to 100 rows).
+    """
+    limit: Int = 100
+
+    """
+    Set to true to return distinct results.
+    """
+    distinct: Boolean = false
+
+    """
+    Filter condition to apply to the groups of aggregate queries.
+    """
+    having: Message_Having
+  ): [Message!]! @fdc_generated(from: "Message.conversation", purpose: QUERY_MULTIPLE_ONE_TO_MANY)
+  """
+  ✨ List `Participant` objects in a one-to-many relationship (where `Participant`.`conversation` is this object).
+  """
+  participants_on_conversation(
+    """
+    Filter condition to narrow down the query results.
+    """
+    where: Participant_Filter
+
+    """
+    Order the query results by specific fields.
+    """
+    orderBy: [Participant_Order!]
+
+    """
+    Number of rows to skip before starting to return the results.
+    """
+    offset: Int
+
+    """
+    Maximum number of rows to return (defaults to 100 rows).
+    """
+    limit: Int = 100
+
+    """
+    Set to true to return distinct results.
+    """
+    distinct: Boolean = false
+
+    """
+    Filter condition to apply to the groups of aggregate queries.
+    """
+    having: Participant_Having
+  ): [Participant!]! @fdc_generated(from: "Participant.conversation", purpose: QUERY_MULTIPLE_ONE_TO_MANY)
+  """
+  Implicit metadata field that cannot be written. It provides extra information about query results.
+  """
+  _metadata: _Metadata @fdc_generated(from: "Conversation", purpose: METADATA_FIELD)
+  """
+  ✨ Count the number of rows in the `Conversation` table.
+  """
+  _count: Int! @fdc_generated(from: "Conversation.", purpose: QUERY_COUNT)
+  """
+  ✨ Count the number of rows in the `Conversation` table where the `createdAt` field is non-null. Pass the `distinct` argument to instead count the number of distinct values.
+  """
+  createdAt_count(
+    """
+    Set to true to count the number of distinct values.
+    """
+    distinct: Boolean = false
+  ): Int! @fdc_generated(from: "Conversation.createdAt", purpose: QUERY_COUNT)
+  """
+  ✨ Count the number of rows in the `Conversation` table where the `id` field is non-null. Pass the `distinct` argument to instead count the number of distinct values.
+  """
+  id_count(
+    """
+    Set to true to count the number of distinct values.
+    """
+    distinct: Boolean = false
+  ): Int! @fdc_generated(from: "Conversation.id", purpose: QUERY_COUNT)
+  """
+  ✨ Count the number of rows in the `Conversation` table where the `lastMessagePreview` field is non-null. Pass the `distinct` argument to instead count the number of distinct values.
+  """
+  lastMessagePreview_count(
+    """
+    Set to true to count the number of distinct values.
+    """
+    distinct: Boolean = false
+  ): Int! @fdc_generated(from: "Conversation.lastMessagePreview", purpose: QUERY_COUNT)
+  """
+  ✨ Count the number of rows in the `Conversation` table where the `type` field is non-null. Pass the `distinct` argument to instead count the number of distinct values.
+  """
+  type_count(
+    """
+    Set to true to count the number of distinct values.
+    """
+    distinct: Boolean = false
+  ): Int! @fdc_generated(from: "Conversation.type", purpose: QUERY_COUNT)
+  """
+  ✨ Minimum of the `createdAt` field in the `Conversation` table.
+  """
+  createdAt_min: Timestamp @fdc_generated(from: "Conversation.createdAt", purpose: QUERY_MIN)
+  """
+  ✨ Maximum of the `createdAt` field in the `Conversation` table.
+  """
+  createdAt_max: Timestamp @fdc_generated(from: "Conversation.createdAt", purpose: QUERY_MAX)
+  """
+  A generated field that is used for caching results in SDKs.
+  """
+  _id: ID! @fdc_generated(from: "Conversation.id", purpose: ENTITY_ID)
+}
+extend type Message {
+  """
+  Implicit metadata field that cannot be written. It provides extra information about query results.
+  """
+  _metadata: _Metadata @fdc_generated(from: "Message", purpose: METADATA_FIELD)
+  """
+  ✨ Count the number of rows in the `Message` table.
+  """
+  _count: Int! @fdc_generated(from: "Message.", purpose: QUERY_COUNT)
+  """
+  ✨ Count the number of rows in the `Message` table where the `conversationId` field is non-null. Pass the `distinct` argument to instead count the number of distinct values.
+  """
+  conversationId_count(
+    """
+    Set to true to count the number of distinct values.
+    """
+    distinct: Boolean = false
+  ): Int! @fdc_generated(from: "Message.conversationId", purpose: QUERY_COUNT)
+  """
+  ✨ Count the number of rows in the `Message` table where the `encryptedContent` field is non-null. Pass the `distinct` argument to instead count the number of distinct values.
+  """
+  encryptedContent_count(
+    """
+    Set to true to count the number of distinct values.
+    """
+    distinct: Boolean = false
+  ): Int! @fdc_generated(from: "Message.encryptedContent", purpose: QUERY_COUNT)
+  """
+  ✨ Count the number of rows in the `Message` table where the `id` field is non-null. Pass the `distinct` argument to instead count the number of distinct values.
+  """
+  id_count(
+    """
+    Set to true to count the number of distinct values.
+    """
+    distinct: Boolean = false
+  ): Int! @fdc_generated(from: "Message.id", purpose: QUERY_COUNT)
+  """
+  ✨ Count the number of rows in the `Message` table where the `senderId` field is non-null. Pass the `distinct` argument to instead count the number of distinct values.
+  """
+  senderId_count(
+    """
+    Set to true to count the number of distinct values.
+    """
+    distinct: Boolean = false
+  ): Int! @fdc_generated(from: "Message.senderId", purpose: QUERY_COUNT)
+  """
+  ✨ Count the number of rows in the `Message` table where the `timestamp` field is non-null. Pass the `distinct` argument to instead count the number of distinct values.
+  """
+  timestamp_count(
+    """
+    Set to true to count the number of distinct values.
+    """
+    distinct: Boolean = false
+  ): Int! @fdc_generated(from: "Message.timestamp", purpose: QUERY_COUNT)
+  """
+  ✨ Minimum of the `timestamp` field in the `Message` table.
+  """
+  timestamp_min: Timestamp @fdc_generated(from: "Message.timestamp", purpose: QUERY_MIN)
+  """
+  ✨ Maximum of the `timestamp` field in the `Message` table.
+  """
+  timestamp_max: Timestamp @fdc_generated(from: "Message.timestamp", purpose: QUERY_MAX)
+  """
+  A generated field that is used for caching results in SDKs.
+  """
+  _id: ID! @fdc_generated(from: "Message.id", purpose: ENTITY_ID)
+}
+extend type Participant {
+  """
+  Implicit metadata field that cannot be written. It provides extra information about query results.
+  """
+  _metadata: _Metadata @fdc_generated(from: "Participant", purpose: METADATA_FIELD)
+  """
+  ✨ Count the number of rows in the `Participant` table.
+  """
+  _count: Int! @fdc_generated(from: "Participant.", purpose: QUERY_COUNT)
+  """
+  ✨ Count the number of rows in the `Participant` table where the `conversationId` field is non-null. Pass the `distinct` argument to instead count the number of distinct values.
+  """
+  conversationId_count(
+    """
+    Set to true to count the number of distinct values.
+    """
+    distinct: Boolean = false
+  ): Int! @fdc_generated(from: "Participant.conversationId", purpose: QUERY_COUNT)
+  """
+  ✨ Count the number of rows in the `Participant` table where the `id` field is non-null. Pass the `distinct` argument to instead count the number of distinct values.
+  """
+  id_count(
+    """
+    Set to true to count the number of distinct values.
+    """
+    distinct: Boolean = false
+  ): Int! @fdc_generated(from: "Participant.id", purpose: QUERY_COUNT)
+  """
+  ✨ Count the number of rows in the `Participant` table where the `role` field is non-null. Pass the `distinct` argument to instead count the number of distinct values.
+  """
+  role_count(
+    """
+    Set to true to count the number of distinct values.
+    """
+    distinct: Boolean = false
+  ): Int! @fdc_generated(from: "Participant.role", purpose: QUERY_COUNT)
+  """
+  ✨ Count the number of rows in the `Participant` table where the `userId` field is non-null. Pass the `distinct` argument to instead count the number of distinct values.
+  """
+  userId_count(
+    """
+    Set to true to count the number of distinct values.
+    """
+    distinct: Boolean = false
+  ): Int! @fdc_generated(from: "Participant.userId", purpose: QUERY_COUNT)
+  """
+  A generated field that is used for caching results in SDKs.
+  """
+  _id: ID! @fdc_generated(from: "Participant.id", purpose: ENTITY_ID)
+}
+extend type User {
+  """
+  ✨ List `Message` objects in a one-to-many relationship (where `Message`.`sender` is this object).
+  """
+  messages_on_sender(
+    """
+    Filter condition to narrow down the query results.
+    """
+    where: Message_Filter
+
+    """
+    Order the query results by specific fields.
+    """
+    orderBy: [Message_Order!]
+
+    """
+    Number of rows to skip before starting to return the results.
+    """
+    offset: Int
+
+    """
+    Maximum number of rows to return (defaults to 100 rows).
+    """
+    limit: Int = 100
+
+    """
+    Set to true to return distinct results.
+    """
+    distinct: Boolean = false
+
+    """
+    Filter condition to apply to the groups of aggregate queries.
+    """
+    having: Message_Having
+  ): [Message!]! @fdc_generated(from: "Message.sender", purpose: QUERY_MULTIPLE_ONE_TO_MANY)
+  """
+  ✨ List `Participant` objects in a one-to-many relationship (where `Participant`.`user` is this object).
+  """
+  participants_on_user(
+    """
+    Filter condition to narrow down the query results.
+    """
+    where: Participant_Filter
+
+    """
+    Order the query results by specific fields.
+    """
+    orderBy: [Participant_Order!]
+
+    """
+    Number of rows to skip before starting to return the results.
+    """
+    offset: Int
+
+    """
+    Maximum number of rows to return (defaults to 100 rows).
+    """
+    limit: Int = 100
+
+    """
+    Set to true to return distinct results.
+    """
+    distinct: Boolean = false
+
+    """
+    Filter condition to apply to the groups of aggregate queries.
+    """
+    having: Participant_Having
+  ): [Participant!]! @fdc_generated(from: "Participant.user", purpose: QUERY_MULTIPLE_ONE_TO_MANY)
+  """
+  ✨ List `VirtualRoom` objects in a one-to-many relationship (where `VirtualRoom`.`owner` is this object).
+  """
+  virtualRooms_on_owner(
+    """
+    Filter condition to narrow down the query results.
+    """
+    where: VirtualRoom_Filter
+
+    """
+    Order the query results by specific fields.
+    """
+    orderBy: [VirtualRoom_Order!]
+
+    """
+    Number of rows to skip before starting to return the results.
+    """
+    offset: Int
+
+    """
+    Maximum number of rows to return (defaults to 100 rows).
+    """
+    limit: Int = 100
+
+    """
+    Set to true to return distinct results.
+    """
+    distinct: Boolean = false
+
+    """
+    Filter condition to apply to the groups of aggregate queries.
+    """
+    having: VirtualRoom_Having
+  ): [VirtualRoom!]! @fdc_generated(from: "VirtualRoom.owner", purpose: QUERY_MULTIPLE_ONE_TO_MANY)
+  """
+  Implicit metadata field that cannot be written. It provides extra information about query results.
+  """
+  _metadata: _Metadata @fdc_generated(from: "User", purpose: METADATA_FIELD)
+  """
+  ✨ Count the number of rows in the `User` table.
+  """
+  _count: Int! @fdc_generated(from: "User.", purpose: QUERY_COUNT)
+  """
+  ✨ Count the number of rows in the `User` table where the `avatarConfig` field is non-null. Pass the `distinct` argument to instead count the number of distinct values.
+  """
+  avatarConfig_count(
+    """
+    Set to true to count the number of distinct values.
+    """
+    distinct: Boolean = false
+  ): Int! @fdc_generated(from: "User.avatarConfig", purpose: QUERY_COUNT)
+  """
+  ✨ Count the number of rows in the `User` table where the `bio` field is non-null. Pass the `distinct` argument to instead count the number of distinct values.
+  """
+  bio_count(
+    """
+    Set to true to count the number of distinct values.
+    """
+    distinct: Boolean = false
+  ): Int! @fdc_generated(from: "User.bio", purpose: QUERY_COUNT)
+  """
+  ✨ Count the number of rows in the `User` table where the `id` field is non-null. Pass the `distinct` argument to instead count the number of distinct values.
+  """
+  id_count(
+    """
+    Set to true to count the number of distinct values.
+    """
+    distinct: Boolean = false
+  ): Int! @fdc_generated(from: "User.id", purpose: QUERY_COUNT)
+  """
+  ✨ Count the number of rows in the `User` table where the `lastActiveAt` field is non-null. Pass the `distinct` argument to instead count the number of distinct values.
+  """
+  lastActiveAt_count(
+    """
+    Set to true to count the number of distinct values.
+    """
+    distinct: Boolean = false
+  ): Int! @fdc_generated(from: "User.lastActiveAt", purpose: QUERY_COUNT)
+  """
+  ✨ Count the number of rows in the `User` table where the `publicKey` field is non-null. Pass the `distinct` argument to instead count the number of distinct values.
+  """
+  publicKey_count(
+    """
+    Set to true to count the number of distinct values.
+    """
+    distinct: Boolean = false
+  ): Int! @fdc_generated(from: "User.publicKey", purpose: QUERY_COUNT)
+  """
+  ✨ Count the number of rows in the `User` table where the `statusMessage` field is non-null. Pass the `distinct` argument to instead count the number of distinct values.
+  """
+  statusMessage_count(
+    """
+    Set to true to count the number of distinct values.
+    """
+    distinct: Boolean = false
+  ): Int! @fdc_generated(from: "User.statusMessage", purpose: QUERY_COUNT)
+  """
+  ✨ Count the number of rows in the `User` table where the `username` field is non-null. Pass the `distinct` argument to instead count the number of distinct values.
+  """
+  username_count(
+    """
+    Set to true to count the number of distinct values.
+    """
+    distinct: Boolean = false
+  ): Int! @fdc_generated(from: "User.username", purpose: QUERY_COUNT)
+  """
+  ✨ Minimum of the `lastActiveAt` field in the `User` table.
+  """
+  lastActiveAt_min: Timestamp @fdc_generated(from: "User.lastActiveAt", purpose: QUERY_MIN)
+  """
+  ✨ Maximum of the `lastActiveAt` field in the `User` table.
+  """
+  lastActiveAt_max: Timestamp @fdc_generated(from: "User.lastActiveAt", purpose: QUERY_MAX)
+  """
+  A generated field that is used for caching results in SDKs.
+  """
+  _id: ID! @fdc_generated(from: "User.id", purpose: ENTITY_ID)
+}
+extend type VirtualRoom {
+  """
+  Implicit metadata field that cannot be written. It provides extra information about query results.
+  """
+  _metadata: _Metadata @fdc_generated(from: "VirtualRoom", purpose: METADATA_FIELD)
+  """
+  ✨ Count the number of rows in the `VirtualRoom` table.
+  """
+  _count: Int! @fdc_generated(from: "VirtualRoom.", purpose: QUERY_COUNT)
+  """
+  ✨ Count the number of rows in the `VirtualRoom` table where the `id` field is non-null. Pass the `distinct` argument to instead count the number of distinct values.
+  """
+  id_count(
+    """
+    Set to true to count the number of distinct values.
+    """
+    distinct: Boolean = false
+  ): Int! @fdc_generated(from: "VirtualRoom.id", purpose: QUERY_COUNT)
+  """
+  ✨ Count the number of rows in the `VirtualRoom` table where the `name` field is non-null. Pass the `distinct` argument to instead count the number of distinct values.
+  """
+  name_count(
+    """
+    Set to true to count the number of distinct values.
+    """
+    distinct: Boolean = false
+  ): Int! @fdc_generated(from: "VirtualRoom.name", purpose: QUERY_COUNT)
+  """
+  ✨ Count the number of rows in the `VirtualRoom` table where the `ownerId` field is non-null. Pass the `distinct` argument to instead count the number of distinct values.
+  """
+  ownerId_count(
+    """
+    Set to true to count the number of distinct values.
+    """
+    distinct: Boolean = false
+  ): Int! @fdc_generated(from: "VirtualRoom.ownerId", purpose: QUERY_COUNT)
+  """
+  ✨ Count the number of rows in the `VirtualRoom` table where the `themeSettings` field is non-null. Pass the `distinct` argument to instead count the number of distinct values.
+  """
+  themeSettings_count(
+    """
+    Set to true to count the number of distinct values.
+    """
+    distinct: Boolean = false
+  ): Int! @fdc_generated(from: "VirtualRoom.themeSettings", purpose: QUERY_COUNT)
+  """
+  A generated field that is used for caching results in SDKs.
+  """
+  _id: ID! @fdc_generated(from: "VirtualRoom.id", purpose: ENTITY_ID)
+}

@@ -121,7 +121,6 @@ export default function CreateReelsPage() {
   useLayoutEffect(() => {
     const draft = loadDraft();
     if (draft) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setHasDraft(true);
       setCaption(draft.caption || '');
       setTags(draft.tags || []);
@@ -309,17 +308,17 @@ export default function CreateReelsPage() {
     setError('');
     uploadAbortRef.current = new AbortController();
 
-    try {
-      // Upload video with progress simulation
+try {
+      // Upload video with real Cloudinary progress (falls back to Firebase/local).
       setUploadStep('Uploading video...');
-      setUploadProgress(10);
+      setUploadProgress(5);
       const videoUrl = await uploadMediaBlob({
         kind: 'reels',
         file: videoFile,
         mimeType: videoFile.type,
         userId: user.id,
+        onProgress: (pct) => setUploadProgress(Math.max(5, Math.min(70, pct))),
       });
-      setUploadProgress(50);
 
       // Upload thumbnail
       setUploadStep('Uploading thumbnail...');
@@ -330,6 +329,7 @@ export default function CreateReelsPage() {
           file: thumbnailBlob,
           mimeType: 'image/jpeg',
           userId: user.id,
+          onProgress: (pct) => setUploadProgress(Math.max(70, Math.min(90, 70 + pct * 0.2))),
         });
       } else if (thumbnailUrl && thumbnailUrl.startsWith('blob:')) {
         const response = await fetch(thumbnailUrl);
@@ -340,9 +340,10 @@ export default function CreateReelsPage() {
           file: thumbFile,
           mimeType: 'image/jpeg',
           userId: user.id,
+          onProgress: (pct) => setUploadProgress(Math.max(70, Math.min(90, 70 + pct * 0.2))),
         });
       }
-      setUploadProgress(80);
+      setUploadProgress(92);
 
       // Create reel
       setUploadStep('Publishing...');

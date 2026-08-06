@@ -1,9 +1,10 @@
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, X, Mic, Send, Clock, Smile, Camera, Image as ImageIcon, MapPin, File, User, Phone, BarChart3 } from 'lucide-react';
+import { Plus, X, Mic, Send, Clock, Smile, Camera, Image as ImageIcon, MapPin, File, User, Phone, BarChart3, Sticker } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { attachmentOptions } from '@/lib/chatConstants';
 import { EmojiPicker } from './EmojiPicker';
+import { StickerPicker } from './StickerPicker';
 import type { Message } from '@/types';
 
 interface InputBarProps {
@@ -31,6 +32,7 @@ interface InputBarProps {
   onLocationShare: () => void;
   onContactShare: () => void;
   onPollOpen: () => void;
+  onStickerSelect?: (sticker: { type: 'emoji' | 'gif'; content: string }) => void;
 }
 
 export function InputBar({
@@ -39,8 +41,9 @@ export function InputBar({
   onToggleAttachments, onToggleEmojiPicker, onEmojiSelect, onCancelReply,
   onStartRecording, onCancelRecording, onVoiceSend, onSchedule,
   onPhotoUpload, onVideoUpload, onFileUpload,
-  onLocationShare, onContactShare, onPollOpen,
+  onLocationShare, onContactShare, onPollOpen, onStickerSelect,
 }: InputBarProps) {
+  const [showStickerPicker, setShowStickerPicker] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const photoInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
@@ -152,7 +155,10 @@ export function InputBar({
               placeholder="Aa"
               className="flex-1 py-2 text-[15px] focus:outline-none bg-transparent text-[#111111] placeholder:text-[#8D8D8D]"
             />
-            <button type="button" className={`p-1 transition-colors mx-1 ${showEmojiPicker ? 'text-[#00C300]' : 'text-gray-400 hover:text-gray-600'}`} onClick={onToggleEmojiPicker} aria-label="Open emoji picker">
+            <button type="button" className={`p-1 transition-colors ${showStickerPicker ? 'text-[#00C300]' : 'text-gray-400 hover:text-gray-600'}`} onClick={() => { setShowStickerPicker(p => !p); if (showEmojiPicker) onToggleEmojiPicker(); }} aria-label="Open sticker picker">
+              <Sticker size={20} strokeWidth={1.5} />
+            </button>
+            <button type="button" className={`p-1 transition-colors mx-1 ${showEmojiPicker ? 'text-[#00C300]' : 'text-gray-400 hover:text-gray-600'}`} onClick={() => { onToggleEmojiPicker(); setShowStickerPicker(false); }} aria-label="Open emoji picker">
               <Smile size={20} strokeWidth={1.5} />
             </button>
             {!input.trim() && (
@@ -194,6 +200,19 @@ export function InputBar({
           >
             <EmojiPicker onEmojiSelect={(emoji) => { onEmojiSelect(emoji); onToggleEmojiPicker(); }} />
           </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Sticker / GIF Picker */}
+      <AnimatePresence>
+        {showStickerPicker && (
+          <StickerPicker
+            onSelect={(sticker) => {
+              onStickerSelect?.(sticker);
+              setShowStickerPicker(false);
+            }}
+            onClose={() => setShowStickerPicker(false)}
+          />
         )}
       </AnimatePresence>
     </>

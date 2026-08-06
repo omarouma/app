@@ -411,19 +411,19 @@ export default function AddFriendsPage() {
   // Fetch sender profiles for received requests
   useEffect(() => {
     if (activeTab !== 'requests' || !currentUser) return;
-    const pending = requests.filter((r: any) => r.status === 'pending');
+    const pending = requests.filter((r) => r.status === 'pending');
     if (!pending.length) return;
 
     let cancelled = false;
     const load = async () => {
       const profiles: Record<string, User> = {};
       await Promise.all(
-        pending.map(async (req: any) => {
+        pending.map(async (req) => {
           if (requestSenders[req.from]) return;
           const sender = await fetchUserById(req.from);
           if (sender && !cancelled) profiles[req.from] = sender;
         })
-      );
+);
       if (!cancelled) setRequestSenders(prev => ({ ...prev, ...profiles }));
     };
     load();
@@ -440,9 +440,9 @@ export default function AddFriendsPage() {
     const load = async () => {
       const profiles: Record<string, User> = {};
       await Promise.all(
-        sentRequests.map(async (req: any) => {
-          const toId = req.toUserId || req.to;
-          if (sentRequestReceivers[toId]) return;
+        sentRequests.map(async (req) => {
+          const toId = (req as { toUserId?: string; to?: string }).toUserId || (req as { to?: string }).to || '';
+          if (!toId || sentRequestReceivers[toId]) return;
           const receiver = await fetchUserById(toId);
           if (receiver && !cancelled) profiles[toId] = receiver;
         })
@@ -469,30 +469,28 @@ export default function AddFriendsPage() {
         }).catch(() => {});
 
         // Query all users with location data (no latitude filter — we filter client-side)
-        let data: any[] = [];
+        let data: Record<string, unknown>[] = [];
         try {
           data = await queryCollection('users', [limit(200)]);
-        } catch (err: any) {
+        } catch (err) {
           console.error('[Nearby] Query failed:', err);
           toast.error('Failed to load nearby users');
           setLoadingNearby(false);
           return;
         }
 
-        const nearby: User[] = (data || [])
+        type UserWithDist = User & { distance?: number };
+        const nearby: UserWithDist[] = (data || [])
           .map(mapUser)
-          .filter((u: any) => u.id !== currentUser.id && u.latitude != null && u.longitude != null);
+          .filter((u) => u.id !== currentUser.id && u.latitude != null && u.longitude != null);
 
         const withDist = nearby
-          .map((u: any) => {
-            const dist = getDistanceKm(location.latitude, location.longitude, u.latitude, u.longitude);
-            return { ...u, distance: dist };
-          })
-          .filter((u: any) => u.distance < 50)
-          .sort((a: any, b: any) => a.distance - b.distance);
+          .map((u) => ({ ...u, distance: getDistanceKm(location.latitude, location.longitude, u.latitude!, u.longitude!) }))
+          .filter((u) => u.distance < 50)
+          .sort((a, b) => a.distance - b.distance);
 
-        const friendIdSet = new Set(friends.map((f: any) => f.id));
-        setNearbyUsers(withDist.filter((u: any) => !friendIdSet.has(u.id)));
+        const friendIdSet = new Set(friends.map((f) => f.id));
+        setNearbyUsers(withDist.filter((u) => !friendIdSet.has(u.id)));
 
         if (withDist.length === 0) {
           toast.info('No users found nearby. Invite friends to join!');
@@ -518,10 +516,10 @@ export default function AddFriendsPage() {
     if (!contacts.length || !currentUser) return;
     setLoadingContacts(true);
     const phoneSet = new Set<string>();
-    contacts.forEach((c: any) => {
+    contacts.forEach((c: { tel?: string[]; email?: string[] }) => {
       (c.tel || []).forEach((p: string) => phoneSet.add(p.replace(/[^\d]/g, '')));
     });
-    const emails = contacts.flatMap((c: any) => c.email || []);
+    const emails = contacts.flatMap((c: { email?: string[] }) => c.email || []);
 
     try {
       if (isFirestoreAvailable() && (phoneSet.size > 0 || emails.length > 0)) {
@@ -529,7 +527,7 @@ export default function AddFriendsPage() {
         const foundUsers: User[] = [];
         const emailQueries = emails.slice(0, 10).map(async (e: string) => {
           const data = await queryCollection('users', [where('email', '==', e), limit(1)]);
-          return data.map(mapUser);
+          return (data as Record<string, unknown>[]).map(mapUser);
         });
         const phoneQueries = Array.from(phoneSet).slice(0, 10).map(async (p: string) => {
           const data = await queryCollection('users', [
@@ -537,13 +535,13 @@ export default function AddFriendsPage() {
             where('phone', '<=', p + '\uf8ff'),
             limit(10),
           ]);
-          return data.map(mapUser);
+          return (data as Record<string, unknown>[]).map(mapUser);
         });
         const results = await Promise.all([...emailQueries, ...phoneQueries]);
         results.forEach((arr: User[]) => foundUsers.push(...arr));
-        const friendIdSet = new Set(friends.map((f: any) => f.id));
-        const matches = foundUsers.filter((u: any) => u.id !== currentUser.id && !friendIdSet.has(u.id));
-        const uniqueMatches = Array.from(new Map(matches.map((u: any) => [u.id, u])).values());
+        const friendIdSet = new Set(friends.map((f) => f.id));
+        const matches = foundUsers.filter((u) => u.id !== currentUser.id && !friendIdSet.has(u.id));
+        const uniqueMatches = Array.from(new Map(matches.map((u) => [u.id, u])).values());
         setContactMatches(uniqueMatches);
         if (uniqueMatches.length > 0) {
           toast.success(`Found ${uniqueMatches.length} contacts on GaGa Chat!`);
@@ -612,12 +610,12 @@ export default function AddFriendsPage() {
     try {
       await sendRequest(userId, currentUser.id);
       toast.success('Friend request sent via QR');
-    } catch (err: any) {
-      toast.error(err?.message || 'Failed to send request');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to send request');
     }
   };
 
-  const pendingRequests = requests.filter((r: any) => r.status === 'pending');
+  const pendingRequests = requests.filter((r) => r.status === 'pending');
 
   // ─── Render ───
 
@@ -780,7 +778,7 @@ export default function AddFriendsPage() {
                 <Loader size={18} className="animate-spin text-[#00C300]" />
               </div>
             ) : suggestions.length > 0 ? (
-              suggestions.map((u: any) => (
+              suggestions.map((u) => (
                 <UserCard
                   key={u.id}
                   user={u}
@@ -817,7 +815,7 @@ export default function AddFriendsPage() {
               </div>
               {pendingRequests.length > 0 ? (
                 <div className="space-y-2">
-                  {pendingRequests.map((req: any) => {
+                  {pendingRequests.map((req) => {
                     const sender = requestSenders[req.from];
                     return (
                       <motion.div
@@ -852,8 +850,8 @@ export default function AddFriendsPage() {
                                 await acceptRequest(req.id);
                                 toast.success('Friend added!');
                                 navigate(`/chat/${req.from}`);
-                              } catch (err: any) {
-                                toast.error(err?.message || 'Failed to accept');
+                              } catch (err) {
+                                toast.error(err instanceof Error ? err.message : 'Failed to accept');
                               }
                             }}
                             className="flex items-center gap-1 px-3 py-1.5 bg-[#00C300] text-white text-xs rounded-full font-bold active:bg-[#00A300] transition-colors"
@@ -864,8 +862,8 @@ export default function AddFriendsPage() {
                               try {
                                 await rejectRequest(req.id);
                                 toast.success('Request declined');
-                              } catch (err: any) {
-                                toast.error(err?.message || 'Failed to decline');
+                              } catch (err) {
+                                toast.error(err instanceof Error ? err.message : 'Failed to decline');
                               }
                             }}
                             className="flex items-center gap-1 px-3 py-1.5 bg-[#F5F5F5] text-[#8D8D8D] text-xs rounded-full font-medium"
@@ -894,8 +892,8 @@ export default function AddFriendsPage() {
               </div>
               {sentRequests.length > 0 ? (
                 <div className="space-y-2">
-                  {sentRequests.map((req: any) => {
-                    const receiver = sentRequestReceivers[req.toUserId];
+                  {sentRequests.map((req) => {
+                    const receiver = sentRequestReceivers[(req as { toUserId?: string }).toUserId || ''];
                     return (
                       <motion.div
                         key={req.id}
@@ -927,8 +925,8 @@ export default function AddFriendsPage() {
                             try {
                               await cancelRequest(req.id);
                               toast.success('Request cancelled');
-                            } catch (err: any) {
-                              toast.error(err?.message || 'Failed to cancel');
+                            } catch (err) {
+                              toast.error(err instanceof Error ? err.message : 'Failed to cancel');
                             }
                           }}
                           className="text-[#8D8D8D] text-xs font-medium hover:text-red-500 transition-colors shrink-0"

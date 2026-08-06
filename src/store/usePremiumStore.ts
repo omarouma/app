@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { create } from 'zustand';
 import {
   COLLECTIONS,
@@ -17,11 +16,16 @@ import { toast } from 'sonner';
 
 export type PremiumTier = 'free' | 'premium' | 'vip' | 'creator';
 
+/**
+ * Premium collection names — sourced from the backend adapter's COLLECTIONS map
+ * so the correct table name is used for whichever backend is active
+ * (Supabase uses snake_case `creator_subscriptions`; Firestore uses `creatorSubscriptions`).
+ */
 export const PREMIUM_COLLECTIONS = {
-  SUBSCRIPTIONS: 'subscriptions',
-  REFERRALS: 'referrals',
-  TIPS: 'tips',
-  CREATOR_SUBS: 'creatorSubscriptions',
+  SUBSCRIPTIONS: COLLECTIONS.SUBSCRIPTIONS,
+  REFERRALS: COLLECTIONS.REFERRALS,
+  TIPS: COLLECTIONS.TIPS,
+  CREATOR_SUBS: COLLECTIONS.CREATOR_SUBSCRIPTIONS,
 } as const;
 
 export const PREMIUM_PLANS: PremiumPlan[] = [

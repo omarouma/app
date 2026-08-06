@@ -8,6 +8,8 @@ export interface CallContextValue {
   isMuted: boolean;
   isVideoOn: boolean;
   callDuration: number;
+// currentUserId is optional — the provider derives it from the auth store
+  // when not supplied (so callers can pass just { id }).
   startCall: (user: { id: string; currentUserId?: string }, mode: 'video' | 'voice') => Promise<string | undefined>;
   acceptCall: () => Promise<void>;
   endCall: () => Promise<void>;

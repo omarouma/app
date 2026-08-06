@@ -16,6 +16,16 @@ import {
 import { where, orderBy, limit } from '@/lib/firestore';
 import type { TimelinePost, PostReactions, BookmarkCollection, Hashtag, FeedFilter, PostAnalytics, CreatorAnalytics, UserReport, PostComment, PostPollData } from '@/types';
 
+type FirestoreTimestamp = { toDate: () => Date };
+function isFirestoreTs(v: unknown): v is FirestoreTimestamp {
+  return typeof v === 'object' && v !== null && 'toDate' in v;
+}
+function toDate(raw: unknown): Date {
+  if (isFirestoreTs(raw)) return raw.toDate();
+  if (raw) return new Date(raw as string | number | Date);
+  return new Date();
+}
+
 interface EnhancedTimelineStore {
   posts: TimelinePost[];
   savedPosts: TimelinePost[];
@@ -23,13 +33,10 @@ interface EnhancedTimelineStore {
   followedHashtags: Hashtag[];
   bookmarkCollections: BookmarkCollection[];
   loading: boolean;
-  loadingSaved: boolean;
-  loadingHashtags: boolean;
 
   // Reactions
   addReaction: (postId: string, userId: string, reactionType: keyof PostReactions) => Promise<void>;
   removeReaction: (postId: string, userId: string, reactionType: keyof PostReactions) => Promise<void>;
-  getReactionCounts: (postId: string) => Promise<PostReactions | null>;
 
   // Bookmarks
   savePost: (postId: string, userId: string, collectionId?: string) => Promise<void>;
@@ -89,13 +96,7 @@ const mapPost = (d: Record<string, unknown>): TimelinePost => ({
   likes: (d.likes as string[]) || [],
   comments: (d.comments as PostComment[]) || [],
   shares: (d.shares as string[]) || [],
-  timestamp: (() => {
-    const ts = d.createdAt ?? d.timestamp;
-    if (ts && typeof ts === 'object' && 'toDate' in ts && typeof (ts as { toDate: () => Date }).toDate === 'function') {
-      return (ts as { toDate: () => Date }).toDate();
-    }
-    return ts ? new Date(ts as string) : new Date();
-  })(),
+  timestamp: toDate(d.createdAt ?? d.timestamp),
   visibility: (d.visibility as TimelinePost['visibility']) || 'public',
   userName: (d.userName as string) || '',
   userAvatar: (d.userAvatar as string) || '',
@@ -168,8 +169,6 @@ export const useEnhancedTimelineStore = create<EnhancedTimelineStore>((set) => (
   followedHashtags: [],
   bookmarkCollections: [],
   loading: false,
-  loadingSaved: false,
-  loadingHashtags: false,
 
   // --- Reactions ---
   addReaction: async (postId, userId, reactionType) => {
@@ -210,15 +209,7 @@ export const useEnhancedTimelineStore = create<EnhancedTimelineStore>((set) => (
     }
   },
 
-  getReactionCounts: async (postId) => {
-    if (!isFirestoreAvailable()) return null;
-    try {
-      const postRef = await getDocById(COLLECTIONS.POSTS, postId);
-      return (postRef?.reactions as PostReactions) || null;
-    } catch {
-      return null;
-    }
-  },
+
 
   // --- Bookmarks ---
   savePost: async (postId, userId, collectionId) => {
@@ -250,7 +241,7 @@ export const useEnhancedTimelineStore = create<EnhancedTimelineStore>((set) => (
   },
 
   getSavedPosts: async (userId) => {
-    set({ loadingSaved: true });
+    set({ loading: true });
     try {
       const bookmarks = await queryCollection(COLLECTIONS.BOOKMARKS, [where('userId', '==', userId), orderBy('timestamp', 'desc')]);
       const postIds = (bookmarks || []).map((b) => b.postId as string);
@@ -259,9 +250,9 @@ export const useEnhancedTimelineStore = create<EnhancedTimelineStore>((set) => (
         const postRef = await getDocById(COLLECTIONS.POSTS, id);
         if (postRef) posts.push(mapPost(postRef));
       }
-      set({ savedPosts: posts, loadingSaved: false });
+      set({ savedPosts: posts, loading: false });
     } catch {
-      set({ loadingSaved: false });
+      set({ loading: false });
     }
   },
 
@@ -315,7 +306,7 @@ export const useEnhancedTimelineStore = create<EnhancedTimelineStore>((set) => (
 
   // --- Hashtags ---
   getTrendingHashtags: async (lim = 10) => {
-    set({ loadingHashtags: true });
+    set({ loading: true });
     try {
       const data = await queryCollection(COLLECTIONS.HASHTAGS, [
         where('trending', '==', true),
@@ -323,9 +314,9 @@ export const useEnhancedTimelineStore = create<EnhancedTimelineStore>((set) => (
         limit(lim),
       ]);
       const hashtags = (data || []).map(mapHashtag);
-      set({ trendingHashtags: hashtags, loadingHashtags: false });
+      set({ trendingHashtags: hashtags, loading: false });
     } catch {
-      set({ loadingHashtags: false });
+      set({ loading: false });
     }
   },
 
@@ -754,8 +745,7 @@ createPost: async (userId, content, images, visibility, pollData, location, sche
     }
   },
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  subscribePosts: (_userId) => {
+subscribePosts: (_userId) => {
     let unsub: (() => void) | null = null;
     try {
       unsub = subscribeToCollection(

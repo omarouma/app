@@ -3,47 +3,40 @@
  * Provides real-time online/offline status with quality estimation.
  */
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { useIsMounted } from './use-mobile';
 
 export interface NetworkStatus {
-  /** Whether the browser reports being online */
   isOnline: boolean;
-  /** Whether we're actively checking connectivity (ping-based) */
   isChecking: boolean;
-  /** Estimated connection quality (latency in ms), -1 if unknown */
   latency: number;
-  /** Whether we were recently offline and reconnected */
   wasDisconnected: boolean;
-  /** Number of consecutive failures since last successful check */
   failureCount: number;
-  /** Trigger a manual connectivity check */
   checkNow: () => Promise<void>;
 }
 
-const CHECK_INTERVAL = 30_000; // 30s between health checks
+const CHECK_INTERVAL = 30_000;
 const PING_URL = '/ping.txt';
 const GOOD_LATENCY_THRESHOLD = 200;
 const FAILURE_THRESHOLD = 3;
 
 export function useNetworkStatus(): NetworkStatus {
-  const [isOnline, setIsOnline] = useState(() => 
-    typeof navigator !== 'undefined' ? navigator.onLine : true
-  );
+  const isMounted = useIsMounted();
+  const [isOnline, setIsOnline] = useState(true);
   const [isChecking, setIsChecking] = useState(false);
   const [latency, setLatency] = useState(-1);
   const [wasDisconnected, setWasDisconnected] = useState(false);
   const [failureCount, setFailureCount] = useState(0);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const isDestroyedRef = useRef(false);
 
   const performCheck = useCallback(async () => {
-    if (isDestroyedRef.current) return;
+    if (!isMounted) return;
     setIsChecking(true);
     const start = performance.now();
     try {
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 5000);
-      await fetch(PING_URL, { 
-        method: 'HEAD', 
+      await fetch(PING_URL, {
+        method: 'HEAD',
         cache: 'no-store',
         signal: controller.signal,
       });
@@ -51,53 +44,48 @@ export function useNetworkStatus(): NetworkStatus {
       const measuredLatency = Math.round(performance.now() - start);
       setLatency(measuredLatency);
       setFailureCount(0);
-      
       if (!navigator.onLine) {
-        // Browser says offline but ping succeeded — inconsistent state
         setIsOnline(true);
         setWasDisconnected(true);
         setTimeout(() => setWasDisconnected(false), 5000);
       }
     } catch {
-      setFailureCount(prev => prev + 1);
-      if (failureCount >= FAILURE_THRESHOLD || !navigator.onLine) {
+      setFailureCount((prev) => prev + 1);
+      if (failureCount >= FAILURE_THRESHOLD - 1 && navigator.onLine) {
         setIsOnline(false);
       }
     } finally {
       setIsChecking(false);
     }
-  }, [failureCount]);
+  }, [isMounted, failureCount]);
 
   useEffect(() => {
-    isDestroyedRef.current = false;
+    if (!isMounted) return;
 
     const handleOnline = () => {
       setIsOnline(true);
       setWasDisconnected(true);
       setTimeout(() => setWasDisconnected(false), 5000);
       setFailureCount(0);
+      performCheck();
     };
-    const handleOffline = () => {
-      setIsOnline(false);
-    };
+    const handleOffline = () => setIsOnline(false);
 
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
 
-    // Start health check interval
+    setIsOnline(navigator.onLine);
     performCheck();
     intervalRef.current = setInterval(performCheck, CHECK_INTERVAL);
 
     return () => {
-      isDestroyedRef.current = true;
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
-        intervalRef.current = null;
       }
     };
-  }, [performCheck]);
+  }, [isMounted, performCheck]);
 
   return {
     isOnline,

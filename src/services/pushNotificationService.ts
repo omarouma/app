@@ -1,3 +1,5 @@
+import env from '@/config/env';
+
 const SW_PATH = '/sw.js';
 
 export interface PushNotificationData {
@@ -68,9 +70,9 @@ class PushNotificationService {
   // Subscribe to push notifications (for server-sent push)
   async subscribeToPush(): Promise<PushSubscription | null> {
     if (!this.swRegistration || !('PushManager' in window)) return null;
-    const vapidKey = import.meta.env.VITE_FIREBASE_VAPID_KEY || import.meta.env.VITE_VAPID_PUBLIC_KEY || '';
+    const vapidKey = env.VITE_VAPID_PUBLIC_KEY || '';
     if (!vapidKey) {
-      console.warn('[Push] No VAPID key configured — set VITE_FIREBASE_VAPID_KEY in .env');
+      console.warn('[Push] No VAPID key configured — set VITE_VAPID_PUBLIC_KEY in .env');
       return null;
     }
     try {

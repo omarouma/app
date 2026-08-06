@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { ArrowLeft, Shield, UserPlus } from 'lucide-react';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useFriendStore } from '@/store/useFriendStore';
@@ -47,63 +47,61 @@ export default function BlockedUsersPage() {
       </div>
 
       <div className="flex-1 p-4 space-y-3">
-        <AnimatePresence mode="wait">
-          {loadingBlocked ? (
-            <LoadingSkeleton count={4} variant="list" />
-          ) : blockedUsers.length === 0 ? (
-            <motion.div
-              key="empty"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="h-64 flex items-center justify-center"
-            >
-              <EmptyState
-                icon={Shield}
-                title="No blocked users"
-                description="Users you block will appear here"
-              />
-            </motion.div>
-          ) : (
-            <motion.div
-              key="list"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="space-y-3"
-            >
-              {blockedUsers.map((record, i) => (
-                <motion.div
-                  key={record.id}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: i * 0.05 }}
-                  className="bg-white border border-[#EBEBEB] rounded-xl p-4 flex items-center gap-3"
+        {loadingBlocked && <LoadingSkeleton count={4} variant="list" />}
+        {!loadingBlocked && blockedUsers.length === 0 && (
+          <motion.div
+            key="empty"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="h-64 flex items-center justify-center"
+          >
+            <EmptyState
+              icon={Shield}
+              title="No blocked users"
+              description="Users you block will appear here"
+            />
+          </motion.div>
+        )}
+        {!loadingBlocked && blockedUsers.length > 0 && (
+          <motion.div
+            key="list"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="space-y-3"
+          >
+            {blockedUsers.map((record, i) => (
+              <motion.div
+                key={record.id}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: i * 0.05 }}
+                className="bg-white border border-[#EBEBEB] rounded-xl p-4 flex items-center gap-3"
+              >
+                <div className="w-12 h-12 rounded-full bg-[#F5F5F5] flex items-center justify-center overflow-hidden shrink-0">
+                  {sanitizeMediaUrl(record.blockedUser?.avatar) ? (
+                    <img src={sanitizeMediaUrl(record.blockedUser?.avatar)} className="w-full h-full object-cover" alt="User avatar" />
+                  ) : (
+                    <img src={getDefaultAvatar(record.blockedUser?.id || record.blockedUser?.name || 'U')} className="w-full h-full object-cover" alt="User avatar" />
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[#111111] text-sm font-medium">{record.blockedUser?.name || 'User'}</p>
+                  <p className="text-[#8D8D8D] text-xs">@{record.blockedUser?.username || record.blockedId.slice(0, 8)}</p>
+                  {record.reason && (
+                    <p className="text-[#8D8D8D] text-[11px] mt-0.5 truncate">Reason: {record.reason}</p>
+                  )}
+                </div>
+                <button type="button" onClick={() => handleUnblock(record.blockedId)}
+                  className="flex items-center gap-1 px-3 py-1.5 bg-[#00C300]/10 text-[#00C300] text-xs rounded-full font-medium active:bg-[#00C300]/20 transition-colors"
                 >
-                  <div className="w-12 h-12 rounded-full bg-[#F5F5F5] flex items-center justify-center overflow-hidden shrink-0">
-                    {sanitizeMediaUrl(record.blockedUser?.avatar) ? (
-                      <img src={sanitizeMediaUrl(record.blockedUser?.avatar)} className="w-full h-full object-cover" alt="User avatar" />
-                    ) : (
-                      <img src={getDefaultAvatar(record.blockedUser?.id || record.blockedUser?.name || 'U')} className="w-full h-full object-cover" alt="User avatar" />
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[#111111] text-sm font-medium">{record.blockedUser?.name || 'User'}</p>
-                    <p className="text-[#8D8D8D] text-xs">@{record.blockedUser?.username || record.blockedId.slice(0, 8)}</p>
-                    {record.reason && (
-                      <p className="text-[#8D8D8D] text-[11px] mt-0.5 truncate">Reason: {record.reason}</p>
-                    )}
-                  </div>
-                  <button type="button" onClick={() => handleUnblock(record.blockedId)}
-                    className="flex items-center gap-1 px-3 py-1.5 bg-[#00C300]/10 text-[#00C300] text-xs rounded-full font-medium active:bg-[#00C300]/20 transition-colors"
-                  >
-                    <UserPlus size={12} /> Unblock
-                  </button>
-                </motion.div>
-              ))}
-            </motion.div>
-          )}
-        </AnimatePresence>
+                  <UserPlus size={12} /> Unblock
+                </button>
+              </motion.div>
+            ))}
+          </motion.div>
+        )}
       </div>
     </div>
   );

@@ -276,9 +276,9 @@ export default function LiveStreamPage() {
       isPinned: false,
       isModerator: false,
     };
-    setComments((prev) => [...prev, newComment]);
+setComments((prev) => [...prev, newComment]);
     setChatInput('');
-    await sendLiveComment(streamId, user.id, content);
+    await sendLiveComment(streamId, user.id, content, user.name || 'You');
   };
 
   const reactionCounter = useRef(0);
@@ -306,7 +306,7 @@ export default function LiveStreamPage() {
       toast.error('Failed to spend coins');
       return;
     }
-    await sendLiveGift(streamId, user.id, { type, amount: cost, currency: 'coins', userId: user.id });
+await sendLiveGift(streamId, user.id, { type, amount: cost, currency: 'coins', userId: user.id }, user.name || '');
     toast.success(`Sent ${type}!`);
     setShowGiftPanel(false);
   };

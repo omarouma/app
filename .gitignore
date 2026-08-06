@@ -32,8 +32,14 @@ dist-ssr
 # Sensitive credential files
 "supabase for gaga chat app.Project id alzwgikndwbecuqmlrca.txt"
 supabase for gaga chat app*.txt
-tsc-out.txt
-tsc-check-new.txt
-deploy-*.txt
-eslint-targets.txt
-build-check.log
+*.txt
+*.log
+eslint-*.json
+auth_*.txt
+build_*.txt
+deploy_*.txt
+eslint-*.txt
+frontend_build_*.txt
+backend-*.log
+firebase-debug.log
+lint-output.log

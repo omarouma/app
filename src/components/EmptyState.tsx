@@ -1,4 +1,4 @@
-import { type ReactNode, type ComponentType } from 'react';
+import { type ReactNode, type ComponentType, memo } from 'react';
 import { motion } from 'framer-motion';
 
 
@@ -10,7 +10,7 @@ interface EmptyStateProps {
   compact?: boolean;
 }
 
-export default function EmptyState({ icon: Icon, title = 'Nothing here yet', description, action, compact = false }: EmptyStateProps) {
+function EmptyState({ icon: Icon, title = 'Nothing here yet', description, action, compact = false }: EmptyStateProps) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}
@@ -26,3 +26,4 @@ export default function EmptyState({ icon: Icon, title = 'Nothing here yet', des
     </motion.div>
   );
 }
+export default memo(EmptyState);

@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -11,16 +10,17 @@ import { getDefaultAvatar, sanitizeMediaUrl } from '@/lib/utils';
 import { toast } from 'sonner';
 import EmptyState from '@/components/EmptyState';
 import LoadingSkeleton from '@/components/LoadingSkeleton';
+import type { BroadcastList } from '@/types';
 
 export default function BroadcastListsPage() {
   const navigate = useNavigate();
   const { user } = useAuthStore();
   const { friends, loadingFriends, subscribeFriends, getBroadcastLists, createBroadcastList, deleteBroadcastList, sendBroadcast } = useFriendStore();
-  const [lists, setLists] = useState<any[]>([]);
+  const [lists, setLists] = useState<BroadcastList[]>([]);
   const [loadingLists, setLoadingLists] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
   const [showSend, setShowSend] = useState(false);
-  const [selectedList, setSelectedList] = useState<any>(null);
+  const [selectedList, setSelectedList] = useState<BroadcastList | null>(null);
   const [broadcastMessage, setBroadcastMessage] = useState('');
   const [sendingBroadcast, setSendingBroadcast] = useState(false);
   const [listName, setListName] = useState('');
@@ -82,7 +82,7 @@ export default function BroadcastListsPage() {
     setSelectedList(null);
   };
 
-  const openSendModal = (list: any) => {
+const openSendModal = (list: BroadcastList) => {
     setSelectedList(list);
     setShowSend(true);
   };

@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
+import { useIsMounted } from './use-mobile';
 
 interface VoiceRecorderState {
   isRecording: boolean;
@@ -7,6 +8,7 @@ interface VoiceRecorderState {
 }
 
 export function useVoiceRecorder() {
+  const isMounted = useIsMounted();
   const [state, setState] = useState<VoiceRecorderState>({
     isRecording: false,
     duration: 0,
@@ -21,25 +23,29 @@ export function useVoiceRecorder() {
     return () => {
       if (timerRef.current) {
         clearInterval(timerRef.current);
-        timerRef.current = null;
       }
       if (mediaRecorderRef.current) {
-        try { mediaRecorderRef.current.stop(); } catch { /* noop */ }
+        try {
+          mediaRecorderRef.current.stop();
+        } catch {
+          // noop
+        }
       }
     };
   }, []);
 
   const startRecording = useCallback(async () => {
-    // Check permission before requesting the device
-    if ('permissions' in navigator) {
-      try {
-        const result = await navigator.permissions.query({ name: 'microphone' as PermissionName });
-        if (result.state === 'denied') {
-          setState({ isRecording: false, duration: 0, error: 'Microphone access denied. Enable it in browser settings.' });
-          return;
-        }
-      } catch { /* permissions API not supported — proceed */ }
+    if (!isMounted) return;
+    try {
+      const result = await navigator.permissions.query({ name: 'microphone' as PermissionName });
+      if (result.state === 'denied') {
+        setState({ isRecording: false, duration: 0, error: 'Microphone access denied. Enable it in browser settings.' });
+        return;
+      }
+    } catch {
+      // permissions API not supported
     }
+
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const mediaRecorder = new MediaRecorder(stream);
@@ -65,27 +71,21 @@ export function useVoiceRecorder() {
     } catch {
       setState({ isRecording: false, duration: 0, error: 'Microphone access denied' });
     }
-  }, []);
+  }, [isMounted]);
 
   const isSendingRef = useRef(false);
 
   const stopRecording = useCallback(async (): Promise<Blob | null> => {
-    // D3: guard against double-call (e.g. rapid tap on send button)
-    if (isSendingRef.current) return null;
+    if (isSendingRef.current || !mediaRecorderRef.current) return null;
     isSendingRef.current = true;
-    return new Promise((resolve) => {
-      if (!mediaRecorderRef.current) {
-        isSendingRef.current = false;
-        resolve(null);
-        return;
-      }
 
+    return new Promise((resolve) => {
       if (timerRef.current) {
         clearInterval(timerRef.current);
         timerRef.current = null;
       }
 
-      mediaRecorderRef.current.onstop = () => {
+      mediaRecorderRef.current!.onstop = () => {
         const blob = new Blob(chunksRef.current, { type: 'audio/webm' });
         mediaRecorderRef.current?.stream.getTracks().forEach((t) => t.stop());
         mediaRecorderRef.current = null;
@@ -94,7 +94,7 @@ export function useVoiceRecorder() {
         resolve(blob);
       };
 
-      mediaRecorderRef.current.stop();
+      mediaRecorderRef.current!.stop();
     });
   }, []);
 

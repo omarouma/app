@@ -1,5 +1,7 @@
 import { useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
+import { useIsMounted } from './use-mobile';
+import env from '@/config/env';
 
 declare global {
   interface Window {
@@ -9,27 +11,28 @@ declare global {
 }
 
 // Read once at module load — never changes at runtime
-const GA_MEASUREMENT_ID = import.meta.env.VITE_GA_MEASUREMENT_ID as string | undefined;
+const GA_MEASUREMENT_ID = env.VITE_GA_MEASUREMENT_ID as string | undefined;
 
 export function useGATracking() {
   const location = useLocation();
+  const isMounted = useIsMounted();
 
   useEffect(() => {
-    if (!window.gtag || !GA_MEASUREMENT_ID) return;
+    if (!isMounted || !window.gtag || !GA_MEASUREMENT_ID) return;
     window.gtag('event', 'page_view', {
       page_path: location.pathname + location.search,
       page_location: window.location.href,
       page_title: document.title,
       send_to: GA_MEASUREMENT_ID,
     });
-  }, [location]);
+  }, [location, isMounted]);
 }
 
 export function trackEvent(
   eventName: string,
   params?: Record<string, string | number | boolean | undefined>
 ) {
-  if (!window.gtag || !GA_MEASUREMENT_ID) return;
+  if (typeof window === 'undefined' || !window.gtag || !GA_MEASUREMENT_ID) return;
   window.gtag('event', eventName, { send_to: GA_MEASUREMENT_ID, ...params });
 }
 

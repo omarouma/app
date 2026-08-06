@@ -1,0 +1,22 @@
+query GetUserById($id: UUID!) @auth(level: USER) {
+  user(id: $id) {
+    username
+    publicKey
+    avatarConfig
+    bio
+    statusMessage
+    lastActiveAt
+  }
+}
+
+mutation CreateUser($username: String!, $publicKey: String!, $avatarConfig: String!) @auth(level: USER) {
+  user_insert(data: {username: $username, publicKey: $publicKey, avatarConfig: $avatarConfig})
+}
+
+mutation UpdateUserBio($id: UUID!, $bio: String!) @auth(level: USER) {
+  user_update(id: $id, data: {bio: $bio})
+}
+
+mutation DeleteUser($id: UUID!) @auth(level: USER) {
+  user_delete(id: $id)
+}

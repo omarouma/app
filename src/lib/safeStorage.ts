@@ -50,3 +50,18 @@ export function safeGetJsonStorageItem<T>(key: string, fallback: T): T {
     return fallback;
   }
 }
+
+export function safeGetAllStorageKeys(): string[] {
+  try {
+    if (typeof window === 'undefined' || !window.localStorage) return [];
+    return Object.keys(window.localStorage);
+  } catch {
+    return [];
+  }
+}
+
+export function safeClearStorageByPrefix(prefix: string): void {
+  safeGetAllStorageKeys()
+    .filter((k) => k.startsWith(prefix))
+    .forEach((k) => safeRemoveStorageItem(k));
+}

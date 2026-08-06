@@ -32,7 +32,7 @@ export default function VoiceRoomPage() {
   const [chatMessages, setChatMessages] = useState<Array<{ id: string; userId: string; name: string; text: string; timestamp: Date }>>([]);
   const [chatInput, setChatInput] = useState('');
   const isHost = room?.hostId === user?.id;
-const isCoHost = !!(user?.id && room?.coHostIds?.includes(user.id));
+  const isCoHost = !!(user?.id && room?.coHostIds?.includes(user.id));
   const canManage = isHost || isCoHost;
 
   // Start local audio stream when user becomes a speaker
@@ -215,6 +215,7 @@ const isCoHost = !!(user?.id && room?.coHostIds?.includes(user.id));
                   isCoHost={room.coHostIds.includes(speakerId)}
                   isMe={speakerId === user?.id}
                   isMuted={speakerId === user?.id ? isMuted : true}
+                  name={speakerId === room.hostId ? room.hostName : speakerId === user?.id ? user.name : undefined}
                 />
               ))}
             </div>
@@ -407,47 +408,46 @@ const isCoHost = !!(user?.id && room?.coHostIds?.includes(user.id));
   );
 }
 
-function SpeakerAvatar({ userId, isHost, isCoHost, isMe, isMuted }: {
-  userId: string; isHost: boolean; isCoHost: boolean; isMe: boolean; isMuted: boolean;
+function SpeakerAvatar({ userId, isHost, isCoHost, isMe, isMuted, name }: {
+  userId: string; isHost: boolean; isCoHost: boolean; isMe: boolean; isMuted: boolean; name?: string;
 }) {
-  // Show green border when user is speaking (using rtc.isSpeaking for me, simulated for others)
   const isSpeaking = isMe ? !isMuted : false;
   return (
     <div className="text-center">
       <div className={`relative inline-block ${isSpeaking ? 'animate-pulse' : ''}`}>
         <img
           src={getDefaultAvatar(userId)}
-          alt="Speaker"
+          alt={name || `User ${userId.slice(0, 6)}`}
           className={`w-14 h-14 rounded-full object-cover mx-auto transition-all ${
             isHost ? 'border-2 border-[#FFD700]' : isCoHost ? 'border-2 border-[#00C300]' : isSpeaking ? 'border-2 border-[#00C300] shadow-[0_0_10px_#00C300]' : 'border-2 border-[#333]'
           }`}
         />
         {isMuted && (
-          <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-[#FF3B30] rounded-full flex items-center justify-center border border-[#0a0a0a]">
+          <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-[#FF3B30] rounded-full flex items-center justify-center border border-[#0a0a0a]" aria-label="Muted">
             <MicOff size={10} className="text-white" />
           </div>
         )}
         {isHost && (
-          <div className="absolute -top-1 -right-1 w-4 h-4 bg-[#FFD700] rounded-full flex items-center justify-center">
+          <div className="absolute -top-1 -right-1 w-4 h-4 bg-[#FFD700] rounded-full flex items-center justify-center" aria-label="Host">
             <Crown size={8} className="text-black" />
           </div>
         )}
       </div>
-      <p className="text-[10px] text-[#8D8D8D] mt-1 truncate">{isMe ? 'You' : `User ${userId.slice(0, 6)}`}</p>
+      <p className="text-[10px] text-[#8D8D8D] mt-1 truncate">{isMe ? 'You' : (name || `User ${userId.slice(0, 6)}`)}</p>
     </div>
   );
 }
 
-function ParticipantRow({ userId, isHost, isSpeaker, isMe, canManage, onPromote, onDemote }: {
+function ParticipantRow({ userId, isHost, isSpeaker, isMe, canManage, onPromote, onDemote, name }: {
   userId: string; isHost: boolean; isSpeaker: boolean; isMe: boolean;
-  canManage: boolean; onPromote: () => void; onDemote: () => void;
+  canManage: boolean; onPromote: () => void; onDemote: () => void; name?: string;
 }) {
   return (
     <div className="flex items-center gap-3 py-2">
-      <img src={getDefaultAvatar(userId)} alt="User" className="w-10 h-10 rounded-full object-cover" />
+      <img src={getDefaultAvatar(userId)} alt={name || `User ${userId.slice(0, 6)}`} className="w-10 h-10 rounded-full object-cover" />
       <div className="flex-1 min-w-0">
         <p className="text-white text-sm font-medium">
-          {isMe ? 'You' : `User ${userId.slice(0, 6)}`}
+          {isMe ? 'You' : (name || `User ${userId.slice(0, 6)}`)}
           {isHost && <span className="text-[#FFD700] text-xs ml-1">Host</span>}
           {isSpeaker && !isHost && <span className="text-[#00C300] text-xs ml-1">Speaker</span>}
         </p>

@@ -1,0 +1,562 @@
+extend type Mutation {
+  """
+  ✨ Insert a single `Conversation` into the table and return its key. Columns not specified in `data` will receive defaults (e.g. `null`).
+  """
+  conversation_insert(
+    """
+    Data object to insert into the table.
+    """
+    data: Conversation_Data!
+  ): Conversation_KeyOutput! @fdc_generated(from: "Conversation", purpose: INSERT_SINGLE)
+  """
+  ✨ Insert a single `Message` into the table and return its key. Columns not specified in `data` will receive defaults (e.g. `null`).
+  """
+  message_insert(
+    """
+    Data object to insert into the table.
+    """
+    data: Message_Data!
+  ): Message_KeyOutput! @fdc_generated(from: "Message", purpose: INSERT_SINGLE)
+  """
+  ✨ Insert a single `Participant` into the table and return its key. Columns not specified in `data` will receive defaults (e.g. `null`).
+  """
+  participant_insert(
+    """
+    Data object to insert into the table.
+    """
+    data: Participant_Data!
+  ): Participant_KeyOutput! @fdc_generated(from: "Participant", purpose: INSERT_SINGLE)
+  """
+  ✨ Insert a single `User` into the table and return its key. Columns not specified in `data` will receive defaults (e.g. `null`).
+  """
+  user_insert(
+    """
+    Data object to insert into the table.
+    """
+    data: User_Data!
+  ): User_KeyOutput! @fdc_generated(from: "User", purpose: INSERT_SINGLE)
+  """
+  ✨ Insert a single `VirtualRoom` into the table and return its key. Columns not specified in `data` will receive defaults (e.g. `null`).
+  """
+  virtualRoom_insert(
+    """
+    Data object to insert into the table.
+    """
+    data: VirtualRoom_Data!
+  ): VirtualRoom_KeyOutput! @fdc_generated(from: "VirtualRoom", purpose: INSERT_SINGLE)
+  """
+  ✨ Insert `Conversation` objects into the table and return their keys. Columns not specified in `data` will receive defaults (e.g. `null`).
+  """
+  conversation_insertMany(
+    """
+    List of data objects to insert into the table.
+    """
+    data: [Conversation_Data!]!
+  ): [Conversation_KeyOutput!]! @fdc_generated(from: "Conversation", purpose: INSERT_MULTIPLE)
+  """
+  ✨ Insert `Message` objects into the table and return their keys. Columns not specified in `data` will receive defaults (e.g. `null`).
+  """
+  message_insertMany(
+    """
+    List of data objects to insert into the table.
+    """
+    data: [Message_Data!]!
+  ): [Message_KeyOutput!]! @fdc_generated(from: "Message", purpose: INSERT_MULTIPLE)
+  """
+  ✨ Insert `Participant` objects into the table and return their keys. Columns not specified in `data` will receive defaults (e.g. `null`).
+  """
+  participant_insertMany(
+    """
+    List of data objects to insert into the table.
+    """
+    data: [Participant_Data!]!
+  ): [Participant_KeyOutput!]! @fdc_generated(from: "Participant", purpose: INSERT_MULTIPLE)
+  """
+  ✨ Insert `User` objects into the table and return their keys. Columns not specified in `data` will receive defaults (e.g. `null`).
+  """
+  user_insertMany(
+    """
+    List of data objects to insert into the table.
+    """
+    data: [User_Data!]!
+  ): [User_KeyOutput!]! @fdc_generated(from: "User", purpose: INSERT_MULTIPLE)
+  """
+  ✨ Insert `VirtualRoom` objects into the table and return their keys. Columns not specified in `data` will receive defaults (e.g. `null`).
+  """
+  virtualRoom_insertMany(
+    """
+    List of data objects to insert into the table.
+    """
+    data: [VirtualRoom_Data!]!
+  ): [VirtualRoom_KeyOutput!]! @fdc_generated(from: "VirtualRoom", purpose: INSERT_MULTIPLE)
+  """
+  ✨ Insert or update a single `Conversation` into the table, based on the primary key. Returns the key of the newly inserted or existing updated `Conversation`.
+  """
+  conversation_upsert(
+    """
+    Data object to insert or update if it already exists.
+    """
+    data: Conversation_Data!
+  ): Conversation_KeyOutput! @fdc_generated(from: "Conversation", purpose: UPSERT_SINGLE)
+  """
+  ✨ Insert or update a single `Message` into the table, based on the primary key. Returns the key of the newly inserted or existing updated `Message`.
+  """
+  message_upsert(
+    """
+    Data object to insert or update if it already exists.
+    """
+    data: Message_Data!
+  ): Message_KeyOutput! @fdc_generated(from: "Message", purpose: UPSERT_SINGLE)
+  """
+  ✨ Insert or update a single `Participant` into the table, based on the primary key. Returns the key of the newly inserted or existing updated `Participant`.
+  """
+  participant_upsert(
+    """
+    Data object to insert or update if it already exists.
+    """
+    data: Participant_Data!
+  ): Participant_KeyOutput! @fdc_generated(from: "Participant", purpose: UPSERT_SINGLE)
+  """
+  ✨ Insert or update a single `User` into the table, based on the primary key. Returns the key of the newly inserted or existing updated `User`.
+  """
+  user_upsert(
+    """
+    Data object to insert or update if it already exists.
+    """
+    data: User_Data!
+  ): User_KeyOutput! @fdc_generated(from: "User", purpose: UPSERT_SINGLE)
+  """
+  ✨ Insert or update a single `VirtualRoom` into the table, based on the primary key. Returns the key of the newly inserted or existing updated `VirtualRoom`.
+  """
+  virtualRoom_upsert(
+    """
+    Data object to insert or update if it already exists.
+    """
+    data: VirtualRoom_Data!
+  ): VirtualRoom_KeyOutput! @fdc_generated(from: "VirtualRoom", purpose: UPSERT_SINGLE)
+  """
+  ✨ Insert or update `Conversation` objects into the table, based on the primary key. Returns the key of the newly inserted or existing updated `Conversation`.
+  """
+  conversation_upsertMany(
+    """
+    List of data objects to insert or update if it already exists.
+    """
+    data: [Conversation_Data!]!
+  ): [Conversation_KeyOutput!]! @fdc_generated(from: "Conversation", purpose: UPSERT_MULTIPLE)
+  """
+  ✨ Insert or update `Message` objects into the table, based on the primary key. Returns the key of the newly inserted or existing updated `Message`.
+  """
+  message_upsertMany(
+    """
+    List of data objects to insert or update if it already exists.
+    """
+    data: [Message_Data!]!
+  ): [Message_KeyOutput!]! @fdc_generated(from: "Message", purpose: UPSERT_MULTIPLE)
+  """
+  ✨ Insert or update `Participant` objects into the table, based on the primary key. Returns the key of the newly inserted or existing updated `Participant`.
+  """
+  participant_upsertMany(
+    """
+    List of data objects to insert or update if it already exists.
+    """
+    data: [Participant_Data!]!
+  ): [Participant_KeyOutput!]! @fdc_generated(from: "Participant", purpose: UPSERT_MULTIPLE)
+  """
+  ✨ Insert or update `User` objects into the table, based on the primary key. Returns the key of the newly inserted or existing updated `User`.
+  """
+  user_upsertMany(
+    """
+    List of data objects to insert or update if it already exists.
+    """
+    data: [User_Data!]!
+  ): [User_KeyOutput!]! @fdc_generated(from: "User", purpose: UPSERT_MULTIPLE)
+  """
+  ✨ Insert or update `VirtualRoom` objects into the table, based on the primary key. Returns the key of the newly inserted or existing updated `VirtualRoom`.
+  """
+  virtualRoom_upsertMany(
+    """
+    List of data objects to insert or update if it already exists.
+    """
+    data: [VirtualRoom_Data!]!
+  ): [VirtualRoom_KeyOutput!]! @fdc_generated(from: "VirtualRoom", purpose: UPSERT_MULTIPLE)
+  """
+  ✨ Update a single `Conversation` based on `id`, `key` or `first`, setting columns specified in `data`. Returns the key of the updated `Conversation` or `null` if not found.
+  """
+  conversation_update(
+    """
+    The unique ID of the object.
+    """
+    id: UUID
+
+    """
+    The key used to identify the object.
+    """
+    key: Conversation_Key
+
+    """
+    Fetch the first row based on the filters and ordering.
+    """
+    first: Conversation_FirstRow
+
+    """
+    Data object containing fields to be updated.
+    """
+    data: Conversation_Data!
+  ): Conversation_KeyOutput @fdc_generated(from: "Conversation", purpose: UPDATE_SINGLE)
+  """
+  ✨ Update a single `Message` based on `id`, `key` or `first`, setting columns specified in `data`. Returns the key of the updated `Message` or `null` if not found.
+  """
+  message_update(
+    """
+    The unique ID of the object.
+    """
+    id: UUID
+
+    """
+    The key used to identify the object.
+    """
+    key: Message_Key
+
+    """
+    Fetch the first row based on the filters and ordering.
+    """
+    first: Message_FirstRow
+
+    """
+    Data object containing fields to be updated.
+    """
+    data: Message_Data!
+  ): Message_KeyOutput @fdc_generated(from: "Message", purpose: UPDATE_SINGLE)
+  """
+  ✨ Update a single `Participant` based on `id`, `key` or `first`, setting columns specified in `data`. Returns the key of the updated `Participant` or `null` if not found.
+  """
+  participant_update(
+    """
+    The unique ID of the object.
+    """
+    id: UUID
+
+    """
+    The key used to identify the object.
+    """
+    key: Participant_Key
+
+    """
+    Fetch the first row based on the filters and ordering.
+    """
+    first: Participant_FirstRow
+
+    """
+    Data object containing fields to be updated.
+    """
+    data: Participant_Data!
+  ): Participant_KeyOutput @fdc_generated(from: "Participant", purpose: UPDATE_SINGLE)
+  """
+  ✨ Update a single `User` based on `id`, `key` or `first`, setting columns specified in `data`. Returns the key of the updated `User` or `null` if not found.
+  """
+  user_update(
+    """
+    The unique ID of the object.
+    """
+    id: UUID
+
+    """
+    The key used to identify the object.
+    """
+    key: User_Key
+
+    """
+    Fetch the first row based on the filters and ordering.
+    """
+    first: User_FirstRow
+
+    """
+    Data object containing fields to be updated.
+    """
+    data: User_Data!
+  ): User_KeyOutput @fdc_generated(from: "User", purpose: UPDATE_SINGLE)
+  """
+  ✨ Update a single `VirtualRoom` based on `id`, `key` or `first`, setting columns specified in `data`. Returns the key of the updated `VirtualRoom` or `null` if not found.
+  """
+  virtualRoom_update(
+    """
+    The unique ID of the object.
+    """
+    id: UUID
+
+    """
+    The key used to identify the object.
+    """
+    key: VirtualRoom_Key
+
+    """
+    Fetch the first row based on the filters and ordering.
+    """
+    first: VirtualRoom_FirstRow
+
+    """
+    Data object containing fields to be updated.
+    """
+    data: VirtualRoom_Data!
+  ): VirtualRoom_KeyOutput @fdc_generated(from: "VirtualRoom", purpose: UPDATE_SINGLE)
+  """
+  ✨ Update `Conversation` objects matching `where` conditions (or `all`, if true) according to `data`. Returns the number of rows updated.
+  """
+  conversation_updateMany(
+    """
+    Filter condition to specify which rows to update.
+    """
+    where: Conversation_Filter
+
+    """
+    Set to true to update all rows.
+    """
+    all: Boolean = false
+
+    """
+    Data object containing fields to update.
+    """
+    data: Conversation_Data!
+  ): Int! @fdc_generated(from: "Conversation", purpose: UPDATE_MULTIPLE)
+  """
+  ✨ Update `Message` objects matching `where` conditions (or `all`, if true) according to `data`. Returns the number of rows updated.
+  """
+  message_updateMany(
+    """
+    Filter condition to specify which rows to update.
+    """
+    where: Message_Filter
+
+    """
+    Set to true to update all rows.
+    """
+    all: Boolean = false
+
+    """
+    Data object containing fields to update.
+    """
+    data: Message_Data!
+  ): Int! @fdc_generated(from: "Message", purpose: UPDATE_MULTIPLE)
+  """
+  ✨ Update `Participant` objects matching `where` conditions (or `all`, if true) according to `data`. Returns the number of rows updated.
+  """
+  participant_updateMany(
+    """
+    Filter condition to specify which rows to update.
+    """
+    where: Participant_Filter
+
+    """
+    Set to true to update all rows.
+    """
+    all: Boolean = false
+
+    """
+    Data object containing fields to update.
+    """
+    data: Participant_Data!
+  ): Int! @fdc_generated(from: "Participant", purpose: UPDATE_MULTIPLE)
+  """
+  ✨ Update `User` objects matching `where` conditions (or `all`, if true) according to `data`. Returns the number of rows updated.
+  """
+  user_updateMany(
+    """
+    Filter condition to specify which rows to update.
+    """
+    where: User_Filter
+
+    """
+    Set to true to update all rows.
+    """
+    all: Boolean = false
+
+    """
+    Data object containing fields to update.
+    """
+    data: User_Data!
+  ): Int! @fdc_generated(from: "User", purpose: UPDATE_MULTIPLE)
+  """
+  ✨ Update `VirtualRoom` objects matching `where` conditions (or `all`, if true) according to `data`. Returns the number of rows updated.
+  """
+  virtualRoom_updateMany(
+    """
+    Filter condition to specify which rows to update.
+    """
+    where: VirtualRoom_Filter
+
+    """
+    Set to true to update all rows.
+    """
+    all: Boolean = false
+
+    """
+    Data object containing fields to update.
+    """
+    data: VirtualRoom_Data!
+  ): Int! @fdc_generated(from: "VirtualRoom", purpose: UPDATE_MULTIPLE)
+  """
+  ✨ Delete a single `Conversation` based on `id`, `key` or `first` and return its key (or `null` if not found).
+  """
+  conversation_delete(
+    """
+    The unique ID of the object.
+    """
+    id: UUID
+
+    """
+    The key used to identify the object.
+    """
+    key: Conversation_Key
+
+    """
+    Fetch the first row based on the filters and ordering.
+    """
+    first: Conversation_FirstRow
+  ): Conversation_KeyOutput @fdc_generated(from: "Conversation", purpose: DELETE_SINGLE)
+  """
+  ✨ Delete a single `Message` based on `id`, `key` or `first` and return its key (or `null` if not found).
+  """
+  message_delete(
+    """
+    The unique ID of the object.
+    """
+    id: UUID
+
+    """
+    The key used to identify the object.
+    """
+    key: Message_Key
+
+    """
+    Fetch the first row based on the filters and ordering.
+    """
+    first: Message_FirstRow
+  ): Message_KeyOutput @fdc_generated(from: "Message", purpose: DELETE_SINGLE)
+  """
+  ✨ Delete a single `Participant` based on `id`, `key` or `first` and return its key (or `null` if not found).
+  """
+  participant_delete(
+    """
+    The unique ID of the object.
+    """
+    id: UUID
+
+    """
+    The key used to identify the object.
+    """
+    key: Participant_Key
+
+    """
+    Fetch the first row based on the filters and ordering.
+    """
+    first: Participant_FirstRow
+  ): Participant_KeyOutput @fdc_generated(from: "Participant", purpose: DELETE_SINGLE)
+  """
+  ✨ Delete a single `User` based on `id`, `key` or `first` and return its key (or `null` if not found).
+  """
+  user_delete(
+    """
+    The unique ID of the object.
+    """
+    id: UUID
+
+    """
+    The key used to identify the object.
+    """
+    key: User_Key
+
+    """
+    Fetch the first row based on the filters and ordering.
+    """
+    first: User_FirstRow
+  ): User_KeyOutput @fdc_generated(from: "User", purpose: DELETE_SINGLE)
+  """
+  ✨ Delete a single `VirtualRoom` based on `id`, `key` or `first` and return its key (or `null` if not found).
+  """
+  virtualRoom_delete(
+    """
+    The unique ID of the object.
+    """
+    id: UUID
+
+    """
+    The key used to identify the object.
+    """
+    key: VirtualRoom_Key
+
+    """
+    Fetch the first row based on the filters and ordering.
+    """
+    first: VirtualRoom_FirstRow
+  ): VirtualRoom_KeyOutput @fdc_generated(from: "VirtualRoom", purpose: DELETE_SINGLE)
+  """
+  ✨ Delete `Conversation` objects matching `where` conditions (or `all`, if true). Returns the number of rows deleted.
+  """
+  conversation_deleteMany(
+    """
+    Filter condition to specify which rows to delete.
+    """
+    where: Conversation_Filter
+
+    """
+    Set to true to delete all rows.
+    """
+    all: Boolean = false
+  ): Int! @fdc_generated(from: "Conversation", purpose: DELETE_MULTIPLE)
+  """
+  ✨ Delete `Message` objects matching `where` conditions (or `all`, if true). Returns the number of rows deleted.
+  """
+  message_deleteMany(
+    """
+    Filter condition to specify which rows to delete.
+    """
+    where: Message_Filter
+
+    """
+    Set to true to delete all rows.
+    """
+    all: Boolean = false
+  ): Int! @fdc_generated(from: "Message", purpose: DELETE_MULTIPLE)
+  """
+  ✨ Delete `Participant` objects matching `where` conditions (or `all`, if true). Returns the number of rows deleted.
+  """
+  participant_deleteMany(
+    """
+    Filter condition to specify which rows to delete.
+    """
+    where: Participant_Filter
+
+    """
+    Set to true to delete all rows.
+    """
+    all: Boolean = false
+  ): Int! @fdc_generated(from: "Participant", purpose: DELETE_MULTIPLE)
+  """
+  ✨ Delete `User` objects matching `where` conditions (or `all`, if true). Returns the number of rows deleted.
+  """
+  user_deleteMany(
+    """
+    Filter condition to specify which rows to delete.
+    """
+    where: User_Filter
+
+    """
+    Set to true to delete all rows.
+    """
+    all: Boolean = false
+  ): Int! @fdc_generated(from: "User", purpose: DELETE_MULTIPLE)
+  """
+  ✨ Delete `VirtualRoom` objects matching `where` conditions (or `all`, if true). Returns the number of rows deleted.
+  """
+  virtualRoom_deleteMany(
+    """
+    Filter condition to specify which rows to delete.
+    """
+    where: VirtualRoom_Filter
+
+    """
+    Set to true to delete all rows.
+    """
+    all: Boolean = false
+  ): Int! @fdc_generated(from: "VirtualRoom", purpose: DELETE_MULTIPLE)
+}

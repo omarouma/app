@@ -654,7 +654,6 @@ export default function FeedReelsViewer({ onClose }: FeedReelsViewerProps) {
                 {showComments.comments.length === 0 ? (
                   <p className="text-center text-[#8D8D8D] text-sm py-8">No comments yet</p>
                 ) : (
-                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
                   showComments.comments.map((comment: any) => (
                     <div key={comment.id || comment.userId + comment.timestamp} className="flex gap-3">
                       <img

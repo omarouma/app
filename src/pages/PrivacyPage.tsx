@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Eye, Lock, UserX, Users, Ban, Clock, Phone, Image, Camera } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
@@ -6,19 +5,34 @@ import { useUserSettings } from '@/store/useSettingsStore';
 import { useAuthStore } from '@/store/useAuthStore';
 import { isFirestoreAvailable } from '@/lib/firestore';
 import { toast } from 'sonner';
+import type { ThemeSettings } from '@/types';
+
+type PrivacyOpts = ThemeSettings['privacy'] & {
+  storyPrivacy?: 'everyone' | 'friends' | 'close_friends';
+  callPrivacy?: 'everyone' | 'friends' | 'nobody';
+  profilePhotoPrivacy?: 'everyone' | 'friends' | 'nobody';
+  whoCanSendRequests?: 'everyone' | 'friends_of_friends' | 'nobody';
+};
+// Helper to cast a privacy union back to the base shape for updateSettings
+const privacyForSettings = (p: PrivacyOpts): ThemeSettings['privacy'] => p as ThemeSettings['privacy'];
+type FriendRequestOpt = 'everyone' | 'friends_of_friends' | 'nobody';
+type OnlineOpt = 'everyone' | 'friends' | 'nobody';
+type StoryOpt = 'everyone' | 'friends' | 'close_friends';
 
 export default function PrivacyPage() {
   const navigate = useNavigate();
   const { settings, updateSettings } = useUserSettings();
   const { user, setUser } = useAuthStore();
 
-  const readReceipts = settings.privacy.readReceipts;
-  const lastSeenEnabled = settings.privacy.lastSeen !== 'nobody';
-  const profileVisible = settings.privacy.profileVisibility !== 'nobody';
-  const friendRequestPrivacy = (user?.friendRequestPrivacy || settings.privacy as any).whoCanSendRequests || 'everyone';
+  const privacy = settings.privacy as PrivacyOpts;
+
+  const readReceipts = privacy.readReceipts;
+  const lastSeenEnabled = privacy.lastSeen !== 'nobody';
+  const profileVisible = privacy.profileVisibility !== 'nobody';
+  const friendRequestPrivacy = (user?.friendRequestPrivacy || privacy.whoCanSendRequests) || 'everyone';
   const hideFriendList = user?.hideFriendList || false;
 
-  const syncPrivacyToDB = async (updates: Record<string, any>) => {
+  const syncPrivacyToDB = async (updates: Record<string, boolean | string>) => {
     if (!isFirestoreAvailable() || !user?.id) return;
     try {
       const { updateDocById } = await import('@/lib/firestore');
@@ -35,21 +49,21 @@ export default function PrivacyPage() {
       label: 'Read Receipts',
       desc: 'Let others see when you have read their messages',
       value: readReceipts,
-      onChange: (v: boolean) => updateSettings({ privacy: { ...settings.privacy, readReceipts: v } }),
+      onChange: (v: boolean) => updateSettings({ privacy: { ...privacy, readReceipts: v } }),
     },
     {
       icon: Clock,
       label: 'Last Seen',
       desc: 'Show when you were last online',
       value: lastSeenEnabled,
-      onChange: (v: boolean) => updateSettings({ privacy: { ...settings.privacy, lastSeen: v ? 'everyone' : 'nobody' } }),
+      onChange: (v: boolean) => updateSettings({ privacy: { ...privacy, lastSeen: v ? 'everyone' : 'nobody' } }),
     },
     {
       icon: UserX,
       label: 'Profile Visibility',
       desc: 'Show your profile to others',
       value: profileVisible,
-      onChange: (v: boolean) => updateSettings({ privacy: { ...settings.privacy, profileVisibility: v ? 'everyone' : 'nobody' } }),
+      onChange: (v: boolean) => updateSettings({ privacy: { ...privacy, profileVisibility: v ? 'everyone' : 'nobody' } }),
     },
   ];
 
@@ -87,12 +101,11 @@ export default function PrivacyPage() {
           </div>
         </div>
         <div className="flex gap-2">
-          {(['everyone', 'friends_of_friends', 'nobody'] as const).map(option => (
+          {(['everyone', 'friends_of_friends', 'nobody'] as FriendRequestOpt[]).map(option => (
             <button type="button" key={option}
               onClick={() => {
-                const val = option;
-                syncPrivacyToDB({ friend_request_privacy: val });
-                updateSettings({ privacy: { ...(settings.privacy as any), whoCanSendRequests: val } });
+                syncPrivacyToDB({ friend_request_privacy: option });
+                updateSettings({ privacy: { ...privacy, whoCanSendRequests: option } });
               }}
               className={`flex-1 py-2 rounded-lg text-xs font-medium capitalize transition-colors ${
                 friendRequestPrivacy === option
@@ -133,14 +146,14 @@ export default function PrivacyPage() {
           </div>
         </div>
         <div className="flex gap-2">
-          {(['everyone', 'friends', 'nobody'] as const).map(option => (
+          {(['everyone', 'friends', 'nobody'] as OnlineOpt[]).map(option => (
             <button type="button" key={option}
               onClick={() => {
-                updateSettings({ privacy: { ...settings.privacy, onlineStatus: option } });
+                updateSettings({ privacy: { ...privacy, onlineStatus: option } });
                 syncPrivacyToDB({ hide_online_status: option === 'nobody' });
               }}
               className={`flex-1 py-2 rounded-lg text-xs font-medium capitalize transition-colors ${
-                settings.privacy.onlineStatus === option
+                privacy.onlineStatus === option
                   ? 'bg-[#00C300] text-white'
                   : 'bg-[#F5F5F5] text-[#8D8D8D]'
               }`}
@@ -161,11 +174,11 @@ export default function PrivacyPage() {
           </div>
         </div>
         <div className="flex gap-2">
-          {(['everyone', 'friends', 'close_friends'] as const).map(option => (
+          {(['everyone', 'friends', 'close_friends'] as StoryOpt[]).map(option => (
             <button type="button" key={option}
-              onClick={() => updateSettings({ privacy: { ...(settings.privacy as any), storyPrivacy: option } })}
+onClick={() => updateSettings({ privacy: privacyForSettings({ ...privacy, storyPrivacy: option }) })}
               className={`flex-1 py-2 rounded-lg text-xs font-medium capitalize transition-colors ${
-                (settings.privacy as any).storyPrivacy === option
+                privacy.storyPrivacy === option
                   ? 'bg-[#00C300] text-white'
                   : 'bg-[#F5F5F5] text-[#8D8D8D]'
               }`}
@@ -186,11 +199,11 @@ export default function PrivacyPage() {
           </div>
         </div>
         <div className="flex gap-2">
-          {(['everyone', 'friends', 'nobody'] as const).map(option => (
+          {(['everyone', 'friends', 'nobody'] as OnlineOpt[]).map(option => (
             <button type="button" key={option}
-              onClick={() => updateSettings({ privacy: { ...(settings.privacy as any), callPrivacy: option } })}
+onClick={() => updateSettings({ privacy: privacyForSettings({ ...privacy, callPrivacy: option }) })}
               className={`flex-1 py-2 rounded-lg text-xs font-medium capitalize transition-colors ${
-                (settings.privacy as any).callPrivacy === option
+                privacy.callPrivacy === option
                   ? 'bg-[#00C300] text-white'
                   : 'bg-[#F5F5F5] text-[#8D8D8D]'
               }`}
@@ -211,11 +224,11 @@ export default function PrivacyPage() {
           </div>
         </div>
         <div className="flex gap-2">
-          {(['everyone', 'friends', 'nobody'] as const).map(option => (
+          {(['everyone', 'friends', 'nobody'] as OnlineOpt[]).map(option => (
             <button type="button" key={option}
-              onClick={() => updateSettings({ privacy: { ...(settings.privacy as any), profilePhotoPrivacy: option } })}
+onClick={() => updateSettings({ privacy: privacyForSettings({ ...privacy, profilePhotoPrivacy: option }) })}
               className={`flex-1 py-2 rounded-lg text-xs font-medium capitalize transition-colors ${
-                (settings.privacy as any).profilePhotoPrivacy === option
+                privacy.profilePhotoPrivacy === option
                   ? 'bg-[#00C300] text-white'
                   : 'bg-[#F5F5F5] text-[#8D8D8D]'
               }`}

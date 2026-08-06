@@ -9,6 +9,7 @@ import {
 } from '@/lib/firestore';
 import type { AppNotification } from '@/types';
 import { where, orderBy } from '@/lib/firestore';
+import { withAutoReconnect } from '@/lib/reconnectStrategy';
 
 
 type FirestoreTimestamp = { toDate: () => Date };
@@ -46,16 +47,14 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
   subscribe: (userId: string) => {
     if (!userId) {
       set({ notifications: [], unreadCount: 0, loading: false });
-      return () => {};
+return () => {};
     }
 
     set({ loading: true });
 
-
-    let unsub: (() => void) | null = null;
-    try {
-      unsub = subscribeToCollection(COLLECTIONS.NOTIFICATIONS, [
-        where('userId', '==', userId),
+    const subscribeFn = (uid: string) =>
+      subscribeToCollection(COLLECTIONS.NOTIFICATIONS, [
+        where('userId', '==', uid),
         orderBy('timestamp', 'desc'),
       ], (data) => {
         const notifications: AppNotification[] = (data || []).map((d: Record<string, unknown>) => {
@@ -96,11 +95,13 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
           loading: false,
         });
       });
-    } catch {
-      set({ notifications: [], unreadCount: 0, loading: false });
-    }
 
-    return () => { if (unsub) unsub(); };
+    // Wrap with auto-reconnect so the notification stream stays live even after
+    // transient network drops or realtime channel disconnects.
+    const withReconnect = withAutoReconnect(subscribeFn, { maxRetries: 12 });
+    const handle = withReconnect(userId);
+
+    return () => { handle.unsubscribe(); };
   },
 
   markRead: async (notifId: string) => {

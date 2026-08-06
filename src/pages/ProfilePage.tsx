@@ -1,16 +1,17 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   ArrowLeft, Settings, Edit3, Share2, Camera, Check, X,
   MapPin, Link2, Mail, Phone, Users, Heart, Image, BadgeCheck,
-  Copy, QrCode,
+  Copy, QrCode, Loader,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useFriendStore } from '@/store/useFriendStore';
 import { buildGagaChatWebUrl, getDefaultAvatar, sanitizeMediaUrl } from '@/lib/utils';
-import { isFirestoreAvailable, COLLECTIONS, updateDocById } from '@/lib/firestore';
+import { isFirestoreAvailable, COLLECTIONS, updateDocById, getDocById } from '@/lib/firestore';
 import { toast } from 'sonner';
+import type { User } from '@/types';
 
 export default function ProfilePage() {
   const { userId: paramUserId } = useParams<{ userId?: string }>();
@@ -19,7 +20,22 @@ export default function ProfilePage() {
   const { friends } = useFriendStore();
 
   const isOwnProfile = !paramUserId || paramUserId === user?.id;
-  const displayUser = isOwnProfile ? user : null;
+  const [otherUser, setOtherUser] = useState<User | null>(null);
+  const [loadingOther, setLoadingOther] = useState(false);
+
+  useEffect(() => {
+    if (isOwnProfile || !paramUserId) return;
+    const friend = friends.find(f => f.id === paramUserId);
+    if (friend) { setOtherUser(friend as User); return; }
+    if (!isFirestoreAvailable()) return;
+    setLoadingOther(true);
+    getDocById(COLLECTIONS.USERS, paramUserId)
+      .then(data => { if (data) setOtherUser(data as User); })
+      .catch(() => {})
+      .finally(() => setLoadingOther(false));
+  }, [isOwnProfile, paramUserId, friends]);
+
+  const displayUser = isOwnProfile ? user : otherUser;
 
   // Edit state
   const [editing, setEditing] = useState(false);
@@ -109,7 +125,9 @@ export default function ProfilePage() {
   if (!displayUser) {
     return (
       <div className="min-h-[100dvh] bg-[#F5F5F5] flex items-center justify-center">
-        <p className="text-[#8D8D8D] text-sm">Profile not found</p>
+        {loadingOther
+          ? <Loader size={28} className="animate-spin text-[#00C300]" />
+          : <p className="text-[#8D8D8D] text-sm">Profile not found</p>}
       </div>
     );
   }

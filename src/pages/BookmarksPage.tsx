@@ -9,7 +9,7 @@ import { getDefaultAvatar } from '@/lib/utils';
 export default function BookmarksPage() {
   const navigate = useNavigate();
   const { user } = useAuthStore();
-  const { savedPosts, loadingSaved, getSavedPosts, bookmarkCollections, createCollection } = useEnhancedTimelineStore();
+const { savedPosts, loading: loadingSaved, getSavedPosts, bookmarkCollections, createCollection } = useEnhancedTimelineStore();
   const [search, setSearch] = useState('');
   const [activeCollection, setActiveCollection] = useState<string | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);

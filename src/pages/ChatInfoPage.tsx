@@ -212,7 +212,20 @@ export default function ChatInfoPage() {
       setUnlockPinError('No PIN configured.');
       return;
     }
-    if (unlockPinInput !== chat.lockValue) {
+    const storedPin = chat.lockValue;
+    const pin = unlockPinInput;
+    let matched: boolean;
+    if (storedPin.length === 64) {
+      try {
+        const encoder = new TextEncoder();
+        const hashBuffer = await crypto.subtle.digest('SHA-256', encoder.encode(pin));
+        const hex = Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
+        matched = hex.length === storedPin.length && [...hex].every((c, i) => c === storedPin[i]);
+      } catch { matched = false; }
+    } else {
+      matched = pin.length === storedPin.length && [...pin].every((c, i) => c === storedPin[i]);
+    }
+    if (!matched) {
       setUnlockPinError('Incorrect PIN. Please try again.');
       return;
     }
@@ -444,7 +457,7 @@ export default function ChatInfoPage() {
               ) : (
                 <div className="space-y-1">
                   {linkMessages.map(m => {
-                    const url = m.content.match(/https?:\/\/\S+/)?.[0] || m.content;
+                    const url = m.content.match(/https?:\/\/\S+/)?.[0] ?? m.content;
                     return (
                       <a
                         key={m.id}

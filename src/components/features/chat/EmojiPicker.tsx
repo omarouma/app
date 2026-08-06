@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 
 const RECENT_KEY = 'emoji_recent';
 const MAX_RECENT = 16;
@@ -27,14 +27,8 @@ interface EmojiPickerProps {
 }
 
 export function EmojiPicker({ onEmojiSelect }: EmojiPickerProps) {
-  const [activeTab, setActiveTab] = useState('Smileys');
-  const [recentEmojis, setRecentEmojis] = useState<string[]>([]);
-
-  useEffect(() => {
-    const recent = getRecentEmojis();
-    setRecentEmojis(recent);
-    if (recent.length > 0) setActiveTab('Recent');
-  }, []);
+  const [recentEmojis, setRecentEmojis] = useState<string[]>(() => getRecentEmojis());
+  const [activeTab, setActiveTab] = useState<string>(() => getRecentEmojis().length > 0 ? 'Recent' : 'Smileys');
 
   const handleSelect = (emoji: string) => {
     addRecentEmoji(emoji);

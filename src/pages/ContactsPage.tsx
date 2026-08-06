@@ -14,11 +14,9 @@ import { useContacts } from '@/hooks/useContacts';
 import EmptyState from '@/components/EmptyState';
 import LoadingSkeleton from '@/components/LoadingSkeleton';
 import { getDefaultAvatar, sanitizeMediaUrl, formatTime } from '@/lib/utils';
-import { queryCollection, COLLECTIONS } from '@/lib/firestore';
-import { where, limit } from '@/lib/firestore';
-import type { User } from '@/types';
+import { getFunctions, httpsCallable } from 'firebase/functions';
 import { toast } from 'sonner';
-import { isFirestoreAvailable } from '@/lib/firestore';
+import type { User } from '@/types';
 
 interface PhoneContact {
   id: string;
@@ -125,24 +123,58 @@ export default function ContactsPage() {
     if (refreshTimeoutRef.current) clearTimeout(refreshTimeoutRef.current);
   }, []);
 
-  const matchRunRef = useRef(0);
+  const userId = user?.id;
+
+  const findContactsOnGaga = useCallback(async () => {
+    if (!phoneContacts.length || !userId) return;
+    setLoadingContactMatch(true);
+
+    try {
+      const functions = getFunctions();
+      const matchContacts = httpsCallable(functions, 'matchContacts');
+      const result = await matchContacts({ contacts: phoneContacts });
+      const { matchedUsers } = result.data as { matchedUsers: User[] };
+
+      const matches = matchedUsers.filter((u: User) => u.id !== userId);
+
+      const matched: MatchedContact[] = [];
+      const matchedContactIds = new Set<string>();
+
+      matches.forEach((u: User) => {
+        const userEmail = u.email || '';
+        const userPhone = (u.phone || '').replace(/[^\d]/g, '');
+        const matchingContact = phoneContacts.find((c) =>
+          (c.email && c.email === userEmail) ||
+          (c.phone && c.phone.replace(/[^\d]/g, '') === userPhone)
+        );
+        if (matchingContact) {
+          matched.push({ contact: matchingContact, user: u });
+          matchedContactIds.add(matchingContact.id);
+        }
+      });
+
+      setMatchedContacts(matched);
+      setUnmatchedContacts(phoneContacts.filter((c) => !matchedContactIds.has(c.id)));
+
+      if (matched.length > 0) {
+        toast.success(`Found ${matched.length} contact${matched.length > 1 ? 's' : ''} on GaGa Chat!`);
+      }
+    } catch (err) {
+      console.error('[Contacts] Match error', err);
+      toast.error('Could not match contacts.');
+    }
+
+    setLoadingContactMatch(false);
+  }, [phoneContacts, userId]);
 
   const handleRefresh = useCallback(() => {
     if (!userIdRef.current || refreshing) return;
-    matchRunRef.current += 1;
-
     setRefreshing(true);
-    setLoadingContactMatch(true);
     setMatchedContacts([]);
     setUnmatchedContacts([]);
-
     refreshTimeoutRef.current = setTimeout(() => setRefreshing(false), 1200);
-
-    // Trigger match run by nudging friends array effect without directly setting state.
-    // Using a state-less approach would require a ref + external scheduler; instead,
-    // we re-run matching from the dedicated effects below.
-  }, [refreshing]);
-
+    queueMicrotask(() => { void findContactsOnGaga(); });
+  }, [refreshing, findContactsOnGaga]);
 
   const handleMessage = async (friendId: string) => {
     if (!user?.id) return;
@@ -179,101 +211,15 @@ export default function ContactsPage() {
 
   useEffect(() => {
     if (rawContacts.length === 0) return;
-    // Avoid sync setState cascades by deferring to next frame.
-    const t = setTimeout(() => {
-      parseImportedContacts();
-    }, 0);
+    const t = setTimeout(() => { parseImportedContacts(); }, 0);
     return () => clearTimeout(t);
   }, [rawContacts, parseImportedContacts]);
-
-  const userId = user?.id;
-  const friendIdsRef = useRef<Set<string>>(new Set());
-
-  const findContactsOnGaga = useCallback(async () => {
-
-    if (!phoneContacts.length || !userId) return;
-    setLoadingContactMatch(true);
-
-    const phoneSet = new Set<string>();
-    phoneContacts.forEach((c) => {
-      if (c.phone) phoneSet.add(c.phone.replace(/[^\d]/g, ''));
-    });
-    const emails = phoneContacts.map((c) => c.email).filter(Boolean) as string[];
-
-    try {
-      if (isFirestoreAvailable() && (phoneSet.size > 0 || emails.length > 0)) {
-        const foundUsers: User[] = [];
-
-        const emailQueries = emails.slice(0, 10).map(async (e: string) => {
-          try {
-            const data = await queryCollection(COLLECTIONS.USERS, [where('email', '==', e), limit(1)]);
-            return data;
-          } catch { return []; }
-        });
-
-        // Query by phone prefix (Firestore range query)
-        const phoneQueries = Array.from(phoneSet).slice(0, 10).map(async (p: string) => {
-          try {
-            const data = await queryCollection(COLLECTIONS.USERS, [
-              where('phone', '>=', p),
-              where('phone', '<=', p + '\uf8ff'),
-              limit(10),
-            ]);
-            return data;
-          } catch { return []; }
-        });
-
-        const results = await Promise.all([...emailQueries, ...phoneQueries]);
-        results.forEach((arr) => foundUsers.push(...arr));
-
-        const uniqueUsers = Array.from(new Map(foundUsers.map((u: User) => [u.id, u])).values());
-        // Include all found users (friends show "Message", non-friends show "Add")
-        const matches = uniqueUsers.filter((u: User) => u.id !== userId);
-
-        // Build matched contacts
-        const matched: MatchedContact[] = [];
-        const matchedContactIds = new Set<string>();
-
-        matches.forEach((u: User) => {
-          const userEmail = u.email || '';
-          const userPhone = (u.phone || '').replace(/[^\d]/g, '');
-          const matchingContact = phoneContacts.find((c) =>
-            (c.email && c.email === userEmail) ||
-            (c.phone && c.phone.replace(/[^\d]/g, '') === userPhone)
-          );
-          if (matchingContact) {
-            matched.push({ contact: matchingContact, user: u });
-            matchedContactIds.add(matchingContact.id);
-          }
-        });
-
-        setMatchedContacts(matched);
-        setUnmatchedContacts(phoneContacts.filter((c) => !matchedContactIds.has(c.id)));
-
-        if (matched.length > 0) {
-          toast.success(`Found ${matched.length} contact${matched.length > 1 ? 's' : ''} on GaGa Chat!`);
-        }
-      }
-    } catch {
-      console.error('[Contacts] Match error');
-    }
-
-    setLoadingContactMatch(false);
-  }, [phoneContacts, userId]);
-
-
-  // Re-run contact matching when friends list changes
-  // Use a microtask to avoid the “setState in effect” cascading-render lint rule.
+  const prevFriendKeyRef = useRef('');
   useEffect(() => {
-    const newIds = new Set(friends.map((f) => f.id));
-    const prevIds = friendIdsRef.current;
-    const changed = newIds.size !== prevIds.size || [...newIds].some(id => !prevIds.has(id));
-    friendIdsRef.current = newIds;
-
-    if (changed && phoneContacts.length > 0) {
-      queueMicrotask(() => {
-        void findContactsOnGaga();
-      });
+    const key = friends.map((f) => f.id).sort().join(',');
+    if (key !== prevFriendKeyRef.current && phoneContacts.length > 0) {
+      prevFriendKeyRef.current = key;
+      queueMicrotask(() => { void findContactsOnGaga(); });
     }
   }, [friends, phoneContacts.length, findContactsOnGaga]);
 
@@ -321,12 +267,6 @@ export default function ContactsPage() {
     }
   };
 
-  // Re-run matching when friends list updates
-  // (No setState here: UI friend/add buttons already react to realtime `friends` store.)
-  const prevFriendCountRef = useRef(friends.length);
-  useEffect(() => {
-    prevFriendCountRef.current = friends.length;
-  }, [friends.length]);
 
   const handleMessageFromContact = async (matchedUserId: string) => {
     if (!user?.id) return;

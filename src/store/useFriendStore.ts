@@ -17,6 +17,21 @@ import type { User, FriendRequest, FriendStatus, SentRequest, BlockedUserRecord,
 import { where, orderBy, limit } from '@/lib/firestore';
 import { toast } from 'sonner';
 
+type FirestoreTimestamp = { toDate: () => Date };
+function isFirestoreTs(v: unknown): v is FirestoreTimestamp {
+  return typeof v === 'object' && v !== null && 'toDate' in v;
+}
+function toDate(raw: unknown): Date {
+  if (isFirestoreTs(raw)) return raw.toDate();
+  if (raw) return new Date(raw as string | number | Date);
+  return new Date();
+}
+function toDateOrNull(raw: unknown): Date | null {
+  if (isFirestoreTs(raw)) return raw.toDate();
+  if (raw) return new Date(raw as string | number | Date);
+  return null;
+}
+
 interface BroadcastListData {
   id: string;
   userId: string;
@@ -27,12 +42,20 @@ interface BroadcastListData {
 
 interface FriendStore {
   friends: User[];
+  friendMap: Map<string, User>;
   requests: FriendRequest[];
   sentRequests: SentRequest[];
   blockedUsers: BlockedUserRecord[];
+  loading: {
+    friends: boolean;
+    sentRequests: boolean;
+    blocked: boolean;
+  };
   loadingFriends: boolean;
   loadingSentRequests: boolean;
   loadingBlocked: boolean;
+
+  
   
   subscribeFriends: (userId: string) => () => void;
   subscribeSentRequests: (userId: string) => () => void;
@@ -78,9 +101,7 @@ const mapUser = (u: Record<string, unknown>): User => ({
   coverImage: (u.coverImage as string) || '',
   status: (u.status as string) || 'offline',
   statusMessage: (u.statusMessage as string) || '',
-  lastSeen: u.lastSeen && typeof u.lastSeen === 'object' && 'toDate' in u.lastSeen
-    ? (u.lastSeen as { toDate: () => Date }).toDate()
-    : u.lastSeen ? new Date(u.lastSeen as string) : null,
+  lastSeen: toDateOrNull(u.lastSeen),
   coins: (u.coins as number) || 0,
   bdtBalance: (u.bdtBalance as number) || 0,
   savedPosts: (u.savedPosts as string[]) || [],
@@ -130,17 +151,26 @@ const batchFetchUsers = async (ids: string[]): Promise<User[]> => {
 
 export const useFriendStore = create<FriendStore>((set, get) => ({
   friends: [],
+  friendMap: new Map(),
   requests: [],
   sentRequests: [],
   blockedUsers: [],
+loading: {
+    friends: true,
+    sentRequests: false,
+    blocked: false,
+  },
   loadingFriends: true,
   loadingSentRequests: false,
   loadingBlocked: false,
 
   subscribeSentRequests: (userId: string) => {
     if (!isFirestoreAvailable()) return () => {};
-    set({ loadingSentRequests: true });
-    if (!userId) { set({ loadingSentRequests: false }); return () => {}; }
+    set((state) => ({ loading: { ...state.loading, sentRequests: true } }));
+    if (!userId) {
+      set((state) => ({ loading: { ...state.loading, sentRequests: false } }));
+      return () => {};
+    }
     let unsub: (() => void) | null = null;
     try {
       unsub = subscribeToCollection(
@@ -156,14 +186,14 @@ export const useFriendStore = create<FriendStore>((set, get) => ({
             toUserId: d.toUserId as string,
             status: d.status as SentRequest['status'],
             toUser: profileMap[d.toUserId as string] || undefined,
-            timestamp: (d.createdAt && typeof d.createdAt === 'object' && 'toDate' in d.createdAt)
-              ? (d.createdAt as { toDate: () => Date }).toDate()
-              : new Date((d.createdAt ?? d.timestamp) as string),
+            timestamp: toDate(d.createdAt ?? d.timestamp),
           }));
-          set({ sentRequests, loadingSentRequests: false });
+          set((state) => ({ sentRequests, loading: { ...state.loading, sentRequests: false } }));
         },
       );
-    } catch { set({ loadingSentRequests: false }); }
+    } catch {
+      set((state) => ({ loading: { ...state.loading, sentRequests: false } }));
+    }
     return () => { if (unsub) unsub(); };
   },
 
@@ -223,7 +253,16 @@ export const useFriendStore = create<FriendStore>((set, get) => ({
             .map((f: Record<string, unknown>) => f.friendId as string)
             .filter(Boolean);
           const friends = await batchFetchUsers(friendIds);
-          set({ friends, loadingFriends: false });
+          const friendMap = new Map(friends.map((f) => [f.id, f]));
+
+          set((state) => {
+            const currentIds = state.friends.map((f) => f.id).join(',');
+            const newIds = friends.map((f) => f.id).join(',');
+            if (currentIds === newIds) {
+              return { friendMap, loadingFriends: false };
+            }
+            return { friends, friendMap, loadingFriends: false };
+          });
         },
       );
 

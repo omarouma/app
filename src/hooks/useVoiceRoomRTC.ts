@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import {
   isFirestoreAvailable,
+  COLLECTIONS,
   addDocToSubcollection,
   querySubcollection,
   where,
@@ -121,8 +122,8 @@ export function useVoiceRoomRTC(roomId: string, userId: string) {
             to: targetUserId,
             candidate: JSON.stringify(event.candidate.toJSON()),
           });
-        } else if (isFirestoreAvailable()) {
-          await addDocToSubcollection('voiceRooms', roomId, 'signals', {
+} else if (isFirestoreAvailable()) {
+          await addDocToSubcollection(COLLECTIONS.VOICE_ROOMS, roomId, 'signals', {
             type: 'ice-candidate',
             from: userId,
             to: targetUserId,
@@ -162,8 +163,8 @@ export function useVoiceRoomRTC(roomId: string, userId: string) {
         to: targetUserId,
         sdp: offer.sdp,
       });
-    } else if (isFirestoreAvailable()) {
-      await addDocToSubcollection('voiceRooms', roomId, 'signals', {
+} else if (isFirestoreAvailable()) {
+      await addDocToSubcollection(COLLECTIONS.VOICE_ROOMS, roomId, 'signals', {
         type: 'offer',
         from: userId,
         to: targetUserId,
@@ -206,8 +207,8 @@ export function useVoiceRoomRTC(roomId: string, userId: string) {
           to: from,
           sdp: answer.sdp,
         });
-      } else if (isFirestoreAvailable()) {
-        await addDocToSubcollection('voiceRooms', roomId, 'signals', {
+} else if (isFirestoreAvailable()) {
+        await addDocToSubcollection(COLLECTIONS.VOICE_ROOMS, roomId, 'signals', {
           type: 'answer',
           from: userId,
           to: from,
@@ -270,7 +271,7 @@ export function useVoiceRoomRTC(roomId: string, userId: string) {
 
     const pollSignals = async () => {
       try {
-        const signals = await querySubcollection('voiceRooms', roomId, 'signals', [
+const signals = await querySubcollection(COLLECTIONS.VOICE_ROOMS, roomId, 'signals', [
           where('timestamp', '>', Date.now() - 30000),
           where('to', '==', userId),
         ]);

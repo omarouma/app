@@ -1,6 +1,7 @@
 import { memo, useState, useCallback, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { Search, X, Loader, TrendingUp, Smile } from 'lucide-react';
+import env from '@/config/env';
 
 // Default sticker packs
 const DEFAULT_STICKERS = [
@@ -38,7 +39,7 @@ const CATEGORIES = [
 ];
 
 // GIF API — key should be set via environment variable
-const GIF_API_KEY = import.meta.env.VITE_TENOR_API_KEY || '';
+const GIF_API_KEY = env.VITE_TENOR_API_KEY || '';
 const GIF_API_URL = 'https://tenor.googleapis.com/v2/search';
 
 interface StickerPickerProps {
@@ -243,4 +244,3 @@ export const StickerPicker = memo(function StickerPicker({ onSelect, onClose }: 
     </motion.div>
   );
 });
-

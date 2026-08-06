@@ -121,7 +121,7 @@ export default function PWAPrompt() {
               </div>
               <div className="space-y-4">
                 {[
-                  { step: 1, text: <>Tap the <Share size={14} className="inline text-blue-500 mx-1" /> <strong>Share</strong> button in Safari</> },
+{ step: 1, text: <>Tap the <Share size={14} className="inline text-[#00C300] mx-1" /> <strong>Share</strong> button in Safari</> },
                   { step: 2, text: <>Scroll down and tap <strong>"Add to Home Screen"</strong></> },
                   { step: 3, text: <>Tap <strong>"Add"</strong> to install GaGa Chat</> },
                 ].map(({ step, text }) => (

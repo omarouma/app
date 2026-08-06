@@ -6,7 +6,7 @@ import {
   TrendingUp,ChevronRight, Radio, Headphones
 } from 'lucide-react';
 import { useAuthStore } from '@/store/useAuthStore';
-import { useVoiceRoomStore } from '@/store/useVoiceRoomStore';
+import { useVoiceRoomStore, type VoiceRoom } from '@/store/useVoiceRoomStore';
 import { useFriendStore } from '@/store/useFriendStore';
 import { getDefaultAvatar } from '@/lib/utils';
 import EmptyState from '@/components/EmptyState';
@@ -306,8 +306,7 @@ export default function VoiceRoomsPage() {
   );
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function RoomCard({ room, onJoin }: { room: any; onJoin: () => void }) {
+function RoomCard({ room, onJoin }: { room: VoiceRoom; onJoin: () => void }) {
   return (
     <button
       type="button"

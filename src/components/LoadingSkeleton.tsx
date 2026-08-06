@@ -1,11 +1,12 @@
 import { motion } from 'framer-motion';
+import { memo } from 'react';
 
 interface LoadingSkeletonProps {
   count?: number;
   variant?: 'list' | 'chat' | 'card' | 'profile';
 }
 
-export default function LoadingSkeleton({ count = 3, variant = 'list' }: LoadingSkeletonProps) {
+function LoadingSkeleton({ count = 3, variant = 'list' }: LoadingSkeletonProps) {
   if (variant === 'chat') {
     return (
       <div className="p-4 space-y-4">
@@ -85,3 +86,4 @@ export default function LoadingSkeleton({ count = 3, variant = 'list' }: Loading
     </div>
   );
 }
+export default memo(LoadingSkeleton);

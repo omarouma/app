@@ -64,8 +64,10 @@ export default function LiveStreamsPage() {
       .split(/[,\s]+/)
       .map((t) => t.trim().replace(/^#/, ''))
       .filter(Boolean);
-    const streamId = await startLive(user.id, {
+const streamId = await startLive(user.id, {
       title: newTitle.trim(),
+      userName: user.name || 'Streamer',
+      userAvatar: user.avatar || '',
       category: newCategory,
       hashtags: hashtags.length ? hashtags : undefined,
     });

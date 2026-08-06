@@ -47,36 +47,39 @@ export default function DesktopContactsView() {
     return match;
   }), [friends, search, tab, user?.favorites]);
 
+const currentUserId = user?.id;
+  const userFavorites = user?.favorites;
+
   const handleBlock = useCallback(async (friendId: string) => {
-    if (!user?.id) return;
+    if (!currentUserId) return;
     try {
-      await blockUser(friendId, user.id);
+      await blockUser(friendId, currentUserId);
       toast.success('User blocked');
       setActionMenu(null);
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : 'Failed to block user');
     }
-  }, [user?.id, blockUser]);
+  }, [currentUserId, blockUser]);
 
-  const handleRemoveFriend = useCallback(async (friendId: string) => {
-    if (!user?.id) return;
+const handleRemoveFriend = useCallback(async (friendId: string) => {
+    if (!currentUserId) return;
     try {
-      await removeFriend(friendId, user.id);
+      await removeFriend(friendId, currentUserId);
       toast.success('Friend removed');
       setActionMenu(null);
     } catch {
       toast.error('Failed to remove friend');
     }
-  }, [user?.id, removeFriend]);
+  }, [currentUserId, removeFriend]);
 
-  const handleToggleFavorite = useCallback(async (friendId: string) => {
-    if (!user?.id) return;
+const handleToggleFavorite = useCallback(async (friendId: string) => {
+    if (!currentUserId) return;
     try {
-      await toggleFavorite(friendId, user.id, user.favorites || []);
+      await toggleFavorite(friendId, currentUserId, userFavorites || []);
     } catch {
       toast.error('Failed to update favorites');
     }
-  }, [user?.id, user?.favorites, toggleFavorite]);
+  }, [currentUserId, userFavorites, toggleFavorite]);
 
   const handleCancel = useCallback(async (requestId: string) => {
     try {
@@ -87,15 +90,15 @@ export default function DesktopContactsView() {
     }
   }, [cancelRequest]);
 
-  const handleUnblock = useCallback(async (blockedId: string) => {
-    if (!user?.id) return;
+const handleUnblock = useCallback(async (blockedId: string) => {
+    if (!currentUserId) return;
     try {
-      await unblockUser(blockedId, user.id);
+      await unblockUser(blockedId, currentUserId);
       toast.success('User unblocked');
     } catch {
       toast.error('Failed to unblock user');
     }
-  }, [user?.id, unblockUser]);
+  }, [currentUserId, unblockUser]);
 
   const tabLabels = {
     all: `All (${friends.length})`,

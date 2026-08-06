@@ -1,4 +1,5 @@
 import { getSupabaseSafe } from './supabase';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import type { User } from '@/types';
 
 export async function getCurrentUser(): Promise<User | null> {
@@ -113,6 +114,53 @@ export function onAuthStateChange(callback: (user: User | null) => void) {
   return () => data.subscription.unsubscribe();
 }
 
+/**
+ * Real-time subscription to a user's profile row.
+ *
+ * Keeps the global auth/user state in sync whenever the `users` row changes
+ * (name, avatar, status, premium, coins, privacy settings, etc.) — not just on
+ * login/logout. Works across tabs because it uses Supabase Realtime.
+ *
+ * @returns an unsubscribe function.
+ */
+export function subscribeToUserProfile(
+  userId: string,
+  onUser: (user: User | null) => void,
+): () => void {
+  const supabase = getSupabaseSafe();
+  if (!supabase || !userId) return () => {};
+
+  let channel: ReturnType<SupabaseClient['channel']> | null = null;
+  let disposed = false;
+
+  const emit = async () => {
+    const user = await fetchUserProfile(userId);
+    if (!disposed) onUser(user);
+  };
+
+  // Initial fetch so we have a value immediately even before realtime connects.
+  void emit();
+
+  channel = supabase
+    .channel(`users:profile:${userId}`)
+    .on(
+      'postgres_changes',
+      { event: 'UPDATE', schema: 'public', table: 'users', filter: `id=eq.${userId}` },
+      () => {
+        void emit();
+      },
+    )
+    .subscribe();
+
+  return () => {
+    disposed = true;
+    if (channel) {
+      try { supabase.removeChannel(channel); } catch { /* ignore */ }
+      channel = null;
+    }
+  };
+}
+
 export async function signIn(
   email: string,
   password: string,
@@ -203,7 +251,7 @@ export async function signUpWithPhone(
   const supabase = getSupabaseSafe();
   if (!supabase) return { success: false, error: 'Supabase not configured' };
 
-  // Use phone as email prefix so Supabase auth (email-based) still works
+// Use phone as email prefix so Supabase auth (email-based) still works
   const syntheticEmail = `${phone.replace(/\D/g, '')}@phone.gagachat.app`;
   const displayName = name || `User${phone.slice(-4)}`;
 
@@ -217,7 +265,12 @@ export async function signUpWithPhone(
     } catch { /* ignore */ }
   }
 
-  return { ...result, needsEmailVerification: false };
+  return {
+    ...result,
+    // Phone accounts are immediately usable regardless of email verification
+    // on the synthetic email, so we don't force a verification step.
+    needsEmailVerification: false,
+  };
 }
 
 export async function sendMagicLink(

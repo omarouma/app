@@ -69,7 +69,7 @@ const mapMessage = (d: Record<string, unknown>): Message => {
     content: (d.content as string) || '',
     type: ((d.type as MessageType) || 'text') as MessageType,
     mediaUrl: (d.mediaUrl as string) || '',
-    timestamp: toDate(d.createdAt ?? d.timestamp),
+    timestamp: toDate(d.createdAt),
     read: (d.read as boolean) || false,
     edited: (d.edited as boolean) || false,
     replyTo: (d.replyTo as string) || undefined,
@@ -97,7 +97,7 @@ const mapChat = (d: Record<string, unknown>): Chat => ({
   avatar: (d.avatar as string) || '',
   lastMessage: (d.lastMessage as string) || '',
   lastMessageSenderId: (d.lastMessageSenderId as string) || '',
-  lastMessageRead: (d.lastMessageRead as boolean) || false,
+
   updatedAt: (d.updatedAt as string) || '',
   unreadCount: (d.unreadCount as number) || 0,
   isMuted: (d.isMuted as boolean) || false,
@@ -119,12 +119,17 @@ interface ChatStore {
   messages: Record<string, Message[]>;
   loadingChats: boolean;
   hasMore: Record<string, boolean>;
+  totalUnread: number;
+
+  fetchChats: (userId?: string) => Promise<void>;
+  addMessage: (message: Message) => void;
   subscribeChats: (userId: string) => () => void;
-  subscribeMessages: (chatId: string) => () => void;
+  subscribeMessages: (chatId: string, limit?: number) => () => void;
   sendMessage: (chatId: string, senderId: string, content: string, type?: string, mediaUrl?: string, replyTo?: Message | string) => Promise<void>;
   editMessage: (chatId: string, messageId: string, content: string) => Promise<void>;
   deleteMessage: (chatId: string, messageId: string) => Promise<void>;
   deleteForEveryone: (chatId: string, messageId: string) => Promise<void>;
+  recallMessage: (chatId: string, messageId: string) => Promise<void>;
   addReaction: (chatId: string, messageId: string, emoji: string, userId: string) => Promise<void>;
   markAsRead: (chatId: string, currentUserId?: string) => Promise<void>;
   createDirectChat: (userId: string, currentUserId: string) => Promise<Chat | null>;
@@ -162,6 +167,18 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   messages: {},
   loadingChats: false,
   hasMore: {},
+  totalUnread: 0,
+
+  fetchChats: async (_userId?: string) => {
+    // no-op: real-time data loaded via subscribeChats
+  },
+
+  addMessage: (message: Message) => {
+    const { chatId } = message;
+    set((s) => ({
+      messages: { ...s.messages, [chatId]: [...(s.messages[chatId] ?? []), message] },
+    }));
+  },
 
   subscribeChats: (userId: string) => {
     if (!isFirestoreAvailable()) {
@@ -176,37 +193,40 @@ export const useChatStore = create<ChatStore>((set, get) => ({
 
     // Real-time subscription
     let unsub: (() => void) | null = null;
-    try {
-      unsub = subscribeToCollection(COLLECTIONS.CHATS, [where('participants', 'array-contains', userId), orderBy('updatedAt', 'desc')], (data) => {
-        const allChats: Chat[] = [];
-        const archived: Chat[] = [];
-        (data || []).forEach((d) => {
-          const chat = mapChat(d);
-          if (d.archived) archived.push(chat);
-          else allChats.push(chat);
+    const subscribe = () => {
+      try {
+        unsub = subscribeToCollection(COLLECTIONS.CHATS, [where('participants', 'array-contains', userId), orderBy('updatedAt', 'desc')], (data) => {
+          const allChats: Chat[] = [];
+          const archived: Chat[] = [];
+          (data || []).forEach((d) => {
+            const chat = mapChat(d);
+            if (d.archived) archived.push(chat);
+            else allChats.push(chat);
+          });
+          const totalUnread = allChats.reduce((sum, c) => sum + (c.unreadCount || 0), 0);
+          set({ chats: allChats, archivedChats: archived, loadingChats: false, totalUnread });
         });
-        set({ chats: allChats, archivedChats: archived, loadingChats: false });
-      });
-    } catch {
-      set({ loadingChats: false });
-    }
+      } catch (err) {
+        console.error("Failed to subscribe to chats, retrying in 5s:", err);
+        setTimeout(subscribe, 5000);
+      }
+    };
+
+    subscribe();
 
     return () => { if (unsub) unsub(); };
   },
 
-  subscribeMessages: (chatId: string) => {
+  subscribeMessages: (chatId: string, initialLimit = 100) => {
     if (!chatId) return () => {};
 
     let unsub: (() => void) | null = null;
     try {
-      // Fetch newest-first (bounded by limit) then reverse for chronological UI.
-      // This keeps the subscription window on the *most recent* messages and avoids
-      // unbounded growth on long-lived chats. Optimistic local messages are preserved.
       unsub = subscribeToSubcollection(
         COLLECTIONS.CHATS,
         chatId,
         COLLECTIONS.MESSAGES,
-        [orderBy('createdAt', 'desc'), limit(100)],
+        [orderBy('createdAt', 'desc'), limit(initialLimit)],
         (data) => {
           const raw = data || [];
           set((s) => {
@@ -215,7 +235,6 @@ export const useChatStore = create<ChatStore>((set, get) => ({
             const seenIds = new Set<string>();
             const seenLocalIds = new Set<string>();
 
-            // Server messages come back newest-first from the query → reverse for display
             for (let i = raw.length - 1; i >= 0; i--) {
               const m = mapMessage(raw[i]);
               if (seenIds.has(m.id)) continue;
@@ -224,7 +243,6 @@ export const useChatStore = create<ChatStore>((set, get) => ({
               merged.push(m);
             }
 
-            // Preserve optimistic local messages that haven't been confirmed yet
             for (const m of existing) {
               if (m.localId && !seenLocalIds.has(m.localId) && !seenIds.has(m.id)) {
                 merged.push(m);
@@ -234,7 +252,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
 
             return {
               messages: { ...s.messages, [chatId]: merged },
-              hasMore: { ...s.hasMore, [chatId]: raw.length >= 100 },
+              hasMore: { ...s.hasMore, [chatId]: raw.length >= initialLimit },
             };
           });
         },
@@ -323,7 +341,6 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         await updateDocById(COLLECTIONS.CHATS, chatId, {
           lastMessage: content,
           lastMessageSenderId: senderId,
-          lastMessageRead: false,
           updatedAt: serverTimestamp(),
           ...(otherParticipants.length > 0 ? { unreadCount: increment(1) } : {}),
         });
@@ -403,19 +420,42 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     }
   },
 
+  recallMessage: async (chatId, messageId) => {
+    if (!isFirestoreAvailable()) return;
+    try {
+      await updateSubcollectionDoc(COLLECTIONS.CHATS, chatId, COLLECTIONS.MESSAGES, messageId, {
+        type: 'recalled',
+        content: 'This message has been recalled',
+        edited: true,
+      });
+    } catch (error) {
+      console.error("Failed to recall message:", error);
+      toast.error("Failed to recall message. Please try again.");
+    }
+  },
+
   addReaction: async (_chatId, messageId, emoji, userId) => {
     if (!isFirestoreAvailable()) return;
     try {
       if (!userId) return;
-      // Direct lookup by message ID
-      const found = await getDocById(`${COLLECTIONS.CHATS}/${_chatId}/${COLLECTIONS.MESSAGES}`, messageId);
-      if (!found) return;
-      const reactions = (found.reactions as Record<string, string[]>) || {};
+      // Optimistic update from in-memory state first
+      const existing = get().messages[_chatId]?.find((m) => m.id === messageId);
+      const reactions: Record<string, string[]> = existing
+        ? JSON.parse(JSON.stringify(existing.reactions || {}))
+        : {};
       const users = reactions[emoji] || [];
-      // Toggle: remove if already reacted, add if not
       reactions[emoji] = users.includes(userId)
         ? users.filter((id) => id !== userId)
         : [...users, userId];
+      // Optimistic UI update
+      set((s) => ({
+        messages: {
+          ...s.messages,
+          [_chatId]: (s.messages[_chatId] ?? []).map((m) =>
+            m.id === messageId ? { ...m, reactions } : m
+          ),
+        },
+      }));
       await updateSubcollectionDoc(COLLECTIONS.CHATS, _chatId, COLLECTIONS.MESSAGES, messageId, { reactions });
     } catch {
       return;
@@ -649,7 +689,13 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     if (!isFirestoreAvailable()) return;
     try {
       if (!chatId || !messageId || !userId) return;
-      const msg = await getDocById(`${COLLECTIONS.CHATS}/${chatId}/${COLLECTIONS.MESSAGES}`, messageId);
+      // Use in-memory state first, fall back to DB query
+      const inMem = get().messages[chatId]?.find((m) => m.id === messageId);
+      const found = inMem ? [inMem as unknown as Record<string, unknown>] : await querySubcollection(COLLECTIONS.CHATS, chatId, COLLECTIONS.MESSAGES, [
+        where('id', '==', messageId),
+        limit(1),
+      ]);
+      const msg = found?.[0];
       if (!msg || !msg.pollData) return;
       const pollData = msg.pollData as { question: string; options: string[]; votes: Record<string, string[]>; totalVotes: number };
       Object.keys(pollData.votes).forEach((key) => {
@@ -776,7 +822,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     if (!isFirestoreAvailable()) return null;
     try {
       const msgs = await querySubcollection(COLLECTIONS.CHATS, chatId, COLLECTIONS.MESSAGES, [
-        orderBy('timestamp', 'asc'),
+        orderBy('createdAt', 'asc'),
       ]);
       const chat = await getDocById(COLLECTIONS.CHATS, chatId);
       const exportData = {
@@ -817,7 +863,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         types.map((type) =>
           querySubcollection(COLLECTIONS.CHATS, chatId, COLLECTIONS.MESSAGES, [
             where('type', '==', type),
-            orderBy('timestamp', 'desc'),
+            orderBy('createdAt', 'desc'),
             limit(50),
           ])
         )

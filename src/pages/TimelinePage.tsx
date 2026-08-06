@@ -11,9 +11,9 @@ import { useFriendStore } from '@/store/useFriendStore';
 import { useReelStore } from '@/store/useReelStore';
 import {
   isFirestoreAvailable, COLLECTIONS, addDocToCollection,
-  updateDocById, deleteDocById, subscribeToCollection, serverTimestamp
+  updateDocById, deleteDocById, subscribeToCollection, serverTimestamp,
+  where, orderBy, limit, startAfter, queryCollection
 } from '@/lib/firestore';
-import { where, orderBy, limit, startAfter, queryCollection } from '@/lib/firestore';
 import TimelineCard from '@/components/features/timeline/TimelineCard';
 import EmptyState from '@/components/EmptyState';
 import LoadingSkeleton from '@/components/LoadingSkeleton';

@@ -1,78 +1,61 @@
 /*
-  Database router: uses Supabase when configured, falls back to Firebase Firestore.
-  
-  This file exports the same interface as both supabaseDb.ts and firestoreLegacy.ts,
-  so stores and pages don't need to change their imports.
+  Database router: Supabase is the primary and only backend.
+  All stores/pages import from here and get a uniform interface.
 */
-/* eslint-disable @typescript-eslint/no-explicit-any */
-
 import * as supabaseDb from './supabaseDb';
-import * as firestoreLegacy from './firestoreLegacy';
 
-// Resolve backend once at module load — Supabase is the primary backend.
-// Firebase is kept as fallback only when Supabase is NOT configured.
-const IS_SUPABASE = supabaseDb.isSupabaseAvailable();
-const db = IS_SUPABASE ? supabaseDb : firestoreLegacy;
+export const COLLECTIONS = supabaseDb.COLLECTIONS;
+export const isFirestoreAvailable = supabaseDb.isSupabaseAvailable;
+export const getDb = supabaseDb.getDb;
+export const serverTimestamp = supabaseDb.serverTimestamp;
+export const increment = supabaseDb.increment;
+export const arrayUnion = supabaseDb.arrayUnion;
+export const arrayRemove = supabaseDb.arrayRemove;
+export const batchWrite = supabaseDb.batchWrite;
+export const Timestamp = supabaseDb.Timestamp;
+export const where = supabaseDb.where;
+export const orderBy = supabaseDb.orderBy;
+export const limit = supabaseDb.limit;
+export const startAfter = supabaseDb.startAfter;
 
-// Export the same interface regardless of backend
-export const COLLECTIONS = db.COLLECTIONS;
-export const isFirestoreAvailable = IS_SUPABASE
-  ? supabaseDb.isSupabaseAvailable
-  : firestoreLegacy.isFirestoreAvailable;
-export const getDb = db.getDb;
-export const serverTimestamp = db.serverTimestamp;
-export const increment = db.increment;
-export const arrayUnion = db.arrayUnion;
-export const arrayRemove = db.arrayRemove;
-export const batchWrite = db.batchWrite;
-export const Timestamp = db.Timestamp;
-export const where = db.where;
-export const orderBy = db.orderBy;
-export const limit = db.limit;
-export const startAfter = db.startAfter;
-
-export type QueryConstraint = any;
+export type QueryConstraint = import('./supabaseDb').QueryConstraint;
 export type TimestampLike = Date | string;
 
-export async function getDocById<T = any>(collectionName: string, docId: string): Promise<(T & { id: string }) | null> {
-  return IS_SUPABASE
-    ? supabaseDb.getDocById<T>(collectionName, docId)
-    : firestoreLegacy.getDocById<T>(collectionName, docId);
+export async function getDocById<T = any>(
+  collectionName: string,
+  docId: string,
+): Promise<(T & { id: string }) | null> {
+  return supabaseDb.getDocById<T>(collectionName, docId);
 }
 
-export async function setDocById(collectionName: string, docId: string, data: any, merge = true) {
-  return IS_SUPABASE
-    ? supabaseDb.setDocById(collectionName, docId, data, merge)
-    : firestoreLegacy.setDocById(collectionName, docId, data, merge);
+export async function setDocById(
+  collectionName: string,
+  docId: string,
+  data: any,
+  merge = true,
+) {
+  return supabaseDb.setDocById(collectionName, docId, data, merge);
 }
 
 export async function updateDocById(collectionName: string, docId: string, data: any) {
-  return IS_SUPABASE
-    ? supabaseDb.updateDocById(collectionName, docId, data)
-    : firestoreLegacy.updateDocById(collectionName, docId, data);
+  return supabaseDb.updateDocById(collectionName, docId, data);
 }
 
 export async function deleteDocById(collectionName: string, docId: string) {
-  return IS_SUPABASE
-    ? supabaseDb.deleteDocById(collectionName, docId)
-    : firestoreLegacy.deleteDocById(collectionName, docId);
+  return supabaseDb.deleteDocById(collectionName, docId);
 }
 
 export async function addDocToCollection(collectionName: string, data: any): Promise<string> {
-  return IS_SUPABASE
-    ? supabaseDb.addDocToCollection(collectionName, data)
-    : firestoreLegacy.addDocToCollection(collectionName, data);
+  return supabaseDb.addDocToCollection(collectionName, data);
 }
 
 export async function addDocToSubcollection(
   parentCollection: string,
   parentId: string,
   subcollectionName: string,
-  data: any
+  data: any,
 ) {
-  return IS_SUPABASE
-    ? supabaseDb.addDocToSubcollection(parentCollection, parentId, subcollectionName, data)
-    : firestoreLegacy.addDocToSubcollection(parentCollection, parentId, subcollectionName, data);
+  return supabaseDb.addDocToSubcollection(parentCollection, parentId, subcollectionName, data);
 }
 
 export async function updateSubcollectionDoc(
@@ -80,55 +63,79 @@ export async function updateSubcollectionDoc(
   parentId: string,
   subcollectionName: string,
   subDocId: string,
-  data: any
+  data: any,
 ) {
-  return IS_SUPABASE
-    ? supabaseDb.updateSubcollectionDoc(parentCollection, parentId, subcollectionName, subDocId, data)
-    : firestoreLegacy.updateSubcollectionDoc(parentCollection, parentId, subcollectionName, subDocId, data);
+  return supabaseDb.updateSubcollectionDoc(
+    parentCollection,
+    parentId,
+    subcollectionName,
+    subDocId,
+    data,
+  );
 }
 
 export async function deleteSubcollectionDoc(
   parentCollection: string,
   parentId: string,
   subcollectionName: string,
-  subDocId: string
+  subDocId: string,
 ) {
-  return IS_SUPABASE
-    ? supabaseDb.deleteSubcollectionDoc(parentCollection, parentId, subcollectionName, subDocId)
-    : firestoreLegacy.deleteSubcollectionDoc(parentCollection, parentId, subcollectionName, subDocId);
+  return supabaseDb.deleteSubcollectionDoc(
+    parentCollection,
+    parentId,
+    subcollectionName,
+    subDocId,
+  );
 }
 
-export async function queryCollection<T = any>(collectionName: string, constraints: any[]): Promise<(T & { id: string })[]> {
-  return IS_SUPABASE
-    ? supabaseDb.queryCollection<T>(collectionName, constraints)
-    : firestoreLegacy.queryCollection<T>(collectionName, constraints);
+export async function queryCollection<T = any>(
+  collectionName: string,
+  constraints: any[],
+): Promise<(T & { id: string })[]> {
+  return supabaseDb.queryCollection<T>(collectionName, constraints);
 }
 
 export async function querySubcollection<T = any>(
   parentCollection: string,
   parentId: string,
   subcollectionName: string,
-  constraints: any[]
+  constraints: any[],
 ) {
-  return IS_SUPABASE
-    ? supabaseDb.querySubcollection<T>(parentCollection, parentId, subcollectionName, constraints)
-    : firestoreLegacy.querySubcollection<T>(parentCollection, parentId, subcollectionName, constraints);
+  return supabaseDb.querySubcollection<T>(parentCollection, parentId, subcollectionName, constraints);
 }
 
-export function subscribeToDoc(collectionName: string, docId: string, onData: (data: any) => void) {
-  return IS_SUPABASE
-    ? supabaseDb.subscribeToDoc(collectionName, docId, onData)
-    : firestoreLegacy.subscribeToDoc(collectionName, docId, onData);
+export function subscribeToDoc(
+  collectionName: string,
+  docId: string,
+  onData: (data: any) => void,
+  onError?: (error: Error) => void,
+) {
+  const onDataCallback = (data: any) => {
+    try {
+      onData(data);
+    } catch (err) {
+      console.error('Error in onData callback:', err);
+      if (onError) onError(err as Error);
+    }
+  };
+  return supabaseDb.subscribeToDoc(collectionName, docId, onDataCallback);
 }
 
 export function subscribeToCollection<T = any>(
   collectionName: string,
   constraints: any[],
-  onData: (data: (T & { id: string })[]) => void
+  onData: (data: (T & { id: string })[]) => void,
+  onError?: (error: Error) => void,
 ) {
-  return IS_SUPABASE
-    ? supabaseDb.subscribeToCollection<T>(collectionName, constraints, onData)
-    : firestoreLegacy.subscribeToCollection<T>(collectionName, constraints, onData);
+  const onDataCallback = (data: (T & { id: string })[]) => {
+    try {
+      onData(data);
+    } catch (err) {
+      console.error('Error in onData callback:', err);
+      if (onError) onError(err as Error);
+    }
+  };
+  return supabaseDb.subscribeToCollection<T>(collectionName, constraints, onDataCallback);
 }
 
 export function subscribeToSubcollection<T = any>(
@@ -136,26 +143,35 @@ export function subscribeToSubcollection<T = any>(
   parentId: string,
   subcollectionName: string,
   constraints: any[],
-  onData: (data: (T & { id: string })[]) => void
+  onData: (data: (T & { id: string })[]) => void,
+  onError?: (error: Error) => void,
 ) {
-  return IS_SUPABASE
-    ? supabaseDb.subscribeToSubcollection<T>(parentCollection, parentId, subcollectionName, constraints, onData)
-    : firestoreLegacy.subscribeToSubcollection<T>(parentCollection, parentId, subcollectionName, constraints, onData);
+  const onDataCallback = (data: (T & { id: string })[]) => {
+    try {
+      onData(data);
+    } catch (err) {
+      console.error('Error in onData callback:', err);
+      if (onError) onError(err as Error);
+    }
+  };
+  return supabaseDb.subscribeToSubcollection<T>(
+    parentCollection,
+    parentId,
+    subcollectionName,
+    constraints,
+    onDataCallback,
+  );
 }
 
 export async function batchDelete(
   arg1: string | { collection: string; docId: string }[],
-  arg2?: any[]
+  arg2?: any[],
 ): Promise<void> {
-  return IS_SUPABASE
-    ? supabaseDb.batchDelete(arg1, arg2)
-    : (firestoreLegacy.batchDelete as any)(arg1, arg2);
+  return supabaseDb.batchDelete(arg1, arg2);
 }
 
 export function fromFirestoreDate(d: any): Date | null {
-  return IS_SUPABASE
-    ? supabaseDb.fromFirestoreDate(d)
-    : firestoreLegacy.fromFirestoreDate(d);
+  return supabaseDb.fromFirestoreDate(d);
 }
 
 export function updateSubcollectionDocSafe(
@@ -163,19 +179,23 @@ export function updateSubcollectionDocSafe(
   parentId: string,
   subcollectionName: string,
   subDocId: string,
-  data: any
+  data: any,
 ) {
-  return IS_SUPABASE
-    ? supabaseDb.updateSubcollectionDocSafe(parentCollection, parentId, subcollectionName, subDocId, data)
-    : firestoreLegacy.updateSubcollectionDocSafe(parentCollection, parentId, subcollectionName, subDocId, data);
+  return supabaseDb.updateSubcollectionDocSafe(
+    parentCollection,
+    parentId,
+    subcollectionName,
+    subDocId,
+    data,
+  );
 }
 
 export async function getDbSafe() {
-  return IS_SUPABASE ? supabaseDb.getDbSafe() : firestoreLegacy.getDbSafe();
+  return supabaseDb.getDbSafe();
 }
 
-export async function runDbTransaction<T>(updateFn: (transaction: any) => Promise<T>): Promise<T> {
-  return IS_SUPABASE
-    ? supabaseDb.runDbTransaction<T>(updateFn)
-    : firestoreLegacy.runDbTransaction<T>(updateFn);
+export async function runDbTransaction<T>(
+  updateFn: (transaction: any) => Promise<T>,
+): Promise<T> {
+  return supabaseDb.runDbTransaction<T>(updateFn);
 }

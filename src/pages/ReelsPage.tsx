@@ -187,13 +187,13 @@ export default function ReelsPage() {
     return () => window.removeEventListener('keydown', handler);
   }, [activeIndex, displayReels.length]);
 
-  // Show demo reels when no real reels and not loading
-  const demoReels = useRef(generateDemoReels(12));
+  // Show demo reels when no real reels and not loading (memoized — avoids ref access during render)
+  const demoReels = useMemo(() => generateDemoReels(12), []);
   const effectiveReels = useMemo(
     () => !loading && !searchMode && displayReels.length === 0 && !searchingExternal
-      ? demoReels.current
+      ? demoReels
       : displayReels,
-    [loading, searchMode, displayReels, searchingExternal]
+    [loading, searchMode, displayReels, searchingExternal, demoReels]
   );
 
   // Infinite scroll + active index tracking
@@ -360,12 +360,12 @@ export default function ReelsPage() {
   const isLiked = useCallback((reel: Reel) => {
     if (localLiked[reel.id] !== undefined) return localLiked[reel.id];
     return user?.id ? reel.likes.includes(user.id) : false;
-  }, [localLiked, user?.id]);
+  }, [localLiked, user]);
 
   const isSaved = useCallback((reel: Reel) => {
     if (localSaved[reel.id] !== undefined) return localSaved[reel.id];
     return user?.id ? reel.savedBy.includes(user.id) : false;
-  }, [localSaved, user?.id]);
+  }, [localSaved, user]);
 
   return (
     <div className="h-full flex flex-col bg-black relative">
@@ -544,7 +544,7 @@ export default function ReelsPage() {
                 preload={reelIndex <= activeIndex + 2 ? 'auto' : 'metadata'}
                 className="absolute inset-0 w-full h-full object-cover"
                 poster={reel.thumbnailUrl}
-                style={{ filter: filters[(reel as { filter?: string }).filter || 'none'] || '' }}
+                style={{ filter: filters[(reel as Reel & { filter?: keyof typeof filters }).filter || 'none'] || '' }}
               />
             ) : (
               <div className="absolute inset-0 bg-gradient-to-br from-[#1a1a1a] to-[#0d0d0d] flex items-center justify-center">
@@ -594,6 +594,7 @@ export default function ReelsPage() {
 
             {/* Mute toggle */}
             <button type="button" onClick={() => setMuted(!muted)}
+              aria-label={muted ? 'Unmute' : 'Mute'}
               className="absolute bottom-36 right-3 z-20 p-2 rounded-full bg-black/40 text-white"
             >
               {muted ? <VolumeX size={18} /> : <Volume2 size={18} />}
@@ -623,7 +624,7 @@ export default function ReelsPage() {
               </div>
 
               {/* Like */}
-              <button type="button" onClick={() => handleLike(reel)} className="flex flex-col items-center gap-0.5">
+              <button type="button" onClick={() => handleLike(reel)} aria-label={isLiked(reel) ? 'Unlike' : 'Like'} className="flex flex-col items-center gap-0.5">
                 <Heart
                   size={28}
                   className={isLiked(reel) ? 'text-red-500 fill-red-500' : 'text-white'}
@@ -634,13 +635,13 @@ export default function ReelsPage() {
               </button>
 
               {/* Comment */}
-              <button type="button" onClick={() => setShowComments(reel)} className="flex flex-col items-center gap-0.5">
+              <button type="button" onClick={() => setShowComments(reel)} aria-label="Comments" className="flex flex-col items-center gap-0.5">
                 <MessageCircle size={28} className="text-white" />
                 <span className="text-white text-xs font-medium">{reel.comments.length}</span>
               </button>
 
               {/* Save */}
-              <button type="button" onClick={() => handleSave(reel)} className="flex flex-col items-center gap-0.5">
+              <button type="button" onClick={() => handleSave(reel)} aria-label={isSaved(reel) ? 'Unsave' : 'Save'} className="flex flex-col items-center gap-0.5">
                 <Bookmark
                   size={28}
                   className={isSaved(reel) ? 'text-[#00C300] fill-[#00C300]' : 'text-white'}
@@ -648,25 +649,25 @@ export default function ReelsPage() {
               </button>
 
               {/* Share */}
-              <button type="button" onClick={() => handleShare(reel)} className="flex flex-col items-center gap-0.5">
+              <button type="button" onClick={() => handleShare(reel)} aria-label="Share" className="flex flex-col items-center gap-0.5">
                 <Share2 size={28} className="text-white" />
                 <span className="text-white text-xs font-medium">{reel.shares.length}</span>
               </button>
 
               {/* Download */}
-              <button type="button" onClick={() => handleDownload(reel)} className="flex flex-col items-center gap-0.5">
+              <button type="button" onClick={() => handleDownload(reel)} aria-label="Download" className="flex flex-col items-center gap-0.5">
                 <Download size={28} className="text-white" />
                 <span className="text-white text-xs font-medium">Save</span>
               </button>
 
               {/* Insights */}
-              <button type="button" onClick={() => handleInsights(reel)} className="flex flex-col items-center gap-0.5">
+              <button type="button" onClick={() => handleInsights(reel)} aria-label="View insights" className="flex flex-col items-center gap-0.5">
                 <BarChart3 size={28} className="text-white" />
                 <span className="text-white text-xs font-medium">{reel.viewCount.toLocaleString()}</span>
               </button>
 
               {/* More */}
-              <button type="button" className="text-white">
+              <button type="button" aria-label="More options" className="text-white">
                 <MoreHorizontal size={24} />
               </button>
             </div>

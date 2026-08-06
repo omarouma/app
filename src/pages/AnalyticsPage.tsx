@@ -106,7 +106,7 @@ export default function AnalyticsPage() {
 
   const stats = [
     { label: 'Followers', value: data.totalFollowers, icon: Users, color: '#00C300' },
-    { label: 'Total Views', value: data.totalViews, icon: Eye, color: '#3b82f6' },
+{ label: 'Total Views', value: data.totalViews, icon: Eye, color: '#00C300' },
     { label: 'Engagement', value: `${data.engagementRate.toFixed(1)}%`, icon: TrendingUp, color: '#a855f7' },
     { label: 'Posts', value: data.totalPosts, icon: BarChart3, color: '#f59e0b' },
     { label: 'Likes', value: data.totalLikes, icon: ThumbsUp, color: '#ef4444' },

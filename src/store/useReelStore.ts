@@ -1,5 +1,4 @@
-﻿/* eslint-disable @typescript-eslint/no-explicit-any */
-import { create } from 'zustand';
+﻿import { create } from 'zustand';
 import {
   isFirestoreAvailable,
   COLLECTIONS,
@@ -141,12 +140,29 @@ export const useReelStore = create<ReelStore>((set, get) => ({
     }
   },
 
-  likeReel: async (reelId, userId) => {
+likeReel: async (reelId, userId) => {
     if (!isFirestoreAvailable()) return;
     try {
       await updateDocById(COLLECTION_REELS, reelId, {
         likes: arrayUnion(userId),
       });
+      // Notify the reel owner in real-time (skip if liking your own reel)
+      try {
+        const reel = await getDocById(COLLECTION_REELS, reelId);
+        if (reel && reel.userId !== userId) {
+          const actor = await getDocById(COLLECTIONS.USERS, userId);
+          const actorName = (actor?.name as string) || 'Someone';
+          await addDocToCollection(COLLECTIONS.NOTIFICATIONS, {
+            userId: reel.userId,
+            type: 'post_like',
+            title: 'New Reel Like',
+            body: `${actorName} liked your reel`,
+            read: false,
+            data: { reelId, fromUserId: userId, actorName },
+            timestamp: serverTimestamp(),
+          });
+        }
+      } catch { /* notification failure is non-fatal */ }
     } catch (err) {
       console.error('likeReel error:', err);
       toast.error('Failed to like reel');
@@ -180,11 +196,26 @@ export const useReelStore = create<ReelStore>((set, get) => ({
         userAvatar: user?.avatar || '',
         likes: [],
       };
-      const reel = await getDocById(COLLECTION_REELS, reelId);
+const reel = await getDocById(COLLECTION_REELS, reelId);
       if (!reel) return;
       const comments = (reel.comments as any[]) || [];
       await updateDocById(COLLECTION_REELS, reelId, { comments: [...comments, comment] });
       toast.success('Comment added');
+      // Notify the reel owner in real-time (skip if commenting on your own reel)
+      try {
+        if (reel.userId !== userId) {
+          const actorName = (user?.name as string) || 'Someone';
+          await addDocToCollection(COLLECTIONS.NOTIFICATIONS, {
+            userId: reel.userId,
+            type: 'comment',
+            title: 'New Reel Comment',
+            body: `${actorName} commented: ${content.slice(0, 60)}${content.length > 60 ? '...' : ''}`,
+            read: false,
+            data: { reelId, fromUserId: userId, actorName },
+            timestamp: serverTimestamp(),
+          });
+        }
+      } catch { /* notification failure is non-fatal */ }
     } catch (err) {
       console.error('commentOnReel error:', err);
       toast.error('Failed to add comment');

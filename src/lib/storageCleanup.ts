@@ -1,5 +1,12 @@
+import {
+  safeGetStorageItem,
+  safeSetStorageItem,
+  safeRemoveStorageItem,
+  safeGetAllStorageKeys,
+} from './safeStorage';
+
 /**
- * Cleans up stale localStorage/sessionStorage entries to prevent bloat.
+ * Cleans up stale localStorage entries to prevent bloat.
  * Called once on app startup (non-blocking).
  */
 export function runStorageCleanup(): void {
@@ -7,43 +14,60 @@ export function runStorageCleanup(): void {
     const now = Date.now();
     const DAY = 86_400_000;
 
-    // Remove chat drafts older than 7 days
-    const draftKeys = Object.keys(localStorage).filter((k) => k.startsWith('chat_draft_'));
-    for (const key of draftKeys) {
-      try {
-        const val = localStorage.getItem(key);
-        if (!val) { localStorage.removeItem(key); continue; }
-        // Drafts are plain strings — remove if key is stale (no timestamp available, cap at 50 drafts)
-        if (draftKeys.length > 50) localStorage.removeItem(key);
-      } catch { /* ignore */ }
+    // Remove chat drafts — cap at 50 total
+    const draftKeys = safeGetAllStorageKeys().filter((k) => k.startsWith('chat_draft_'));
+    if (draftKeys.length > 50) {
+      draftKeys.slice(0, draftKeys.length - 50).forEach((k) => safeRemoveStorageItem(k));
     }
 
-    // Remove expired reel drafts
+    // Remove expired reel draft (older than 1 day)
     try {
-      const reelDraft = localStorage.getItem('gaga_reel_draft');
+      const reelDraft = safeGetStorageItem('gaga_reel_draft');
       if (reelDraft) {
         const parsed = JSON.parse(reelDraft) as { savedAt?: number };
-        if (parsed.savedAt && now - parsed.savedAt > DAY) localStorage.removeItem('gaga_reel_draft');
+        if (parsed.savedAt && now - parsed.savedAt > DAY) safeRemoveStorageItem('gaga_reel_draft');
       }
     } catch { /* ignore */ }
 
-    // Remove stale SW version key if very old (> 30 days)
-    try {
-      const swVer = localStorage.getItem('gaga_sw_last_version');
-      if (!swVer) localStorage.removeItem('gaga_sw_last_version');
-    } catch { /* ignore */ }
-
     // Remove scheduled messages older than 7 days
-    const schedKeys = Object.keys(localStorage).filter((k) => k.startsWith('scheduled_msgs_'));
-    for (const key of schedKeys) {
-      try {
-        const raw = localStorage.getItem(key);
-        if (!raw) { localStorage.removeItem(key); continue; }
+    // Key matches useScheduledMessages.ts: 'gaga_scheduled_messages'
+    try {
+      const raw = safeGetStorageItem('gaga_scheduled_messages');
+      if (raw) {
         const msgs = JSON.parse(raw) as Array<{ scheduledAt?: number }>;
         const fresh = msgs.filter((m) => m.scheduledAt && m.scheduledAt > now - 7 * DAY);
-        if (fresh.length === 0) localStorage.removeItem(key);
-        else if (fresh.length !== msgs.length) localStorage.setItem(key, JSON.stringify(fresh));
-      } catch { localStorage.removeItem(key); }
-    }
-  } catch { /* ignore — storage may be unavailable */ }
+        if (fresh.length === 0) safeRemoveStorageItem('gaga_scheduled_messages');
+        else if (fresh.length !== msgs.length) safeSetStorageItem('gaga_scheduled_messages', JSON.stringify(fresh));
+      }
+    } catch { safeRemoveStorageItem('gaga_scheduled_messages'); }
+
+    // Remove offline queue entries older than 7 days
+    // Key matches useOfflineQueue.ts: 'gaga-message-queue'
+    try {
+      const raw = safeGetStorageItem('gaga-message-queue');
+      if (raw) {
+        const msgs = JSON.parse(raw) as Array<{ timestamp?: number; syncStatus?: string }>;
+        const fresh = msgs.filter(
+          (m) => m.syncStatus !== 'failed' || (m.timestamp && m.timestamp > now - 7 * DAY)
+        );
+        if (fresh.length !== msgs.length) safeSetStorageItem('gaga-message-queue', JSON.stringify(fresh));
+      }
+    } catch { /* ignore */ }
+
+    // Prune localStorage media fallback entries older than 7 days
+    try {
+      const raw = safeGetStorageItem('gaga_media_fallback');
+      if (raw) {
+        const store = JSON.parse(raw) as Record<string, { createdAt?: number }>;
+        let changed = false;
+        for (const [id, entry] of Object.entries(store)) {
+          if (entry.createdAt && now - entry.createdAt > 7 * DAY) {
+            delete store[id];
+            changed = true;
+          }
+        }
+        if (changed) safeSetStorageItem('gaga_media_fallback', JSON.stringify(store));
+      }
+    } catch { /* ignore */ }
+  } catch { /* storage may be unavailable */ }
 }

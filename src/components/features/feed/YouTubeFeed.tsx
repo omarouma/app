@@ -169,8 +169,8 @@ export default function YouTubeFeed() {
       <div className="shrink-0 px-4 pt-3 pb-2 border-b border-[#1a1a1a] space-y-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${videoSource === 'youtube' ? 'bg-red-600/20' : 'bg-blue-600/20'}`}>
-              {videoSource === 'youtube' ? <Youtube size={18} className="text-red-500" /> : <Video size={18} className="text-blue-500" />}
+            <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${videoSource === 'youtube' ? 'bg-red-600/20' : 'bg-green-600/20'}`}>
+              {videoSource === 'youtube' ? <Youtube size={18} className="text-red-500" /> : <Video size={18} className="text-green-500" />}
             </div>
             <div>
               <h2 className="text-sm font-semibold text-white">Videos</h2>
@@ -186,7 +186,7 @@ export default function YouTubeFeed() {
                 YouTube
               </button>
               <button type="button" onClick={() => setVideoSource('pexels')}
-                className={`px-2 py-1 rounded-md text-xs font-medium transition-all ${videoSource === 'pexels' ? 'bg-blue-600 text-white' : 'text-[#8D8D8D] hover:text-white'}`}>
+                className={`px-2 py-1 rounded-md text-xs font-medium transition-all ${videoSource === 'pexels' ? 'bg-green-600 text-white' : 'text-[#8D8D8D] hover:text-white'}`}>
                 Pexels
               </button>
             </div>
@@ -332,7 +332,7 @@ export default function YouTubeFeed() {
                     <div className="relative w-28 shrink-0 aspect-video bg-black">
                       <img src={item.thumbnail} alt={item.title} className="w-full h-full object-cover" loading="lazy" />
                       <div className="absolute inset-0 bg-black/30 group-hover:bg-black/10 transition-colors flex items-center justify-center">
-                        <div className={`w-8 h-8 rounded-full flex items-center justify-center ${item.source === 'youtube' ? 'bg-red-600/80' : 'bg-blue-600/80'}`}>
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center ${item.source === 'youtube' ? 'bg-red-600/80' : 'bg-green-600/80'}`}>
                           <Play size={14} className="text-white fill-white ml-0.5" />
                         </div>
                       </div>
@@ -380,7 +380,7 @@ export default function YouTubeFeed() {
                     <div className="relative w-28 shrink-0 aspect-video bg-black">
                       <img src={video.thumbnail} alt={video.title} className="w-full h-full object-cover" loading="lazy" />
                       <div className="absolute inset-0 bg-black/30 group-hover:bg-black/10 transition-colors flex items-center justify-center">
-                        <div className={`w-8 h-8 rounded-full flex items-center justify-center ${isYouTubeVideo(video) ? 'bg-red-600/80' : 'bg-blue-600/80'}`}>
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center ${isYouTubeVideo(video) ? 'bg-red-600/80' : 'bg-green-600/80'}`}>
                           <Play size={14} className="text-white fill-white ml-0.5" />
                         </div>
                       </div>

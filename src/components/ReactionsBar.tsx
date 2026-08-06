@@ -13,7 +13,7 @@ interface ReactionsBarProps {
 }
 
 const REACTION_CONFIG: { key: keyof PostReactions; emoji: string; label: string; color: string; icon: typeof Heart }[] = [
-  { key: 'like', emoji: '👍', label: 'Like', color: '#3b82f6', icon: ThumbsUp },
+{ key: 'like', emoji: '👍', label: 'Like', color: '#00C300', icon: ThumbsUp },
   { key: 'love', emoji: '❤️', label: 'Love', color: '#ef4444', icon: Heart },
   { key: 'haha', emoji: '😂', label: 'Haha', color: '#f59e0b', icon: Laugh },
   { key: 'wow', emoji: '😮', label: 'Wow', color: '#a855f7', icon: Zap },

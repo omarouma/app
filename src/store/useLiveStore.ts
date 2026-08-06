@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { create } from 'zustand';
 import {
   isFirestoreAvailable,
@@ -19,6 +18,21 @@ import { where, orderBy, limit } from '@/lib/firestore';
 import { toast } from 'sonner';
 import type { LiveStream, LiveComment, LiveGift, LiveReactions } from '@/types';
 
+type FirestoreTimestamp = { toDate: () => Date };
+function isFirestoreTs(v: unknown): v is FirestoreTimestamp {
+  return typeof v === 'object' && v !== null && 'toDate' in v;
+}
+function toDate(raw: unknown): Date {
+  if (isFirestoreTs(raw)) return raw.toDate();
+  if (raw) return new Date(raw as string | number | Date);
+  return new Date();
+}
+function toDateOrUndefined(raw: unknown): Date | undefined {
+  if (isFirestoreTs(raw)) return raw.toDate();
+  if (raw) return new Date(raw as string | number | Date);
+  return undefined;
+}
+
 const COLLECTION_LIVE = COLLECTIONS.LIVE_STREAMS;
 
 interface LiveStore {
@@ -26,13 +40,13 @@ interface LiveStore {
   myStreams: LiveStream[];
   currentStream: LiveStream | null;
   loading: boolean;
-  startLive: (userId: string, data: { title: string; thumbnailUrl?: string; category?: string; hashtags?: string[] }) => Promise<string | null>;
+  startLive: (userId: string, data: { title: string; userName: string; userAvatar: string; thumbnailUrl?: string; category?: string; hashtags?: string[] }) => Promise<string | null>;
   endLive: (streamId: string) => Promise<void>;
   joinLive: (streamId: string, userId: string) => Promise<void>;
   leaveLive: (streamId: string, userId: string) => Promise<void>;
-  sendLiveComment: (streamId: string, userId: string, content: string) => Promise<void>;
+  sendLiveComment: (streamId: string, userId: string, content: string, userName: string) => Promise<void>;
   sendLiveReaction: (streamId: string, reaction: keyof LiveReactions) => Promise<void>;
-  sendLiveGift: (streamId: string, userId: string, gift: Omit<LiveGift, 'id' | 'timestamp'>) => Promise<void>;
+  sendLiveGift: (streamId: string, userId: string, gift: Omit<LiveGift, 'id' | 'timestamp'>, userName: string) => Promise<void>;
   pinComment: (streamId: string, commentId: string) => Promise<void>;
   toggleScreenShare: (streamId: string, isSharing: boolean) => Promise<void>;
   addGuest: (streamId: string, userId: string) => Promise<void>;
@@ -45,20 +59,14 @@ interface LiveStore {
 }
 
 function mapLiveStream(d: Record<string, unknown>): LiveStream {
-  const startedAt = d.startedAt && typeof d.startedAt === 'object' && 'toDate' in d.startedAt
-    ? (d.startedAt as any).toDate()
-    : d.startedAt ? new Date(d.startedAt as string) : new Date();
-  const endedAt = d.endedAt && typeof d.endedAt === 'object' && 'toDate' in d.endedAt
-    ? (d.endedAt as any).toDate()
-    : d.endedAt ? new Date(d.endedAt as string) : undefined;
   return {
     id: d.id as string,
     userId: d.userId as string,
     title: (d.title as string) || '',
     thumbnailUrl: (d.thumbnailUrl as string) || undefined,
     isLive: (d.isLive as boolean) || false,
-    startedAt,
-    endedAt,
+    startedAt: toDate(d.startedAt),
+    endedAt: toDateOrUndefined(d.endedAt),
     viewers: (d.viewers as string[]) || [],
     viewerCount: (d.viewerCount as number) || 0,
     peakViewers: (d.peakViewers as number) || 0,
@@ -87,7 +95,6 @@ export const useLiveStore = create<LiveStore>((set) => ({
   startLive: async (userId, data) => {
     if (!isFirestoreAvailable()) return null;
     try {
-      const user = await getDocById(COLLECTIONS.USERS, userId);
       const streamId = await addDocToCollection(COLLECTION_LIVE, {
         userId,
         ...data,
@@ -100,8 +107,6 @@ export const useLiveStore = create<LiveStore>((set) => ({
         reactions: { like: 0, love: 0, haha: 0, wow: 0, fire: 0, clap: 0 },
         gifts: [],
         replayAvailable: false,
-        userName: user?.name || '',
-        userAvatar: user?.avatar || '',
         isScreenSharing: false,
         multiGuestIds: [],
         mutedViewers: [],
@@ -113,7 +118,7 @@ export const useLiveStore = create<LiveStore>((set) => ({
       toast.error('Failed to start live stream');
       return null;
     }
-},
+  },
 
   endLive: async (streamId) => {
     if (!isFirestoreAvailable()) return;
@@ -145,29 +150,23 @@ export const useLiveStore = create<LiveStore>((set) => ({
   leaveLive: async (streamId, userId) => {
     if (!isFirestoreAvailable()) return;
     try {
-      const stream = await getDocById(COLLECTION_LIVE, streamId);
-      if (!stream) return;
-      const viewers = (stream.viewers as string[]) || [];
-      const newViewers = viewers.filter(id => id !== userId);
-      const newCount = Math.max(0, ((stream.viewerCount as number) || 0) - 1);
       await updateDocById(COLLECTION_LIVE, streamId, {
-        viewers: newViewers,
-        viewerCount: newCount,
+        viewers: arrayRemove(userId),
+        viewerCount: increment(-1),
       });
     } catch (err) {
       console.error('leaveLive error:', err);
     }
   },
 
-  sendLiveComment: async (streamId, userId, content) => {
+  sendLiveComment: async (streamId, userId, content, userName) => {
     if (!isFirestoreAvailable()) return;
     try {
-      const user = await getDocById(COLLECTIONS.USERS, userId);
       await addDocToSubcollection(COLLECTION_LIVE, streamId, 'comments', {
         userId,
         content,
         timestamp: serverTimestamp(),
-        userName: (user?.name as string) || '',
+        userName: userName || '',
         isPinned: false,
         isModerator: false,
       });
@@ -307,7 +306,7 @@ export const useLiveStore = create<LiveStore>((set) => ({
         id: d.id,
         userId: d.userId,
         content: d.content || '',
-        timestamp: ((rawTs: any) => rawTs && typeof rawTs === 'object' && 'toDate' in rawTs ? rawTs.toDate() : rawTs ? new Date(rawTs as string | number | Date) : new Date())(d.createdAt ?? d.timestamp),
+        timestamp: toDate(d.createdAt ?? d.timestamp),
         userName: d.userName || '',
         isPinned: d.isPinned || false,
         isModerator: d.isModerator || false,
@@ -318,7 +317,7 @@ export const useLiveStore = create<LiveStore>((set) => ({
         type: d.type || 'heart',
         amount: d.amount || 0,
         currency: d.currency || 'coins',
-        timestamp: ((rawTs: any) => rawTs && typeof rawTs === 'object' && 'toDate' in rawTs ? rawTs.toDate() : rawTs ? new Date(rawTs as string | number | Date) : new Date())(d.createdAt ?? d.timestamp),
+        timestamp: toDate(d.createdAt ?? d.timestamp),
         userName: d.userName || '',
         message: d.message || '',
       }));
@@ -332,20 +331,18 @@ export const useLiveStore = create<LiveStore>((set) => ({
   subscribeActiveStreams: () => {
     if (!isFirestoreAvailable()) return () => {};
     set({ loading: true });
-    let unsub: (() => void) | null = null;
-    try {
-      unsub = subscribeToCollection(
-        COLLECTION_LIVE,
-        [where('isLive', '==', true), orderBy('viewerCount', 'desc')],
-        (data) => {
-          const activeStreams = (data || []).map(mapLiveStream);
-          set({ activeStreams, loading: false });
-        }
-      );
-    } catch (err) {
-      console.error('subscribeActiveStreams error:', err);
-      set({ loading: false });
-    }
-    return () => { if (unsub) unsub(); };
+    const unsub = subscribeToCollection(
+      COLLECTION_LIVE,
+      [where('isLive', '==', true), orderBy('viewerCount', 'desc')],
+      (data) => {
+        const activeStreams = (data || []).map(mapLiveStream);
+        set({ activeStreams, loading: false });
+      },
+      (error) => {
+        console.error('subscribeActiveStreams error:', error);
+        set({ loading: false });
+      }
+    );
+    return unsub;
   },
 }));

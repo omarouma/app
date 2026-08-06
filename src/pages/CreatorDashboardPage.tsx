@@ -84,18 +84,15 @@ function mapPostFromDoc(d: Record<string, unknown>): TimelinePost {
     content: (d.content as string) || '',
     images: (d.images as string[]) || [],
     likes: (d.likes as string[]) || [],
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    comments: (d.comments as any[]) || [],
+comments: (d.comments as TimelinePost['comments']) || [],
     shares: (d.shares as string[]) || [],
     timestamp,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    visibility: (d.visibility as any) || 'public',
+    visibility: (d.visibility as TimelinePost['visibility']) || 'public',
     userName: (d.userName as string) || '',
     userAvatar: (d.userAvatar as string) || '',
     videoUrl: (d.videoUrl as string) || undefined,
     location: (d.location as string) || undefined,
     hashtags: (d.hashtags as string[]) || [],
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     reactions: (d.reactions as any) || undefined,
     savedBy: (d.savedBy as string[]) || [],
     repostedBy: (d.repostedBy as string[]) || [],
@@ -107,7 +104,6 @@ function mapPostFromDoc(d: Record<string, unknown>): TimelinePost {
     viewCount: (d.viewCount as number) || 0,
     reachCount: (d.reachCount as number) || 0,
     impressionCount: (d.impressionCount as number) || 0,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     mediaType: (d.mediaType as any) || 'text',
   };
 }
@@ -367,7 +363,6 @@ export default function CreatorDashboardPage() {
 
   useEffect(() => {
     if (!user?.id) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setLoading(false);
       return;
     }
@@ -439,7 +434,6 @@ export default function CreatorDashboardPage() {
 
   useEffect(() => {
     if (user) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setChartData(buildChartData(userPosts, analytics, user, timeFilter));
     }
   }, [timeFilter, userPosts, analytics, user]);
@@ -496,10 +490,8 @@ export default function CreatorDashboardPage() {
     return withEngagement.sort((a, b) => b.engagementRate - a.engagementRate).slice(0, 10);
   }, [userPosts, timeFilter]);
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const followerCount = useMemo(() => (user as any)?.followers?.length || 0, [user]);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const followingCount = useMemo(() => (user as any)?.following?.length || 0, [user]);
+const followerCount = useMemo(() => user?.followers?.length || 0, [user]);
+  const followingCount = useMemo(() => user?.following?.length || 0, [user]);
   const totalPostsCount = useMemo(() => userPosts.length, [userPosts]);
   const reelCount = useMemo(() => userReels.length, [userReels]);
   const totalViewsAll = useMemo(() => userPosts.reduce((s, p) => s + (p.viewCount || 0), 0), [userPosts]);

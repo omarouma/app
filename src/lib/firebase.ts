@@ -2,47 +2,46 @@ import { initializeApp, type FirebaseApp } from 'firebase/app';
 import { getAnalytics, logEvent, type Analytics } from 'firebase/analytics';
 import { getMessaging, getToken, onMessage, type Messaging } from 'firebase/messaging';
 import { getPerformance, type FirebasePerformance } from 'firebase/performance';
-import { getStorage, type FirebaseStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { getFirestore, type Firestore } from 'firebase/firestore';
 import { getAuth, type Auth } from 'firebase/auth';
+import env from '@/config/env';
 
-// Firebase config — all values are public and safe for the frontend
+// Firebase config - populated from the validated env object
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-  databaseURL: import.meta.env.VITE_FIREBASE_DATABASE_URL,
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId: import.meta.env.VITE_FIREBASE_APP_ID,
-  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID,
+  apiKey: env.VITE_FIREBASE_API_KEY,
+  authDomain: env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: env.VITE_FIREBASE_APP_ID,
+  measurementId: env.VITE_FIREBASE_MEASUREMENT_ID,
+  // databaseURL is optional in the schema
+  databaseURL: env.VITE_FIREBASE_DATABASE_URL,
 };
 
 // Re-export for internal use
 export { firebaseConfig };
 
-/** Check if Firebase is configured (all required env vars present) */
+/** 
+ * Check if Firebase is configured. 
+ * With env.ts, we only need to check for the core API key.
+ */
 export function isFirebaseConfigured(): boolean {
-  return !!(
-    firebaseConfig.apiKey &&
-    firebaseConfig.projectId &&
-    firebaseConfig.appId
-  );
+  return !!firebaseConfig.apiKey;
 }
 
 let app: FirebaseApp | null = null;
 let analytics: Analytics | null = null;
 let messaging: Messaging | null = null;
 let performance: FirebasePerformance | null = null;
-let storage: FirebaseStorage | null = null;
 let db: Firestore | null = null;
 let auth: Auth | null = null;
 
 /** Initialize Firebase lazily. Safe to call multiple times. */
 export function initFirebase() {
   if (!isFirebaseConfigured()) {
-    if (import.meta.env.DEV) {
-      console.warn('[Firebase] Not configured. Set VITE_FIREBASE_* env vars to enable Firebase services.');
+    if (env.DEV) {
+      console.warn('[Firebase] Not configured. Core Firebase env vars are missing.');
     }
     return null;
   }
@@ -54,20 +53,19 @@ export function initFirebase() {
     if (typeof window !== 'undefined') {
       try { auth = getAuth(app); } catch { /* noop */ }
       try { db = getFirestore(app); } catch { /* noop */ }
-      try { storage = getStorage(app); } catch { /* noop */ }
       
       // Only initialize Analytics/Performance in production
-      if (import.meta.env.PROD) {
+      if (env.PROD) {
         try { analytics = getAnalytics(app); } catch { /* noop */ }
         try { performance = getPerformance(app); } catch { /* noop */ }
       }
     }
 
-    if (typeof window !== 'undefined' && 'serviceWorker' in navigator && import.meta.env.PROD) {
+    if (typeof window !== 'undefined' && 'serviceWorker' in navigator && env.PROD) {
       try { messaging = getMessaging(app); } catch { /* noop */ }
     }
 
-    if (import.meta.env.DEV) {
+    if (env.DEV) {
       console.log('[Firebase] Initialized successfully (Analytics/Performance disabled in dev)');
     }
   } catch {
@@ -89,26 +87,7 @@ export function getFirestoreDB(): Firestore | null {
   return db;
 }
 
-/** Get Firebase Storage instance */
-export function getFirebaseStorage(): FirebaseStorage | null {
-  initFirebase();
-  return storage;
-}
 
-/** Upload a file to Firebase Storage. Returns the public download URL. */
-export async function uploadToFirebaseStorage(
-  filePath: string,
-  file: File | Blob,
-  contentType?: string
-): Promise<string> {
-  const fbStorage = getFirebaseStorage();
-  if (!fbStorage) {
-    throw new Error('Firebase Storage is not configured. Set VITE_FIREBASE_STORAGE_BUCKET in .env');
-  }
-  const fileRef = ref(fbStorage, filePath);
-  await uploadBytes(fileRef, file, contentType ? { contentType } : undefined);
-  return getDownloadURL(fileRef);
-}
 
 /** Get the Firebase Analytics instance */
 export function getFirebaseAnalytics(): Analytics | null {
@@ -131,7 +110,7 @@ export function getFirebasePerformance(): FirebasePerformance | null {
 /** Log a custom analytics event */
 export function trackEvent(eventName: string, params?: Record<string, unknown>) {
   // Don't track in development
-  if (import.meta.env.DEV) return;
+  if (env.DEV) return;
   if (!analytics) return;
   try {
     logEvent(analytics, eventName, params as Record<string, never>);
@@ -141,12 +120,12 @@ export function trackEvent(eventName: string, params?: Record<string, unknown>) 
 }
 
 /** Get the FCM token for the current device. Requires VAPID key. */
-export async function getFcmToken(vapidKey: string): Promise<string | null> {
+export async function getFcmToken(): Promise<string | null> {
   const msg = getFirebaseMessaging();
-  if (!msg) return null;
+  if (!msg || !env.VITE_VAPID_PUBLIC_KEY) return null;
 
   try {
-    const token = await getToken(msg, { vapidKey });
+    const token = await getToken(msg, { vapidKey: env.VITE_VAPID_PUBLIC_KEY });
     return token || null;
   } catch {
     return null;
@@ -188,7 +167,7 @@ export async function deleteFcmToken(): Promise<void> {
 /** Track a page view in Firebase Analytics */
 export function trackPageView(pageTitle: string, pagePath: string) {
   // Don't track in development
-  if (import.meta.env.DEV) return;
+  if (env.DEV) return;
   trackEvent('page_view', {
     page_title: pageTitle,
     page_path: pagePath,
@@ -199,13 +178,13 @@ export function trackPageView(pageTitle: string, pagePath: string) {
 /** Track user engagement time */
 export function trackUserEngagement(engagementTimeMsec: number) {
   // Don't track in development
-  if (import.meta.env.DEV) return;
+  if (env.DEV) return;
   trackEvent('user_engagement', { engagement_time_msec: engagementTimeMsec });
 }
 
 /** Track exceptions/errors */
 export function trackError(description: string, fatal: boolean = false) {
   // Don't track in development
-  if (import.meta.env.DEV) return;
+  if (env.DEV) return;
   trackEvent('exception', { description, fatal });
 }

@@ -1,20 +1,24 @@
 import { useState, useEffect } from 'react';
 
-function getMql(breakpoint: number) {
-  if (typeof window === 'undefined') return null;
-  return window.matchMedia(`(max-width: ${breakpoint - 1}px)`);
+export function useIsMounted() {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  return mounted;
 }
 
 export function useIsMobile(breakpoint = 768) {
-  const [isMobile, setIsMobile] = useState(() => getMql(breakpoint)?.matches ?? false);
+  const [isMobile, setIsMobile] = useState(false);
+  const isMounted = useIsMounted();
 
   useEffect(() => {
-    const mql = getMql(breakpoint);
-    if (!mql) return;
+    if (!isMounted) return;
+    const mql = window.matchMedia(`(max-width: ${breakpoint - 1}px)`);
+    setIsMobile(mql.matches);
+
     const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
     mql.addEventListener('change', handler);
     return () => mql.removeEventListener('change', handler);
-  }, [breakpoint]);
+  }, [breakpoint, isMounted]);
 
   return isMobile;
 }

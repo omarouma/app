@@ -7,7 +7,9 @@ import { useAuthStore } from '@/store/useAuthStore';
 import { useCallStore } from '@/store/useCallStore';
 import { useNotificationStore } from '@/store/useNotificationStore';
 import { useChatStore } from '@/store/useChatStore';
-import { useIsMobile } from '@/hooks/use-mobile';
+import { useIsMobile, useIsMounted } from '@/hooks/use-mobile';
+import { useTranslation } from 'react-i18next';
+import { useLanguage } from '@/hooks/useLanguage';
 import { usePageTracking, useEngagementTracking } from '@/hooks/useFirebaseAnalytics';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
 import { useGATracking } from '@/hooks/useGATracking';
@@ -30,9 +32,9 @@ import NetworkStatusBanner from '@/components/NetworkStatusBanner';
 import '@/styles/dark-mode.css';
 
 function usePortraitLock(enabled: boolean) {
+  const isMounted = useIsMounted();
   useEffect(() => {
-    if (!enabled) return;
-    if (typeof window === 'undefined') return;
+    if (!enabled || !isMounted) return;
 
     const tryLock = async () => {
       try {
@@ -63,7 +65,7 @@ function usePortraitLock(enabled: boolean) {
       window.removeEventListener('pointerdown', onFirstPointer);
       window.removeEventListener('orientationchange', handleOrientationChange);
     };
-  }, [enabled]);
+  }, [enabled, isMounted]);
 }
 
 const LandingView = lazy(() => import('@/views/LandingView'));
@@ -342,6 +344,7 @@ function AppContent() {
   const { user } = useAuthStore();
   const didOnboardingRedirectRef = useRef(false);
   const navigate = useNavigate();
+  const { i18n } = useTranslation();
 
   const onboardingComplete = isAuthenticated
     ? safeGetBooleanStorageItem('gaga-onboarding-complete', false)
@@ -357,6 +360,11 @@ function AppContent() {
   useGATracking();
   usePushNotifications();
   useForegroundNotifications();
+  useLanguage();
+
+  useEffect(() => {
+    document.documentElement.lang = i18n.language;
+  }, [i18n.language]);
 
   useEffect(() => {
     const publicPaths = ['/privacy', '/terms', '/help'];

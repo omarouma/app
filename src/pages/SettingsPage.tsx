@@ -425,7 +425,16 @@ export default function SettingsPage() {
                 <div className="bg-white rounded-2xl p-4 shadow-sm border border-[#EBEBEB] space-y-2">
                   {settingItem('Clear Cache', Eraser, undefined, () => { toast.success('Cache cleared'); })}
                   {settingItem('Download Media', Download, undefined, handleExportData)}
-                  {settingItem('Storage Usage', HardDrive, <span className="text-sm text-[#999999]">Calculating...</span>, () => {})}
+                  {settingItem('Storage Usage', HardDrive, <span className="text-sm text-[#999999]">Calculating...</span>, async () => {
+                    if ('storage' in navigator && 'estimate' in navigator.storage) {
+                      const { usage = 0, quota = 0 } = await navigator.storage.estimate();
+                      const usedMB = (usage / 1024 / 1024).toFixed(1);
+                      const totalMB = (quota / 1024 / 1024).toFixed(0);
+                      toast.info(`Using ${usedMB} MB of ${totalMB} MB`);
+                    } else {
+                      toast.info('Storage info not available on this device');
+                    }
+                  })}
                 </div>
               )}
 

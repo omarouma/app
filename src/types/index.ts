@@ -124,7 +124,7 @@ export interface BroadcastList {
 
 export interface TransferData {
   amount: number;
-  currency: 'coins' | 'USD' | 'BDT'; // BDT for backwards compatibility
+  currency: 'coins' | 'USD' | 'BDT' | 'RMB' | 'INR'; // BDT for backwards compatibility
   fromUserId: string;
   toUserId: string;
   status: 'pending' | 'completed' | 'failed';
@@ -297,13 +297,14 @@ export interface CallRecord {
   status: 'connected' | 'ended' | 'rejected' | 'missed' | 'calling';
   timestamp: Date;
   duration?: number;
+  deletedBy?: string[];
 }
 
 export interface WalletTransaction {
   id: string;
   type: 'earn' | 'spend' | 'send' | 'receive' | 'withdraw' | 'deposit' | 'convert' | 'premium' | 'subscription' | 'tip' | 'ad_revenue' | 'referral_bonus' | 'streak_bonus' | 'achievement' | 'refund';
   amount: number;
-  currency: 'coins' | 'USD' | 'BDT'; // BDT for backwards compatibility
+  currency: 'coins' | 'USD' | 'BDT' | 'RMB' | 'INR'; // BDT for backwards compatibility
   description: string;
   timestamp: string | Date;
   status?: 'pending' | 'completed' | 'failed';
@@ -320,7 +321,7 @@ export interface WalletData {
 export interface WithdrawalRequest {
   id: string;
   amount: number;
-  currency: 'coins' | 'USD' | 'BDT'; // BDT for backwards compatibility
+  currency: 'coins' | 'USD' | 'BDT' | 'RMB' | 'INR'; // BDT for backwards compatibility
   method: string;
   account: string;
   status: 'pending' | 'completed' | 'rejected';
@@ -573,7 +574,7 @@ export interface LiveGift {
   userId: string;
   type: 'rose' | 'heart' | 'star' | 'crown' | 'diamond' | 'rocket';
   amount: number;
-  currency: 'coins' | 'USD' | 'BDT'; // BDT for backwards compatibility
+  currency: 'coins' | 'USD' | 'BDT' | 'RMB' | 'INR'; // BDT for backwards compatibility
   timestamp: Date;
   userName?: string;
   message?: string;
@@ -677,7 +678,7 @@ export interface PremiumPlan {
   name: string;
   description: string;
   price: number;
-  currency: 'USD' | 'coins' | 'BDT'; // BDT for backwards compatibility
+  currency: 'USD' | 'coins' | 'BDT' | 'RMB' | 'INR'; // BDT for backwards compatibility
   duration: 'monthly' | 'quarterly' | 'yearly' | 'lifetime';
   features: string[];
   badge: string;
@@ -694,7 +695,7 @@ export interface PremiumSubscription {
   expiresAt: Date;
   autoRenew: boolean;
   price: number;
-  currency: 'USD' | 'coins' | 'BDT'; // BDT for backwards compatibility
+  currency: 'USD' | 'coins' | 'BDT' | 'RMB' | 'INR'; // BDT for backwards compatibility
   plan?: PremiumPlan;
 }
 
@@ -704,7 +705,7 @@ export interface ReferralRecord {
   referredId: string;
   status: 'pending' | 'completed' | 'rewarded';
   rewardAmount: number;
-  currency: 'coins' | 'USD' | 'BDT'; // BDT for backwards compatibility
+  currency: 'coins' | 'USD' | 'BDT' | 'RMB' | 'INR'; // BDT for backwards compatibility
   timestamp: Date;
   referredUser?: User;
 }
@@ -734,7 +735,7 @@ export interface CreatorSubscription {
   creatorId: string;
   subscriberId: string;
   price: number;
-  currency: 'USD' | 'coins' | 'BDT'; // BDT for backwards compatibility
+  currency: 'USD' | 'coins' | 'BDT' | 'RMB' | 'INR'; // BDT for backwards compatibility
   tier: 'basic' | 'standard' | 'premium';
   status: 'active' | 'cancelled' | 'expired';
   startedAt: Date;
@@ -748,7 +749,7 @@ export interface TipRecord {
   fromUserId: string;
   toUserId: string;
   amount: number;
-  currency: 'coins' | 'USD' | 'BDT'; // BDT for backwards compatibility
+  currency: 'coins' | 'USD' | 'BDT' | 'RMB' | 'INR'; // BDT for backwards compatibility
   message: string;
   contentId?: string;
   contentType?: 'post' | 'reel' | 'live' | 'story';
@@ -765,7 +766,7 @@ export interface Achievement {
   category: 'social' | 'engagement' | 'content' | 'premium' | 'streak' | 'referral' | 'monetization' | 'admin';
   requirement: number;
   reward: number;
-  rewardCurrency: 'coins' | 'USD' | 'BDT'; // BDT for backwards compatibility
+  rewardCurrency: 'coins' | 'USD' | 'BDT' | 'RMB' | 'INR'; // BDT for backwards compatibility
   rarity: 'common' | 'rare' | 'epic' | 'legendary';
   unlockedAt?: Date;
   progress?: number;
