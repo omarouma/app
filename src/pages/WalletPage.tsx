@@ -14,6 +14,162 @@ import WalletPinLock from '@/components/WalletPinLock';
 import SendToFriendModal from '@/components/SendToFriendModal';
 import RequestMoneyModal from '@/components/RequestMoneyModal';
 import SplitBillModal from '@/components/SplitBillModal';
+import { isTonConfigured } from '@/config/tonConfig';
+import {
+  getTonWalletSnapshot,
+  isValidTonAddress,
+  formatTon,
+  isIncoming,
+  type TonAccountInfo,
+  type TonTransaction,
+} from '@/services/tonService';
+import { safeGetStorageItem, safeSetStorageItem } from '@/lib/safeStorage';
+
+// ─── TON Wallet Card ───────────────────────────────────────────────────
+// Live TON balance + recent transactions, polled lightly (toncenter has no
+// push API). Address is cached per-user in localStorage.
+function TonWalletCard({ userId }: { userId: string }) {
+  const storageKey = `gaga_ton_address_${userId}`;
+  const [address, setAddress] = useState<string>(() => safeGetStorageItem(storageKey) || '');
+  const [input, setInput] = useState('');
+  const [account, setAccount] = useState<TonAccountInfo | null>(null);
+  const [txs, setTxs] = useState<TonTransaction[]>([]);
+  const [error, setError] = useState('');
+  const [editing, setEditing] = useState(!safeGetStorageItem(storageKey));
+
+  useEffect(() => {
+    if (!address || !isTonConfigured()) return;
+    let cancelled = false;
+    const load = async () => {
+      if (cancelled || document.visibilityState === 'hidden') return;
+      try {
+        const snap = await getTonWalletSnapshot(address, 10);
+        if (!cancelled) {
+          setAccount(snap.account);
+          setTxs(snap.transactions.filter((t) => !!t.hash).slice(0, 10));
+          setError('');
+        }
+      } catch { if (!cancelled) setError('Could not load TON data.'); }
+    };
+    load();
+    const id = setInterval(load, 15_000);
+    const onVis = () => { if (document.visibilityState === 'visible') load(); };
+    document.addEventListener('visibilitychange', onVis);
+    return () => { cancelled = true; clearInterval(id); document.removeEventListener('visibilitychange', onVis); };
+  }, [address]);
+
+  const connect = () => {
+    const val = input.trim();
+    if (!val) { setError('Enter a TON address'); return; }
+    if (!isValidTonAddress(val)) { setError('Invalid TON address (must be 48 chars).'); return; }
+    setError('');
+    setAddress(val);
+    safeSetStorageItem(storageKey, val);
+    setEditing(false);
+    setAccount(null);
+    setTxs([]);
+  };
+
+  return (
+    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.32 }}
+      className="bg-gradient-to-br from-[#0098EA]/10 to-[#0088CC]/10 border border-[#0098EA]/20 rounded-2xl p-4">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 rounded-full bg-[#0098EA]/15 flex items-center justify-center">
+            <span className="text-[#0098EA] font-bold text-sm">TON</span>
+          </div>
+          <div>
+            <p className="text-[#111111] text-sm font-semibold">TON Wallet</p>
+            <p className="text-[#8D8D8D] text-[10px]">
+              {isTonConfigured() ? 'Live balance + transactions' : 'Not configured'}
+            </p>
+          </div>
+        </div>
+        {address && !editing && (
+          <button type="button"
+            onClick={() => { setEditing(true); setInput(address); }}
+            className="text-[#0098EA] text-xs font-medium hover:underline"
+          >
+            Change
+          </button>
+        )}
+      </div>
+
+      {editing || !address ? (
+        <div>
+          <input
+            value={input}
+            onChange={(e) => { setInput(e.target.value); setError(''); }}
+            placeholder="EQ..." maxLength={48}
+            className="w-full bg-white border border-[#EBEBEB] rounded-xl px-4 py-3 text-[#111111] text-sm focus:outline-none focus:ring-2 focus:ring-[#0098EA] placeholder:text-[#C7C7CC] font-mono"
+          />
+          {error && <p className="text-[#FF3B30] text-xs mt-2">{error}</p>}
+          <button type="button" onClick={connect} disabled={!isTonConfigured()}
+            className="w-full bg-[#0098EA] hover:bg-[#0088CC] text-white rounded-xl py-3 mt-3 text-sm font-bold transition-colors disabled:opacity-50">
+            Connect TON Address
+          </button>
+          {!isTonConfigured() && (
+            <p className="text-[#8D8D8D] text-[10px] mt-2">Add VITE_TON_API_KEY/VITE_TON_ENDPOINT to enable.</p>
+          )}
+        </div>
+      ) : (
+        <div>
+          {/* Address */}
+          <button type="button"
+            onClick={() => { navigator.clipboard.writeText(address); }}
+            className="w-full text-left mb-3 bg-white/70 rounded-xl px-3 py-2">
+            <p className="text-[#8D8D8D] text-[9px] mb-0.5">TON ADDRESS</p>
+            <p className="text-[#111111] text-xs font-mono break-all leading-tight">{address}</p>
+          </button>
+
+          {/* Balance */}
+          <div className="bg-white rounded-xl p-3 mb-3 text-center">
+            <p className="text-[#8D8D8D] text-[10px] mb-1">Balance</p>
+            {account ? (
+              <p className="text-2xl font-bold text-[#0098EA]">
+                {formatTon(account.balanceTon)} <span className="text-sm font-normal text-[#0098EA]/70">TON</span>
+              </p>
+            ) : (
+              <p className="text-2xl font-bold text-[#0098EA]">...</p>
+            )}
+          </div>
+
+          {/* Recent transactions */}
+          <p className="text-[#8D8D8D] text-xs font-medium mb-2">Recent Transactions</p>
+          <div className="space-y-2 max-h-56 overflow-y-auto">
+            {txs.length === 0 && <p className="text-[#C7C7CC] text-xs text-center py-3">No transactions yet</p>}
+            {txs.map((tx) => {
+              const incoming = isIncoming(tx, address);
+              return (
+                <div key={tx.hash} className="flex items-center justify-between bg-white rounded-lg px-3 py-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <div className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 ${incoming ? 'bg-[#00C300]/15' : 'bg-[#FF3B30]/15'}`}>
+                      {incoming
+                        ? <TrendingDown size={12} className="text-[#00C300]" />
+                        : <TrendingUp size={12} className="text-[#FF3B30]" />}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-[#111111] text-xs font-medium truncate">
+                        {incoming ? 'Received' : 'Sent'}{tx.comment ? ` · ${tx.comment}` : ''}
+                      </p>
+                      <p className="text-[#C7C7CC] text-[9px] font-mono truncate">
+                        {new Date(tx.utime * 1000).toLocaleString()}
+                      </p>
+                    </div>
+                  </div>
+                  <span className={`text-xs font-bold shrink-0 ${incoming ? 'text-[#00C300]' : 'text-[#FF3B30]'}`}>
+                    {incoming ? '+' : '-'}{formatTon(tx.valueTon)}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </motion.div>
+  );
+}
 
 const promoCodes: Record<string, { coins: number; label: string }> = {
   'GAGA100': { coins: 100, label: 'Welcome Bonus' },
@@ -314,6 +470,9 @@ const w = wallet as unknown as Record<string, unknown> | undefined;
       </div>
 
       <div className="p-4 space-y-4">
+        {/* TON Wallet Card */}
+        {user?.id && <TonWalletCard userId={user.id} />}
+
         {/* Gaga Coins Value Card */}
         <motion.div
           initial={{ opacity: 0, y: 10 }}

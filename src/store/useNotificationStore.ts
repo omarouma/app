@@ -39,6 +39,12 @@ interface NotificationStore {
 const sanitize = (val: unknown): string =>
   String(val ?? '').replace(/[<>'"&]/g, (c) => ({ '<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;','&':'&amp;' }[c] ?? c));
 
+// Module-level map of active notification subscriptions per user. Used to tear
+// down a previous subscription before creating a new one for the same user, so
+// the auto-reconnect wrapper never stacks duplicate realtime channels that
+// exhaust the browser connection pool (net::ERR_INSUFFICIENT_RESOURCES).
+const activeNotificationSubs = new Map<string, () => void>();
+
 export const useNotificationStore = create<NotificationStore>((set, get) => ({
   notifications: [],
   unreadCount: 0,
@@ -96,12 +102,27 @@ return () => {};
         });
       });
 
+    // Guards against stacking duplicate reconnect channels for the same user.
+    // If a previous subscription for this user is still active, tear it down
+    // before creating a new one. This prevents the auto-reconnect wrapper from
+    // accumulating multiple fully-featured realtime channels that exhaust the
+    // browser connection pool (net::ERR_INSUFFICIENT_RESOURCES).
+    const activeUnsubRef = activeNotificationSubs.get(userId);
+    if (activeUnsubRef) {
+      try { activeUnsubRef(); } catch { /* ignore */ }
+      activeNotificationSubs.delete(userId);
+    }
+
     // Wrap with auto-reconnect so the notification stream stays live even after
     // transient network drops or realtime channel disconnects.
     const withReconnect = withAutoReconnect(subscribeFn, { maxRetries: 12 });
     const handle = withReconnect(userId);
+    activeNotificationSubs.set(userId, handle.unsubscribe);
 
-    return () => { handle.unsubscribe(); };
+    return () => {
+      handle.unsubscribe();
+      activeNotificationSubs.delete(userId);
+    };
   },
 
   markRead: async (notifId: string) => {

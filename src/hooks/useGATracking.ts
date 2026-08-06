@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useIsMounted } from './use-mobile';
 import env from '@/config/env';
@@ -13,18 +13,43 @@ declare global {
 // Read once at module load — never changes at runtime
 const GA_MEASUREMENT_ID = env.VITE_GA_MEASUREMENT_ID as string | undefined;
 
+// Debounce page_view beacons so rapid route churn doesn't flood GA with
+// concurrent analytics requests. This keeps GA functional while reducing the
+// beacon flood that contributed to net::ERR_INSUFFICIENT_RESOURCES.
+const PAGE_VIEW_DEBOUNCE_MS = 500;
+const lastPageViewRef: { path: string; at: number } = { path: '', at: 0 };
+
 export function useGATracking() {
   const location = useLocation();
   const isMounted = useIsMounted();
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (!isMounted || !window.gtag || !GA_MEASUREMENT_ID) return;
-    window.gtag('event', 'page_view', {
-      page_path: location.pathname + location.search,
-      page_location: window.location.href,
-      page_title: document.title,
-      send_to: GA_MEASUREMENT_ID,
-    });
+
+    const path = location.pathname + location.search;
+    const now = Date.now();
+
+    // Guard: skip if the same page_view was already sent very recently.
+    if (lastPageViewRef.path === path && now - lastPageViewRef.at < PAGE_VIEW_DEBOUNCE_MS) {
+      return;
+    }
+
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => {
+      lastPageViewRef.path = path;
+      lastPageViewRef.at = Date.now();
+      window.gtag?.('event', 'page_view', {
+        page_path: path,
+        page_location: window.location.href,
+        page_title: document.title,
+        send_to: GA_MEASUREMENT_ID,
+      });
+    }, PAGE_VIEW_DEBOUNCE_MS);
+
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
   }, [location, isMounted]);
 }
 

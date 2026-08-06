@@ -23,7 +23,15 @@ export function getSupabase(): SupabaseClient {
   }
   if (!_client) {
     _client = createClient(supabaseUrl, supabaseAnonKey, {
-      realtime: { params: { eventsPerSecond: 10 } },
+      realtime: {
+        params: { eventsPerSecond: 10 },
+        // Tune the realtime socket so transient network blips don't immediately
+        // drop the SSE connection and trigger the "restart sse" / reconnect loop
+        // that exhausts the browser's per-host connection pool
+        // (net::ERR_INSUFFICIENT_RESOURCES).
+        heartbeatIntervalMs: 15000,
+        timeout: 30000,
+      },
       auth: {
         autoRefreshToken: true,
         persistSession: true,

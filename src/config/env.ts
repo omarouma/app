@@ -39,8 +39,12 @@ const envSchema = z.object({
   VITE_YOUTUBE_API_KEY: z.string().optional(),
   VITE_YOUTUBE_REGION: z.string().optional(),
   VITE_PEXELS_API_KEY: z.string().optional(),
-  VITE_TENOR_API_KEY: z.string().optional(),
+VITE_TENOR_API_KEY: z.string().optional(),
   VITE_GA_MEASUREMENT_ID: z.string().optional(),
+
+  // --- TON (The Open Network) ---
+  VITE_TON_API_KEY: z.string().optional(),
+  VITE_TON_ENDPOINT: z.string().optional(),
 
   // --- WebRTC (Conditionally Required) ---
   VITE_TURN_SERVER_URL: z.string().optional(),
@@ -85,7 +89,12 @@ const parseAndValidateEnv = () => {
     };
 
     if (import.meta.env.DEV) {
-      (window as any).env = fullEnv;
+      Object.defineProperty(window, '__gagaEnv', {
+        value: fullEnv,
+        writable: false,
+        configurable: true,
+        enumerable: false,
+      });
     }
 
     return fullEnv;

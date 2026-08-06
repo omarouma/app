@@ -7,15 +7,34 @@ import {
   trackUserEngagement,
 } from '@/lib/firebase';
 
+// Guard to avoid double-tracking page_views: GA4 (via GTM/useGATracking) is the
+// primary page-view tracker. If GA4 is configured, skip Firebase's page_view
+// to prevent redundant, concurrent analytics beacons (a contributor to
+// net::ERR_INSUFFICIENT_RESOURCES). Custom events/engagement are still tracked.
+// Read once at module load.
+const GA_MEASUREMENT_ID = (import.meta.env.VITE_GA_MEASUREMENT_ID as string | undefined) || '';
+
 /** Track page views automatically on route changes */
 export function usePageTracking() {
   const location = useLocation();
+  const lastTrackedRef = useRef<{ path: string; at: number }>({ path: '', at: 0 });
 
   useEffect(() => {
     const analytics = getFirebaseAnalytics();
     if (!analytics) return;
+
+    // If GA4 is present, it already handles page_view — skip Firebase's to
+    // avoid double-counting each route. Custom events below are unaffected.
+    if (GA_MEASUREMENT_ID) return;
+
     const pagePath = location.pathname + location.search;
     const pageTitle = document.title || 'GaGa Chat';
+    const now = Date.now();
+
+    // Light debounce for the Firebase fallback path too.
+    if (lastTrackedRef.current.path === pagePath && now - lastTrackedRef.current.at < 500) return;
+    lastTrackedRef.current = { path: pagePath, at: now };
+
     trackPageView(pageTitle, pagePath);
   }, [location]);
 }

@@ -1,10 +1,18 @@
-# Calling Fix & Improvement TODO
+# TODO — Fix ERR_INSUFFICIENT_RESOURCES + TON Wallet Integration
 
-## Steps
-- [x] 1. Fix `CallContext.tsx` — derive `currentUser` internally so `startCall({ id }, mode)` works (critical bug)
-- [x] 2. Update `CallContextBase.ts` — clarify `startCall` signature (currentUserId optional/derived)
-- [x] 3. Fix `CallOverlay.tsx` — import from `@/hooks/useWebRTCManager`; fix redundant Video/Voice badge ternary
-- [x] 4. Clean up `CallPage.tsx` formatting (`navState`/`mode`)
-- [x] 5. Fix `CallListItem.tsx` — shared duration helper + distinct direction icons
-- [x] 6. Remove stale duplicate `src/lib/useWebRTCManager.ts` (verify no imports first)
-- [x] 7. Run `npx tsc --noEmit` and build to verify no regressions
+## Part A — Fix resource exhaustion
+- [x] 1. `src/lib/supabase.ts` — realtime reconnect tuning + shared client
+- [x] 2. `src/hooks/usePresence.ts` — heartbeat 30s→45s, sweep 15s→45s
+- [x] 3. `src/hooks/useGATracking.ts` — page_view debounce/guard
+- [x] 4. `src/hooks/useFirebaseAnalytics.ts` — avoid double-tracking with GA4
+- [x] 5. `src/store/useNotificationStore.ts` — shared-channel guard
+
+## Part B — TON integration
+- [x] 6. `src/config/env.ts` — add VITE_TON_API_KEY + VITE_TON_ENDPOINT
+- [x] 7. `src/config/tonConfig.ts` (new) — endpoint/key config
+- [x] 8. `src/services/tonService.ts` (new) — toncenter JSON-RPC client
+- [x] 9. `src/pages/WalletPage.tsx` — TON Wallet card (balance + transactions, polled)
+
+## Verification
+- [x] Run `npx tsc -b` (zero errors)
+- [x] Run `npm run build` (success; only a pre-existing Tailwind ease-class warning)

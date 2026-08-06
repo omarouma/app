@@ -151,14 +151,20 @@ export function useTrackPresence(userId: string | undefined) {
         if (isDestroyed || mountIdRef.current !== myMountId) return;
         try {
           const now = new Date().toISOString();
-          await supabase
-            .from('users')
-            .update({ status: isOnline ? 'online' : 'offline', last_seen: now })
-            .eq('id', userId);
+          // Single write to presence table — the users table status column is
+          // updated by the DB trigger on presence changes, avoiding a double write.
           await supabase.from('presence').upsert(
             { user_id: userId, is_online: isOnline, last_seen: now, updated_at: now },
             { onConflict: 'user_id' },
           );
+          // Only update users table on explicit online/offline transitions,
+          // not on every heartbeat tick.
+          if (!isDestroyed) {
+            await supabase
+              .from('users')
+              .update({ status: isOnline ? 'online' : 'offline', last_seen: now })
+              .eq('id', userId);
+          }
           sharedPresenceInfo[userId] = { isOnline, lastSeen: Date.parse(now) || Date.now() };
           syncBroadcast();
         } catch { /* ignore */ }
@@ -223,14 +229,15 @@ export function useTrackPresence(userId: string | undefined) {
       markOnline();
 
       // Heartbeat — keeps presence alive while the tab is open & visible.
-      // Without this, "online" goes stale after ~1 min even if the user is
-      // actively using the app (only visibilitychange/beforeunload fire otherwise).
+      // Rate is 45s (was 30s) to reduce DB write churn + connection pressure
+      // that contributed to net::ERR_INSUFFICIENT_RESOURCES under a large
+      // number of concurrent realtime channels/subscriptions.
       const heartbeat = setInterval(() => {
         if (document.visibilityState === 'hidden') return;
         writePresence(true).catch(() => {});
-      }, 30_000);
+      }, 45_000);
 
-      const sweep = setInterval(() => { syncBroadcast(); }, 15_000);
+      const sweep = setInterval(() => { syncBroadcast(); }, 45_000);
 
       window.addEventListener('beforeunload', handleBeforeUnload);
       window.addEventListener('pagehide', handlePageHide);
@@ -290,10 +297,11 @@ export function useTrackPresence(userId: string | undefined) {
     markOnline().catch(() => {});
 
     // Heartbeat — keeps presence alive while the tab is open & visible.
+    // 45s (was 30s) to reduce write churn + connection pressure.
     const heartbeat = setInterval(() => {
       if (document.visibilityState === 'hidden') return;
       markOnline().catch(() => {});
-    }, 30_000);
+    }, 45_000);
 
     window.addEventListener('beforeunload', handleBeforeUnload);
     document.addEventListener('visibilitychange', onVisibility);
