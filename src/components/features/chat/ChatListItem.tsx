@@ -25,10 +25,12 @@ export const ChatListItem = memo(function ChatListItem({
   chat,
   index,
   userId: propUserId,
+  isFriend: _propIsFriend,
   isOnline: propIsOnline,
   name: propName,
   avatar: propAvatar,
   typingName,
+  onAddFriend: _onAddFriend,
 }: ChatListItemProps) {
   const navigate = useNavigate();
   const { user } = useAuthStore();
@@ -40,10 +42,12 @@ export const ChatListItem = memo(function ChatListItem({
   const otherId = isGroup ? '' : (chat.participants.find(p => p !== userId) || '');
   const friend = friends.find(f => f.id === otherId);
 
+  // When the parent ChatList already provides resolved values, use them to
+  // avoid redundant per-row store lookups. Fall back to internal derivation
+  // only for the direct ChatsPage usage where props are not supplied.
   const name = propName ?? (isGroup ? (chat.name || 'Group') : (friend?.name || 'Chat'));
   const avatar = propAvatar ?? (isGroup ? (chat.avatar || '') : (friend?.avatar || ''));
   const isOnline = propIsOnline ?? (!isGroup && !!visibleOnline[otherId]);
-
   const lastMsgPreview = useMemo(() => {
     if (typingName) return `${typingName} is typing...`;
     const lm = chat.lastMessage;
@@ -89,9 +93,9 @@ export const ChatListItem = memo(function ChatListItem({
             {chat.pinned && <Pin size={11} className="text-gray-400 shrink-0" />}
             <p className="text-sm font-semibold text-gray-900 truncate">{name}</p>
           </div>
-          {chat.updatedAt && (
+{chat.updatedAt && (
             <span className="text-[11px] text-gray-400 shrink-0">
-              {formatTime(new Date(chat.updatedAt))}
+              {formatTime(chat.updatedAt)}
             </span>
           )}
         </div>

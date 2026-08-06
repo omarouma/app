@@ -1,13 +1,15 @@
-
 import { useEffect } from 'react';
+import type { RefObject } from 'react';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useChatStore } from '@/store/useChatStore';
 import { useFriendStore } from '@/store/useFriendStore';
-import { isFirestoreAvailable, getDocById, COLLECTIONS } from '@/lib/firestore';
+import { isFirestoreAvailable, COLLECTIONS } from '@/lib/firestore';
+import { isSupabaseConfigured, getSupabase } from '@/lib/supabase';
 
 export function useChatEffects(
   chatId: string,
   userId: string,
+  inputRef: RefObject<string>,
   setInput: (input: string) => void,
   setFriendStatus: (status: string) => void,
   setLastSeen: (lastSeen: string | null) => void,
@@ -18,64 +20,112 @@ export function useChatEffects(
   const { subscribeMessages, markAsRead, chats } = useChatStore();
   const { getFriendStatus } = useFriendStore();
 
+  // ── Single canonical subscription + initial markAsRead ──────────────────
   useEffect(() => {
-    if (!currentUser?.id) return;
+    if (!currentUser?.id || !chatId) return;
     const unsubscribe = subscribeMessages(chatId);
     markAsRead(chatId, currentUser.id);
     return () => unsubscribe();
   }, [chatId, currentUser?.id, subscribeMessages, markAsRead]);
 
+  // ── Re-mark as read when window regains focus ────────────────────────────
+  useEffect(() => {
+    if (!currentUser?.id || !chatId) return;
+    const onFocus = () => markAsRead(chatId, currentUser.id);
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
+  }, [chatId, currentUser?.id, markAsRead]);
+
+  // ── Friend status ────────────────────────────────────────────────────────
   useEffect(() => {
     if (!currentUser?.id || !userId) return;
-    const checkStatus = async () => {
-      const status = await getFriendStatus(currentUser.id, userId);
-      setFriendStatus(status);
-    };
-    checkStatus();
+    let cancelled = false;
+    getFriendStatus(currentUser.id, userId).then((status) => {
+      if (!cancelled) setFriendStatus(status);
+    });
+    return () => { cancelled = true; };
   }, [currentUser?.id, userId, getFriendStatus, setFriendStatus]);
 
+  // ── Draft persistence (reads from React state ref, not DOM) ─────────────
   useEffect(() => {
+    if (!chatId) return;
     const draftKey = `draft_${chatId}`;
     const savedDraft = localStorage.getItem(draftKey);
-    if (savedDraft) {
-      setInput(savedDraft);
-    }
+    if (savedDraft) setInput(savedDraft);
+    const inputRefCurrent = inputRef;
     return () => {
-      const currentInput = (document.getElementById('chat-input') as HTMLInputElement)?.value;
-      if (currentInput) {
-        localStorage.setItem(draftKey, currentInput);
+      const current = inputRefCurrent.current ?? '';
+      if (current) {
+        localStorage.setItem(draftKey, current);
       } else {
         localStorage.removeItem(draftKey);
       }
     };
-  }, [chatId, setInput]);
+  }, [chatId, setInput, inputRef]);
 
+  // ── Last seen — realtime via Supabase, fallback to one-shot fetch ────────
   useEffect(() => {
     if (!userId || !isFirestoreAvailable()) return;
-    const fetchLastSeen = async () => {
-      try {
-        const userDoc = await getDocById(COLLECTIONS.USERS, userId);
-        if (userDoc) {
-          setLastSeen(userDoc.lastSeen?.toDate().toLocaleString() ?? 'online');
+    let unsub: (() => void) | null = null;
+
+const supabase = isSupabaseConfigured() ? getSupabase() : null;
+    if (supabase) {
+      // Initial fetch
+      void (async () => {
+        try {
+          const { data } = await supabase
+            .from('users')
+            .select('last_seen, online')
+            .eq('id', userId)
+            .single();
+          if (!data) return;
+          setLastSeen(data.online ? 'online' : data.last_seen ? new Date(data.last_seen).toLocaleString() : null);
+        } catch {
+          /* ignore */
         }
-      } catch {
-        // ignore
-      }
-    };
-    fetchLastSeen();
+      })();
+
+      // Realtime subscription
+      const channel = supabase
+        .channel(`user_presence_${userId}`)
+        .on('postgres_changes', {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'users',
+          filter: `id=eq.${userId}`,
+        }, (payload) => {
+          const d = payload.new as Record<string, unknown>;
+          setLastSeen(
+            d.online ? 'online' : d.last_seen ? new Date(d.last_seen as string).toLocaleString() : null
+          );
+        })
+        .subscribe();
+
+      unsub = () => supabase.removeChannel(channel);
+    } else {
+      // Firestore fallback — one-shot
+      import('@/lib/firestore').then(({ getDocById }) => {
+        getDocById(COLLECTIONS.USERS, userId).then((userDoc) => {
+          if (userDoc) {
+            const ls = userDoc.lastSeen;
+            setLastSeen(ls ? (typeof ls.toDate === 'function' ? ls.toDate().toLocaleString() : new Date(ls).toLocaleString()) : 'online');
+          }
+        }).catch(() => {});
+      });
+    }
+
+    return () => unsub?.();
   }, [userId, setLastSeen]);
 
+  // ── Chat lock state ──────────────────────────────────────────────────────
   useEffect(() => {
     const chat = chats.find((c) => c.id === chatId);
-    if (chat?.chatLocked) {
-      setIsChatLocked(true);
-    }
+    if (chat?.chatLocked) setIsChatLocked(true);
   }, [chatId, chats, setIsChatLocked]);
 
+  // ── Chat background ──────────────────────────────────────────────────────
   useEffect(() => {
     const savedBg = localStorage.getItem(`chat_bg_${chatId}`);
-    if (savedBg) {
-      setChatBg(savedBg);
-    }
+    if (savedBg) setChatBg(savedBg);
   }, [chatId, setChatBg]);
 }

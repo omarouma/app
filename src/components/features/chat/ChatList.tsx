@@ -1,4 +1,4 @@
-import { memo } from 'react';
+import { memo, useRef } from 'react';
 import { ChatListItem } from './ChatListItem';
 import type { Chat } from '@/types';
 
@@ -10,6 +10,8 @@ interface ChatListProps {
   visibleOnline: Record<string, boolean>;
   typingMap: Record<string, string>;
   onAddFriend: (friendId: string) => Promise<void>;
+  // Optional long-press / context-menu handlers (used by ChatsPage)
+  onLongPress?: (chatId: string, archived: boolean, y: number) => void;
 }
 
 export const ChatList = memo(({
@@ -20,7 +22,17 @@ export const ChatList = memo(({
   visibleOnline,
   typingMap,
   onAddFriend,
+  onLongPress,
 }: ChatListProps) => {
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const clearTimer = () => {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+  };
+
   return (
     <div>
       {chats.map((chat, i) => {
@@ -34,18 +46,34 @@ export const ChatList = memo(({
         const typingName = typingMap[chat.id];
 
         return (
-          <ChatListItem
+          <div
             key={chat.id}
-            chat={chat}
-            index={i}
-            userId={userId}
-            isFriend={isFriend}
-            isOnline={isOnline}
-            name={name}
-            avatar={avatar}
-            typingName={typingName}
-            onAddFriend={onAddFriend}
-          />
+            onTouchStart={(e) => {
+              if (!onLongPress) return;
+              const y = e.touches[0].clientY;
+              longPressTimer.current = setTimeout(() => onLongPress(chat.id, !!chat.archived, y), 500);
+            }}
+            onTouchEnd={clearTimer}
+            onTouchMove={clearTimer}
+            onTouchCancel={clearTimer}
+            onContextMenu={(e) => {
+              if (!onLongPress) return;
+              e.preventDefault();
+              onLongPress(chat.id, !!chat.archived, e.clientY);
+            }}
+          >
+            <ChatListItem
+              chat={chat}
+              index={i}
+              userId={userId}
+              isFriend={isFriend}
+              isOnline={isOnline}
+              name={name}
+              avatar={avatar}
+              typingName={typingName}
+              onAddFriend={onAddFriend}
+            />
+          </div>
         );
       })}
     </div>

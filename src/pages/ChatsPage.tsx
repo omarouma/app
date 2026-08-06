@@ -1,28 +1,53 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 
-import { UserPlus, Plus, Search, Users, Archive, MessageCircle, MessageSquare } from 'lucide-react';
+import { UserPlus, Plus, Search, Users, Archive, MessageCircle, MessageSquare, ArchiveRestore } from 'lucide-react';
 
-import { ChatListItem } from '@/components/features/chat/ChatListItem';
+import { ChatList } from '@/components/features/chat/ChatList';
 import LoadingSkeleton from '@/components/LoadingSkeleton';
 import EmptyState from '@/components/EmptyState';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import { useChatLogic } from '@/hooks/useChatLogic';
+import { useChatStore } from '@/store/useChatStore';
+import { toast } from 'sonner';
 
 export default function ChatsPage() {
   const navigate = useNavigate();
   const {
     search, setSearch, activeTab, setActiveTab,
     loading, filtered, totalUnread, activeChats, archivedChats,
+    typingMap, friends, nonFriendNames, visibleOnline, handleAddFriend, user,
     handleRefresh,
   } = useChatLogic();
 
-  useDocumentTitle(`Chats (${totalUnread > 0 ? totalUnread : 0})`);
+const { archiveChat, unarchiveChat } = useChatStore();
+
+  useDocumentTitle(`Chats (${totalUnread})`);
 
   const [refreshing, setRefreshing] = useState(false);
+  const [contextMenu, setContextMenu] = useState<{ chatId: string; archived: boolean; x: number; y: number } | null>(null);
   const touchStartRef = useRef(0);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  const handleLongPress = useCallback((chatId: string, archived: boolean, y: number) => {
+    setContextMenu({ chatId, archived, x: 20, y: Math.min(y, window.innerHeight - 120) });
+  }, []);
+
+  const handleArchiveToggle = useCallback(async (chatId: string, isArchived: boolean) => {
+    try {
+      if (isArchived) {
+        await unarchiveChat(chatId);
+        toast.success('Chat unarchived');
+      } else {
+        await archiveChat(chatId);
+        toast.success('Chat archived');
+      }
+    } catch {
+      toast.error('Failed to update chat');
+    }
+    setContextMenu(null);
+  }, [archiveChat, unarchiveChat]);
 
   const handleTouchStart = (e: React.TouchEvent) => {
     if (containerRef.current?.scrollTop === 0) {
@@ -161,16 +186,19 @@ export default function ChatsPage() {
                   Start Chatting
                 </button>
               )
-            }
+}
           />
         ) : (
-          filtered.map((chat, i) => (
-            <ChatListItem
-              key={chat.id}
-              chat={chat}
-              index={i}
-            />
-          ))
+          <ChatList
+            chats={filtered}
+            userId={user?.id}
+            friends={friends}
+            nonFriendNames={nonFriendNames}
+            visibleOnline={visibleOnline}
+            typingMap={typingMap}
+            onAddFriend={handleAddFriend}
+            onLongPress={handleLongPress}
+          />
         )}
       </div>
 
@@ -182,6 +210,43 @@ export default function ChatsPage() {
       >
         <MessageSquare size={24} strokeWidth={2} />
       </button>
+
+      {/* Long-press context menu */}
+      <AnimatePresence>
+        {contextMenu && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.9 }}
+            className="fixed z-50 bg-white rounded-2xl shadow-xl border border-gray-100 py-1 min-w-[180px]"
+            style={{ top: contextMenu.y, left: contextMenu.x }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              onClick={() => handleArchiveToggle(contextMenu.chatId, contextMenu.archived)}
+              className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-800 hover:bg-gray-50 transition-colors"
+            >
+              {contextMenu.archived
+                ? <><ArchiveRestore size={16} className="text-indigo-500" /> Unarchive Chat</>
+                : <><Archive size={16} className="text-indigo-500" /> Archive Chat</>
+              }
+            </button>
+            <button
+              type="button"
+              onClick={() => setContextMenu(null)}
+              className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-400 hover:bg-gray-50 transition-colors"
+            >
+              Cancel
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Dismiss context menu on backdrop tap */}
+      {contextMenu && (
+        <div className="fixed inset-0 z-40" onClick={() => setContextMenu(null)} />
+      )}
     </div>
   );
 }

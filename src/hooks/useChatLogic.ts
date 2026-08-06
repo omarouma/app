@@ -6,6 +6,9 @@ import { useFriendStore } from '@/store/useFriendStore';
 import { useFilteredOnline } from '@/hooks/usePresence';
 import { useChatListTyping } from '@/hooks/useChatListTyping';
 import { isFirestoreAvailable, getDocById } from '@/lib/firestore';
+import type { Chat } from '@/types';
+
+type ChatListItemData = Chat & { itemType: 'direct' | 'group' };
 
 export function useChatLogic() {
   const { user } = useAuthStore();
@@ -19,23 +22,34 @@ export function useChatLogic() {
   const [nonFriendNames, setNonFriendNames] = useState<Record<string, string>>({});
   const nonFriendNamesRef = useRef<Record<string, string>>({});
 
+  // Store the active subscription unsubscribers so handleRefresh can cancel them
+  const activeUnsubRef = useRef<Array<() => void>>([]);
+
   useEffect(() => {
     if (!user) return;
+    // Cancel any previous subscriptions (e.g. from a prior refresh)
+    activeUnsubRef.current.forEach((fn) => fn?.());
+    activeUnsubRef.current = [];
+
     const unsubChats = subscribeChats(user.id);
     const unsubGroups = subscribeGroups(user.id);
+    activeUnsubRef.current = [unsubChats, unsubGroups].filter(
+      (fn): fn is () => void => typeof fn === 'function'
+    );
+
     return () => {
-      unsubChats?.();
-      unsubGroups?.();
+      activeUnsubRef.current.forEach((fn) => fn?.());
+      activeUnsubRef.current = [];
     };
   }, [user, subscribeChats, subscribeGroups]);
 
-  const allChats = useMemo(() => {
-    const map = new Map<string, any>();
+const allChats = useMemo<ChatListItemData[]>(() => {
+    const map = new Map<string, ChatListItemData>();
     chats.forEach(c => map.set(c.id, { ...c, itemType: 'direct' as const }));
     groups.forEach(g => map.set(g.id, { ...g, itemType: 'group' as const }));
     return Array.from(map.values()).sort((a, b) => {
-      const aTime = a.updatedAt ? new Date(a.updatedAt).getTime() : 0;
-      const bTime = b.updatedAt ? new Date(b.updatedAt).getTime() : 0;
+      const aTime = a.updatedAt ? new Date(a.updatedAt as string).getTime() : 0;
+      const bTime = b.updatedAt ? new Date(b.updatedAt as string).getTime() : 0;
       return bTime - aTime;
     });
   }, [chats, groups]);
@@ -51,18 +65,19 @@ export function useChatLogic() {
       activeTab === 'all' && !search ? [...pinnedChats, ...unpinnedChats] :
       activeChats;
 
-    const filterFunctions = {
-      direct: (c: any) => c.itemType === 'direct',
-      groups: (c: any) => c.itemType === 'group',
+const filterFunctions: Record<string, (c: ChatListItemData) => boolean> = {
+      direct: (c) => c.itemType === 'direct',
+      groups: (c) => c.itemType === 'group',
       all: () => true,
       archived: () => true,
     };
 
-    const searchFilter = (c: any) => {
+    const searchFilter = (c: ChatListItemData) => {
       if (!search) return true;
-      if (c.type === 'group') return c.name?.toLowerCase().includes(search.toLowerCase());
-      const otherId = c.participants.find((p: string) => p !== user?.id) || '';
-      const f = friends.find((fr: any) => fr.id === otherId);
+      if (c.type === 'group') return (c.name as string)?.toLowerCase().includes(search.toLowerCase());
+      const participants = c.participants as string[];
+      const otherId = participants.find((p) => p !== user?.id) || '';
+      const f = friends.find((fr) => fr.id === otherId);
       const name = f?.name || nonFriendNames[otherId] || 'Chat';
       return name.toLowerCase().includes(search.toLowerCase());
     };
@@ -70,19 +85,20 @@ export function useChatLogic() {
     return base.filter(filterFunctions[activeTab]).filter(searchFilter);
   }, [activeTab, search, archivedChats, pinnedChats, unpinnedChats, activeChats, friends, nonFriendNames, user?.id]);
 
-  const totalUnread = useMemo(
-    () => activeChats.reduce((sum, c) => sum + (c.unreadCount || 0), 0),
+const totalUnread = useMemo(
+    () => activeChats.reduce((sum, c) => sum + ((c.unreadCount as number) || 0), 0),
     [activeChats]
   );
 
-  const visibleChatIds = useMemo(() => filtered.map(c => c.id), [filtered]);
+  const visibleChatIds = useMemo(() => filtered.map(c => c.id as string), [filtered]);
   const typingMap = useChatListTyping(visibleChatIds.join(','));
 
   const handleAddFriend = useCallback(async (friendId: string) => {
-    if (!user?.id) throw new Error("You must be logged in to add friends.");
+    if (!user?.id) throw new Error('You must be logged in to add friends.');
     await sendRequest(friendId, user.id);
   }, [user?.id, sendRequest]);
 
+  // Fetch names for non-friend chat participants
   useEffect(() => {
     if (!user || !chats.length) return;
 
@@ -101,7 +117,6 @@ export function useChatLogic() {
 
         const { getSupabaseSafe } = await import('@/lib/supabase');
         const supabase = getSupabaseSafe();
-
         const newNames: Record<string, string> = {};
 
         if (supabase) {
@@ -116,9 +131,7 @@ export function useChatLogic() {
             nonFriendIds.map(id => getDocById('users', id).catch(() => null))
           );
           results.forEach((data, i) => {
-            if (data) {
-              newNames[nonFriendIds[i]] = (data as { name?: string }).name || 'User';
-            }
+            if (data) newNames[nonFriendIds[i]] = (data as { name?: string }).name || 'User';
           });
         }
 
@@ -127,40 +140,24 @@ export function useChatLogic() {
           setNonFriendNames(prev => ({ ...prev, ...newNames }));
         }
       } catch (error) {
-        console.error("Error fetching non-friend names:", error);
+        console.error('Error fetching non-friend names:', error);
       }
     };
 
     fetchAndSetNonFriendNames();
-
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [chats, friends, user]);
 
-const refreshUnsubRef = useRef<Array<() => void>>([]);
-
+  // handleRefresh cancels the current subscriptions before creating new ones
   const handleRefresh = useCallback(async () => {
     if (!user?.id) return;
-    // Clean up any previous refresh subscriptions before creating new ones
-    refreshUnsubRef.current.forEach((fn) => fn?.());
-    refreshUnsubRef.current = [];
-    const unsubs = await Promise.all([
-      subscribeChats(user.id),
-      subscribeGroups(user.id),
-    ]);
-    refreshUnsubRef.current = unsubs.filter(
+    activeUnsubRef.current.forEach((fn) => fn?.());
+    activeUnsubRef.current = [];
+    const unsubs = [subscribeChats(user.id), subscribeGroups(user.id)];
+    activeUnsubRef.current = unsubs.filter(
       (fn): fn is () => void => typeof fn === 'function'
     );
   }, [user?.id, subscribeChats, subscribeGroups]);
-
-  // Clean up refresh subscriptions on unmount
-  useEffect(() => {
-    return () => {
-      refreshUnsubRef.current.forEach((fn) => fn?.());
-      refreshUnsubRef.current = [];
-    };
-  }, []);
 
   return {
     user,
