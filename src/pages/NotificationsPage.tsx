@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -104,11 +104,13 @@ export default function NotificationsPage() {
 
   const isMuted = (type: string) => mutedTypes.includes(type);
 
+  const subscribeRef = useRef(subscribe);
+  useEffect(() => { subscribeRef.current = subscribe; });
   useEffect(() => {
     if (!user?.id) return;
-    const unsub = subscribe(user.id);
+    const unsub = subscribeRef.current(user.id);
     return () => { if (typeof unsub === 'function') unsub(); };
-  }, [user?.id, subscribe]);
+  }, [user?.id]);
 
   const filtered = useMemo(() => {
     let list = [...notifications];

@@ -58,19 +58,19 @@ export function useChatListTyping(chatIdsKey: string) {
       const channel = supabase
         .channel(channelName)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'typing' }, (payload) => {
-          const data = payload.new as any;
+          const data = payload.new as Record<string, unknown>;
           if (!data || data.user_id === user.id) return;
 
-          const chatId = data.chat_id;
+          const chatId = String(data.chat_id);
           if (!chatIdSetRef.current.has(chatId)) return;
 
-          const ts = new Date(data.updated_at).getTime();
-          const isTyping = data.is_typing && (Date.now() - ts < 6000);
+          const ts = new Date(String(data.updated_at ?? '')).getTime() || Date.now();
+          const isTyping = !!data.is_typing && (Date.now() - ts < 6000);
 
           setTypingMap(prev => {
             const current = prev[chatId];
             if (isTyping) {
-              const newEntry = { name: data.user_name || 'Someone', timestamp: ts };
+              const newEntry = { name: String(data.user_name || 'Someone'), timestamp: ts };
               if (current?.name === newEntry.name && current?.timestamp === newEntry.timestamp) return prev;
               return { ...prev, [chatId]: newEntry };
             }

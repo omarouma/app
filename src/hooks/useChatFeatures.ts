@@ -7,8 +7,8 @@ import { toast } from 'sonner';
 
 export const useChatFeatures = (chatId: string) => {
   const { user: currentUser } = useAuthStore();
-  const { sendPoll, votePoll, sendContactCard } = useChatStore();
-  const { schedule, getPending } = useScheduledMessages(chatId, useChatStore.getState().sendMessage);
+const { sendPoll, votePoll, sendContactCard, sendMessage } = useChatStore();
+  const { schedule, getPending } = useScheduledMessages(chatId, sendMessage);
 
   const handleSendPoll = useCallback(async (question: string, options: string[]) => {
     if (!currentUser || !question.trim() || options.some(o => !o.trim())) return;

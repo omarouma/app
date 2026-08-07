@@ -55,7 +55,7 @@ const processCallData = (
   onUpdateCurrentCall: (call: CallRecord | null) => void,
   getState: () => CallStore,
 ) => {
-const history: CallRecord[] = [];
+  const history: CallRecord[] = [];
   let incomingCall: CallRecord | null = null;
   let currentCall: CallRecord | null = null;
 
@@ -96,7 +96,7 @@ export const useCallStore = create<CallStore>((set, get) => ({
   history: [],
   loading: false,
 
-subscribeToCallHistory: (userId: string) => {
+  subscribeToCallHistory: (userId: string) => {
     if (!userId || !isFirestoreAvailable()) {
       set({ history: [], loading: false });
       return () => {};
@@ -104,38 +104,41 @@ subscribeToCallHistory: (userId: string) => {
 
     set({ loading: true });
 
-    const onUpdateHistory = (history: CallRecord[]) => set({ history, loading: false });
+    const cache = new Map<string, CallRecord>();
+
+    const mergeHistory = (records: CallRecord[]) => {
+      records.forEach((r) => cache.set(r.id, r));
+      const merged = Array.from(cache.values())
+        .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
+        .slice(0, 30);
+      set({ history: merged, loading: false });
+    };
+
     const noopIncoming = () => {};
     const noopCurrent = () => {};
 
-const unsubCaller = subscribeToCollection(
+    const makeHandler = () => (data: Record<string, unknown>[]) => {
+      const records: CallRecord[] = [];
+      for (const d of data) {
+        const call = mapCall(d);
+        if (call.participantIds.includes(userId) && ['ended', 'rejected', 'missed'].includes(call.status)) {
+          records.push(call);
+        }
+      }
+      mergeHistory(records);
+      processCallData(data, userId, () => {}, noopIncoming, noopCurrent, get);
+    };
+
+    const unsubCaller = subscribeToCollection(
       COLLECTIONS.CALL_HISTORY,
       [where('callerId', '==', userId), orderBy('createdAt', 'desc'), limit(30)],
-      (data) => {
-        processCallData(
-          data,
-          userId,
-          onUpdateHistory,
-          noopIncoming,
-          noopCurrent,
-          get,
-        );
-      }
+      makeHandler()
     );
 
     const unsubCallee = subscribeToCollection(
       COLLECTIONS.CALL_HISTORY,
       [where('calleeId', '==', userId), orderBy('createdAt', 'desc'), limit(30)],
-      (data) => {
-        processCallData(
-          data,
-          userId,
-          onUpdateHistory,
-          noopIncoming,
-          noopCurrent,
-          get,
-        );
-      }
+      makeHandler()
     );
 
     return () => {
@@ -144,10 +147,25 @@ const unsubCaller = subscribeToCollection(
     };
   },
 
-clearCallHistory: async (userId: string) => {
-    // Clear local call history (no bulk delete to avoid RLS/composite issues)
-    void userId;
-    set({ history: [] });
+  clearCallHistory: async (userId: string) => {
+    if (!isFirestoreAvailable() || !userId) {
+      set({ history: [] });
+      return;
+    }
+    try {
+      // Delete each history record where the current user is a participant.
+      // We delete one-by-one to avoid RLS/composite issues with bulk deletes.
+      const { deleteDocById } = await import('@/lib/firestore');
+      const current = get().history;
+      await Promise.all(
+        current
+          .filter((c) => c.participantIds.includes(userId))
+          .map((c) => deleteDocById(COLLECTIONS.CALL_HISTORY, c.id).catch(() => {}))
+      );
+      set({ history: [] });
+    } catch {
+      set({ history: [] });
+    }
   },
 
   deleteCall: async (callId: string) => {
@@ -169,7 +187,7 @@ clearCallHistory: async (userId: string) => {
     if (!currentUserId) throw new Error('You must be logged in to make a call');
     if (get().currentCall) return get().currentCall!.id;
     try {
-const callId = await addDocToCollection(COLLECTIONS.CALL_HISTORY, {
+      const callId = await addDocToCollection(COLLECTIONS.CALL_HISTORY, {
         callerId: currentUserId,
         calleeId: userId,
         type,
@@ -210,7 +228,7 @@ const callId = await addDocToCollection(COLLECTIONS.CALL_HISTORY, {
     set({ currentCall: null, incomingCall: null });
   },
 
-acceptCall: async () => {
+  acceptCall: async () => {
     if (!isFirestoreAvailable()) return;
     const { incomingCall } = get();
     if (!incomingCall) return;
@@ -287,7 +305,7 @@ acceptCall: async () => {
       }
     };
 
-const onUpdateHistory = (history: CallRecord[]) => set({ history });
+    const onUpdateHistory = (history: CallRecord[]) => set({ history });
     const onIncomingCall = (call: CallRecord | null) => {
       // Busy handling: if the user is already on an active call, auto-reject
       // any newly arriving call so the caller gets a clear "rejected" outcome
@@ -314,7 +332,7 @@ const onUpdateHistory = (history: CallRecord[]) => set({ history });
         if (existing) clearMissedTimeout(existing.id);
       }
     };
-const onUpdateCurrentCall = (call: CallRecord | null) => {
+    const onUpdateCurrentCall = (call: CallRecord | null) => {
       const prev = get().currentCall;
       const patch: Partial<CallStore> = {};
       // Persist the connection timestamp when the call transitions to
@@ -336,18 +354,11 @@ const onUpdateCurrentCall = (call: CallRecord | null) => {
       }
     };
 
-const unsubCaller = subscribeToCollection(
+    const unsubCaller = subscribeToCollection(
       COLLECTIONS.CALL_HISTORY,
       [where('callerId', '==', userId), orderBy('createdAt', 'desc'), limit(30)],
       (data) => {
-        processCallData(
-          data,
-          userId,
-          onUpdateHistory,
-          onIncomingCall,
-          onUpdateCurrentCall,
-          get,
-        );
+        processCallData(data, userId, onUpdateHistory, onIncomingCall, onUpdateCurrentCall, get);
       }
     );
 
@@ -355,14 +366,7 @@ const unsubCaller = subscribeToCollection(
       COLLECTIONS.CALL_HISTORY,
       [where('calleeId', '==', userId), orderBy('createdAt', 'desc'), limit(30)],
       (data) => {
-        processCallData(
-          data,
-          userId,
-          onUpdateHistory,
-          onIncomingCall,
-          onUpdateCurrentCall,
-          get,
-        );
+        processCallData(data, userId, onUpdateHistory, onIncomingCall, onUpdateCurrentCall, get);
       }
     );
 

@@ -64,10 +64,10 @@ const mapRoom = (d: Record<string, unknown>): VoiceRoom => ({
   coHostIds: (d.coHostIds as string[]) || [],
   isLive: (d.isLive as boolean) ?? true,
   startedAt: d.startedAt && typeof d.startedAt === 'object' && 'toDate' in d.startedAt
-    ? (d.startedAt as any).toDate()
+    ? (d.startedAt as { toDate(): Date }).toDate()
     : d.startedAt ? new Date(d.startedAt as string) : new Date(),
   endedAt: d.endedAt && typeof d.endedAt === 'object' && 'toDate' in d.endedAt
-    ? (d.endedAt as any).toDate()
+    ? (d.endedAt as { toDate(): Date }).toDate()
     : d.endedAt ? new Date(d.endedAt as string) : undefined,
   maxParticipants: (d.maxParticipants as number) || 100,
   isPrivate: (d.isPrivate as boolean) || false,
@@ -113,7 +113,7 @@ export const useVoiceRoomStore = create<VoiceRoomStore>((set, get) => ({
     try {
       await updateDocById(COLLECTIONS.VOICE_ROOMS, roomId, {
         participants: arrayUnion(userId),
-        listenerCount: (get().rooms.find(r => r.id === roomId)?.listenerCount || 0) + 1,
+        listenerCount: (get().rooms.find(r => r.id === roomId)?.listenerCount ?? 0) + 1,
       });
     } catch (err) {
       console.error('joinRoom error:', err);
@@ -126,7 +126,7 @@ export const useVoiceRoomStore = create<VoiceRoomStore>((set, get) => ({
     try {
       const room = get().rooms.find(r => r.id === roomId);
       if (!room) return;
-      const updates: any = {
+      const updates: Record<string, unknown> = {
         participants: arrayRemove(userId),
         speakerIds: arrayRemove(userId),
         raisedHands: arrayRemove(userId),
@@ -134,7 +134,6 @@ export const useVoiceRoomStore = create<VoiceRoomStore>((set, get) => ({
       if (room.listenerCount > 0) {
         updates.listenerCount = room.listenerCount - 1;
       }
-      // If host leaves, end the room
       if (room.hostId === userId) {
         updates.isLive = false;
         updates.endedAt = serverTimestamp();

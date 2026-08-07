@@ -112,25 +112,32 @@ const { archiveChat, unarchiveChat } = useChatStore();
 
       {/* Tabs */}
       <div className="shrink-0 flex gap-2 px-4 pb-2 overflow-x-auto scrollbar-hide bg-white">
-        {(['all', 'direct', 'groups', 'archived'] as const).map(tab => (
-          <button type="button" key={tab}
-            onClick={() => setActiveTab(tab)}
-            className={`shrink-0 px-4 py-1.5 rounded-full text-xs font-semibold transition-all tap-scale ${
-              activeTab === tab
-                ? 'bg-indigo-600 text-white shadow-sm'
-                : 'bg-gray-100 text-gray-600 hover:text-gray-900'
-            }`}
-          >
-            {
-              {
-                all: `All${activeChats.length ? ` (${activeChats.length})` : ''}`,
-                direct: 'Direct',
-                groups: 'Groups',
-                archived: `Archived${archivedChats.length ? ` (${archivedChats.length})` : ''}`,
-              }[tab]
-            }
-          </button>
-        ))}
+      {(['all', 'direct', 'groups', 'archived'] as const).map(tab => {
+          const count = {
+            all: activeChats.length,
+            direct: activeChats.filter(c => c.itemType === 'direct').length,
+            groups: activeChats.filter(c => c.itemType === 'group').length,
+            archived: archivedChats.length,
+          }[tab];
+          const label = {
+            all: 'All',
+            direct: 'Direct',
+            groups: 'Groups',
+            archived: 'Archived',
+          }[tab];
+          return (
+            <button type="button" key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`shrink-0 px-4 py-1.5 rounded-full text-xs font-semibold transition-all tap-scale ${
+                activeTab === tab
+                  ? 'bg-indigo-600 text-white shadow-sm'
+                  : 'bg-gray-100 text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              {count > 0 ? `${label} (${count})` : label}
+            </button>
+          );
+        })}
       </div>
 
       {/* Chat List */}

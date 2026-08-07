@@ -302,24 +302,24 @@ export const useLiveStore = create<LiveStore>((set) => ({
         querySubcollection(COLLECTION_LIVE, streamId, 'comments', [orderBy('timestamp', 'desc'), limit(200)]),
         querySubcollection(COLLECTION_LIVE, streamId, 'gifts', [orderBy('timestamp', 'desc'), limit(200)]),
       ]);
-      stream.comments = (commentsData || []).map((d: any) => ({
-        id: d.id,
-        userId: d.userId,
-        content: d.content || '',
+      stream.comments = (commentsData || []).map((d: Record<string, unknown>) => ({
+        id: String(d.id ?? ''),
+        userId: String(d.userId ?? ''),
+        content: String(d.content || ''),
         timestamp: toDate(d.createdAt ?? d.timestamp),
-        userName: d.userName || '',
-        isPinned: d.isPinned || false,
-        isModerator: d.isModerator || false,
+        userName: String(d.userName || ''),
+        isPinned: !!d.isPinned,
+        isModerator: !!d.isModerator,
       }));
-      stream.gifts = (giftsData || []).map((d: any) => ({
-        id: d.id,
-        userId: d.userId,
-        type: d.type || 'heart',
-        amount: d.amount || 0,
-        currency: d.currency || 'coins',
+      stream.gifts = (giftsData || []).map((d: Record<string, unknown>) => ({
+        id: String(d.id ?? ''),
+        userId: String(d.userId ?? ''),
+        type: (d.type as LiveGift['type']) || 'heart',
+        amount: Number(d.amount || 0),
+        currency: (d.currency as LiveGift['currency']) || 'coins',
         timestamp: toDate(d.createdAt ?? d.timestamp),
-        userName: d.userName || '',
-        message: d.message || '',
+        userName: String(d.userName || ''),
+        message: String(d.message || ''),
       }));
       return stream;
     } catch (err) {

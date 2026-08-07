@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useLayoutEffect, useRef } from 'react';
 import type { RefObject } from 'react';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useChatStore } from '@/store/useChatStore';
@@ -20,31 +20,49 @@ export function useChatEffects(
   const { subscribeMessages, markAsRead, chats } = useChatStore();
   const { getFriendStatus } = useFriendStore();
 
+  // Stable refs so Zustand method identity changes never retrigger effects
+  const subscribeMessagesRef = useRef(subscribeMessages);
+  const markAsReadRef = useRef(markAsRead);
+  const getFriendStatusRef = useRef(getFriendStatus);
+  useLayoutEffect(() => {
+    subscribeMessagesRef.current = subscribeMessages;
+    markAsReadRef.current = markAsRead;
+    getFriendStatusRef.current = getFriendStatus;
+  });
+
   // ── Single canonical subscription + initial markAsRead ──────────────────
   useEffect(() => {
     if (!currentUser?.id || !chatId) return;
-    const unsubscribe = subscribeMessages(chatId);
-    markAsRead(chatId, currentUser.id);
+    const uid = currentUser.id;
+    const unsubscribe = subscribeMessagesRef.current(chatId);
+    markAsReadRef.current(chatId, uid);
     return () => unsubscribe();
-  }, [chatId, currentUser?.id, subscribeMessages, markAsRead]);
+  }, [chatId, currentUser?.id]);
 
-  // ── Re-mark as read when window regains focus ────────────────────────────
+  // ── Re-mark as read when window regains focus (debounced) ─────────────────
   useEffect(() => {
     if (!currentUser?.id || !chatId) return;
-    const onFocus = () => markAsRead(chatId, currentUser.id);
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const onFocus = () => {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => markAsReadRef.current(chatId, currentUser.id), 1000);
+    };
     window.addEventListener('focus', onFocus);
-    return () => window.removeEventListener('focus', onFocus);
-  }, [chatId, currentUser?.id, markAsRead]);
+    return () => {
+      window.removeEventListener('focus', onFocus);
+      if (timer) clearTimeout(timer);
+    };
+  }, [chatId, currentUser?.id]);
 
   // ── Friend status ────────────────────────────────────────────────────────
   useEffect(() => {
     if (!currentUser?.id || !userId) return;
     let cancelled = false;
-    getFriendStatus(currentUser.id, userId).then((status) => {
+    getFriendStatusRef.current(currentUser.id, userId).then((status) => {
       if (!cancelled) setFriendStatus(status);
     });
     return () => { cancelled = true; };
-  }, [currentUser?.id, userId, getFriendStatus, setFriendStatus]);
+  }, [currentUser?.id, userId, setFriendStatus]);
 
   // ── Draft persistence (reads from React state ref, not DOM) ─────────────
   useEffect(() => {
@@ -65,10 +83,10 @@ export function useChatEffects(
 
   // ── Last seen — realtime via Supabase, fallback to one-shot fetch ────────
   useEffect(() => {
-    if (!userId || !isFirestoreAvailable()) return;
+    if (!userId) return;
     let unsub: (() => void) | null = null;
 
-const supabase = isSupabaseConfigured() ? getSupabase() : null;
+    const supabase = isSupabaseConfigured() ? getSupabase() : null;
     if (supabase) {
       // Initial fetch
       void (async () => {

@@ -1,18 +1,10 @@
-# TODO — Fix ERR_INSUFFICIENT_RESOURCES + TON Wallet Integration
+# Chat Page & ChatRoom Fixes
 
-## Part A — Fix resource exhaustion
-- [x] 1. `src/lib/supabase.ts` — realtime reconnect tuning + shared client
-- [x] 2. `src/hooks/usePresence.ts` — heartbeat 30s→45s, sweep 15s→45s
-- [x] 3. `src/hooks/useGATracking.ts` — page_view debounce/guard
-- [x] 4. `src/hooks/useFirebaseAnalytics.ts` — avoid double-tracking with GA4
-- [x] 5. `src/store/useNotificationStore.ts` — shared-channel guard
+## Steps
 
-## Part B — TON integration
-- [x] 6. `src/config/env.ts` — add VITE_TON_API_KEY + VITE_TON_ENDPOINT
-- [x] 7. `src/config/tonConfig.ts` (new) — endpoint/key config
-- [x] 8. `src/services/tonService.ts` (new) — toncenter JSON-RPC client
-- [x] 9. `src/pages/WalletPage.tsx` — TON Wallet card (balance + transactions, polled)
-
-## Verification
-- [x] Run `npx tsc -b` (zero errors)
-- [x] Run `npm run build` (success; only a pre-existing Tailwind ease-class warning)
+- [ ] 1. ChatRoom.tsx — Fix `handleVoiceSend` double-upload (upload once)
+- [ ] 2. ChatRoom.tsx — Wire `atBottomStateChange` to Virtuoso so scroll-to-bottom button works
+- [ ] 3. ChatRoom.tsx — Wire real `onRetry` handler for failed messages
+- [ ] 4. ChatRoom.tsx — Fix `handleUnlock` to verify PIN hash (no hardcoded success)
+- [ ] 5. MessageItem.tsx — Verify `onRetry` prop is plumbed through
+- [ ] 6. Run tsc + build to verify no regressions

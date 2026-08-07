@@ -10,7 +10,6 @@ interface ChatListProps {
   visibleOnline: Record<string, boolean>;
   typingMap: Record<string, string>;
   onAddFriend: (friendId: string) => Promise<void>;
-  // Optional long-press / context-menu handlers (used by ChatsPage)
   onLongPress?: (chatId: string, archived: boolean, y: number) => void;
 }
 
@@ -24,12 +23,12 @@ export const ChatList = memo(({
   onAddFriend,
   onLongPress,
 }: ChatListProps) => {
-  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const longPressTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
-  const clearTimer = () => {
-    if (longPressTimer.current) {
-      clearTimeout(longPressTimer.current);
-      longPressTimer.current = null;
+  const clearTimer = (chatId: string) => {
+    if (longPressTimers.current[chatId]) {
+      clearTimeout(longPressTimers.current[chatId]);
+      delete longPressTimers.current[chatId];
     }
   };
 
@@ -51,11 +50,11 @@ export const ChatList = memo(({
             onTouchStart={(e) => {
               if (!onLongPress) return;
               const y = e.touches[0].clientY;
-              longPressTimer.current = setTimeout(() => onLongPress(chat.id, !!chat.archived, y), 500);
+              longPressTimers.current[chat.id] = setTimeout(() => onLongPress(chat.id, !!chat.archived, y), 500);
             }}
-            onTouchEnd={clearTimer}
-            onTouchMove={clearTimer}
-            onTouchCancel={clearTimer}
+            onTouchEnd={() => clearTimer(chat.id)}
+            onTouchMove={() => clearTimer(chat.id)}
+            onTouchCancel={() => clearTimer(chat.id)}
             onContextMenu={(e) => {
               if (!onLongPress) return;
               e.preventDefault();

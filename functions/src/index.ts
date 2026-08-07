@@ -35,7 +35,7 @@ export const matchContacts = functions.https.onCall(async (data, context) => {
     .filter(Boolean) as string[];
 
   const usersRef = admin.firestore().collection("users");
-  const matchedUsers: any[] = [];
+  const matchedUsers: Record<string, unknown>[] = [];
 
   if (emails.length > 0) {
     const emailSnapshot = await usersRef.where("email", "in", emails).get();

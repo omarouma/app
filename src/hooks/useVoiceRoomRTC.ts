@@ -3,7 +3,7 @@ import {
   isFirestoreAvailable,
   COLLECTIONS,
   addDocToSubcollection,
-  querySubcollection,
+  subscribeToSubcollection,
   where,
 } from '@/lib/firestore';
 import { getSupabaseSafe, isSupabaseConfigured } from '@/lib/supabase';
@@ -122,7 +122,7 @@ export function useVoiceRoomRTC(roomId: string, userId: string) {
             to: targetUserId,
             candidate: JSON.stringify(event.candidate.toJSON()),
           });
-} else if (isFirestoreAvailable()) {
+        } else if (isFirestoreAvailable()) {
           await addDocToSubcollection(COLLECTIONS.VOICE_ROOMS, roomId, 'signals', {
             type: 'ice-candidate',
             from: userId,
@@ -135,7 +135,16 @@ export function useVoiceRoomRTC(roomId: string, userId: string) {
     };
 
     pc.onconnectionstatechange = () => {
-      // connection state changes are expected — no logging needed in production
+      if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed' || pc.connectionState === 'closed') {
+        const peer = peersRef.current.get(targetUserId);
+        if (peer?.audioElement) {
+          peer.audioElement.srcObject = null;
+          peer.audioElement.remove();
+          peer.audioElement = undefined;
+        }
+        peersRef.current.delete(targetUserId);
+        setConnectedPeers(prev => prev.filter(id => id !== targetUserId));
+      }
     };
 
     return pc;
@@ -163,7 +172,7 @@ export function useVoiceRoomRTC(roomId: string, userId: string) {
         to: targetUserId,
         sdp: offer.sdp,
       });
-} else if (isFirestoreAvailable()) {
+    } else if (isFirestoreAvailable()) {
       await addDocToSubcollection(COLLECTIONS.VOICE_ROOMS, roomId, 'signals', {
         type: 'offer',
         from: userId,
@@ -207,7 +216,7 @@ export function useVoiceRoomRTC(roomId: string, userId: string) {
           to: from,
           sdp: answer.sdp,
         });
-} else if (isFirestoreAvailable()) {
+      } else if (isFirestoreAvailable()) {
         await addDocToSubcollection(COLLECTIONS.VOICE_ROOMS, roomId, 'signals', {
           type: 'answer',
           from: userId,
@@ -266,23 +275,25 @@ export function useVoiceRoomRTC(roomId: string, userId: string) {
       return () => { supabase.removeChannel(channel); };
     }
 
-    // Fallback: Firestore polling
+    // Fallback: Firestore realtime subscription (no polling)
     if (!isFirestoreAvailable()) return;
 
-    const pollSignals = async () => {
-      try {
-const signals = await querySubcollection(COLLECTIONS.VOICE_ROOMS, roomId, 'signals', [
-          where('timestamp', '>', Date.now() - 30000),
-          where('to', '==', userId),
-        ]);
-        (signals || []).forEach((s: unknown) => handleSignal(s));
-      } catch {
-        // ignore polling errors
-      }
-    };
-
-    const interval = setInterval(pollSignals, 3000);
-    return () => clearInterval(interval);
+    const unsub = subscribeToSubcollection(
+      COLLECTIONS.VOICE_ROOMS,
+      roomId,
+      'signals',
+      [where('to', '==', userId)],
+      (signals) => {
+        const cutoff = Date.now() - 30000;
+        signals
+          .filter((s) => {
+            const ts = (s as unknown as SignalData & { timestamp?: number }).timestamp;
+            return !ts || ts > cutoff;
+          })
+          .forEach((s) => handleSignal(s));
+      },
+    );
+    return () => unsub();
   }, [roomId, userId, handleSignal]);
 
   // ─── Detect local speaking activity via AudioContext AnalyserNode ───

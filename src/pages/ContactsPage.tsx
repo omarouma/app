@@ -103,14 +103,23 @@ export default function ContactsPage() {
   const [showContactSection, setShowContactSection] = useState(true);
   const [syncTime, setSyncTime] = useState<string | null>(getStoredSyncTime());
 
+  const subscribeFriendsRef = useRef(subscribeFriends);
+  const subscribeSentRef = useRef(subscribeSentRequests);
+  const subscribeBlockedRef = useRef(subscribeBlockedUsers);
+  useEffect(() => {
+    subscribeFriendsRef.current = subscribeFriends;
+    subscribeSentRef.current = subscribeSentRequests;
+    subscribeBlockedRef.current = subscribeBlockedUsers;
+  });
+
   // Subscribe to friends, sent requests, and blocked users (all real-time)
   useEffect(() => {
     if (!user?.id) return;
-    const unsubFriends = subscribeFriends(user.id);
-    const unsubSent = subscribeSentRequests(user.id);
-    const unsubBlocked = subscribeBlockedUsers(user.id);
+    const unsubFriends = subscribeFriendsRef.current(user.id);
+    const unsubSent = subscribeSentRef.current(user.id);
+    const unsubBlocked = subscribeBlockedRef.current(user.id);
     return () => { unsubFriends(); unsubSent(); unsubBlocked(); };
-  }, [user?.id, subscribeFriends, subscribeSentRequests, subscribeBlockedUsers]);
+  }, [user?.id]);
 
   // Sync time updater
   useEffect(() => {
@@ -214,25 +223,10 @@ export default function ContactsPage() {
     const t = setTimeout(() => { parseImportedContacts(); }, 0);
     return () => clearTimeout(t);
   }, [rawContacts, parseImportedContacts]);
-  const prevFriendKeyRef = useRef('');
-  useEffect(() => {
-    const key = friends.map((f) => f.id).sort().join(',');
-    if (key !== prevFriendKeyRef.current && phoneContacts.length > 0) {
-      prevFriendKeyRef.current = key;
-      queueMicrotask(() => { void findContactsOnGaga(); });
-    }
-  }, [friends, phoneContacts.length, findContactsOnGaga]);
-
-
-
-
-  // Run contact matching when phone contacts are loaded
-  // (queueMicrotask avoids react-hooks/set-state-in-effect lint error)
+  // Run contact matching when phone contacts or friends change
   useEffect(() => {
     if (phoneContacts.length > 0 && userId) {
-      queueMicrotask(() => {
-        void findContactsOnGaga();
-      });
+      queueMicrotask(() => { void findContactsOnGaga(); });
     }
   }, [phoneContacts, userId, findContactsOnGaga]);
 

@@ -113,6 +113,9 @@ export default function TimelinePage() {
     userAvatar: (d.userAvatar as string) || (d.userId === uid ? user?.avatar : undefined),
   }), [user?.name, user?.avatar]);
 
+  const mapPostRef = useRef(mapPost);
+  useEffect(() => { mapPostRef.current = mapPost; });
+
   // ── Real-time post subscription with deduplication ─────────────────
   useEffect(() => {
     if (!isFirestoreAvailable() || !user?.id) {
@@ -120,13 +123,14 @@ export default function TimelinePage() {
       return;
     }
     setLoading(true);
+    const uid = user.id;
 
     const unsub = subscribeToCollection(
       COLLECTIONS.POSTS,
       [orderBy('timestamp', 'desc'), limit(POSTS_PER_PAGE)],
       (data) => {
         const list: TimelinePost[] = (data || [])
-          .map((d: Record<string, unknown>) => mapPost(d, user.id));
+          .map((d: Record<string, unknown>) => mapPostRef.current(d, uid));
         
         // Deduplication: skip already-seen post IDs
         const unique: TimelinePost[] = [];
@@ -158,7 +162,7 @@ export default function TimelinePage() {
     );
     const seenIds = seenPostIdsRef.current;
     return () => { unsub(); seenIds.clear(); };
-  }, [user?.id, mapPost]);
+  }, [user?.id]);
 
   // ── Post view tracking via IntersectionObserver ───────────────────
   const viewedPostIdsRef = useRef<Set<string>>(new Set());
@@ -320,11 +324,13 @@ export default function TimelinePage() {
     }
   }, []);
 
+  const subscribeFriendsRef = useRef(subscribeFriends);
+  useEffect(() => { subscribeFriendsRef.current = subscribeFriends; });
   useEffect(() => {
     if (!user?.id) return;
-    const unsub = subscribeFriends(user.id);
+    const unsub = subscribeFriendsRef.current(user.id);
     return () => unsub();
-  }, [user?.id, subscribeFriends]);
+  }, [user?.id]);
 
   // Fetch reels for the strip
   useEffect(() => {
@@ -346,12 +352,12 @@ export default function TimelinePage() {
   const STORY_DURATION = 5000;
   const closeStory = () => setViewingStory(null);
 
-  // Real-time stories subscription — memoize friendIds to prevent subscription churn
+  // Real-time stories subscription — memoize allIds to prevent subscription churn
   const friendIds = useMemo(() => friends.map(f => f.id), [friends]);
+  const allStoryIds = useMemo(() => (user?.id ? [user.id, ...friendIds] : friendIds), [user?.id, friendIds]);
   useEffect(() => {
-    if (!isFirestoreAvailable() || !user?.id) return;
-    const allIds = [user.id, ...friendIds];
-    const unsub = subscribeToCollection(COLLECTIONS.STORIES, [where('userId', 'in', allIds), orderBy('timestamp', 'desc')], (data) => {
+    if (!isFirestoreAvailable() || !user?.id || allStoryIds.length === 0) return;
+    const unsub = subscribeToCollection(COLLECTIONS.STORIES, [where('userId', 'in', allStoryIds), orderBy('timestamp', 'desc')], (data) => {
       const list = (data || []).map((d: Record<string, unknown>) => ({
         id: d.id as string,
         user_id: d.userId as string,
@@ -365,7 +371,7 @@ export default function TimelinePage() {
       setStories(list);
     });
     return () => unsub();
-  }, [user?.id, friendIds]);
+  }, [user?.id, allStoryIds]);
 
   // Auto-advance stories
   useEffect(() => {

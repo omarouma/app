@@ -155,7 +155,7 @@ export const useFriendStore = create<FriendStore>((set, get) => ({
   requests: [],
   sentRequests: [],
   blockedUsers: [],
-loading: {
+  loading: {
     friends: true,
     sentRequests: false,
     blocked: false,

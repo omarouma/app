@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Phone, Search, PhoneMissed, Trash2 } from 'lucide-react';
@@ -12,7 +12,7 @@ import EmptyState from '@/components/EmptyState';
 import { toast } from 'sonner';
 
 import { isFirestoreAvailable } from '@/lib/firestore';
-import type { CallRecord } from '@/types';
+import type { CallRecord, User } from '@/types';
 
 type CallDirection = 'outgoing' | 'incoming';
 import { CallListItem } from '@/components/features/calls/CallListItem';
@@ -21,6 +21,7 @@ import { getCallDirection, getOtherParticipantId } from '@/lib/callUtils';
 type CallWithDetails = CallRecord & {
   otherId: string;
   name: string;
+  avatar?: string;
   direction: CallDirection;
 };
 
@@ -28,20 +29,25 @@ type CallWithDetails = CallRecord & {
 export default function CallsPage() {
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
-  const { history, loading, subscribeToCallHistory, clearCallHistory, deleteCall } = useCallStore();
+  const { history, loading, subscribeCalls, clearCallHistory, deleteCall } = useCallStore();
+
+  const subscribeCallsRef = useRef(subscribeCalls);
+  useEffect(() => { subscribeCallsRef.current = subscribeCalls; });
   const friends = useFriendStore((s) => s.friends);
-  
+  const getUserById = useFriendStore((s) => s.getUserById);
+
   const [activeTab, setActiveTab] = useState<'all' | 'missed'>('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [resolvedProfiles, setResolvedProfiles] = useState<Record<string, User>>({});
 
   useDocumentTitle('Calls');
 
   useEffect(() => {
     if (user?.id) {
-      const unsubscribe = subscribeToCallHistory(user.id);
+      const unsubscribe = subscribeCallsRef.current(user.id);
       return () => unsubscribe();
     }
-  }, [user?.id, subscribeToCallHistory]);
+  }, [user?.id]);
 
   const friendMap = useMemo(() => new Map(friends.map(f => [f.id, f])), [friends]);
 
@@ -50,15 +56,44 @@ export default function CallsPage() {
       .map((call) => {
         const otherId = getOtherParticipantId(call, user?.id);
         const direction = getCallDirection(call, user?.id);
+        const friend = friendMap.get(otherId);
+        const resolved = resolvedProfiles[otherId];
+        const profile = friend || resolved;
         return {
           ...call,
           otherId,
-          name: friendMap.get(otherId)?.name || 'Unknown User',
+          name: profile?.name || 'Unknown User',
+          avatar: profile?.avatar,
           direction,
         };
       })
       .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
-  }, [history, user?.id, friendMap]);
+  }, [history, user?.id, friendMap, resolvedProfiles]);
+
+  // Resolve profiles for callers not in the friends list
+  useEffect(() => {
+    let cancelled = false;
+    const unknownIds = [...new Set(
+      callsWithDetails
+        .filter((c) => !friendMap.has(c.otherId) && !resolvedProfiles[c.otherId])
+        .map((c) => c.otherId)
+    )];
+
+    if (unknownIds.length === 0) return;
+
+    Promise.all(unknownIds.map((id) => getUserById(id))).then((profiles) => {
+      if (cancelled) return;
+      setResolvedProfiles((prev) => {
+        const next = { ...prev };
+        unknownIds.forEach((id, i) => {
+          if (profiles[i]) next[id] = profiles[i] as User;
+        });
+        return next;
+      });
+    });
+
+    return () => { cancelled = true; };
+  }, [callsWithDetails, friendMap, resolvedProfiles, getUserById]);
 
   const filteredCalls = useMemo(() => {
     let calls = callsWithDetails;
@@ -193,6 +228,7 @@ navigate('/call', { state: { userId, mode: type, isOutgoing: true } });
                   key={call.id}
                   call={call}
                   userName={call.name}
+                  userAvatar={call.avatar}
                   currentUserId={user?.id}
                   onCall={handleInitiateCall}
                   onDelete={handleDelete}

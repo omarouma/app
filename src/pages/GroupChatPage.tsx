@@ -31,6 +31,9 @@ export default function GroupChatPage() {
 const {
         groups, groupMessages, subscribeGroupMessages, sendGroupMessage, leaveGroup
     } = useGroupStore();
+
+    const subscribeGroupMessagesRef = useRef(subscribeGroupMessages);
+    useEffect(() => { subscribeGroupMessagesRef.current = subscribeGroupMessages; });
     const { friends } = useFriendStore();
     const { isRecording, duration, startRecording, stopRecording, cancelRecording } = useVoiceRecorder();
 
@@ -68,9 +71,9 @@ const {
 
     useEffect(() => {
         if (!groupId) return;
-        const unsub = subscribeGroupMessages(groupId);
+        const unsub = subscribeGroupMessagesRef.current(groupId);
         return () => unsub();
-    }, [groupId, subscribeGroupMessages]);
+    }, [groupId]);
 
     useEffect(() => {
         const handleClick = () => setContextMenu(null);
@@ -113,7 +116,7 @@ const {
         }
     }, [input, currentUser, groupId, stopTyping, queueMessage, replyingTo?.id, sendGroupMessage]);
 
-    const handleMediaUpload = async (e: React.ChangeEvent<HTMLInputElement>, mediaType: string) => {
+    const handleMediaUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>, mediaType: string) => {
         const file = e.target.files?.[0];
         if (!file || !currentUser || !groupId) return;
         try {
@@ -123,9 +126,9 @@ const {
         } catch {
             toast.error('Failed to upload media');
         }
-    };
+    }, [currentUser, groupId, sendGroupMessage]);
 
-    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleFileUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file || !currentUser || !groupId) return;
         try {
@@ -135,9 +138,9 @@ const {
         } catch {
             toast.error('Failed to upload file');
         }
-    };
+    }, [currentUser, groupId, sendGroupMessage]);
 
-    const handleVoiceSend = async () => {
+    const handleVoiceSend = useCallback(async () => {
         if (!currentUser || !groupId) return;
         const blob = await stopRecording();
         if (!blob) return;
@@ -149,9 +152,9 @@ const {
         } catch {
             toast.error('Failed to send voice message');
         }
-    };
+    }, [currentUser, groupId, stopRecording, sendGroupMessage]);
 
-    const handleLocationShare = () => {
+    const handleLocationShare = useCallback(() => {
         if (!navigator.geolocation) {
             toast.error('Geolocation not supported');
             return;
@@ -166,9 +169,9 @@ const {
             },
             () => { toast.error('Location access denied'); }
         );
-    };
+    }, [currentUser, groupId, sendGroupMessage]);
 
-    const handleContactShare = async () => {
+    const handleContactShare = useCallback(async () => {
         if (!currentUser || !groupId) return;
         try {
             await sendGroupMessage(groupId, currentUser.id, `Contact: ${currentUser.name}`, 'contact');
@@ -176,7 +179,7 @@ const {
         } catch {
             toast.error('Failed to share contact');
         }
-    };
+    }, [currentUser, groupId, sendGroupMessage]);
 
     const handleContextMenu = (e: React.MouseEvent, msg: Message) => {
         e.preventDefault();

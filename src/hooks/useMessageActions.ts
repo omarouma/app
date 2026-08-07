@@ -127,7 +127,7 @@ export const useMessageActions = (chatId: string) => {
   ) => {
     if (!currentUser) return;
     try {
-await addReaction(chatId, msgId, reaction, currentUser.id);
+      await addReaction(chatId, msgId, reaction, currentUser.id);
     } catch {
       toast.error('Failed to add reaction.');
     }

@@ -70,7 +70,7 @@ const messageComponentMap = {
 export const MessageItem = memo(function MessageItem(props: MessageItemProps) {
 const {
     msg, isMe, showAvatar, showDate, msgDate, showUnreadSeparator, isSelected,
-    editingMessageId, editInput, selectionMode, selectedReactionMsg,
+    editingMessageId, editInput, selectedReactionMsg,
     displayUser, userId, currentUserId, msgs,
     translatedText, isTranslating,
     onContextMenu, onTouchStart, onTouchMove, onTouchEnd, onMouseDown, onMouseUp,

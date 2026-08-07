@@ -12,22 +12,17 @@ interface UseChatScrollBehaviorOptions {
   initialLatestTimestampRef: RefObject<number | null>;
 }
 
-export function useChatScrollBehavior(opts: UseChatScrollBehaviorOptions | number) {
+export function useChatScrollBehavior(opts: UseChatScrollBehaviorOptions) {
+  const { chatId, messages, virtuoso } = opts;
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const shouldAutoScrollRef = useRef(true);
   const [showScrollBtn, setShowScrollBtn] = useState(false);
   const [isAtBottom, setIsAtBottom] = useState(true);
-  const virtuosoRef = useRef<VirtuosoHandle | null>(null);
 
-  // When called with the object form (ChatRoom), use the passed virtuoso ref
-  const resolvedVirtuosoRef = typeof opts === 'object' && 'virtuoso' in opts
-    ? opts.virtuoso as RefObject<VirtuosoHandle | null>
-    : virtuosoRef;
+  const resolvedVirtuosoRef = virtuoso as RefObject<VirtuosoHandle | null>;
 
-  const msgs: Message[] = typeof opts === 'object' && 'messages' in opts && 'chatId' in opts
-    ? (opts.messages[opts.chatId] ?? [])
-    : [];
+  const msgs: Message[] = messages[chatId] ?? [];
 
   const unreadCount = 0;
 

@@ -16,7 +16,7 @@ interface FriendRequest { id: string; toUserId?: string; to_user_id?: string; fr
 
 export const useChatRoom = (chatId: string, userId: string) => {
   const { user: currentUser } = useAuthStore();
-const {
+  const {
     messages, sendMessage, deleteMessage,
     deleteForEveryone, addReaction, pinMessage, unpinMessage, sendPoll,
     votePoll, editMessage, sendContactCard, unlockChat, chats,
@@ -32,6 +32,10 @@ const {
   const { typingUsers, sendTyping, stopTyping } = useTyping(chatId);
   const { queueMessage } = useOfflineQueue();
   const { schedule, getPending } = useScheduledMessages(chatId, sendMessage);
+
+  // Stable ref so the mount-only effect doesn't re-run when getPending identity changes
+  const getPendingRef = useRef(getPending);
+  useEffect(() => { getPendingRef.current = getPending; });
 
   // ── Input state ──────────────────────────────────────────────────────────
   const [input, setInput] = useState('');
@@ -104,7 +108,7 @@ const {
   );
   const chat = useMemo(() => chats.find(c => c.id === chatId), [chatId, chats]);
 
-// ── Effects ──────────────────────────────────────────────────────────────
+  // ── Effects ──────────────────────────────────────────────────────────────
 
   // Delegate the canonical subscription + markAsRead + lastSeen realtime +
   // friend status + draft persistence + chat lock + chat background effects
@@ -129,8 +133,8 @@ const {
     return () => { mounted = false; };
   }, [userId, getUserById]);
 
-  // Pending schedules
-  useEffect(() => { setPendingSchedules(getPending()); }, [getPending]);
+  // Pending schedules — mount only; chatId change re-mounts
+  useEffect(() => { setPendingSchedules(getPendingRef.current()); }, [chatId]);
 
   // ── Handlers ─────────────────────────────────────────────────────────────
 

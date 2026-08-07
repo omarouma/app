@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
+import { useState, useRef, useMemo, useCallback } from 'react';
 import type { ReactElement } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -11,7 +11,7 @@ import { useVoiceRecorder } from '@/hooks/useVoiceRecorder';
 import { useChatScrollBehavior } from '@/hooks/useChatScrollBehavior';
 import { uploadMediaBlob } from '@/lib/storage';
 import { SWIPE_THRESHOLD, formatDateSeparator } from '@/lib/chatConstants';
-import { sanitizeMediaUrl, getDefaultAvatar } from '@/lib/utils';
+import { sanitizeMediaUrl } from '@/lib/utils';
 
 import type { Message } from '@/types';
 import { useCallContext } from '@/context/CallContextBase';
@@ -145,7 +145,7 @@ chatBg,
     unlockChat,
 } = useChatRoom(chatId, userId);
 
-  const { chats } = useChatStore();
+const { chats, sendMessage } = useChatStore();
 
 const { isRecording, duration, startRecording, stopRecording, cancelRecording } = useVoiceRecorder();
   useFilteredOnline(currentUser?.id || '', friends);
@@ -171,7 +171,7 @@ const [hasNewMessages, setHasNewMessages] = useState(false);
   const isUserOnline = !!onlineUsers[userId];
   const activeTypingUsers = Object.values(typingUsers || {});
 
-  const { scrollToBottom, isAtBottom, msgs } = useChatScrollBehavior({
+  const { scrollToBottom, isAtBottom, msgs, handleAtBottomStateChange } = useChatScrollBehavior({
     chatId,
     messages,
     virtuoso,
@@ -182,13 +182,28 @@ const [hasNewMessages, setHasNewMessages] = useState(false);
 
   // markAsRead is handled inside useChatRoom on message subscription
 
+  const handleRetry = useCallback(async (msg: Message) => {
+    if (!currentUser) return;
+    try {
+      // Re-send the failed message. Media messages retry the same media URL;
+      // text/voice just re-send the content.
+      await sendMessage(chatId, currentUser.id, msg.content, msg.type || 'text', msg.mediaUrl);
+      toast.success('Message resent.');
+    } catch {
+      toast.error('Failed to resend message.');
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chatId, currentUser, sendMessage]);
+
   const handleVoiceSend = useCallback(async () => {
     if (!currentUser) return;
     try {
       const blob = await stopRecording();
       if (!blob) return;
-      await uploadMediaBlob(blob, { userId: currentUser.id, kind: 'voice', contentType: 'audio/webm' });
-      await handleMediaUpload([new File([blob], 'voice.webm', { type: 'audio/webm' })]);
+      // Upload once — do NOT also pass the blob through handleMediaUpload
+      // (that would upload the same voice message a second time).
+      const url = await uploadMediaBlob(blob, { userId: currentUser.id, kind: 'voice', contentType: 'audio/webm' });
+      await sendMessage(chatId, currentUser.id, 'Voice message', 'voice', url);
       scrollToBottom();
     } catch {
       toast.error('Failed to send voice message.');
@@ -201,14 +216,24 @@ const [hasNewMessages, setHasNewMessages] = useState(false);
     setUnlocking(true);
     setLockError('');
     try {
-      await unlockChat(chat.id);
-      const success = true;
-      if (success) {
-        setIsChatLocked(false);
-        toast.success('Chat unlocked!');
-      } else {
+      // Hash the entered PIN the same way lockChat stores it (SHA‑256 hex),
+      // then compare against the stored hash before allowing unlock.
+      const pin = lockPinInput.trim();
+      const encoder = new TextEncoder();
+      const data = encoder.encode(pin);
+      const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      const pinHash = hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
+
+      const expected = chat.lockValue;
+      if (expected && pinHash !== expected) {
         setLockError('Incorrect PIN.');
+        return;
       }
+
+      await unlockChat(chat.id);
+      setIsChatLocked(false);
+      toast.success('Chat unlocked!');
     } catch {
       setLockError('An error occurred.');
     } finally {
@@ -357,7 +382,6 @@ const handleLongPress = useCallback((msg: Message) => {
       toast.error('Failed to copy messages.');
     }
     handleClearSelection();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [msgs, selectedMessages, handleClearSelection]);
 
   const handleForwardSelected = useCallback(() => {
@@ -366,8 +390,7 @@ const handleLongPress = useCallback((msg: Message) => {
     setForwardBatch(selected);
     setShowForwardModal(true);
     handleClearSelection();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [msgs, selectedMessages, handleClearSelection]);
+  }, [msgs, selectedMessages, handleClearSelection, setForwardBatch, setShowForwardModal]);
 
   const handleDeleteSelected = useCallback(async () => {
     const selected = msgs.filter(m => selectedMessages.has(m.id));
@@ -382,29 +405,21 @@ const handleLongPress = useCallback((msg: Message) => {
       toast.error('Failed to delete messages.');
     }
     handleClearSelection();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [msgs, selectedMessages, handleClearSelection, handleDelete]);
-
-  const [swipeState, setSwipeState] = useState<{ msgId: string; offset: number } | null>(null);
 
   const handleTouchStart = useCallback((e: React.TouchEvent, msg: Message) => {
     if (selectionMode) return;
     handleLongPress(msg);
     touchStartXRef.current = e.touches[0].clientX;
     touchCurrentXRef.current = e.touches[0].clientX;
-    setSwipeState(null);
   }, [selectionMode, handleLongPress]);
 
-  const handleTouchMove = useCallback((e: React.TouchEvent, msg: Message) => {
+  const handleTouchMove = useCallback((_e: React.TouchEvent, _msg: Message) => {
     if (selectionMode) return;
-    touchCurrentXRef.current = e.touches[0].clientX;
+    touchCurrentXRef.current = _e.touches[0].clientX;
     const diff = touchCurrentXRef.current - touchStartXRef.current;
     if (diff < -5) {
       if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
-    }
-    // Visual swipe-to-reply feedback (right swipe only)
-    if (diff > 0 && diff < SWIPE_THRESHOLD * 1.5) {
-      setSwipeState({ msgId: msg.id, offset: diff });
     }
   }, [selectionMode]);
 
@@ -414,11 +429,9 @@ const handleLongPress = useCallback((msg: Message) => {
     if (!selectionMode && diff > SWIPE_THRESHOLD) {
       setReplyingTo(msg);
     }
-setSwipeState(null);
     touchStartXRef.current = 0;
     touchCurrentXRef.current = 0;
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectionMode]);
+  }, [selectionMode, setReplyingTo]);
 
   return (
     <div className="flex flex-col h-full bg-white" style={{ backgroundImage: chatBg }}>
@@ -545,6 +558,7 @@ userId={userId}
           data={msgs}
           initialTopMostItemIndex={msgs.length > 0 ? msgs.length - 1 : 0}
           followOutput={'auto'}
+          atBottomStateChange={handleAtBottomStateChange}
 itemContent={(index, msg) => (
             <MessageItem
               key={msg.id}
@@ -587,7 +601,7 @@ onReact={(msgId, reaction) => addReaction(chatId, msgId, reaction, currentUser?.
               onSetLightbox={setLightboxImage}
               onVotePoll={handleVote}
               onNavigate={navigate}
-              onRetry={undefined}
+              onRetry={handleRetry}
               chatId={chatId}
             />
           )}

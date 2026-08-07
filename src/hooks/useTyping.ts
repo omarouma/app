@@ -12,10 +12,11 @@ interface TypingState {
   [userId: string]: TypingUser;
 }
 
-function isColumnMissingError(error: any): boolean {
-  if (!error) return false;
-  const code = error.code || '';
-  const msg = error.message || '';
+function isColumnMissingError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false;
+  const e = error as Record<string, unknown>;
+  const code = String(e.code || '');
+  const msg = String(e.message || '');
   return (
     code === 'PGRST204' ||
     code === '42703' ||
@@ -41,8 +42,9 @@ export function useTyping(chatId: string | undefined) {
     const supabase = isSupabaseConfigured() ? getSupabase() : null;
 
     if (supabase) {
+      const channelName = `typing-${chatId}-${Date.now()}`;
       const channel = supabase
-        .channel(`typing-${chatId}`)
+        .channel(channelName)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'typing', filter: `chat_id=eq.${chatId}` }, async (payload) => {
           const data = payload.new as any;
           if (!data || data.user_id === user.id) return;
@@ -145,7 +147,7 @@ export function useTyping(chatId: string | undefined) {
       try {
         await supabase.from('typing').upsert(payload, { onConflict: 'id' });
       } catch (err) {
-if (isColumnMissingError(err)) {
+        if (isColumnMissingError(err)) {
           const rest = { ...payload };
           delete (rest as { user_name?: string }).user_name;
           await supabase.from('typing').upsert(rest, { onConflict: 'id' });

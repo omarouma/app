@@ -45,12 +45,12 @@ export class WebRTCCall {
   private callId: string | null = null;
   private myUserId: string;
   private otherUserId: string;
-private onStateChange?: (state: WebRTCCallState) => void;
+  private onStateChange?: (state: WebRTCCallState) => void;
   private onRemoteStream?: (stream: MediaStream) => void;
   private onLocalStream?: (stream: MediaStream) => void;
   private onQualityChange?: (quality: 'good' | 'poor' | 'reconnecting') => void;
   private signalingUnsub: (() => void) | null = null;
-private remoteDescSet = false;
+  private remoteDescSet = false;
   private pendingIce: RTCIceCandidateInit[] = [];
   private pendingCallerIceCount = 0;
   private pendingCalleeIceCount = 0;
@@ -146,7 +146,7 @@ private remoteDescSet = false;
     if (cb) cb(state);
   }
 
-setOnStateChange(cb: ((state: WebRTCCallState) => void) | undefined) {
+  setOnStateChange(cb: ((state: WebRTCCallState) => void) | undefined) {
     this.onStateChange = cb;
   }
 
@@ -179,7 +179,7 @@ setOnStateChange(cb: ((state: WebRTCCallState) => void) | undefined) {
       if (this.onRemoteStream) this.onRemoteStream(this.remoteStream);
     };
 
-this._pc.onconnectionstatechange = () => {
+    this._pc.onconnectionstatechange = () => {
       const s = this._pc?.connectionState;
       if (s === 'connected') {
         this.wasConnected = true;
@@ -344,7 +344,7 @@ this._pc.onconnectionstatechange = () => {
     );
   }
 
-private async handleSignalingData(sig: SignalingData) {
+  private async handleSignalingData(sig: SignalingData) {
     const pc = this.ensurePeerConnection();
     if (!pc) return;
 
@@ -518,7 +518,7 @@ private async handleSignalingData(sig: SignalingData) {
     }
   }
 
-async startCall(callId: string) {
+  async startCall(callId: string) {
     this.callId = callId;
     this.isCaller = true;
     this.setState('ringing');
@@ -589,7 +589,7 @@ async startCall(callId: string) {
       this._pc?.close();
     } catch { /* ignore */ }
 
-this.clearDisconnectTimer();
+    this.clearDisconnectTimer();
     this.stopQualityMonitor();
     this.lastQuality = 'good';
     this.localStream = null;

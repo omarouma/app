@@ -130,13 +130,13 @@ export default function DesktopCallsView() {
                   </p>
                 </div>
                 <div className="flex items-center gap-1">
-                  <button type="button" onClick={() => navigate('/call', { state: { userId: otherId, mode: 'voice' } })}
+                  <button type="button" onClick={() => navigate('/call', { state: { userId: otherId, mode: 'voice', isOutgoing: true } })}
                     className="p-2 rounded-full hover:bg-[#00C300]/10 text-[#8D8D8D] hover:text-[#00C300] transition-colors"
                     title="Voice call"
                   >
                     <Phone size={16} />
                   </button>
-                  <button type="button" onClick={() => navigate('/call', { state: { userId: otherId, mode: 'video' } })}
+                  <button type="button" onClick={() => navigate('/call', { state: { userId: otherId, mode: 'video', isOutgoing: true } })}
                     className="p-2 rounded-full hover:bg-[#00C300]/10 text-[#8D8D8D] hover:text-[#00C300] transition-colors"
                     title="Video call"
                   >

@@ -5,8 +5,6 @@ import { Pin, Users } from 'lucide-react';
 import type { Chat } from '@/types';
 import { formatTime, getDefaultAvatar, sanitizeMediaUrl } from '@/lib/utils';
 import { useAuthStore } from '@/store/useAuthStore';
-import { useFriendStore } from '@/store/useFriendStore';
-import { useFilteredOnline } from '@/hooks/usePresence';
 
 interface ChatListItemProps {
   chat: Chat;
@@ -26,7 +24,7 @@ export const ChatListItem = memo(function ChatListItem({
   index,
   userId: propUserId,
   isFriend: _propIsFriend,
-  isOnline: propIsOnline,
+  isOnline,
   name: propName,
   avatar: propAvatar,
   typingName,
@@ -34,20 +32,13 @@ export const ChatListItem = memo(function ChatListItem({
 }: ChatListItemProps) {
   const navigate = useNavigate();
   const { user } = useAuthStore();
-  const { friends } = useFriendStore();
-  const { filtered: visibleOnline } = useFilteredOnline(user?.id || '', friends);
 
   const userId = propUserId ?? user?.id ?? '';
   const isGroup = chat.type === 'group';
   const otherId = isGroup ? '' : (chat.participants.find(p => p !== userId) || '');
-  const friend = friends.find(f => f.id === otherId);
 
-  // When the parent ChatList already provides resolved values, use them to
-  // avoid redundant per-row store lookups. Fall back to internal derivation
-  // only for the direct ChatsPage usage where props are not supplied.
-  const name = propName ?? (isGroup ? (chat.name || 'Group') : (friend?.name || 'Chat'));
-  const avatar = propAvatar ?? (isGroup ? (chat.avatar || '') : (friend?.avatar || ''));
-  const isOnline = propIsOnline ?? (!isGroup && !!visibleOnline[otherId]);
+  const name = propName ?? (isGroup ? (chat.name || 'Group') : 'Chat');
+  const avatar = propAvatar ?? (isGroup ? (chat.avatar || '') : '');
   const lastMsgPreview = useMemo(() => {
     if (typingName) return `${typingName} is typing...`;
     const lm = chat.lastMessage;
