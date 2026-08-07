@@ -21,8 +21,8 @@ export const PollMessage = memo(function PollMessage(props: PollMessageProps) {
           <BarChart3 size={14} />
           <span className="text-xs font-medium">Poll</span>
         </div>
-        <p className="text-sm font-medium mb-2">{msg.pollData!.question}</p>
-        <div className="space-y-1.5">
+<p className="text-sm font-medium mb-2">{msg.pollData!.question}</p>
+        <div className="space-y-1.5" aria-live="polite">
           {(msg.pollData!.options || []).map((opt: string, i: number) => {
             const votes = (msg.pollData!.votes?.[String(i)] || []) as string[];
             const total = msg.pollData!.totalVotes || 0;
@@ -30,10 +30,11 @@ export const PollMessage = memo(function PollMessage(props: PollMessageProps) {
             const isVoted = votes.includes(currentUserId);
             const hasVoted = Object.values(msg.pollData!.votes || {}).flat().includes(currentUserId);
             return (
-              <button
+<button
                 type="button"
                 key={i}
                 onClick={() => onVotePoll(chatId, msg.id, i, currentUserId)}
+                aria-pressed={isVoted}
                 className={`w-full text-left px-3 py-2 rounded-xl text-sm transition-all relative overflow-hidden ${
                   isVoted
                     ? isMe

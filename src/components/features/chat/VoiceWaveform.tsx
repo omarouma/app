@@ -12,16 +12,8 @@ export const VoiceWaveform = memo(function VoiceWaveform({ audioUrl, duration: p
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(propDuration || 0);
   const [playbackRate, setPlaybackRate] = useState(1);
+  const [loadError, setLoadError] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const [prevAudioUrl, setPrevAudioUrl] = useState(audioUrl);
-
-  // React-recommended "adjusting state when props change" pattern (no refs during render).
-  if (prevAudioUrl !== audioUrl) {
-    setPrevAudioUrl(audioUrl);
-    setIsPlaying(false);
-    setCurrentTime(0);
-    setDuration(propDuration || 0);
-  }
 
   // Generate stable waveform bars seeded from audioUrl (pure, no mutation)
   const bars = useMemo(() => {
@@ -41,28 +33,38 @@ export const VoiceWaveform = memo(function VoiceWaveform({ audioUrl, duration: p
   }, [audioUrl]);
 
   useEffect(() => {
+    // Reset transient state whenever the audio URL changes (remount-safe pattern).
+    setIsPlaying(false);
+    setCurrentTime(0);
+    setDuration(propDuration || 0);
+    setLoadError(false);
+
     const audio = new Audio(audioUrl);
     audioRef.current = audio;
 
-    audio.addEventListener('loadedmetadata', () => {
-      setDuration(audio.duration);
-    });
-
-    audio.addEventListener('timeupdate', () => {
-      setCurrentTime(audio.currentTime);
-    });
-
-    audio.addEventListener('ended', () => {
+    const onLoadedMetadata = () => setDuration(audio.duration);
+    const onTimeUpdate = () => setCurrentTime(audio.currentTime);
+    const onEnded = () => {
       setIsPlaying(false);
       setCurrentTime(0);
-    });
+    };
+    const onError = () => setLoadError(true);
+
+    audio.addEventListener('loadedmetadata', onLoadedMetadata);
+    audio.addEventListener('timeupdate', onTimeUpdate);
+    audio.addEventListener('ended', onEnded);
+    audio.addEventListener('error', onError);
 
     return () => {
       audio.pause();
+      audio.removeEventListener('loadedmetadata', onLoadedMetadata);
+      audio.removeEventListener('timeupdate', onTimeUpdate);
+      audio.removeEventListener('ended', onEnded);
+      audio.removeEventListener('error', onError);
       audio.src = '';
       audioRef.current = null;
     };
-  }, [audioUrl]);
+  }, [audioUrl, propDuration]);
 
   useEffect(() => {
     if (audioRef.current) {
@@ -104,6 +106,14 @@ export const VoiceWaveform = memo(function VoiceWaveform({ audioUrl, duration: p
     setPlaybackRate(rates[(idx + 1) % rates.length]);
   };
 
+  if (loadError) {
+    return (
+      <div className={`flex items-center gap-2 py-1 text-xs ${isOwnMessage ? 'text-white/70' : 'text-[#8D8D8D]'}`} role="alert">
+        Audio unavailable
+      </div>
+    );
+  }
+
   return (
     <div className={`flex items-center gap-2 min-w-[200px] max-w-full py-1 ${isOwnMessage ? 'text-white' : 'text-[#111111]'}`}>
       {/* Play/Pause Button */}
@@ -113,7 +123,7 @@ export const VoiceWaveform = memo(function VoiceWaveform({ audioUrl, duration: p
         className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 transition-colors ${
           isOwnMessage ? 'bg-white/20 hover:bg-white/30' : 'bg-[#00C300]/10 hover:bg-[#00C300]/20'
         }`}
-        aria-label={isPlaying ? 'Pause' : 'Play'}
+        aria-label={isPlaying ? 'Pause voice message' : 'Play voice message'}
       >
         {isPlaying ? <Pause size={14} fill="currentColor" /> : <Play size={14} fill="currentColor" className="ml-0.5" />}
       </button>
@@ -122,6 +132,11 @@ export const VoiceWaveform = memo(function VoiceWaveform({ audioUrl, duration: p
       <div
         className="flex-1 flex items-center gap-[2px] h-8 cursor-pointer relative"
         onClick={seekTo}
+        role="slider"
+        aria-label="Seek voice message"
+        aria-valuemin={0}
+        aria-valuemax={Math.round(duration)}
+        aria-valuenow={Math.round(currentTime)}
       >
         {bars.map((height, i) => {
           const barProgress = i / bars.length;
@@ -157,7 +172,7 @@ export const VoiceWaveform = memo(function VoiceWaveform({ audioUrl, duration: p
           className={`text-[9px] px-1 py-0.5 rounded font-bold transition-colors ${
             isOwnMessage ? 'bg-white/20 text-white/90 hover:bg-white/30' : 'bg-[#F5F5F5] text-[#8D8D8D] hover:bg-[#EBEBEB]'
           }`}
-          aria-label="Change playback speed"
+          aria-label={`Playback speed ${playbackRate}x`}
         >
           {playbackRate}x
         </button>

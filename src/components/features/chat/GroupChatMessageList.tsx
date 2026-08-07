@@ -8,9 +8,9 @@ interface GroupChatMessageListProps {
     currentUser: User | null;
     searchQuery: string;
     dateSeparatorMap: Map<string, boolean>;
-messagesContainerRef: React.RefObject<HTMLDivElement | null>;
+    messagesContainerRef: React.RefObject<HTMLDivElement | null>;
     messagesEndRef: React.RefObject<HTMLDivElement | null>;
-getSenderName: (senderId: string) => string;
+    getSenderName: (senderId: string) => string;
     getSenderAvatar: (senderId: string) => string | undefined;
     handleContextMenu: (e: React.MouseEvent, msg: Message) => void;
 }
@@ -97,11 +97,11 @@ export function GroupChatMessageList({
                                 onContextMenu={(e) => handleContextMenu(e, msg)}
                                 className={`flex items-end gap-2 ${isMe ? 'justify-end' : 'justify-start'} ${isSearchMatch ? 'bg-yellow-200/50 rounded-lg' : ''}`}>
                                 {!isMe && (
-                                    <img src={getSenderAvatar(msg.senderId) || getDefaultAvatar(msg.senderId)} alt="avatar" className="w-6 h-6 rounded-full shrink-0" />
+                                    <img src={getSenderAvatar(msg.senderId) || getDefaultAvatar(msg.senderId)} alt="" className="w-6 h-6 rounded-full shrink-0" />
                                 )}
                                 <div className={`max-w-[70%] p-0 relative`}>
                                     {!isMe && <p className="text-[11px] text-white/80 mb-0.5 ml-1">{getSenderName(msg.senderId)}</p>}
-                                    <div className={`px-3 py-2 rounded-xl text-sm leading-tight relative ${isMe ? 'bg-white text-[#111111] rounded-br-none' : 'bg-[#25D366] text-white rounded-bl-none'}`}>
+                                    <div className={`px-3 py-2 rounded-xl text-sm leading-tight relative ${isMe ? 'bg-white text-[#111111] rounded-br-none' : 'bg-[#00C300] text-white rounded-bl-none'}`}>
                                         {msg.content}
                                         <span className="text-[10px] ml-2 float-right mt-1.5 opacity-70">{formatTime(msg.timestamp)}</span>
                                         {hasReactions && (
@@ -123,3 +123,4 @@ export function GroupChatMessageList({
         </div>
     );
 }
+

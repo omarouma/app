@@ -22,12 +22,12 @@ export const ReadReceipt = memo(function ReadReceipt({ isMe, timestamp, read, de
   // Enhanced delivery status rendering
   const status = deliveryStatus ?? (read ? 'read' : 'sent');
 
-  if (deliveryStatus) {
+if (deliveryStatus) {
     switch (status) {
       case 'sending':
         return (
           <div className="text-[10px] mt-1 text-right text-white/70">
-            <span className="inline-flex items-center gap-0.5">
+            <span className="inline-flex items-center gap-0.5" role="img" aria-label="Sending">
               <svg width="14" height="10" viewBox="0 0 14 10" fill="none" className="inline-block animate-pulse">
                 <path d="M1 5L5 9L13 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" opacity={0.5} />
               </svg>
@@ -39,7 +39,7 @@ export const ReadReceipt = memo(function ReadReceipt({ isMe, timestamp, read, de
       case 'failed':
         return (
           <div className="text-[10px] mt-1 text-right text-[#FF3B30]">
-            <span className="inline-flex items-center gap-0.5">
+            <span className="inline-flex items-center gap-0.5" role="img" aria-label="Delivery failed">
               <svg width="14" height="10" viewBox="0 0 14 10" fill="none" className="inline-block">
                 <circle cx="7" cy="5" r="4" stroke="currentColor" strokeWidth="1.5" />
                 <path d="M5 5H9" stroke="currentColor" strokeWidth="1.5" />
@@ -52,7 +52,7 @@ export const ReadReceipt = memo(function ReadReceipt({ isMe, timestamp, read, de
       case 'read':
         return (
           <div className="text-[10px] mt-1 text-right">
-            <span className="inline-flex items-center gap-0.5 text-[#2196F3]">
+            <span className="inline-flex items-center gap-0.5 text-[#2196F3]" role="img" aria-label="Read">
               <svg width="14" height="10" viewBox="0 0 14 10" fill="none" className="inline-block">
                 <path d="M1 5L4 8L9 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                 <path d="M5 5L8 8L13 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
@@ -65,7 +65,7 @@ export const ReadReceipt = memo(function ReadReceipt({ isMe, timestamp, read, de
       case 'delivered':
         return (
           <div className="text-[10px] mt-1 text-right text-white/70">
-            <span className="inline-flex items-center gap-0.5">
+            <span className="inline-flex items-center gap-0.5" role="img" aria-label="Delivered">
               <svg width="14" height="10" viewBox="0 0 14 10" fill="none" className="inline-block">
                 <path d="M1 5L4 8L9 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                 <path d="M5 5L8 8L13 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
@@ -82,7 +82,7 @@ export const ReadReceipt = memo(function ReadReceipt({ isMe, timestamp, read, de
 
   return (
     <div className="text-[10px] mt-1 text-right text-white/70">
-      <span className="inline-flex items-center gap-0.5">
+      <span className="inline-flex items-center gap-0.5" role="img" aria-label={status === 'read' ? 'Read' : 'Sent'}>
         <svg width="14" height="10" viewBox="0 0 14 10" fill="none" className="inline-block">
           {status === 'read' ? (
             <>
