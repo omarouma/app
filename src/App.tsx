@@ -221,12 +221,12 @@ const DesktopNav = memo(function DesktopNav() {
       <div className="mb-6 mt-1 cursor-pointer" onClick={() => navigate('/chat')}>
         <Logo size={42} />
       </div>
-      {desktopNavItems.map((item) => {
+{desktopNavItems.map((item) => {
         const isActive = location.pathname === item.to || (location.pathname.startsWith(item.to + '/') && item.to !== '/');
         return (
           <button type="button" key={item.to}
             onClick={() => navigate(item.to)}
-            className={`w-12 h-12 rounded-xl flex items-center justify-center transition-colors mb-1 ${
+            className={`relative w-12 h-12 rounded-xl flex items-center justify-center transition-colors mb-1 ${
               isActive
                 ? 'bg-[#00C300]/10 text-[#00C300]'
                 : 'text-[#8D8D8D] hover:text-[#111111] hover:bg-[#F5F5F5]'
@@ -235,6 +235,9 @@ const DesktopNav = memo(function DesktopNav() {
             aria-label={item.label}
             aria-current={isActive ? 'page' : undefined}
           >
+            {isActive && (
+              <span className="absolute -left-[18px] w-1 h-6 rounded-r-full bg-[#00C300]" />
+            )}
             <item.icon size={22} strokeWidth={isActive ? 2 : 1.5} />
           </button>
         );
@@ -467,10 +470,11 @@ function AppContent() {
                 element={
                   !isAuthenticated && !DESKTOP_PUBLIC_PATHS.some((p) => location.pathname.startsWith(p)) ? (
                     <Navigate to="/auth" replace />
-                  ) : (
+                    ) : (
                     <div className="h-screen flex overflow-hidden">
                       <DesktopNav />
                       <div className="flex-1 overflow-hidden bg-white">
+                        <div className="h-full w-full mx-auto" style={{ maxWidth: 'min(1280px, 100%)' }}>
                         <Routes>
                           <Route path="chat" element={<DesktopChatView />} />
                           <Route path="chats" element={<DesktopChatView />} />
@@ -517,8 +521,9 @@ function AppContent() {
                           <Route path="create-reel" element={<CreateReelsPage />} />
                           <Route path="cookies" element={<CookiePolicyPage />} />
                           <Route path="community-guidelines" element={<CommunityGuidelinesPage />} />
-                          <Route path="*" element={<NotFound />} />
+<Route path="*" element={<NotFound />} />
                         </Routes>
+                        </div>
                       </div>
                     </div>
                   )

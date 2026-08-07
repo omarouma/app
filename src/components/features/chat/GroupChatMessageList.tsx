@@ -41,12 +41,39 @@ export function GroupChatMessageList({
     handleContextMenu
 }: GroupChatMessageListProps) {
     const shouldAutoScrollRef = useRef(true);
+    const messageRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
-    useEffect(() => {
+    // Look up the message being replied to (by id) so we can render a quote.
+    const getReplyTarget = (replyToId: string): Message | undefined =>
+        filteredMsgs.find((m) => m.id === replyToId);
+
+    // Scroll the quoted message into view and briefly highlight it so the user
+    // can see where the reply is pointing. Disables auto-scroll so the jump
+    // isn't immediately undone on the next re-render.
+    const scrollToMessage = (id: string) => {
+        shouldAutoScrollRef.current = false;
+        const el = messageRefs.current[id];
+        if (el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            el.classList.add('ring-2', 'ring-[#00C300]');
+            setTimeout(() => el.classList.remove('ring-2', 'ring-[#00C300]'), 1200);
+        }
+    };
+
+useEffect(() => {
         if (shouldAutoScrollRef.current) {
             messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
         }
     }, [filteredMsgs.length, messagesEndRef]);
+
+    // Reset the auto-scroll flag once the scroll effect runs so a manual
+    // scroll (e.g. jumping to a reply) isn't immediately overridden.
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            shouldAutoScrollRef.current = true;
+        }, 600);
+        return () => clearTimeout(timer);
+    }, [filteredMsgs.length]);
 
     useEffect(() => {
         const container = messagesContainerRef.current;
@@ -86,6 +113,8 @@ export function GroupChatMessageList({
                         );
                     }
 
+                    const replyTarget = msg.replyTo ? getReplyTarget(msg.replyTo) : undefined;
+
                     return (
                         <div key={msg.id}>
                             {showDate && (
@@ -94,14 +123,26 @@ export function GroupChatMessageList({
                                 </div>
                             )}
                             <div
+                                ref={(el) => { messageRefs.current[msg.id] = el; }}
                                 onContextMenu={(e) => handleContextMenu(e, msg)}
-                                className={`flex items-end gap-2 ${isMe ? 'justify-end' : 'justify-start'} ${isSearchMatch ? 'bg-yellow-200/50 rounded-lg' : ''}`}>
+                                className={`flex items-end gap-2 transition-colors ${isMe ? 'justify-end' : 'justify-start'} ${isSearchMatch ? 'bg-yellow-200/50 rounded-lg' : ''}`}>
                                 {!isMe && (
                                     <img src={getSenderAvatar(msg.senderId) || getDefaultAvatar(msg.senderId)} alt="avatar" className="w-6 h-6 rounded-full shrink-0" />
                                 )}
                                 <div className={`max-w-[70%] p-0 relative`}>
                                     {!isMe && <p className="text-[11px] text-white/80 mb-0.5 ml-1">{getSenderName(msg.senderId)}</p>}
-                                    <div className={`px-3 py-2 rounded-xl text-sm leading-tight relative ${isMe ? 'bg-white text-[#111111] rounded-br-none' : 'bg-[#25D366] text-white rounded-bl-none'}`}>
+                                    <div className={`px-3 py-2 rounded-xl text-sm leading-tight relative overflow-hidden ${isMe ? 'bg-white text-[#111111] rounded-br-none' : 'bg-[#25D366] text-white rounded-bl-none'}`}>
+                                        {replyTarget && (
+                                            <button type="button"
+                                                onClick={(e) => { e.stopPropagation(); scrollToMessage(replyTarget.id); }}
+                                                className={`block w-full text-left mb-1 px-2 py-1 rounded-lg text-xs border-l-4 border-[#00000033] cursor-pointer hover:opacity-90 transition-opacity ${
+                                                    isMe ? 'bg-[#F0FFF0] text-[#111111]' : 'bg-black/10 text-white'
+                                                }`}
+                                            >
+                                                <span className="block font-semibold">{getSenderName(replyTarget.senderId)}</span>
+                                                <span className="block truncate opacity-90">{replyTarget.content}</span>
+                                            </button>
+                                        )}
                                         {msg.content}
                                         <span className="text-[10px] ml-2 float-right mt-1.5 opacity-70">{formatTime(msg.timestamp)}</span>
                                         {hasReactions && (

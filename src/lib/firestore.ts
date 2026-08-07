@@ -199,3 +199,26 @@ export async function runDbTransaction<T>(
 ): Promise<T> {
   return supabaseDb.runDbTransaction<T>(updateFn);
 }
+
+export async function incrementChatUnread(chatId: string, senderId: string): Promise<void> {
+  return supabaseDb.incrementChatUnread(chatId, senderId);
+}
+
+export async function markChatRead(chatId: string, userId: string): Promise<void> {
+  return supabaseDb.markChatRead(chatId, userId);
+}
+
+export function getRealtimeStatus() {
+  return supabaseDb.getRealtimeStatus();
+}
+
+export function onRealtimeStatusChange(listener: (s: 'connected' | 'disconnected' | 'reconnecting') => void) {
+  return supabaseDb.onRealtimeStatusChange(listener);
+}
+
+export function attachRealtimeResilience(
+  channel: any,
+  onResubscribe: () => void,
+): void {
+  return supabaseDb.attachRealtimeResilience(channel, onResubscribe);
+}

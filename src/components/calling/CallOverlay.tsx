@@ -35,9 +35,11 @@ const {
     endCall, toggleMute, toggleVideo, flipCamera,
   } = useWebRTCManager();
 
-  const isIncoming = !!incomingCall && !currentCall;
+const isIncoming = !!incomingCall && !currentCall;
   const activeCall = currentCall ?? incomingCall;
-  const isVideo = activeCall?.type === 'video';
+  const [switchedToVoice, setSwitchedToVoice] = useState(false);
+  const isGroupCall = activeCall?.type === 'group_voice' || activeCall?.type === 'group_video';
+  const isVideo = (activeCall?.type === 'video' || activeCall?.type === 'group_video') && !switchedToVoice;
   const otherUserId = activeCall
     ? activeCall.participantIds.find((id) => id !== currentUser?.id) ?? null
     : null;
@@ -188,8 +190,10 @@ const {
         <div className="relative z-10 flex flex-col h-full">
           {/* Top bar */}
           <div className="flex items-center justify-between px-5 pt-14 pb-4">
-<span className={`text-xs font-medium px-2.5 py-1 rounded-full ${isVideo ? 'bg-blue-500/20 text-blue-300' : 'bg-green-500/20 text-green-300'}`}>
-              {isVideo ? '📹 Video' : '🎙 Voice'}
+            <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${isVideo ? 'bg-blue-500/20 text-blue-300' : 'bg-green-500/20 text-green-300'}`}>
+              {isGroupCall
+                ? (isVideo ? '📹 Group Video' : '🎙 Group Voice')
+                : (isVideo ? '📹 Video' : '🎙 Voice')}
             </span>
 {isConnected && (
               <span className="text-white/60 text-sm font-mono">{formatDuration(callDuration)}</span>
@@ -313,10 +317,16 @@ const {
                       icon={isVideoOn ? <Video size={22} /> : <VideoOff size={22} />}
                     />
                   )}
-                  {isVideo && quality === 'poor' && (
+{isVideo && quality === 'poor' && (
                     <ControlButton
                       active={false}
-                      onClick={toggleVideo}
+                      onClick={() => {
+                        // Turn off the camera track and switch the effective
+                        // call type to voice (video → voice fallback).
+                        if (isVideoOn) toggleVideo();
+                        setSwitchedToVoice(true);
+                        toast.info('Switched to voice call');
+                      }}
                       label="Switch to voice"
                       icon={<Phone size={22} />}
                     />

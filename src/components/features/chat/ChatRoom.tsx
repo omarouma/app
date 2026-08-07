@@ -188,11 +188,10 @@ const [hasNewMessages, setHasNewMessages] = useState(false);
       // Re-send the failed message. Media messages retry the same media URL;
       // text/voice just re-send the content.
       await sendMessage(chatId, currentUser.id, msg.content, msg.type || 'text', msg.mediaUrl);
-      toast.success('Message resent.');
+toast.success('Message resent.');
     } catch {
       toast.error('Failed to resend message.');
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chatId, currentUser, sendMessage]);
 
   const handleVoiceSend = useCallback(async () => {
@@ -796,7 +795,7 @@ onSend={() => handleSend()}
                 <button type="button" onClick={() => setShowDeleteForEveryoneConfirm(null)}
                   className="flex-1 py-3 bg-[#F5F5F5] text-[#111111] rounded-xl text-sm font-bold"
                 >Cancel</button>
-                <button type="button" onClick={() => { if (contextMenu) handleDeleteForEveryone(contextMenu.msg.id); setShowDeleteForEveryoneConfirm(null); }}
+<button type="button" onClick={() => { if (showDeleteForEveryoneConfirm) handleDeleteForEveryone(showDeleteForEveryoneConfirm); setShowDeleteForEveryoneConfirm(null); }}
                   className="flex-1 py-3 bg-[#FF3B30] text-white rounded-xl text-sm font-bold"
                 >Delete</button>
               </div>

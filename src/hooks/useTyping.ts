@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useAuthStore } from '@/store/useAuthStore';
 import { isSupabaseConfigured, getSupabase } from '@/lib/supabase';
-import { setDocById, subscribeToDoc, serverTimestamp } from '@/lib/firestore';
+import { setDocById, subscribeToDoc, serverTimestamp, attachRealtimeResilience } from '@/lib/firestore';
 
 interface TypingUser {
   name: string;
@@ -41,19 +41,22 @@ export function useTyping(chatId: string | undefined) {
 
     const supabase = isSupabaseConfigured() ? getSupabase() : null;
 
-    if (supabase) {
+if (supabase) {
       const channelName = `typing-${chatId}-${Date.now()}`;
-      const channel = supabase
-        .channel(channelName)
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'typing', filter: `chat_id=eq.${chatId}` }, async (payload) => {
+      const channel = supabase.channel(channelName);
+      const wireChanges = () => {
+        channel.on('postgres_changes', { event: '*', schema: 'public', table: 'typing', filter: `chat_id=eq.${chatId}` }, async (payload) => {
           const data = payload.new as any;
           if (!data || data.user_id === user.id) return;
 
           const ts = new Date(data.updated_at).getTime();
           const userName = data.user_name || await fetchUserName(data.user_id) || 'User';
           onTypingEvent(data.user_id, userName, data.is_typing, ts);
-        })
-        .subscribe();
+        });
+      };
+      wireChanges();
+      attachRealtimeResilience(channel, wireChanges);
+      channel.subscribe();
       return () => supabase.removeChannel(channel);
     }
 

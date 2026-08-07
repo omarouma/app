@@ -17,6 +17,8 @@ import {
   subscribeToSubcollection,
   serverTimestamp,
   increment,
+  incrementChatUnread,
+  markChatRead,
 } from '@/lib/firestore';
 import type { Chat, Message, MessageType, PollData, TransferData, PinnedMessage } from '@/types';
 import { checkMessageRateLimit } from '@/hooks/useMessageRateLimiter';
@@ -335,15 +337,25 @@ export const useChatStore = create<ChatStore>((set, get) => ({
           messages: { ...s.messages, [chatId]: (s.messages[chatId] ?? []).filter((m) => m.localId !== localId) },
         }));
 
-        const cachedChat = get().chats.find((c) => c.id === chatId);
+const cachedChat = get().chats.find((c) => c.id === chatId);
         const participants = cachedChat?.participants ?? [];
         const otherParticipants = participants.filter((id: string) => id !== senderId);
         await updateDocById(COLLECTIONS.CHATS, chatId, {
           lastMessage: content,
           lastMessageSenderId: senderId,
           updatedAt: serverTimestamp(),
-          ...(otherParticipants.length > 0 ? { unreadCount: increment(1) } : {}),
         });
+        // Atomic per-recipient unread increment (single DB round-trip via RPC).
+        if (otherParticipants.length > 0) {
+          try {
+            await incrementChatUnread(chatId, senderId);
+          } catch {
+            // Fallback: client-side increment (read-then-write).
+            try {
+              await updateDocById(COLLECTIONS.CHATS, chatId, { unreadCount: increment(1) });
+            } catch { /* ignore */ }
+          }
+        }
 
         if (otherParticipants.length > 0) {
           try {
@@ -462,10 +474,30 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     }
   },
 
-  markAsRead: async (chatId, currentUserId?: string) => {
+markAsRead: async (chatId, currentUserId?: string) => {
     if (!isFirestoreAvailable()) return;
     try {
-      // Fast path: reset chat-level counters
+      // Fast path: use the SECURITY DEFINER RPC to mark all unread messages
+      // read + reset the recipient's unread counter in a single round-trip.
+      if (currentUserId) {
+        try {
+          await markChatRead(chatId, currentUserId);
+          // Optimistic client-side update for responsiveness.
+          set((s) => ({
+            messages: {
+              ...s.messages,
+              [chatId]: (s.messages[chatId] ?? []).map((m) =>
+                m.senderId !== currentUserId ? { ...m, read: true } : m
+              ),
+            },
+          }));
+          return;
+        } catch {
+          // RPC unavailable — fall through to the client-side fallback.
+        }
+      }
+
+      // Fallback: reset chat-level counters
       await updateDocById(COLLECTIONS.CHATS, chatId, { unreadCount: 0, lastMessageRead: true });
       if (currentUserId) {
         // PostgREST-safe query: a single filter (read == false) with a limit.

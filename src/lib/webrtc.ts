@@ -1,6 +1,6 @@
 import { getSupabase, isSupabaseConfigured } from './supabase';
 import { getFirestoreDB } from './firebase';
-import { subscribeToDoc, setDocById, updateDocById, arrayUnion, COLLECTIONS } from './firestore';
+import { subscribeToDoc, setDocById, updateDocById, arrayUnion, COLLECTIONS, attachRealtimeResilience } from './firestore';
 import env from '@/config/env';
 
 const isClient = typeof window !== 'undefined';
@@ -61,6 +61,8 @@ export class WebRTCCall {
   private statsTimer: ReturnType<typeof setInterval> | null = null;
   private lastQuality: 'good' | 'poor' | 'reconnecting' = 'good';
   private wasConnected = false;
+  private iceRestartAttempts = 0;
+  private readonly maxIceRestarts = 3;
 
   setOnQualityChange(cb: ((quality: 'good' | 'poor' | 'reconnecting') => void) | undefined) {
     this.onQualityChange = cb;
@@ -108,11 +110,28 @@ export class WebRTCCall {
     }, 3000);
   }
 
-  private stopQualityMonitor() {
+private stopQualityMonitor() {
     if (this.statsTimer) {
       clearInterval(this.statsTimer);
       this.statsTimer = null;
     }
+  }
+
+  // Attempt an ICE restart to recover a degraded peer connection. Bounded to
+  // `maxIceRestarts` so a persistently failing call eventually ends instead of
+  // loop-restarting forever. Surfaces the "reconnecting" quality state so the
+  // UI can inform the user recovery is in progress.
+  private attemptIceRestart() {
+    if (this.iceRestartAttempts >= this.maxIceRestarts) {
+      this.setState('ended');
+      return;
+    }
+    this.iceRestartAttempts += 1;
+    this.setQuality('reconnecting');
+    this.scheduleRecoveryTimeout();
+    try {
+      this._pc?.restartIce();
+    } catch { /* restartIce may not be supported on all engines */ }
   }
 
   constructor(
@@ -182,14 +201,16 @@ export class WebRTCCall {
     this._pc.onconnectionstatechange = () => {
       const s = this._pc?.connectionState;
       if (s === 'connected') {
+        this.iceRestartAttempts = 0;
         this.wasConnected = true;
         this.clearDisconnectTimer();
         this.startQualityMonitor();
+        this.setQuality('good');
         this.setState('connected');
       }
       if (s === 'failed') {
         // Try to recover via ICE restart before giving up.
-        this._pc?.restartIce();
+        this.attemptIceRestart();
       }
       if (s === 'disconnected') {
         // Don't tear down immediately on a transient network blip. Give the
@@ -207,19 +228,22 @@ export class WebRTCCall {
       const s = this._pc?.iceConnectionState;
       if (s === 'failed') {
         if (this.wasConnected) {
-          // A transient failure after connection — try to restart ICE.
-          this._pc?.restartIce();
-          this.scheduleRecoveryTimeout();
+          // A transient failure after connection — try to restart ICE up to a
+          // bounded number of times before giving up on the call.
+          this.attemptIceRestart();
         } else {
           // Never connected — no point waiting.
           this.setState('ended');
         }
       }
       if (s === 'disconnected') {
+        this.setQuality('reconnecting');
         this.scheduleRecoveryTimeout();
       }
       if (s === 'connected' || s === 'completed') {
+        this.iceRestartAttempts = 0;
         this.clearDisconnectTimer();
+        this.setQuality('good');
       }
     };
 
@@ -282,10 +306,10 @@ export class WebRTCCall {
       updated_at: new Date().toISOString(),
     }, { onConflict: 'call_id' });
 
-    // Subscribe to changes
-    const channel = supabase
-      .channel(`call_signaling_${this.callId}`)
-      .on('postgres_changes', {
+// Subscribe to changes
+    const channel = supabase.channel(`call_signaling_${this.callId}`);
+    const wireChanges = () => {
+      channel.on('postgres_changes', {
         event: '*',
         schema: 'public',
         table: 'call_signaling',
@@ -299,8 +323,11 @@ export class WebRTCCall {
           callerIce: (data.caller_ice as RTCIceCandidateInit[]) || [],
           calleeIce: (data.callee_ice as RTCIceCandidateInit[]) || [],
         });
-      })
-      .subscribe();
+      });
+    };
+    wireChanges();
+    attachRealtimeResilience(channel, wireChanges);
+    channel.subscribe();
 
     // Supabase realtime does NOT replay the current row on subscribe.
     // Fetch the existing offer/answer once so a callee that joins after the
@@ -548,17 +575,24 @@ export class WebRTCCall {
     return callId;
   }
 
-  async answerCall(callId: string) {
+async answerCall(callId: string) {
     this.callId = callId;
     this.isCaller = false;
     this.setState('ringing');
+
+    // Start listening for the offer FIRST (before local media capture) so an
+    // offer that arrives while getUserMedia is pending is still received and
+    // buffered. The caller writes the offer immediately after creating it, so
+    // starting the subscription first eliminates a race where the offer is
+    // missed while the callee is still acquiring the camera/mic.
+    await this.initSignaling();
 
     await this.startLocalMedia();
 
     const pc = this.ensurePeerConnection();
     if (!pc) return;
 
-    // Attach the ICE handler BEFORE the signaling subscription is established,
+    // Attach the ICE handler AFTER the signaling subscription is established,
     // so ICE candidates gathered during the async handshake are not lost.
     pc.onicecandidate = async (e) => {
       if (!e.candidate || !this.callId) return;
@@ -566,9 +600,6 @@ export class WebRTCCall {
         await this.appendIceCandidate(e.candidate.toJSON(), false);
       } catch { /* ignore */ }
     };
-
-    // Start listening for offer — must await so channel is ready before ICE fires
-    await this.initSignaling();
 
     return callId;
   }
@@ -589,12 +620,15 @@ export class WebRTCCall {
       this._pc?.close();
     } catch { /* ignore */ }
 
+const endedCallId = this.callId;
+
     this.clearDisconnectTimer();
     this.stopQualityMonitor();
     this.lastQuality = 'good';
     this.localStream = null;
     this.remoteStream = null;
     this._pc = null;
+    this.iceRestartAttempts = 0;
     this.callId = null;
     this.remoteDescSet = false;
     this.pendingIce = [];
@@ -603,6 +637,20 @@ export class WebRTCCall {
     this.lastCallerIceCount = 0;
     this.lastCalleeIceCount = 0;
     this.wasConnected = false;
+
+    // Best-effort cleanup of the transient signaling row so stale offers/ICE
+    // accumulate in `call_signaling`. This is fire-and-forget: the call is
+    // already terminated and the cleanup is not required for correctness.
+    if (endedCallId && isSupabaseConfigured()) {
+      const supabase = getSupabase();
+      if (supabase) {
+        void (async () => {
+          try {
+            await supabase.from('call_signaling').delete().eq('call_id', endedCallId);
+          } catch { /* best-effort cleanup may fail (e.g. RLS on delete) */ }
+        })();
+      }
+    }
 
     this.setState('ended');
   }

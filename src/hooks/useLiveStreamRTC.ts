@@ -5,6 +5,7 @@ import {
   addDocToSubcollection,
   subscribeToSubcollection,
   where,
+  attachRealtimeResilience,
 } from '@/lib/firestore';
 import { getSupabaseSafe } from '@/lib/supabase';
 import { getIceServers } from '@/lib/webrtc';
@@ -116,9 +117,9 @@ export function useLiveStreamRTC(
           } catch { /* table may not exist yet — rely on realtime */ }
         })();
 
-        const channel = supabase
-          .channel(`live_signals_${streamId}`)
-          .on(
+const channel = supabase.channel(`live_signals_${streamId}`);
+        const wireChanges = () => {
+          channel.on(
             'postgres_changes',
             {
               event: 'INSERT',
@@ -138,8 +139,11 @@ export function useLiveStreamRTC(
                 timestamp: s.created_at ? new Date(s.created_at as string).getTime() : Date.now(),
               });
             },
-          )
-          .subscribe();
+          );
+        };
+        wireChanges();
+        attachRealtimeResilience(channel, wireChanges);
+        channel.subscribe();
 
         return () => { supabase.removeChannel(channel); };
       }

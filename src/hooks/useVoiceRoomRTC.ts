@@ -5,6 +5,7 @@ import {
   addDocToSubcollection,
   subscribeToSubcollection,
   where,
+  attachRealtimeResilience,
 } from '@/lib/firestore';
 import { getSupabaseSafe, isSupabaseConfigured } from '@/lib/supabase';
 import { getIceServers } from '@/lib/webrtc';
@@ -259,9 +260,9 @@ export function useVoiceRoomRTC(roomId: string, userId: string) {
       };
       fetchSignals();
 
-      const channel = supabase
-        .channel(`voice_signals_${roomId}_${userId}`)
-        .on('postgres_changes', {
+const channel = supabase.channel(`voice_signals_${roomId}_${userId}`);
+      const wireChanges = () => {
+        channel.on('postgres_changes', {
           event: 'INSERT',
           schema: 'public',
           table: 'voice_room_signals',
@@ -269,8 +270,11 @@ export function useVoiceRoomRTC(roomId: string, userId: string) {
         }, (payload) => {
           const signal = payload.new;
           if (signal?.to === userId) handleSignal(signal);
-        })
-        .subscribe();
+        });
+      };
+      wireChanges();
+      attachRealtimeResilience(channel, wireChanges);
+      channel.subscribe();
 
       return () => { supabase.removeChannel(channel); };
     }

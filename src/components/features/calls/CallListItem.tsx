@@ -15,32 +15,46 @@ interface CallListItemProps {
 
 function formatDuration(seconds?: number): string {
   if (!seconds) return '0:00';
-  const m = Math.floor(seconds / 60);
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
   const s = seconds % 60;
-  return `${m}:${String(s).padStart(2, '0')}`;
+  const mm = String(m).padStart(2, '0');
+  const ss = String(s).padStart(2, '0');
+  return h > 0 ? `${h}:${mm}:${ss}` : `${Number(mm)}:${ss}`;
 }
 
 const CallListItemComponent = ({ call, userName, currentUserId, userAvatar, onCall, onDelete }: CallListItemProps) => {
   const direction = getCallDirection(call, currentUserId);
   const otherUserId = getOtherParticipantId(call, currentUserId);
 
-  const getCallIcon = () => {
+  const callIcon = (() => {
     if (call.status === 'missed') return <PhoneMissed size={14} className="text-[#FF3B30]" />;
     if (direction === 'outgoing') return <PhoneOutgoing size={14} className="text-[#00C300]" />;
     return <PhoneIncoming size={14} className="text-[#00C300]" />;
-  };
+  })();
 
-  const getCallLabel = () => {
+const getCallLabel = () => {
     const parts: string[] = [];
     if (call.status === 'missed') parts.push('Missed');
     else if (direction === 'outgoing') parts.push('Outgoing');
     else parts.push('Incoming');
-    parts.push(call.type === 'video' ? 'Video' : 'Voice');
+    if (call.type === 'group_voice') parts.push('Group Voice');
+    else if (call.type === 'group_video') parts.push('Group Video');
+    else parts.push(call.type === 'video' ? 'Video' : 'Voice');
     return parts.join(' · ');
   };
 
   const avatarSrc = sanitizeMediaUrl(userAvatar);
   const fallbackSrc = getDefaultAvatar(otherUserId || userName || 'U');
+
+  const canCall = !!otherUserId;
+
+  const handleVoiceCall = () => {
+    if (canCall) onCall('voice', otherUserId);
+  };
+  const handleVideoCall = () => {
+    if (canCall) onCall('video', otherUserId);
+  };
 
   return (
     <div className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors">
@@ -51,7 +65,7 @@ const CallListItemComponent = ({ call, userName, currentUserId, userAvatar, onCa
           <img src={fallbackSrc} alt={userName} className="w-full h-full object-cover" />
         )}
         <div className="absolute bottom-0 right-0 w-4 h-4 rounded-full bg-white flex items-center justify-center shadow-sm">
-          {getCallIcon()}
+          {callIcon}
         </div>
       </div>
       <div className="flex-1 min-w-0">
@@ -59,7 +73,7 @@ const CallListItemComponent = ({ call, userName, currentUserId, userAvatar, onCa
           {userName}
         </p>
         <div className="flex items-center gap-1 text-xs text-gray-500 mt-0.5">
-          {getCallIcon()}
+          {callIcon}
           <span className="truncate">{getCallLabel()}</span>
           {call.duration ? (
             <>
@@ -72,10 +86,10 @@ const CallListItemComponent = ({ call, userName, currentUserId, userAvatar, onCa
         </div>
       </div>
       <div className="flex items-center gap-1 shrink-0">
-        <button type="button" onClick={() => onCall('voice', otherUserId)} className="p-2 rounded-full hover:bg-gray-100 text-[#00C300] transition-colors" aria-label={`Voice call ${userName}`}>
+        <button type="button" onClick={handleVoiceCall} disabled={!canCall} className="p-2 rounded-full hover:bg-gray-100 text-[#00C300] transition-colors disabled:opacity-40 disabled:cursor-not-allowed" aria-label={`Voice call ${userName}`}>
           <Phone size={18} />
         </button>
-        <button type="button" onClick={() => onCall('video', otherUserId)} className="p-2 rounded-full hover:bg-gray-100 text-[#00C300] transition-colors" aria-label={`Video call ${userName}`}>
+        <button type="button" onClick={handleVideoCall} disabled={!canCall} className="p-2 rounded-full hover:bg-gray-100 text-[#00C300] transition-colors disabled:opacity-40 disabled:cursor-not-allowed" aria-label={`Video call ${userName}`}>
           <Video size={18} />
         </button>
         <button type="button" onClick={() => onDelete(call.id)} className="p-2 rounded-full hover:bg-gray-100 text-gray-400 hover:text-red-500 transition-colors" aria-label={`Delete call with ${userName}`}>

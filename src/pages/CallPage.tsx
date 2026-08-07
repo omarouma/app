@@ -82,7 +82,7 @@ const navState = (location.state || {}) as {
         <p className="text-white font-semibold">{friend?.name || 'User'}</p>
         <p className="text-[#FF6B6B] text-sm max-w-xs">{error}</p>
         <p className="text-white/40 text-xs max-w-xs">
-          Make sure microphone{cameraNeeded(isVideo) ? ' and camera' : ''} permissions are allowed, then try again.
+          Make sure microphone{isVideo ? ' and camera' : ''} permissions are allowed, then try again.
         </p>
         <div className="flex gap-3 mt-2">
           <button type="button" onClick={handleRetry}
@@ -116,10 +116,6 @@ const navState = (location.state || {}) as {
           <MessageSquare size={16} /> Chat
         </button>
       </div>
-    </div>
+</div>
   );
-}
-
-function cameraNeeded(isVideo: boolean): boolean {
-  return isVideo;
 }

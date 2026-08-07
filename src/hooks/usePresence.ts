@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { getSupabaseSafe } from '@/lib/supabase';
-import { isFirestoreAvailable, getDocById, setDocById, subscribeToDoc, serverTimestamp } from '@/lib/firestore';
+import { isFirestoreAvailable, getDocById, setDocById, subscribeToDoc, serverTimestamp, attachRealtimeResilience } from '@/lib/firestore';
 import type { User } from '@/types';
 
 // ─── Unique tab ID to avoid channel name collisions across tabs ────────
@@ -200,11 +200,9 @@ export function useTrackPresence(userId: string | undefined) {
       // partially-torn-down channel from a previous render cycle.
       const channelName = `presence-${TAB_ID}-${myMountId}`;
 
-      // Register ALL callbacks BEFORE calling .subscribe() — Supabase throws
-      // if you call .on() after .subscribe().
-      const channel = supabase
-        .channel(channelName)
-        .on(
+const channel = supabase.channel(channelName);
+      const wireChanges = () => {
+        channel.on(
           'postgres_changes',
           { event: '*', schema: 'public', table: 'presence' },
           ({ new: row }) => {
@@ -217,12 +215,14 @@ export function useTrackPresence(userId: string | undefined) {
             }
           },
         );
+      };
+      wireChanges();
+      attachRealtimeResilience(channel, wireChanges);
 
       // Critical: call subscribe() only once after .on(...) is fully attached.
       // This eliminates the race behind:
       // "cannot add postgres_changes callbacks ... after subscribe()"
       channel.subscribe();
-
 
       channelRef.current = channel;
 

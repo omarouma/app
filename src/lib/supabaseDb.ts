@@ -594,6 +594,66 @@ export async function querySubcollection<T = any>(
 
 // ─── Real-time subscriptions ───────────────────────────────────────────
 
+// ─── Realtime connection status bus ────────────────────────────────────
+// Lets the UI layer (e.g. NetworkStatusBanner) surface realtime socket health
+// independent of browser online/offline state. A Supabase channel uses a
+// WebSocket/SSE transport that can drop even while the browser is "online",
+// so we track it here and emit events consumers can subscribe to.
+export type RealtimeStatus = 'connected' | 'disconnected' | 'reconnecting';
+
+let realtimeStatus: RealtimeStatus = 'connected';
+const realtimeListeners = new Set<(s: RealtimeStatus) => void>();
+
+function setRealtimeStatus(next: RealtimeStatus) {
+  if (realtimeStatus === next) return;
+  realtimeStatus = next;
+  realtimeListeners.forEach((l) => { try { l(next); } catch { /* ignore */ } });
+  try {
+    window.dispatchEvent(new CustomEvent<RealtimeStatus>('gaga-realtime-status', { detail: next }));
+  } catch { /* SSR-safe */ }
+}
+
+export function getRealtimeStatus(): RealtimeStatus {
+  return realtimeStatus;
+}
+
+export function onRealtimeStatusChange(listener: (s: RealtimeStatus) => void): () => void {
+  realtimeListeners.add(listener);
+  return () => realtimeListeners.delete(listener);
+}
+
+// ─── Channel resilience helper ─────────────────────────────────────────
+// Attaches system-level handlers to a realtime channel so a dropped WebSocket
+// transport is detected and transparently re-subscribed. Also surfaces the
+// status to the UI bus. `onResubscribe` re-runs the channel's event wiring.
+const REALTIME_RESUBSCRIBE_MS = 2000;
+
+export function attachRealtimeResilience(
+  channel: any,
+  onResubscribe: () => void,
+): void {
+  let resubscribed = false;
+  channel.on('system', (event: string) => {
+    if (event === 'SUBSCRIBED') {
+      setRealtimeStatus('connected');
+      resubscribed = false;
+    } else if (event === 'ERROR') {
+      setRealtimeStatus('reconnecting');
+    } else if (event === 'WEB_TRANSPORT_CLOSED') {
+      setRealtimeStatus('disconnected');
+      if (!resubscribed) {
+        resubscribed = true;
+        setTimeout(() => {
+          try {
+            onResubscribe();
+            channel.subscribe();
+          } catch { /* ignore */ }
+        }, REALTIME_RESUBSCRIBE_MS);
+      }
+    }
+  });
+}
+
 // Module-level channel sequence counter. Each subscribeToCollection() call must
 // get a UNIQUE channel name — reusing a deterministic name (e.g.
 // `call_history:caller_id=eq.<userId>`) collides when the same filter is
@@ -614,9 +674,9 @@ export function subscribeToDoc(
     if (data) onData({ ...toCamel(data), id: data.id });
   }, () => {});
 
-  const channel = supabase
-    .channel(`${table}:id=${id}`)
-    .on(
+const channel = supabase.channel(`${table}:id=${id}`);
+  const wireChanges = () => {
+    channel.on(
       'postgres_changes',
       { event: '*', schema: 'public', table, filter: `id=eq.${id}` },
       ({ new: row }) => {
@@ -624,8 +684,11 @@ export function subscribeToDoc(
           onData({ ...toCamel(row as Record<string, any>), id: (row as any).id });
         }
       },
-    )
-    .subscribe();
+    );
+  };
+  wireChanges();
+  attachRealtimeResilience(channel, wireChanges);
+  channel.subscribe();
 
   return () => { supabase.removeChannel(channel); };
 }
@@ -786,11 +849,14 @@ export function subscribeToCollection<T = any>(
   const channelId = filter
     ? `${table}:${filter}:${++channelSeq}`
     : `${table}:all:${Date.now()}:${++channelSeq}`;
-  const filterConfig = filter ? { filter } : {};
-  const channel = supabase
-    .channel(channelId)
-    .on('postgres_changes', { event: '*', schema: 'public', table, ...filterConfig }, handleChange)
-    .subscribe();
+const filterConfig = filter ? { filter } : {};
+  const channel = supabase.channel(channelId);
+  const wireChanges = () => {
+    channel.on('postgres_changes', { event: '*', schema: 'public', table, ...filterConfig }, handleChange);
+  };
+  wireChanges();
+  attachRealtimeResilience(channel, wireChanges);
+  channel.subscribe();
 
   return () => {
     if (debounceTimer) clearTimeout(debounceTimer);
@@ -845,6 +911,68 @@ export async function runDbTransaction<T>(updateFn: (t: any) => Promise<T>): Pro
   const supabase = getDb();
   if (!supabase) throw new Error('Supabase not available');
   return updateFn(supabase);
+}
+
+// ─── Atomic unread / read-receipt RPC helpers ─────────────────────────
+// Use SECURITY DEFINER RPCs (see supabase_realtime_fixes.sql) to update
+// unread counts and read receipts in a single round-trip instead of the
+// read-then-write fallback below.
+
+export async function incrementChatUnread(
+  chatId: string,
+  senderId: string,
+): Promise<void> {
+  const supabase = getDb();
+  if (!supabase) { throw new Error('Supabase not available'); }
+  const { error } = await supabase.rpc('increment_chat_unread', {
+    p_chat_id: chatId,
+    p_sender_id: senderId,
+  });
+  if (error) {
+    // Fallback: client-side increment for the sender's unread jsonb key.
+    await updateChatUnreadFallback(chatId, senderId);
+  }
+}
+
+export async function markChatRead(
+  chatId: string,
+  userId: string,
+): Promise<void> {
+  const supabase = getDb();
+  if (!supabase) { throw new Error('Supabase not available'); }
+  const { error } = await supabase.rpc('mark_chat_read', {
+    p_chat_id: chatId,
+    p_user_id: userId,
+  });
+  if (error) {
+    throw error;
+  }
+}
+
+async function updateChatUnreadFallback(
+  chatId: string,
+  senderId: string,
+): Promise<void> {
+  const supabase = getDb();
+  if (!supabase) return;
+  const { data: chat } = await supabase
+    .from('chats')
+    .select('participants, unread_count')
+    .eq('id', chatId)
+    .single();
+  if (!chat) return;
+  const participants: string[] = Array.isArray(chat.participants) ? chat.participants : [];
+  const others = participants.filter((id: string) => id !== senderId);
+  if (others.length === 0) return;
+  const current: Record<string, number> =
+    chat.unread_count && typeof chat.unread_count === 'object'
+      ? chat.unread_count
+      : {};
+  const next: Record<string, number> = { ...current };
+  for (const id of others) {
+    next[id] = (next[id] ?? 0) + 1;
+  }
+  await supabase.from('chats').update({ unread_count: next }).eq('id', chatId);
 }
 
 // ─── Misc helpers ──────────────────────────────────────────────────────

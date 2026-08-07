@@ -3,7 +3,7 @@ import type { RefObject } from 'react';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useChatStore } from '@/store/useChatStore';
 import { useFriendStore } from '@/store/useFriendStore';
-import { isFirestoreAvailable, COLLECTIONS } from '@/lib/firestore';
+import { COLLECTIONS, attachRealtimeResilience } from '@/lib/firestore';
 import { isSupabaseConfigured, getSupabase } from '@/lib/supabase';
 
 export function useChatEffects(
@@ -103,10 +103,10 @@ export function useChatEffects(
         }
       })();
 
-      // Realtime subscription
-      const channel = supabase
-        .channel(`user_presence_${userId}`)
-        .on('postgres_changes', {
+// Realtime subscription
+      const channel = supabase.channel(`user_presence_${userId}`);
+      const wireChanges = () => {
+        channel.on('postgres_changes', {
           event: 'UPDATE',
           schema: 'public',
           table: 'users',
@@ -116,8 +116,11 @@ export function useChatEffects(
           setLastSeen(
             d.online ? 'online' : d.last_seen ? new Date(d.last_seen as string).toLocaleString() : null
           );
-        })
-        .subscribe();
+        });
+      };
+      wireChanges();
+      attachRealtimeResilience(channel, wireChanges);
+      channel.subscribe();
 
       unsub = () => supabase.removeChannel(channel);
     } else {

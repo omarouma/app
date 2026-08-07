@@ -1,4 +1,5 @@
 import { getSupabaseSafe } from './supabase';
+import { attachRealtimeResilience } from './firestore';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { User } from '@/types';
 
@@ -141,16 +142,19 @@ export function subscribeToUserProfile(
   // Initial fetch so we have a value immediately even before realtime connects.
   void emit();
 
-  channel = supabase
-    .channel(`users:profile:${userId}`)
-    .on(
+channel = supabase.channel(`users:profile:${userId}_${Date.now()}`);
+  const wireChanges = () => {
+    channel!.on(
       'postgres_changes',
       { event: 'UPDATE', schema: 'public', table: 'users', filter: `id=eq.${userId}` },
       () => {
         void emit();
       },
-    )
-    .subscribe();
+    );
+  };
+  wireChanges();
+  attachRealtimeResilience(channel, wireChanges);
+  channel.subscribe();
 
   return () => {
     disposed = true;

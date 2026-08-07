@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useAuthStore } from '@/store/useAuthStore';
 import { isSupabaseConfigured, getSupabase } from '@/lib/supabase';
-import { subscribeToDoc } from '@/lib/firestore';
+import { subscribeToDoc, attachRealtimeResilience } from '@/lib/firestore';
 
 interface TypingInfo {
   name: string;
@@ -55,9 +55,9 @@ export function useChatListTyping(chatIdsKey: string) {
     const unsubs: (() => void)[] = [];
 
     if (supabase) {
-      const channel = supabase
-        .channel(channelName)
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'typing' }, (payload) => {
+      const channel = supabase.channel(channelName);
+      const wireChanges = () => {
+        channel.on('postgres_changes', { event: '*', schema: 'public', table: 'typing' }, (payload) => {
           const data = payload.new as Record<string, unknown>;
           if (!data || data.user_id === user.id) return;
 
@@ -81,8 +81,11 @@ export function useChatListTyping(chatIdsKey: string) {
             }
             return prev;
           });
-        })
-        .subscribe();
+        });
+      };
+      wireChanges();
+      attachRealtimeResilience(channel, wireChanges);
+      channel.subscribe();
       unsubs.push(() => supabase.removeChannel(channel));
     } else {
       chatIds.forEach(chatId => {

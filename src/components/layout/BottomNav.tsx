@@ -1,9 +1,11 @@
 import { NavLink } from 'react-router-dom';
 import { memo, useMemo } from 'react';
+import { motion } from 'framer-motion';
 import { MessageCircle, Phone, Users, User, Flame } from 'lucide-react';
 import { useChatStore } from '@/store/useChatStore';
 import { useGroupStore } from '@/store/useGroupStore';
 import { useNotificationStore } from '@/store/useNotificationStore';
+import { useCallStore } from '@/store/useCallStore';
 import { useIsMobile, useIsMounted } from '@/hooks/use-mobile';
 
 const tabDefs = [
@@ -20,15 +22,20 @@ const BottomNav = memo(function BottomNav() {
   const chats = useChatStore((s) => s.chats);
   const groups = useGroupStore((s) => s.groups);
   const notifUnread = useNotificationStore((s) => s.unreadCount);
+  const callHistory = useCallStore((s) => s.history);
   const totalUnread = useMemo(
     () => [...chats, ...groups].reduce((s, c) => s + (c.unreadCount || 0), 0),
     [chats, groups]
   );
+  const missedCalls = useMemo(
+    () => callHistory.filter((c) => c.status === 'missed').length,
+    [callHistory]
+  );
 
   const tabs = useMemo(() => tabDefs.map(t => ({
     ...t,
-    badge: t.to === '/chats' ? totalUnread : t.to === '/profile' ? notifUnread : 0,
-  })), [totalUnread, notifUnread]);
+    badge: t.to === '/chats' ? totalUnread : t.to === '/profile' ? notifUnread : t.to === '/calls' ? missedCalls : 0,
+  })), [totalUnread, notifUnread, missedCalls]);
 
   if (!isMounted || !isMobile) return null;
 
@@ -53,18 +60,28 @@ const BottomNav = memo(function BottomNav() {
                   {isActive && !highlight && (
                     <span className="absolute -top-1.5 left-1/2 -translate-x-1/2 w-5 h-1 bg-[#00C300] rounded-full" />
                   )}
-                  {highlight ? (
-                    <div className={`w-11 h-11 rounded-full flex items-center justify-center shadow-md transition-transform ${
-                      isActive ? 'bg-[#FF4081] scale-105' : 'bg-[#FF4081]/85'
-                    }`}>
+{highlight ? (
+                    <motion.div
+                      animate={{ scale: isActive ? 1.1 : 1 }}
+                      transition={{ type: 'spring', stiffness: 400, damping: 18 }}
+                      className={`w-11 h-11 rounded-full flex items-center justify-center shadow-md ${
+                        isActive ? 'bg-[#FF4081]' : 'bg-[#FF4081]/85'
+                      }`}
+                    >
                       <Icon size={21} className="text-white" strokeWidth={2.5} />
-                    </div>
+                    </motion.div>
                   ) : (
-                    <Icon
-                      size={25}
-                      className={`transition-colors ${isActive ? 'text-[#111111]' : 'text-[#ADADAD]'}`}
-                      strokeWidth={isActive ? 2.5 : 1.5}
-                    />
+                    <motion.div
+                      animate={{ scale: isActive ? 1.15 : 1 }}
+                      transition={{ type: 'spring', stiffness: 500, damping: 20 }}
+                      className="flex items-center justify-center"
+                    >
+                      <Icon
+                        size={25}
+                        className={`transition-colors ${isActive ? 'text-[#111111]' : 'text-[#ADADAD]'}`}
+                        strokeWidth={isActive ? 2.5 : 1.5}
+                      />
+                    </motion.div>
                   )}
                   {badge > 0 && (
                     <span
