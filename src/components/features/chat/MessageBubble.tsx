@@ -103,14 +103,12 @@ const DeliveryStatusIcon = memo(function DeliveryStatusIcon({
   }
 });
 
-function getRepliedMessageContent(msgs: Message[], replyToId: string): { content: string; senderName: string } | null {
+function getRepliedMessageContent(msgs: Message[], replyToId: string, currentUserId: string, displayUserName: string): { content: string; senderName: string } | null {
   const replied = msgs.find(m => m.id === replyToId);
   if (!replied) return null;
   const truncated = replied.content.length > 60 ? replied.content.substring(0, 60) + '...' : replied.content;
-  return {
-    content: truncated,
-    senderName: replied.senderId === 'system' ? 'System' : 'User',
-  };
+  const senderName = replied.senderId === currentUserId ? 'You' : replied.senderId === 'system' ? 'System' : displayUserName;
+  return { content: truncated, senderName };
 }
 
 export const MessageBubble = memo(function MessageBubble(props: MessageBubbleProps) {
@@ -127,7 +125,7 @@ export const MessageBubble = memo(function MessageBubble(props: MessageBubblePro
   const hasReactions = Object.values(reactions).some((u) => (u as string[]).length > 0);
 
   // Find replied message
-  const repliedInfo = msg.replyTo ? getRepliedMessageContent(msgs, msg.replyTo) : null;
+  const repliedInfo = msg.replyTo ? getRepliedMessageContent(msgs, msg.replyTo, currentUserId, displayUser.name) : null;
 
   const avatarEl = showAvatar ? (
     <div className="w-8 h-8 rounded-full bg-[#F5F5F5] flex items-center justify-center mr-2 self-end shrink-0 overflow-hidden">

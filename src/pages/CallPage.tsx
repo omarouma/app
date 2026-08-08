@@ -19,7 +19,8 @@ const navState = (location.state || {}) as {
   const { user: currentUser } = useAuthStore();
   const { friends } = useFriendStore();
   const { startCall, endCall, currentCall } = useCallStore();
-  const initiatedRef = useRef(false);
+const initiatedRef = useRef(false);
+  const hadCallRef = useRef(false);
   const [error, setError] = useState<string | null>(null);
 
   const friend = friends.find((f) => f.id === userId);
@@ -37,9 +38,16 @@ const navState = (location.state || {}) as {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId, currentUser?.id, isVideo]);
 
-  // Auto-navigate away when call ends
+  // Track once a call has actually been established so we don't redirect on
+  // the initial mount while startCall() is still resolving (currentCall is
+  // still null at that point).
   useEffect(() => {
-    if (initiatedRef.current && !currentCall) {
+    if (currentCall) hadCallRef.current = true;
+  }, [currentCall]);
+
+  // Auto-navigate away only AFTER a call was established and then ended.
+  useEffect(() => {
+    if (hadCallRef.current && !currentCall) {
       navigate('/calls', { replace: true });
     }
   }, [currentCall, navigate]);

@@ -100,7 +100,7 @@ export const ChatListItem = memo(function ChatListItem({
           )}
         </div>
         <div className="flex items-center justify-between gap-2 mt-0.5">
-          <p className={`text-xs truncate ${typingName ? 'text-indigo-500 font-medium' : 'text-gray-500'}`}>
+          <p className={`text-xs truncate ${typingName ? 'text-[#00C300] font-medium' : 'text-gray-500'}`}>
             {lastMsgPreview}
           </p>
           {(chat.unreadCount ?? 0) > 0 && (

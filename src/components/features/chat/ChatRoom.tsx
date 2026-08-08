@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
+import { useState, useRef, useMemo, useCallback } from 'react';
 import type { ReactElement } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -11,7 +11,7 @@ import { useVoiceRecorder } from '@/hooks/useVoiceRecorder';
 import { useChatScrollBehavior } from '@/hooks/useChatScrollBehavior';
 import { uploadMediaBlob } from '@/lib/storage';
 import { SWIPE_THRESHOLD, formatDateSeparator } from '@/lib/chatConstants';
-import { sanitizeMediaUrl, getDefaultAvatar } from '@/lib/utils';
+import { sanitizeMediaUrl } from '@/lib/utils';
 
 import type { Message } from '@/types';
 import { useCallContext } from '@/context/CallContextBase';
@@ -164,6 +164,7 @@ const [hasNewMessages, setHasNewMessages] = useState(false);
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedMessages, setSelectedMessages] = useState<Set<string>>(new Set());
   const [showTransfer, setShowTransfer] = useState(false);
+  const [showDeleteSelectedConfirm, setShowDeleteSelectedConfirm] = useState(false);
   const longPressTimerRef = useRef<NodeJS.Timeout | null>(null);
   const touchStartXRef = useRef(0);
   const touchCurrentXRef = useRef(0);
@@ -229,12 +230,11 @@ const [hasNewMessages, setHasNewMessages] = useState(false);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chatId, currentUser, addReaction]);
 
-  const handleEditStart = useCallback((msg: Message) => {
+const handleEditStart = useCallback((msg: Message) => {
     setEditingMessageId(msg.id);
     setEditInput(msg.content);
     setContextMenu(null);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [setEditingMessageId, setEditInput, setContextMenu]);
 
   const _handleReply = useCallback((msg: Message) => {
     setReplyingTo(msg);
@@ -251,11 +251,23 @@ const [hasNewMessages, setHasNewMessages] = useState(false);
 
   const handleTranslate = useCallback(async (msg: Message) => {
     const { id: msgId, content: text } = msg;
-    if (translations[msgId]) return;
+    if (translations[msgId]) {
+      setTranslations(prev => { const n = { ...prev }; delete n[msgId]; return n; });
+      return;
+    }
+    if (!text?.trim()) return;
     setTranslatingIds(prev => new Set(prev).add(msgId));
     try {
-      const translatedText = await new Promise<string>(resolve => setTimeout(() => resolve(`[Translated] ${text}`), 1000));
-      setTranslations(prev => ({ ...prev, [msgId]: translatedText }));
+      const res = await fetch(
+        `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=auto|en`
+      );
+      const json = await res.json() as { responseData?: { translatedText?: string }; responseStatus?: number };
+      const translated = json?.responseData?.translatedText;
+      if (translated && json.responseStatus === 200) {
+        setTranslations(prev => ({ ...prev, [msgId]: translated }));
+      } else {
+        toast.error('Translation unavailable.');
+      }
     } catch {
       toast.error('Translation failed.');
     } finally {
@@ -317,10 +329,10 @@ const [hasNewMessages, setHasNewMessages] = useState(false);
       } else {
         newSet.add(msgId);
       }
-      if (newSet.size === 0) {
+if (newSet.size === 0) {
         setSelectionMode(false);
       }
-      return newSet;
+return newSet;
     });
   }, []);
 
@@ -354,10 +366,9 @@ const handleLongPress = useCallback((msg: Message) => {
       await navigator.clipboard.writeText(text);
       toast.success(`Copied ${selected.length} message(s).`);
     } catch {
-      toast.error('Failed to copy messages.');
+toast.error('Failed to copy messages.');
     }
     handleClearSelection();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [msgs, selectedMessages, handleClearSelection]);
 
   const handleForwardSelected = useCallback(() => {
@@ -372,7 +383,12 @@ const handleLongPress = useCallback((msg: Message) => {
   const handleDeleteSelected = useCallback(async () => {
     const selected = msgs.filter(m => selectedMessages.has(m.id));
     if (selected.length === 0) return;
-    if (!window.confirm(`Delete ${selected.length} message(s)?`)) return;
+    setShowDeleteSelectedConfirm(true);
+  }, [msgs, selectedMessages]);
+
+  const confirmDeleteSelected = useCallback(async () => {
+    setShowDeleteSelectedConfirm(false);
+    const selected = msgs.filter(m => selectedMessages.has(m.id));
     try {
       for (const m of selected) {
         await handleDelete(m.id);
@@ -382,10 +398,9 @@ const handleLongPress = useCallback((msg: Message) => {
       toast.error('Failed to delete messages.');
     }
     handleClearSelection();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [msgs, selectedMessages, handleClearSelection, handleDelete]);
 
-  const [swipeState, setSwipeState] = useState<{ msgId: string; offset: number } | null>(null);
+const [_swipeState, setSwipeState] = useState<{ msgId: string; offset: number } | null>(null);
 
   const handleTouchStart = useCallback((e: React.TouchEvent, msg: Message) => {
     if (selectionMode) return;
@@ -907,6 +922,33 @@ onClick={() => { setReportReason(reportReason === reason ? '' : reason); }}
                 <button type="button" onClick={handleScheduleSend} disabled={!scheduleDate || !input.trim()}
                   className="flex-1 py-3 bg-[#00C300] text-white rounded-xl text-sm font-bold disabled:opacity-50"
                 >Schedule</button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+      {/* Delete Selected Confirm */}
+      <AnimatePresence>
+        {showDeleteSelectedConfirm && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+            onClick={() => setShowDeleteSelectedConfirm(false)}
+          >
+            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-white rounded-2xl p-6 max-w-sm w-full"
+              onClick={e => e.stopPropagation()}
+            >
+              <h3 className="text-lg font-bold text-[#111111] mb-2">Delete Messages?</h3>
+              <p className="text-[#8D8D8D] text-sm mb-4">
+                Delete {selectedMessages.size} selected message{selectedMessages.size !== 1 ? 's' : ''} for you?
+              </p>
+              <div className="flex gap-2">
+                <button type="button" onClick={() => setShowDeleteSelectedConfirm(false)}
+                  className="flex-1 py-3 bg-[#F5F5F5] text-[#111111] rounded-xl text-sm font-bold"
+                >Cancel</button>
+                <button type="button" onClick={confirmDeleteSelected}
+                  className="flex-1 py-3 bg-[#FF3B30] text-white rounded-xl text-sm font-bold"
+                >Delete</button>
               </div>
             </motion.div>
           </motion.div>

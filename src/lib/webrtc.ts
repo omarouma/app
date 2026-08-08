@@ -247,10 +247,15 @@ this._pc.onconnectionstatechange = () => {
       const permApi = navigator.permissions;
       if (permApi) {
         const micPerm = await permApi.query({ name: 'microphone' as PermissionName });
-        if (micPerm.state === 'denied') throw new Error('Microphone permission denied');
+        if (micPerm.state === 'denied') throw new Error('Microphone permission denied. Please allow microphone access in your browser settings.');
+        if (this.isVideo) {
+          const camPerm = await permApi.query({ name: 'camera' as PermissionName });
+          if (camPerm.state === 'denied') throw new Error('Camera permission denied. Please allow camera access in your browser settings.');
+        }
       }
-    } catch {
-      // ignore
+    } catch (e) {
+      if (e instanceof Error && e.message.includes('permission denied')) throw e;
+      // ignore other permission API errors (not all browsers support all names)
     }
 
     try {
@@ -617,13 +622,26 @@ this.clearDisconnectTimer();
     for (const t of this.localStream.getVideoTracks()) t.enabled = enabled;
   }
 
-  flipCamera() {
+async flipCamera() {
     if (!this.localStream) return;
     const oldTrack = this.localStream.getVideoTracks()[0];
     if (!oldTrack) return;
 
     const currentFacing = oldTrack.getSettings().facingMode || 'user';
     const newFacing = currentFacing === 'environment' ? 'user' : 'environment';
+
+    // Pre-check camera permission (if the browser supports the Permissions API)
+    // so we can surface a clear error instead of a silent failure.
+    try {
+      const permApi = navigator.permissions;
+      if (permApi) {
+        const camPerm = await permApi.query({ name: 'camera' as PermissionName });
+        if (camPerm.state === 'denied') {
+          this.setState('error');
+          return;
+        }
+      }
+    } catch { /* ignore — some browsers don't support camera permission query */ }
 
     navigator.mediaDevices
       .getUserMedia({ audio: false, video: { facingMode: newFacing } })
@@ -643,6 +661,12 @@ this.clearDisconnectTimer();
         this.localStream = new MediaStream([...oldTracks, newTrack]);
         if (this.onLocalStream) this.onLocalStream(this.localStream);
       })
-      .catch(() => { /* camera flip not supported on this device */ });
+      .catch((e: unknown) => {
+        const name = e instanceof Error ? (e as { name?: string }).name : '';
+        if (name === 'NotAllowedError' || name === 'PermissionDeniedError') {
+          this.setState('error');
+        }
+        // camera flip not supported on this device — silently ignore other errors
+      });
   }
 }

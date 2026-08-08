@@ -6,6 +6,18 @@ import { useFriendStore } from '@/store/useFriendStore';
 import { isFirestoreAvailable, COLLECTIONS } from '@/lib/firestore';
 import { isSupabaseConfigured, getSupabase } from '@/lib/supabase';
 
+function formatLastSeen(date: Date): string {
+  const diff = Date.now() - date.getTime();
+  const mins = Math.floor(diff / 60_000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days === 1) return 'yesterday';
+  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}
+
 export function useChatEffects(
   chatId: string,
   userId: string,
@@ -28,12 +40,16 @@ export function useChatEffects(
     return () => unsubscribe();
   }, [chatId, currentUser?.id, subscribeMessages, markAsRead]);
 
-  // ── Re-mark as read when window regains focus ────────────────────────────
+  // ── Re-mark as read when window regains focus or page becomes visible ────
   useEffect(() => {
     if (!currentUser?.id || !chatId) return;
     const onFocus = () => markAsRead(chatId, currentUser.id);
     window.addEventListener('focus', onFocus);
-    return () => window.removeEventListener('focus', onFocus);
+    document.addEventListener('visibilitychange', onFocus);
+    return () => {
+      window.removeEventListener('focus', onFocus);
+      document.removeEventListener('visibilitychange', onFocus);
+    };
   }, [chatId, currentUser?.id, markAsRead]);
 
   // ── Friend status ────────────────────────────────────────────────────────
@@ -79,7 +95,8 @@ const supabase = isSupabaseConfigured() ? getSupabase() : null;
             .eq('id', userId)
             .single();
           if (!data) return;
-          setLastSeen(data.online ? 'online' : data.last_seen ? new Date(data.last_seen).toLocaleString() : null);
+          const d = data as { last_seen?: string; online?: boolean };
+          setLastSeen(d.online ? 'online' : d.last_seen ? formatLastSeen(new Date(d.last_seen)) : null);
         } catch {
           /* ignore */
         }
@@ -96,7 +113,7 @@ const supabase = isSupabaseConfigured() ? getSupabase() : null;
         }, (payload) => {
           const d = payload.new as Record<string, unknown>;
           setLastSeen(
-            d.online ? 'online' : d.last_seen ? new Date(d.last_seen as string).toLocaleString() : null
+            d.online ? 'online' : d.last_seen ? formatLastSeen(new Date(d.last_seen as string)) : null
           );
         })
         .subscribe();

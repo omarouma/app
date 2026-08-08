@@ -12,6 +12,9 @@ dist
 dist-ssr
 *.local
 
+# Firebase Cloud Functions (compiled output — functions/ is not used; app is Supabase-only)
+functions/lib
+
 # Environment variables
 .env
 .env.local

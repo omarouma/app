@@ -76,7 +76,7 @@ const { archiveChat, unarchiveChat } = useChatStore();
         <div>
           <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Chats</h1>
           {totalUnread > 0 && (
-            <p className="text-indigo-600 text-xs font-semibold mt-0.5">
+            <p className="text-[#00C300] text-xs font-semibold mt-0.5">
               {totalUnread} unread message{totalUnread !== 1 ? 's' : ''}
             </p>
           )}
@@ -117,7 +117,7 @@ const { archiveChat, unarchiveChat } = useChatStore();
             onClick={() => setActiveTab(tab)}
             className={`shrink-0 px-4 py-1.5 rounded-full text-xs font-semibold transition-all tap-scale ${
               activeTab === tab
-                ? 'bg-indigo-600 text-white shadow-sm'
+                ? 'bg-[#00C300] text-white shadow-sm'
                 : 'bg-gray-100 text-gray-600 hover:text-gray-900'
             }`}
           >
@@ -175,13 +175,13 @@ const { archiveChat, unarchiveChat } = useChatStore();
             action={
               activeTab === 'groups' ? (
                 <button type="button" onClick={() => navigate('/create-group')}
-                  className="bg-indigo-600 text-white text-sm font-medium px-4 py-2 rounded-full active:bg-indigo-700 transition-colors"
+                  className="bg-[#00C300] text-white text-sm font-medium px-4 py-2 rounded-full active:bg-[#00A300] transition-colors"
                 >
                   Create Group
                 </button>
               ) : activeTab === 'archived' ? null : (
                 <button type="button" onClick={() => navigate('/contacts')}
-                  className="bg-indigo-600 text-white text-sm font-medium px-4 py-2 rounded-full active:bg-indigo-700 transition-colors"
+                  className="bg-[#00C300] text-white text-sm font-medium px-4 py-2 rounded-full active:bg-[#00A300] transition-colors"
                 >
                   Start Chatting
                 </button>
@@ -204,7 +204,7 @@ const { archiveChat, unarchiveChat } = useChatStore();
 
       {/* Floating New Chat Button */}
       <button type="button" onClick={() => navigate('/contacts')}
-        className="absolute bottom-[76px] right-4 w-14 h-14 bg-indigo-600 text-white rounded-full shadow-lg flex items-center justify-center hover:bg-indigo-700 active:scale-95 transition-all z-30 tap-scale"
+        className="absolute bottom-[76px] right-4 w-14 h-14 bg-[#00C300] text-white rounded-full shadow-lg flex items-center justify-center hover:bg-[#00A300] active:scale-95 transition-all z-30 tap-scale"
         title="New Chat"
         aria-label="New Chat"
       >
@@ -228,8 +228,8 @@ const { archiveChat, unarchiveChat } = useChatStore();
               className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-800 hover:bg-gray-50 transition-colors"
             >
               {contextMenu.archived
-                ? <><ArchiveRestore size={16} className="text-indigo-500" /> Unarchive Chat</>
-                : <><Archive size={16} className="text-indigo-500" /> Archive Chat</>
+                ? <><ArchiveRestore size={16} className="text-[#00C300]" /> Unarchive Chat</>
+                : <><Archive size={16} className="text-[#00C300]" /> Archive Chat</>
               }
             </button>
             <button

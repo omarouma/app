@@ -139,8 +139,8 @@ const totalUnread = useMemo(
           nonFriendNamesRef.current = { ...nonFriendNamesRef.current, ...newNames };
           setNonFriendNames(prev => ({ ...prev, ...newNames }));
         }
-      } catch (error) {
-        console.error('Error fetching non-friend names:', error);
+      } catch {
+        // silently ignore — non-friend name fetch is best-effort
       }
     };
 

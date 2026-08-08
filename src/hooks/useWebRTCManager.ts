@@ -15,26 +15,28 @@ export function useWebRTCManager() {
   const connectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
 const [isConnected, setIsConnected] = useState(false);
+  const isConnectedRef = useRef(false);
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
   const [isMuted, setIsMuted] = useState(false);
   const [isVideoOn, setIsVideoOn] = useState(true);
   const [quality, setQuality] = useState<'good' | 'poor' | 'reconnecting'>('good');
 
-  const clearConnectTimeout = () => {
+  const clearConnectTimeout = useCallback(() => {
     if (connectTimeoutRef.current) {
       clearTimeout(connectTimeoutRef.current);
       connectTimeoutRef.current = null;
     }
-  };
+  }, []);
 
-const resetCallState = () => {
+const resetCallState = useCallback(() => {
     clearConnectTimeout();
+    isConnectedRef.current = false;
     setIsConnected(false);
     setLocalStream(null);
     setRemoteStream(null);
     setQuality('good');
-  };
+  }, [clearConnectTimeout]);
 
   useEffect(() => {
     if (!currentCall && initializedCallId.current) {
@@ -54,12 +56,14 @@ const resetCallState = () => {
     const onStateChange = (state: WebRTCCallState) => {
       if (state === 'connected') {
         clearConnectTimeout();
+        isConnectedRef.current = true;
         setIsConnected(true);
         playCallConnected();
         vibrateCallConnected();
       }
-      if (state === 'ended' || state === 'error') {
+if (state === 'ended' || state === 'error') {
         clearConnectTimeout();
+        isConnectedRef.current = false;
         setIsConnected(false);
         endCallInStore();
       }
@@ -97,9 +101,9 @@ webrtcRef.current = webrtc;
 
     // Time out the call if the peer connection never establishes within a
     // reasonable window (e.g. the callee never answered / network stalled).
-    clearConnectTimeout();
+clearConnectTimeout();
     connectTimeoutRef.current = setTimeout(() => {
-      if (cancelled || isConnected) return;
+if (cancelled || isConnectedRef.current) return;
       if (webrtcRef.current === webrtc) {
         webrtc.endCall();
         endCallInStore();
@@ -116,7 +120,7 @@ webrtcRef.current = webrtc;
         resetCallState();
       }
     };
-  }, [currentCall, currentUser, endCallInStore]);
+  }, [currentCall, currentUser, endCallInStore, resetCallState, clearConnectTimeout]);
 
   const endCall = useCallback(() => {
     webrtcRef.current?.endCall();

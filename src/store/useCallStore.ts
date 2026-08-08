@@ -145,8 +145,16 @@ const unsubCaller = subscribeToCollection(
   },
 
 clearCallHistory: async (userId: string) => {
-    // Clear local call history (no bulk delete to avoid RLS/composite issues)
-    void userId;
+    if (!isFirestoreAvailable() || !userId) {
+      set({ history: [] });
+      return;
+    }
+    const { history } = get();
+    // Delete all call records for this user from the DB
+    try {
+      const { deleteDocById } = await import('@/lib/firestore');
+      await Promise.allSettled(history.map((c) => deleteDocById(COLLECTIONS.CALL_HISTORY, c.id)));
+    } catch { /* ignore individual failures */ }
     set({ history: [] });
   },
 

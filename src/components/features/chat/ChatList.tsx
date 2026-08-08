@@ -24,13 +24,11 @@ export const ChatList = memo(({
   onAddFriend,
   onLongPress,
 }: ChatListProps) => {
-  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const longPressTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
-  const clearTimer = () => {
-    if (longPressTimer.current) {
-      clearTimeout(longPressTimer.current);
-      longPressTimer.current = null;
-    }
+  const clearTimer = (chatId: string) => {
+    const t = longPressTimers.current.get(chatId);
+    if (t) { clearTimeout(t); longPressTimers.current.delete(chatId); }
   };
 
   return (
@@ -51,11 +49,12 @@ export const ChatList = memo(({
             onTouchStart={(e) => {
               if (!onLongPress) return;
               const y = e.touches[0].clientY;
-              longPressTimer.current = setTimeout(() => onLongPress(chat.id, !!chat.archived, y), 500);
+              const id = chat.id;
+              longPressTimers.current.set(id, setTimeout(() => onLongPress(id, !!chat.archived, y), 500));
             }}
-            onTouchEnd={clearTimer}
-            onTouchMove={clearTimer}
-            onTouchCancel={clearTimer}
+            onTouchEnd={() => clearTimer(chat.id)}
+            onTouchMove={() => clearTimer(chat.id)}
+            onTouchCancel={() => clearTimer(chat.id)}
             onContextMenu={(e) => {
               if (!onLongPress) return;
               e.preventDefault();

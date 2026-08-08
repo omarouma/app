@@ -186,27 +186,29 @@ const {
 
         {/* Content */}
         <div className="relative z-10 flex flex-col h-full">
-          {/* Top bar */}
-          <div className="flex items-center justify-between px-5 pt-14 pb-4">
-<span className={`text-xs font-medium px-2.5 py-1 rounded-full ${isVideo ? 'bg-blue-500/20 text-blue-300' : 'bg-green-500/20 text-green-300'}`}>
+{/* Top bar */}
+          <div className="flex items-center justify-between gap-2 px-5 pt-14 pb-4">
+            <span className={`shrink-0 text-xs font-medium px-2.5 py-1 rounded-full ${isVideo ? 'bg-blue-500/20 text-blue-300' : 'bg-green-500/20 text-green-300'}`}>
               {isVideo ? '📹 Video' : '🎙 Voice'}
             </span>
-{isConnected && (
-              <span className="text-white/60 text-sm font-mono">{formatDuration(callDuration)}</span>
-            )}
-            {quality !== 'good' && isConnected && (
-              <span className={`text-[11px] font-medium px-2.5 py-1 rounded-full ${
-                quality === 'reconnecting'
-                  ? 'bg-amber-500/20 text-amber-300'
-                  : 'bg-orange-500/20 text-orange-300'
-              }`}>
-                {quality === 'reconnecting' ? 'Reconnecting…' : 'Poor connection'}
-              </span>
-            )}
+            <div className="flex items-center justify-center gap-2 min-w-0 flex-1">
+              {isConnected && (
+                <span className="shrink-0 text-white/60 text-sm font-mono">{formatDuration(callDuration)}</span>
+              )}
+              {quality !== 'good' && isConnected && (
+                <span className={`shrink-0 text-[11px] font-medium px-2.5 py-1 rounded-full ${
+                  quality === 'reconnecting'
+                    ? 'bg-amber-500/20 text-amber-300'
+                    : 'bg-orange-500/20 text-orange-300'
+                }`}>
+                  {quality === 'reconnecting' ? 'Reconnecting…' : 'Poor signal'}
+                </span>
+              )}
+            </div>
             <button
               type="button"
               onClick={() => navigate(`/chat/${otherUserId}`)}
-              className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center text-white/70 active:bg-white/20"
+              className="w-9 h-9 shrink-0 rounded-full bg-white/10 flex items-center justify-center text-white/70 active:bg-white/20"
               aria-label="Open chat"
             >
               <MessageSquare size={16} />

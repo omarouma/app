@@ -33,7 +33,7 @@ export default defineConfig(({ mode }) => {
       react(),
       visualizer({
         filename: './stats.html',
-        open: true,
+        open: false, // Must be false in CI — `open: true` can hang or fail automated builds
         gzipSize: true,
         brotliSize: true,
       }),

@@ -21,6 +21,7 @@ import { getCallDirection, getOtherParticipantId } from '@/lib/callUtils';
 type CallWithDetails = CallRecord & {
   otherId: string;
   name: string;
+  avatar?: string;
   direction: CallDirection;
 };
 
@@ -50,10 +51,12 @@ export default function CallsPage() {
       .map((call) => {
         const otherId = getOtherParticipantId(call, user?.id);
         const direction = getCallDirection(call, user?.id);
+        const friend = friendMap.get(otherId);
         return {
           ...call,
           otherId,
-          name: friendMap.get(otherId)?.name || 'Unknown User',
+          name: friend?.name || 'Unknown User',
+          avatar: friend?.avatar,
           direction,
         };
       })
@@ -193,6 +196,7 @@ navigate('/call', { state: { userId, mode: type, isOutgoing: true } });
                   key={call.id}
                   call={call}
                   userName={call.name}
+                  userAvatar={call.avatar}
                   currentUserId={user?.id}
                   onCall={handleInitiateCall}
                   onDelete={handleDelete}

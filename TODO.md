@@ -1,10 +1,15 @@
-# Calling Fix & Improvement TODO
+# Lint Cleanup & Verification
+
+## Objective
+
+Clean up the 7 ESLint warnings and verify the app builds cleanly.
 
 ## Steps
-- [x] 1. Fix `CallContext.tsx` — derive `currentUser` internally so `startCall({ id }, mode)` works (critical bug)
-- [x] 2. Update `CallContextBase.ts` — clarify `startCall` signature (currentUserId optional/derived)
-- [x] 3. Fix `CallOverlay.tsx` — import from `@/hooks/useWebRTCManager`; fix redundant Video/Voice badge ternary
-- [x] 4. Clean up `CallPage.tsx` formatting (`navState`/`mode`)
-- [x] 5. Fix `CallListItem.tsx` — shared duration helper + distinct direction icons
-- [x] 6. Remove stale duplicate `src/lib/useWebRTCManager.ts` (verify no imports first)
-- [x] 7. Run `npx tsc --noEmit` and build to verify no regressions
+
+- [ ] 1. Fix `src/hooks/useWebRTCManager.ts` — missing deps in useEffect (1 warning)
+- [ ] 2. Fix `src/components/features/chat/MessageItem.tsx` — unused `selectionMode` prop (1 warning)
+- [ ] 3. Fix `src/components/features/chat/ChatRoom.tsx` — unused `useEffect`, `getDefaultAvatar`, dead eslint-disable directives, unused `swipeState` (5 warnings)
+- [ ] 4. Remove temporary diagnostic file `eslint_scan.mjs`
+- [ ] 5. Run `npx tsc --noEmit` → confirm 0 errors
+- [ ] 6. Run `npm run build` → confirm clean build
+- [ ] 7. Run ESLint scan → confirm 0 errors 0 warnings

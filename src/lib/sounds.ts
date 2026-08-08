@@ -323,10 +323,45 @@ export function playIncomingCall(): { stop: () => void } {
 }
 
 export function playOutgoingCall(): { stop: () => void } {
-  if (!globalEnabled || !areCallSoundsEnabled() || isQuietHours()) return { stop: () => {} };
-  playTone({ freq: 440, duration: 0.3, volume: 0.2, type: 'sine' });
-  playTone({ freq: 440, duration: 0.3, volume: 0.2, type: 'sine', delay: 0.5 });
-  return { stop: () => {} };
+  const ctx = getCtx();
+  if (!ctx || !globalEnabled || !areCallSoundsEnabled() || isQuietHours()) return { stop: () => {} };
+
+  const masterGain = ctx.createGain();
+  masterGain.gain.setValueAtTime(0.2, ctx.currentTime);
+  masterGain.connect(ctx.destination);
+
+  let running = true;
+  const intervals: ReturnType<typeof setInterval>[] = [];
+
+  const playRingback = () => {
+    if (!running) return;
+    const t = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    const g = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(440, t);
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(0.2, t + 0.05);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.4);
+    osc.connect(g);
+    g.connect(masterGain);
+    osc.start(t);
+    osc.stop(t + 0.4);
+  };
+
+  playRingback();
+  const interval = setInterval(playRingback, 2000);
+  intervals.push(interval);
+
+  const stop = () => {
+    running = false;
+    intervals.forEach(clearInterval);
+    masterGain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.1);
+    setTimeout(() => masterGain.disconnect(), 200);
+  };
+
+  activeRingtone = { stop };
+  return { stop };
 }
 
 export function playCallConnected() {

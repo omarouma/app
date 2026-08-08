@@ -150,6 +150,7 @@ export function InputBar({
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); onSend(); }
               }}
+              onBlur={onStopTyping}
               onClick={() => { if (showAttachments) onToggleAttachments(); }}
               aria-label="Type a message"
               placeholder="Aa"

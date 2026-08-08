@@ -20,9 +20,15 @@ if (fs.existsSync(envPath)) {
   });
 }
 
-// Get Supabase credentials (from .env.example if .env doesn't exist)
-const supabaseUrl = envVars.VITE_SUPABASE_URL || 'https://alzwgikndwbecuqmlrca.supabase.co';
-const supabaseAnonKey = envVars.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFsendnaWtuZHdiZWN1cW1scmNhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU3Nzc0OTcsImV4cCI6MjEwMTM1MzQ5N30.4QI10WfQYvenslEFNTon3HbRbP1dZVDqas9zSz-zB7w';
+// Get Supabase credentials from .env ONLY. Never hardcode secrets in source.
+const supabaseUrl = envVars.VITE_SUPABASE_URL;
+const supabaseAnonKey = envVars.VITE_SUPABASE_ANON_KEY;
+
+if (!supabaseUrl || !supabaseAnonKey) {
+  console.error('❌ Missing Supabase credentials.');
+  console.error('   Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in the .env file.');
+  process.exit(1);
+}
 
 // Initialize Supabase client
 const supabase = createClient(supabaseUrl, supabaseAnonKey);

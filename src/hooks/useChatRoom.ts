@@ -164,7 +164,7 @@ const {
       setInput('');
       setReplyingTo(null);
       stopTyping();
-    } catch { toast.error('Failed to send message.'); }
+    } catch { stopTyping(); toast.error('Failed to send message.'); }
   }, [chatId, currentUser, input, editingMessageId, replyingTo, sendMessage, queueMessage, stopTyping, handleEditSave]);
 
   const handleMediaUpload = useCallback(async (files: File[]) => {
