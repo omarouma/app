@@ -1,17 +1,18 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Phone, Video, PhoneOutgoing, PhoneIncoming, PhoneMissed, Search } from 'lucide-react';
+import { Phone, Video, PhoneOutgoing, PhoneIncoming, PhoneMissed, Search, Trash2 } from 'lucide-react';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useCallStore } from '@/store/useCallStore';
 import { useFriendStore } from '@/store/useFriendStore';
 import { useNavigate } from 'react-router-dom';
 import EmptyState from '@/components/EmptyState';
 import { formatTime, getDefaultAvatar, sanitizeMediaUrl } from '@/lib/utils';
+import { toast } from 'sonner';
 import type { CallRecord } from '@/types';
 
 export default function DesktopCallsView() {
   const { user } = useAuthStore();
-  const { history, subscribeCalls } = useCallStore();
+  const { history, subscribeToCallHistory, deleteCall, clearCallHistory } = useCallStore();
   const { friends } = useFriendStore();
   const navigate = useNavigate();
   const [search, setSearch] = useState('');
@@ -20,10 +21,27 @@ export default function DesktopCallsView() {
 
   useEffect(() => {
     if (!user?.id) return;
-    const unsub = subscribeCalls(user.id);
+    const unsub = subscribeToCallHistory(user.id);
     const timeout = setTimeout(() => setReady(true), 150);
     return () => { clearTimeout(timeout); unsub(); };
-  }, [user?.id, subscribeCalls]);
+  }, [user?.id, subscribeToCallHistory]);
+
+  const handleDelete = (callId: string) => {
+    toast.promise(deleteCall(callId), {
+      loading: 'Deleting…',
+      success: 'Call deleted',
+      error: 'Failed to delete',
+    });
+  };
+
+  const handleClearAll = () => {
+    if (!user?.id) return;
+    toast.promise(clearCallHistory(user.id), {
+      loading: 'Clearing…',
+      success: 'History cleared',
+      error: 'Failed to clear',
+    });
+  };
 
   const getCallIcon = (call: CallRecord) => {
     if (call.status === 'missed') return <PhoneMissed size={16} className="text-[#FF3B30]" />;
@@ -56,6 +74,14 @@ export default function DesktopCallsView() {
             <Phone size={20} className="text-[#00C300]" /> Calls
           </h1>
           <div className="flex gap-2">
+            {history.length > 0 && (
+              <button type="button" onClick={handleClearAll}
+                className="p-2 rounded-full hover:bg-[#F5F5F5] text-[#8D8D8D] hover:text-[#FF3B30] transition-colors"
+                title="Clear all"
+              >
+                <Trash2 size={16} />
+              </button>
+            )}
             <button type="button" onClick={() => setFilter('all')}
               className={`px-3 py-1 rounded-full text-xs font-medium ${filter === 'all' ? 'bg-[#00C300] text-white' : 'bg-[#F5F5F5] text-[#8D8D8D]'}`}
             >
@@ -141,6 +167,12 @@ export default function DesktopCallsView() {
                     title="Video call"
                   >
                     <Video size={16} />
+                  </button>
+                  <button type="button" onClick={() => handleDelete(call.id)}
+                    className="p-2 rounded-full hover:bg-red-50 text-[#8D8D8D] hover:text-[#FF3B30] transition-colors"
+                    title="Delete"
+                  >
+                    <Trash2 size={16} />
                   </button>
                 </div>
               </motion.div>

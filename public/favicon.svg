@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-label="GaGa Chat">
+  <defs>
+    <linearGradient id="fGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00FF66"/>
+      <stop offset="55%" stop-color="#00C300"/>
+      <stop offset="100%" stop-color="#008A00"/>
+    </linearGradient>
+    <linearGradient id="fBub" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00FF66"/>
+      <stop offset="100%" stop-color="#00C300"/>
+    </linearGradient>
+  </defs>
+  <rect x="16" y="16" width="480" height="480" rx="112" fill="url(#fGrad)"/>
+  <ellipse cx="180" cy="120" rx="210" ry="120" fill="#ffffff" opacity="0.12"/>
+  <path
+    d="M256 128 C 176 128 116 178 116 244 C 116 300 158 344 224 356 L 224 396 L 268 362 C 274 363 280 363 286 363 C 356 363 396 330 396 244 C 396 178 336 128 256 128 Z"
+    fill="#ffffff"
+  />
+  <path
+    d="M 270 168 L 210 262 L 250 262 L 240 330 L 306 242 L 264 242 L 282 168 Z"
+    fill="url(#fBub)"
+    stroke="#00C300"
+    stroke-width="3"
+    stroke-linejoin="round"
+  />
+</svg>

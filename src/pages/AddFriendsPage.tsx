@@ -654,7 +654,7 @@ export default function AddFriendsPage() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="p-4 space-y-4"
+            className="p-4 space-y-4 pb-nav"
           >
             {/* Quick Actions */}
             <div className="grid grid-cols-3 gap-3">
@@ -805,7 +805,7 @@ export default function AddFriendsPage() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="p-4 space-y-6"
+            className="p-4 space-y-6 pb-nav"
           >
             {/* Received Requests */}
             <div>

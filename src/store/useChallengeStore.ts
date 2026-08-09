@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { toast } from 'sonner';
-import { isFirestoreAvailable, COLLECTIONS, getDocById, updateDocById } from '@/lib/firestore';
+import { isFirestoreAvailable, COLLECTIONS, getDocById, updateDocById, subscribeToDoc } from '@/lib/firestore';
 
 export interface Challenge {
   id: string;
@@ -34,6 +34,7 @@ interface ChallengeStore {
   loading: boolean;
   streakClaimed: boolean;
   loadDailyChallenges: (userId: string) => Promise<void>;
+  subscribeDailyChallenges: (userId: string) => () => void;
   updateProgress: (userId: string, type: Challenge['type'], amount?: number) => Promise<void>;
   claimReward: (userId: string, challengeId: string) => Promise<void>;
   checkInDaily: (userId: string) => Promise<void>;
@@ -49,15 +50,15 @@ const CHALLENGE_TYPES: Array<{
   rewardXp: number;
   target: number;
 }> = [
-  { type: 'chat', title: 'Social Butterfly', description: 'Send 10 messages today', icon: 'MessageCircle', rewardCoins: 50, rewardXp: 100, target: 10 },
-  { type: 'post', title: 'Content Creator', description: 'Share 1 post on the timeline', icon: 'Image', rewardCoins: 75, rewardXp: 150, target: 1 },
-  { type: 'reel', title: 'Reel Star', description: 'Watch 5 reels', icon: 'Film', rewardCoins: 40, rewardXp: 80, target: 5 },
-  { type: 'call', title: 'Voice Connect', description: 'Make a voice or video call', icon: 'Phone', rewardCoins: 60, rewardXp: 120, target: 1 },
-  { type: 'friend', title: 'Network Builder', description: 'Add 1 new friend', icon: 'UserPlus', rewardCoins: 80, rewardXp: 160, target: 1 },
-  { type: 'story', title: 'Storyteller', description: 'Add a story', icon: 'Camera', rewardCoins: 50, rewardXp: 100, target: 1 },
-  { type: 'react', title: 'Engager', description: 'React to 10 posts or reels', icon: 'Heart', rewardCoins: 30, rewardXp: 60, target: 10 },
-  { type: 'voice_room', title: 'Talk Show', description: 'Join a voice room for 5 minutes', icon: 'Mic', rewardCoins: 70, rewardXp: 140, target: 1 },
-];
+    { type: 'chat', title: 'Social Butterfly', description: 'Send 10 messages today', icon: 'MessageCircle', rewardCoins: 50, rewardXp: 100, target: 10 },
+    { type: 'post', title: 'Content Creator', description: 'Share 1 post on the timeline', icon: 'Image', rewardCoins: 75, rewardXp: 150, target: 1 },
+    { type: 'reel', title: 'Reel Star', description: 'Watch 5 reels', icon: 'Film', rewardCoins: 40, rewardXp: 80, target: 5 },
+    { type: 'call', title: 'Voice Connect', description: 'Make a voice or video call', icon: 'Phone', rewardCoins: 60, rewardXp: 120, target: 1 },
+    { type: 'friend', title: 'Network Builder', description: 'Add 1 new friend', icon: 'UserPlus', rewardCoins: 80, rewardXp: 160, target: 1 },
+    { type: 'story', title: 'Storyteller', description: 'Add a story', icon: 'Camera', rewardCoins: 50, rewardXp: 100, target: 1 },
+    { type: 'react', title: 'Engager', description: 'React to 10 posts or reels', icon: 'Heart', rewardCoins: 30, rewardXp: 60, target: 10 },
+    { type: 'voice_room', title: 'Talk Show', description: 'Join a voice room for 5 minutes', icon: 'Mic', rewardCoins: 70, rewardXp: 140, target: 1 },
+  ];
 
 function getLevelFromXp(xp: number): number {
   let level = 1;
@@ -114,7 +115,7 @@ export const useChallengeStore = create<ChallengeStore>((set, get) => ({
         badges: (userDoc?.badges as string[]) || [],
       };
 
-// Check if it's a new day
+      // Check if it's a new day
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       const lastCheck = stats.lastCheckIn;
@@ -141,6 +142,49 @@ export const useChallengeStore = create<ChallengeStore>((set, get) => ({
       console.error('loadDailyChallenges error:', err);
     }
     set({ loading: false });
+  },
+
+  subscribeDailyChallenges: (userId) => {
+    let unsub: (() => void) | null = null;
+    try {
+      unsub = subscribeToDoc(COLLECTIONS.USERS, userId, (userDoc) => {
+        if (!userDoc) return;
+        const stats: UserStats = {
+          totalXp: (userDoc.totalXp as number) || 0,
+          level: (userDoc.level as number) || 1,
+          dailyStreak: (userDoc.dailyStreak as number) || 0,
+          lastCheckIn: userDoc.lastCheckIn ? new Date(userDoc.lastCheckIn as any) : null,
+          coinsEarned: (userDoc.coinsEarned as number) || 0,
+          challengesCompleted: (userDoc.challengesCompleted as number) || 0,
+          badges: (userDoc.badges as string[]) || [],
+        };
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const lastCheck = stats.lastCheckIn;
+        const isNewDay = !lastCheck || lastCheck.getTime() < today.getTime();
+        const streakClaimed = !!(lastCheck && lastCheck.getTime() === today.getTime());
+        if (isNewDay) {
+          const newChallenges: Challenge[] = CHALLENGE_TYPES.map((t, i) => ({
+            id: `challenge_${userId}_${today.getTime()}_${i}`,
+            ...t,
+            progress: 0,
+            completed: false,
+            claimed: false,
+            expiresAt: new Date(today.getTime() + 24 * 60 * 60 * 1000),
+            createdAt: today,
+          }));
+          set({
+            challenges: newChallenges,
+            userStats: { ...stats, dailyStreak: streakClaimed ? stats.dailyStreak : 0 },
+            streakClaimed: false,
+            loading: false,
+          });
+        } else {
+          set({ userStats: stats, streakClaimed });
+        }
+      });
+    } catch { /* ignore */ }
+    return () => { if (unsub) unsub(); };
   },
 
   updateProgress: async (userId, type, amount = 1) => {
@@ -238,7 +282,7 @@ export const useChallengeStore = create<ChallengeStore>((set, get) => ({
     }
   },
 
-getLeaderboard: async (_limit = 50) => {
+  getLeaderboard: async (_limit = 50) => {
     if (!isFirestoreAvailable()) return [];
     try {
       const data = await getDocById(COLLECTIONS.USERS, 'leaderboard');

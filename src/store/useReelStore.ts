@@ -419,13 +419,13 @@ const reel = await getDocById(COLLECTION_REELS, reelId);
     try {
       unsub = subscribeToCollection(
         COLLECTION_REELS,
-        [orderBy('timestamp', 'desc')],
+        [orderBy('timestamp', 'desc'), limit(30)],
         (data) => {
           const reels = (data || []).map(mapReel);
           set({
-            reels: reels,
+            reels,
             loading: false,
-            hasMore: reels.length >= 20,
+            hasMore: reels.length >= 30,
             lastTimestamp: reels[reels.length - 1]?.timestamp || null,
           });
         }

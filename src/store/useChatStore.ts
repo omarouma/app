@@ -20,6 +20,7 @@ import {
 } from '@/lib/firestore';
 import type { Chat, Message, MessageType, PollData, TransferData, PinnedMessage } from '@/types';
 import { checkMessageRateLimit } from '@/hooks/useMessageRateLimiter';
+import { enqueueOfflineMessage, isOnline } from '@/lib/offlineQueue';
 
 type FirestoreTimestamp = { toDate: () => Date };
 function isFirestoreTs(v: unknown): v is FirestoreTimestamp {
@@ -69,7 +70,7 @@ const mapMessage = (d: Record<string, unknown>): Message => {
     content: (d.content as string) || '',
     type: ((d.type as MessageType) || 'text') as MessageType,
     mediaUrl: (d.mediaUrl as string) || '',
-    timestamp: toDate(d.createdAt),
+    timestamp: d.createdAt ? toDate(d.createdAt) : d.timestamp ? toDate(d.timestamp) : new Date(),
     read: (d.read as boolean) || false,
     edited: (d.edited as boolean) || false,
     replyTo: (d.replyTo as string) || undefined,
@@ -183,12 +184,12 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   subscribeChats: (userId: string) => {
     if (!isFirestoreAvailable()) {
       set({ loadingChats: false, chats: [], archivedChats: [] });
-      return () => {};
+      return () => { };
     }
     set({ loadingChats: true });
     if (!userId) {
       set({ chats: [], archivedChats: [], loadingChats: false });
-      return () => {};
+      return () => { };
     }
 
     // Real-time subscription
@@ -218,7 +219,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   },
 
   subscribeMessages: (chatId: string, initialLimit = 100) => {
-    if (!chatId) return () => {};
+    if (!chatId) return () => { };
 
     let unsub: (() => void) | null = null;
     try {
@@ -244,10 +245,10 @@ export const useChatStore = create<ChatStore>((set, get) => ({
             }
 
             for (const m of existing) {
-              if (m.localId && !seenLocalIds.has(m.localId) && !seenIds.has(m.id)) {
-                merged.push(m);
-                seenLocalIds.add(m.localId);
-              }
+              if (seenIds.has(m.id)) continue;
+              if (m.localId && seenLocalIds.has(m.localId)) continue;
+              merged.push(m);
+              if (m.localId) seenLocalIds.add(m.localId);
             }
 
             return {
@@ -266,62 +267,65 @@ export const useChatStore = create<ChatStore>((set, get) => ({
 
   sendMessage: async (chatId, senderId, content, type = 'text', mediaUrl, replyTo) => {
     if (!isFirestoreAvailable()) return;
-    // Check rate limit before proceeding
     const rateLimitError = checkMessageRateLimit();
     if (rateLimitError) {
       toast.error(rateLimitError);
-      // Still add the message with 'failed' status so user sees it
       const localId = `pending_${Date.now()}_${Math.random().toString(36).slice(2)}`;
-      set((s) => ({
-        messages: { ...s.messages, [chatId]: [...(s.messages[chatId] ?? []), {
-          id: localId,
-          chatId,
-          senderId,
-          content,
-          type: (type as Message['type']) || 'text',
-          mediaUrl: mediaUrl || '',
-          timestamp: new Date(),
-          read: false,
-          edited: false,
-          reactions: {},
-          deliveryStatus: 'failed' as Message['deliveryStatus'],
-          localId,
-        }]},
-      }));
+      const failedMsg: Message = {
+        id: localId,
+        chatId,
+        senderId,
+        content,
+        type: (type as Message['type']) || 'text',
+        mediaUrl: mediaUrl || '',
+        timestamp: new Date(),
+        read: false,
+        edited: false,
+        reactions: {},
+        deliveryStatus: 'failed',
+        localId,
+      };
+      set((s) => ({ messages: { ...s.messages, [chatId]: [...(s.messages[chatId] ?? []), failedMsg] } }));
+      enqueueOfflineMessage({
+        type: 'direct', chatId, senderId, content,
+        messageType: type, mediaUrl,
+        replyTo: typeof replyTo === 'string' ? replyTo : replyTo?.id,
+      });
       return;
     }
-    // Optimistic pending state
+
     const localId = `pending_${Date.now()}_${Math.random().toString(36).slice(2)}`;
     const optimisticMsg: Message = {
-      id: localId,
-      chatId,
-      senderId,
-      content,
+      id: localId, chatId, senderId, content,
       type: (type as Message['type']) || 'text',
       mediaUrl: mediaUrl || '',
       timestamp: new Date(),
-      read: false,
-      edited: false,
-      reactions: {},
-      deliveryStatus: 'sending',
+      read: false, edited: false, reactions: {},
+      deliveryStatus: isOnline() ? 'sending' : 'pending',
+      retryCount: 0,
       localId,
     };
-    set((s) => ({
-      messages: { ...s.messages, [chatId]: [...(s.messages[chatId] ?? []), optimisticMsg] },
-    }));
+    set((s) => ({ messages: { ...s.messages, [chatId]: [...(s.messages[chatId] ?? []), optimisticMsg] } }));
 
-    // Retry with exponential backoff (max 3 attempts)
+    // Short-circuit: if browser says offline, push to queue and keep
+    // pending/sending status so user sees the queued state.
+    if (!isOnline()) {
+      enqueueOfflineMessage({
+        type: 'direct', chatId, senderId, content,
+        messageType: type, mediaUrl,
+        replyTo: typeof replyTo === 'string' ? replyTo : replyTo?.id,
+      });
+      return;
+    }
+
     let sent = false;
-    for (let attempt = 0; attempt < 3; attempt++) {
+    const maxAttempts = 3;
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
       if (attempt > 0) await new Promise((r) => setTimeout(r, 500 * 2 ** (attempt - 1)));
       try {
         const msgData: Record<string, unknown> = {
-          chatId,
-          senderId,
-          content,
-          type,
-          createdAt: new Date(),
-          timestamp: serverTimestamp(),
+          chatId, senderId, content, type,
+          createdAt: serverTimestamp(),
           read: false,
         };
         if (mediaUrl) msgData.mediaUrl = mediaUrl;
@@ -330,7 +334,6 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         await addDocToSubcollection(COLLECTIONS.CHATS, chatId, COLLECTIONS.MESSAGES, msgData);
         sent = true;
 
-        // Remove optimistic message — real-time subscription adds the confirmed one
         set((s) => ({
           messages: { ...s.messages, [chatId]: (s.messages[chatId] ?? []).filter((m) => m.localId !== localId) },
         }));
@@ -367,20 +370,31 @@ export const useChatStore = create<ChatStore>((set, get) => ({
                 timestamp: serverTimestamp(),
               });
             }
-          } catch { /* notification failure is non-fatal */ }
+          } catch { /* non-fatal */ }
         }
-        break; // success — exit retry loop
+break;
       } catch {
-        if (attempt === 2) {
-          // All retries exhausted — mark optimistic message as failed
-          set((s) => ({
-            messages: {
-              ...s.messages,
-              [chatId]: (s.messages[chatId] ?? []).map((m) =>
-                m.localId === localId ? { ...m, deliveryStatus: 'failed' as Message['deliveryStatus'] } : m
-              ),
-            },
-          }));
+        const isLast = attempt === maxAttempts - 1;
+        set((s) => ({
+          messages: {
+            ...s.messages,
+            [chatId]: (s.messages[chatId] ?? []).map((m) =>
+              m.localId === localId
+                ? { ...m, retryCount: attempt + 1, deliveryStatus: isLast ? 'failed' : 'sending' }
+                : m
+            ),
+          },
+        }));
+        if (isLast) {
+          // Route to offline queue so we auto-retry when network comes back.
+          enqueueOfflineMessage({
+            type: 'direct', chatId, senderId, content,
+            messageType: type, mediaUrl,
+            replyTo: typeof replyTo === 'string' ? replyTo : replyTo?.id,
+          });
+          toast.error('Message queued. Will send automatically when online.', {
+            action: { label: 'OK', onClick: () => { } },
+          });
         }
       }
     }
@@ -465,35 +479,28 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   markAsRead: async (chatId, currentUserId?: string) => {
     if (!isFirestoreAvailable()) return;
     try {
-      // Fast path: reset chat-level counters
+      // Reset chat-level unread counter
       await updateDocById(COLLECTIONS.CHATS, chatId, { unreadCount: 0, lastMessageRead: true });
       if (currentUserId) {
-        // PostgREST-safe query: a single filter (read == false) with a limit.
-        // Supabase cannot combine `neq` + `eq` on a subcollection without a
-        // composite index, so we filter senderId in-memory instead.
-        const unread = await querySubcollection(COLLECTIONS.CHATS, chatId, COLLECTIONS.MESSAGES, [
-          where('read', '==', false),
-          limit(100),
-        ]);
-        const unreadIds = unread
-          .filter((m) => (m as Record<string, unknown>).senderId !== currentUserId)
-          .map((m) => m.id);
-        if (unreadIds.length > 0) {
-          // Optimistic update
-          set((s) => ({
-            messages: {
-              ...s.messages,
-              [chatId]: (s.messages[chatId] ?? []).map((m) =>
-                unreadIds.includes(m.id) ? { ...m, read: true } : m
-              ),
-            },
-          }));
-          // Mark each unread message as read via the subcollection helper
-          await Promise.all(
-            unreadIds.map((msgId) =>
-              updateSubcollectionDoc(COLLECTIONS.CHATS, chatId, COLLECTIONS.MESSAGES, msgId, { read: true })
-            )
-          );
+        // Optimistic update in memory
+        set((s) => ({
+          messages: {
+            ...s.messages,
+            [chatId]: (s.messages[chatId] ?? []).map((m) =>
+              m.senderId !== currentUserId && !m.read ? { ...m, read: true } : m
+            ),
+          },
+        }));
+        // Bulk update via Supabase directly — avoids N individual RPC calls
+        const { getSupabaseSafe } = await import('@/lib/supabase');
+        const supabase = getSupabaseSafe();
+        if (supabase) {
+          await supabase
+            .from('messages')
+            .update({ read: true })
+            .eq('chat_id', chatId)
+            .eq('read', false)
+            .neq('sender_id', currentUserId);
         }
       }
     } catch {

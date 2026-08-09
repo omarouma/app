@@ -42,12 +42,15 @@ interface EnhancedTimelineStore {
   savePost: (postId: string, userId: string, collectionId?: string) => Promise<void>;
   unsavePost: (postId: string, userId: string) => Promise<void>;
   getSavedPosts: (userId: string) => Promise<void>;
+  subscribeSavedPosts: (userId: string) => () => void;
+  subscribeBookmarkCollections: (userId: string) => () => void;
   createCollection: (userId: string, name: string, description?: string, isPrivate?: boolean) => Promise<void>;
   addToCollection: (postId: string, collectionId: string, userId: string) => Promise<void>;
   removeFromCollection: (postId: string, collectionId: string, userId: string) => Promise<void>;
 
   // Hashtags
   getTrendingHashtags: (limit?: number) => Promise<void>;
+  subscribeTrendingHashtags: (limit?: number) => () => void;
   followHashtag: (hashtagId: string, userId: string) => Promise<void>;
   unfollowHashtag: (hashtagId: string, userId: string) => Promise<void>;
   searchHashtags: (query: string) => Promise<Hashtag[]>;
@@ -113,8 +116,8 @@ const mapPost = (d: Record<string, unknown>): TimelinePost => ({
   originalPostId: (d.originalPostId as string) || undefined,
   edited: (d.edited as boolean) || false,
   editedAt: d.editedAt ? (
-    typeof d.editedAt === 'object' && 'toDate' in d.editedAt 
-      ? (d.editedAt as { toDate: () => Date }).toDate() 
+    typeof d.editedAt === 'object' && 'toDate' in d.editedAt
+      ? (d.editedAt as { toDate: () => Date }).toDate()
       : new Date(d.editedAt as string)
   ) : undefined,
   pinned: (d.pinned as boolean) || false,
@@ -125,6 +128,17 @@ const mapPost = (d: Record<string, unknown>): TimelinePost => ({
   impressionCount: (d.impressionCount as number) || 0,
   mediaType: (d.mediaType as TimelinePost['mediaType']) || 'text',
   pollData: (d.pollData as PostPollData) || undefined,
+});
+
+const mapCollection = (d: Record<string, unknown>): BookmarkCollection => ({
+  id: d.id as string,
+  userId: d.userId as string,
+  name: (d.name as string) || '',
+  description: (d.description as string) || undefined,
+  coverImage: (d.coverImage as string) || undefined,
+  isPrivate: (d.isPrivate as boolean) ?? true,
+  count: (d.count as number) || 0,
+  createdAt: toDate(d.createdAt),
 });
 
 const mapHashtag = (d: Record<string, unknown>): Hashtag => ({
@@ -147,14 +161,14 @@ const mapReport = (d: Record<string, unknown>): UserReport => ({
   status: (d.status as UserReport['status']) || 'pending',
   reviewedBy: (d.reviewedBy as string) || undefined,
   reviewedAt: d.reviewedAt ? (
-    typeof d.reviewedAt === 'object' && 'toDate' in d.reviewedAt 
-      ? (d.reviewedAt as { toDate: () => Date }).toDate() 
+    typeof d.reviewedAt === 'object' && 'toDate' in d.reviewedAt
+      ? (d.reviewedAt as { toDate: () => Date }).toDate()
       : new Date(d.reviewedAt as string)
   ) : undefined,
   actionTaken: (d.actionTaken as string) || undefined,
   createdAt: d.createdAt ? (
-    typeof d.createdAt === 'object' && 'toDate' in d.createdAt 
-      ? (d.createdAt as { toDate: () => Date }).toDate() 
+    typeof d.createdAt === 'object' && 'toDate' in d.createdAt
+      ? (d.createdAt as { toDate: () => Date }).toDate()
       : new Date(d.createdAt as string)
   ) : new Date(),
   contentId: (d.contentId as string) || undefined,
@@ -162,7 +176,7 @@ const mapReport = (d: Record<string, unknown>): UserReport => ({
   severity: (d.severity as UserReport['severity']) || 'medium',
 });
 
-export const useEnhancedTimelineStore = create<EnhancedTimelineStore>((set) => ({ 
+export const useEnhancedTimelineStore = create<EnhancedTimelineStore>((set, _get) => ({
   posts: [],
   savedPosts: [],
   trendingHashtags: [],
@@ -256,6 +270,44 @@ export const useEnhancedTimelineStore = create<EnhancedTimelineStore>((set) => (
     }
   },
 
+  subscribeSavedPosts: (userId) => {
+    let unsub: (() => void) | null = null;
+    const resolvePosts = async (bookmarks: any[]) => {
+      const postIds = (bookmarks || []).map((b) => b.postId as string);
+      const posts: TimelinePost[] = [];
+      for (const pid of postIds) {
+        try {
+          const postRef = await getDocById(COLLECTIONS.POSTS, pid);
+          if (postRef) posts.push(mapPost(postRef));
+        } catch { /* skip missing */ }
+      }
+      set({ savedPosts: posts });
+    };
+    try {
+      unsub = subscribeToCollection(
+        COLLECTIONS.BOOKMARKS,
+        [where('userId', '==', userId), orderBy('timestamp', 'desc')],
+        (data) => { void resolvePosts(data); },
+      );
+    } catch { /* ignore */ }
+    return () => { if (unsub) unsub(); };
+  },
+
+  subscribeBookmarkCollections: (userId) => {
+    let unsub: (() => void) | null = null;
+    try {
+      unsub = subscribeToCollection(
+        COLLECTIONS.BOOKMARK_COLLECTIONS,
+        [where('userId', '==', userId), orderBy('createdAt', 'desc')],
+        (data) => {
+          const collections = (data || []).map(mapCollection);
+          set({ bookmarkCollections: collections });
+        },
+      );
+    } catch { /* ignore */ }
+    return () => { if (unsub) unsub(); };
+  },
+
   createCollection: async (userId, name, description, isPrivate) => {
     if (!isFirestoreAvailable()) return;
     try {
@@ -318,6 +370,21 @@ export const useEnhancedTimelineStore = create<EnhancedTimelineStore>((set) => (
     } catch {
       set({ loading: false });
     }
+  },
+
+  subscribeTrendingHashtags: (lim = 10) => {
+    let unsub: (() => void) | null = null;
+    try {
+      unsub = subscribeToCollection(
+        COLLECTIONS.HASHTAGS,
+        [where('trending', '==', true), orderBy('postCount', 'desc'), limit(lim)],
+        (data) => {
+          const hashtags = (data || []).map(mapHashtag);
+          set({ trendingHashtags: hashtags });
+        },
+      );
+    } catch { /* ignore */ }
+    return () => { if (unsub) unsub(); };
   },
 
   followHashtag: async (hashtagId, userId) => {
@@ -435,7 +502,8 @@ export const useEnhancedTimelineStore = create<EnhancedTimelineStore>((set) => (
   },
 
   // --- Feed filters ---
-  getFilteredPosts: async (filter, _userId) => { (void _userId);
+  getFilteredPosts: async (filter, _userId) => {
+    (void _userId);
     set({ loading: true });
     try {
       const constraints: ReturnType<typeof where | typeof orderBy | typeof limit>[] = [orderBy('timestamp', 'desc'), limit(50)];
@@ -456,7 +524,8 @@ export const useEnhancedTimelineStore = create<EnhancedTimelineStore>((set) => (
     }
   },
 
-  getFeedByType: async (type, _userId) => { (void _userId);
+  getFeedByType: async (type, _userId) => {
+    (void _userId);
     if (!isFirestoreAvailable()) return;
     try {
       const constraints: ReturnType<typeof where | typeof orderBy | typeof limit>[] = [orderBy('timestamp', 'desc'), limit(50)];
@@ -616,11 +685,11 @@ export const useEnhancedTimelineStore = create<EnhancedTimelineStore>((set) => (
     }
   },
 
-createPost: async (userId, content, images, visibility, pollData, location, scheduledAt, contentWarning, hashtags) => {
+  createPost: async (userId, content, images, visibility, pollData, location, scheduledAt, contentWarning, hashtags) => {
     if (!isFirestoreAvailable()) return;
     try {
       const user = await getDocById(COLLECTIONS.USERS, userId);
-      await addDocToCollection(COLLECTIONS.POSTS, {
+      const docId = await addDocToCollection(COLLECTIONS.POSTS, {
         userId,
         content,
         images: images || [],
@@ -641,6 +710,37 @@ createPost: async (userId, content, images, visibility, pollData, location, sche
         userAvatar: user?.avatar || '',
         ...(pollData ? { pollData } : {}),
       });
+
+      // Optimistic insert: immediately prepend the newly created post to the
+      // store's posts array so the feed updates in real-time without waiting
+      // for the subscription snapshot to round-trip. The real-time subscription
+      // (if active) will reconcile with the authoritative server data.
+      if (docId) {
+        const optimisticPost: TimelinePost = {
+          id: docId,
+          userId,
+          content: content || '',
+          images: images || [],
+          likes: [],
+          comments: [],
+          shares: [],
+          timestamp: new Date(),
+          visibility: (visibility as TimelinePost['visibility']) || 'public',
+          userName: user?.name || '',
+          userAvatar: user?.avatar || '',
+          location: location || undefined,
+          hashtags: hashtags || [],
+          contentWarning: contentWarning ? 'yes' : undefined,
+          mediaType: images && images.length > 0 ? 'photo' : 'text',
+          pollData,
+        };
+        set((state) => {
+          // Avoid duplicates in case the subscription already delivered it.
+          const existing = state.posts.some((p) => p.id === docId);
+          if (existing) return { posts: state.posts };
+          return { posts: [optimisticPost, ...state.posts] };
+        });
+      }
     } catch (err) {
       console.error('[Timeline] createPost error:', err);
       throw err;
@@ -745,7 +845,7 @@ createPost: async (userId, content, images, visibility, pollData, location, sche
     }
   },
 
-subscribePosts: (_userId) => {
+  subscribePosts: (_userId) => {
     let unsub: (() => void) | null = null;
     try {
       unsub = subscribeToCollection(

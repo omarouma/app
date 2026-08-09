@@ -333,7 +333,7 @@ export default function NotificationsPage() {
       </div>
 
       {/* Notification List */}
-      <div className="divide-y divide-[#EBEBEB]">
+      <div className="divide-y divide-[#EBEBEB] pb-nav">
         {loading ? (
           <div className="p-4">
             <LoadingSkeleton count={6} variant="list" />

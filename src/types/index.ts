@@ -96,7 +96,7 @@ export interface Message {
   disappearingTimer?: number; // seconds until self-destruct, 0 = permanent
   disappearingInitiatedAt?: Date;
   destroyed?: boolean;
-  deliveryStatus?: 'sending' | 'sent' | 'delivered' | 'read' | 'failed';
+  deliveryStatus?: 'pending' | 'sending' | 'sent' | 'delivered' | 'read' | 'failed';
   deliveredAt?: Date;
   readAt?: Date;
   retryCount?: number;

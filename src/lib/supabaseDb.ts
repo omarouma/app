@@ -59,7 +59,7 @@ async function insertWithFallback(
     if (isColumnMissingError(result.error)) {
       const col = extractMissingColumn(result.error);
       if (col && col in data) {
-          delete data[col];
+        delete data[col];
         retries++;
         continue;
       }
@@ -127,7 +127,7 @@ async function upsertWithFallback(
     if (isColumnMissingError(result.error)) {
       const col = extractMissingColumn(result.error);
       if (col && col in data) {
-          delete data[col];
+        delete data[col];
         retries++;
         continue;
       }
@@ -221,7 +221,7 @@ const FIELD_TO_DB: Record<string, string> = {
   lockValue: 'lock_value',
   storyId: 'story_id',
   reelId: 'reel_id',
-callId: 'call_id',
+  callId: 'call_id',
   callerId: 'caller_id',
   calleeId: 'callee_id',
   bdtBalance: 'bdt_balance',
@@ -371,6 +371,48 @@ async function resolveAtomics(
 
   if (!hasAtomic && !hasDotKeys) return data;
 
+  // For simple flat-only increments with no array ops or dot-keys, use
+  // Postgres arithmetic directly to avoid a read-before-write round trip.
+  const onlyFlatIncrements =
+    !hasDotKeys &&
+    Object.values(flatData).every(
+      (v) => !(v && typeof v === 'object' && ('_arrayUnion' in v || '_arrayRemove' in v))
+    );
+
+  if (onlyFlatIncrements && hasAtomic) {
+    const resolved: Record<string, any> = {};
+    // Build a raw SQL expression for each increment field
+    const incrementFields: string[] = [];
+    for (const [key, value] of Object.entries(flatData)) {
+      if (value && typeof value === 'object' && '_increment' in value) {
+        incrementFields.push(key);
+        // Placeholder — overwritten below once the current row value is read.
+        resolved[key] = value;
+      } else {
+        resolved[key] = value;
+      }
+    }
+    // Use raw update with Postgres expression via supabase-js v2 `.update()`
+    // supabase-js doesn't support raw expressions, so we use a targeted RPC
+    // or fall back to read-modify-write only for the increment fields.
+    if (incrementFields.length > 0) {
+      const { data: current, error } = await supabase.from(table).select(incrementFields.join(',')).eq('id', id).single();
+      if (!error && current) {
+        const row = current as Record<string, any>;
+        for (const key of incrementFields) {
+          const n = (flatData[key] as { _increment: number })._increment;
+          resolved[key] = ((row[key] as number) ?? 0) + n;
+        }
+      } else {
+        // Fallback: set to increment value if row not found
+        for (const key of incrementFields) {
+          resolved[key] = (flatData[key] as { _increment: number })._increment;
+        }
+      }
+    }
+    return resolved;
+  }
+
   const { data: current, error } = await supabase.from(table).select('*').eq('id', id).single();
   if (error || !current) throw new Error(`Failed to fetch current doc: ${error?.message}`);
 
@@ -501,7 +543,7 @@ const FK_COLUMN: Record<string, Record<string, string>> = {
   [COLLECTIONS.GROUPS]: {
     members: 'group_id',
   },
-[COLLECTIONS.LIVE_STREAMS]: {
+  [COLLECTIONS.LIVE_STREAMS]: {
     comments: 'stream_id',
     gifts: 'stream_id',
     signals: 'stream_id',
@@ -607,12 +649,12 @@ export function subscribeToDoc(
   onData: (data: any) => void,
 ): () => void {
   const supabase = getDb();
-  if (!supabase) return () => {};
+  if (!supabase) return () => { };
 
   // Initial fetch
   supabase.from(table).select('*').eq('id', id).single().then(({ data }) => {
     if (data) onData({ ...toCamel(data), id: data.id });
-  }, () => {});
+  }, () => { });
 
   const channel = supabase
     .channel(`${table}:id=${id}`)
@@ -636,7 +678,7 @@ export function subscribeToCollection<T = any>(
   onData: (data: (T & { id: string })[]) => void,
 ): () => void {
   const supabase = getDb();
-  if (!supabase) return () => {};
+  if (!supabase) return () => { };
 
   const getFieldValue = (obj: any, path: string) => {
     if (!obj || !path) return undefined;
@@ -655,7 +697,7 @@ export function subscribeToCollection<T = any>(
     return v;
   };
 
-// Map a constraint field (which may be snake_case DB column OR camelCase) to the
+  // Map a constraint field (which may be snake_case DB column OR camelCase) to the
   // camelCase field name used on the mapped rows returned by toCamel()/mapRows().
   // e.g. subcollection FK filters use 'chat_id' but rows expose 'chatId'.
   const toCamelField = (f: string) => DB_TO_FIELD[f] ?? f;
@@ -692,7 +734,7 @@ export function subscribeToCollection<T = any>(
       }
     }
 
-// Normalize the order field to camelCase so it matches the mapped rows.
+    // Normalize the order field to camelCase so it matches the mapped rows.
     const orderFieldCamel = orderField ? toCamelField(orderField) : null;
     let out = items;
     if (orderFieldCamel) {
@@ -711,27 +753,10 @@ export function subscribeToCollection<T = any>(
 
   const hasStartAfter = constraints.some((c) => c._type === 'startAfter');
   let current: (T & { id: string })[] = [];
+  let initialFetchDone = false;
+  let bufferedEvents: any[] = [];
 
-  const refetch = async () => {
-    const data = await queryCollection<T>(table, constraints).catch(() => []);
-    current = data;
-    onData(current);
-  };
-
-  refetch();
-
-  let debounceTimer: ReturnType<typeof setTimeout> | null = null;
-  const debouncedRefetch = () => {
-    if (debounceTimer) clearTimeout(debounceTimer);
-    debounceTimer = setTimeout(() => { refetch().catch(() => {}); }, 150);
-  };
-
-  const handleChange = (payload: any) => {
-    if (hasStartAfter) {
-      debouncedRefetch();
-      return;
-    }
-
+  const applyChangeToState = (payload: any) => {
     const eventType = payload?.eventType as string | undefined;
     const newRow = payload?.new as Record<string, any> | null | undefined;
     const oldRow = payload?.old as Record<string, any> | null | undefined;
@@ -764,6 +789,49 @@ export function subscribeToCollection<T = any>(
     onData(applyOrderLimit(current));
   };
 
+  const drainBuffered = () => {
+    const pending = bufferedEvents;
+    bufferedEvents = [];
+    for (const ev of pending) {
+      try { applyChangeToState(ev); } catch { /* ignore bad event */ }
+    }
+  };
+
+  let refetching: Promise<void> | null = null;
+  const refetch = async () => {
+    if (refetching) return refetching;
+    refetching = (async () => {
+      const data = await queryCollection<T>(table, constraints).catch(() => []);
+      current = data;
+      onData(current);
+      const wasFirst = !initialFetchDone;
+      initialFetchDone = true;
+      if (wasFirst && bufferedEvents.length > 0) drainBuffered();
+    })();
+    await refetching;
+    refetching = null;
+  };
+
+  void refetch();
+
+  let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+  const debouncedRefetch = () => {
+    if (debounceTimer) clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(() => { void refetch(); }, 150);
+  };
+
+  const handleChange = (payload: any) => {
+    if (hasStartAfter) {
+      debouncedRefetch();
+      return;
+    }
+    if (!initialFetchDone) {
+      bufferedEvents.push(payload);
+      return;
+    }
+    applyChangeToState(payload);
+  };
+
   const filterC = constraints.find(
     (c): c is Extract<QueryConstraint, { _type: 'where' }> =>
       c._type === 'where' && (c.op === '==' || c.op === 'array-contains'),
@@ -778,7 +846,7 @@ export function subscribeToCollection<T = any>(
     }
   }
 
-// Each call to subscribeToCollection must get a UNIQUE channel name. Reusing a
+  // Each call to subscribeToCollection must get a UNIQUE channel name. Reusing a
   // deterministic name (e.g. `call_history:caller_id=eq.<userId>`) collides when the
   // same filter is subscribed twice (App-level `subscribeCalls` + page-level
   // `subscribeToCallHistory`), causing Supabase to reject adding a callback
@@ -787,14 +855,27 @@ export function subscribeToCollection<T = any>(
     ? `${table}:${filter}:${++channelSeq}`
     : `${table}:all:${Date.now()}:${++channelSeq}`;
   const filterConfig = filter ? { filter } : {};
+  let wasSubscribed = false;
   const channel = supabase
-    .channel(channelId)
+    .channel(channelId, { config: { broadcast: { self: false } } })
     .on('postgres_changes', { event: '*', schema: 'public', table, ...filterConfig }, handleChange)
-    .subscribe();
+    .subscribe((status) => {
+      // After a reconnect (channel transitions from any non-SUBSCRIBED state back to
+      // SUBSCRIBED), force a full refetch to pick up any changes that were missed
+      // while the socket was down. Supabase does not replay events for us.
+      if (status === 'SUBSCRIBED' && wasSubscribed && initialFetchDone) {
+        void refetch();
+      } else if (status === 'SUBSCRIBED') {
+        wasSubscribed = true;
+      } else if (status === 'CLOSED' || status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+        wasSubscribed = false;
+      }
+    });
 
   return () => {
     if (debounceTimer) clearTimeout(debounceTimer);
-    supabase.removeChannel(channel);
+    bufferedEvents = [];
+    void supabase.removeChannel(channel);
   };
 }
 

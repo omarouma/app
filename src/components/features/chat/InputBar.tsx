@@ -1,10 +1,11 @@
-import { useRef, useState } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, X, Mic, Send, Clock, Smile, Camera, Image as ImageIcon, MapPin, File, User, Phone, BarChart3, Sticker } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { attachmentOptions } from '@/lib/chatConstants';
 import { EmojiPicker } from './EmojiPicker';
 import { StickerPicker } from './StickerPicker';
+import { RecordingWaveform } from './RecordingWaveform';
 import type { Message } from '@/types';
 
 interface InputBarProps {
@@ -43,12 +44,20 @@ export function InputBar({
   onPhotoUpload, onVideoUpload, onFileUpload,
   onLocationShare, onContactShare, onPollOpen, onStickerSelect,
 }: InputBarProps) {
-  const [showStickerPicker, setShowStickerPicker] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
+const [showStickerPicker, setShowStickerPicker] = useState(false);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   const photoInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Auto-resize the multi-line input to fit content (capped at ~5 rows).
+  useEffect(() => {
+    const el = inputRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${Math.min(el.scrollHeight, 120)}px`;
+  }, [input]);
 
   return (
     <>
@@ -128,20 +137,21 @@ export function InputBar({
           <Plus size={24} strokeWidth={1.5} />
         </button>
 
-        {isRecording ? (
+{isRecording ? (
           <div className="flex-1 bg-white rounded-2xl border border-[#FF3B30] flex items-center px-4 min-h-[40px] gap-3">
-            <div className="w-3 h-3 rounded-full bg-[#FF3B30] animate-pulse" />
-            <span className="text-[#FF3B30] text-sm font-medium">{Math.floor(duration / 60)}:{(duration % 60).toString().padStart(2, '0')}</span>
-            <span className="text-[#8D8D8D] text-xs">Recording...</span>
-            <button type="button" onClick={onCancelRecording} aria-label="Cancel recording" className="ml-auto text-[#8D8D8D] hover:text-[#111111]">
+            <div className="w-3 h-3 rounded-full bg-[#FF3B30] animate-pulse shrink-0" />
+            <span className="text-[#FF3B30] text-sm font-medium shrink-0">{Math.floor(duration / 60)}:{(duration % 60).toString().padStart(2, '0')}</span>
+            <RecordingWaveform duration={duration} barColor="#00C300" />
+            <button type="button" onClick={onCancelRecording} aria-label="Cancel recording" className="ml-1 text-[#8D8D8D] hover:text-[#111111] shrink-0">
               <X size={18} />
             </button>
           </div>
         ) : (
-          <div className="flex-1 bg-white rounded-2xl border border-gray-200 flex items-center px-3 min-h-[40px]">
-            <input
+          <div className="flex-1 bg-white rounded-2xl border border-gray-200 flex items-center px-3 min-h-[40px] max-h-[128px]">
+            <textarea
               ref={inputRef}
               value={input}
+              rows={1}
               onChange={(e) => {
                 onInputChange(e.target.value);
                 if (e.target.value.trim().length > 0) onTyping();
@@ -154,7 +164,7 @@ export function InputBar({
               onClick={() => { if (showAttachments) onToggleAttachments(); }}
               aria-label="Type a message"
               placeholder="Aa"
-              className="flex-1 py-2 text-[15px] focus:outline-none bg-transparent text-[#111111] placeholder:text-[#8D8D8D]"
+              className="flex-1 py-2 text-[15px] focus:outline-none bg-transparent text-[#111111] placeholder:text-[#8D8D8D] resize-none overflow-y-auto"
             />
             <button type="button" className={`p-1 transition-colors ${showStickerPicker ? 'text-[#00C300]' : 'text-gray-400 hover:text-gray-600'}`} onClick={() => { setShowStickerPicker(p => !p); if (showEmojiPicker) onToggleEmojiPicker(); }} aria-label="Open sticker picker">
               <Sticker size={20} strokeWidth={1.5} />

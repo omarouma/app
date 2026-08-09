@@ -355,12 +355,17 @@ export default function TimelineCard({
               </span>
             )}
           </div>
-          <div className="flex items-center gap-3">
+<div className="flex items-center gap-3">
             {localComments.length > 0 && (
               <button type="button" onClick={() => setShowComments(v => !v)}
                 className="hover:text-white transition-colors">
                 {localComments.length} comment{localComments.length !== 1 ? 's' : ''}
               </button>
+            )}
+            {(post.shares?.length || 0) > 0 && (
+              <span className="flex items-center gap-1">
+                <Share2 size={11} /> {(post.shares?.length || 0).toLocaleString()}
+              </span>
             )}
             {(post as TimelinePost & { viewCount?: number }).viewCount ? (
               <span className="flex items-center gap-1">

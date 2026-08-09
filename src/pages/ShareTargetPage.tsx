@@ -28,6 +28,14 @@ export default function ShareTargetPage() {
   const [caption, setCaption] = useState('');
   const [showChatPicker, setShowChatPicker] = useState(false);
   const [mediaFiles, setMediaFiles] = useState<File[]>([]);
+  const [mediaObjectUrls, setMediaObjectUrls] = useState<string[]>([]);
+
+  // Keep object URLs in sync with mediaFiles and clean up on change
+  useEffect(() => {
+    const urls = mediaFiles.map(f => URL.createObjectURL(f));
+    setMediaObjectUrls(urls);
+    return () => { urls.forEach(u => URL.revokeObjectURL(u)); };
+  }, [mediaFiles]);
 
   // Read shared data from service worker cache
   useEffect(() => {
@@ -216,7 +224,7 @@ export default function ShareTargetPage() {
                     <div key={i} className="relative">
                       {file.type.startsWith('image/') ? (
                         <img
-                          src={URL.createObjectURL(file)}
+                          src={mediaObjectUrls[i] ?? ''}
                           alt=""
                           className="w-20 h-20 object-cover rounded-xl"
                         />

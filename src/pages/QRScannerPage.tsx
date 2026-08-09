@@ -339,20 +339,6 @@ export default function QRScannerPage() {
             return;
           }
         }
-        if (isSupabaseConfigured()) {
-          const supabase = getSupabase();
-          if (supabase) {
-            await supabase.from('qr_sessions').update({
-              status: 'confirmed',
-              user_id: user.id,
-              user_name: user.name,
-              confirmed_at: new Date().toISOString(),
-            }).eq('id', sessionId);
-            toast.success('QR login confirmed! Desktop session logged in.');
-            navigate('/contacts');
-            return;
-          }
-        }
         if (isFirestoreAvailable()) {
           await updateDocById('qr_sessions', sessionId, {
             status: 'confirmed',

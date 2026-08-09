@@ -28,8 +28,9 @@ export default function GroupChatPage() {
     const navigate = useNavigate();
     const { groupId } = useParams<{ groupId: string }>();
     const { user: currentUser } = useAuthStore();
-const {
-        groups, groupMessages, subscribeGroupMessages, sendGroupMessage, leaveGroup
+    const {
+        groups, groupMessages, subscribeGroupMessages, sendGroupMessage, leaveGroup,
+        deleteGroupMessage, deleteGroupMessageForEveryone
     } = useGroupStore();
     const { friends } = useFriendStore();
     const { isRecording, duration, startRecording, stopRecording, cancelRecording } = useVoiceRecorder();
@@ -60,6 +61,16 @@ const {
     const group = useMemo(() => groups.find(g => g.id === groupId), [groups, groupId]);
     const msgs = useMemo(() => groupId ? (groupMessages[groupId] || []) : [], [groupMessages, groupId]);
     const memberCount = useMemo(() => group?.participants.length || 0, [group]);
+
+    // Lookup map for resolving real member names/avatars in the group call picker.
+    const memberInfo = useMemo(() => {
+        const map: Record<string, { name: string; avatar?: string }> = {};
+        if (currentUser) map[currentUser.id] = { name: currentUser.name, avatar: currentUser.avatar };
+        for (const f of friends) {
+            map[f.id] = { name: f.name, avatar: f.avatar };
+        }
+        return map;
+    }, [currentUser, friends]);
 
     const filteredMsgs = useMemo(() =>
         searchQuery ? msgs.filter(m => m.content.toLowerCase().includes(searchQuery.toLowerCase())) : msgs,
@@ -118,7 +129,7 @@ const {
         if (!file || !currentUser || !groupId) return;
         try {
             const { uploadMediaBlob } = await import('@/lib/storage');
-            const url = await uploadMediaBlob({ kind: 'chats', chatId: groupId, file, mimeType: file.type });
+            const url = await uploadMediaBlob(file, { kind: 'chats', userId: currentUser.id, fileName: file.name, contentType: file.type });
             await sendGroupMessage(groupId, currentUser.id, mediaType === 'image' ? 'Photo' : 'Video', mediaType, url);
         } catch {
             toast.error('Failed to upload media');
@@ -130,7 +141,7 @@ const {
         if (!file || !currentUser || !groupId) return;
         try {
             const { uploadMediaBlob } = await import('@/lib/storage');
-            const url = await uploadMediaBlob({ kind: 'chats', chatId: groupId, file, mimeType: file.type });
+            const url = await uploadMediaBlob(file, { kind: 'chats', userId: currentUser.id, fileName: file.name, contentType: file.type });
             await sendGroupMessage(groupId, currentUser.id, file.name, 'file', url);
         } catch {
             toast.error('Failed to upload file');
@@ -144,7 +155,7 @@ const {
         try {
             const { uploadMediaBlob } = await import('@/lib/storage');
             const file = new File([blob], 'voice-message.webm', { type: 'audio/webm' });
-            const url = await uploadMediaBlob({ kind: 'voice', chatId: groupId, file, mimeType: 'audio/webm' });
+            const url = await uploadMediaBlob(file, { kind: 'voice', userId: currentUser.id, fileName: 'voice-message.webm', contentType: 'audio/webm' });
             await sendGroupMessage(groupId, currentUser.id, 'Voice message', 'voice', url);
         } catch {
             toast.error('Failed to send voice message');
@@ -181,6 +192,24 @@ const {
     const handleContextMenu = (e: React.MouseEvent, msg: Message) => {
         e.preventDefault();
         setContextMenu({ msg, x: e.clientX, y: e.clientY });
+    };
+
+    // Real delete: own messages are hard-deleted; a participant's message is
+    // removed for everyone via the store's deleteGroupMessageForEveryone action.
+    const handleDeleteMessage = async (msg: Message) => {
+        if (!currentUser || !groupId) return;
+        setContextMenu(null);
+        try {
+            if (msg.senderId === currentUser.id) {
+                await deleteGroupMessageForEveryone(groupId, msg.id);
+                toast.success('Message deleted');
+            } else {
+                await deleteGroupMessage(groupId, msg.id);
+                toast.success('Message deleted');
+            }
+        } catch {
+            toast.error('Failed to delete message');
+        }
     };
 
     const dateSeparatorMap = useMemo(() => {
@@ -221,6 +250,7 @@ const {
                 filteredMsgsLength={filteredMsgs.length}
                 leaveGroup={leaveGroup}
                 setShowMembersModal={setShowMembersModal}
+                memberInfo={memberInfo}
             />
             <GroupChatMessageList
                 group={group}
@@ -234,7 +264,7 @@ const {
                 getSenderAvatar={getSenderAvatar}
                 handleContextMenu={handleContextMenu}
             />
-        <GroupChatInput
+            <GroupChatInput
                 input={input}
                 setInput={setInput}
                 handleSend={handleSend}
@@ -254,28 +284,27 @@ const {
 
             {/* Context Menu */}
             <AnimatePresence>
-              {contextMenu && (
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.9 }}
-                  className="fixed bg-white rounded-xl shadow-xl border border-gray-100 z-50 py-1 min-w-[160px]"
-                  style={{ top: Math.min(contextMenu.y, window.innerHeight - 200), left: Math.min(contextMenu.x, window.innerWidth - 180) }}
-                  onClick={e => e.stopPropagation()}
-                >
-                  {[
-                    { label: 'Reply', action: () => { setReplyingTo(contextMenu.msg); setContextMenu(null); } },
-                    { label: 'Copy', action: () => { navigator.clipboard.writeText(contextMenu.msg.content); toast.success('Copied'); setContextMenu(null); } },
-                    { label: 'Delete', action: () => { toast.info('Delete not available in groups yet'); setContextMenu(null); } },
-                  ].map(({ label, action }) => (
-                    <button key={label} type="button" onClick={action}
-                      className={`w-full text-left px-4 py-2.5 text-sm hover:bg-gray-50 transition-colors ${
-                        label === 'Delete' ? 'text-red-500' : 'text-gray-800'
-                      }`}
-                    >{label}</button>
-                  ))}
-                </motion.div>
-              )}
+                {contextMenu && (
+                    <motion.div
+                        initial={{ opacity: 0, scale: 0.9 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.9 }}
+                        className="fixed bg-white rounded-xl shadow-xl border border-gray-100 z-50 py-1 min-w-[160px]"
+                        style={{ top: Math.min(contextMenu.y, window.innerHeight - 200), left: Math.min(contextMenu.x, window.innerWidth - 180) }}
+                        onClick={e => e.stopPropagation()}
+                    >
+                        {[
+                            { label: 'Reply', action: () => { setReplyingTo(contextMenu.msg); setContextMenu(null); } },
+                            { label: 'Copy', action: () => { navigator.clipboard.writeText(contextMenu.msg.content); toast.success('Copied'); setContextMenu(null); } },
+                            { label: 'Delete', action: () => { handleDeleteMessage(contextMenu.msg); } },
+                        ].map(({ label, action }) => (
+                            <button key={label} type="button" onClick={action}
+                                className={`w-full text-left px-4 py-2.5 text-sm hover:bg-gray-50 transition-colors ${label === 'Delete' ? 'text-red-500' : 'text-gray-800'
+                                    }`}
+                            >{label}</button>
+                        ))}
+                    </motion.div>
+                )}
             </AnimatePresence>
         </div>
     );

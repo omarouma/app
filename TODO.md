@@ -1,15 +1,22 @@
-# Lint Cleanup & Verification
+# Agora Integration — TODO
 
-## Objective
+## Goal
 
-Clean up the 7 ESLint warnings and verify the app builds cleanly.
+Integrate Agora Real-Time Engagement platform for audio/video calling in GaGa Chat.
+Replace the raw P2P WebRTC media layer with Agora RTC while preserving the existing
+call signaling/UX (ringing, accept/reject, call history, CallOverlay).
 
 ## Steps
 
-- [ ] 1. Fix `src/hooks/useWebRTCManager.ts` — missing deps in useEffect (1 warning)
-- [ ] 2. Fix `src/components/features/chat/MessageItem.tsx` — unused `selectionMode` prop (1 warning)
-- [ ] 3. Fix `src/components/features/chat/ChatRoom.tsx` — unused `useEffect`, `getDefaultAvatar`, dead eslint-disable directives, unused `swipeState` (5 warnings)
-- [ ] 4. Remove temporary diagnostic file `eslint_scan.mjs`
-- [ ] 5. Run `npx tsc --noEmit` → confirm 0 errors
-- [ ] 6. Run `npm run build` → confirm clean build
-- [ ] 7. Run ESLint scan → confirm 0 errors 0 warnings
+- [x] Analyze existing WebRTC/call infrastructure (webrtc.ts, useWebRTCManager, useCallStore, CallContext, CallOverlay, pages)
+- [x] Install `agora-rtc-sdk-ng` runtime dependency
+- [x] Verify Agora token algorithm (cross-check with official `agora-access-token` in a Node script)
+- [x] Create `src/lib/agoraToken.ts` (browser-safe token builder, Web Crypto HMAC-SHA256)
+- [x] Create `src/lib/agora.ts` (client singleton + config + token acquisition)
+- [x] Create `src/lib/agoraCall.ts` (`AgoraCall` class mirroring `WebRTCCall` API)
+- [x] Update `src/config/env.ts` schema with Agora env vars
+- [x] Update `.env` / `.env.example` with Agora credentials
+- [x] Update `src/hooks/useWebRTCManager.ts` to use `AgoraCall`
+- [x] Typecheck (`tsc`) and lint
+- [x] Build (`npm run build`)
+- [ ] Manual test of 1:1 voice + video calls

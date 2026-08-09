@@ -10,13 +10,12 @@ import {
   subscribeToCollection,
   serverTimestamp,
   arrayUnion,
-  Timestamp,
 } from '@/lib/firestore';
 import { where, orderBy, limit } from '@/lib/firestore';
 import { toast } from 'sonner';
 import type { Story, StoryHighlight, StorySticker, StoryPollData } from '@/types';
 
-const COLLECTION_HIGHLIGHTS = 'storyHighlights';
+const COLLECTION_HIGHLIGHTS = 'story_highlights';
 
 interface StoryStore {
   stories: Story[];
@@ -234,12 +233,12 @@ export const useStoryStore = create<StoryStore>((set, get) => ({
   subscribeStories: (userId) => {
     if (!isFirestoreAvailable() || !userId) return () => {};
     set({ loading: true });
-    const twentyFourHoursAgo = Timestamp.fromDate(new Date(Date.now() - 24 * 60 * 60 * 1000));
     let unsub: (() => void) | null = null;
     try {
+      // Subscribe to all non-expired stories (friends' stories loaded by pages via getStoriesForUser)
       unsub = subscribeToCollection(
         COLLECTIONS.STORIES,
-        [where('userId', '==', userId), where('timestamp', '>', twentyFourHoursAgo), orderBy('timestamp', 'desc')],
+        [orderBy('timestamp', 'desc'), limit(100)],
         (data) => {
           const stories = (data || []).map(mapStory).filter(s => !isStoryExpired(s));
           set({ stories, loading: false });

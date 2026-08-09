@@ -2,10 +2,15 @@ import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     ChevronLeft, MoreHorizontal, Users, Phone, UserPlus, Settings, LogOut,
-    Search, X
+    Search, X, Video
 } from 'lucide-react';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { Chat, User } from '@/types';
+
+export interface GroupMemberInfo {
+    name: string;
+    avatar?: string;
+}
 
 interface GroupChatHeaderProps {
     group: Chat;
@@ -20,6 +25,8 @@ interface GroupChatHeaderProps {
     filteredMsgsLength: number;
     leaveGroup: (groupId: string, userId: string) => void;
     setShowMembersModal: (show: boolean) => void;
+    // Lookup map for resolving real member names/avatars in the call picker.
+    memberInfo?: Record<string, GroupMemberInfo>;
 }
 
 export function GroupChatHeader({
@@ -34,10 +41,12 @@ export function GroupChatHeader({
     setSearchQuery,
     filteredMsgsLength,
     leaveGroup,
-    setShowMembersModal
+    setShowMembersModal,
+    memberInfo
 }: GroupChatHeaderProps) {
-    const navigate = useNavigate();
+const navigate = useNavigate();
     const menuRef = useRef<HTMLDivElement>(null);
+    const [showCallPicker, setShowCallPicker] = useState(false);
 
     // Close menu on outside click
     useEffect(() => {
@@ -81,7 +90,7 @@ export function GroupChatHeader({
                     <button type="button" onClick={() => setShowSearch(!showSearch)} className="active:opacity-60" title="Search messages">
                         <Search size={22} strokeWidth={1.5} className={showSearch ? 'text-[#00C300]' : ''} />
                     </button>
-                    <button type="button" className="active:opacity-60" onClick={() => navigate('/call', { state: { userId: group.participants.find((p: string) => p !== currentUser?.id), mode: 'voice' } })}><Phone size={22} strokeWidth={1.5} /></button>
+                    <button type="button" className="active:opacity-60" onClick={() => setShowCallPicker(true)} title="Call a member"><Phone size={22} strokeWidth={1.5} /></button>
                     <div className="relative" ref={menuRef}>
                         <button type="button" onClick={() => setShowMenu(!showMenu)} className="active:opacity-60">
                             <MoreHorizontal size={22} strokeWidth={1.5} />
@@ -136,6 +145,82 @@ export function GroupChatHeader({
                                 {filteredMsgsLength} result{filteredMsgsLength !== 1 ? 's' : ''}
                             </p>
                         )}
+                    </motion.div>
+)}
+            </AnimatePresence>
+
+            {/* Call member picker — choose a group member to call (voice or video) */}
+            <AnimatePresence>
+                {showCallPicker && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="fixed inset-0 z-50 bg-black/50 flex items-end sm:items-center justify-center"
+                        onClick={() => setShowCallPicker(false)}
+                    >
+                        <motion.div
+                            initial={{ y: 40, opacity: 0 }}
+                            animate={{ y: 0, opacity: 1 }}
+                            exit={{ y: 40, opacity: 0 }}
+                            transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+                            className="w-full sm:max-w-sm bg-white rounded-t-2xl sm:rounded-2xl overflow-hidden"
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            <div className="flex items-center justify-between px-4 py-3 border-b border-[#EBEBEB]">
+                                <h3 className="text-base font-bold text-[#111111]">Call a member</h3>
+                                <button type="button" onClick={() => setShowCallPicker(false)} className="p-1 rounded-full hover:bg-gray-100 text-[#8D8D8D]">
+                                    <X size={20} />
+                                </button>
+                            </div>
+                            <div className="max-h-[60dvh] overflow-y-auto">
+{(group.participants || [])
+                                    .filter((id: string) => id !== currentUser?.id)
+                                    .map((memberId: string) => {
+                                        const info = memberInfo?.[memberId];
+                                        const name = info?.name || 'Member';
+                                        const avatar = info?.avatar;
+                                        return (
+                                        <div key={memberId} className="flex items-center gap-3 px-4 py-3 hover:bg-[#F5F5F5] transition-colors">
+                                            <div className="w-10 h-10 rounded-full bg-[#00C300]/10 flex items-center justify-center shrink-0 overflow-hidden">
+                                                {avatar ? (
+                                                    <img src={avatar} className="w-full h-full object-cover" alt={name} />
+                                                ) : (
+                                                    <Users size={18} className="text-[#00C300]" />
+                                                )}
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-sm font-medium text-[#111111] truncate">{name}</p>
+                                                <p className="text-[11px] text-[#8D8D8D] truncate">{info?.name ? memberId : 'Group member'}</p>
+                                            </div>
+                                            <div className="flex items-center gap-1 shrink-0">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => { setShowCallPicker(false); navigate('/call', { state: { userId: memberId, mode: 'voice' } }); }}
+                                                    className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-[#00C300]/10 text-[#00C300] active:scale-95 transition-transform"
+                                                    aria-label={`Voice call member ${memberId}`}
+                                                    title="Voice call"
+                                                >
+                                                    <Phone size={18} />
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => { setShowCallPicker(false); navigate('/call', { state: { userId: memberId, mode: 'video' } }); }}
+                                                    className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-[#00C300]/10 text-[#00C300] active:scale-95 transition-transform"
+                                                    aria-label={`Video call member ${memberId}`}
+                                                    title="Video call"
+>
+                                                    <Video size={18} />
+                                                </button>
+                                            </div>
+                                        </div>
+                                        );
+                                    })}
+                                {(!group.participants || group.participants.filter((id: string) => id !== currentUser?.id).length === 0) && (
+                                    <div className="px-4 py-8 text-center text-sm text-[#8D8D8D]">No other members to call.</div>
+                                )}
+                            </div>
+                        </motion.div>
                     </motion.div>
                 )}
             </AnimatePresence>

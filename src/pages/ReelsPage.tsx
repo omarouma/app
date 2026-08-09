@@ -120,41 +120,43 @@ export default function ReelsPage() {
     Object.entries(videoRefs.current).forEach(([id, video]) => {
       if (!video) return;
       if (id === reel.id) {
-        video.play().catch(() => {});
+        video.play().catch(() => { });
       } else {
         video.pause();
       }
     });
   }, [activeIndex, displayReels]);
 
-  // IntersectionObserver for robust auto-play/pause on scroll
+// IntersectionObserver for robust auto-play/pause on scroll
+  // Uses a single shared observer instead of one per video for better performance.
   useEffect(() => {
-    const observers: IntersectionObserver[] = [];
     const container = scrollRef.current;
     if (!container) return;
 
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          const video = entry.target as HTMLVideoElement;
+          if (entry.isIntersecting && entry.intersectionRatio >= 0.6) {
+            video.play().catch(() => { });
+          } else {
+            video.pause();
+          }
+        }
+      },
+      { root: container, threshold: 0.6 }
+    );
+
     // Small delay to let video elements mount
     const timeout = setTimeout(() => {
-      Object.entries(videoRefs.current).forEach(([, video]) => {
-        if (!video) return;
-        const observer = new IntersectionObserver(
-          ([entry]) => {
-            if (entry.isIntersecting && entry.intersectionRatio >= 0.6) {
-              video.play().catch(() => {});
-            } else {
-              video.pause();
-            }
-          },
-          { root: container, threshold: 0.6 }
-        );
-        observer.observe(video);
-        observers.push(observer);
+      Object.values(videoRefs.current).forEach((video) => {
+        if (video) observer.observe(video);
       });
     }, 500);
 
     return () => {
       clearTimeout(timeout);
-      observers.forEach(o => o.disconnect());
+      observer.disconnect();
     };
   }, [displayReels.length]);
 
@@ -451,11 +453,10 @@ export default function ReelsPage() {
           <button
             type="button"
             onClick={() => handleCategoryChange(null)}
-            className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${
-              selectedCategory === null
+            className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${selectedCategory === null
                 ? 'bg-[#00C300] text-black'
                 : 'bg-white/10 text-white/80'
-            }`}
+              }`}
           >
             All
           </button>
@@ -464,11 +465,10 @@ export default function ReelsPage() {
               key={cat}
               type="button"
               onClick={() => handleCategoryChange(cat)}
-              className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${
-                selectedCategory === cat
+              className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${selectedCategory === cat
                   ? 'bg-[#00C300] text-black'
                   : 'bg-white/10 text-white/80'
-              }`}
+                }`}
             >
               {cat}
             </button>
@@ -573,7 +573,7 @@ export default function ReelsPage() {
                 lastTapRef.current[reel.id] = now;
                 const video = videoRefs.current[reel.id];
                 if (!video) return;
-                if (video.paused) video.play().catch(() => {});
+                if (video.paused) video.play().catch(() => { });
                 else video.pause();
               }}
             />

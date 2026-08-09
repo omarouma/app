@@ -59,10 +59,15 @@
     --ring: 120 100% 38%;
   }
 
-  html {
+html {
     scroll-behavior: smooth;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    /* Prevent auto text-size inflation on iOS when rotating/zooming */
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+    /* Prevent horizontal scroll caused by wide content on small screens */
+    overflow-x: hidden;
   }
 
   body {
@@ -74,6 +79,16 @@
     background-color: hsl(var(--background));
     color: hsl(var(--foreground));
     min-height: 100%;
+    /* Support both old (100vh) and modern (100dvh) mobile viewport units
+       for correct sizing on Android/iOS with dynamic browser chrome */
+    min-height: 100vh;
+    min-height: 100dvh;
+    width: 100%;
+    /* Keep content clear of notched phones (Dynamic Island, punch-hole) */
+    -webkit-padding-start: env(safe-area-inset-left);
+    padding-inline-start: env(safe-area-inset-left);
+    -webkit-padding-end: env(safe-area-inset-right);
+    padding-inline-end: env(safe-area-inset-right);
     transition: background-color 0.25s ease, color 0.25s ease;
   }
 
@@ -92,7 +107,6 @@
   /* Smooth scroll for all scrollable containers */
   .scroll-smooth {
     scroll-behavior: smooth;
-    -webkit-overflow-scrolling: touch;
   }
 
   /* Custom focus styles */
@@ -156,11 +170,13 @@
   }
   .glass {
     background: rgba(255, 255, 255, 0.03);
+    -webkit-backdrop-filter: blur(20px);
     backdrop-filter: blur(20px);
     border: 1px solid rgba(255, 255, 255, 0.05);
   }
   .glass-strong {
     background: rgba(10, 10, 10, 0.8);
+    -webkit-backdrop-filter: blur(30px);
     backdrop-filter: blur(30px);
     border-bottom: 1px solid rgba(255, 255, 255, 0.05);
   }
@@ -206,14 +222,29 @@
 /* Ensure the app does not hard-lock scrolling at the root level.
    Route-level scroll containers should use overflow-y-auto as needed. */
 #root {
+  /* 100vh fallback for older browsers, then 100dvh for modern mobile */
+  height: 100vh;
   height: 100dvh;
   width: 100vw;
+  max-width: 100%;
   overflow: auto;
+  /* Fix iOS rubber-banding / horizontal scroll */
+  position: relative;
 }
 
 /* Bottom nav safe padding — applied to mobile page scroll containers */
 .pb-nav {
   padding-bottom: calc(58px + env(safe-area-inset-bottom));
+}
+
+/* Top safe-area padding helper — for notched/physical-cutout phones */
+.pt-safe {
+  padding-top: env(safe-area-inset-top);
+}
+/* Left/right safe-area helper for landscape notch */
+.px-safe {
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
 }
 
 

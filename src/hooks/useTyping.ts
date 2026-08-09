@@ -32,44 +32,61 @@ export function useTyping(chatId: string | undefined) {
   const stopTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isTypingRef = useRef(false);
 
-  const setupSubscription = useCallback((
+  // Stable refs for callbacks to avoid re-subscription loops
+  const setupSubscriptionRef = useRef<((
     onTypingEvent: (userId: string, name: string, isTyping: boolean, timestamp: number) => void,
     fetchUserName: (userId: string) => Promise<string | undefined>
-  ) => {
-    if (!chatId || !user) return () => {};
+  ) => () => void) | null>(null);
+
+  // Build the subscription function once and keep it stable
+  useEffect(() => {
+    if (!chatId || !user) {
+      setupSubscriptionRef.current = null;
+      return;
+    }
 
     const supabase = isSupabaseConfigured() ? getSupabase() : null;
 
-    if (supabase) {
-      const channel = supabase
-        .channel(`typing-${chatId}`)
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'typing', filter: `chat_id=eq.${chatId}` }, async (payload) => {
-          const data = payload.new as any;
-          if (!data || data.user_id === user.id) return;
+    const subscriptionFn = (
+      onTypingEvent: (userId: string, name: string, isTyping: boolean, timestamp: number) => void,
+      fetchUserName: (userId: string) => Promise<string | undefined>
+    ) => {
+      if (supabase) {
+        // Use a unique channel name per chatId to avoid collisions
+        const channel = supabase
+          .channel(`typing-${chatId}`)
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'typing', filter: `chat_id=eq.${chatId}` }, async (payload) => {
+            const data = payload.new as any;
+            if (!data || data.user_id === user.id) return;
 
-          const ts = new Date(data.updated_at).getTime();
-          const userName = data.user_name || await fetchUserName(data.user_id) || 'User';
-          onTypingEvent(data.user_id, userName, data.is_typing, ts);
-        })
-        .subscribe();
-      return () => supabase.removeChannel(channel);
-    }
+            const ts = new Date(data.updated_at).getTime();
+            const userName = data.user_name || await fetchUserName(data.user_id) || 'User';
+            onTypingEvent(data.user_id, userName, data.is_typing, ts);
+          })
+          .subscribe();
+        return () => supabase.removeChannel(channel);
+      }
 
-    // Firebase fallback
-    return subscribeToDoc('typing', chatId, (data) => {
-      if (!data) return;
-      const now = Date.now();
-      Object.entries(data).forEach(([key, value]) => {
-        if (key === 'id' || key === user.id) return;
-        const typed = value as { name: string; timestamp: unknown };
-        if (!typed || typeof typed !== 'object') return;
-        const ts = (typed.timestamp as { toMillis?: () => number })?.toMillis?.() || new Date(typed.timestamp as string).getTime();
-        onTypingEvent(key, typed.name, now - ts < 6000, ts);
+      // Firebase fallback
+      return subscribeToDoc('typing', chatId, (data) => {
+        if (!data) return;
+        const now = Date.now();
+        for (const [key, value] of Object.entries(data)) {
+          if (key === 'id' || key === user.id) continue;
+          const typed = value as { name: string; timestamp: unknown };
+          if (!typed || typeof typed !== 'object') continue;
+          const ts = (typed.timestamp as { toMillis?: () => number })?.toMillis?.() || new Date(typed.timestamp as string).getTime();
+          onTypingEvent(key, typed.name, now - ts < 6000, ts);
+        }
       });
-    });
+    };
+
+    setupSubscriptionRef.current = subscriptionFn;
   }, [chatId, user]);
 
   useEffect(() => {
+    if (!chatId || !user) return;
+
     const userNameCache = new Map<string, string>();
     const fetchUserName = async (userId: string): Promise<string | undefined> => {
       if (userNameCache.has(userId)) return userNameCache.get(userId);
@@ -102,13 +119,15 @@ export function useTyping(chatId: string | undefined) {
       });
     };
 
-    const unsub = setupSubscription(handleTypingEvent, fetchUserName);
+    const unsub = setupSubscriptionRef.current
+      ? setupSubscriptionRef.current(handleTypingEvent, fetchUserName)
+      : () => {};
 
     return () => {
       unsub();
       setTypingState({});
     };
-  }, [setupSubscription]);
+  }, [chatId, user]);
 
   useEffect(() => {
     if (!chatId || !user) return;
@@ -117,7 +136,7 @@ export function useTyping(chatId: string | undefined) {
         const now = Date.now();
         let changed = false;
         const next = { ...prev };
-        for (const id in next) {
+        for (const id of Object.keys(next)) {
           if (now - next[id].timestamp >= 6000) {
             delete next[id];
             changed = true;
@@ -145,7 +164,7 @@ export function useTyping(chatId: string | undefined) {
       try {
         await supabase.from('typing').upsert(payload, { onConflict: 'id' });
       } catch (err) {
-if (isColumnMissingError(err)) {
+        if (isColumnMissingError(err)) {
           const rest = { ...payload };
           delete (rest as { user_name?: string }).user_name;
           await supabase.from('typing').upsert(rest, { onConflict: 'id' });
@@ -196,7 +215,7 @@ if (isColumnMissingError(err)) {
 
   const typingUsers = useMemo(() => {
     const result: Record<string, string> = {};
-    for (const id in typingState) {
+    for (const id of Object.keys(typingState)) {
       result[id] = typingState[id].name;
     }
     return result;

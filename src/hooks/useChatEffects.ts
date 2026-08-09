@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef, useLayoutEffect } from 'react';
 import type { RefObject } from 'react';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useChatStore } from '@/store/useChatStore';
@@ -32,35 +32,48 @@ export function useChatEffects(
   const { subscribeMessages, markAsRead, chats } = useChatStore();
   const { getFriendStatus } = useFriendStore();
 
+  // Stable refs to avoid re-subscription loops
+  const subscribeMessagesRef = useRef(subscribeMessages);
+  const markAsReadRef = useRef(markAsRead);
+  useLayoutEffect(() => {
+    subscribeMessagesRef.current = subscribeMessages;
+    markAsReadRef.current = markAsRead;
+  });
+
   // ── Single canonical subscription + initial markAsRead ──────────────────
   useEffect(() => {
     if (!currentUser?.id || !chatId) return;
-    const unsubscribe = subscribeMessages(chatId);
-    markAsRead(chatId, currentUser.id);
+    const unsubscribe = subscribeMessagesRef.current(chatId);
+    markAsReadRef.current(chatId, currentUser.id);
     return () => unsubscribe();
-  }, [chatId, currentUser?.id, subscribeMessages, markAsRead]);
+  }, [chatId, currentUser?.id]);
 
   // ── Re-mark as read when window regains focus or page becomes visible ────
   useEffect(() => {
     if (!currentUser?.id || !chatId) return;
-    const onFocus = () => markAsRead(chatId, currentUser.id);
+    const onFocus = () => markAsReadRef.current(chatId, currentUser.id);
+    const onVisibility = () => { if (document.visibilityState === 'visible') markAsReadRef.current(chatId, currentUser.id); };
     window.addEventListener('focus', onFocus);
-    document.addEventListener('visibilitychange', onFocus);
+    document.addEventListener('visibilitychange', onVisibility);
     return () => {
       window.removeEventListener('focus', onFocus);
-      document.removeEventListener('visibilitychange', onFocus);
+      document.removeEventListener('visibilitychange', onVisibility);
     };
-  }, [chatId, currentUser?.id, markAsRead]);
+  }, [chatId, currentUser?.id]);
 
-  // ── Friend status ────────────────────────────────────────────────────────
+// ── Friend status ────────────────────────────────────────────────────────
+  const getFriendStatusRef = useRef(getFriendStatus);
+  useLayoutEffect(() => {
+    getFriendStatusRef.current = getFriendStatus;
+  });
   useEffect(() => {
     if (!currentUser?.id || !userId) return;
     let cancelled = false;
-    getFriendStatus(currentUser.id, userId).then((status) => {
+getFriendStatusRef.current(currentUser.id, userId).then((status) => {
       if (!cancelled) setFriendStatus(status);
     });
     return () => { cancelled = true; };
-  }, [currentUser?.id, userId, getFriendStatus, setFriendStatus]);
+  }, [currentUser?.id, userId, setFriendStatus]);
 
   // ── Draft persistence (reads from React state ref, not DOM) ─────────────
   useEffect(() => {
@@ -86,17 +99,17 @@ export function useChatEffects(
 
 const supabase = isSupabaseConfigured() ? getSupabase() : null;
     if (supabase) {
-      // Initial fetch
+// Initial fetch
       void (async () => {
         try {
           const { data } = await supabase
             .from('users')
-            .select('last_seen, online')
+            .select('status, last_seen')
             .eq('id', userId)
             .single();
           if (!data) return;
-          const d = data as { last_seen?: string; online?: boolean };
-          setLastSeen(d.online ? 'online' : d.last_seen ? formatLastSeen(new Date(d.last_seen)) : null);
+          const d = data as { status?: string; last_seen?: string };
+          setLastSeen(d.status === 'online' ? 'online' : d.last_seen ? formatLastSeen(new Date(d.last_seen)) : null);
         } catch {
           /* ignore */
         }
@@ -113,7 +126,7 @@ const supabase = isSupabaseConfigured() ? getSupabase() : null;
         }, (payload) => {
           const d = payload.new as Record<string, unknown>;
           setLastSeen(
-            d.online ? 'online' : d.last_seen ? formatLastSeen(new Date(d.last_seen as string)) : null
+            d.status === 'online' ? 'online' : d.last_seen ? formatLastSeen(new Date(d.last_seen as string)) : null
           );
         })
         .subscribe();

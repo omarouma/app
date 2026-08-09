@@ -194,8 +194,6 @@ export function useTrackPresence(userId: string | undefined) {
       // partially-torn-down channel from a previous render cycle.
       const channelName = `presence-${TAB_ID}-${myMountId}`;
 
-      // Register ALL callbacks BEFORE calling .subscribe() — Supabase throws
-      // if you call .on() after .subscribe().
       const channel = supabase
         .channel(channelName)
         .on(

@@ -5,7 +5,7 @@ interface ReadReceiptProps {
   isMe: boolean;
   timestamp: Date;
   read: boolean | undefined;
-  deliveryStatus?: 'sending' | 'sent' | 'delivered' | 'read' | 'failed';
+  deliveryStatus?: 'pending' | 'sending' | 'sent' | 'delivered' | 'read' | 'failed';
   edited?: boolean;
 }
 
@@ -22,8 +22,9 @@ export const ReadReceipt = memo(function ReadReceipt({ isMe, timestamp, read, de
   // Enhanced delivery status rendering
   const status = deliveryStatus ?? (read ? 'read' : 'sent');
 
-if (deliveryStatus) {
+  if (deliveryStatus) {
     switch (status) {
+      case 'pending':
       case 'sending':
         return (
           <div className="text-[10px] mt-1 text-right text-white/70">

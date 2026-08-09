@@ -14,7 +14,6 @@ import { useContacts } from '@/hooks/useContacts';
 import EmptyState from '@/components/EmptyState';
 import LoadingSkeleton from '@/components/LoadingSkeleton';
 import { getDefaultAvatar, sanitizeMediaUrl, formatTime } from '@/lib/utils';
-import { getFunctions, httpsCallable } from 'firebase/functions';
 import { toast } from 'sonner';
 import type { User } from '@/types';
 
@@ -130,17 +129,27 @@ export default function ContactsPage() {
     setLoadingContactMatch(true);
 
     try {
-      const functions = getFunctions();
-      const matchContacts = httpsCallable(functions, 'matchContacts');
-      const result = await matchContacts({ contacts: phoneContacts });
-      const { matchedUsers } = result.data as { matchedUsers: User[] };
+      const { queryCollection, where, limit: qLimit } = await import('@/lib/firestore');
+      const emails = phoneContacts.map(c => c.email).filter(Boolean) as string[];
+      const phones = phoneContacts.map(c => c.phone?.replace(/[^\d]/g, '')).filter(Boolean) as string[];
 
-      const matches = matchedUsers.filter((u: User) => u.id !== userId);
+      const foundUsers: User[] = [];
+      await Promise.all([
+        ...emails.slice(0, 10).map(async (email) => {
+          const data = await queryCollection('users', [where('email', '==', email), qLimit(1)]);
+          foundUsers.push(...(data as unknown as User[]));
+        }),
+        ...phones.slice(0, 10).map(async (phone) => {
+          const data = await queryCollection('users', [where('phone', '>=', phone), where('phone', '<=', phone + '\uf8ff'), qLimit(5)]);
+          foundUsers.push(...(data as unknown as User[]));
+        }),
+      ]);
 
+      const unique = Array.from(new Map(foundUsers.map(u => [u.id, u])).values()).filter(u => u.id !== userId);
       const matched: MatchedContact[] = [];
       const matchedContactIds = new Set<string>();
 
-      matches.forEach((u: User) => {
+      unique.forEach((u) => {
         const userEmail = u.email || '';
         const userPhone = (u.phone || '').replace(/[^\d]/g, '');
         const matchingContact = phoneContacts.find((c) =>
@@ -159,8 +168,7 @@ export default function ContactsPage() {
       if (matched.length > 0) {
         toast.success(`Found ${matched.length} contact${matched.length > 1 ? 's' : ''} on GaGa Chat!`);
       }
-    } catch (err) {
-      console.error('[Contacts] Match error', err);
+    } catch {
       toast.error('Could not match contacts.');
     }
 
@@ -369,7 +377,7 @@ export default function ContactsPage() {
       </div>
 
       <div
-        className="flex-1 overflow-y-auto scrollbar-hide px-4 pb-20"
+        className="flex-1 overflow-y-auto scrollbar-hide px-4 pb-nav"
         onTouchStart={(e) => {
           const el = e.currentTarget;
           if (el.scrollTop <= 0) {

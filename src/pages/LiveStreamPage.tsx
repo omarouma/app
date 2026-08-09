@@ -10,10 +10,17 @@ import { useAuthStore } from '@/store/useAuthStore';
 import { useLiveStore } from '@/store/useLiveStore';
 import { useWalletStore } from '@/store/useWalletStore';
 import { getDefaultAvatar } from '@/lib/utils';
-import { getDocById, updateDocById, runDbTransaction, COLLECTIONS } from '@/lib/firestore';
+import { getDocById, updateDocById, runDbTransaction, COLLECTIONS, subscribeToSubcollection } from '@/lib/firestore';
 import { useLiveStreamRTC } from '@/hooks/useLiveStreamRTC';
 import { toast } from 'sonner';
 import type { LiveStream, LiveComment, LiveReactions } from '@/types';
+import { orderBy } from '@/lib/firestore';
+
+function toDate(raw: unknown): Date {
+  if (raw instanceof Date) return raw;
+  if (raw) return new Date(raw as string | number | Date);
+  return new Date();
+}
 
 /* Gift configuration */
 const GIFT_CONFIG: { type: 'rose' | 'heart' | 'star' | 'crown' | 'diamond' | 'rocket'; label: string; cost: number; icon: React.ReactNode }[] = [
@@ -137,6 +144,30 @@ export default function LiveStreamPage() {
   useEffect(() => {
     if (rtc.error) toast.error(rtc.error);
   }, [rtc.error]);
+
+  // Subscribe to real-time comments
+  useEffect(() => {
+    if (!streamId) return;
+    const unsub = subscribeToSubcollection(
+      COLLECTIONS.LIVE_STREAMS,
+      streamId,
+      'comments',
+      [orderBy('timestamp', 'desc')],
+      (data) => {
+        const comments = (data || []).map((d: any) => ({
+          id: d.id,
+          userId: d.userId,
+          content: d.content || '',
+          timestamp: toDate(d.createdAt ?? d.timestamp),
+          userName: d.userName || '',
+          isPinned: d.isPinned || false,
+          isModerator: d.isModerator || false,
+        }));
+        setComments(comments);
+      }
+    );
+    return () => unsub();
+  }, [streamId]);
 
   /* Responsive desktop check */
   useEffect(() => {

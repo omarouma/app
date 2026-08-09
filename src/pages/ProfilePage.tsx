@@ -4,12 +4,12 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   ArrowLeft, Settings, Edit3, Share2, Camera, Check, X,
   MapPin, Link2, Mail, Phone, Users, Heart, Image, BadgeCheck,
-  Copy, QrCode, Loader,
+  Copy, QrCode, Loader, MoreHorizontal,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useFriendStore } from '@/store/useFriendStore';
 import { buildGagaChatWebUrl, getDefaultAvatar, sanitizeMediaUrl } from '@/lib/utils';
-import { isFirestoreAvailable, COLLECTIONS, updateDocById, getDocById } from '@/lib/firestore';
+import { isFirestoreAvailable, COLLECTIONS, updateDocById, subscribeToDoc } from '@/lib/firestore';
 import { toast } from 'sonner';
 import type { User } from '@/types';
 
@@ -29,10 +29,12 @@ export default function ProfilePage() {
     if (friend) { setOtherUser(friend as User); return; }
     if (!isFirestoreAvailable()) return;
     setLoadingOther(true);
-    getDocById(COLLECTIONS.USERS, paramUserId)
-      .then(data => { if (data) setOtherUser(data as User); })
-      .catch(() => {})
-      .finally(() => setLoadingOther(false));
+    let resolved = false;
+    const unsub = subscribeToDoc(COLLECTIONS.USERS, paramUserId, (data) => {
+      if (data) setOtherUser(data as User);
+      if (!resolved) { resolved = true; setLoadingOther(false); }
+    });
+    return () => { unsub(); };
   }, [isOwnProfile, paramUserId, friends]);
 
   const displayUser = isOwnProfile ? user : otherUser;
@@ -44,10 +46,13 @@ export default function ProfilePage() {
   const [editLocation, setEditLocation] = useState(user?.location || '');
   const [editWebsite, setEditWebsite] = useState(user?.website || '');
   const [saving, setSaving] = useState(false);
-  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [uploadingCover, setUploadingCover] = useState(false);
+  const [userPostsCount, setUserPostsCount] = useState(0);
   const [showShareSheet, setShowShareSheet] = useState(false);
 
   const avatarInputRef = useRef<HTMLInputElement>(null);
+  const coverInputRef = useRef<HTMLInputElement>(null);
   const profileUrl = displayUser ? buildGagaChatWebUrl(displayUser.id) : '';
 
   const startEdit = useCallback(() => {
@@ -100,6 +105,47 @@ export default function ProfilePage() {
     }
   }, [user, setUser]);
 
+const handleCoverUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !user?.id) return;
+    if (file.size > 10 * 1024 * 1024) { toast.error('Image must be under 10MB'); return; }
+    setUploadingCover(true);
+    try {
+      const { uploadMediaBlob } = await import('@/lib/storage');
+      const url = await uploadMediaBlob({ kind: 'posts', file, mimeType: file.type });
+      await updateDocById(COLLECTIONS.USERS, user.id, { coverImage: url });
+      setUser({ ...user, coverImage: url });
+      toast.success('Cover image updated');
+    } catch {
+      toast.error('Failed to upload cover image');
+    } finally {
+      setUploadingCover(false);
+      if (coverInputRef.current) coverInputRef.current.value = '';
+    }
+  }, [user, setUser]);
+
+  // Load actual post count for the profile owner
+  useEffect(() => {
+    if (!displayUser?.id) return;
+    let cancelled = false;
+    const loadCount = async () => {
+      try {
+        const { getSupabaseSafe } = await import('@/lib/supabase');
+        const supabase = getSupabaseSafe();
+        if (!supabase) return;
+        const { count } = await supabase
+          .from('posts')
+          .select('id', { count: 'exact', head: true })
+          .eq('user_id', displayUser.id);
+        if (!cancelled && typeof count === 'number') setUserPostsCount(count);
+      } catch {
+        // Non-fatal — keep count at 0 if query fails
+      }
+    };
+    loadCount();
+    return () => { cancelled = true; };
+  }, [displayUser?.id]);
+
   const handleCopyLink = useCallback(() => {
     navigator.clipboard.writeText(profileUrl);
     toast.success('Profile link copied');
@@ -115,9 +161,9 @@ export default function ProfilePage() {
     setShowShareSheet(false);
   }, [displayUser?.name, profileUrl, handleCopyLink]);
 
-  const stats = [
+const stats = [
     { label: 'Friends', value: user?.friends?.length ?? friends.length },
-    { label: 'Posts', value: 0 },
+    { label: 'Posts', value: userPostsCount },
     { label: 'Followers', value: user?.followers?.length ?? 0 },
     { label: 'Following', value: user?.following?.length ?? 0 },
   ];
@@ -151,23 +197,71 @@ export default function ProfilePage() {
         </h1>
         <div className="flex items-center gap-1">
           {isOwnProfile && (
-            <button
-              type="button"
-              onClick={() => navigate('/settings')}
-              className="p-2 rounded-full hover:bg-[#F5F5F5] transition-colors"
-              aria-label="Open settings"
-            >
-              <Settings size={20} className="text-[#8D8D8D]" />
-            </button>
+            <>
+              <button
+                type="button"
+                onClick={() => navigate('/more')}
+                className="p-2 rounded-full hover:bg-[#F5F5F5] transition-colors"
+                aria-label="More options"
+              >
+                <MoreHorizontal size={20} className="text-[#8D8D8D]" />
+              </button>
+              <button
+                type="button"
+                onClick={() => navigate('/settings')}
+                className="p-2 rounded-full hover:bg-[#F5F5F5] transition-colors"
+                aria-label="Open settings"
+              >
+                <Settings size={20} className="text-[#8D8D8D]" />
+              </button>
+            </>
           )}
         </div>
       </div>
 
-      <div className="max-w-2xl mx-auto px-4 py-4 space-y-3">
+<div className="max-w-2xl mx-auto px-4 py-4 space-y-3 pb-nav">
         {/* Avatar + Name card */}
-        <div className="bg-white rounded-2xl p-5 shadow-sm">
-          <div className="flex flex-col items-center">
-            {/* Avatar with stories ring + upload */}
+        <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
+          {/* Cover image */}
+          <div className="relative h-32 sm:h-40 w-full bg-gradient-to-r from-[#00C300]/20 to-[#2196F3]/20">
+            {sanitizeMediaUrl(displayUser.coverImage) && (
+              <img
+                src={sanitizeMediaUrl(displayUser.coverImage)}
+                alt={`${displayUser.name}'s cover`}
+                className="w-full h-full object-cover"
+              />
+            )}
+            {isOwnProfile && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => coverInputRef.current?.click()}
+                  className="absolute bottom-2 right-2 flex items-center gap-1.5 px-3 py-1.5 bg-black/50 backdrop-blur-sm text-white rounded-full text-xs font-medium hover:bg-black/70 transition-colors"
+                  aria-label="Change cover image"
+                >
+                  <Camera size={14} />
+                  {uploadingCover ? 'Uploading…' : (displayUser.coverImage ? 'Change' : 'Add')}
+                </button>
+                <input
+                  ref={coverInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleCoverUpload}
+                  aria-label="Upload cover image"
+                />
+              </>
+            )}
+            {uploadingCover && (
+              <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
+                <div className="w-7 h-7 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              </div>
+            )}
+          </div>
+
+          <div className="p-5">
+            <div className="flex flex-col items-center">
+              {/* Avatar with stories ring + upload */}
             <div className="relative mb-3">
               <div className={`p-[3px] rounded-full ${displayUser.isPremium ? 'bg-gradient-to-tr from-[#FFD700] via-[#FF9800] to-[#FF4081]' : 'bg-gradient-to-tr from-[#00C300] to-[#00FF00]'}`}>
                 <div className="p-[2px] bg-white rounded-full">
@@ -340,9 +434,10 @@ export default function ProfilePage() {
                       <Share2 size={14} /> Share
                     </button>
                   </>
-                )}
+)}
               </div>
             )}
+          </div>
           </div>
         </div>
 

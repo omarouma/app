@@ -2,8 +2,8 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Mic, Plus, Search, Users, X,Lock, Globe,
-  TrendingUp,ChevronRight, Radio, Headphones
+  Mic, Plus, Search, Users, X, Lock, Globe,
+  TrendingUp, ChevronRight, Radio, Headphones
 } from 'lucide-react';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useVoiceRoomStore, type VoiceRoom } from '@/store/useVoiceRoomStore';
@@ -113,11 +113,10 @@ export default function VoiceRoomsPage() {
             key={cat}
             type="button"
             onClick={() => setActiveCategory(cat)}
-            className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${
-              activeCategory === cat
+            className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${activeCategory === cat
                 ? 'bg-[#00C300] text-black'
                 : 'bg-[#1a1a1a] text-[#8D8D8D] hover:text-white'
-            }`}
+              }`}
           >
             {cat}
           </button>
@@ -266,11 +265,10 @@ export default function VoiceRoomsPage() {
                         key={cat}
                         type="button"
                         onClick={() => setNewRoomCategory(cat)}
-                        className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
-                          newRoomCategory === cat
+                        className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${newRoomCategory === cat
                             ? 'bg-[#00C300] text-black'
                             : 'bg-[#2a2a2a] text-[#8D8D8D]'
-                        }`}
+                          }`}
                       >
                         {cat}
                       </button>
@@ -281,9 +279,8 @@ export default function VoiceRoomsPage() {
                   <button
                     type="button"
                     onClick={() => setIsPrivate(!isPrivate)}
-                    className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium transition-colors ${
-                      isPrivate ? 'bg-[#FF4081]/20 text-[#FF4081]' : 'bg-[#2a2a2a] text-[#8D8D8D]'
-                    }`}
+                    className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium transition-colors ${isPrivate ? 'bg-[#FF4081]/20 text-[#FF4081]' : 'bg-[#2a2a2a] text-[#8D8D8D]'
+                      }`}
                   >
                     {isPrivate ? <Lock size={12} /> : <Globe size={12} />}
                     {isPrivate ? 'Private' : 'Public'}

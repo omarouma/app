@@ -2,10 +2,11 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useEnhancedTimelineStore } from '@/store/useEnhancedTimelineStore';
+import { uploadMediaBlob } from '@/lib/storage';
 import { toast } from 'sonner';
 import {
   Image, MapPin, BarChart2, Calendar, EyeOff, X,
-  Smile, Send, Globe, Lock, Users, UserCheck, ChevronDown, Plus, Minus, Clock
+  Smile, Send, Globe, Lock, Users, UserCheck, ChevronDown, Plus, Minus, Clock, Loader
 } from 'lucide-react';
 
 interface CreatePostModalProps {
@@ -38,13 +39,14 @@ const EMOJIS = [
 ];
 
 const MAX_IMAGES = 10;
-const MAX_FILE_SIZE_MB = 10;
+const MAX_IMAGE_SIZE_MB = 10; // matches MAX_IMAGE_SIZE in storage.ts
+const MAX_VIDEO_SIZE_MB = 50;  // matches MAX_VIDEO_SIZE in storage.ts
 const MAX_CHARS = 2200;
 
 function getInitialState() {
   return {
     content: '',
-    images: [] as { id: string; dataUrl: string }[],
+    images: [] as { id: string; dataUrl: string; file: File }[],
     privacy: 'public' as 'public' | 'friends' | 'followers' | 'private' | 'close_friends',
     showPrivacy: false,
     showPoll: false,
@@ -56,8 +58,9 @@ function getInitialState() {
     contentWarning: false,
     scheduledDate: '',
     showSchedule: false,
-    hashtags: [] as string[],
+hashtags: [] as string[],
     isPosting: false,
+    showSuccess: false,
   };
 }
 
@@ -65,8 +68,8 @@ export default function CreatePostModal({ isOpen, onClose, onPost }: CreatePostM
   const [state, setState] = useState(getInitialState);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const { user } = useAuthStore();
-  const { createPost } = useEnhancedTimelineStore();
+const { user } = useAuthStore();
+  const { createPost, refreshPosts } = useEnhancedTimelineStore();
 
   // Reset state when modal opens/closes
   useEffect(() => {
@@ -108,17 +111,18 @@ export default function CreatePostModal({ isOpen, onClose, onPost }: CreatePostM
     const toProcess = files.slice(0, remaining);
     let rejected = 0;
 
-    toProcess.forEach((file) => {
+toProcess.forEach((file) => {
       if (!file.type.startsWith('image/') && !file.type.startsWith('video/')) {
         rejected++;
         return;
       }
-      if (file.size > MAX_FILE_SIZE_MB * 1024 * 1024) {
+      const limitMB = file.type.startsWith('image/') ? MAX_IMAGE_SIZE_MB : MAX_VIDEO_SIZE_MB;
+      if (file.size > limitMB * 1024 * 1024) {
         rejected++;
-        toast.error(`"${file.name}" exceeds ${MAX_FILE_SIZE_MB}MB limit`);
+        toast.error(`"${file.name}" exceeds ${limitMB}MB limit`);
         return;
       }
-      const reader = new FileReader();
+const reader = new FileReader();
       reader.onload = (ev) => {
         if (ev.target?.result) {
           setState((prev) => ({
@@ -126,6 +130,7 @@ export default function CreatePostModal({ isOpen, onClose, onPost }: CreatePostM
             images: [...prev.images, {
               id: `${Date.now()}_${Math.random().toString(36).slice(2)}`,
               dataUrl: ev.target!.result as string,
+              file,
             }],
           }));
         }
@@ -213,7 +218,7 @@ export default function CreatePostModal({ isOpen, onClose, onPost }: CreatePostM
       }
     }
 
-    set('isPosting', true);
+set('isPosting', true);
     try {
       const pollData = state.showPoll
         ? {
@@ -223,10 +228,17 @@ export default function CreatePostModal({ isOpen, onClose, onPost }: CreatePostM
           }
         : undefined;
 
+      // Upload media files to storage first, then reference the returned HTTPS URLs.
+      const mediaUrls = await Promise.all(
+        state.images.map((img) =>
+          uploadMediaBlob({ kind: 'posts', file: img.file, mimeType: img.file.type })
+        )
+      );
+
       await createPost(
         user.id,
         state.content,
-        state.images.map((img) => img.dataUrl),
+        mediaUrls,
         state.privacy,
         pollData,
         state.location,
@@ -235,9 +247,22 @@ export default function CreatePostModal({ isOpen, onClose, onPost }: CreatePostM
         state.hashtags,
       );
 
+// Refresh the feed so the newly created post appears at the top in
+      // real-time, complementing the optimistic insert done in the store.
+      void refreshPosts();
+
       toast.success(state.scheduledDate ? 'Post scheduled!' : 'Post created!');
-      onPost?.();
-      onClose();
+      // Show a brief success animation before closing the modal.
+      if (!state.scheduledDate) {
+        set('showSuccess', true);
+        setTimeout(() => {
+          onPost?.();
+          onClose();
+        }, 700);
+      } else {
+        onPost?.();
+        onClose();
+      }
     } catch {
       toast.error('Failed to create post');
       set('isPosting', false);
@@ -592,7 +617,7 @@ export default function CreatePostModal({ isOpen, onClose, onPost }: CreatePostM
             </button>
           </div>
 
-          {/* Post button */}
+{/* Post button */}
           <div className="px-4 pb-4">
             <button
               type="button"
@@ -613,6 +638,30 @@ export default function CreatePostModal({ isOpen, onClose, onPost }: CreatePostM
               )}
             </button>
           </div>
+
+          {/* Success overlay */}
+          <AnimatePresence>
+            {state.showSuccess && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="absolute inset-0 z-20 bg-white/95 flex flex-col items-center justify-center gap-3 rounded-2xl"
+              >
+                <motion.div
+                  initial={{ scale: 0.5, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  transition={{ type: 'spring', stiffness: 260, damping: 18 }}
+                  className="w-16 h-16 rounded-full bg-[#00C300] flex items-center justify-center shadow-lg shadow-green-500/30"
+                >
+                  <svg viewBox="0 0 24 24" fill="none" className="w-8 h-8 text-white">
+                    <path d="M5 13l4 4L19 7" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </motion.div>
+                <p className="text-gray-900 font-semibold">Post published!</p>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </motion.div>
       </motion.div>
     </AnimatePresence>

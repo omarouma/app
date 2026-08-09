@@ -53,7 +53,7 @@ export function initFirebase() {
     if (typeof window !== 'undefined') {
       try { auth = getAuth(app); } catch { /* noop */ }
       try { db = getFirestore(app); } catch { /* noop */ }
-      
+
       // Only initialize Analytics/Performance in production
       if (env.PROD) {
         try { analytics = getAnalytics(app); } catch { /* noop */ }
@@ -135,15 +135,15 @@ export async function getFcmToken(): Promise<string | null> {
 /** Subscribe to foreground FCM messages */
 export function onForegroundMessage(callback: (payload: { notification?: { title?: string; body?: string }; data?: Record<string, string> }) => void) {
   const msg = getFirebaseMessaging();
-  if (!msg) return () => {};
+  if (!msg) return () => { };
 
   const unsubscribe = onMessage(msg, (payload) => {
     callback({
       notification: payload.notification
         ? {
-            title: payload.notification.title,
-            body: payload.notification.body,
-          }
+          title: payload.notification.title,
+          body: payload.notification.body,
+        }
         : undefined,
       data: payload.data as Record<string, string> | undefined,
     });

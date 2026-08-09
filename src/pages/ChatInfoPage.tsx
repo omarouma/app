@@ -116,15 +116,15 @@ export default function ChatInfoPage() {
 
   const mediaMessages = useMemo(() =>
     messages.filter(m => m.type === 'image' || m.type === 'video'),
-  [messages]);
+    [messages]);
 
   const fileMessages = useMemo(() =>
     messages.filter(m => m.type === 'file'),
-  [messages]);
+    [messages]);
 
   const linkMessages = useMemo(() =>
     messages.filter(m => m.type === 'text' && /https?:\/\/\S+/.test(m.content)),
-  [messages]);
+    [messages]);
 
   const handleToggleMute = () => {
     if (!chatId || !currentUser) return;
@@ -322,11 +322,10 @@ export default function ChatInfoPage() {
             <button
               type="button"
               onClick={handleToggleFavorite}
-              className={`mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
-                isFavorited
-                  ? 'bg-yellow-100 text-yellow-700 hover:bg-yellow-200'
-                  : 'bg-[#F5F5F5] text-[#8D8D8D] hover:bg-[#EBEBEB]'
-              }`}
+              className={`mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${isFavorited
+                ? 'bg-yellow-100 text-yellow-700 hover:bg-yellow-200'
+                : 'bg-[#F5F5F5] text-[#8D8D8D] hover:bg-[#EBEBEB]'
+                }`}
             >
               <Star size={14} className={isFavorited ? 'fill-yellow-500 text-yellow-500' : ''} />
               {isFavorited ? 'Favorited' : 'Add to Favorites'}
@@ -402,9 +401,8 @@ export default function ChatInfoPage() {
             ]).map(t => (
               <button type="button" key={t.key}
                 onClick={() => setActiveMediaTab(t.key)}
-                className={`flex-1 flex items-center justify-center gap-1.5 py-3 text-xs font-medium transition-colors ${
-                  activeMediaTab === t.key ? 'text-[#00C300] border-b-2 border-[#00C300]' : 'text-[#8D8D8D]'
-                }`}
+                className={`flex-1 flex items-center justify-center gap-1.5 py-3 text-xs font-medium transition-colors ${activeMediaTab === t.key ? 'text-[#00C300] border-b-2 border-[#00C300]' : 'text-[#8D8D8D]'
+                  }`}
               >
                 <t.icon size={14} /> {t.label} ({t.count})
               </button>
@@ -523,14 +521,14 @@ export default function ChatInfoPage() {
               </div>
             </button>
             <button type="button" onClick={() => {
-                if (chat?.archived) {
-                  unarchiveChat(chatId!);
-                  toast.success('Chat unarchived');
-                } else {
-                  archiveChat(chatId!);
-                  toast.success('Chat archived');
-                }
-              }}
+              if (chat?.archived) {
+                unarchiveChat(chatId!);
+                toast.success('Chat unarchived');
+              } else {
+                archiveChat(chatId!);
+                toast.success('Chat archived');
+              }
+            }}
               className="w-full flex items-center gap-3 p-4 hover:bg-[#F5F5F5] transition-colors text-left"
             >
               {chat?.archived ? <RotateCcw size={18} className="text-[#00C300]" /> : <Archive size={18} className="text-[#8D8D8D]" />}
@@ -617,9 +615,8 @@ export default function ChatInfoPage() {
                     type="button"
                     key={opt.value}
                     onClick={() => handleSetDisappearing(opt.value)}
-                    className={`w-full flex items-center gap-3 p-3 rounded-xl text-left transition-colors ${
-                      disappearingTimer === opt.value ? 'bg-[#00C300]/10 border border-[#00C300]/30' : 'hover:bg-[#F5F5F5]'
-                    }`}
+                    className={`w-full flex items-center gap-3 p-3 rounded-xl text-left transition-colors ${disappearingTimer === opt.value ? 'bg-[#00C300]/10 border border-[#00C300]/30' : 'hover:bg-[#F5F5F5]'
+                      }`}
                   >
                     <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${disappearingTimer === opt.value ? 'border-[#00C300]' : 'border-[#C7C7CC]'}`}>
                       {disappearingTimer === opt.value && <div className="w-2.5 h-2.5 rounded-full bg-[#00C300]" />}

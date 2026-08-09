@@ -93,7 +93,7 @@ export const ChatListItem = memo(function ChatListItem({
             {chat.pinned && <Pin size={11} className="text-gray-400 shrink-0" />}
             <p className="text-sm font-semibold text-gray-900 truncate">{name}</p>
           </div>
-{chat.updatedAt && (
+          {chat.updatedAt && (
             <span className="text-[11px] text-gray-400 shrink-0">
               {formatTime(chat.updatedAt)}
             </span>

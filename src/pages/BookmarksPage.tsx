@@ -9,7 +9,7 @@ import { getDefaultAvatar } from '@/lib/utils';
 export default function BookmarksPage() {
   const navigate = useNavigate();
   const { user } = useAuthStore();
-const { savedPosts, loading: loadingSaved, getSavedPosts, bookmarkCollections, createCollection } = useEnhancedTimelineStore();
+  const { savedPosts, loading: loadingSaved, subscribeSavedPosts, bookmarkCollections, subscribeBookmarkCollections, createCollection } = useEnhancedTimelineStore();
   const [search, setSearch] = useState('');
   const [activeCollection, setActiveCollection] = useState<string | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -17,8 +17,11 @@ const { savedPosts, loading: loadingSaved, getSavedPosts, bookmarkCollections, c
   const [sortBy, setSortBy] = useState<'newest' | 'oldest' | 'most_liked'>('newest');
 
   useEffect(() => {
-    if (user?.id) getSavedPosts(user.id);
-  }, [user?.id, getSavedPosts]);
+    if (!user?.id) return;
+    const unsubSaved = subscribeSavedPosts(user.id);
+    const unsubColl = subscribeBookmarkCollections(user.id);
+    return () => { unsubSaved(); unsubColl(); };
+  }, [user?.id, subscribeSavedPosts, subscribeBookmarkCollections]);
 
   const filtered = savedPosts.filter((p) => {
     const match = search.toLowerCase();

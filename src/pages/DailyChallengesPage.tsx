@@ -20,14 +20,15 @@ const BADGE_ICONS = { Crown, Star, Medal, Award, Flame, Zap };
 
 export default function DailyChallengesPage() {
   const { user } = useAuthStore();
-  const { challenges, userStats, loading, streakClaimed, loadDailyChallenges, claimReward, checkInDaily } = useChallengeStore();
+  const { challenges, userStats, loading, streakClaimed, loadDailyChallenges, subscribeDailyChallenges, claimReward, checkInDaily } = useChallengeStore();
   const [activeTab, setActiveTab] = useState<'today' | 'leaderboard' | 'badges'>('today');
 
   useEffect(() => {
-    if (user?.id) {
-      loadDailyChallenges(user.id);
-    }
-  }, [user?.id, loadDailyChallenges]);
+    if (!user?.id) return;
+    loadDailyChallenges(user.id);
+    const unsub = subscribeDailyChallenges(user.id);
+    return () => unsub();
+  }, [user?.id, loadDailyChallenges, subscribeDailyChallenges]);
 
   const handleClaim = async (challengeId: string) => {
     if (!user?.id) return;

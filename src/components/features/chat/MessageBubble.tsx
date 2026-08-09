@@ -53,13 +53,14 @@ const DeliveryStatusIcon = memo(function DeliveryStatusIcon({
   isMe,
   timestamp,
 }: {
-  status?: 'sending' | 'sent' | 'delivered' | 'read' | 'failed';
+  status?: 'pending' | 'sending' | 'sent' | 'delivered' | 'read' | 'failed';
   isMe: boolean;
   timestamp: Date;
 }) {
   if (!isMe) return null;
 
   switch (status) {
+    case 'pending':
     case 'sending':
       return (
         <span className="inline-flex items-center gap-0.5 text-[10px] text-[#8D8D8D]">
@@ -321,13 +322,11 @@ export const MessageBubble = memo(function MessageBubble(props: MessageBubblePro
                 onDoubleClick={() => onDoubleClick(msg)}
                 onContextMenu={(e) => onContextMenu(e, msg)}
                 onClick={() => onReactionToggle(msg.id)}
-                className={`inline-block px-3.5 py-2.5 rounded-2xl text-[15px] leading-relaxed cursor-pointer active:scale-[0.98] transition-transform ${
-                  isSearchMatch ? 'ring-2 ring-[#FFD700]' : ''
-                } ${
-                  isMe
+                className={`inline-block px-3.5 py-2.5 rounded-2xl text-[15px] leading-relaxed cursor-pointer active:scale-[0.98] transition-transform ${isSearchMatch ? 'ring-2 ring-[#FFD700]' : ''
+                  } ${isMe
                     ? 'bg-[#00C300] text-white rounded-br-sm shadow-[0_1px_2px_rgba(0,0,0,0.12)]'
                     : 'bg-white text-[#111111] rounded-bl-sm shadow-[0_1px_3px_rgba(0,0,0,0.08)]'
-                }`}
+                  }`}
               >
                 <p className="whitespace-pre-wrap break-words">{msg.content}</p>
               </div>
@@ -374,9 +373,8 @@ export const MessageBubble = memo(function MessageBubble(props: MessageBubblePro
 
         {/* Delivery Status + Timestamp */}
         <div
-          className={`flex items-center gap-1 mt-1 ${
-            isMe ? 'justify-end' : 'justify-start'
-          }`}
+          className={`flex items-center gap-1 mt-1 ${isMe ? 'justify-end' : 'justify-start'
+            }`}
           onClick={msg.deliveryStatus === 'failed' && onRetry ? () => onRetry(msg) : undefined}
           style={msg.deliveryStatus === 'failed' && onRetry ? { cursor: 'pointer' } : undefined}
         >

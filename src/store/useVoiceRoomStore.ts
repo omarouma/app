@@ -63,12 +63,8 @@ const mapRoom = (d: Record<string, unknown>): VoiceRoom => ({
   speakerIds: (d.speakerIds as string[]) || [],
   coHostIds: (d.coHostIds as string[]) || [],
   isLive: (d.isLive as boolean) ?? true,
-  startedAt: d.startedAt && typeof d.startedAt === 'object' && 'toDate' in d.startedAt
-    ? (d.startedAt as any).toDate()
-    : d.startedAt ? new Date(d.startedAt as string) : new Date(),
-  endedAt: d.endedAt && typeof d.endedAt === 'object' && 'toDate' in d.endedAt
-    ? (d.endedAt as any).toDate()
-    : d.endedAt ? new Date(d.endedAt as string) : undefined,
+  startedAt: d.startedAt ? (d.startedAt instanceof Date ? d.startedAt : new Date(d.startedAt as string)) : new Date(),
+  endedAt: d.endedAt ? (d.endedAt instanceof Date ? d.endedAt : new Date(d.endedAt as string)) : undefined,
   maxParticipants: (d.maxParticipants as number) || 100,
   isPrivate: (d.isPrivate as boolean) || false,
   language: (d.language as string) || 'en',

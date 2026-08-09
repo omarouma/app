@@ -31,7 +31,7 @@ export default function CallsPage() {
   const user = useAuthStore((s) => s.user);
   const { history, loading, subscribeToCallHistory, clearCallHistory, deleteCall } = useCallStore();
   const friends = useFriendStore((s) => s.friends);
-  
+
   const [activeTab, setActiveTab] = useState<'all' | 'missed'>('all');
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -76,11 +76,13 @@ export default function CallsPage() {
   }, [callsWithDetails, activeTab, searchQuery]);
 
   const handleInitiateCall = (type: 'voice' | 'video', userId: string) => {
+    // firestore.ts is a router to the Supabase backend — this check reflects
+    // real backend connectivity (Supabase), not Firestore specifically.
     if (!isFirestoreAvailable()) {
-      toast.error('Connection error. Cannot place calls at the moment.');
+      toast.error('You appear to be offline. Cannot place calls at the moment.');
       return;
     }
-navigate('/call', { state: { userId, mode: type, isOutgoing: true } });
+    navigate('/call', { state: { userId, mode: type, isOutgoing: true } });
   };
 
   const handleDelete = async (callId: string) => {
@@ -154,11 +156,10 @@ navigate('/call', { state: { userId, mode: type, isOutgoing: true } });
             type="button"
             key={tab}
             onClick={() => setActiveTab(tab)}
-            className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-colors tap-scale ${
-              activeTab === tab
+            className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-colors tap-scale ${activeTab === tab
                 ? 'bg-[#00C300] text-white shadow-sm'
                 : 'bg-gray-100 text-gray-600 hover:text-gray-900'
-            }`}
+              }`}
           >
             {tab === 'all' ? 'All' : 'Missed'}
           </button>
@@ -168,7 +169,7 @@ navigate('/call', { state: { userId, mode: type, isOutgoing: true } });
       {/* Call List */}
       <div className="flex-1 overflow-y-auto pb-nav">
         {loading && <LoadingSkeleton count={5} variant="list" />}
-        
+
         {!loading && filteredCalls.length === 0 && (
           <EmptyState
             icon={searchQuery ? Search : PhoneMissed}
@@ -177,8 +178,8 @@ navigate('/call', { state: { userId, mode: type, isOutgoing: true } });
               searchQuery
                 ? `No calls match "${searchQuery}"`
                 : activeTab === 'missed'
-                ? 'You have no missed calls.'
-                : 'Your call log is empty. Start a call from a contact.'
+                  ? 'You have no missed calls.'
+                  : 'Your call log is empty. Start a call from a contact.'
             }
           />
         )}

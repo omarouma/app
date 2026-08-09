@@ -1,6 +1,5 @@
 {
   "recommendations": [
-    "github.vscode-pull-request-github",
-    "ninjatech-ai.ninja-dev"
+    "github.vscode-pull-request-github"
   ]
 }

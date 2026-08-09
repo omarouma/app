@@ -82,7 +82,7 @@ export default function BroadcastListsPage() {
     setSelectedList(null);
   };
 
-const openSendModal = (list: BroadcastList) => {
+  const openSendModal = (list: BroadcastList) => {
     setSelectedList(list);
     setShowSend(true);
   };
@@ -235,9 +235,8 @@ const openSendModal = (list: BroadcastList) => {
                             type="button"
                             key={f.id}
                             onClick={() => toggleFriend(f.id)}
-                            className={`w-full flex items-center gap-3 p-3 rounded-xl transition-colors text-left ${
-                              isSelected ? 'bg-[#00C300]/10 border border-[#00C300]/20' : 'hover:bg-[#F5F5F5]'
-                            }`}
+                            className={`w-full flex items-center gap-3 p-3 rounded-xl transition-colors text-left ${isSelected ? 'bg-[#00C300]/10 border border-[#00C300]/20' : 'hover:bg-[#F5F5F5]'
+                              }`}
                           >
                             <div className="w-10 h-10 rounded-full bg-[#F5F5F5] flex items-center justify-center overflow-hidden shrink-0">
                               {sanitizeMediaUrl(f.avatar) ? (
@@ -250,9 +249,8 @@ const openSendModal = (list: BroadcastList) => {
                               <p className="text-[#111111] text-sm font-medium">{f.name}</p>
                               <p className="text-[#8D8D8D] text-xs">@{f.username}</p>
                             </div>
-                            <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${
-                              isSelected ? 'border-[#00C300] bg-[#00C300]' : 'border-[#C7C7CC]'
-                            }`}>
+                            <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${isSelected ? 'border-[#00C300] bg-[#00C300]' : 'border-[#C7C7CC]'
+                              }`}>
                               {isSelected && <Check size={12} className="text-white" />}
                             </div>
                           </button>

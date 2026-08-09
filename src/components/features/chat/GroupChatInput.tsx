@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import type { Message } from '@/types';
 import { EmojiPicker } from './EmojiPicker';
+import { RecordingWaveform } from './RecordingWaveform';
 
 interface GroupChatInputProps {
     input: string;
@@ -119,11 +120,15 @@ export function GroupChatInput({
                     <button type="button" onClick={handleSend} className="w-10 h-10 flex items-center justify-center bg-[#00C300] rounded-full text-white">
                         <Send size={20} className="ml-0.5" />
                     </button>
-                ) : isRecording ? (
-                    <div className="flex items-center gap-2">
-                        <button type="button" onClick={cancelRecording} className="text-red-500">Cancel</button>
-                        <span>{duration}s</span>
-                        <button type="button" onClick={handleVoiceSend} className="text-green-500">Send</button>
+) : isRecording ? (
+                    <div className="flex-1 flex items-center gap-2 bg-[#F5F5F5] rounded-xl px-3 h-10">
+                        <div className="w-2.5 h-2.5 rounded-full bg-[#FF3B30] animate-pulse shrink-0" />
+                        <RecordingWaveform duration={duration} barColor="#00C300" />
+                        <span className="text-[#FF3B30] text-xs font-medium shrink-0">{duration}s</span>
+                        <button type="button" onClick={cancelRecording} className="text-red-500 text-xs shrink-0">Cancel</button>
+                        <button type="button" onClick={handleVoiceSend} className="bg-[#00C300] text-white rounded-full w-8 h-8 flex items-center justify-center shrink-0">
+                            <Send size={16} />
+                        </button>
                     </div>
                 ) : (
                     <button type="button" onMouseDown={startRecording} onMouseUp={handleVoiceSend} className="w-10 h-10 flex items-center justify-center bg-[#00C300] rounded-full text-white">

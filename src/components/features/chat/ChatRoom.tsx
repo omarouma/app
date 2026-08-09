@@ -172,7 +172,7 @@ const [hasNewMessages, setHasNewMessages] = useState(false);
   const isUserOnline = !!onlineUsers[userId];
   const activeTypingUsers = Object.values(typingUsers || {});
 
-  const { scrollToBottom, isAtBottom, msgs } = useChatScrollBehavior({
+const { scrollToBottom, isAtBottom, msgs, handleAtBottomStateChange } = useChatScrollBehavior({
     chatId,
     messages,
     virtuoso,
@@ -183,19 +183,47 @@ const [hasNewMessages, setHasNewMessages] = useState(false);
 
   // markAsRead is handled inside useChatRoom on message subscription
 
-  const handleVoiceSend = useCallback(async () => {
+const handleVoiceSend = useCallback(async () => {
     if (!currentUser) return;
     try {
       const blob = await stopRecording();
       if (!blob) return;
-      await uploadMediaBlob(blob, { userId: currentUser.id, kind: 'voice', contentType: 'audio/webm' });
-      await handleMediaUpload([new File([blob], 'voice.webm', { type: 'audio/webm' })]);
+      // Single upload path (no double-upload) with the correct 'voice' kind,
+      // then send as a typed 'voice' message.
+      const url = await uploadMediaBlob(blob, { userId: currentUser.id, kind: 'voice', contentType: 'audio/webm' });
+      await useChatStore.getState().sendMessage(chatId, currentUser.id, 'Voice message', 'voice', url);
       scrollToBottom();
     } catch {
       toast.error('Failed to send voice message.');
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [chatId, currentUser, scrollToBottom, stopRecording, duration]);
+  }, [chatId, currentUser, scrollToBottom, stopRecording]);
+
+// Retry a failed message send. The failed optimistic copy is removed from
+  // the store first, then sendMessage re-adds a fresh 'sending' optimistic
+  // message and attempts the write again (with its internal backoff retry).
+  const handleRetryMessage = useCallback(async (msg: Message) => {
+    if (!currentUser) return;
+    try {
+      // Remove the failed optimistic copy so it doesn't duplicate on resend
+      useChatStore.setState((s) => ({
+        messages: {
+          ...s.messages,
+          [chatId]: (s.messages[chatId] ?? []).filter((m) => m.id !== msg.id),
+        },
+      }));
+      await useChatStore.getState().sendMessage(
+        chatId,
+        currentUser.id,
+        msg.content,
+        msg.type,
+        msg.mediaUrl,
+        msg.replyTo,
+      );
+      scrollToBottom();
+    } catch {
+      toast.error('Failed to resend message.');
+    }
+  }, [chatId, currentUser, scrollToBottom]);
 
   const handleUnlock = useCallback(async () => {
     if (!chat) return;
@@ -374,7 +402,7 @@ toast.error('Failed to copy messages.');
   const handleForwardSelected = useCallback(() => {
     const selected = msgs.filter(m => selectedMessages.has(m.id));
     if (selected.length === 0) return;
-    setForwardBatch(selected);
+    setForwardBatch(selected as Message[]);
     setShowForwardModal(true);
     handleClearSelection();
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -555,10 +583,11 @@ userId={userId}
           )}
         </AnimatePresence>
 
-        <Virtuoso
+<Virtuoso
           ref={virtuoso}
           data={msgs}
           initialTopMostItemIndex={msgs.length > 0 ? msgs.length - 1 : 0}
+          atBottomStateChange={handleAtBottomStateChange}
           followOutput={'auto'}
 itemContent={(index, msg) => (
             <MessageItem
@@ -601,8 +630,8 @@ onReact={(msgId, reaction) => addReaction(chatId, msgId, reaction, currentUser?.
               onSetReplyingTo={setReplyingTo}
               onSetLightbox={setLightboxImage}
               onVotePoll={handleVote}
-              onNavigate={navigate}
-              onRetry={undefined}
+onNavigate={navigate}
+              onRetry={handleRetryMessage}
               chatId={chatId}
             />
           )}

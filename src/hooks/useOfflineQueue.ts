@@ -2,53 +2,16 @@ import { useEffect, useRef, useCallback, useState } from 'react';
 import { useChatStore } from '@/store/useChatStore';
 import { useGroupStore } from '@/store/useGroupStore';
 import { toast } from 'sonner';
-import { safeGetStorageItem, safeSetStorageItem } from '@/lib/safeStorage';
-
-export type SyncStatus = 'synced' | 'pending' | 'sending' | 'failed';
-
-interface QueuedMessage {
-  id: string;
-  type: 'direct' | 'group';
-  chatId: string;
-  senderId: string;
-  content: string;
-  messageType?: string;
-  mediaUrl?: string;
-  replyTo?: string;
-  timestamp: number;
-  syncStatus: SyncStatus;
-}
-
-const QUEUE_KEY = 'gaga-message-queue';
-
-function getQueue(): QueuedMessage[] {
-  try {
-    const raw = safeGetStorageItem(QUEUE_KEY);
-    return raw ? JSON.parse(raw) : [];
-  } catch {
-    return [];
-  }
-}
-
-function saveQueue(queue: QueuedMessage[]) {
-  safeSetStorageItem(QUEUE_KEY, JSON.stringify(queue));
-}
-
-function addToQueue(msg: QueuedMessage) {
-  const queue = getQueue();
-  queue.push(msg);
-  saveQueue(queue);
-}
-
-function removeFromQueue(id: string) {
-  const queue = getQueue().filter(m => m.id !== id);
-  saveQueue(queue);
-}
-
-function updateStatus(id: string, status: SyncStatus) {
-  const queue = getQueue().map(m => m.id === id ? { ...m, syncStatus: status } : m);
-  saveQueue(queue);
-}
+import {
+  getQueue,
+  removeFromQueue,
+  updateQueueStatus,
+  enqueueOfflineMessage,
+  getQueueStats,
+  isOnline,
+  type QueuedMessage,
+  type SyncStatus,
+} from '@/lib/offlineQueue';
 
 export function useOfflineQueue() {
   const { sendMessage } = useChatStore();
@@ -60,20 +23,14 @@ export function useOfflineQueue() {
 
   // Sync queue stats periodically
   const refreshStats = useCallback(() => {
-    const q = getQueue();
-    setQueueLength(q.length);
-    setPendingCount(q.filter(m => m.syncStatus === 'pending' || m.syncStatus === 'sending').length);
-    setFailedCount(q.filter(m => m.syncStatus === 'failed').length);
+    const stats = getQueueStats();
+    setQueueLength(stats.queueLength);
+    setPendingCount(stats.pendingCount);
+    setFailedCount(stats.failedCount);
   }, []);
 
   const queueMessage = (msg: Omit<QueuedMessage, 'id' | 'timestamp' | 'syncStatus'>) => {
-    const queued: QueuedMessage = {
-      ...msg,
-      id: `${Date.now()}_${Math.random().toString(36).slice(2)}`,
-      timestamp: Date.now(),
-      syncStatus: 'pending',
-    };
-    addToQueue(queued);
+    const queued = enqueueOfflineMessage(msg);
     refreshStats();
     toast.info('Message queued - will send when online');
     return queued.id;
@@ -92,7 +49,7 @@ export function useOfflineQueue() {
       let sent = 0;
       let failed = 0;
       for (const msg of queue) {
-        updateStatus(msg.id, 'sending');
+        updateQueueStatus(msg.id, 'sending');
         try {
           if (msg.type === 'direct') {
             await sendMessage(msg.chatId, msg.senderId, msg.content, msg.messageType || 'text', msg.mediaUrl, msg.replyTo);
@@ -103,7 +60,7 @@ export function useOfflineQueue() {
           sent++;
         } catch (err) {
           console.error('Failed to send queued message:', err);
-          updateStatus(msg.id, 'failed');
+          updateQueueStatus(msg.id, 'failed');
           failed++;
         }
       }
@@ -123,7 +80,7 @@ export function useOfflineQueue() {
   useEffect(() => {
     const handleOnline = () => {
       toast.success('Back online');
-      processQueue().catch(() => {});
+      processQueue().catch(() => { });
     };
     const handleOffline = () => {
       toast.error('You are offline. Messages will be queued.');
@@ -132,7 +89,7 @@ export function useOfflineQueue() {
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
 
-    if (navigator.onLine) processQueue().catch(() => {});
+    if (navigator.onLine) processQueue().catch(() => { });
 
     refreshStats();
     // Only poll stats when there are queued messages
@@ -150,6 +107,5 @@ export function useOfflineQueue() {
   return { queueMessage, processQueue, queueLength, pendingCount, failedCount, refreshStats };
 }
 
-export function isOnline() {
-  return typeof navigator !== 'undefined' ? navigator.onLine : true;
-}
+export { isOnline };
+export type { QueuedMessage, SyncStatus };

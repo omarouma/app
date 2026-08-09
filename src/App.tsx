@@ -15,7 +15,7 @@ import { usePushNotifications } from '@/hooks/usePushNotifications';
 import { useGATracking } from '@/hooks/useGATracking';
 import { useForegroundNotifications } from '@/hooks/useForegroundNotifications';
 import { useTrackPresence } from '@/hooks/usePresence';
-import { MessageCircle, Phone, Users, Flame, Settings } from 'lucide-react';
+import { MessageCircle, Phone, Users, Flame, Settings, Search } from 'lucide-react';
 import { Toaster } from '@/components/ui/sonner';
 import { CallProvider } from '@/context/CallContext';
 import CallOverlay from '@/components/calling/CallOverlay';
@@ -127,6 +127,7 @@ const AIChatPage = lazy(() => import('@/pages/AIChatPage'));
 const LiveStreamsPage = lazy(() => import('@/pages/LiveStreamsPage'));
 const LiveStreamPage = lazy(() => import('@/pages/LiveStreamPage'));
 const CreatorDashboardPage = lazy(() => import('@/pages/CreatorDashboardPage'));
+const PostPage = lazy(() => import('@/pages/PostPage'));
 
 const PageLoader = () => (
   <div className="h-screen w-screen bg-white flex items-center justify-center">
@@ -144,11 +145,12 @@ const desktopNavItems = [
   { to: '/calls', icon: Phone, label: 'Calls' },
   { to: '/contacts', icon: Users, label: 'People' },
   { to: '/timeline', icon: Flame, label: 'Feed' },
+  { to: '/search', icon: Search, label: 'Search' },
   { to: '/settings', icon: Settings, label: 'Settings' },
 ];
 
 // Routes where BottomNav should be hidden on mobile (full-screen experiences)
-const HIDE_BOTTOM_NAV_PATHS = ['/chat/', '/group/', '/call', '/onboarding', '/auth', '/qr-scanner', '/live/', '/voice-room/'];
+const HIDE_BOTTOM_NAV_PATHS = ['/chat/', '/group/', '/call', '/onboarding', '/auth', '/qr-scanner', '/live/', '/voice-room/', '/reels'];
 
 // Public paths accessible without authentication on desktop
 const DESKTOP_PUBLIC_PATHS = ['/privacy', '/terms', '/cookies', '/community-guidelines'];
@@ -418,8 +420,8 @@ function AppContent() {
     location.pathname !== '/auth' &&
     location.pathname !== '/';
 
-  return (
-    <div id="main-content" className={`w-screen bg-white dark:bg-[#0d0d0d]${showBottomNav ? ' pb-nav' : ''}`} style={{ minHeight: '100dvh' }}>
+return (
+    <div id="main-content" className="w-full max-w-full bg-white dark:bg-[#0d0d0d]" style={{ minHeight: '100dvh' }}>
       <NetworkStatusBanner />
       <Suspense fallback={<PageLoader />}>
         <Routes location={location}>
@@ -428,7 +430,7 @@ function AppContent() {
               path="/"
               element={
                 isAuthenticated
-                  ? (isMobile ? <Navigate to="/contacts" replace /> : <Navigate to="/chat" replace />)
+                  ? (isMobile ? <Navigate to="/chats" replace /> : <Navigate to="/chat" replace />)
                   : <LandingView />
               }
             />
@@ -436,13 +438,14 @@ function AppContent() {
               path="/auth"
               element={
                 isAuthenticated
-                  ? (isMobile ? <Navigate to="/contacts" replace /> : <Navigate to="/chat" replace />)
+                  ? (isMobile ? <Navigate to="/chats" replace /> : <Navigate to="/chat" replace />)
                   : <AuthView />
               }
             />
-            <Route path="/privacy" element={isMobile ? <PrivacyPage /> : <PrivacyView />} />
+<Route path="/privacy" element={isMobile ? <PrivacyPage /> : <PrivacyView />} />
             <Route path="/terms" element={isMobile ? <TermsPage /> : <TermsView />} />
             <Route path="/onboarding" element={<OnboardingPage />} />
+            <Route path="/post/:id" element={<PostPage />} />
 
             {/* Mobile routes */}
             {isMobile && (

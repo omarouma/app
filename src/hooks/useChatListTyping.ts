@@ -18,7 +18,7 @@ interface InternalTypingState {
 
 
 
-function hashChatIds(ids: string[]): string {
+function _hashChatIds(ids: string[]): string {
   let h = 2166136261;
   for (const id of ids) {
     for (let i = 0; i < id.length; i++) {
@@ -41,7 +41,7 @@ export function useChatListTyping(chatIdsKey: string) {
 
   
   const channelName = useMemo(
-    () => `chat-list-typing-${hashChatIds(chatIdsKey.split(','))}`,
+    () => `chat-list-typing-${chatIdsKey}`,
     [chatIdsKey]
   );
 
@@ -134,7 +134,7 @@ export function useChatListTyping(chatIdsKey: string) {
         const now = Date.now();
         let changed = false;
         const next = { ...prev };
-        for (const chatId in next) {
+        for (const chatId of Object.keys(next)) {
           if (now - next[chatId].timestamp >= 6000) {
             delete next[chatId];
             changed = true;
@@ -149,7 +149,7 @@ export function useChatListTyping(chatIdsKey: string) {
 
   const activeTypingMap = useMemo(() => {
     const result: TypingState = {};
-    for (const chatId in typingMap) {
+    for (const chatId of Object.keys(typingMap)) {
       result[chatId] = typingMap[chatId].name;
     }
     return result;

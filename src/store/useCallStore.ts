@@ -18,8 +18,10 @@ interface CallStore {
   connectedAt: Date | null;
   history: CallRecord[];
   loading: boolean;
+  participants: string[];
 
-  startCall: (userId: string, currentUserId: string, type: 'voice' | 'video') => Promise<string | undefined>;
+  startCall: (userId: string, currentUserId: string, type: 'voice' | 'video' | 'group_voice' | 'group_video') => Promise<string | undefined>;
+  inviteToCall: (currentCallId: string, currentUserId: string, invitedUserId: string) => Promise<void>;
   endCall: () => Promise<void>;
   acceptCall: () => Promise<void>;
   rejectCall: () => Promise<void>;
@@ -47,6 +49,10 @@ const mapCall = (d: Record<string, unknown>): CallRecord => {
   };
 };
 
+// Merged result cache for the dual-subscription race fix.
+// Each userId gets a map of callId -> latest row data from both subscriptions.
+const mergedCallData = new Map<string, Map<string, Record<string, unknown>>>();
+
 const processCallData = (
   data: Record<string, unknown>[],
   currentUserId: string,
@@ -54,8 +60,26 @@ const processCallData = (
   onIncomingCall: (call: CallRecord | null) => void,
   onUpdateCurrentCall: (call: CallRecord | null) => void,
   getState: () => CallStore,
+  subscriptionKey?: string,
 ) => {
-const history: CallRecord[] = [];
+  // Merge both subscription results so neither can overwrite the other with
+  // an empty set. Each subscription updates its own slice of the merged map.
+  if (subscriptionKey) {
+    if (!mergedCallData.has(currentUserId)) {
+      mergedCallData.set(currentUserId, new Map());
+    }
+    const merged = mergedCallData.get(currentUserId)!;
+    // Mark rows from this subscription with the key so we can replace them
+    for (const [id, row] of merged) {
+      if ((row as Record<string, unknown>).__subKey === subscriptionKey) merged.delete(id);
+    }
+    for (const d of data) {
+      merged.set(d.id as string, { ...d, __subKey: subscriptionKey });
+    }
+    data = Array.from(merged.values());
+  }
+
+  const history: CallRecord[] = [];
   let incomingCall: CallRecord | null = null;
   let currentCall: CallRecord | null = null;
 
@@ -78,9 +102,24 @@ const history: CallRecord[] = [];
   history.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
   onUpdateHistory(history.slice(0, 30));
 
+  // Only clear incomingCall if we have a merged view (both subs have fired at
+  // least once). This prevents the first sub's empty result from wiping a ring
+  // that the second sub is about to deliver.
   const existingIncomingCall = getState().incomingCall;
   if (incomingCall?.id !== existingIncomingCall?.id) {
-    onIncomingCall(incomingCall);
+    if (incomingCall !== null || !subscriptionKey) {
+      onIncomingCall(incomingCall);
+    } else {
+      // Only clear if the merged map truly has no active incoming call
+      const merged = mergedCallData.get(currentUserId);
+      const hasActiveIncoming = merged
+        ? Array.from(merged.values()).some((d) => {
+            const c = mapCall(d);
+            return c.status === 'calling' && c.initiatorId !== currentUserId && c.participantIds.includes(currentUserId);
+          })
+        : false;
+      if (!hasActiveIncoming) onIncomingCall(null);
+    }
   }
 
   const existingCurrentCall = getState().currentCall;
@@ -95,6 +134,29 @@ export const useCallStore = create<CallStore>((set, get) => ({
   connectedAt: null,
   history: [],
   loading: false,
+  participants: [],
+
+  inviteToCall: async (currentCallId, currentUserId, invitedUserId) => {
+    if (!isFirestoreAvailable() || !currentCallId || !currentUserId || !invitedUserId) return;
+    const { currentCall, participants } = get();
+    if (currentCallId !== currentCall?.id) return;
+    if (participants.includes(invitedUserId)) return;
+    try {
+      const next = Array.from(new Set([...participants, invitedUserId]));
+      set({ participants: next });
+      const data = await getDocById(COLLECTIONS.CALL_HISTORY, currentCallId);
+      const existing = (data as Record<string, unknown>)?.participantIds as string[] | undefined;
+      const merged = Array.from(new Set([
+        ...(existing || []),
+        currentUserId,
+        ...(currentCall?.participantIds || []),
+        invitedUserId,
+      ]));
+      await updateDocById(COLLECTIONS.CALL_HISTORY, currentCallId, { participantIds: merged });
+    } catch {
+      // ignore
+    }
+  },
 
 subscribeToCallHistory: (userId: string) => {
     if (!userId || !isFirestoreAvailable()) {
@@ -108,18 +170,12 @@ subscribeToCallHistory: (userId: string) => {
     const noopIncoming = () => {};
     const noopCurrent = () => {};
 
-const unsubCaller = subscribeToCollection(
+const historyKey = `history_${userId}`;
+    const unsubCaller = subscribeToCollection(
       COLLECTIONS.CALL_HISTORY,
       [where('callerId', '==', userId), orderBy('createdAt', 'desc'), limit(30)],
       (data) => {
-        processCallData(
-          data,
-          userId,
-          onUpdateHistory,
-          noopIncoming,
-          noopCurrent,
-          get,
-        );
+        processCallData(data, userId, onUpdateHistory, noopIncoming, noopCurrent, get, `${historyKey}_caller`);
       }
     );
 
@@ -127,18 +183,12 @@ const unsubCaller = subscribeToCollection(
       COLLECTIONS.CALL_HISTORY,
       [where('calleeId', '==', userId), orderBy('createdAt', 'desc'), limit(30)],
       (data) => {
-        processCallData(
-          data,
-          userId,
-          onUpdateHistory,
-          noopIncoming,
-          noopCurrent,
-          get,
-        );
+        processCallData(data, userId, onUpdateHistory, noopIncoming, noopCurrent, get, `${historyKey}_callee`);
       }
     );
 
     return () => {
+      mergedCallData.delete(userId);
       unsubCaller();
       unsubCallee();
     };
@@ -201,13 +251,14 @@ const callId = await addDocToCollection(COLLECTIONS.CALL_HISTORY, {
 
   endCall: async () => {
     if (!isFirestoreAvailable()) {
-      set({ currentCall: null, incomingCall: null });
+      set({ currentCall: null, incomingCall: null, connectedAt: null });
       return;
     }
-    const { currentCall } = get();
+    const { currentCall, connectedAt } = get();
     if (currentCall) {
       try {
-        const duration = currentCall.timestamp ? Math.floor((Date.now() - currentCall.timestamp.getTime()) / 1000) : 0;
+        // Use connectedAt (when the call was actually answered) for accurate duration.
+        const duration = connectedAt ? Math.floor((Date.now() - connectedAt.getTime()) / 1000) : 0;
         await updateDocById(COLLECTIONS.CALL_HISTORY, currentCall.id, {
           status: 'ended',
           endedAt: serverTimestamp(),
@@ -215,7 +266,7 @@ const callId = await addDocToCollection(COLLECTIONS.CALL_HISTORY, {
         });
       } catch {}
     }
-    set({ currentCall: null, incomingCall: null });
+    set({ currentCall: null, incomingCall: null, connectedAt: null });
   },
 
 acceptCall: async () => {
@@ -227,10 +278,10 @@ acceptCall: async () => {
     if (!['calling', 'connected'].includes(incomingCall.status)) return;
     try {
       await updateDocById(COLLECTIONS.CALL_HISTORY, incomingCall.id, { status: 'connected' });
-    } catch {}
+    } catch { return; } // Don't proceed if DB write failed
     const now = new Date();
     set({
-      currentCall: { ...incomingCall, status: 'connected', timestamp: now },
+      currentCall: { ...incomingCall, status: 'connected' },
       incomingCall: null,
       connectedAt: now,
     });
@@ -348,14 +399,7 @@ const unsubCaller = subscribeToCollection(
       COLLECTIONS.CALL_HISTORY,
       [where('callerId', '==', userId), orderBy('createdAt', 'desc'), limit(30)],
       (data) => {
-        processCallData(
-          data,
-          userId,
-          onUpdateHistory,
-          onIncomingCall,
-          onUpdateCurrentCall,
-          get,
-        );
+        processCallData(data, userId, onUpdateHistory, onIncomingCall, onUpdateCurrentCall, get, 'caller');
       }
     );
 
@@ -363,20 +407,14 @@ const unsubCaller = subscribeToCollection(
       COLLECTIONS.CALL_HISTORY,
       [where('calleeId', '==', userId), orderBy('createdAt', 'desc'), limit(30)],
       (data) => {
-        processCallData(
-          data,
-          userId,
-          onUpdateHistory,
-          onIncomingCall,
-          onUpdateCurrentCall,
-          get,
-        );
+        processCallData(data, userId, onUpdateHistory, onIncomingCall, onUpdateCurrentCall, get, 'callee');
       }
     );
 
     return () => {
       missedTimers.forEach((t) => clearTimeout(t));
       missedTimers.clear();
+      mergedCallData.delete(userId);
       unsubCaller();
       unsubCallee();
     };

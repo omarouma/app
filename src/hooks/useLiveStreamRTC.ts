@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, useLayoutEffect } from 'react';
 import {
   isFirestoreAvailable,
   COLLECTIONS,
@@ -167,7 +167,7 @@ export function useLiveStreamRTC(
         );
       }
 
-      return () => {};
+      return () => { };
     },
     [streamId],
   );
@@ -355,7 +355,7 @@ export function useLiveStreamRTC(
         if (!newTrack) return;
         viewerPCsRef.current.forEach((pc) => {
           const sender = pc.getSenders().find((s) => s.track?.kind === 'video');
-          if (sender) sender.replaceTrack(newTrack).catch(() => {});
+          if (sender) sender.replaceTrack(newTrack).catch(() => { });
         });
         oldTrack.stop();
         const oldTracks = localStreamRef.current!.getTracks().filter((t) => t !== oldTrack);
@@ -375,14 +375,14 @@ export function useLiveStreamRTC(
         screenStreamRef.current = screenStream;
         viewerPCsRef.current.forEach((pc) => {
           const sender = pc.getSenders().find((s) => s.track?.kind === 'video');
-          if (sender) sender.replaceTrack(screenTrack).catch(() => {});
+          if (sender) sender.replaceTrack(screenTrack).catch(() => { });
         });
         setIsScreenSharing(true);
       } else {
         const camTrack = localStreamRef.current?.getVideoTracks()[0];
         viewerPCsRef.current.forEach((pc) => {
           const sender = pc.getSenders().find((s) => s.track?.kind === 'video');
-          if (sender && camTrack) sender.replaceTrack(camTrack).catch(() => {});
+          if (sender && camTrack) sender.replaceTrack(camTrack).catch(() => { });
         });
         screenStreamRef.current?.getTracks().forEach((t) => t.stop());
         screenStreamRef.current = null;
@@ -414,15 +414,20 @@ export function useLiveStreamRTC(
   }, [isBroadcaster]);
 
   // ─── Subscribe to signals while mounted ───────────────────────────────────
+  const handleSignalRef = useRef(isBroadcaster ? handleBroadcasterSignal : handleViewerSignal);
+  useLayoutEffect(() => {
+    handleSignalRef.current = isBroadcaster ? handleBroadcasterSignal : handleViewerSignal;
+  }, [isBroadcaster, handleBroadcasterSignal, handleViewerSignal]);
+
   useEffect(() => {
     if (!streamId || !userId) return;
-    const handler = isBroadcaster ? handleBroadcasterSignal : handleViewerSignal;
+    const handler = handleSignalRef.current;
     unsubRef.current = subscribeSignals(handler);
     return () => {
       unsubRef.current?.();
       unsubRef.current = null;
     };
-  }, [streamId, userId, isBroadcaster, subscribeSignals, handleBroadcasterSignal, handleViewerSignal]);
+  }, [streamId, userId, subscribeSignals]);
 
   // ─── Full cleanup on unmount ──────────────────────────────────────────────
   useEffect(() => {

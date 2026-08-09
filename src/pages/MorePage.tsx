@@ -39,11 +39,9 @@ export default function MorePage() {
   }, [user?.id, subscribeWallet]);
 
   const handleLogout = async () => {
-    if (window.confirm('Are you sure you want to log out?')) {
-      await logout();
-      toast.success('Logged out successfully');
-      navigate('/auth');
-    }
+    await logout();
+    toast.success('Logged out successfully');
+    navigate('/auth');
   };
 
   const sections: Array<{ title: string; items: NavItem[] }> = [
@@ -167,7 +165,7 @@ export default function MorePage() {
         </motion.button>
       </div>
 
-      <div className="flex-1 overflow-y-auto scrollbar-hide pb-20">
+      <div className="flex-1 overflow-y-auto scrollbar-hide pb-nav">
         {sections.map((section, si) => (
           <div key={si} className="px-5 mb-4">
             <h2 className="text-[#8D8D8D] text-xs font-medium uppercase tracking-wider mb-2 px-1">

@@ -1,10 +1,16 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { useIsMounted } from './use-mobile';
+import { MAX_VOICE_SIZE } from '@/lib/storage';
+
+/** Maximum voice recording length in seconds (keeps blobs under the 5MB voice cap). */
+export const MAX_VOICE_DURATION = 60;
 
 interface VoiceRecorderState {
   isRecording: boolean;
   duration: number;
   error: string | null;
+  /** True when the recording was auto-stopped by hitting MAX_VOICE_DURATION. */
+  limitReached: boolean;
 }
 
 export function useVoiceRecorder() {
@@ -13,11 +19,14 @@ export function useVoiceRecorder() {
     isRecording: false,
     duration: 0,
     error: null,
+    limitReached: false,
   });
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const startTimeRef = useRef<number>(0);
+  const isRecordingRef = useRef(false);
+  const limitReachedRef = useRef(false);
 
   useEffect(() => {
     return () => {
@@ -31,15 +40,19 @@ export function useVoiceRecorder() {
           // noop
         }
       }
+      isRecordingRef.current = false;
     };
   }, []);
 
   const startRecording = useCallback(async () => {
     if (!isMounted) return;
+    // Guard against double-start (e.g. rapid taps on the mic button).
+    if (isRecordingRef.current) return;
+
     try {
       const result = await navigator.permissions.query({ name: 'microphone' as PermissionName });
       if (result.state === 'denied') {
-        setState({ isRecording: false, duration: 0, error: 'Microphone access denied. Enable it in browser settings.' });
+        setState({ isRecording: false, duration: 0, error: 'Microphone access denied. Enable it in browser settings.', limitReached: false });
         return;
       }
     } catch {
@@ -52,6 +65,8 @@ export function useVoiceRecorder() {
       mediaRecorderRef.current = mediaRecorder;
       chunksRef.current = [];
       startTimeRef.current = Date.now();
+      isRecordingRef.current = true;
+      limitReachedRef.current = false;
 
       mediaRecorder.ondataavailable = (e) => {
         if (e.data.size > 0) chunksRef.current.push(e.data);
@@ -64,16 +79,24 @@ export function useVoiceRecorder() {
       mediaRecorder.start(100);
 
       timerRef.current = setInterval(() => {
-        setState((s) => ({ ...s, duration: Math.floor((Date.now() - startTimeRef.current) / 1000) }));
+        const elapsed = Math.floor((Date.now() - startTimeRef.current) / 1000);
+        setState((s) => ({ ...s, duration: elapsed }));
+        // Auto-stop once the max duration is reached.
+        if (elapsed >= MAX_VOICE_DURATION) {
+          limitReachedRef.current = true;
+          if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+            try { mediaRecorderRef.current.stop(); } catch { /* noop */ }
+          }
+        }
       }, 1000);
 
-      setState({ isRecording: true, duration: 0, error: null });
+      setState({ isRecording: true, duration: 0, error: null, limitReached: false });
     } catch {
-      setState({ isRecording: false, duration: 0, error: 'Microphone access denied' });
+      setState({ isRecording: false, duration: 0, error: 'Microphone access denied', limitReached: false });
     }
   }, [isMounted]);
 
-  const isSendingRef = useRef(false);
+const isSendingRef = useRef(false);
 
   const stopRecording = useCallback(async (): Promise<Blob | null> => {
     if (isSendingRef.current || !mediaRecorderRef.current) return null;
@@ -85,16 +108,38 @@ export function useVoiceRecorder() {
         timerRef.current = null;
       }
 
-      mediaRecorderRef.current!.onstop = () => {
+      const recorder = mediaRecorderRef.current!;
+      recorder.onstop = () => {
         const blob = new Blob(chunksRef.current, { type: 'audio/webm' });
-        mediaRecorderRef.current?.stream.getTracks().forEach((t) => t.stop());
+        recorder.stream.getTracks().forEach((t) => t.stop());
         mediaRecorderRef.current = null;
+        isRecordingRef.current = false;
         isSendingRef.current = false;
-        setState({ isRecording: false, duration: 0, error: null });
+
+        // Production guard: reject empty recordings and blobs over the voice cap.
+        if (blob.size === 0) {
+          setState({ isRecording: false, duration: 0, error: 'Recording was empty. Please try again.', limitReached: false });
+          resolve(null);
+          return;
+        }
+        if (blob.size > MAX_VOICE_SIZE) {
+          setState({ isRecording: false, duration: 0, error: 'Voice message is too large. Please keep it under 5MB.', limitReached: false });
+          resolve(null);
+          return;
+        }
+
+        setState({ isRecording: false, duration: 0, error: null, limitReached: false });
         resolve(blob);
       };
 
-      mediaRecorderRef.current!.stop();
+      try {
+        recorder.stop();
+      } catch {
+        // Recorder may already be inactive after an auto-stop.
+        isRecordingRef.current = false;
+        isSendingRef.current = false;
+        resolve(null);
+      }
     });
   }, []);
 
@@ -108,8 +153,10 @@ export function useVoiceRecorder() {
       mediaRecorderRef.current = null;
     }
     chunksRef.current = [];
+    isRecordingRef.current = false;
     isSendingRef.current = false;
-    setState({ isRecording: false, duration: 0, error: null });
+    limitReachedRef.current = false;
+    setState({ isRecording: false, duration: 0, error: null, limitReached: false });
   }, []);
 
   return {

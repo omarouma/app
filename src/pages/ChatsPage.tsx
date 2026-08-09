@@ -2,7 +2,7 @@ import { useState, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 
-import { UserPlus, Plus, Search, Users, Archive, MessageCircle, MessageSquare, ArchiveRestore } from 'lucide-react';
+import { UserPlus, Plus, Search, Users, Archive, MessageCircle, MessageSquare, ArchiveRestore, Phone, Bell } from 'lucide-react';
 
 import { ChatList } from '@/components/features/chat/ChatList';
 import LoadingSkeleton from '@/components/LoadingSkeleton';
@@ -82,6 +82,18 @@ const { archiveChat, unarchiveChat } = useChatStore();
           )}
         </div>
         <div className="flex gap-2 text-gray-800">
+          <button type="button" onClick={() => navigate('/calls')}
+            className="w-9 h-9 flex items-center justify-center bg-gray-100 hover:bg-gray-200 rounded-full transition-colors tap-scale"
+            aria-label="Calls"
+          >
+            <Phone size={18} strokeWidth={2} />
+          </button>
+          <button type="button" onClick={() => navigate('/notifications')}
+            className="w-9 h-9 flex items-center justify-center bg-gray-100 hover:bg-gray-200 rounded-full transition-colors tap-scale"
+            aria-label="Notifications"
+          >
+            <Bell size={18} strokeWidth={2} />
+          </button>
           <button type="button" onClick={() => navigate('/add-friends')}
             className="w-9 h-9 flex items-center justify-center bg-gray-100 hover:bg-gray-200 rounded-full transition-colors tap-scale"
             aria-label="Add friends"

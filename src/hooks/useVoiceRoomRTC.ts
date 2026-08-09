@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, useLayoutEffect } from 'react';
 import {
   isFirestoreAvailable,
   COLLECTIONS,
@@ -9,7 +9,6 @@ import {
 import { getSupabaseSafe, isSupabaseConfigured } from '@/lib/supabase';
 import { getIceServers } from '@/lib/webrtc';
 
-// ─── ICE servers — STUN + optional TURN (shared with 1:1 calls) ───
 const ICE_SERVERS: RTCIceServer[] = getIceServers();
 
 interface PeerConnection {
@@ -37,9 +36,7 @@ export function useVoiceRoomRTC(roomId: string, userId: string) {
   const localStreamRef = useRef<MediaStream | null>(null);
   const unsubRefs = useRef<(() => void)[]>([]);
 
-  // ─── Get microphone access ───
   const startLocalStream = useCallback(async () => {
-    // Request permission explicitly before accessing the device
     if ('permissions' in navigator) {
       try {
         const result = await navigator.permissions.query({ name: 'microphone' as PermissionName });
@@ -60,14 +57,12 @@ export function useVoiceRoomRTC(roomId: string, userId: string) {
     }
   }, []);
 
-  // ─── Stop local stream ───
   const stopLocalStream = useCallback(() => {
     localStreamRef.current?.getTracks().forEach(t => t.stop());
     setLocalStream(null);
     localStreamRef.current = null;
   }, []);
 
-  // ─── Toggle mute ───
   const toggleMute = useCallback(() => {
     if (!localStreamRef.current) return;
     const enabled = !isMuted;
@@ -77,21 +72,17 @@ export function useVoiceRoomRTC(roomId: string, userId: string) {
     setIsMuted(!enabled);
   }, [isMuted]);
 
-  // ─── Create a new peer connection ───
   const createPeerConnection = useCallback((targetUserId: string, stream: MediaStream): RTCPeerConnection => {
     const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
 
-    // Add local tracks
     stream.getTracks().forEach(track => {
       pc.addTrack(track, stream);
     });
 
-    // Handle incoming remote stream
     pc.ontrack = (event) => {
       const [remoteStream] = event.streams;
       if (!remoteStream) return;
 
-      // Create or update audio element for this peer
       let audioEl = document.getElementById(`audio-${targetUserId}`) as HTMLAudioElement;
       if (!audioEl) {
         audioEl = document.createElement('audio');
@@ -109,7 +100,6 @@ export function useVoiceRoomRTC(roomId: string, userId: string) {
       }
     };
 
-    // Handle ICE candidates
     pc.onicecandidate = async (event) => {
       if (!event.candidate) return;
       try {
@@ -122,7 +112,7 @@ export function useVoiceRoomRTC(roomId: string, userId: string) {
             to: targetUserId,
             candidate: JSON.stringify(event.candidate.toJSON()),
           });
-} else if (isFirestoreAvailable()) {
+        } else if (isFirestoreAvailable()) {
           await addDocToSubcollection(COLLECTIONS.VOICE_ROOMS, roomId, 'signals', {
             type: 'ice-candidate',
             from: userId,
@@ -141,7 +131,6 @@ export function useVoiceRoomRTC(roomId: string, userId: string) {
     return pc;
   }, [roomId, userId]);
 
-  // ─── Initiate connection to a new peer (as caller) ───
   const connectToPeer = useCallback(async (targetUserId: string) => {
     if (!localStreamRef.current) return;
     if (peersRef.current.has(targetUserId)) return;
@@ -149,11 +138,9 @@ export function useVoiceRoomRTC(roomId: string, userId: string) {
     const pc = createPeerConnection(targetUserId, localStreamRef.current);
     peersRef.current.set(targetUserId, { userId: targetUserId, pc });
 
-    // Create offer
     const offer = await pc.createOffer();
     await pc.setLocalDescription(offer);
 
-    // Send offer via Supabase or Firestore fallback
     const supabaseOffer = getSupabaseSafe();
     if (supabaseOffer) {
       await supabaseOffer.from('voice_room_signals').insert({
@@ -163,7 +150,7 @@ export function useVoiceRoomRTC(roomId: string, userId: string) {
         to: targetUserId,
         sdp: offer.sdp,
       });
-} else if (isFirestoreAvailable()) {
+    } else if (isFirestoreAvailable()) {
       await addDocToSubcollection(COLLECTIONS.VOICE_ROOMS, roomId, 'signals', {
         type: 'offer',
         from: userId,
@@ -176,12 +163,10 @@ export function useVoiceRoomRTC(roomId: string, userId: string) {
     setConnectedPeers(prev => [...prev, targetUserId]);
   }, [createPeerConnection, roomId, userId]);
 
-  // ─── Handle incoming signals (offers, answers, ICE) ───
   const handleSignal = useCallback(async (signal: unknown) => {
     if (!localStreamRef.current) return;
     const { type, from, to, sdp, candidate } = signal as SignalData;
 
-    // Only handle signals intended for us
     if (to && to !== userId) return;
 
     let peer = peersRef.current.get(from);
@@ -197,7 +182,6 @@ export function useVoiceRoomRTC(roomId: string, userId: string) {
       const answer = await peer.pc.createAnswer();
       await peer.pc.setLocalDescription(answer);
 
-      // Send answer via Supabase or Firestore fallback
       const supabaseAnswer = getSupabaseSafe();
       if (supabaseAnswer) {
         await supabaseAnswer.from('voice_room_signals').insert({
@@ -207,7 +191,7 @@ export function useVoiceRoomRTC(roomId: string, userId: string) {
           to: from,
           sdp: answer.sdp,
         });
-} else if (isFirestoreAvailable()) {
+      } else if (isFirestoreAvailable()) {
         await addDocToSubcollection(COLLECTIONS.VOICE_ROOMS, roomId, 'signals', {
           type: 'answer',
           from: userId,
@@ -232,13 +216,16 @@ export function useVoiceRoomRTC(roomId: string, userId: string) {
   }, [createPeerConnection, roomId, userId]);
 
   // ─── Listen for incoming signals ───
+  const handleSignalRef = useRef(handleSignal);
+  useLayoutEffect(() => {
+    handleSignalRef.current = handleSignal;
+  }, [handleSignal]);
+
   useEffect(() => {
     if (!roomId || !userId) return;
 
-    // Try Supabase realtime first
     const supabase = isSupabaseConfigured() ? getSupabaseSafe() : null;
     if (supabase) {
-      // Initial fetch of recent signals
       const fetchSignals = async () => {
         const { data } = await supabase
           .from('voice_room_signals')
@@ -246,7 +233,7 @@ export function useVoiceRoomRTC(roomId: string, userId: string) {
           .eq('room_id', roomId)
           .eq('to', userId)
           .gte('created_at', new Date(Date.now() - 30000).toISOString());
-        (data || []).forEach((s) => handleSignal(s));
+        (data || []).forEach((s) => handleSignalRef.current(s));
       };
       fetchSignals();
 
@@ -259,23 +246,22 @@ export function useVoiceRoomRTC(roomId: string, userId: string) {
           filter: `room_id=eq.${roomId}`,
         }, (payload) => {
           const signal = payload.new;
-          if (signal?.to === userId) handleSignal(signal);
+          if (signal?.to === userId) handleSignalRef.current(signal);
         })
         .subscribe();
 
       return () => { supabase.removeChannel(channel); };
     }
 
-    // Fallback: Firestore polling
     if (!isFirestoreAvailable()) return;
 
     const pollSignals = async () => {
       try {
-const signals = await querySubcollection(COLLECTIONS.VOICE_ROOMS, roomId, 'signals', [
+        const signals = await querySubcollection(COLLECTIONS.VOICE_ROOMS, roomId, 'signals', [
           where('timestamp', '>', Date.now() - 30000),
           where('to', '==', userId),
         ]);
-        (signals || []).forEach((s: unknown) => handleSignal(s));
+        (signals || []).forEach((s: unknown) => handleSignalRef.current(s));
       } catch {
         // ignore polling errors
       }
@@ -283,7 +269,7 @@ const signals = await querySubcollection(COLLECTIONS.VOICE_ROOMS, roomId, 'signa
 
     const interval = setInterval(pollSignals, 3000);
     return () => clearInterval(interval);
-  }, [roomId, userId, handleSignal]);
+  }, [roomId, userId]);
 
   // ─── Detect local speaking activity via AudioContext AnalyserNode ───
   useEffect(() => {

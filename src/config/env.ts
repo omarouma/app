@@ -42,10 +42,26 @@ const envSchema = z.object({
   VITE_TENOR_API_KEY: z.string().optional(),
   VITE_GA_MEASUREMENT_ID: z.string().optional(),
 
-  // --- WebRTC (Conditionally Required) ---
+  // --- Google AdSense (Optional) ---
+  VITE_ADSENSE_FEED_SLOT: z.string().optional(),
+  VITE_ADSENSE_BANNER_SLOT: z.string().optional(),
+  VITE_ADSENSE_SIDEBAR_SLOT: z.string().optional(),
+
+// --- WebRTC (Conditionally Required) ---
   VITE_TURN_SERVER_URL: z.string().optional(),
   VITE_TURN_SERVER_USERNAME: z.string().optional(),
   VITE_TURN_SERVER_CREDENTIAL: z.string().optional(),
+
+  // --- Agora RTC (Audio/Video Calling) ---
+  // App ID is required for any Agora usage.
+  VITE_AGORA_APP_ID: z.string().optional(),
+  // App Certificate is used to build RTC tokens. NEVER expose this in a
+  // production client build — prefer VITE_AGORA_TOKEN_SERVER_URL for a
+  // serverless token endpoint. It is kept here for local/dev convenience.
+  VITE_AGORA_APP_CERTIFICATE: z.string().optional(),
+  // Optional: a serverless endpoint that returns a RTC token.
+  // e.g. GET {url}?channel=...&uid=...  ->  { token: string }
+  VITE_AGORA_TOKEN_SERVER_URL: z.string().url().optional(),
 
   // --- Vite/Node Specific ---
   MODE: z.enum(['development', 'production', 'test']),

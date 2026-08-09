@@ -12,7 +12,7 @@ type ChatListItemData = Chat & { itemType: 'direct' | 'group' };
 
 export function useChatLogic() {
   const { user } = useAuthStore();
-  const { chats, loadingChats, subscribeChats } = useChatStore();
+  const { chats, loadingChats } = useChatStore();
   const { groups, loading: loadingGroups, subscribeGroups } = useGroupStore();
   const { friends, sendRequest } = useFriendStore();
   const { filtered: visibleOnline } = useFilteredOnline(user?.id || '', friends);
@@ -31,9 +31,9 @@ export function useChatLogic() {
     activeUnsubRef.current.forEach((fn) => fn?.());
     activeUnsubRef.current = [];
 
-    const unsubChats = subscribeChats(user.id);
+    // App.tsx already subscribes to chats globally — only subscribe groups here
     const unsubGroups = subscribeGroups(user.id);
-    activeUnsubRef.current = [unsubChats, unsubGroups].filter(
+    activeUnsubRef.current = [unsubGroups].filter(
       (fn): fn is () => void => typeof fn === 'function'
     );
 
@@ -41,7 +41,7 @@ export function useChatLogic() {
       activeUnsubRef.current.forEach((fn) => fn?.());
       activeUnsubRef.current = [];
     };
-  }, [user, subscribeChats, subscribeGroups]);
+  }, [user, subscribeGroups]);
 
 const allChats = useMemo<ChatListItemData[]>(() => {
     const map = new Map<string, ChatListItemData>();
@@ -153,11 +153,11 @@ const totalUnread = useMemo(
     if (!user?.id) return;
     activeUnsubRef.current.forEach((fn) => fn?.());
     activeUnsubRef.current = [];
-    const unsubs = [subscribeChats(user.id), subscribeGroups(user.id)];
+    const unsubs = [subscribeGroups(user.id)];
     activeUnsubRef.current = unsubs.filter(
       (fn): fn is () => void => typeof fn === 'function'
     );
-  }, [user?.id, subscribeChats, subscribeGroups]);
+  }, [user?.id, subscribeGroups]);
 
   return {
     user,

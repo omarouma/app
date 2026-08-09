@@ -1,5 +1,6 @@
 
 import { create } from 'zustand';
+import { toast } from 'sonner';
 import {
   isFirestoreAvailable,
   COLLECTIONS,
@@ -18,6 +19,7 @@ import {
 } from '@/lib/firestore';
 import type { Chat, Message, GroupData } from '@/types';
 import { where, orderBy, limit } from '@/lib/firestore';
+import { enqueueOfflineMessage, isOnline } from '@/lib/offlineQueue';
 
 type FirestoreTimestamp = { toDate: () => Date };
 function isFirestoreTs(v: unknown): v is FirestoreTimestamp {
@@ -57,8 +59,8 @@ export const useGroupStore = create<GroupStore>((set) => ({
   loading: true,
 
   subscribeGroups: (userId: string) => {
-    if (!userId) { set({ groups: [], loading: false }); return () => {}; }
-    if (!isFirestoreAvailable()) { set({ groups: [], loading: false }); return () => {}; }
+    if (!userId) { set({ groups: [], loading: false }); return () => { }; }
+    if (!isFirestoreAvailable()) { set({ groups: [], loading: false }); return () => { }; }
     set({ loading: true });
 
     // Single real-time subscription — no redundant initial fetch
@@ -208,29 +210,90 @@ export const useGroupStore = create<GroupStore>((set) => ({
   },
 
   sendGroupMessage: async (groupId, senderId, content, type = 'text', mediaUrl, replyTo) => {
-    if (!isFirestoreAvailable()) { return; }
-    try {
-      const msgData: Record<string, unknown> = {
-        chatId: groupId,
-        senderId,
-        content,
-        type,
-        timestamp: serverTimestamp(),
-        read: false,
-      };
-      if (mediaUrl) msgData.mediaUrl = mediaUrl;
-      if (replyTo) msgData.replyTo = replyTo;
+    if (!isFirestoreAvailable()) return;
+    const localId = `pending_g_${Date.now()}_${Math.random().toString(36).slice(2)}`;
 
-      await addDocToSubcollection(COLLECTIONS.CHATS, groupId, COLLECTIONS.MESSAGES, msgData);
-      const safeContent = typeof content === 'string' ? content.slice(0, 4000) : '';
-      await updateDocById(COLLECTIONS.CHATS, groupId, {
-        lastMessage: safeContent,
-        updatedAt: serverTimestamp(),
-        unreadCount: increment(1),
+    const optimisticMsg: Message = {
+      id: localId,
+      chatId: groupId,
+      senderId,
+      content,
+      type: (type as Message['type']) || 'text',
+      mediaUrl: mediaUrl || '',
+      timestamp: new Date(),
+      read: false,
+      edited: false,
+      reactions: {},
+      deliveryStatus: isOnline() ? 'sending' : 'pending',
+      retryCount: 0,
+      localId,
+      replyTo: typeof replyTo === 'string' ? replyTo : replyTo,
+    };
+    set((s) => ({
+      groupMessages: { ...s.groupMessages, [groupId]: [...(s.groupMessages[groupId] ?? []), optimisticMsg] },
+    }));
+
+    // If offline, push to queue and keep optimistic pending state
+    if (!isOnline()) {
+      enqueueOfflineMessage({
+        type: 'group', chatId: groupId, senderId, content,
+        messageType: type, mediaUrl, replyTo: typeof replyTo === 'string' ? replyTo : replyTo,
       });
-    } catch {
       return;
     }
+
+    let sent = false;
+    const maxAttempts = 3;
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      if (attempt > 0) await new Promise((r) => setTimeout(r, 500 * 2 ** (attempt - 1)));
+      try {
+        const msgData: Record<string, unknown> = {
+          chatId: groupId, senderId, content, type,
+          timestamp: serverTimestamp(),
+          read: false,
+        };
+        if (mediaUrl) msgData.mediaUrl = mediaUrl;
+        if (replyTo) msgData.replyTo = typeof replyTo === 'string' ? replyTo : replyTo;
+
+        await addDocToSubcollection(COLLECTIONS.CHATS, groupId, COLLECTIONS.MESSAGES, msgData);
+
+        set((s) => ({
+          groupMessages: {
+            ...s.groupMessages,
+            [groupId]: (s.groupMessages[groupId] ?? []).filter((m) => m.localId !== localId),
+          },
+        }));
+
+        const safeContent = typeof content === 'string' ? content.slice(0, 4000) : '';
+        await updateDocById(COLLECTIONS.CHATS, groupId, {
+          lastMessage: safeContent,
+          updatedAt: serverTimestamp(),
+          unreadCount: increment(1),
+        });
+sent = true;
+        break;
+      } catch {
+        const isLast = attempt === maxAttempts - 1;
+        set((s) => ({
+          groupMessages: {
+            ...s.groupMessages,
+            [groupId]: (s.groupMessages[groupId] ?? []).map((m) =>
+              m.localId === localId
+                ? { ...m, retryCount: attempt + 1, deliveryStatus: isLast ? 'failed' : 'sending' }
+                : m
+            ),
+          },
+        }));
+        if (isLast) {
+          enqueueOfflineMessage({
+            type: 'group', chatId: groupId, senderId, content,
+            messageType: type, mediaUrl, replyTo: typeof replyTo === 'string' ? replyTo : replyTo,
+          });
+          toast.error('Group message queued. Will send automatically when online.');
+        }
+      }
+    }
+    if (!sent) return;
   },
 
   deleteGroupMessage: async (_groupId, messageId) => {
@@ -280,8 +343,8 @@ export const useGroupStore = create<GroupStore>((set) => ({
     }
   },
 
-  subscribeGroupMessages: (groupId: string) => {
-    if (!groupId || !isFirestoreAvailable()) return () => {};
+  subscribeGroupMessages: (groupId: string, initialLimit = 100) => {
+    if (!groupId || !isFirestoreAvailable()) return () => { };
 
     const mapMsg = (d: Record<string, unknown>): Message => ({
       id: d.id as string,
@@ -298,29 +361,45 @@ export const useGroupStore = create<GroupStore>((set) => ({
       forwardedFrom: (d.forwardedFrom as string) || undefined,
       pollData: d.pollData as Message['pollData'],
       transferData: d.transferData as Message['transferData'],
+      deliveryStatus: (d.deliveryStatus as Message['deliveryStatus']) || (d.read ? 'read' : d.senderId ? 'sent' : undefined),
+      localId: (d.localId as string) || undefined,
+      retryCount: (d.retryCount as number) || undefined,
     });
 
-    // Single real-time subscription — no redundant initial fetch.
-    // Fetch newest-first (bounded) then reverse for chronological UI, with id dedupe.
     let unsub: (() => void) | null = null;
     try {
       unsub = subscribeToSubcollection(
         COLLECTIONS.CHATS,
         groupId,
         COLLECTIONS.MESSAGES,
-        [orderBy('createdAt', 'desc'), limit(100)],
+        [orderBy('createdAt', 'desc'), limit(initialLimit)],
         (data) => {
           const raw = data || [];
-          const msgs: Message[] = [];
-          const seen = new Set<string>();
-          // Server messages come back newest-first → reverse for display
-          for (let i = raw.length - 1; i >= 0; i--) {
-            const m = mapMsg(raw[i]);
-            if (seen.has(m.id)) continue;
-            seen.add(m.id);
-            msgs.push(m);
-          }
-          set((s) => ({ groupMessages: { ...s.groupMessages, [groupId]: msgs } }));
+          set((s) => {
+            const existing = s.groupMessages[groupId] || [];
+            const merged: Message[] = [];
+            const seenIds = new Set<string>();
+            const seenLocalIds = new Set<string>();
+
+            for (let i = raw.length - 1; i >= 0; i--) {
+              const m = mapMsg(raw[i]);
+              if (seenIds.has(m.id)) continue;
+              seenIds.add(m.id);
+              if (m.localId) seenLocalIds.add(m.localId);
+              merged.push(m);
+            }
+
+            // Preserve ALL existing messages not matched in the server window —
+            // this keeps paginated older history and optimistic pending items.
+            for (const m of existing) {
+              if (seenIds.has(m.id)) continue;
+              if (m.localId && seenLocalIds.has(m.localId)) continue;
+              merged.push(m);
+              if (m.localId) seenLocalIds.add(m.localId);
+            }
+
+            return { groupMessages: { ...s.groupMessages, [groupId]: merged } };
+          });
         },
       );
     } catch {

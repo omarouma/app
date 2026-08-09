@@ -3,12 +3,13 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useFriendStore } from '@/store/useFriendStore';
 import { useCallStore } from '@/store/useCallStore';
+import { useCallContext } from '@/context/CallContextBase';
 import { PhoneOff, MessageSquare, RotateCw } from 'lucide-react';
 
 export default function CallPage() {
   const location = useLocation();
   const navigate = useNavigate();
-const navState = (location.state || {}) as {
+  const navState = (location.state || {}) as {
     userId?: string;
     mode?: 'voice' | 'video';
     callType?: 'voice' | 'video';
@@ -18,39 +19,56 @@ const navState = (location.state || {}) as {
   const mode = navState.mode ?? navState.callType;
   const { user: currentUser } = useAuthStore();
   const { friends } = useFriendStore();
-  const { startCall, endCall, currentCall } = useCallStore();
-const initiatedRef = useRef(false);
+  const { startCall, currentCall } = useCallStore();
+  const { endCall } = useCallContext();
+  const initiatedRef = useRef(false);
   const hadCallRef = useRef(false);
+  const switchingToUserIdRef = useRef<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const friend = friends.find((f) => f.id === userId);
   const isVideo = mode === 'video';
 
   useEffect(() => {
-    if (!userId || !currentUser || currentCall) return;
+    if (!userId || !currentUser) return;
     if (initiatedRef.current) return;
+    // If there's already an active call for a different user, end it first and
+    // then start the new call. Set switchingToUserId to prevent the post-end
+    // auto-navigate effect from bouncing us to /calls before the new call starts.
+    if (currentCall && !currentCall.participantIds.includes(userId)) {
+      switchingToUserIdRef.current = userId;
+      endCall();
+      initiatedRef.current = false;
+      return;
+    }
+    if (currentCall) return;
     initiatedRef.current = true;
+    switchingToUserIdRef.current = null;
     setError(null);
     startCall(userId, currentUser.id, isVideo ? 'video' : 'voice')
       .catch((err) => {
         setError(err instanceof Error ? err.message : 'Failed to start the call.');
       });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userId, currentUser?.id, isVideo]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId, currentUser?.id, isVideo, currentCall]);
 
   // Track once a call has actually been established so we don't redirect on
   // the initial mount while startCall() is still resolving (currentCall is
   // still null at that point).
   useEffect(() => {
-    if (currentCall) hadCallRef.current = true;
+    if (currentCall) {
+      hadCallRef.current = true;
+      switchingToUserIdRef.current = null;
+    }
   }, [currentCall]);
 
   // Auto-navigate away only AFTER a call was established and then ended.
+  // Skip navigation when we're mid-switch (ending call A to start call B).
   useEffect(() => {
-    if (hadCallRef.current && !currentCall) {
+    if (hadCallRef.current && !currentCall && switchingToUserIdRef.current !== userId) {
       navigate('/calls', { replace: true });
     }
-  }, [currentCall, navigate]);
+  }, [currentCall, navigate, userId]);
 
   const handleEndCall = async () => {
     await endCall();

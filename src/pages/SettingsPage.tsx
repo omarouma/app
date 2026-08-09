@@ -191,15 +191,19 @@ export default function SettingsPage() {
         </div>
       </div>
 
-      <div className="max-w-xl mx-auto px-4 py-4 pb-24">
+      <div className="max-w-xl mx-auto px-4 py-4 pb-nav">
         <AnimatePresence mode="wait">
           {!section ? (
             <motion.div key="main" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-2">
               {/* User Card */}
               <div className="bg-white rounded-2xl p-4 mb-4 shadow-sm border border-[#EBEBEB]">
                 <div className="flex items-center gap-3">
-                  <div className="w-14 h-14 rounded-full bg-[#00C300] flex items-center justify-center text-white font-bold text-xl">
-                    {user?.name?.[0] || 'U'}
+<div className="w-14 h-14 rounded-full bg-[#F5F5F5] flex items-center justify-center text-[#111111] font-bold text-xl overflow-hidden shrink-0">
+                    {user?.avatar ? (
+                      <img src={user.avatar} alt={`${user.name || 'User'} avatar`} className="w-full h-full object-cover" />
+                    ) : (
+                      <span>{user?.name?.[0] || 'U'}</span>
+                    )}
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-base font-semibold text-[#111111] truncate">{user?.name || 'User'}</p>
@@ -233,7 +237,7 @@ export default function SettingsPage() {
               {/* Logout */}
               <button
                 type="button"
-                onClick={() => { logout(); navigate('/auth'); }}
+                onClick={async () => { await logout(); toast.success('Logged out'); navigate('/auth'); }}
                 className="w-full flex items-center gap-3 px-4 py-3.5 rounded-xl bg-white hover:bg-red-50 transition-colors text-left shadow-sm border border-[#EBEBEB] mt-4"
               >
                 <div className="w-9 h-9 rounded-lg bg-red-100 flex items-center justify-center text-red-500">

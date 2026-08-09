@@ -137,8 +137,13 @@ const mapUser = (u: Record<string, unknown>): User => ({
 const batchFetchUsers = async (ids: string[]): Promise<User[]> => {
   if (!ids.length) return [];
   try {
-    const data = await queryCollection(COLLECTIONS.USERS, [where('id', 'in', ids.slice(0, 30))]);
-    return (data || []).map((u: Record<string, unknown>) => mapUser(u));
+    // Supabase `in` filter supports up to 100 values; chunk to be safe
+    const chunks: string[][] = [];
+    for (let i = 0; i < ids.length; i += 30) chunks.push(ids.slice(i, i + 30));
+    const results = await Promise.all(
+      chunks.map((chunk) => queryCollection(COLLECTIONS.USERS, [where('id', 'in', chunk)]))
+    );
+    return results.flat().map((u: Record<string, unknown>) => mapUser(u));
   } catch {
     const users: User[] = [];
     for (const id of ids) {

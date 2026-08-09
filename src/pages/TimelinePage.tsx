@@ -4,7 +4,8 @@ import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Image, Plus, X, Loader, Globe, Users, Lock, RefreshCw, Camera, TrendingUp, Sparkles,
-  Search, ArrowRight, Share2, Heart, Play, Hash, Film, Flame, List, Radio, Flag, Vote, Copy, Youtube
+Search, ArrowRight, Share2, Heart, Play, Hash, Film, Flame, List, Radio, Flag, Vote, Youtube,
+  MessageCircle as MessageCircleIcon, Send, Twitter, Facebook, Link2
 } from 'lucide-react';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useFriendStore } from '@/store/useFriendStore';
@@ -18,6 +19,8 @@ import TimelineCard from '@/components/features/timeline/TimelineCard';
 import EmptyState from '@/components/EmptyState';
 import LoadingSkeleton from '@/components/LoadingSkeleton';
 import { FeedAd } from '@/components/GoogleAd';
+import { AdBannerCarousel } from '@/components/AdBanner';
+import { MOCK_ADS } from '@/lib/mockAds';
 import RequestTipModal from '@/components/RequestTipModal';
 import FeedReelsViewer from '@/components/features/feed/FeedReelsViewer';
 import YouTubeFeed from '@/components/features/feed/YouTubeFeed';
@@ -850,6 +853,11 @@ export default function TimelinePage() {
               </div>
             )}
 
+{/* In-App Promotions Carousel (fallback when no Google Ad slots configured) */}
+            <div className="shrink-0 px-4 py-3 border-b border-[#1a1a1a]">
+              <AdBannerCarousel ads={MOCK_ADS} interval={6000} />
+            </div>
+
             {/* Quick composer hint */}
             {!showComposer && user && (
               <div className="shrink-0 px-4 py-3 border-b border-[#1a1a1a]">
@@ -1076,22 +1084,57 @@ export default function TimelinePage() {
               className="bg-[#1a1a1a] rounded-t-2xl sm:rounded-2xl p-6 w-full max-w-sm"
               onClick={e => e.stopPropagation()}
             >
-              <h3 className="text-white font-semibold mb-4">Share Post</h3>
+<h3 className="text-white font-semibold mb-4">Share Post</h3>
               <div className="flex flex-col gap-3">
+                {/* Social share buttons */}
+                <div className="grid grid-cols-4 gap-2 mb-1">
+                  <button type="button"
+                    onClick={() => window.open(`https://wa.me/?text=${encodeURIComponent(`${sharePost.content?.slice(0,120) || 'Check out this post on GaGa Chat'} ${window.location.origin}/post/${sharePost.id}`)}`, '_blank', 'noopener,noreferrer')}
+                    className="flex flex-col items-center gap-1 p-2 rounded-xl bg-[#25D366]/15 hover:bg-[#25D366]/25 transition-colors"
+                    aria-label="Share on WhatsApp"
+                  >
+                    <span className="w-9 h-9 rounded-full bg-[#25D366] flex items-center justify-center text-white"><MessageCircleIcon size={18} /></span>
+                    <span className="text-[10px] text-[#8D8D8D]">WhatsApp</span>
+                  </button>
+                  <button type="button"
+                    onClick={() => window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(`${window.location.origin}/post/${sharePost.id}`)}`, '_blank', 'noopener,noreferrer')}
+                    className="flex flex-col items-center gap-1 p-2 rounded-xl bg-[#1877F2]/15 hover:bg-[#1877F2]/25 transition-colors"
+                    aria-label="Share on Facebook"
+                  >
+                    <span className="w-9 h-9 rounded-full bg-[#1877F2] flex items-center justify-center text-white"><Facebook size={18} /></span>
+                    <span className="text-[10px] text-[#8D8D8D]">Facebook</span>
+                  </button>
+                  <button type="button"
+                    onClick={() => window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(`${sharePost.content?.slice(0,120) || 'Check out this post on GaGa Chat'} ${window.location.origin}/post/${sharePost.id}`)}`, '_blank', 'noopener,noreferrer')}
+                    className="flex flex-col items-center gap-1 p-2 rounded-xl bg-[#1DA1F2]/15 hover:bg-[#1DA1F2]/25 transition-colors"
+                    aria-label="Share on X (Twitter)"
+                  >
+                    <span className="w-9 h-9 rounded-full bg-[#1DA1F2] flex items-center justify-center text-white"><Twitter size={18} /></span>
+                    <span className="text-[10px] text-[#8D8D8D]">X / Twitter</span>
+                  </button>
+                  <button type="button"
+                    onClick={() => window.open(`https://t.me/share/url?url=${encodeURIComponent(`${window.location.origin}/post/${sharePost.id}`)}&text=${encodeURIComponent(sharePost.content?.slice(0,120) || 'Check out this post on GaGa Chat')}`, '_blank', 'noopener,noreferrer')}
+                    className="flex flex-col items-center gap-1 p-2 rounded-xl bg-[#0088cc]/15 hover:bg-[#0088cc]/25 transition-colors"
+                    aria-label="Share on Telegram"
+                  >
+                    <span className="w-9 h-9 rounded-full bg-[#0088cc] flex items-center justify-center text-white"><Send size={18} /></span>
+                    <span className="text-[10px] text-[#8D8D8D]">Telegram</span>
+                  </button>
+                </div>
                 <button type="button" onClick={() => {
-                    navigator.clipboard.writeText(`https://gagachat.app/post/${sharePost.id}`);
+                    navigator.clipboard.writeText(`${window.location.origin}/post/${sharePost.id}`);
                     toast.success('Link copied!');
                     setShowShareModal(false);
                   }}
                   className="flex items-center gap-3 p-3 rounded-xl bg-[#2a2a2a] text-white hover:bg-[#333]"
                 >
-                  <Copy size={18} /> Copy Link
+                  <Link2 size={18} /> Copy Link
                 </button>
                 <button type="button" onClick={() => {
                     if (navigator.share) {
-                      navigator.share({ title: 'GaGa Chat Post', text: sharePost.content || 'Check out this post', url: `https://gagachat.app/post/${sharePost.id}` });
+                      navigator.share({ title: 'GaGa Chat Post', text: sharePost.content || 'Check out this post', url: `${window.location.origin}/post/${sharePost.id}` });
                     } else {
-                      navigator.clipboard.writeText(`https://gagachat.app/post/${sharePost.id}`);
+                      navigator.clipboard.writeText(`${window.location.origin}/post/${sharePost.id}`);
                       toast.success('Link copied!');
                     }
                     setShowShareModal(false);

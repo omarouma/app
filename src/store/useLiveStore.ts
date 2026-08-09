@@ -162,6 +162,10 @@ export const useLiveStore = create<LiveStore>((set) => ({
   sendLiveComment: async (streamId, userId, content, userName) => {
     if (!isFirestoreAvailable()) return;
     try {
+      // Sanitize user input before logging
+      const safeContent = String(content).replace(/[\r\n]/g, ' ').slice(0, 500);
+      console.log(`sendLiveComment: streamId=${streamId}, userId=${userId}, content=${safeContent}`);
+      
       await addDocToSubcollection(COLLECTION_LIVE, streamId, 'comments', {
         userId,
         content,

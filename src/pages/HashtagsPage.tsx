@@ -24,14 +24,16 @@ const MOCK_HASHTAGS: Hashtag[] = [
 export default function HashtagsPage() {
   const navigate = useNavigate();
   const { user } = useAuthStore();
-  const { trendingHashtags, followedHashtags, getTrendingHashtags, followHashtag, unfollowHashtag } = useEnhancedTimelineStore();
+  const { trendingHashtags, followedHashtags, getTrendingHashtags, subscribeTrendingHashtags, followHashtag, unfollowHashtag } = useEnhancedTimelineStore();
   const [tab, setTab] = useState<'trending' | 'following' | 'discover'>('trending');
   const [search, setSearch] = useState('');
   const [localHashtags, setLocalHashtags] = useState<Hashtag[]>(MOCK_HASHTAGS);
 
   useEffect(() => {
     getTrendingHashtags(20);
-  }, [getTrendingHashtags]);
+    const unsub = subscribeTrendingHashtags(20);
+    return () => unsub();
+  }, [getTrendingHashtags, subscribeTrendingHashtags]);
 
   const displayHashtags = trendingHashtags.length > 0 ? trendingHashtags : localHashtags;
 

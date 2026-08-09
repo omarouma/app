@@ -313,7 +313,7 @@ const w = wallet as unknown as Record<string, unknown> | undefined;
         </div>
       </div>
 
-      <div className="p-4 space-y-4">
+      <div className="p-4 space-y-4 pb-nav">
         {/* Gaga Coins Value Card */}
         <motion.div
           initial={{ opacity: 0, y: 10 }}

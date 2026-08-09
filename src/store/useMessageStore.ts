@@ -199,8 +199,7 @@ export const useMessageStore = create<MessageStore>((set, get) => ({
           senderId,
           content,
           type,
-          createdAt: new Date(),
-          timestamp: serverTimestamp(),
+          createdAt: serverTimestamp(),
           read: false,
         };
         if (mediaUrl) msgData.mediaUrl = mediaUrl;

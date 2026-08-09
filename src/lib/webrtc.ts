@@ -50,7 +50,8 @@ private onStateChange?: (state: WebRTCCallState) => void;
   private onLocalStream?: (stream: MediaStream) => void;
   private onQualityChange?: (quality: 'good' | 'poor' | 'reconnecting') => void;
   private signalingUnsub: (() => void) | null = null;
-private remoteDescSet = false;
+  private remoteDescSet = false;
+  private handlingSignaling = false;
   private pendingIce: RTCIceCandidateInit[] = [];
   private pendingCallerIceCount = 0;
   private pendingCalleeIceCount = 0;
@@ -60,7 +61,13 @@ private remoteDescSet = false;
   private disconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private statsTimer: ReturnType<typeof setInterval> | null = null;
   private lastQuality: 'good' | 'poor' | 'reconnecting' = 'good';
-  private wasConnected = false;
+private wasConnected = false;
+  private _isHeld = false;
+  private dtmfSender: RTCDTMFSender | null = null;
+
+  get isHeld() {
+    return this._isHeld;
+  }
 
   setOnQualityChange(cb: ((quality: 'good' | 'poor' | 'reconnecting') => void) | undefined) {
     this.onQualityChange = cb;
@@ -280,12 +287,16 @@ this._pc.onconnectionstatechange = () => {
     const supabase = getSupabase();
     if (!supabase) return;
 
-    // Ensure signaling row exists WITHOUT wiping an existing offer/answer/ICE
-    // (upsert only sets the provided columns — new rows get the DB defaults).
-    await supabase.from('call_signaling').upsert({
-      call_id: this.callId,
-      updated_at: new Date().toISOString(),
-    }, { onConflict: 'call_id' });
+    // For the callee: ensure the signaling row exists (caller already wrote it
+    // via writeOffer). Use ignoreDuplicates so we never overwrite the offer.
+    // For the caller: row was already written by writeOffer — skip the upsert
+    // entirely to avoid any risk of nullifying the offer column.
+    if (!this.isCaller) {
+      await supabase.from('call_signaling').upsert({
+        call_id: this.callId,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'call_id', ignoreDuplicates: true });
+    }
 
     // Subscribe to changes
     const channel = supabase
@@ -308,25 +319,27 @@ this._pc.onconnectionstatechange = () => {
       .subscribe();
 
     // Supabase realtime does NOT replay the current row on subscribe.
-    // Fetch the existing offer/answer once so a callee that joins after the
-    // offer was written still receives it.
-    Promise.resolve(
-      supabase
-        .from('call_signaling')
-        .select('offer, answer, caller_ice, callee_ice')
-        .eq('call_id', this.callId)
-        .single()
-    )
-      .then(({ data }) => {
-        if (!data || !this.callId) return;
-        void this.handleSignalingData({
-          offer: data.offer,
-          answer: data.answer,
-          callerIce: data.caller_ice || [],
-          calleeIce: data.callee_ice || [],
-        });
-      })
-      .catch(() => { /* row may not exist yet — caller writes it next */ });
+    // Only the callee needs to fetch the existing row — the caller already has
+    // the offer locally and doesn't need to re-process it.
+    if (!this.isCaller) {
+      Promise.resolve(
+        supabase
+          .from('call_signaling')
+          .select('offer, answer, caller_ice, callee_ice')
+          .eq('call_id', this.callId)
+          .single()
+      )
+        .then(({ data }) => {
+          if (!data || !this.callId) return;
+          void this.handleSignalingData({
+            offer: data.offer,
+            answer: data.answer,
+            callerIce: data.caller_ice || [],
+            calleeIce: data.callee_ice || [],
+          });
+        })
+        .catch(() => { /* row may not exist yet */ });
+    }
 
     this.signalingUnsub = () => supabase.removeChannel(channel);
   }
@@ -350,6 +363,17 @@ this._pc.onconnectionstatechange = () => {
   }
 
 private async handleSignalingData(sig: SignalingData) {
+    // Mutex: prevent concurrent executions from causing double setRemoteDescription
+    if (this.handlingSignaling) return;
+    this.handlingSignaling = true;
+    try {
+      await this._handleSignalingData(sig);
+    } finally {
+      this.handlingSignaling = false;
+    }
+  }
+
+  private async _handleSignalingData(sig: SignalingData) {
     const pc = this.ensurePeerConnection();
     if (!pc) return;
 
@@ -436,13 +460,14 @@ private async handleSignalingData(sig: SignalingData) {
     if (isSupabaseConfigured() && this.callId) {
       const supabase = getSupabase();
       if (supabase) {
+        // Use INSERT ... ON CONFLICT DO UPDATE only for the offer/type columns.
+        // Do NOT reset caller_ice/callee_ice if the row already exists — the
+        // callee may have already written ICE candidates on a fast network.
         await supabase.from('call_signaling').upsert({
           call_id: this.callId,
           offer: { sdp: offer.sdp, type: offer.type },
-          caller_ice: [],
-          callee_ice: [],
           updated_at: new Date().toISOString(),
-        }, { onConflict: 'call_id' });
+        }, { onConflict: 'call_id', ignoreDuplicates: false });
         return;
       }
     }
@@ -528,19 +553,23 @@ async startCall(callId: string) {
     this.isCaller = true;
     this.setState('ringing');
 
+    // Ensure the peer connection exists and attach the ICE handler BEFORE
+    // startLocalMedia() adds tracks — ICE gathering can begin as soon as
+    // tracks are added, so the handler must be in place first.
+    const pcEarly = this.ensurePeerConnection();
+    if (pcEarly) {
+      pcEarly.onicecandidate = async (e) => {
+        if (!e.candidate || !this.callId) return;
+        try {
+          await this.appendIceCandidate(e.candidate.toJSON(), true);
+        } catch { /* ignore */ }
+      };
+    }
+
     await this.startLocalMedia();
 
     const pc = this.ensurePeerConnection();
     if (!pc) return;
-
-    // Attach the ICE handler BEFORE the offer is created/local description is
-    // set, so no candidates are lost during the async signaling handshake.
-    pc.onicecandidate = async (e) => {
-      if (!e.candidate || !this.callId) return;
-      try {
-        await this.appendIceCandidate(e.candidate.toJSON(), true);
-      } catch { /* ignore */ }
-    };
 
     const offer = await pc.createOffer();
     await pc.setLocalDescription(offer);
@@ -558,19 +587,23 @@ async startCall(callId: string) {
     this.isCaller = false;
     this.setState('ringing');
 
+    // Ensure the peer connection exists and attach the ICE handler BEFORE
+    // startLocalMedia() adds tracks — ICE gathering can begin as soon as
+    // tracks are added, so the handler must be in place first.
+    const pcEarly = this.ensurePeerConnection();
+    if (pcEarly) {
+      pcEarly.onicecandidate = async (e) => {
+        if (!e.candidate || !this.callId) return;
+        try {
+          await this.appendIceCandidate(e.candidate.toJSON(), false);
+        } catch { /* ignore */ }
+      };
+    }
+
     await this.startLocalMedia();
 
     const pc = this.ensurePeerConnection();
     if (!pc) return;
-
-    // Attach the ICE handler BEFORE the signaling subscription is established,
-    // so ICE candidates gathered during the async handshake are not lost.
-    pc.onicecandidate = async (e) => {
-      if (!e.candidate || !this.callId) return;
-      try {
-        await this.appendIceCandidate(e.candidate.toJSON(), false);
-      } catch { /* ignore */ }
-    };
 
     // Start listening for offer — must await so channel is ready before ICE fires
     await this.initSignaling();
@@ -602,6 +635,7 @@ this.clearDisconnectTimer();
     this._pc = null;
     this.callId = null;
     this.remoteDescSet = false;
+    this.handlingSignaling = false;
     this.pendingIce = [];
     this.pendingCallerIceCount = 0;
     this.pendingCalleeIceCount = 0;
@@ -620,6 +654,56 @@ this.clearDisconnectTimer();
   toggleVideo(enabled: boolean) {
     if (!this.localStream) return;
     for (const t of this.localStream.getVideoTracks()) t.enabled = enabled;
+  }
+
+  // Mutes all local audio/video tracks (used for "Hold").
+  private setAllTracksEnabled(enabled: boolean) {
+    if (!this.localStream) return;
+    for (const t of this.localStream.getTracks()) t.enabled = enabled;
+  }
+
+  hold() {
+    if (this._isHeld) return;
+    this._isHeld = true;
+    this.setAllTracksEnabled(false);
+  }
+
+  resume() {
+    if (!this._isHeld) return;
+    this._isHeld = false;
+    this.setAllTracksEnabled(true);
+  }
+
+  isHeldByLocal(): boolean {
+    return this._isHeld;
+  }
+
+  // Sends a DTMF tone (0-9, *, #, A-D) over the audio track if supported.
+  async sendDTMF(tone: string): Promise<boolean> {
+    if (!isClient || !tone) return false;
+    const pc = this.ensurePeerConnection();
+    if (!pc) return false;
+
+    // Get or reuse an existing DTMF sender on an audio track.
+    if (!this.dtmfSender) {
+      const audioSender = pc.getSenders().find((s) => s.track?.kind === 'audio');
+      if (audioSender) {
+        try {
+          this.dtmfSender = audioSender.dtmf;
+        } catch { /* not supported */ }
+      }
+    }
+
+const sender = this.dtmfSender;
+    if (!sender || typeof sender.insertDTMF !== 'function') return false;
+
+    const char = tone.charAt(0).toUpperCase();
+    if (!'0123456789*#ABCD'.includes(char)) return false;
+
+    try {
+      sender.insertDTMF(char, 100, 100);
+      return true;
+    } catch { return false; }
   }
 
 async flipCamera() {

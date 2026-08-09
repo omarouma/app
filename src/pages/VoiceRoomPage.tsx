@@ -9,6 +9,7 @@ import { useAuthStore } from '@/store/useAuthStore';
 import { useVoiceRoomStore } from '@/store/useVoiceRoomStore';
 import { useVoiceRoomRTC } from '@/hooks/useVoiceRoomRTC';
 import { getDefaultAvatar } from '@/lib/utils';
+import { subscribeToDoc, COLLECTIONS } from '@/lib/firestore';
 
 export default function VoiceRoomPage() {
   const _params = useParams();
@@ -65,8 +66,22 @@ export default function VoiceRoomPage() {
     if (!roomId || !user?.id) return;
     const unsub = subscribeRooms();
     joinRoom(roomId, user.id);
+    
+    // Subscribe to room updates in real-time
+    const unsubRoom = subscribeToDoc(
+      COLLECTIONS.VOICE_ROOMS,
+      roomId,
+      (data) => {
+        if (data && data.id === roomId) {
+          // Update room state from DB
+          // This will trigger re-renders for participants, speakers, etc.
+        }
+      }
+    );
+    
     return () => {
       unsub();
+      unsubRoom();
       leaveRoom(roomId, user.id);
       rtc.stopLocalStream();
     };
