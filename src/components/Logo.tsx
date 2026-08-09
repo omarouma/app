@@ -8,11 +8,12 @@ interface LogoProps {
 }
 
 /**
- * Brand logo for GaGa Chat.
+* Brand logo for GaGa Chat.
  *
- * Uses the crisp, scalable `public/logo.svg` (512x512, gradient chat bubble
- * with a lightning bolt) so it renders cleanly at any size — no distortion or
- * cropping like the legacy raster `logo.png` (which was 179x182 and non-square).
+ * Uses the crisp, scalable `public/logo.svg` (512x512, gradient rounded square
+ * with a white chat-bubble "G" monogram) so it renders cleanly at any size — no
+ * distortion or cropping like the legacy raster `logo.png` (which was 179x182
+ * and non-square).
  *
  * If the SVG is unavailable, it gracefully falls back to the raster PNG.
  */

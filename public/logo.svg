@@ -5,37 +5,63 @@
       <stop offset="55%" stop-color="#00C300"/>
       <stop offset="100%" stop-color="#008A00"/>
     </linearGradient>
-    <linearGradient id="bubbleGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+    <linearGradient id="bubGrad" x1="0%" y1="0%" x2="100%" y2="100%">
       <stop offset="0%" stop-color="#00FF66"/>
-      <stop offset="100%" stop-color="#00C300"/>
+      <stop offset="55%" stop-color="#00C300"/>
+      <stop offset="100%" stop-color="#00A300"/>
     </linearGradient>
   </defs>
 
-  <!-- Rounded-square background -->
-  <rect x="16" y="16" width="480" height="480" rx="112" fill="url(#gagaGrad)"/>
+  <!-- Rounded-square brand background -->
+  <rect x="12" y="12" width="488" height="488" rx="120" fill="url(#gagaGrad)"/>
 
-  <!-- Soft top highlight -->
-  <ellipse cx="180" cy="120" rx="210" ry="120" fill="#ffffff" opacity="0.12"/>
+  <!-- Soft top-left highlight -->
+  <ellipse cx="170" cy="110" rx="230" ry="130" fill="#ffffff" opacity="0.14"/>
 
-  <!-- Chat bubble body -->
+  <!-- Outer chat bubble -->
   <path
-    d="M256 128
-       C 176 128 116 178 116 244
-       C 116 300 158 344 224 356
-       L 224 396 L 268 362
-       C 274 363 280 363 286 363
-       C 356 363 396 330 396 244
-       C 396 178 336 128 256 128
+    d="M256 112
+       C 168 112 104 168 104 244
+       C 104 306 148 356 222 368
+       L 222 404 L 268 372
+       C 276 373 284 373 292 373
+       C 366 373 408 338 408 244
+       C 408 168 344 112 256 112
        Z"
     fill="#ffffff"
   />
 
-  <!-- Bolt / lightning mark -->
+  <!-- Inner "G" monogram bubble (slightly smaller, gradient) -->
   <path
-    d="M 270 168 L 210 262 L 250 262 L 240 330 L 306 242 L 264 242 L 282 168 Z"
-    fill="url(#bubbleGrad)"
-    stroke="#00C300"
-    stroke-width="3"
-    stroke-linejoin="round"
+    d="M256 150
+       C 190 150 144 190 144 244
+       C 144 290 176 322 226 332
+       L 226 356 L 258 334
+       C 264 335 270 335 276 335
+       C 326 335 356 310 356 244
+       C 356 190 322 150 256 150
+       Z"
+    fill="url(#bubGrad)"
   />
+
+  <!-- White "G" letterform -->
+  <path
+    d="M 232 196
+       C 214 196 202 212 202 236
+       C 202 262 214 278 234 278
+       C 250 278 262 268 265 250
+       L 250 250 L 250 238 L 268 238
+       L 268 262
+       C 268 284 254 296 234 296
+       C 206 296 188 276 188 236
+       C 188 198 206 178 232 178
+       C 256 178 276 192 280 214
+       L 266 214
+       C 262 202 249 196 232 196
+       Z"
+    fill="#ffffff"
+  />
+
+  <!-- Small spark / video dot accent -->
+  <circle cx="330" cy="180" r="14" fill="#00FF66" opacity="0.9"/>
 </svg>
