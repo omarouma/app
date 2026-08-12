@@ -129,7 +129,12 @@ export default defineConfig(({ mode }) => {
             if (id.includes('agora-rtc-sdk-ng')) return 'vendor-agora';
             if (id.includes('@radix-ui')) return 'vendor-radix';
             if (id.includes('react-router') || id.includes('react-router-dom')) return 'vendor-router';
-            if (id.includes('react') || id.includes('react-dom')) return 'vendor-react';
+            // NOTE: react/react-dom/scheduler intentionally fall through to
+            // the shared 'vendor' chunk. Splitting react into its own chunk
+            // creates a circular chunk dependency (react-day-picker etc. pull
+            // date-fns from 'vendor' while sonner in 'vendor' pulls react),
+            // which crashes at startup with "Cannot access before
+            // initialization" (TDZ) errors.
             if (id.includes('lucide-react')) return 'vendor-icons';
             if (id.includes('zustand')) return 'vendor-zustand';
             if (id.includes('i18next') || id.includes('react-i18next')) return 'vendor-i18n';
