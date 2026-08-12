@@ -191,7 +191,7 @@ const handleVoiceSend = useCallback(async () => {
       // Single upload path (no double-upload) with the correct 'voice' kind,
       // then send as a typed 'voice' message.
       const url = await uploadMediaBlob(blob, { userId: currentUser.id, kind: 'voice', contentType: 'audio/webm' });
-      await useChatStore.getState().sendMessage(chatId, currentUser.id, 'Voice message', 'voice', url);
+      if (url) await useChatStore.getState().sendMessage(chatId, currentUser.id, 'Voice message', 'voice', url);
       scrollToBottom();
     } catch {
       toast.error('Failed to send voice message.');
@@ -568,14 +568,14 @@ userId={userId}
                 value={lockPinInput}
                 onChange={(e) => setLockPinInput(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleUnlock()}
-                className="bg-gray-800 text-white rounded-md px-3 py-2 text-center w-40"
+                className="bg-gray-800 text-white rounded-xl px-4 py-3 text-center w-48 text-lg tracking-widest focus:outline-none focus:ring-2 focus:ring-[#00C300]"
                 placeholder="PIN"
               />
               {lockError && <p className="text-red-400 text-xs mt-2">{lockError}</p>}
               <button
                 onClick={handleUnlock}
                 disabled={unlocking}
-                className="mt-4 bg-[#00C300] text-white px-4 py-2 rounded-md disabled:opacity-50"
+                className="mt-4 bg-[#00C300] text-white px-6 py-3 rounded-xl min-h-[44px] disabled:opacity-50"
               >
                 {unlocking ? <Loader size={16} className="animate-spin" /> : 'Unlock'}
               </button>
@@ -692,8 +692,36 @@ onSend={() => handleSend()}
         onContactShare={() => {
           if (currentUser) handleSendContact({ userId: currentUser.id, name: currentUser.name || 'User', phone: currentUser.phone, email: currentUser.email, avatar: currentUser.avatar, username: currentUser.username });
         }}
-        onLocationShare={() => {
-          /* logic to share location */
+        onLocationShare={async () => {
+          if (!navigator?.geolocation) {
+            toast.error('Location sharing is not supported by this browser.');
+            return;
+          }
+          try {
+            const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
+              navigator.geolocation.getCurrentPosition(resolve, reject, {
+                enableHighAccuracy: false,
+                timeout: 8000,
+                maximumAge: 60000,
+              });
+            });
+            const { latitude, longitude } = pos.coords;
+            const mapsUrl = `https://www.google.com/maps?q=${latitude},${longitude}`;
+            if (!currentUser) return;
+            await useChatStore.getState().sendMessage(
+              chatId,
+              currentUser.id,
+              `📍 ${latitude.toFixed(4)}, ${longitude.toFixed(4)}`,
+              'location',
+              mapsUrl,
+            );
+            scrollToBottom();
+          } catch (err) {
+            const msg = err && typeof err === 'object' && 'code' in err && (err as { code: number }).code === 1
+              ? 'Location permission denied.'
+              : 'Failed to get location.';
+            toast.error(msg);
+          }
         }}
         onPollOpen={() => setShowPollModal(true)}
         onStickerSelect={async (sticker) => {
@@ -720,8 +748,11 @@ onSend={() => handleSend()}
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.9 }}
-            className="fixed bg-white rounded-xl shadow-xl border border-gray-100 z-50 py-1 min-w-[160px]"
-            style={{ top: Math.min(contextMenu.position?.y ?? 0, window.innerHeight - 300), left: Math.min(contextMenu.position?.x ?? 0, window.innerWidth - 180) }}
+            className="fixed bg-white rounded-xl shadow-xl border border-gray-100 z-50 py-1 min-w-[160px] max-w-[220px]"
+            style={{
+              top: Math.min(contextMenu.position?.y ?? 0, window.innerHeight - 320),
+              left: Math.max(8, Math.min(contextMenu.position?.x ?? 0, window.innerWidth - 228))
+            }}
             onClick={(e) => e.stopPropagation()}
           >
             {[

@@ -119,8 +119,10 @@ export type AgoraTokenResult = {
 
 /**
  * Builds a v1 ("006") RTC token for a channel.
- * The messages map grants JOIN_CHANNEL + PUBLISH_AUDIO + PUBLISH_VIDEO +
- * PUBLISH_DATA privileges until the expiry timestamp.
+ * 
+ * ⚠️  SECURITY: This function should ONLY be called server-side (Cloud Functions).
+ * Never pass a real App Certificate from client code — use VITE_AGORA_TOKEN_SERVER_URL
+ * to fetch tokens from your secure backend instead.
  */
 export async function buildAgoraRtcToken(
   options: AgoraTokenOptions,
@@ -135,6 +137,14 @@ export async function buildAgoraRtcToken(
 
   if (!appId || !appCertificate || !channelName) {
     throw new Error('Agora token requires appId, appCertificate and channelName.');
+  }
+
+  // Guard: refuse to run in browser with a real certificate
+  if (typeof window !== 'undefined' && appCertificate.length > 10) {
+    throw new Error(
+      '[Agora] buildAgoraRtcToken must not be called client-side with a real certificate. ' +
+      'Use VITE_AGORA_TOKEN_SERVER_URL to fetch tokens from your secure backend.'
+    );
   }
 
   const uidStr = typeof uid === 'number' ? String(uid) : uid;

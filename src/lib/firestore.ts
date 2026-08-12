@@ -1,11 +1,20 @@
 /*
-  Database router: Supabase is the primary and only backend.
-  All stores/pages import from here and get a uniform interface.
+  Database router — Supabase is the ONLY production backend.
+  Historical note: The file is named `firestore.ts` and some exports carry the
+  `Firestore` suffix for backwards-compatibility with 30+ existing imports across
+  the codebase. The canonical (new) names are exported alongside and should be
+  preferred for all new code:
+    isFirestoreAvailable  →  isDbAvailable
+    fromFirestoreDate     →  fromDbDate
 */
 import * as supabaseDb from './supabaseDb';
 
 export const COLLECTIONS = supabaseDb.COLLECTIONS;
+
+/** @deprecated Use `isDbAvailable` for new code — the `Firestore` suffix is legacy naming. */
 export const isFirestoreAvailable = supabaseDb.isSupabaseAvailable;
+export const isDbAvailable = supabaseDb.isSupabaseAvailable;
+
 export const getDb = supabaseDb.getDb;
 export const serverTimestamp = supabaseDb.serverTimestamp;
 export const increment = supabaseDb.increment;
@@ -170,7 +179,12 @@ export async function batchDelete(
   return supabaseDb.batchDelete(arg1, arg2);
 }
 
+/** @deprecated Use `fromDbDate` for new code — the `Firestore` suffix is legacy naming. */
 export function fromFirestoreDate(d: any): Date | null {
+  return supabaseDb.fromFirestoreDate(d);
+}
+
+export function fromDbDate(d: unknown): Date | null {
   return supabaseDb.fromFirestoreDate(d);
 }
 

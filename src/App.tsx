@@ -7,15 +7,13 @@ import { useAuthStore } from '@/store/useAuthStore';
 import { useCallStore } from '@/store/useCallStore';
 import { useNotificationStore } from '@/store/useNotificationStore';
 import { useChatStore } from '@/store/useChatStore';
-import { useIsMobile, useIsMounted } from '@/hooks/use-mobile';
-import { useTranslation } from 'react-i18next';
-import { useLanguage } from '@/hooks/useLanguage';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { usePageTracking, useEngagementTracking } from '@/hooks/useFirebaseAnalytics';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
 import { useGATracking } from '@/hooks/useGATracking';
 import { useForegroundNotifications } from '@/hooks/useForegroundNotifications';
 import { useTrackPresence } from '@/hooks/usePresence';
-import { MessageCircle, Phone, Users, Flame, Settings, Search } from 'lucide-react';
+import { MessageCircle, Phone, Users, Flame, Settings } from 'lucide-react';
 import { Toaster } from '@/components/ui/sonner';
 import { CallProvider } from '@/context/CallContext';
 import CallOverlay from '@/components/calling/CallOverlay';
@@ -28,44 +26,74 @@ import { safeGetBooleanStorageItem } from '@/lib/safeStorage';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import ScrollToTop from '@/components/ScrollToTop';
 import BottomNav from '@/components/layout/BottomNav';
-import NetworkStatusBanner from '@/components/NetworkStatusBanner';
 import '@/styles/dark-mode.css';
 
 function usePortraitLock(enabled: boolean) {
-  const isMounted = useIsMounted();
   useEffect(() => {
-    if (!enabled || !isMounted) return;
+    if (!enabled) return;
+    if (typeof window === 'undefined') return;
 
-    const tryLock = async () => {
+    const lockOrientation = async (): Promise<void> => {
       try {
-        const orientation = (screen as unknown as { orientation?: { lock?: (o: string) => Promise<void> } }).orientation;
-        if (orientation?.lock) {
-          await orientation.lock('portrait');
+        const w = window as unknown as {
+          screen?: {
+            orientation?: { lock?: (o: string) => Promise<void> };
+            lockOrientation?: (o: string) => boolean;
+            mozLockOrientation?: (o: string) => boolean;
+            msLockOrientation?: (o: string) => boolean;
+          };
+        };
+        const s = w.screen;
+        if (!s) return;
+        if (s.orientation?.lock) {
+          try {
+            await s.orientation.lock('portrait');
+          } catch {
+            // ignore
+          }
+        } else if (s.lockOrientation) {
+          s.lockOrientation('portrait');
+        } else if (s.mozLockOrientation) {
+          s.mozLockOrientation('portrait');
+        } else if (s.msLockOrientation) {
+          s.msLockOrientation('portrait');
         }
       } catch {
         // ignore
       }
     };
 
-    const onFirstPointer = () => { void tryLock(); };
+    const onFirstInteraction = () => { void lockOrientation(); };
 
-    // Attempt immediately + on first interaction
-    void tryLock();
-    window.addEventListener('touchstart', onFirstPointer, { once: true });
-    window.addEventListener('mousedown', onFirstPointer, { once: true });
-    window.addEventListener('pointerdown', onFirstPointer, { once: true });
+    // Immediate attempt (some browsers allow it pre-interaction)
+    void lockOrientation();
 
-    // Re-apply on orientation changes
-    const handleOrientationChange = () => { void tryLock(); };
-    window.addEventListener('orientationchange', handleOrientationChange);
+    // Retry on common first interaction events (required for lock on many browsers)
+    const interactionEvents = ['touchstart', 'pointerdown', 'mousedown', 'click', 'keydown', 'orientationchange', 'resize'] as const;
+    interactionEvents.forEach((evt) => {
+      window.addEventListener(evt, onFirstInteraction as EventListener, { once: true, passive: true });
+    });
+
+    // Continuously re-apply lock on orientation changes / resize
+    const reLock = () => { void lockOrientation(); };
+    window.addEventListener('orientationchange', reLock);
+    window.addEventListener('resize', reLock);
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') void lockOrientation();
+    });
+
+    // Also re-apply every 8s as a safety net (many browsers silently drop the lock)
+    const safetyInterval = window.setInterval(reLock, 8000);
 
     return () => {
-      window.removeEventListener('touchstart', onFirstPointer);
-      window.removeEventListener('mousedown', onFirstPointer);
-      window.removeEventListener('pointerdown', onFirstPointer);
-      window.removeEventListener('orientationchange', handleOrientationChange);
+      interactionEvents.forEach((evt) => {
+        window.removeEventListener(evt, onFirstInteraction as EventListener);
+      });
+      window.removeEventListener('orientationchange', reLock);
+      window.removeEventListener('resize', reLock);
+      window.clearInterval(safetyInterval);
     };
-  }, [enabled, isMounted]);
+  }, [enabled]);
 }
 
 const LandingView = lazy(() => import('@/views/LandingView'));
@@ -127,7 +155,6 @@ const AIChatPage = lazy(() => import('@/pages/AIChatPage'));
 const LiveStreamsPage = lazy(() => import('@/pages/LiveStreamsPage'));
 const LiveStreamPage = lazy(() => import('@/pages/LiveStreamPage'));
 const CreatorDashboardPage = lazy(() => import('@/pages/CreatorDashboardPage'));
-const PostPage = lazy(() => import('@/pages/PostPage'));
 
 const PageLoader = () => (
   <div className="h-screen w-screen bg-white flex items-center justify-center">
@@ -145,12 +172,11 @@ const desktopNavItems = [
   { to: '/calls', icon: Phone, label: 'Calls' },
   { to: '/contacts', icon: Users, label: 'People' },
   { to: '/timeline', icon: Flame, label: 'Feed' },
-  { to: '/search', icon: Search, label: 'Search' },
   { to: '/settings', icon: Settings, label: 'Settings' },
 ];
 
 // Routes where BottomNav should be hidden on mobile (full-screen experiences)
-const HIDE_BOTTOM_NAV_PATHS = ['/chat/', '/group/', '/call', '/onboarding', '/auth', '/qr-scanner', '/live/', '/voice-room/', '/reels'];
+const HIDE_BOTTOM_NAV_PATHS = ['/chat/', '/group/', '/call', '/onboarding', '/auth', '/qr-scanner', '/live/', '/voice-room/'];
 
 // Public paths accessible without authentication on desktop
 const DESKTOP_PUBLIC_PATHS = ['/privacy', '/terms', '/cookies', '/community-guidelines'];
@@ -228,11 +254,10 @@ const DesktopNav = memo(function DesktopNav() {
         return (
           <button type="button" key={item.to}
             onClick={() => navigate(item.to)}
-            className={`w-12 h-12 rounded-xl flex items-center justify-center transition-colors mb-1 ${
-              isActive
+            className={`w-12 h-12 rounded-xl flex items-center justify-center transition-colors mb-1 ${isActive
                 ? 'bg-[#00C300]/10 text-[#00C300]'
                 : 'text-[#8D8D8D] hover:text-[#111111] hover:bg-[#F5F5F5]'
-            }`}
+              }`}
             title={item.label}
             aria-label={item.label}
             aria-current={isActive ? 'page' : undefined}
@@ -308,12 +333,12 @@ function useServiceWorker() {
         registration = reg;
         if ('sync' in registration) {
           (registration as unknown as { sync: { register: (tag: string) => Promise<void> } })
-            .sync.register('sync-messages').catch(() => {});
+            .sync.register('sync-messages').catch(() => { });
         }
-        registration.update().catch(() => {});
+        registration.update().catch(() => { });
         registration.addEventListener('updatefound', handleUpdateFound);
       })
-      .catch(() => {});
+      .catch(() => { });
 
     const handleSWMessage = (event: MessageEvent) => {
       handleMessage(event);
@@ -346,7 +371,6 @@ function AppContent() {
   const { user } = useAuthStore();
   const didOnboardingRedirectRef = useRef(false);
   const navigate = useNavigate();
-  const { i18n } = useTranslation();
 
   const onboardingComplete = isAuthenticated
     ? safeGetBooleanStorageItem('gaga-onboarding-complete', false)
@@ -362,11 +386,6 @@ function AppContent() {
   useGATracking();
   usePushNotifications();
   useForegroundNotifications();
-  useLanguage();
-
-  useEffect(() => {
-    document.documentElement.lang = i18n.language;
-  }, [i18n.language]);
 
   useEffect(() => {
     const publicPaths = ['/privacy', '/terms', '/help'];
@@ -420,117 +439,115 @@ function AppContent() {
     location.pathname !== '/auth' &&
     location.pathname !== '/';
 
-return (
-    <div id="main-content" className="w-full max-w-full bg-white dark:bg-[#0d0d0d]" style={{ minHeight: '100dvh' }}>
-      <NetworkStatusBanner />
+  return (
+    <div className="w-screen bg-white" style={{ minHeight: '100dvh' }}>
       <Suspense fallback={<PageLoader />}>
         <Routes location={location}>
-            {/* Public routes */}
-            <Route
-              path="/"
-              element={
-                isAuthenticated
-                  ? (isMobile ? <Navigate to="/chats" replace /> : <Navigate to="/chat" replace />)
-                  : <LandingView />
-              }
-            />
-            <Route
-              path="/auth"
-              element={
-                isAuthenticated
-                  ? (isMobile ? <Navigate to="/chats" replace /> : <Navigate to="/chat" replace />)
-                  : <AuthView />
-              }
-            />
-<Route path="/privacy" element={isMobile ? <PrivacyPage /> : <PrivacyView />} />
-            <Route path="/terms" element={isMobile ? <TermsPage /> : <TermsView />} />
-            <Route path="/onboarding" element={<OnboardingPage />} />
-            <Route path="/post/:id" element={<PostPage />} />
+          {/* Public routes */}
+          <Route
+            path="/"
+            element={
+              isAuthenticated
+                ? (isMobile ? <Navigate to="/contacts" replace /> : <Navigate to="/chat" replace />)
+                : <LandingView />
+            }
+          />
+          <Route
+            path="/auth"
+            element={
+              isAuthenticated
+                ? (isMobile ? <Navigate to="/contacts" replace /> : <Navigate to="/chat" replace />)
+                : <AuthView />
+            }
+          />
+          <Route path="/privacy" element={isMobile ? <PrivacyPage /> : <PrivacyView />} />
+          <Route path="/terms" element={isMobile ? <TermsPage /> : <TermsView />} />
+          <Route path="/onboarding" element={<OnboardingPage />} />
 
-            {/* Mobile routes */}
-            {isMobile && (
-              <>
-                {MOBILE_PROTECTED_ROUTE_PATHS.map((path) => (
-                  <Route key={path} path={path} element={
-                    <ProtectedRoute element={getMobileRouteElement(path)} isAuthenticated={isAuthenticated} />
-                  } />
-                ))}
-                <Route path="/admin" element={
-                  <ProtectedRoute element={<AdminPage />} adminOnly isAuthenticated={isAuthenticated} isAdmin={user?.isAdmin} />
+          {/* Mobile routes */}
+          {isMobile && (
+            <>
+              {MOBILE_PROTECTED_ROUTE_PATHS.map((path) => (
+                <Route key={path} path={path} element={
+                  <ProtectedRoute element={getMobileRouteElement(path)} isAuthenticated={isAuthenticated} />
                 } />
-                <Route path="/cookies" element={<CookiePolicyPage />} />
-                <Route path="/community-guidelines" element={<CommunityGuidelinesPage />} />
-              </>
-            )}
+              ))}
+              <Route path="/admin" element={
+                <ProtectedRoute element={<AdminPage />} adminOnly isAuthenticated={isAuthenticated} isAdmin={user?.isAdmin} />
+              } />
+              <Route path="/cookies" element={<CookiePolicyPage />} />
+              <Route path="/community-guidelines" element={<CommunityGuidelinesPage />} />
+            </>
+          )}
 
-            {/* Desktop routes */}
-            {!isMobile && (
-              <Route
-                path="/*"
-                element={
-                  !isAuthenticated && !DESKTOP_PUBLIC_PATHS.some((p) => location.pathname.startsWith(p)) ? (
-                    <Navigate to="/auth" replace />
-                  ) : (
-                    <div className="h-screen flex overflow-hidden">
-                      <DesktopNav />
-                      <div className="flex-1 overflow-hidden bg-white">
-                        <Routes>
-                          <Route path="chat" element={<DesktopChatView />} />
-                          <Route path="chats" element={<DesktopChatView />} />
-                          <Route path="chat/:userId" element={<DesktopChatView />} />
-                          <Route path="group/:groupId" element={<GroupChatPage />} />
-                          <Route path="create-group" element={<CreateGroupPage />} />
-                          <Route path="calls" element={<DesktopCallsView />} />
-                          <Route path="contacts" element={<DesktopContactsView />} />
-                          <Route path="timeline" element={<DesktopTimelineView />} />
-                          <Route path="call" element={<CallPage />} />
-                          <Route path="profile" element={<ProfilePage />} />
-                          <Route path="profile/:userId" element={<ProfilePage />} />
-                          <Route path="wallet" element={<WalletPage />} />
-                          <Route path="notifications" element={<NotificationsPage />} />
-                          <Route path="qr-scanner" element={<QRScannerPage />} />
-                          <Route path="add-friends" element={<AddFriendsPage />} />
-                          <Route path="sent-requests" element={<SentRequestsPage />} />
-                          <Route path="blocked-users" element={<BlockedUsersPage />} />
-                          <Route path="admin" element={user?.isAdmin ? <AdminPage /> : <Navigate to="/" replace />} />
-                          <Route path="rewards" element={<GagaRewardsPage />} />
-                          <Route path="more" element={<MorePage />} />
-                          <Route path="reels" element={<ReelsPage />} />
-                          <Route path="share" element={<ShareTargetPage />} />
-                          <Route path="settings" element={<SettingsPage />} />
-                          <Route path="chat-info/:chatId" element={<ChatInfoPage />} />
-                          <Route path="saved-messages" element={<SavedMessagesPage />} />
-                          <Route path="premium" element={<PremiumPage />} />
-                          <Route path="events" element={<EventsPage />} />
-                          <Route path="marketplace" element={<MarketplacePage />} />
-                          <Route path="bookmarks" element={<BookmarksPage />} />
-                          <Route path="hashtags" element={<HashtagsPage />} />
-                          <Route path="analytics" element={<AnalyticsPage />} />
-                          <Route path="search" element={<SearchPage />} />
-                          <Route path="help" element={<HelpCenterPage />} />
-                          <Route path="broadcast-lists" element={<BroadcastListsPage />} />
-                          <Route path="creators" element={<CreatorCenterPage />} />
-                          <Route path="voice-rooms" element={<VoiceRoomsPage />} />
-                          <Route path="voice-room/:roomId" element={<VoiceRoomPage />} />
-                          <Route path="challenges" element={<DailyChallengesPage />} />
-                          <Route path="ai-chat" element={<AIChatPage />} />
-                          <Route path="live-streams" element={<LiveStreamsPage />} />
-                          <Route path="live/:streamId" element={<LiveStreamPage />} />
-                          <Route path="creator-dashboard" element={<CreatorDashboardPage />} />
-                          <Route path="create-reel" element={<CreateReelsPage />} />
-                          <Route path="cookies" element={<CookiePolicyPage />} />
-                          <Route path="community-guidelines" element={<CommunityGuidelinesPage />} />
-                          <Route path="*" element={<NotFound />} />
-                        </Routes>
-                      </div>
+          {/* Desktop routes */}
+          {!isMobile && (
+            <Route
+              path="/*"
+              element={
+                !isAuthenticated && !DESKTOP_PUBLIC_PATHS.some((p) => location.pathname.startsWith(p)) ? (
+                  <Navigate to="/auth" replace />
+                ) : (
+                  <div className="h-screen flex overflow-hidden">
+                    <DesktopNav />
+                    <div className="flex-1 overflow-hidden bg-white">
+                      <Routes>
+                        <Route path="chat" element={<DesktopChatView />} />
+                        <Route path="chats" element={<DesktopChatView />} />
+                        <Route path="chat/:userId" element={<DesktopChatView />} />
+                        <Route path="group/:groupId" element={<GroupChatPage />} />
+                        <Route path="create-group" element={<CreateGroupPage />} />
+                        <Route path="calls" element={<DesktopCallsView />} />
+                        <Route path="contacts" element={<DesktopContactsView />} />
+                        <Route path="timeline" element={<DesktopTimelineView />} />
+                        <Route path="call" element={<CallPage />} />
+                        <Route path="profile" element={<ProfilePage />} />
+                        <Route path="profile/:userId" element={<ProfilePage />} />
+                        <Route path="wallet" element={<WalletPage />} />
+                        <Route path="notifications" element={<NotificationsPage />} />
+                        <Route path="qr-scanner" element={<QRScannerPage />} />
+                        <Route path="add-friends" element={<AddFriendsPage />} />
+                        <Route path="sent-requests" element={<SentRequestsPage />} />
+                        <Route path="blocked-users" element={<BlockedUsersPage />} />
+                        <Route path="admin" element={user?.isAdmin ? <AdminPage /> : <Navigate to="/" replace />} />
+                        <Route path="rewards" element={<GagaRewardsPage />} />
+                        <Route path="more" element={<MorePage />} />
+                        <Route path="reels" element={<ReelsPage />} />
+                        <Route path="share" element={<ShareTargetPage />} />
+                        <Route path="settings" element={<SettingsPage />} />
+                        <Route path="chat-info/:chatId" element={<ChatInfoPage />} />
+                        <Route path="saved-messages" element={<SavedMessagesPage />} />
+                        <Route path="premium" element={<PremiumPage />} />
+                        <Route path="events" element={<EventsPage />} />
+                        <Route path="marketplace" element={<MarketplacePage />} />
+                        <Route path="bookmarks" element={<BookmarksPage />} />
+                        <Route path="hashtags" element={<HashtagsPage />} />
+                        <Route path="analytics" element={<AnalyticsPage />} />
+                        <Route path="search" element={<SearchPage />} />
+                        <Route path="help" element={<HelpCenterPage />} />
+                        <Route path="broadcast-lists" element={<BroadcastListsPage />} />
+                        <Route path="creators" element={<CreatorCenterPage />} />
+                        <Route path="voice-rooms" element={<VoiceRoomsPage />} />
+                        <Route path="voice-room/:roomId" element={<VoiceRoomPage />} />
+                        <Route path="challenges" element={<DailyChallengesPage />} />
+                        <Route path="ai-chat" element={<AIChatPage />} />
+                        <Route path="live-streams" element={<LiveStreamsPage />} />
+                        <Route path="live/:streamId" element={<LiveStreamPage />} />
+                        <Route path="creator-dashboard" element={<CreatorDashboardPage />} />
+                        <Route path="create-reel" element={<CreateReelsPage />} />
+                        <Route path="cookies" element={<CookiePolicyPage />} />
+                        <Route path="community-guidelines" element={<CommunityGuidelinesPage />} />
+                        <Route path="*" element={<NotFound />} />
+                      </Routes>
                     </div>
-                  )
-                }
-              />
-            )}
+                  </div>
+                )
+              }
+            />
+          )}
 
-            <Route path="*" element={<NotFound />} />
-          </Routes>
+          <Route path="*" element={<NotFound />} />
+        </Routes>
       </Suspense>
 
       {showBottomNav && <BottomNav />}

@@ -4,7 +4,7 @@ import { MessageCircle, Users, User, Flame, Search } from 'lucide-react';
 import { useChatStore } from '@/store/useChatStore';
 import { useGroupStore } from '@/store/useGroupStore';
 import { useNotificationStore } from '@/store/useNotificationStore';
-import { useIsMobile, useIsMounted } from '@/hooks/use-mobile';
+import { useIsMounted, useIsSmallPhone, useIsTablet } from '@/hooks/use-mobile';
 
 const tabDefs = [
   { to: '/contacts', label: 'People', icon: Users },
@@ -16,7 +16,8 @@ const tabDefs = [
 
 const BottomNav = memo(function BottomNav() {
   const isMounted = useIsMounted();
-  const isMobile = useIsMobile();
+  const isSmallPhone = useIsSmallPhone(480);
+  const isTablet = useIsTablet();
   const chats = useChatStore((s) => s.chats);
   const groups = useGroupStore((s) => s.groups);
   const notifUnread = useNotificationStore((s) => s.unreadCount);
@@ -30,45 +31,114 @@ const BottomNav = memo(function BottomNav() {
     badge: t.to === '/chats' ? totalUnread : t.to === '/profile' ? notifUnread : 0,
   })), [totalUnread, notifUnread]);
 
-  if (!isMounted || !isMobile) return null;
+  if (!isMounted) return null;
+
+  if (isTablet) {
+    return (
+      <nav
+        className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 rounded-2xl nav-surface border shadow-float"
+        style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
+        aria-label="Main navigation"
+      >
+        <div className="flex items-center gap-1 px-3 py-2">
+          {tabs.map(({ to, label, icon: Icon, badge, highlight }) => (
+            <NavLink
+              key={to}
+              to={to}
+              aria-label={label}
+              end={to === '/chats'}
+              className="flex flex-col items-center gap-0.5 tap-scale min-h-[48px] justify-center px-3"
+            >
+              {({ isActive }) => (
+                <>
+                  <div className="relative flex flex-col items-center">
+                    {isActive && !highlight && (
+                      <span className="absolute -top-1.5 left-1/2 -translate-x-1/2 w-5 h-1 bg-primary rounded-full" />
+                    )}
+                    {highlight ? (
+                      <div className={`w-11 h-11 rounded-full flex items-center justify-center shadow-md transition-all ${
+                        isActive ? 'scale-105' : ''
+                      }`}
+                           style={{ backgroundColor: isActive ? '#FF4081' : 'rgba(255, 64, 129, 0.85)' }}>
+                        <Icon size={21} className="text-white" strokeWidth={2.5} />
+                      </div>
+                    ) : (
+                      <Icon
+                        size={24}
+                        className={`transition-colors ${isActive ? 'text-foreground' : 'text-muted-foreground'}`}
+                        strokeWidth={isActive ? 2.5 : 1.5}
+                      />
+                    )}
+                    {badge > 0 && (
+                      <span
+                        className="absolute -top-1 -right-2.5 text-white text-[10px] font-bold rounded-full min-w-[16px] h-4 flex items-center justify-center px-0.5 badge-pulse"
+                        style={{
+                          backgroundColor: 'hsl(var(--destructive))',
+                          border: `2px solid hsl(var(--card))`,
+                        }}
+                        aria-label={`${badge} unread notifications`}
+                        role="status"
+                      >
+                        {badge > 99 ? '99+' : badge}
+                      </span>
+                    )}
+                  </div>
+                  <span className={`text-[11px] transition-colors ${isActive ? 'font-semibold text-foreground' : 'text-muted-foreground'}`}>
+                    {label}
+                  </span>
+                </>
+              )}
+            </NavLink>
+          ))}
+        </div>
+      </nav>
+    );
+  }
 
   return (
     <nav
-      className="fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md border-t border-[#EBEBEB] pb-[env(safe-area-inset-bottom)] shadow-[0_-1px_0_rgba(0,0,0,0.04)]"
+      className="fixed bottom-0 left-0 right-0 z-50 nav-surface border-t shadow-nav"
+      style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
       aria-label="Main navigation"
     >
-      <div className="flex justify-around items-center h-[58px]">
+      <div className="flex justify-around items-center"
+           style={{ height: isSmallPhone ? '54px' : '58px' }}>
         {tabs.map(({ to, label, icon: Icon, badge, highlight }) => (
           <NavLink
             key={to}
             to={to}
             aria-label={label}
             end={to === '/chats'}
-            className="flex flex-col items-center gap-0.5 flex-1 min-w-0 py-1 tap-scale"
+            className="flex flex-col items-center gap-0.5 flex-1 min-w-0 py-1 tap-scale min-h-[44px] justify-center"
           >
             {({ isActive }) => (
               <>
                 <div className="relative flex flex-col items-center">
-                  {/* Active pill indicator */}
                   {isActive && !highlight && (
-                    <span className="absolute -top-1.5 left-1/2 -translate-x-1/2 w-5 h-1 bg-[#00C300] rounded-full" />
+                    <span className="absolute -top-1.5 left-1/2 -translate-x-1/2 w-5 h-1 rounded-full"
+                          style={{ backgroundColor: 'hsl(var(--primary))' }} />
                   )}
                   {highlight ? (
-                    <div className={`w-11 h-11 rounded-full flex items-center justify-center shadow-md transition-transform ${
-                      isActive ? 'bg-[#FF4081] scale-105' : 'bg-[#FF4081]/85'
-                    }`}>
-                      <Icon size={21} className="text-white" strokeWidth={2.5} />
+                    <div className={`${isSmallPhone ? 'w-10 h-10' : 'w-11 h-11'} rounded-full flex items-center justify-center shadow-md transition-transform ${
+                      isActive ? 'scale-105' : ''
+                    }`}
+                         style={{ backgroundColor: isActive ? '#FF4081' : 'rgba(255, 64, 129, 0.85)' }}>
+                      <Icon size={isSmallPhone ? 19 : 21} className="text-white" strokeWidth={2.5} />
                     </div>
                   ) : (
                     <Icon
-                      size={25}
-                      className={`transition-colors ${isActive ? 'text-[#111111]' : 'text-[#ADADAD]'}`}
+                      size={isSmallPhone ? 22 : 25}
+                      className={`transition-colors ${isActive ? 'text-foreground' : 'text-muted-foreground'}`}
                       strokeWidth={isActive ? 2.5 : 1.5}
                     />
                   )}
                   {badge > 0 && (
                     <span
-                      className="absolute -top-1 -right-2.5 bg-[#FF3B30] text-white text-[9px] font-bold rounded-full min-w-[16px] h-4 flex items-center justify-center border-2 border-white px-0.5 badge-pulse"
+                      className="absolute -top-1 -right-2.5 text-white text-[10px] font-bold rounded-full min-w-[16px] h-4 flex items-center justify-center px-0.5 badge-pulse"
+                      style={{
+                        backgroundColor: 'hsl(var(--destructive))',
+                        border: `2px solid hsl(var(--card))`,
+                      }}
                       aria-label={`${badge} unread notifications`}
                       role="status"
                     >
@@ -76,7 +146,7 @@ const BottomNav = memo(function BottomNav() {
                     </span>
                   )}
                 </div>
-                <span className={`text-[10px] transition-colors ${isActive ? 'font-semibold text-[#111111]' : 'text-[#ADADAD]'}`}>
+                <span className={`${isSmallPhone ? 'text-[10px]' : 'text-[11px]'} transition-colors ${isActive ? 'font-semibold text-foreground' : 'text-muted-foreground'}`}>
                   {label}
                 </span>
               </>

@@ -1,4 +1,4 @@
-import { memo } from 'react';
+import { memo, useMemo } from 'react';
 import type React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -68,7 +68,7 @@ const messageComponentMap = {
 } as Record<string, React.ComponentType<any>>;
 
 export const MessageItem = memo(function MessageItem(props: MessageItemProps) {
-const {
+  const {
     msg, isMe, showAvatar, showDate, msgDate, showUnreadSeparator, isSelected,
     editingMessageId, editInput, selectionMode: _selectionMode, selectedReactionMsg,
     displayUser, userId, currentUserId, msgs,
@@ -93,6 +93,24 @@ const {
   const isEditing = editingMessageId === msg.id;
 
   const MessageComponent = messageComponentMap[msg.type] || TextMessage;
+
+  const msgIdMap = useMemo(() => {
+    const map = new Map<string, Message>();
+    for (const m of msgs) {
+      map.set(m.id, m);
+    }
+    return map;
+  }, [msgs]);
+
+  const repliedInfo = useMemo(() => {
+    if (!msg.replyTo) return null;
+    const r = msgIdMap.get(msg.replyTo);
+    if (!r) return null;
+    return {
+      message: r,
+      preview: r.content.substring(0, 30) + (r.content.length > 30 ? '...' : ''),
+    };
+  }, [msg.replyTo, msgIdMap]);
 
   const renderMessageContent = () => {
     const componentProps = {
@@ -154,13 +172,10 @@ const {
             {msg.replyTo && (
               <div
                 className="bg-black/10 rounded-t-2xl px-3 py-1.5 mb-0.5 cursor-pointer hover:opacity-80 transition-opacity"
-                onClick={(e) => { e.stopPropagation(); const r = msgs.find(m => m.id === msg.replyTo); if (r) onSetReplyingTo(r); }}
+                onClick={(e) => { e.stopPropagation(); if (repliedInfo?.message) onSetReplyingTo(repliedInfo.message); }}
               >
                 <p className={`text-[10px] truncate ${isMe ? 'text-white/70' : 'text-[#8D8D8D]'}`}>
-                  {(() => {
-                    const r = msgs.find(m => m.id === msg.replyTo);
-                    return r ? r.content.substring(0, 30) + (r.content.length > 30 ? '...' : '') : 'Replying to message';
-                  })()}
+                  {repliedInfo?.preview || 'Replying to message'}
                 </p>
               </div>
             )}
@@ -196,15 +211,15 @@ const {
               </div>
             )}
 
-            <ReadReceipt isMe={isMe} timestamp={msg.timestamp} read={msg.read} deliveryStatus={msg.deliveryStatus} edited={msg.edited} />
-            
+            <ReadReceipt isMe={isMe} timestamp={msg.timestamp} deliveryStatus={msg.deliveryStatus} edited={msg.edited} />
+
             {msg.deliveryStatus === 'failed' && onRetry && (
               <button
                 type="button"
                 onClick={() => onRetry(msg)}
                 className="text-[10px] text-[#FF3B30] flex items-center gap-1 mt-0.5"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+                <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" /><path d="M3 3v5h5" /></svg>
                 Tap to retry
               </button>
             )}

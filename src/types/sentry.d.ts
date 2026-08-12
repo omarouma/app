@@ -3,3 +3,5 @@
 // resolution for the lazy import in src/main.tsx.
 
 declare module '@sentry/react';
+
+declare const __APP_VERSION__: string;

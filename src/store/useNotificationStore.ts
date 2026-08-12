@@ -47,7 +47,7 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
   subscribe: (userId: string) => {
     if (!userId) {
       set({ notifications: [], unreadCount: 0, loading: false });
-return () => {};
+      return () => {};
     }
 
     set({ loading: true });

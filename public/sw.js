@@ -1,4 +1,4 @@
-
+/* global __APP_VERSION__ */
 // SW_VERSION is auto-stamped from package.json via vite.config.ts __APP_VERSION__.
 // Bump package.json version on every deploy — clients will reload automatically.
 const SW_VERSION = (typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '2.3.0');
@@ -15,7 +15,7 @@ const ASSETS_TO_CACHE = [
 // Install: cache core assets and immediately claim clients on first install
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS_TO_CACHE)).catch(() => {})
+    caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS_TO_CACHE)).then(() => self.skipWaiting()).catch(() => { })
   );
 });
 
@@ -150,12 +150,25 @@ self.addEventListener('push', (event) => {
   );
 });
 
-// Notification click handler
+// Background sync handler — retries queued messages when network is restored
+self.addEventListener('sync', (event) => {
+  if (event.tag === 'sync-messages') {
+    event.waitUntil(
+      self.clients.matchAll({ type: 'window' }).then((clients) => {
+        for (const client of clients) {
+          client.postMessage({ type: 'SYNC_MESSAGES' });
+        }
+      }).catch(() => { })
+    );
+  }
+});
+
+// Notification click handler — routes user to appropriate page when tapping a notification
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
   const data = event.notification.data || {};
   const action = event.action;
-  
+
   // Build a safe relative path — never use untrusted external URLs
   let path = '/';
   if (data.chatId) path = `/chat/${encodeURIComponent(data.chatId)}`;
@@ -168,7 +181,7 @@ self.addEventListener('notificationclick', (event) => {
   const url = new URL(path, self.location.origin).href;
 
   event.waitUntil(
-      self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {
       if (clients.length > 0) {
         const client = clients[0];
         client.focus();

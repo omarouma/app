@@ -39,7 +39,7 @@ export const ContactCardMessage = memo(function ContactCardMessage(props: Contac
           View Profile
         </button>
       </div>
-      <ReadReceipt isMe={isMe} timestamp={msg.timestamp} read={msg.read} />
+      <ReadReceipt isMe={isMe} timestamp={msg.timestamp} deliveryStatus={msg.deliveryStatus ?? (msg.read ? 'read' : 'sent')} edited={msg.edited} />
     </div>
   );
 });

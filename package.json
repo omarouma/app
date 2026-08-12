@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "postbuild": "node scripts/postbuild-sw-stamp.mjs",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "deploy": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\" && npm run build && firebase deploy --only hosting",
@@ -17,6 +18,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@dataconnect/generated": "file:src/dataconnect-generated",
     "@hookform/resolvers": "^5.4.0",
     "@radix-ui/react-accordion": "^1.2.16",
     "@radix-ui/react-alert-dialog": "^1.1.17",
@@ -80,13 +82,13 @@
     "zustand": "^5.0.14"
   },
   "devDependencies": {
-    "@eslint/js": "^10.0.1",
+    "@eslint/js": "^9.20.0",
     "@types/node": "^24.10.1",
     "@types/react": "^19.2.5",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^5.1.1",
     "autoprefixer": "^10.4.23",
-    "eslint": "^10.8.0",
+    "eslint": "^9.20.0",
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.4.24",
     "firebase-tools": "^15.25.1",

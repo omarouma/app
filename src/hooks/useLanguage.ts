@@ -10,10 +10,15 @@ export function useLanguage() {
 
   useEffect(() => {
     const detectedLanguage = navigator.language.split('-')[0];
-    if (i18n.languages.includes(detectedLanguage)) {
+    if (i18n.languages.includes(detectedLanguage) && i18n.language !== detectedLanguage) {
       i18n.changeLanguage(detectedLanguage);
-      setLanguage(detectedLanguage);
     }
+    // Track language changes via the i18n event instead of syncing in the effect body
+    const handler = (lng: string) => setLanguage(lng);
+    i18n.on('languageChanged', handler);
+    return () => {
+      i18n.off('languageChanged', handler);
+    };
   }, [i18n]);
 
   useEffect(() => {

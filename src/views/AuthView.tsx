@@ -420,7 +420,7 @@ export default function AuthView() {
 
   // ─── Screens ─────────────────────────────────────────────────
   return (
-    <div className="min-h-[100dvh] bg-gradient-to-br from-[#E8F5E9] via-[#FFFDE7] to-[#FCE4EC] relative overflow-hidden flex items-center justify-center px-4 py-8">
+    <div className="min-h-screen-safe bg-gradient-to-br from-[#E8F5E9] via-[#FFFDE7] to-[#FCE4EC] relative overflow-x-hidden overflow-y-auto flex items-center justify-center px-4 py-8">
       <div className="fixed inset-0 pointer-events-none overflow-hidden">
         {BUBBLES.map((b, i) => <Bubble key={i} {...b} />)}
       </div>

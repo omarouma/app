@@ -25,18 +25,22 @@ export function useUserProfile(targetUserId: string | undefined): UseUserProfile
   const resolvedId = isOwnProfile ? currentUser?.id : targetUserId;
 
   const [profileUser, setProfileUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => !!resolvedId);
   const [friendStatus, setFriendStatus] = useState<FriendStatus>('not_friends');
   const [mutualCount, setMutualCount] = useState(0);
 
+  // Reset loading/profile when the target user changes (render-time adjustment
+  // instead of setState inside the effect body)
+  const [prevResolvedId, setPrevResolvedId] = useState(resolvedId);
+  if (resolvedId !== prevResolvedId) {
+    setPrevResolvedId(resolvedId);
+    setLoading(!!resolvedId);
+    setProfileUser(null);
+  }
+
   // ── Real-time subscription to the user doc ──────────────────────────
   useEffect(() => {
-    if (!resolvedId) {
-      setLoading(false);
-      setProfileUser(null);
-      return;
-    }
-    setLoading(true);
+    if (!resolvedId) return;
     const unsub = subscribeToDoc(COLLECTIONS.USERS, resolvedId, (data) => {
       if (data) {
         setProfileUser(data as User);
@@ -49,23 +53,41 @@ export function useUserProfile(targetUserId: string | undefined): UseUserProfile
   }, [resolvedId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Stable refreshFriendStatus ───────────────────────────────────────
+  const currentUserId = currentUser?.id ?? null;
   const refreshFriendStatus = useCallback(async () => {
-    if (!currentUser?.id || !targetUserId || isOwnProfile) return;
+    if (!currentUserId || !targetUserId || isOwnProfile) return;
     const [status, mutual] = await Promise.all([
-      getFriendStatus(currentUser.id, targetUserId),
-      getMutualFriendsCount(currentUser.id, targetUserId),
+      getFriendStatus(currentUserId, targetUserId),
+      getMutualFriendsCount(currentUserId, targetUserId),
     ]);
     setFriendStatus(status);
     setMutualCount(mutual);
-  }, [currentUser?.id, targetUserId, isOwnProfile, getFriendStatus, getMutualFriendsCount]);
+  }, [currentUserId, targetUserId, isOwnProfile, getFriendStatus, getMutualFriendsCount]);
 
   // ── Initial friend status fetch ──────────────────────────────────────
-  useEffect(() => {
-    if (isOwnProfile || !currentUser?.id || !targetUserId) return;
+  // Reset friend state when the target user changes (render-time adjustment)
+  const [prevTargetKey, setPrevTargetKey] = useState(`${currentUserId}:${targetUserId}`);
+  const targetKey = `${currentUserId}:${targetUserId}`;
+  if (targetKey !== prevTargetKey) {
+    setPrevTargetKey(targetKey);
     setFriendStatus('not_friends');
     setMutualCount(0);
-    refreshFriendStatus();
-  }, [targetUserId, currentUser?.id, isOwnProfile]); // eslint-disable-line react-hooks/exhaustive-deps
+  }
+
+  useEffect(() => {
+    if (isOwnProfile || !currentUserId || !targetUserId) return;
+    let cancelled = false;
+    void (async () => {
+      const [status, mutual] = await Promise.all([
+        getFriendStatus(currentUserId, targetUserId),
+        getMutualFriendsCount(currentUserId, targetUserId),
+      ]);
+      if (cancelled) return;
+      setFriendStatus(status);
+      setMutualCount(mutual);
+    })();
+    return () => { cancelled = true; };
+  }, [targetUserId, currentUserId, isOwnProfile, getFriendStatus, getMutualFriendsCount]);
 
   // ── Real-time friend-status: watch friendship + friend_requests rows ─
   useEffect(() => {

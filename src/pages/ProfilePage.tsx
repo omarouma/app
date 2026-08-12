@@ -46,7 +46,7 @@ export default function ProfilePage() {
   const [editLocation, setEditLocation] = useState(user?.location || '');
   const [editWebsite, setEditWebsite] = useState(user?.website || '');
   const [saving, setSaving] = useState(false);
-const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [uploadingCover, setUploadingCover] = useState(false);
   const [userPostsCount, setUserPostsCount] = useState(0);
   const [showShareSheet, setShowShareSheet] = useState(false);
@@ -89,11 +89,13 @@ const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const handleAvatarUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !user?.id) return;
-    if (file.size > 5 * 1024 * 1024) { toast.error('Image must be under 5MB'); return; }
+    if (!file.type.startsWith('image/')) { toast.error('Please select an image file'); return; }
+    if (file.size > 10 * 1024 * 1024) { toast.error('Image must be under 10MB'); return; }
     setUploadingAvatar(true);
     try {
       const { uploadMediaBlob } = await import('@/lib/storage');
-      const url = await uploadMediaBlob({ kind: 'avatars', file, mimeType: file.type });
+      const url = await uploadMediaBlob({ kind: 'avatars', file, mimeType: file.type, userId: user.id });
+      if (!url) throw new Error('Upload failed');
       await updateDocById(COLLECTIONS.USERS, user.id, { avatar: url });
       setUser({ ...user, avatar: url });
       toast.success('Avatar updated');
@@ -105,14 +107,16 @@ const [uploadingAvatar, setUploadingAvatar] = useState(false);
     }
   }, [user, setUser]);
 
-const handleCoverUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleCoverUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !user?.id) return;
+    if (!file.type.startsWith('image/')) { toast.error('Please select an image file'); return; }
     if (file.size > 10 * 1024 * 1024) { toast.error('Image must be under 10MB'); return; }
     setUploadingCover(true);
     try {
       const { uploadMediaBlob } = await import('@/lib/storage');
-      const url = await uploadMediaBlob({ kind: 'posts', file, mimeType: file.type });
+      const url = await uploadMediaBlob({ kind: 'avatars', file, mimeType: file.type, userId: user.id });
+      if (!url) throw new Error('Upload failed');
       await updateDocById(COLLECTIONS.USERS, user.id, { coverImage: url });
       setUser({ ...user, coverImage: url });
       toast.success('Cover image updated');
@@ -161,7 +165,7 @@ const handleCoverUpload = useCallback(async (e: React.ChangeEvent<HTMLInputEleme
     setShowShareSheet(false);
   }, [displayUser?.name, profileUrl, handleCopyLink]);
 
-const stats = [
+  const stats = [
     { label: 'Friends', value: user?.friends?.length ?? friends.length },
     { label: 'Posts', value: userPostsCount },
     { label: 'Followers', value: user?.followers?.length ?? 0 },
@@ -181,13 +185,13 @@ const stats = [
   const avatarSrc = sanitizeMediaUrl(displayUser.avatar) || getDefaultAvatar(displayUser.id || displayUser.name || 'U');
 
   return (
-    <div className="min-h-[100dvh] bg-[#F5F5F5]">
+    <div className="min-h-screen-safe bg-[#F5F5F5]">
       {/* Header */}
-      <div className="sticky top-0 z-20 bg-white/95 backdrop-blur-sm border-b border-[#EBEBEB] px-4 py-3 flex items-center justify-between">
+      <div className="sticky top-0 z-20 bg-white/95 backdrop-blur-sm border-b border-[#EBEBEB] px-4 flex items-center justify-between" style={{ paddingTop: 'max(12px, env(safe-area-inset-top, 0px))', paddingBottom: '12px' }}>
         <button
           type="button"
           onClick={() => navigate(-1)}
-          className="p-2 rounded-full hover:bg-[#F5F5F5] transition-colors"
+          className="w-11 h-11 flex items-center justify-center rounded-full hover:bg-[#F5F5F5] transition-colors"
           aria-label="Go back"
         >
           <ArrowLeft size={22} className="text-[#111111]" />
@@ -201,7 +205,7 @@ const stats = [
               <button
                 type="button"
                 onClick={() => navigate('/more')}
-                className="p-2 rounded-full hover:bg-[#F5F5F5] transition-colors"
+                className="w-11 h-11 flex items-center justify-center rounded-full hover:bg-[#F5F5F5] transition-colors"
                 aria-label="More options"
               >
                 <MoreHorizontal size={20} className="text-[#8D8D8D]" />
@@ -209,7 +213,7 @@ const stats = [
               <button
                 type="button"
                 onClick={() => navigate('/settings')}
-                className="p-2 rounded-full hover:bg-[#F5F5F5] transition-colors"
+                className="w-11 h-11 flex items-center justify-center rounded-full hover:bg-[#F5F5F5] transition-colors"
                 aria-label="Open settings"
               >
                 <Settings size={20} className="text-[#8D8D8D]" />
@@ -219,7 +223,7 @@ const stats = [
         </div>
       </div>
 
-<div className="max-w-2xl mx-auto px-4 py-4 space-y-3 pb-nav">
+      <div className="max-w-2xl mx-auto px-4 py-4 space-y-3 pb-nav">
         {/* Avatar + Name card */}
         <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
           {/* Cover image */}
@@ -262,182 +266,182 @@ const stats = [
           <div className="p-5">
             <div className="flex flex-col items-center">
               {/* Avatar with stories ring + upload */}
-            <div className="relative mb-3">
-              <div className={`p-[3px] rounded-full ${displayUser.isPremium ? 'bg-gradient-to-tr from-[#FFD700] via-[#FF9800] to-[#FF4081]' : 'bg-gradient-to-tr from-[#00C300] to-[#00FF00]'}`}>
-                <div className="p-[2px] bg-white rounded-full">
-                  <div className="w-24 h-24 rounded-full overflow-hidden bg-[#F5F5F5] relative">
-                    <img
-                      src={avatarSrc}
-                      className="w-full h-full object-cover"
-                      alt={`${displayUser.name}'s avatar`}
-                    />
-                    {uploadingAvatar && (
-                      <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
-                        <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                      </div>
-                    )}
+              <div className="relative mb-3">
+                <div className={`p-[3px] rounded-full ${displayUser.isPremium ? 'bg-gradient-to-tr from-[#FFD700] via-[#FF9800] to-[#FF4081]' : 'bg-gradient-to-tr from-[#00C300] to-[#00FF00]'}`}>
+                  <div className="p-[2px] bg-white rounded-full">
+                    <div className="w-24 h-24 rounded-full overflow-hidden bg-[#F5F5F5] relative">
+                      <img
+                        src={avatarSrc}
+                        className="w-full h-full object-cover"
+                        alt={`${displayUser.name}'s avatar`}
+                      />
+                      {uploadingAvatar && (
+                        <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                          <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
-              {isOwnProfile && (
-                <button
-                  type="button"
-                  onClick={() => avatarInputRef.current?.click()}
-                  className="absolute bottom-0 right-0 w-8 h-8 bg-[#00C300] rounded-full flex items-center justify-center border-2 border-white shadow-sm hover:bg-[#00A300] transition-colors"
-                  aria-label="Change avatar"
-                >
-                  <Camera size={14} className="text-white" />
-                </button>
-              )}
-              <input
-                ref={avatarInputRef}
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={handleAvatarUpload}
-                aria-label="Upload avatar"
-              />
-            </div>
-
-            {/* Name + username */}
-            {editing ? (
-              <input
-                value={editName}
-                onChange={e => setEditName(e.target.value)}
-                className="text-xl font-bold text-[#111111] text-center bg-[#F5F5F5] rounded-xl px-3 py-1.5 w-full max-w-xs focus:outline-none focus:ring-2 focus:ring-[#00C300] mb-1"
-                placeholder="Your name"
-                aria-label="Edit name"
-                maxLength={50}
-              />
-            ) : (
-              <div className="flex items-center gap-1.5 mb-1">
-                <h2 className="text-xl font-bold text-[#111111]">
-                  {displayUser.displayName || displayUser.name || 'Your profile'}
-                </h2>
-                {displayUser.verified && (
-                  <BadgeCheck size={18} className="text-[#00C300] shrink-0" aria-label="Verified" />
-                )}
-                {displayUser.isPremium && (
-                  <span className="text-[10px] bg-gradient-to-r from-[#FFD700] to-[#FF9800] text-white px-2 py-0.5 rounded-full font-bold">
-                    PRO
-                  </span>
-                )}
-              </div>
-            )}
-            <p className="text-sm text-[#8D8D8D] mb-2">@{displayUser.username || 'user'}</p>
-
-            {/* Bio */}
-            {editing ? (
-              <textarea
-                value={editBio}
-                onChange={e => setEditBio(e.target.value)}
-                className="w-full max-w-xs bg-[#F5F5F5] rounded-xl px-3 py-2 text-sm text-[#111111] text-center resize-none focus:outline-none focus:ring-2 focus:ring-[#00C300] mb-2"
-                placeholder="Write a bio..."
-                rows={2}
-                maxLength={150}
-                aria-label="Edit bio"
-              />
-            ) : (
-              displayUser.bio && (
-                <p className="text-sm text-[#8D8D8D] text-center max-w-xs mb-2">{displayUser.bio}</p>
-              )
-            )}
-
-            {/* Location + Website (edit mode) */}
-            {editing && (
-              <div className="w-full max-w-xs space-y-2 mb-3">
-                <div className="flex items-center gap-2 bg-[#F5F5F5] rounded-xl px-3 py-2">
-                  <MapPin size={14} className="text-[#8D8D8D] shrink-0" />
-                  <input
-                    value={editLocation}
-                    onChange={e => setEditLocation(e.target.value)}
-                    className="flex-1 bg-transparent text-sm text-[#111111] focus:outline-none"
-                    placeholder="Location"
-                    aria-label="Edit location"
-                    maxLength={60}
-                  />
-                </div>
-                <div className="flex items-center gap-2 bg-[#F5F5F5] rounded-xl px-3 py-2">
-                  <Link2 size={14} className="text-[#8D8D8D] shrink-0" />
-                  <input
-                    value={editWebsite}
-                    onChange={e => setEditWebsite(e.target.value)}
-                    className="flex-1 bg-transparent text-sm text-[#111111] focus:outline-none"
-                    placeholder="Website"
-                    aria-label="Edit website"
-                    maxLength={100}
-                  />
-                </div>
-              </div>
-            )}
-
-            {/* Location + Website (view mode) */}
-            {!editing && (displayUser.location || displayUser.website) && (
-              <div className="flex flex-wrap items-center justify-center gap-3 mb-3">
-                {displayUser.location && (
-                  <span className="flex items-center gap-1 text-xs text-[#8D8D8D]">
-                    <MapPin size={12} /> {displayUser.location}
-                  </span>
-                )}
-                {displayUser.website && (
-                  <a
-                    href={displayUser.website.startsWith('http') ? displayUser.website : `https://${displayUser.website}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-1 text-xs text-[#00C300] hover:underline"
+                {isOwnProfile && (
+                  <button
+                    type="button"
+                    onClick={() => avatarInputRef.current?.click()}
+                    className="absolute bottom-0 right-0 w-8 h-8 bg-[#00C300] rounded-full flex items-center justify-center border-2 border-white shadow-sm hover:bg-[#00A300] transition-colors"
+                    aria-label="Change avatar"
                   >
-                    <Link2 size={12} /> {displayUser.website.replace(/^https?:\/\//, '')}
-                  </a>
+                    <Camera size={14} className="text-white" />
+                  </button>
                 )}
+                <input
+                  ref={avatarInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleAvatarUpload}
+                  aria-label="Upload avatar"
+                />
               </div>
-            )}
 
-            {/* Action buttons */}
-            {isOwnProfile && (
-              <div className="flex gap-2 mt-1">
-                {editing ? (
-                  <>
-                    <button
-                      type="button"
-                      onClick={saveEdit}
-                      disabled={saving}
-                      className="flex items-center gap-1.5 px-5 py-2 bg-[#00C300] text-white rounded-full text-sm font-medium hover:bg-[#00A300] transition-colors disabled:opacity-50"
-                      aria-label="Save profile changes"
+              {/* Name + username */}
+              {editing ? (
+                <input
+                  value={editName}
+                  onChange={e => setEditName(e.target.value)}
+                  className="text-xl font-bold text-[#111111] text-center bg-[#F5F5F5] rounded-xl px-3 py-1.5 w-full max-w-xs focus:outline-none focus:ring-2 focus:ring-[#00C300] mb-1"
+                  placeholder="Your name"
+                  aria-label="Edit name"
+                  maxLength={50}
+                />
+              ) : (
+                <div className="flex items-center gap-1.5 mb-1">
+                  <h2 className="text-xl font-bold text-[#111111]">
+                    {displayUser.displayName || displayUser.name || 'Your profile'}
+                  </h2>
+                  {displayUser.verified && (
+                    <BadgeCheck size={18} className="text-[#00C300] shrink-0" aria-label="Verified" />
+                  )}
+                  {displayUser.isPremium && (
+                    <span className="text-[10px] bg-gradient-to-r from-[#FFD700] to-[#FF9800] text-white px-2 py-0.5 rounded-full font-bold">
+                      PRO
+                    </span>
+                  )}
+                </div>
+              )}
+              <p className="text-sm text-[#8D8D8D] mb-2">@{displayUser.username || 'user'}</p>
+
+              {/* Bio */}
+              {editing ? (
+                <textarea
+                  value={editBio}
+                  onChange={e => setEditBio(e.target.value)}
+                  className="w-full max-w-xs bg-[#F5F5F5] rounded-xl px-3 py-2 text-sm text-[#111111] text-center resize-none focus:outline-none focus:ring-2 focus:ring-[#00C300] mb-2"
+                  placeholder="Write a bio..."
+                  rows={2}
+                  maxLength={150}
+                  aria-label="Edit bio"
+                />
+              ) : (
+                displayUser.bio && (
+                  <p className="text-sm text-[#8D8D8D] text-center max-w-xs mb-2">{displayUser.bio}</p>
+                )
+              )}
+
+              {/* Location + Website (edit mode) */}
+              {editing && (
+                <div className="w-full max-w-xs space-y-2 mb-3">
+                  <div className="flex items-center gap-2 bg-[#F5F5F5] rounded-xl px-3 py-2">
+                    <MapPin size={14} className="text-[#8D8D8D] shrink-0" />
+                    <input
+                      value={editLocation}
+                      onChange={e => setEditLocation(e.target.value)}
+                      className="flex-1 bg-transparent text-sm text-[#111111] focus:outline-none"
+                      placeholder="Location"
+                      aria-label="Edit location"
+                      maxLength={60}
+                    />
+                  </div>
+                  <div className="flex items-center gap-2 bg-[#F5F5F5] rounded-xl px-3 py-2">
+                    <Link2 size={14} className="text-[#8D8D8D] shrink-0" />
+                    <input
+                      value={editWebsite}
+                      onChange={e => setEditWebsite(e.target.value)}
+                      className="flex-1 bg-transparent text-sm text-[#111111] focus:outline-none"
+                      placeholder="Website"
+                      aria-label="Edit website"
+                      maxLength={100}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Location + Website (view mode) */}
+              {!editing && (displayUser.location || displayUser.website) && (
+                <div className="flex flex-wrap items-center justify-center gap-3 mb-3">
+                  {displayUser.location && (
+                    <span className="flex items-center gap-1 text-xs text-[#8D8D8D]">
+                      <MapPin size={12} /> {displayUser.location}
+                    </span>
+                  )}
+                  {displayUser.website && (
+                    <a
+                      href={displayUser.website.startsWith('http') ? displayUser.website : `https://${displayUser.website}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-1 text-xs text-[#00C300] hover:underline"
                     >
-                      <Check size={14} /> {saving ? 'Saving…' : 'Save'}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={cancelEdit}
-                      className="flex items-center gap-1.5 px-5 py-2 bg-[#F5F5F5] text-[#111111] rounded-full text-sm font-medium hover:bg-[#EBEBEB] transition-colors"
-                      aria-label="Cancel editing"
-                    >
-                      <X size={14} /> Cancel
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <button
-                      type="button"
-                      onClick={startEdit}
-                      className="flex items-center gap-1.5 px-5 py-2 bg-[#F5F5F5] text-[#111111] rounded-full text-sm font-medium hover:bg-[#EBEBEB] transition-colors"
-                      aria-label="Edit profile"
-                    >
-                      <Edit3 size={14} /> Edit Profile
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setShowShareSheet(true)}
-                      className="flex items-center gap-1.5 px-5 py-2 bg-[#F5F5F5] text-[#111111] rounded-full text-sm font-medium hover:bg-[#EBEBEB] transition-colors"
-                      aria-label="Share profile"
-                    >
-                      <Share2 size={14} /> Share
-                    </button>
-                  </>
-)}
-              </div>
-            )}
-          </div>
+                      <Link2 size={12} /> {displayUser.website.replace(/^https?:\/\//, '')}
+                    </a>
+                  )}
+                </div>
+              )}
+
+              {/* Action buttons */}
+              {isOwnProfile && (
+                <div className="flex gap-2 mt-1">
+                  {editing ? (
+                    <>
+                      <button
+                        type="button"
+                        onClick={saveEdit}
+                        disabled={saving}
+                        className="flex items-center gap-1.5 px-5 py-2 bg-[#00C300] text-white rounded-full text-sm font-medium hover:bg-[#00A300] transition-colors disabled:opacity-50"
+                        aria-label="Save profile changes"
+                      >
+                        <Check size={14} /> {saving ? 'Saving…' : 'Save'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={cancelEdit}
+                        className="flex items-center gap-1.5 px-5 py-2 bg-[#F5F5F5] text-[#111111] rounded-full text-sm font-medium hover:bg-[#EBEBEB] transition-colors"
+                        aria-label="Cancel editing"
+                      >
+                        <X size={14} /> Cancel
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <button
+                        type="button"
+                        onClick={startEdit}
+                        className="flex items-center gap-1.5 px-5 py-2 bg-[#F5F5F5] text-[#111111] rounded-full text-sm font-medium hover:bg-[#EBEBEB] transition-colors"
+                        aria-label="Edit profile"
+                      >
+                        <Edit3 size={14} /> Edit Profile
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setShowShareSheet(true)}
+                        className="flex items-center gap-1.5 px-5 py-2 bg-[#F5F5F5] text-[#111111] rounded-full text-sm font-medium hover:bg-[#EBEBEB] transition-colors"
+                        aria-label="Share profile"
+                      >
+                        <Share2 size={14} /> Share
+                      </button>
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         </div>
 

@@ -17,18 +17,23 @@ export function isSupabaseConfigured(): boolean {
 
 export function getSupabase(): SupabaseClient {
   if (!isSupabaseConfigured()) {
-    // This error should now theoretically never be reached if the app starts,
-    // as env.ts would have already thrown an error.
     throw new Error('[Supabase] Not configured. Validation should have failed at startup.');
   }
   if (!_client) {
     _client = createClient(supabaseUrl, supabaseAnonKey, {
-      realtime: { params: { eventsPerSecond: 10 } },
+      realtime: {
+        params: { eventsPerSecond: 10 },
+        timeout: 20000,
+      },
       auth: {
         autoRefreshToken: true,
         persistSession: true,
         detectSessionInUrl: true,
         storageKey: 'gaga-auth-token',
+        flowType: 'pkce',
+      },
+      global: {
+        headers: { 'x-app-version': typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '2.0.0' },
       },
     });
   }

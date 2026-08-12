@@ -18,10 +18,13 @@ export default function ChatRoomLoader({ userId }: ChatRoomLoaderProps) {
 
   const isSelfChat = !!user && userId === user.id;
 
+  // Hoist the optional chain so React Compiler can verify memo deps exactly
+  const currentUserId = user?.id ?? null;
+
   const participants = useMemo(() => {
-    if (!user?.id) return [] as string[];
-    return [user.id, userId].slice().sort((a, b) => a.localeCompare(b));
-  }, [user?.id, userId]);
+    if (!currentUserId) return [] as string[];
+    return [currentUserId, userId].slice().sort((a, b) => a.localeCompare(b));
+  }, [currentUserId, userId]);
 
   const chatId = useMemo(() => {
     if (participants.length !== 2) return '';

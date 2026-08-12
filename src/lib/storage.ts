@@ -274,7 +274,7 @@ import { uploadToSupabaseStorage } from './supabaseStorage';
 async function uploadWithFallback(
   file: Blob | File,
   opts: CloudinaryUploadOpts
-): Promise<string> {
+): Promise<string | null> {
   if (!file || file.size === 0) throw new Error('Cannot upload empty file.');
 
   const errors: string[] = [];
@@ -324,9 +324,12 @@ async function uploadWithFallback(
     }
   }
 
-  // 4) IndexedDB synthetic URL fallback (resolvable via getIDBBlob).
+  // 4) IndexedDB fallback — return null so callers can handle gracefully
+  //    (e.g., show a placeholder instead of broken image)
   try {
-    return await idbFallback(file);
+    await idbFallback(file);
+    // Return null instead of idb:// URL so callers can show a fallback UI
+    return null;
   } catch (err) {
     errors.push(`IndexedDB: ${err instanceof Error ? err.message : String(err)}`);
   }
@@ -364,7 +367,7 @@ export async function uploadMediaBlob(
     contentType?: string;
     onProgress?: (percent: number) => void;
   } = {}
-): Promise<string> {
+): Promise<string | null> {
 // Object-style
   if (typeof arg1 === 'object' && 'file' in arg1) {
     const opts = arg1;

@@ -6,7 +6,7 @@ import { uploadMediaBlob } from '@/lib/storage';
 import { toast } from 'sonner';
 import {
   Image, MapPin, BarChart2, Calendar, EyeOff, X,
-  Smile, Send, Globe, Lock, Users, UserCheck, ChevronDown, Plus, Minus, Clock, Loader
+  Smile, Send, Globe, Lock, Users, UserCheck, ChevronDown, Plus, Minus, Clock
 } from 'lucide-react';
 
 interface CreatePostModalProps {
@@ -46,7 +46,7 @@ const MAX_CHARS = 2200;
 function getInitialState() {
   return {
     content: '',
-    images: [] as { id: string; dataUrl: string; file: File }[],
+    images: [] as { id: string; dataUrl: string; file: File; type: 'image' | 'video' }[],
     privacy: 'public' as 'public' | 'friends' | 'followers' | 'private' | 'close_friends',
     showPrivacy: false,
     showPoll: false,
@@ -61,6 +61,7 @@ function getInitialState() {
 hashtags: [] as string[],
     isPosting: false,
     showSuccess: false,
+    uploadProgress: 0,
   };
 }
 
@@ -122,20 +123,35 @@ toProcess.forEach((file) => {
         toast.error(`"${file.name}" exceeds ${limitMB}MB limit`);
         return;
       }
-const reader = new FileReader();
-      reader.onload = (ev) => {
-        if (ev.target?.result) {
-          setState((prev) => ({
-            ...prev,
-            images: [...prev.images, {
-              id: `${Date.now()}_${Math.random().toString(36).slice(2)}`,
-              dataUrl: ev.target!.result as string,
-              file,
-            }],
-          }));
-        }
-      };
-      reader.readAsDataURL(file);
+    // Use objectURL for video to avoid 67MB base64 in memory; dataURL for images
+      if (file.type.startsWith('video/')) {
+        const objectUrl = URL.createObjectURL(file);
+        setState((prev) => ({
+          ...prev,
+          images: [...prev.images, {
+            id: `${Date.now()}_${Math.random().toString(36).slice(2)}`,
+            dataUrl: objectUrl,
+            file,
+            type: 'video',
+          }],
+        }));
+      } else {
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          if (ev.target?.result) {
+            setState((prev) => ({
+              ...prev,
+              images: [...prev.images, {
+                id: `${Date.now()}_${Math.random().toString(36).slice(2)}`,
+                dataUrl: ev.target!.result as string,
+                file,
+                type: 'image',
+              }],
+            }));
+          }
+        };
+        reader.readAsDataURL(file);
+      }
     });
 
     if (rejected > 0 && files.length - rejected > 0) {
@@ -147,7 +163,11 @@ const reader = new FileReader();
   };
 
   const removeImage = (id: string) => {
-    setState((prev) => ({ ...prev, images: prev.images.filter((img) => img.id !== id) }));
+    setState((prev) => {
+      const removed = prev.images.find((img) => img.id === id);
+      if (removed?.dataUrl.startsWith('blob:')) URL.revokeObjectURL(removed.dataUrl);
+      return { ...prev, images: prev.images.filter((img) => img.id !== id) };
+    });
   };
 
   const addPollOption = () => {
@@ -219,6 +239,7 @@ const reader = new FileReader();
     }
 
 set('isPosting', true);
+    setState((prev) => ({ ...prev, uploadProgress: 0 }));
     try {
       const pollData = state.showPoll
         ? {
@@ -228,23 +249,42 @@ set('isPosting', true);
           }
         : undefined;
 
-      // Upload media files to storage first, then reference the returned HTTPS URLs.
-      const mediaUrls = await Promise.all(
-        state.images.map((img) =>
-          uploadMediaBlob({ kind: 'posts', file: img.file, mimeType: img.file.type })
-        )
-      );
+      // Upload sequentially so progress is meaningful
+      const total = state.images.length;
+      const mediaUrls: string[] = [];
+      for (let i = 0; i < total; i++) {
+        const img = state.images[i];
+        const url = await uploadMediaBlob({
+          kind: img.type === 'video' ? 'reels' : 'posts',
+          file: img.file,
+          mimeType: img.file.type,
+          onProgress: (pct) => {
+            const overall = Math.round(((i + pct / 100) / total) * 100);
+            setState((prev) => ({ ...prev, uploadProgress: overall }));
+          },
+        });
+        if (url) mediaUrls.push(url);
+      }
+      setState((prev) => ({ ...prev, uploadProgress: 100 }));
+
+      // Determine the video URL if any selected media is a video.
+      const videoIdx = state.images.findIndex((img) => img.type === 'video');
+      const videoUrl = videoIdx >= 0 ? mediaUrls[videoIdx] : undefined;
+      // For video posts, keep only the video URL in the images array (rendered as <video>),
+      // otherwise pass all image URLs through.
+      const imageUrls = videoUrl ? [] : mediaUrls;
 
       await createPost(
         user.id,
         state.content,
-        mediaUrls,
+        imageUrls,
         state.privacy,
         pollData,
         state.location,
         state.scheduledDate || undefined,
         state.contentWarning,
         state.hashtags,
+        videoUrl,
       );
 
 // Refresh the feed so the newly created post appears at the top in
@@ -265,7 +305,7 @@ set('isPosting', true);
       }
     } catch {
       toast.error('Failed to create post');
-      set('isPosting', false);
+      setState((prev) => ({ ...prev, isPosting: false, uploadProgress: 0 }));
     }
   };
 
@@ -366,12 +406,19 @@ set('isPosting', true);
             />
           </div>
 
-          {/* Image previews */}
+{/* Image previews */}
           {state.images.length > 0 && (
             <div className="px-4 pb-3 flex gap-2 overflow-x-auto">
               {state.images.map((img) => (
                 <div key={img.id} className="relative shrink-0 w-20 h-20 rounded-lg overflow-hidden bg-gray-100">
-                  <img src={img.dataUrl} alt="Attachment preview" className="w-full h-full object-cover" />
+                  {img.type === 'video' ? (
+                    <video src={img.dataUrl} className="w-full h-full object-cover" muted playsInline />
+                  ) : (
+                    <img src={img.dataUrl} alt="Attachment preview" className="w-full h-full object-cover" />
+                  )}
+                  <span className="absolute bottom-0.5 left-0.5 text-[8px] font-bold text-white bg-black/60 rounded px-1 py-0.5 uppercase">
+                    {img.type === 'video' ? 'Video' : 'Photo'}
+                  </span>
                   <button
                     type="button"
                     onClick={() => removeImage(img.id)}
@@ -617,7 +664,20 @@ set('isPosting', true);
             </button>
           </div>
 
-{/* Post button */}
+{/* Upload progress bar */}
+          {state.isPosting && state.images.length > 0 && (
+            <div className="px-4 pb-2">
+              <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-[#00C300] rounded-full transition-all duration-300"
+                  style={{ width: `${state.uploadProgress}%` }}
+                />
+              </div>
+              <p className="text-xs text-gray-400 mt-1 text-right">{state.uploadProgress}%</p>
+            </div>
+          )}
+
+          {/* Post button */}
           <div className="px-4 pb-4">
             <button
               type="button"
@@ -628,7 +688,7 @@ set('isPosting', true);
               {state.isPosting ? (
                 <>
                   <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  {state.scheduledDate ? 'Scheduling...' : 'Posting...'}
+                  {state.scheduledDate ? 'Scheduling...' : state.images.length > 0 ? `Uploading ${state.uploadProgress}%` : 'Posting...'}
                 </>
               ) : (
                 <>

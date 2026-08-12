@@ -78,6 +78,7 @@ export const useMessageActions = (chatId: string) => {
           : file.type.startsWith('video/')
           ? 'video'
           : 'file';
+        if (!url) { toast.error(`Failed to upload ${file.name}.`); continue; }
         await sendMessage(chatId, currentUser.id, file.name, type, url);
       } catch {
         toast.error(`Failed to upload ${file.name}.`);

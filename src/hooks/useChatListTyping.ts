@@ -45,9 +45,17 @@ export function useChatListTyping(chatIdsKey: string) {
     [chatIdsKey]
   );
 
+  // Reset typing state when the subscription becomes inactive (render-time
+  // adjustment instead of setState inside the effect body)
+  const subscriptionActive = !!user?.id && chatIds.length > 0;
+  const [prevActive, setPrevActive] = useState(subscriptionActive);
+  if (subscriptionActive !== prevActive) {
+    setPrevActive(subscriptionActive);
+    if (!subscriptionActive) setTypingMap({});
+  }
+
   useEffect(() => {
     if (!user?.id || chatIds.length === 0) {
-      setTypingMap({});
       return;
     }
 

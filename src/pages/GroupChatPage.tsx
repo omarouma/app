@@ -130,6 +130,7 @@ export default function GroupChatPage() {
         try {
             const { uploadMediaBlob } = await import('@/lib/storage');
             const url = await uploadMediaBlob(file, { kind: 'chats', userId: currentUser.id, fileName: file.name, contentType: file.type });
+            if (!url) throw new Error('Upload failed');
             await sendGroupMessage(groupId, currentUser.id, mediaType === 'image' ? 'Photo' : 'Video', mediaType, url);
         } catch {
             toast.error('Failed to upload media');
@@ -142,6 +143,7 @@ export default function GroupChatPage() {
         try {
             const { uploadMediaBlob } = await import('@/lib/storage');
             const url = await uploadMediaBlob(file, { kind: 'chats', userId: currentUser.id, fileName: file.name, contentType: file.type });
+            if (!url) throw new Error('Upload failed');
             await sendGroupMessage(groupId, currentUser.id, file.name, 'file', url);
         } catch {
             toast.error('Failed to upload file');
@@ -156,6 +158,7 @@ export default function GroupChatPage() {
             const { uploadMediaBlob } = await import('@/lib/storage');
             const file = new File([blob], 'voice-message.webm', { type: 'audio/webm' });
             const url = await uploadMediaBlob(file, { kind: 'voice', userId: currentUser.id, fileName: 'voice-message.webm', contentType: 'audio/webm' });
+            if (!url) throw new Error('Upload failed');
             await sendGroupMessage(groupId, currentUser.id, 'Voice message', 'voice', url);
         } catch {
             toast.error('Failed to send voice message');

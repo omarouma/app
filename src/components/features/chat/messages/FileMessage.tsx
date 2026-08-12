@@ -1,6 +1,7 @@
 import { memo } from 'react';
 import { FileText } from 'lucide-react';
 import type { Message } from '@/types';
+import { sanitizeMediaUrl } from '@/lib/utils';
 
 export interface FileMessageProps {
   msg: Message;
@@ -10,9 +11,20 @@ export interface FileMessageProps {
 export const FileMessage = memo(function FileMessage(props: FileMessageProps) {
   const { msg, isMe } = props;
 
+  if (!msg.mediaUrl) {
+    return (
+      <div className="flex items-center gap-2 bg-black/10 rounded-xl px-3 py-2 mb-1 max-w-full">
+        <FileText size={18} className={`shrink-0 ${isMe ? 'text-white' : 'text-[#111111]'}`} />
+        <span className={`text-sm truncate ${isMe ? 'text-white' : 'text-[#111111]'}`}>
+          File unavailable
+        </span>
+      </div>
+    );
+  }
+
   return (
     <a
-      href={msg.mediaUrl}
+      href={sanitizeMediaUrl(msg.mediaUrl)}
       target="_blank"
       rel="noopener noreferrer"
       className="flex items-center gap-2 bg-black/10 rounded-xl px-3 py-2 mb-1 max-w-full hover:bg-black/20 transition-colors"

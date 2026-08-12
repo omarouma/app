@@ -131,10 +131,15 @@ export interface TransferData {
   note?: string;
 }
 
+export interface PollOption {
+  text: string;
+  votes: string[];
+}
+
 export interface PollData {
   question: string;
-  options: string[];
-  votes: Record<string, string[]>;
+  options: PollOption[];
+  votes?: Record<string, string[]>;
   totalVotes: number;
 }
 
@@ -201,11 +206,6 @@ export interface PostPollData {
   options: PollOption[];
   totalVotes: number;
   endDate?: Date;
-}
-
-export interface PollOption {
-  text: string;
-  votes: string[];
 }
 
 export interface PostComment {

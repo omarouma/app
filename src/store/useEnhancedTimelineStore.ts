@@ -78,8 +78,8 @@ interface EnhancedTimelineStore {
   pinToProfile: (postId: string, userId: string) => Promise<void>;
   unpinFromProfile: (postId: string, userId: string) => Promise<void>;
 
-  // Create post
-  createPost: (userId: string, content: string, images: string[], visibility: string, pollData?: { question: string; options: { text: string; votes: string[] }[]; totalVotes: number }, location?: string, scheduledAt?: string, contentWarning?: boolean, hashtags?: string[]) => Promise<void>;
+// Create post
+  createPost: (userId: string, content: string, images: string[], visibility: string, pollData?: { question: string; options: { text: string; votes: string[] }[]; totalVotes: number }, location?: string, scheduledAt?: string, contentWarning?: boolean, hashtags?: string[], videoUrl?: string) => Promise<void>;
 
   // Analytics
   recordPostView: (postId: string, userId: string) => Promise<void>;
@@ -685,10 +685,13 @@ export const useEnhancedTimelineStore = create<EnhancedTimelineStore>((set, _get
     }
   },
 
-  createPost: async (userId, content, images, visibility, pollData, location, scheduledAt, contentWarning, hashtags) => {
+createPost: async (userId, content, images, visibility, pollData, location, scheduledAt, contentWarning, hashtags, videoUrl) => {
     if (!isFirestoreAvailable()) return;
     try {
       const user = await getDocById(COLLECTIONS.USERS, userId);
+      const isVideo = !!videoUrl;
+      const isPhoto = images && images.length > 0;
+      const mediaType = isVideo ? 'video' : isPhoto ? 'photo' : 'text';
       const docId = await addDocToCollection(COLLECTIONS.POSTS, {
         userId,
         content,
@@ -696,6 +699,8 @@ export const useEnhancedTimelineStore = create<EnhancedTimelineStore>((set, _get
         // Also persist to the `media_urls` column (snake-cased during insert)
         // so the feed can render images regardless of which column is read.
         mediaUrls: images || [],
+        ...(videoUrl ? { videoUrl } : {}),
+        mediaType,
         visibility: visibility || 'public',
         likes: [],
         comments: [],
@@ -728,10 +733,11 @@ export const useEnhancedTimelineStore = create<EnhancedTimelineStore>((set, _get
           visibility: (visibility as TimelinePost['visibility']) || 'public',
           userName: user?.name || '',
           userAvatar: user?.avatar || '',
-          location: location || undefined,
+location: location || undefined,
           hashtags: hashtags || [],
           contentWarning: contentWarning ? 'yes' : undefined,
-          mediaType: images && images.length > 0 ? 'photo' : 'text',
+          videoUrl: videoUrl || undefined,
+          mediaType: mediaType,
           pollData,
         };
         set((state) => {

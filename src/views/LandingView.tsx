@@ -77,76 +77,76 @@ export default function LandingView() {
   }, [location.hash]);
 
   return (
-    <div className="bg-white min-h-[100dvh]">
+    <div className="bg-background text-foreground min-h-[100dvh]">
       <Navbar />
 
       {/* Hero */}
-      <section className="relative flex items-center justify-center pt-20 pb-12 sm:pt-24 sm:pb-16 overflow-hidden bg-gradient-to-b from-[#00C300]/10 via-white to-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
-          <div className="grid lg:grid-cols-2 gap-8 sm:gap-12 items-center min-h-[60vh] sm:min-h-[70vh]">
+      <section className="relative flex items-center justify-center pt-20 pb-12 sm:pt-28 sm:pb-20 overflow-hidden bg-gradient-to-b from-primary/10 via-background to-background">
+        <div className="container-wide w-full">
+          <div className="grid lg:grid-cols-2 gap-10 sm:gap-12 lg:gap-16 items-center min-h-[55vh] sm:min-h-[65vh]">
             <motion.div initial={{ opacity: 0, x: -40 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.8 }} className="text-center lg:text-left">
               <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
-                className="inline-flex items-center gap-2 bg-[#00C300]/10 border border-[#00C300]/20 rounded-full px-4 py-1.5 mb-4">
-                <span className="w-2 h-2 rounded-full bg-[#00C300] animate-pulse" />
-                <span className="text-[#00C300] text-sm font-medium">Trusted global communication platform</span>
+                className="inline-flex items-center gap-2 bg-primary/10 border border-primary/20 rounded-full px-3.5 sm:px-4 py-1.5 mb-4 sm:mb-6">
+                <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
+                <span className="text-primary text-xs sm:text-sm font-medium">Trusted global communication platform</span>
               </motion.div>
 
-              <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-gray-900 leading-tight mb-6">
+              <h1 className="text-3xl sm:text-4xl lg:text-5xl xl:text-6xl font-bold tracking-tight leading-[1.1] mb-5 sm:mb-6">
                 {t('welcome')}
               </h1>
-              <p className="text-gray-600 text-base sm:text-lg max-w-xl mb-8 leading-relaxed">
+              <p className="text-muted-foreground text-sm sm:text-base lg:text-lg max-w-xl mx-auto lg:mx-0 mb-7 sm:mb-8 leading-relaxed">
                 GaGa Chat brings private conversations, high-quality voice and video, live experiences, and monetization tools together for people, teams, and creators worldwide.
               </p>
-              <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
+              <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center lg:justify-start">
                 <button type="button" onClick={() => navigate('/auth')}
-                  className="bg-[#00C300] hover:bg-[#00A300] text-white rounded-full px-8 py-4 text-base font-bold transition-all shadow-lg shadow-[#00C300]/20 hover:shadow-[#00C300]/30 flex items-center justify-center gap-2"
+                  className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-full px-7 sm:px-8 py-3.5 sm:py-4 text-sm sm:text-base font-bold transition-all shadow-lg shadow-primary/20 hover:shadow-primary/30 flex items-center justify-center gap-2 tap-scale"
                 >
                   {t('getStarted')} <ArrowRight size={18} />
                 </button>
                 {canInstall || isIOS ? (
                   <button type="button" onClick={triggerInstall}
-                    className="bg-gray-800 hover:bg-gray-700 text-white rounded-full px-8 py-4 text-base font-bold transition-colors flex items-center justify-center gap-2"
+                    className="bg-gray-800 dark:bg-card hover:bg-gray-700 text-white rounded-full px-7 sm:px-8 py-3.5 sm:py-4 text-sm sm:text-base font-bold transition-colors flex items-center justify-center gap-2 tap-scale border border-border/30"
                   >
                     <Download size={18} /> {isIOS ? 'Add to Home Screen' : t('installApp')}
                   </button>
                 ) : (
                   <a
                     href="#features"
-                    className="bg-white border-2 border-gray-200 hover:border-[#00C300] text-gray-900 rounded-full px-8 py-4 text-base font-bold transition-colors flex items-center justify-center gap-2"
+                    className="bg-card border-2 border-border hover:border-primary text-foreground rounded-full px-7 sm:px-8 py-3.5 sm:py-4 text-sm sm:text-base font-bold transition-colors flex items-center justify-center gap-2 tap-scale"
                   >
                     {t('learnMore')}
                   </a>
                 )}
               </div>
 
-              <div className="mt-6 flex flex-wrap items-center gap-3 justify-center lg:justify-start">
+              <div className="mt-5 sm:mt-6 flex flex-wrap items-center gap-2 sm:gap-3 justify-center lg:justify-start">
                 {highlights.map((item) => (
-                  <div key={item} className="rounded-full border border-gray-200 bg-white/80 px-3 py-1.5 text-sm text-gray-700 shadow-sm">
+                  <div key={item} className="rounded-full border border-border bg-card/80 backdrop-blur px-3 py-1.5 text-xs sm:text-sm text-muted-foreground shadow-sm">
                     {item}
                   </div>
                 ))}
               </div>
 
-              <div className="mt-8 rounded-2xl border border-gray-200 bg-white/90 p-4 shadow-sm max-w-xl mx-auto lg:mx-0">
-                <div className="flex items-center justify-between text-sm mb-3">
-                  <span className="font-semibold text-gray-900">Built for reliability</span>
-                  <span className="text-[#00C300] font-medium">No VPN required</span>
+              <div className="mt-7 sm:mt-8 rounded-2xl border border-border bg-card/90 backdrop-blur p-4 sm:p-5 shadow-card max-w-xl mx-auto lg:mx-0">
+                <div className="flex items-center justify-between text-xs sm:text-sm mb-3 sm:mb-4">
+                  <span className="font-semibold text-foreground">Built for reliability</span>
+                  <span className="text-primary font-medium">No VPN required</span>
                 </div>
-                <div className="grid sm:grid-cols-3 gap-3">
-                  <div className="rounded-xl bg-gray-100 p-3 text-left">
-                    <Shield size={16} className="text-[#00C300] mb-2" />
-                    <p className="text-sm font-semibold text-gray-900">Secure</p>
-                    <p className="text-xs text-gray-600">Protected by design</p>
+                <div className="grid grid-cols-3 gap-2 sm:gap-3">
+                  <div className="rounded-xl bg-accent/50 p-2.5 sm:p-3 text-left">
+                    <Shield size={16} className="text-primary mb-1.5 sm:mb-2" />
+                    <p className="text-xs sm:text-sm font-semibold text-foreground">Secure</p>
+                    <p className="text-[10px] sm:text-xs text-muted-foreground">Protected by design</p>
                   </div>
-                  <div className="rounded-xl bg-gray-100 p-3 text-left">
-                    <Globe size={16} className="text-[#00C300] mb-2" />
-                    <p className="text-sm font-semibold text-gray-900">Global</p>
-                    <p className="text-xs text-gray-600">Works worldwide</p>
+                  <div className="rounded-xl bg-accent/50 p-2.5 sm:p-3 text-left">
+                    <Globe size={16} className="text-primary mb-1.5 sm:mb-2" />
+                    <p className="text-xs sm:text-sm font-semibold text-foreground">Global</p>
+                    <p className="text-[10px] sm:text-xs text-muted-foreground">Works worldwide</p>
                   </div>
-                  <div className="rounded-xl bg-gray-100 p-3 text-left">
-                    <Zap size={16} className="text-[#00C300] mb-2" />
-                    <p className="text-sm font-semibold text-gray-900">Fast</p>
-                    <p className="text-xs text-gray-600">Instant experience</p>
+                  <div className="rounded-xl bg-accent/50 p-2.5 sm:p-3 text-left">
+                    <Zap size={16} className="text-primary mb-1.5 sm:mb-2" />
+                    <p className="text-xs sm:text-sm font-semibold text-foreground">Fast</p>
+                    <p className="text-[10px] sm:text-xs text-muted-foreground">Instant experience</p>
                   </div>
                 </div>
               </div>
@@ -159,19 +159,19 @@ export default function LandingView() {
       </section>
 
       {/* Stats with trust badges */}
-      <section className="py-16 border-y border-gray-200 bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
+      <section className="py-14 sm:py-20 border-y border-border bg-background">
+        <div className="container-wide">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 sm:gap-10">
             {stats.map((stat, i) => (
               <motion.div key={stat.labelKey} initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: i * 0.1 }} className="text-center">
-                <p className="text-3xl sm:text-4xl font-bold text-[#00C300] mb-1">{stat.value}</p>
-                <p className="text-gray-600 text-sm">{t(stat.labelKey)}</p>
+                <p className="text-2xl sm:text-3xl lg:text-4xl font-bold text-primary mb-1">{stat.value}</p>
+                <p className="text-muted-foreground text-xs sm:text-sm">{t(stat.labelKey)}</p>
               </motion.div>
             ))}
           </div>
           {/* Trust badges */}
-          <div className="mt-10 pt-8 border-t border-gray-200/60">
-            <div className="flex flex-wrap justify-center items-center gap-6 sm:gap-10">
+          <div className="mt-8 sm:mt-12 pt-6 sm:pt-10 border-t border-border/60">
+            <div className="flex flex-wrap justify-center items-center gap-4 sm:gap-8 lg:gap-10">
               {[
                 { label: 'End-to-End Encryption', icon: Shield },
                 { label: 'No Data Selling', icon: CheckCircle },
@@ -179,9 +179,9 @@ export default function LandingView() {
                 { label: 'GDPR Compliant', icon: CheckCircle },
               ].map((badge, i) => (
                 <motion.div key={badge.label} initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }} transition={{ delay: i * 0.1 }}
-                  className="flex items-center gap-2 text-gray-600 text-xs font-medium"
+                  className="flex items-center gap-2 text-muted-foreground text-xs sm:text-sm font-medium"
                 >
-                  <badge.icon size={16} className="text-[#00C300]" />
+                  <badge.icon size={16} className="text-primary shrink-0" />
                   {badge.label}
                 </motion.div>
               ))}
@@ -191,13 +191,13 @@ export default function LandingView() {
       </section>
 
       {/* Why GaGa Chat? */}
-      <section className="py-24 bg-white">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-          <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className="text-center mb-16">
-            <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-4">Why GaGa Chat?</h2>
-            <p className="text-gray-600 max-w-2xl mx-auto">Discover the key benefits that make GaGa Chat the ideal platform for communication and collaboration.</p>
+      <section className="py-20 sm:py-28 bg-background">
+        <div className="container-page">
+          <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className="text-center mb-12 sm:mb-16">
+            <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-foreground mb-3 sm:mb-4">Why GaGa Chat?</h2>
+            <p className="text-muted-foreground max-w-2xl mx-auto text-sm sm:text-base">Discover the key benefits that make GaGa Chat the ideal platform for communication and collaboration.</p>
           </motion.div>
-          <div className="grid md:grid-cols-3 gap-8 text-center">
+          <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-6 sm:gap-8 text-center">
             {[
               { icon: Wifi, title: 'No VPN Required', description: 'Enjoy unrestricted access and seamless communication worldwide, without the need for a VPN.' },
               { icon: Lock, title: 'Private and Secure', description: 'Your conversations are protected with end-to-end encryption, ensuring your privacy.' },
@@ -209,12 +209,13 @@ export default function LandingView() {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: i * 0.1 }}
+                className="card-surface p-5 sm:p-6"
               >
-                <div className="flex items-center justify-center h-16 w-16 rounded-full bg-[#00C300]/10 text-[#00C300] mx-auto mb-4">
-                  <item.icon size={32} />
+                <div className="flex items-center justify-center h-14 w-14 sm:h-16 sm:w-16 rounded-2xl bg-primary/10 text-primary mx-auto mb-4">
+                  <item.icon size={28} />
                 </div>
-                <h3 className="text-lg font-bold text-gray-900 mb-2">{item.title}</h3>
-                <p className="text-gray-600">{item.description}</p>
+                <h3 className="text-base sm:text-lg font-bold text-foreground mb-2">{item.title}</h3>
+                <p className="text-muted-foreground text-xs sm:text-sm leading-relaxed">{item.description}</p>
               </motion.div>
             ))}
           </div>
@@ -511,7 +512,7 @@ export default function LandingView() {
                   <div>
                     <p className="text-[#111111] font-medium">{t('appName')}</p>
                     <p className="text-[#00C300] text-xs flex items-center gap-1">
-                      <span className="w-1.5 h-1.5 rounded-full bg-[#00C300]"/>{t('encrypted')}
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#00C300]" />{t('encrypted')}
                     </p>
                   </div>
                 </div>
@@ -662,7 +663,7 @@ export default function LandingView() {
                 <div className="bg-[#F5F5F5] rounded-xl p-3 mb-4">
                   <div className="flex items-center justify-between text-xs text-[#8D8D8D]">
                     <span>Size</span>
-<span className="font-medium text-[#111111]">&lt; 1 MB</span>
+                    <span className="font-medium text-[#111111]">&lt; 1 MB</span>
                   </div>
                   <div className="flex items-center justify-between text-xs text-[#8D8D8D] mt-1">
                     <span>Version</span>

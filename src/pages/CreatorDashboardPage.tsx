@@ -353,19 +353,22 @@ export default function CreatorDashboardPage() {
   const { getMyReels } = useReelStore();
 
   const [timeFilter, setTimeFilter] = useState<TimeFilter>('month');
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => !!user?.id);
   const [analytics, setAnalytics] = useState<CreatorAnalytics | null>(null);
   const [userPosts, setUserPosts] = useState<TimelinePost[]>([]);
   const [userReels, setUserReels] = useState<Reel[]>([]);
-  const [chartData, setChartData] = useState<ChartPoint[]>([]);
+
+  // Reset loading state if the user signs out (render-time adjustment)
+  const [prevUserId, setPrevUserId] = useState(user?.id);
+  if (user?.id !== prevUserId) {
+    setPrevUserId(user?.id);
+    if (!user?.id) setLoading(false);
+  }
 
   /* ── Data loading ── */
 
   useEffect(() => {
-    if (!user?.id) {
-      setLoading(false);
-      return;
-    }
+    if (!user?.id) return;
 
     let cancelled = false;
 
@@ -408,10 +411,6 @@ export default function CreatorDashboardPage() {
         }
         if (!cancelled) setUserReels(reels);
 
-        // Build chart data
-        const chart = buildChartData(posts, creatorAnalytics, user);
-        if (!cancelled) setChartData(chart);
-
         if (!cancelled) setLoading(false);
 
         // Cleanup subscriptions on unmount
@@ -432,11 +431,12 @@ export default function CreatorDashboardPage() {
     };
   }, [user, subscribeWallet, subscribeToPremium, fetchTips, getCreatorAnalytics, getMyReels]);
 
-  useEffect(() => {
-    if (user) {
-      setChartData(buildChartData(userPosts, analytics, user, timeFilter));
-    }
-  }, [timeFilter, userPosts, analytics, user]);
+  // Chart data is derived state — recompute it with useMemo instead of
+  // syncing via setState inside an effect
+  const chartData = useMemo(
+    () => (user ? buildChartData(userPosts, analytics, user, timeFilter) : []),
+    [timeFilter, userPosts, analytics, user],
+  );
 
   /* ── Computed stats ── */
   const totalEarnings = useMemo(() => {

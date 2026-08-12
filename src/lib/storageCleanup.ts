@@ -15,9 +15,9 @@ export function runStorageCleanup(): void {
     const DAY = 86_400_000;
 
     // Remove chat drafts — cap at 50 total
-    const draftKeys = safeGetAllStorageKeys().filter((k) => k.startsWith('chat_draft_'));
+    const draftKeys = safeGetAllStorageKeys().filter((k: string) => k.startsWith('chat_draft_'));
     if (draftKeys.length > 50) {
-      draftKeys.slice(0, draftKeys.length - 50).forEach((k) => safeRemoveStorageItem(k));
+      draftKeys.slice(0, draftKeys.length - 50).forEach((k: string) => safeRemoveStorageItem(k));
     }
 
     // Remove expired reel draft (older than 1 day)

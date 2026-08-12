@@ -35,6 +35,8 @@
     --sidebar-border: 0 0% 92%;
     --sidebar-ring: 120 100% 38%;
     --app-font-size: 16px;
+    --header-h: 56px;
+    --nav-h: 58px;
   }
 
   .dark {
@@ -59,15 +61,28 @@
     --ring: 120 100% 38%;
   }
 
-html {
+  @media (prefers-color-scheme: dark) {
+    :root:not(.light) {
+      --background: 0 0% 5%;
+      --foreground: 0 0% 98%;
+      --card: 0 0% 5%;
+      --card-foreground: 0 0% 98%;
+      --border: 0 0% 15%;
+      --input: 0 0% 15%;
+      --secondary: 0 0% 15%;
+      --muted: 0 0% 15%;
+      --accent: 0 0% 15%;
+    }
+  }
+
+  html {
     scroll-behavior: smooth;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    /* Prevent auto text-size inflation on iOS when rotating/zooming */
     -webkit-text-size-adjust: 100%;
     text-size-adjust: 100%;
-    /* Prevent horizontal scroll caused by wide content on small screens */
     overflow-x: hidden;
+    text-rendering: optimizeLegibility;
   }
 
   body {
@@ -78,180 +93,488 @@ html {
     font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     background-color: hsl(var(--background));
     color: hsl(var(--foreground));
-    min-height: 100%;
-    /* Support both old (100vh) and modern (100dvh) mobile viewport units
-       for correct sizing on Android/iOS with dynamic browser chrome */
     min-height: 100vh;
     min-height: 100dvh;
     width: 100%;
-    /* Keep content clear of notched phones (Dynamic Island, punch-hole) */
     -webkit-padding-start: env(safe-area-inset-left);
     padding-inline-start: env(safe-area-inset-left);
     -webkit-padding-end: env(safe-area-inset-right);
     padding-inline-end: env(safe-area-inset-right);
     transition: background-color 0.25s ease, color 0.25s ease;
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+  }
+
+  @media (min-width: 640px) {
+    body {
+      -webkit-padding-start: 0;
+      padding-inline-start: 0;
+      -webkit-padding-end: 0;
+      padding-inline-end: 0;
+    }
   }
 
   * {
-    @apply border-border;
+    border-color: hsl(var(--border));
+  }
+
+  img,
+  svg,
+  video {
+    display: block;
+    max-width: 100%;
+  }
+
+  button {
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
   }
 
   .scrollbar-hide {
     -ms-overflow-style: none;
     scrollbar-width: none;
   }
+
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
   }
 
-  /* Smooth scroll for all scrollable containers */
   .scroll-smooth {
     scroll-behavior: smooth;
   }
 
-  /* Custom focus styles */
   *:focus-visible {
-    outline: 2px solid #00C300;
+    outline: 2px solid hsl(var(--primary));
     outline-offset: 2px;
+    border-radius: 6px;
   }
 
-  /* Skip-to-content link */
   .skip-link {
     position: absolute;
     top: -100%;
     left: 0;
     z-index: 9999;
     padding: 8px 16px;
-    background: #00C300;
-    color: white;
+    background: hsl(var(--primary));
+    color: hsl(var(--primary-foreground));
     font-weight: 700;
     font-size: 14px;
     border-radius: 0 0 8px 0;
     transition: top 0.2s;
   }
+
   .skip-link:focus {
     top: 0;
   }
 
-  /* Respect reduced motion */
   @media (prefers-reduced-motion: reduce) {
-    *, *::before, *::after {
+
+    *,
+    *::before,
+    *::after {
       animation-duration: 0.01ms !important;
       animation-iteration-count: 1 !important;
       transition-duration: 0.01ms !important;
     }
+
+    html {
+      scroll-behavior: auto;
+    }
   }
 
-  /* Selection color */
   ::selection {
-    background-color: rgba(0, 195, 0, 0.2);
-    color: #111111;
+    background-color: hsl(var(--primary) / 0.2);
+    color: hsl(var(--foreground));
   }
 }
 
 @layer components {
-  /* Skeleton shimmer */
   .skeleton {
-    background: linear-gradient(90deg, #f0f0f0 25%, #e8e8e8 50%, #f0f0f0 75%);
+    background: linear-gradient(90deg,
+        hsl(var(--muted)) 25%,
+        hsl(var(--muted) / 0.5) 50%,
+        hsl(var(--muted)) 75%);
     background-size: 200% 100%;
     animation: shimmer 1.4s infinite;
   }
-  .dark .skeleton {
-    background: linear-gradient(90deg, #1e1e1e 25%, #2a2a2a 50%, #1e1e1e 75%);
-    background-size: 200% 100%;
-  }
-  /* Unread badge pulse */
+
   .badge-pulse {
     animation: badgePulse 2s ease-in-out infinite;
   }
+
   @keyframes badgePulse {
-    0%, 100% { box-shadow: 0 0 0 0 rgba(255,59,48,0.4); }
-    50%       { box-shadow: 0 0 0 4px rgba(255,59,48,0); }
+
+    0%,
+    100% {
+      box-shadow: 0 0 0 0 hsl(var(--destructive) / 0.4);
+    }
+
+    50% {
+      box-shadow: 0 0 0 4px hsl(var(--destructive) / 0);
+    }
   }
+
   .glass {
-    background: rgba(255, 255, 255, 0.03);
+    background: hsl(var(--background) / 0.03);
     -webkit-backdrop-filter: blur(20px);
     backdrop-filter: blur(20px);
-    border: 1px solid rgba(255, 255, 255, 0.05);
+    border: 1px solid hsl(var(--border) / 0.5);
   }
+
   .glass-strong {
-    background: rgba(10, 10, 10, 0.8);
-    -webkit-backdrop-filter: blur(30px);
-    backdrop-filter: blur(30px);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    background: hsl(var(--background) / 0.85);
+    -webkit-backdrop-filter: blur(30px) saturate(180%);
+    backdrop-filter: blur(30px) saturate(180%);
+    border-bottom: 1px solid hsl(var(--border));
   }
+
   .gradient-text {
     background: linear-gradient(135deg, #00C300 0%, #22d3ee 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
   }
+
   .gchat-btn {
-    background: #00C300;
-    color: white;
+    background: hsl(var(--primary));
+    color: hsl(var(--primary-foreground));
     font-weight: 700;
+    transition: background-color 0.15s ease, transform 0.1s ease;
   }
+
   .gchat-btn:hover {
-    background: #00A300;
+    filter: brightness(0.95);
+  }
+
+  .gchat-btn:active {
+    transform: scale(0.97);
+  }
+
+  .card-surface {
+    background-color: hsl(var(--card));
+    border: 1px solid hsl(var(--border));
+    border-radius: var(--radius, 0.625rem);
+    box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.04);
+  }
+
+  .input-surface {
+    background-color: hsl(var(--input));
+    border: 1px solid transparent;
+    border-radius: var(--radius, 0.625rem);
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  }
+
+  .input-surface:focus {
+    outline: none;
+    border-color: hsl(var(--primary) / 0.5);
+    box-shadow: 0 0 0 3px hsl(var(--primary) / 0.1);
+  }
+
+  .nav-surface {
+    background: hsl(var(--card) / 0.95);
+    -webkit-backdrop-filter: blur(16px) saturate(180%);
+    backdrop-filter: blur(16px) saturate(180%);
+    border-color: hsl(var(--border));
+  }
+
+  .page-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.75rem 1rem 0.75rem 1rem;
+    padding-top: max(0.75rem, env(safe-area-inset-top));
+    background: hsl(var(--card) / 0.95);
+    -webkit-backdrop-filter: blur(16px) saturate(180%);
+    backdrop-filter: blur(16px) saturate(180%);
+    border-bottom: 1px solid hsl(var(--border));
+    position: sticky;
+    top: 0;
+    z-index: 40;
+  }
+
+  @media (min-width: 640px) {
+    .page-header {
+      padding: 1rem 1.5rem;
+    }
+  }
+
+  .page-content {
+    padding: 1rem;
+    padding-bottom: calc(58px + env(safe-area-inset-bottom, 0px));
+  }
+
+  @media (min-width: 640px) {
+    .page-content {
+      padding: 1.5rem;
+    }
+  }
+
+  .section-header {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: hsl(var(--muted-foreground));
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    margin-bottom: 0.5rem;
+    padding: 0 0.25rem;
+  }
+
+  .icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 9999px;
+    transition: background-color 0.15s ease, transform 0.08s ease;
+  }
+
+  .icon-btn:hover {
+    background-color: hsl(var(--accent));
+  }
+
+  .icon-btn:active {
+    transform: scale(0.94);
+  }
+
+  .press-card {
+    transition: transform 0.1s ease, box-shadow 0.15s ease, background-color 0.15s ease;
+  }
+
+  .press-card:active {
+    transform: scale(0.985);
+  }
+
+  @media (hover: hover) {
+    .press-card:hover {
+      background-color: hsl(var(--accent) / 0.6);
+    }
   }
 }
 
 @keyframes spin-photo {
-  from { transform: rotateY(0deg); }
-  to { transform: rotateY(360deg); }
+  from {
+    transform: rotateY(0deg);
+  }
+
+  to {
+    transform: rotateY(360deg);
+  }
 }
 
-/* Page transition */
 .page-enter {
   animation: pageEnter 0.22s cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
 }
+
 @keyframes pageEnter {
-  from { opacity: 0; transform: translateY(8px); }
-  to   { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
-/* Haptic-style press for interactive elements */
 .tap-scale {
   transition: transform 0.1s ease, opacity 0.1s ease;
 }
+
 .tap-scale:active {
   transform: scale(0.94);
   opacity: 0.85;
 }
 
-/* Ensure the app does not hard-lock scrolling at the root level.
-   Route-level scroll containers should use overflow-y-auto as needed. */
 #root {
-  /* 100vh fallback for older browsers, then 100dvh for modern mobile */
   height: 100vh;
   height: 100dvh;
   width: 100vw;
   max-width: 100%;
   overflow: auto;
-  /* Fix iOS rubber-banding / horizontal scroll */
   position: relative;
 }
 
-/* Bottom nav safe padding — applied to mobile page scroll containers */
+/* ==========================================================================
+   Mobile Portrait Permanent Lock
+   - Caps all mobile pages at a phone-like max-width for consistent UX
+   - Enforces safe-area insets for all phones
+   - Shows full-screen "rotate device" prompt when phone is in landscape
+   - Tablets (iPad/Android): allow normal layout since they can use desktop
+   ========================================================================== */
+
+@media (max-width: 1024px) {
+  #root {
+    max-width: 520px;
+    margin-left: auto;
+    margin-right: auto;
+    border-left: 1px solid hsl(var(--border) / 0.6);
+    border-right: 1px solid hsl(var(--border) / 0.6);
+    box-shadow: 0 0 60px rgba(0, 0, 0, 0.04);
+  }
+}
+
+@media (max-width: 640px) {
+  #root {
+    max-width: 100%;
+    border-left: none;
+    border-right: none;
+    box-shadow: none;
+  }
+}
+
+/* ---- Rotate Device Warning (mobile landscape) ----------------------------------- */
+
+#rotate-device-warning {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  background: linear-gradient(160deg, hsl(var(--background)) 0%, hsl(var(--secondary)) 100%);
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  color: hsl(var(--foreground));
+}
+
+.rotate-device-inner {
+  text-align: center;
+  max-width: 320px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+
+.rotate-phone {
+  color: hsl(var(--primary));
+  animation: rotatePhoneIcon 2.2s ease-in-out infinite;
+  display: inline-flex;
+}
+
+@keyframes rotatePhoneIcon {
+
+  0%,
+  10% {
+    transform: rotate(0deg);
+  }
+
+  45%,
+  55% {
+    transform: rotate(90deg);
+  }
+
+  90%,
+  100% {
+    transform: rotate(0deg);
+  }
+}
+
+.rotate-title {
+  font-size: 1.15rem;
+  font-weight: 700;
+  margin: 0;
+  color: hsl(var(--foreground));
+}
+
+.rotate-desc {
+  font-size: 0.875rem;
+  line-height: 1.55;
+  margin: 0;
+  color: hsl(var(--muted-foreground));
+}
+
+/* Show the rotate prompt ONLY on phones in landscape (not tablets).
+   Breakdown:
+   - Phone portrait  (aspect-ratio <  1 && width < 900px)  -> normal
+   - Phone landscape (aspect-ratio >  1 && max-height < 600px || width < 1000px && height < 600px) -> warning
+   - Tablet landscape -> show app (app can render desktop layout) */
+@media screen and (orientation: landscape) and (max-height: 640px) and (max-width: 1024px) {
+  #rotate-device-warning {
+    display: flex !important;
+  }
+
+  #root,
+  .skip-link {
+    display: none !important;
+  }
+
+  html,
+  body {
+    overflow: hidden !important;
+    overscroll-behavior: none !important;
+  }
+}
+
+/* ---- Safe-Area Inset Overrides (all mobile sizes) -------------------------------- */
+
+@media (max-width: 1024px) {
+  body {
+    -webkit-padding-start: env(safe-area-inset-left, 0px) !important;
+    padding-inline-start: env(safe-area-inset-left, 0px) !important;
+    -webkit-padding-end: env(safe-area-inset-right, 0px) !important;
+    padding-inline-end: env(safe-area-inset-right, 0px) !important;
+  }
+}
+
+@media (max-width: 640px) {
+  body {
+    -webkit-padding-start: env(safe-area-inset-left, 0px) !important;
+    padding-inline-start: env(safe-area-inset-left, 0px) !important;
+    -webkit-padding-end: env(safe-area-inset-right, 0px) !important;
+    padding-inline-end: env(safe-area-inset-right, 0px) !important;
+  }
+}
+
 .pb-nav {
-  padding-bottom: calc(58px + env(safe-area-inset-bottom));
+  padding-bottom: calc(58px + env(safe-area-inset-bottom, 0px));
 }
 
-/* Top safe-area padding helper — for notched/physical-cutout phones */
 .pt-safe {
-  padding-top: env(safe-area-inset-top);
-}
-/* Left/right safe-area helper for landscape notch */
-.px-safe {
-  padding-left: env(safe-area-inset-left);
-  padding-right: env(safe-area-inset-right);
+  padding-top: env(safe-area-inset-top, 0px);
 }
 
+.px-safe {
+  padding-left: env(safe-area-inset-left, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
+}
+
+.header-safe {
+  padding-top: max(12px, env(safe-area-inset-top, 0px));
+}
+
+.touch-target {
+  min-width: 44px;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.h-screen-safe {
+  height: 100vh;
+  height: 100dvh;
+}
+
+.min-h-screen-safe {
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+.pb-sheet-safe {
+  padding-bottom: max(16px, env(safe-area-inset-bottom, 0px));
+}
 
 @keyframes animate-scan {
-  0% { top: 0; }
-  50% { top: 100%; }
-  100% { top: 0; }
+  0% {
+    top: 0;
+  }
+
+  50% {
+    top: 100%;
+  }
+
+  100% {
+    top: 0;
+  }
 }
 
 .animate-scan {
@@ -267,44 +590,97 @@ html {
 }
 
 @keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
 }
 
 @keyframes slideUp {
-  from { opacity: 0; transform: translateY(20px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 @keyframes pulse-ring {
-  0% { transform: scale(0.8); opacity: 1; }
-  100% { transform: scale(1.5); opacity: 0; }
+  0% {
+    transform: scale(0.8);
+    opacity: 1;
+  }
+
+  100% {
+    transform: scale(1.5);
+    opacity: 0;
+  }
 }
 
 @keyframes bounce-in {
-  0% { transform: scale(0); }
-  50% { transform: scale(1.1); }
-  100% { transform: scale(1); }
+  0% {
+    transform: scale(0);
+  }
+
+  50% {
+    transform: scale(1.1);
+  }
+
+  100% {
+    transform: scale(1);
+  }
 }
 
 @keyframes slide-in-right {
-  from { transform: translateX(100%); opacity: 0; }
-  to { transform: translateX(0); opacity: 1; }
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
 }
 
 @keyframes slide-in-left {
-  from { transform: translateX(-100%); opacity: 0; }
-  to { transform: translateX(0); opacity: 1; }
+  from {
+    transform: translateX(-100%);
+    opacity: 0;
+  }
+
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
 }
 
 @keyframes scale-in {
-  from { transform: scale(0.9); opacity: 0; }
-  to { transform: scale(1); opacity: 1; }
+  from {
+    transform: scale(0.9);
+    opacity: 0;
+  }
+
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
 }
 
 @keyframes shimmer {
-  0% { background-position: -200% 0; }
-  100% { background-position: 200% 0; }
+  0% {
+    background-position: -200% 0;
+  }
+
+  100% {
+    background-position: 200% 0;
+  }
 }
 
 .animate-pulse-ring {
@@ -328,18 +704,16 @@ html {
 }
 
 .animate-shimmer {
-  background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.4) 50%, transparent 100%);
+  background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.4) 50%, transparent 100%);
   background-size: 200% 100%;
   animation: shimmer 1.5s infinite;
 }
 
-/* Active press effect */
 .press-scale:active {
   transform: scale(0.97);
   transition: transform 0.08s ease;
 }
 
-/* Ripple effect container */
 .ripple {
   position: relative;
   overflow: hidden;
@@ -361,4 +735,101 @@ html {
 .ripple:active::after {
   width: 200%;
   height: 200%;
+}
+
+@layer utilities {
+  .hide-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .hide-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .page-padding-x {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+
+  @media (min-width: 640px) {
+    .page-padding-x {
+      padding-left: 1.5rem;
+      padding-right: 1.5rem;
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .page-padding-x {
+      padding-left: 2rem;
+      padding-right: 2rem;
+    }
+  }
+
+  .no-scroll {
+    overflow: hidden;
+    position: fixed;
+    width: 100%;
+  }
+
+  .line-clamp-1 {
+    display: -webkit-box;
+    display: box;
+    -webkit-line-clamp: 1;
+    line-clamp: 1;
+    -webkit-box-orient: vertical;
+    box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .line-clamp-2 {
+    display: -webkit-box;
+    display: box;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    -webkit-box-orient: vertical;
+    box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .line-clamp-3 {
+    display: -webkit-box;
+    display: box;
+    -webkit-line-clamp: 3;
+    line-clamp: 3;
+    -webkit-box-orient: vertical;
+    box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .divider-y>*+* {
+    border-top: 1px solid hsl(var(--border));
+  }
+
+  .divider-x>*+* {
+    border-left: 1px solid hsl(var(--border));
+  }
+}
+
+@media (min-width: 640px) {
+  .pb-nav {
+    padding-bottom: 0;
+  }
+}
+
+@media (max-width: 480px) {
+  .compact-text {
+    font-size: 0.875rem;
+    line-height: 1.4;
+  }
+
+  .compact-pad {
+    padding: 0.75rem;
+  }
+}
+
+@media (min-width: 481px) and (max-width: 1024px) {
+  .tablet-columns-2 {
+    column-count: 2;
+  }
 }

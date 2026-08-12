@@ -423,7 +423,7 @@ export default function AddFriendsPage() {
           const sender = await fetchUserById(req.from);
           if (sender && !cancelled) profiles[req.from] = sender;
         })
-);
+      );
       if (!cancelled) setRequestSenders(prev => ({ ...prev, ...profiles }));
     };
     load();
@@ -466,7 +466,7 @@ export default function AddFriendsPage() {
           latitude: location.latitude,
           longitude: location.longitude,
           locationUpdatedAt: new Date().toISOString(),
-        }).catch(() => {});
+        }).catch(() => { });
 
         // Query all users with location data (no latitude filter — we filter client-side)
         let data: Record<string, unknown>[] = [];
@@ -634,14 +634,13 @@ export default function AddFriendsPage() {
         {(['search', 'suggestions', 'requests', 'nearby', 'contacts'] as const).map(tab => (
           <button type="button" key={tab}
             onClick={() => setActiveTab(tab)}
-            className={`flex-1 py-3 text-sm font-medium transition-colors whitespace-nowrap ${
-              activeTab === tab ? 'text-[#00C300] border-b-2 border-[#00C300]' : 'text-[#8D8D8D]'
-            }`}
+            className={`flex-1 py-3 text-sm font-medium transition-colors whitespace-nowrap ${activeTab === tab ? 'text-[#00C300] border-b-2 border-[#00C300]' : 'text-[#8D8D8D]'
+              }`}
           >
             {tab === 'search' ? 'Search' :
-             tab === 'suggestions' ? 'Suggestions' :
-             tab === 'requests' ? `Requests (${pendingRequests.length})` :
-             tab === 'nearby' ? 'Nearby' : 'Contacts'}
+              tab === 'suggestions' ? 'Suggestions' :
+                tab === 'requests' ? `Requests (${pendingRequests.length})` :
+                  tab === 'nearby' ? 'Nearby' : 'Contacts'}
           </button>
         ))}
       </div>
@@ -846,26 +845,26 @@ export default function AddFriendsPage() {
                         </div>
                         <div className="flex gap-2 shrink-0">
                           <button type="button" onClick={async () => {
-                              try {
-                                await acceptRequest(req.id);
-                                toast.success('Friend added!');
-                                navigate(`/chat/${req.from}`);
-                              } catch (err) {
-                                toast.error(err instanceof Error ? err.message : 'Failed to accept');
-                              }
-                            }}
+                            try {
+                              await acceptRequest(req.id);
+                              toast.success('Friend added!');
+                              navigate(`/chat/${req.from}`);
+                            } catch (err) {
+                              toast.error(err instanceof Error ? err.message : 'Failed to accept');
+                            }
+                          }}
                             className="flex items-center gap-1 px-3 py-1.5 bg-[#00C300] text-white text-xs rounded-full font-bold active:bg-[#00A300] transition-colors"
                           >
                             <Check size={18} /> Accept
                           </button>
                           <button type="button" onClick={async () => {
-                              try {
-                                await rejectRequest(req.id);
-                                toast.success('Request declined');
-                              } catch (err) {
-                                toast.error(err instanceof Error ? err.message : 'Failed to decline');
-                              }
-                            }}
+                            try {
+                              await rejectRequest(req.id);
+                              toast.success('Request declined');
+                            } catch (err) {
+                              toast.error(err instanceof Error ? err.message : 'Failed to decline');
+                            }
+                          }}
                             className="flex items-center gap-1 px-3 py-1.5 bg-[#F5F5F5] text-[#8D8D8D] text-xs rounded-full font-medium"
                           >
                             <X size={18} /> Decline
@@ -922,13 +921,13 @@ export default function AddFriendsPage() {
                           )}
                         </div>
                         <button type="button" onClick={async () => {
-                            try {
-                              await cancelRequest(req.id);
-                              toast.success('Request cancelled');
-                            } catch (err) {
-                              toast.error(err instanceof Error ? err.message : 'Failed to cancel');
-                            }
-                          }}
+                          try {
+                            await cancelRequest(req.id);
+                            toast.success('Request cancelled');
+                          } catch (err) {
+                            toast.error(err instanceof Error ? err.message : 'Failed to cancel');
+                          }
+                        }}
                           className="text-[#8D8D8D] text-xs font-medium hover:text-red-500 transition-colors shrink-0"
                         >
                           Cancel

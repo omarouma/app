@@ -5,8 +5,6 @@ import { toDate, formatTime, formatLastSeen } from './timeUtils';
 export * from './timeUtils';
 export { toDate, formatTime, formatLastSeen };
 
-const isClient = typeof window !== 'undefined';
-
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
@@ -18,11 +16,9 @@ export function getDefaultAvatar(seed: string): string {
 export function sanitizeMediaUrl(url: string | undefined | null): string {
   if (!url) return '';
   const trimmed = url.trim();
-  if (!trimmed) return '';
-
+  // Block dangerous URI schemes
   const lower = trimmed.toLowerCase();
-  const blockedPrefixes = ['javascript:', 'vbscript:', 'data:text', 'data:application'];
-  if (blockedPrefixes.some((prefix) => lower.startsWith(prefix))) return '';
+  if (lower.startsWith('javascript:') || lower.startsWith('vbscript:') || lower.startsWith('data:text') || lower.startsWith('data:application')) return '';
   if (trimmed.startsWith('blob:')) return trimmed;
   if (trimmed.startsWith('data:image/')) return trimmed;
   if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) return trimmed;
@@ -58,7 +54,7 @@ export function parseGagaChatUri(uri: string | null): string | null {
 }
 
 export function stopStreamTracks(stream: MediaStream | null) {
-  if (!stream || !isClient) return;
+  if (!stream) return;
   stream.getTracks().forEach(track => track.stop());
 }
 

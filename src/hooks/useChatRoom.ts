@@ -16,7 +16,7 @@ interface FriendRequest { id: string; toUserId?: string; to_user_id?: string; fr
 
 export const useChatRoom = (chatId: string, userId: string) => {
   const { user: currentUser } = useAuthStore();
-const {
+  const {
     messages, sendMessage, deleteMessage,
     deleteForEveryone, addReaction, pinMessage, unpinMessage, sendPoll,
     votePoll, editMessage, sendContactCard, unlockChat, chats,
@@ -104,7 +104,7 @@ const {
   );
   const chat = useMemo(() => chats.find(c => c.id === chatId), [chatId, chats]);
 
-// ── Effects ──────────────────────────────────────────────────────────────
+  // ── Effects ──────────────────────────────────────────────────────────────
 
   // Delegate the canonical subscription + markAsRead + lastSeen realtime +
   // friend status + draft persistence + chat lock + chat background effects
@@ -125,7 +125,7 @@ const {
   useEffect(() => {
     if (!userId) return;
     let mounted = true;
-    getUserById(userId).then(u => { if (mounted) setResolvedDisplayUser(u); }).catch(() => {});
+    getUserById(userId).then(u => { if (mounted) setResolvedDisplayUser(u); }).catch(() => { });
     return () => { mounted = false; };
   }, [userId, getUserById]);
 
@@ -174,6 +174,7 @@ const {
       try {
         const url = await uploadMediaBlob(file, { userId: currentUser.id, kind: 'chats', fileName: file.name, contentType: file.type });
         const type = file.type.startsWith('image/') ? 'image' : file.type.startsWith('video/') ? 'video' : 'file';
+        if (!url) { toast.error(`Failed to upload ${file.name}.`); continue; }
         await sendMessage(chatId, currentUser.id, file.name, type, url);
       } catch { toast.error(`Failed to upload ${file.name}.`); }
     }

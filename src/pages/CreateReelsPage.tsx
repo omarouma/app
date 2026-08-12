@@ -274,7 +274,7 @@ export default function CreateReelsPage() {
   const handlePlayPause = () => {
     if (!videoRef.current) return;
     if (videoRef.current.paused) {
-      videoRef.current.play().catch(() => {});
+      videoRef.current.play().catch(() => { });
       setIsPlaying(true);
     } else {
       videoRef.current.pause();
@@ -308,7 +308,7 @@ export default function CreateReelsPage() {
     setError('');
     uploadAbortRef.current = new AbortController();
 
-try {
+    try {
       // Upload video with real Cloudinary progress (falls back to Firebase/local).
       setUploadStep('Uploading video...');
       setUploadProgress(5);
@@ -319,29 +319,32 @@ try {
         userId: user.id,
         onProgress: (pct) => setUploadProgress(Math.max(5, Math.min(70, pct))),
       });
+      if (!videoUrl) throw new Error('Video upload failed');
 
       // Upload thumbnail
       setUploadStep('Uploading thumbnail...');
       let finalThumbnail = '';
       if (thumbnailBlob) {
-        finalThumbnail = await uploadMediaBlob({
+        const t = await uploadMediaBlob({
           kind: 'reels',
           file: thumbnailBlob,
           mimeType: 'image/jpeg',
           userId: user.id,
           onProgress: (pct) => setUploadProgress(Math.max(70, Math.min(90, 70 + pct * 0.2))),
         });
+        if (t) finalThumbnail = t;
       } else if (thumbnailUrl && thumbnailUrl.startsWith('blob:')) {
         const response = await fetch(thumbnailUrl);
         const blob = await response.blob();
         const thumbFile = new File([blob], 'thumbnail.jpg', { type: 'image/jpeg' });
-        finalThumbnail = await uploadMediaBlob({
+        const t = await uploadMediaBlob({
           kind: 'reels',
           file: thumbFile,
           mimeType: 'image/jpeg',
           userId: user.id,
           onProgress: (pct) => setUploadProgress(Math.max(70, Math.min(90, 70 + pct * 0.2))),
         });
+        if (t) finalThumbnail = t;
       }
       setUploadProgress(92);
 
@@ -500,7 +503,7 @@ try {
               <Video size={28} className="text-[#8D8D8D] group-hover:text-[#00C300]" />
             </div>
             <div className="text-center">
-<p className="text-white font-medium text-sm">Upload a video</p>
+              <p className="text-white font-medium text-sm">Upload a video</p>
               <p className="text-[#8D8D8D] text-xs mt-1">MP4, MOV, WEBM up to 50MB</p>
               <p className="text-[#8D8D8D] text-xs">Up to 10 minutes</p>
             </div>
@@ -597,7 +600,7 @@ try {
               onClick={() => {
                 if (videoRef.current) {
                   videoRef.current.currentTime = 0;
-                  videoRef.current.play().catch(() => {});
+                  videoRef.current.play().catch(() => { });
                   setIsPlaying(true);
                 }
               }}
@@ -725,11 +728,10 @@ try {
                 key={cat}
                 type="button"
                 onClick={() => setCategory(cat)}
-                className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${
-                  category === cat
+                className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${category === cat
                     ? 'bg-[#00C300] text-black'
                     : 'bg-[#1a1a1a] text-[#8D8D8D] hover:text-white'
-                }`}
+                  }`}
               >
                 {cat}
               </button>
@@ -753,11 +755,10 @@ try {
                   key={opt.key}
                   type="button"
                   onClick={() => setVisibility(opt.key)}
-                  className={`flex-1 flex flex-col items-center gap-1 px-3 py-2.5 rounded-xl transition-colors ${
-                    isActive
+                  className={`flex-1 flex flex-col items-center gap-1 px-3 py-2.5 rounded-xl transition-colors ${isActive
                       ? 'bg-[#00C300]/10 text-[#00C300] border border-[#00C300]/30'
                       : 'bg-[#1a1a1a] text-[#8D8D8D] border border-transparent'
-                  }`}
+                    }`}
                 >
                   <Icon size={16} />
                   <span className="text-xs font-medium">{opt.label}</span>

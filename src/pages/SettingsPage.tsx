@@ -166,39 +166,41 @@ export default function SettingsPage() {
     <button
       type="button"
       onClick={onClick}
-      className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl transition-colors text-left ${danger ? 'hover:bg-red-50' : 'hover:bg-[#F5F5F5]'}`}
+      className={`w-full flex items-center gap-3 sm:gap-4 px-3 sm:px-4 py-3 sm:py-3.5 rounded-xl transition-colors text-left press-card ${danger ? 'hover:bg-red-50 dark:hover:bg-red-500/10' : ''}`}
     >
-      <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${danger ? 'bg-red-100 text-red-500' : 'bg-[#F5F5F5] text-[#111111]'}`}>
+      <div className={`w-9 h-9 sm:w-10 sm:h-10 rounded-lg flex items-center justify-center shrink-0 ${danger ? 'bg-red-100 dark:bg-red-500/20 text-red-500' : 'bg-accent text-foreground'}`}>
         {Icon && <Icon size={18} />}
       </div>
-      <div className="flex-1">
-        <p className={`text-sm font-medium ${danger ? 'text-red-500' : 'text-[#111111]'}`}>{label}</p>
+      <div className="flex-1 min-w-0">
+        <p className={`text-sm font-medium truncate ${danger ? 'text-red-500' : 'text-foreground'}`}>{label}</p>
       </div>
-      {right && <div className="flex items-center">{right}</div>}
-      {!right && onClick && <ChevronRight size={16} className="text-[#999999]" />}
+      {right && <div className="flex items-center shrink-0">{right}</div>}
+      {!right && onClick && <ChevronRight size={16} className="text-muted-foreground shrink-0" />}
     </button>
   );
 
   return (
-    <div className="min-h-screen bg-[#F5F5F5]">
+    <div className="min-h-screen bg-secondary/40">
       {/* Header */}
-      <div className="sticky top-0 z-50 bg-white border-b border-[#EBEBEB]">
-        <div className="max-w-xl mx-auto px-4 h-14 flex items-center gap-3">
-          <button type="button" onClick={() => section ? setSection(null) : navigate(-1)} className="p-2 -ml-2 rounded-full hover:bg-[#F5F5F5] transition-colors">
-            <ArrowLeft size={20} className="text-[#111111]" />
+      <header className="page-header">
+        <div className="w-full max-w-2xl mx-auto flex items-center gap-3">
+          <button type="button" onClick={() => section ? setSection(null) : navigate(-1)} className="icon-btn w-9 h-9 -ml-2 bg-accent/50">
+            <ArrowLeft size={20} className="text-foreground" />
           </button>
-          <h1 className="text-lg font-bold text-[#111111]">{section ? sections.find(s => s.id === section)?.label : 'Settings'}</h1>
+          <h1 className="text-lg sm:text-xl font-bold text-foreground truncate">
+            {section ? sections.find(s => s.id === section)?.label : 'Settings'}
+          </h1>
         </div>
-      </div>
+      </header>
 
-      <div className="max-w-xl mx-auto px-4 py-4 pb-nav">
+      <div className="container-page py-4 pb-nav">
         <AnimatePresence mode="wait">
           {!section ? (
-            <motion.div key="main" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-2">
+            <motion.div key="main" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-2 sm:space-y-3">
               {/* User Card */}
-              <div className="bg-white rounded-2xl p-4 mb-4 shadow-sm border border-[#EBEBEB]">
-                <div className="flex items-center gap-3">
-<div className="w-14 h-14 rounded-full bg-[#F5F5F5] flex items-center justify-center text-[#111111] font-bold text-xl overflow-hidden shrink-0">
+              <div className="card-surface p-4 sm:p-5 mb-4 sm:mb-6">
+                <div className="flex items-center gap-3 sm:gap-4">
+                  <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-accent flex items-center justify-center text-foreground font-bold text-lg sm:text-xl overflow-hidden shrink-0">
                     {user?.avatar ? (
                       <img src={user.avatar} alt={`${user.name || 'User'} avatar`} className="w-full h-full object-cover" />
                     ) : (
@@ -206,41 +208,43 @@ export default function SettingsPage() {
                     )}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-base font-semibold text-[#111111] truncate">{user?.name || 'User'}</p>
-                    <p className="text-sm text-[#999999] truncate">{user?.username || user?.phone || ''}</p>
+                    <p className="text-base sm:text-lg font-semibold text-foreground truncate">{user?.name || 'User'}</p>
+                    <p className="text-xs sm:text-sm text-muted-foreground truncate">{user?.username || user?.phone || ''}</p>
                   </div>
-                  <button type="button" onClick={() => navigate('/profile')} className="p-2 rounded-full hover:bg-[#F5F5F5]">
-                    <ChevronRight size={18} className="text-[#999999]" />
+                  <button type="button" onClick={() => navigate('/profile')} className="icon-btn w-9 h-9 bg-accent/50 shrink-0">
+                    <ChevronRight size={18} className="text-muted-foreground" />
                   </button>
                 </div>
               </div>
 
               {/* Settings Sections */}
-              {sections.map(s => (
-                <button
-                  key={s.id}
-                  type="button"
-                  onClick={() => setSection(s.id)}
-                  className="w-full flex items-center gap-3 px-4 py-3.5 rounded-xl bg-white hover:bg-[#FAFAFA] transition-colors text-left shadow-sm border border-[#EBEBEB] mb-2"
-                >
-                  <div className="w-9 h-9 rounded-lg bg-[#F5F5F5] flex items-center justify-center text-[#111111]">
-                    <s.icon size={18} />
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-[#111111]">{s.label}</p>
-                    <p className="text-xs text-[#999999]">{s.desc}</p>
-                  </div>
-                  <ChevronRight size={16} className="text-[#999999]" />
-                </button>
-              ))}
+              <div className="card-surface divide-y divide-border -mx-0">
+                {sections.map(s => (
+                  <button
+                    key={s.id}
+                    type="button"
+                    onClick={() => setSection(s.id)}
+                    className="w-full flex items-center gap-3 sm:gap-4 px-3 sm:px-4 py-3 sm:py-3.5 transition-colors text-left press-card first:rounded-t-xl last:rounded-b-xl"
+                  >
+                    <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-accent flex items-center justify-center text-foreground shrink-0">
+                      <s.icon size={18} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-foreground">{s.label}</p>
+                      <p className="text-xs text-muted-foreground">{s.desc}</p>
+                    </div>
+                    <ChevronRight size={16} className="text-muted-foreground shrink-0" />
+                  </button>
+                ))}
+              </div>
 
               {/* Logout */}
               <button
                 type="button"
                 onClick={async () => { await logout(); toast.success('Logged out'); navigate('/auth'); }}
-                className="w-full flex items-center gap-3 px-4 py-3.5 rounded-xl bg-white hover:bg-red-50 transition-colors text-left shadow-sm border border-[#EBEBEB] mt-4"
+                className="w-full flex items-center gap-3 sm:gap-4 px-3 sm:px-4 py-3 sm:py-3.5 rounded-xl card-surface mt-4 sm:mt-6 press-card hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors text-left"
               >
-                <div className="w-9 h-9 rounded-lg bg-red-100 flex items-center justify-center text-red-500">
+                <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-red-100 dark:bg-red-500/20 flex items-center justify-center text-red-500 shrink-0">
                   <LogOut size={18} />
                 </div>
                 <p className="text-sm font-medium text-red-500 flex-1">Log Out</p>
@@ -249,22 +253,25 @@ export default function SettingsPage() {
           ) : (
             <motion.div key={section} initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-4">
               {section === 'appearance' && (
-                <div className="space-y-4">
+                <div className="space-y-4 sm:space-y-5">
                   {/* Theme */}
-                  <div className="bg-white rounded-2xl p-4 shadow-sm border border-[#EBEBEB]">
-                    <p className="text-sm font-semibold text-[#111111] mb-3">Theme</p>
-                    <div className="grid grid-cols-2 gap-2">
+                  <div className="card-surface p-4 sm:p-5">
+                    <p className="text-sm font-semibold text-foreground mb-3 sm:mb-4">Theme</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
                       {themes.map(t => (
                         <button
                           key={t.code}
                           type="button"
                           onClick={() => handleUpdate('theme', t.code)}
-                          className={`flex items-center gap-2 p-3 rounded-xl border-2 transition-all ${currentTheme === t.code ? 'border-[#00C300] bg-[#00C300]/5' : 'border-transparent bg-[#F5F5F5]'}`}
+                          className={`flex items-center gap-2 sm:gap-3 p-3 sm:p-4 rounded-xl border-2 transition-all press-card ${currentTheme === t.code
+                            ? 'border-primary bg-primary/5'
+                            : 'border-transparent bg-accent hover:bg-accent/80'
+                            }`}
                         >
-                          <t.icon size={18} className={currentTheme === t.code ? 'text-[#00C300]' : 'text-[#999999]'} />
-                          <div className="text-left">
-                            <p className={`text-xs font-medium ${currentTheme === t.code ? 'text-[#00C300]' : 'text-[#111111]'}`}>{t.label}</p>
-                            <p className="text-[10px] text-[#999999]">{t.desc}</p>
+                          <t.icon size={18} className={currentTheme === t.code ? 'text-primary' : 'text-muted-foreground shrink-0'} />
+                          <div className="text-left min-w-0">
+                            <p className={`text-xs sm:text-sm font-medium ${currentTheme === t.code ? 'text-primary' : 'text-foreground'}`}>{t.label}</p>
+                            <p className="text-[10px] sm:text-xs text-muted-foreground">{t.desc}</p>
                           </div>
                         </button>
                       ))}
@@ -272,15 +279,18 @@ export default function SettingsPage() {
                   </div>
 
                   {/* Accent Color */}
-                  <div className="bg-white rounded-2xl p-4 shadow-sm border border-[#EBEBEB]">
-                    <p className="text-sm font-semibold text-[#111111] mb-3">Accent Color</p>
-                    <div className="flex flex-wrap gap-2">
+                  <div className="card-surface p-4 sm:p-5">
+                    <p className="text-sm font-semibold text-foreground mb-3 sm:mb-4">Accent Color</p>
+                    <div className="flex flex-wrap gap-2.5 sm:gap-3">
                       {accentColors.map(c => (
                         <button
                           key={c.value}
                           type="button"
                           onClick={() => handleUpdate('accentColor', c.value)}
-                          className={`w-10 h-10 rounded-full ${c.class} flex items-center justify-center transition-all ${currentAccent === c.value ? 'ring-2 ring-offset-2 ring-[#111111]' : ''}`}
+                          className={`w-10 h-10 sm:w-11 sm:h-11 rounded-full ${c.class} flex items-center justify-center transition-all tap-scale ring-offset-background ${currentAccent === c.value ? 'ring-2 ring-offset-2 ring-foreground' : ''
+                            }`}
+                          title={c.name}
+                          aria-label={`Accent color ${c.name}`}
                         >
                           {currentAccent === c.value && <Check size={16} className="text-white" />}
                         </button>
@@ -289,15 +299,18 @@ export default function SettingsPage() {
                   </div>
 
                   {/* Font Size */}
-                  <div className="bg-white rounded-2xl p-4 shadow-sm border border-[#EBEBEB]">
-                    <p className="text-sm font-semibold text-[#111111] mb-3">Font Size</p>
-                    <div className="flex gap-2">
+                  <div className="card-surface p-4 sm:p-5">
+                    <p className="text-sm font-semibold text-foreground mb-3 sm:mb-4">Font Size</p>
+                    <div className="flex gap-2 sm:gap-3">
                       {(['small', 'medium', 'large'] as const).map(size => (
                         <button
                           key={size}
                           type="button"
                           onClick={() => handleUpdate('fontSize', size)}
-                          className={`flex-1 py-2 rounded-xl text-sm font-medium transition-all ${currentFont === size ? 'bg-[#00C300] text-white' : 'bg-[#F5F5F5] text-[#111111]'}`}
+                          className={`flex-1 py-2.5 sm:py-3 rounded-xl text-sm font-medium transition-all tap-scale ${currentFont === size
+                            ? 'bg-primary text-primary-foreground shadow-sm'
+                            : 'bg-accent text-foreground hover:bg-accent/80'
+                            }`}
                         >
                           {size.charAt(0).toUpperCase() + size.slice(1)}
                         </button>
@@ -308,35 +321,38 @@ export default function SettingsPage() {
               )}
 
               {section === 'language' && (
-                <div className="bg-white rounded-2xl p-4 shadow-sm border border-[#EBEBEB]">
+                <div className="card-surface p-3 sm:p-4">
                   {languages.map(l => (
                     <button
                       key={l.code}
                       type="button"
                       onClick={() => handleLanguageChange(l.code)}
-                      className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl transition-colors text-left mb-1 ${tempLang === l.code ? 'bg-[#00C300]/5' : 'hover:bg-[#F5F5F5]'}`}
+                      className={`w-full flex items-center gap-3 sm:gap-4 px-3 py-3 rounded-xl transition-colors text-left mb-1 press-card ${tempLang === l.code ? 'bg-primary/5' : ''
+                        }`}
                     >
-                      <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${tempLang === l.code ? 'border-[#00C300]' : 'border-[#CCCCCC]'}`}>
-                        {tempLang === l.code && <div className="w-2.5 h-2.5 rounded-full bg-[#00C300]" />}
+                      <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${tempLang === l.code ? 'border-primary' : 'border-muted-foreground/30'
+                        }`}>
+                        {tempLang === l.code && <div className="w-2.5 h-2.5 rounded-full bg-primary" />}
                       </div>
-                      <div className="flex-1">
-                        <p className={`text-sm font-medium ${tempLang === l.code ? 'text-[#00C300]' : 'text-[#111111]'}`}>{l.label}</p>
+                      <div className="flex-1 min-w-0">
+                        <p className={`text-sm font-medium ${tempLang === l.code ? 'text-primary' : 'text-foreground'}`}>{l.label}</p>
                       </div>
-                      <p className="text-sm text-[#999999]">{l.native}</p>
+                      <p className="text-sm text-muted-foreground shrink-0">{l.native}</p>
                     </button>
                   ))}
                 </div>
               )}
 
               {section === 'notifications' && (
-                <div className="bg-white rounded-2xl p-4 shadow-sm border border-[#EBEBEB] space-y-2">
+                <div className="card-surface p-3 sm:p-4 space-y-1">
                   {settingItem('Message Notifications', Bell, (
                     <button
                       type="button"
                       onClick={() => updateSettings({ notifications: { ...settings.notifications, pushEnabled: !settings.notifications.pushEnabled } })}
-                      className={`w-10 h-6 rounded-full transition-colors relative ${settings.notifications.pushEnabled ? 'bg-[#00C300]' : 'bg-[#CCCCCC]'}`}
+                      className={`w-11 h-6 rounded-full transition-colors relative shrink-0 ${settings.notifications.pushEnabled ? 'bg-primary' : 'bg-muted'}`}
+                      aria-pressed={settings.notifications.pushEnabled}
                     >
-                      <div className={`w-4 h-4 rounded-full bg-white absolute top-1 transition-all ${settings.notifications.pushEnabled ? 'left-5' : 'left-1'}`} />
+                      <div className={`w-5 h-5 rounded-full bg-card absolute top-0.5 shadow-sm transition-all ${settings.notifications.pushEnabled ? 'left-5' : 'left-0.5'}`} />
                     </button>
                   ))}
                   {settingItem('Sound', Volume2, (
@@ -345,16 +361,18 @@ export default function SettingsPage() {
                       onClick={() => {
                         updateSettings({ notifications: { ...settings.notifications, messageSound: !settings.notifications.messageSound } });
                       }}
-                      className={`w-10 h-6 rounded-full transition-colors relative ${settings.notifications.messageSound ? 'bg-[#00C300]' : 'bg-[#CCCCCC]'}`}
+                      className={`w-11 h-6 rounded-full transition-colors relative shrink-0 ${settings.notifications.messageSound ? 'bg-primary' : 'bg-muted'}`}
+                      aria-pressed={settings.notifications.messageSound}
                     >
-                      <div className={`w-4 h-4 rounded-full bg-white absolute top-1 transition-all ${settings.notifications.messageSound ? 'left-5' : 'left-1'}`} />
+                      <div className={`w-5 h-5 rounded-full bg-card absolute top-0.5 shadow-sm transition-all ${settings.notifications.messageSound ? 'left-5' : 'left-0.5'}`} />
                     </button>
                   ))}
                   {settingItem('Call Sound', Phone, (
                     <button
                       type="button"
                       onClick={() => updateSettings({ notifications: { ...settings.notifications, callSound: !settings.notifications.callSound } })}
-                      className={`w-10 h-6 rounded-full transition-colors relative ${settings.notifications.callSound ? 'bg-[#00C300]' : 'bg-[#CCCCCC]'}`}
+                      className={`w-11 h-6 rounded-full transition-colors relative shrink-0 ${settings.notifications.callSound ? 'bg-primary' : 'bg-muted'}`}
+                      aria-pressed={settings.notifications.callSound}
                     >
                       <div className={`w-4 h-4 rounded-full bg-white absolute top-1 transition-all ${settings.notifications.callSound ? 'left-5' : 'left-1'}`} />
                     </button>
@@ -363,15 +381,16 @@ export default function SettingsPage() {
                     <button
                       type="button"
                       onClick={() => updateSettings({ notifications: { ...settings.notifications, vibrationEnabled: !settings.notifications.vibrationEnabled } })}
-                      className={`w-10 h-6 rounded-full transition-colors relative ${settings.notifications.vibrationEnabled ? 'bg-[#00C300]' : 'bg-[#CCCCCC]'}`}
+                      className={`w-11 h-6 rounded-full transition-colors relative shrink-0 ${settings.notifications.vibrationEnabled ? 'bg-primary' : 'bg-muted'}`}
+                      aria-pressed={settings.notifications.vibrationEnabled}
                     >
-                      <div className={`w-4 h-4 rounded-full bg-white absolute top-1 transition-all ${settings.notifications.vibrationEnabled ? 'left-5' : 'left-1'}`} />
+                      <div className={`w-5 h-5 rounded-full bg-card absolute top-0.5 shadow-sm transition-all ${settings.notifications.vibrationEnabled ? 'left-5' : 'left-0.5'}`} />
                     </button>
                   ))}
                   {/* Sound Profile Picker */}
-                  <div className="pt-2">
-                    <p className="text-sm font-medium text-[#111111] mb-2">Notification Tone</p>
-                    <div className="flex gap-2">
+                  <div className="pt-2 sm:pt-3">
+                    <p className="text-sm font-medium text-foreground mb-2 sm:mb-3">Notification Tone</p>
+                    <div className="flex flex-col sm:flex-row gap-2">
                       {soundProfiles.map((profile) => (
                         <button
                           key={profile.code}
@@ -379,17 +398,16 @@ export default function SettingsPage() {
                           onClick={() => {
                             updateSettings({ notifications: { ...settings.notifications, soundProfile: profile.code } });
                           }}
-                          className={`flex-1 py-2 rounded-xl text-xs font-medium transition-all ${
-                            settings.notifications.soundProfile === profile.code
-                              ? 'bg-[#00C300] text-white'
-                              : 'bg-[#F5F5F5] text-[#111111] hover:bg-[#EBEBEB]'
-                          }`}
+                          className={`flex-1 py-2.5 sm:py-2 px-3 rounded-xl text-xs font-medium transition-all tap-scale ${settings.notifications.soundProfile === profile.code
+                              ? 'bg-primary text-primary-foreground shadow-sm'
+                              : 'bg-accent text-foreground hover:bg-accent/80'
+                            }`}
                         >
                           {profile.label}
                         </button>
                       ))}
                     </div>
-                    <p className="text-[10px] text-[#999999] mt-1">
+                    <p className="text-[10px] sm:text-xs text-muted-foreground mt-1.5 sm:mt-2">
                       {soundProfiles.find((p) => p.code === settings.notifications.soundProfile)?.desc}
                     </p>
                     <button
@@ -398,7 +416,7 @@ export default function SettingsPage() {
                         previewSound(settings.notifications.soundProfile);
                         toast.info('Playing preview...');
                       }}
-                      className="mt-2 flex items-center gap-1.5 text-[#00C300] text-xs font-medium hover:underline"
+                      className="mt-2 sm:mt-3 flex items-center gap-1.5 text-primary text-xs font-medium hover:underline"
                     >
                       <Music size={14} /> Preview Tone
                     </button>
@@ -407,29 +425,30 @@ export default function SettingsPage() {
                     <button
                       type="button"
                       onClick={() => updateSettings({ notifications: { ...settings.notifications, showPreview: !settings.notifications.showPreview } })}
-                      className={`w-10 h-6 rounded-full transition-colors relative ${settings.notifications.showPreview ? 'bg-[#00C300]' : 'bg-[#CCCCCC]'}`}
+                      className={`w-11 h-6 rounded-full transition-colors relative shrink-0 ${settings.notifications.showPreview ? 'bg-primary' : 'bg-muted'}`}
+                      aria-pressed={settings.notifications.showPreview}
                     >
-                      <div className={`w-4 h-4 rounded-full bg-white absolute top-1 transition-all ${settings.notifications.showPreview ? 'left-5' : 'left-1'}`} />
+                      <div className={`w-5 h-5 rounded-full bg-card absolute top-0.5 shadow-sm transition-all ${settings.notifications.showPreview ? 'left-5' : 'left-0.5'}`} />
                     </button>
                   ))}
                 </div>
               )}
 
               {section === 'privacy' && (
-                <div className="bg-white rounded-2xl p-4 shadow-sm border border-[#EBEBEB] space-y-2">
+                <div className="card-surface p-3 sm:p-4 space-y-1">
                   {settingItem('Last Seen', Clock, undefined, () => navigate('/privacy'))}
                   {settingItem('Read Receipts', Mail, undefined, () => navigate('/privacy'))}
-                  {settingItem('Blocked Users', Users, <span className="text-sm text-[#999999]">{blockedUsers.length}</span>, () => navigate('/blocked-users'))}
+                  {settingItem('Blocked Users', Users, <span className="text-sm text-muted-foreground">{blockedUsers.length}</span>, () => navigate('/blocked-users'))}
                   {settingItem('Chat Lock', Lock, undefined, () => navigate('/privacy'))}
                   {settingItem('Two-Step Verification', KeyRound, undefined, () => navigate('/privacy'))}
                 </div>
               )}
 
               {section === 'storage' && (
-                <div className="bg-white rounded-2xl p-4 shadow-sm border border-[#EBEBEB] space-y-2">
+                <div className="card-surface p-3 sm:p-4 space-y-1">
                   {settingItem('Clear Cache', Eraser, undefined, () => { toast.success('Cache cleared'); })}
                   {settingItem('Download Media', Download, undefined, handleExportData)}
-                  {settingItem('Storage Usage', HardDrive, <span className="text-sm text-[#999999]">Calculating...</span>, async () => {
+                  {settingItem('Storage Usage', HardDrive, <span className="text-sm text-muted-foreground">Calculating...</span>, async () => {
                     if ('storage' in navigator && 'estimate' in navigator.storage) {
                       const { usage = 0, quota = 0 } = await navigator.storage.estimate();
                       const usedMB = (usage / 1024 / 1024).toFixed(1);
@@ -443,16 +462,16 @@ export default function SettingsPage() {
               )}
 
               {section === 'account' && (
-                <div className="bg-white rounded-2xl p-4 shadow-sm border border-[#EBEBEB] space-y-2">
+                <div className="card-surface p-3 sm:p-4 space-y-1">
                   {settingItem('Edit Profile', User, undefined, () => navigate('/profile'))}
-                  {settingItem('Wallet', Wallet, <span className="text-sm text-[#999999]">{wallet?.usdBalance?.toFixed(2) || '0.00'} USD</span>, () => navigate('/wallet'))}
+                  {settingItem('Wallet', Wallet, <span className="text-sm text-muted-foreground">{wallet?.usdBalance?.toFixed(2) || '0.00'} USD</span>, () => navigate('/wallet'))}
                   {settingItem('Export Data', Download, undefined, handleExportData)}
                   {settingItem('Delete Account', Trash2, undefined, () => setShowDeleteConfirm(true), true)}
                 </div>
               )}
 
               {section === 'help' && (
-                <div className="bg-white rounded-2xl p-4 shadow-sm border border-[#EBEBEB] space-y-2">
+                <div className="card-surface p-3 sm:p-4 space-y-1">
                   {settingItem('FAQ', FileQuestion, undefined, () => navigate('/help'))}
                   {settingItem('Contact Support', LifeBuoy, undefined, () => navigate('/help'))}
                   {settingItem('Report a Bug', Bug, undefined, () => navigate('/help'))}
@@ -460,12 +479,12 @@ export default function SettingsPage() {
               )}
 
               {section === 'about' && (
-                <div className="bg-white rounded-2xl p-4 shadow-sm border border-[#EBEBEB] space-y-2">
-                  <div className="flex items-center gap-3 px-4 py-3">
+                <div className="card-surface p-3 sm:p-4 space-y-1">
+                  <div className="flex items-center gap-3 sm:gap-4 px-3 py-3">
                     <Logo size={32} />
-                    <div>
-                      <p className="text-sm font-semibold text-[#111111]">GaGa Chat</p>
-                      <p className="text-xs text-[#999999]">Version 2.0.0</p>
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-foreground">GaGa Chat</p>
+                      <p className="text-xs text-muted-foreground">Version 2.0.0</p>
                     </div>
                   </div>
                   {settingItem('Terms of Service', FileText, undefined, () => navigate('/terms'))}
@@ -480,23 +499,32 @@ export default function SettingsPage() {
         {/* Delete Confirm Modal */}
         <AnimatePresence>
           {showDeleteConfirm && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4">
-              <motion.div initial={{ scale: 0.9 }} animate={{ scale: 1 }} exit={{ scale: 0.9 }} className="bg-white rounded-2xl p-6 max-w-sm w-full">
-                <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-4">
-                  <AlertTriangle size={24} className="text-red-500" />
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+              <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 20 }}
+                transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+                className="bg-popover rounded-2xl sm:rounded-3xl p-6 sm:p-8 max-w-sm w-full shadow-float border border-border">
+                <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-red-100 dark:bg-red-500/20 flex items-center justify-center mx-auto mb-5">
+                  <AlertTriangle size={28} className="text-red-500" />
                 </div>
-                <h3 className="text-lg font-bold text-[#111111] text-center mb-2">Delete Account?</h3>
-                <p className="text-sm text-[#999999] text-center mb-4">This will permanently delete your account and all data. Type DELETE to confirm.</p>
+                <h3 className="text-lg sm:text-xl font-bold text-foreground text-center mb-2">Delete Account?</h3>
+                <p className="text-sm text-muted-foreground text-center mb-6 leading-relaxed">This will permanently delete your account and all data. Type DELETE to confirm.</p>
                 <input
                   type="text"
                   value={deleteConfirmText}
                   onChange={e => setDeleteConfirmText(e.target.value)}
                   placeholder="DELETE"
-                  className="w-full px-4 py-3 rounded-xl border border-[#EBEBEB] text-sm mb-4 focus:outline-none focus:border-red-400"
+                  className="w-full px-4 py-3 rounded-xl input-surface text-sm mb-5 tracking-widest text-center font-bold"
+                  autoFocus
                 />
-                <div className="flex gap-2">
-                  <button type="button" onClick={() => setShowDeleteConfirm(false)} className="flex-1 py-2.5 rounded-xl bg-[#F5F5F5] text-sm font-medium text-[#111111]">Cancel</button>
-                  <button type="button" onClick={handleDeleteAccount} disabled={loading || deleteConfirmText !== 'DELETE'} className="flex-1 py-2.5 rounded-xl bg-red-500 text-sm font-medium text-white disabled:opacity-50">Delete</button>
+                <div className="flex gap-3">
+                  <button type="button" onClick={() => setShowDeleteConfirm(false)}
+                    className="flex-1 py-2.5 sm:py-3 rounded-xl bg-accent text-sm font-semibold text-foreground press-card">
+                    Cancel
+                  </button>
+                  <button type="button" onClick={handleDeleteAccount} disabled={loading || deleteConfirmText !== 'DELETE'}
+                    className="flex-1 py-2.5 sm:py-3 rounded-xl bg-red-500 hover:bg-red-600 text-sm font-semibold text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+                    {loading ? 'Deleting...' : 'Delete'}
+                  </button>
                 </div>
               </motion.div>
             </motion.div>

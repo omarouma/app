@@ -54,9 +54,20 @@ export default function PostPage() {
   const navigate = useNavigate();
   const { user } = useAuthStore();
   const [post, setPost] = useState<TimelinePost | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [notFound, setNotFound] = useState(false);
+  const [loading, setLoading] = useState(() => !!id && isFirestoreAvailable());
+  const [notFound, setNotFound] = useState(() => !id || !isFirestoreAvailable());
   const [showShareModal, setShowShareModal] = useState(false);
+
+  // Reset page state when the route param changes (render-time adjustment
+  // instead of setState inside the effect body)
+  const [prevId, setPrevId] = useState(id);
+  if (id !== prevId) {
+    setPrevId(id);
+    const valid = !!id && isFirestoreAvailable();
+    setLoading(valid);
+    setNotFound(!valid);
+    setPost(null);
+  }
 
   const mapRow = useCallback((d: Record<string, unknown>): TimelinePost => ({
     id: d.id as string,
@@ -73,23 +84,17 @@ export default function PostPage() {
       }
       return new Date(ts as string | number);
     })(),
-    visibility: (d.visibility as TimelinePost['visibility']) || 'public',
+visibility: (d.visibility as TimelinePost['visibility']) || 'public',
     pollData: (d.pollData as PostPollData) || undefined,
     userName: (d.userName as string) || 'User',
     userAvatar: (d.userAvatar as string) || undefined,
+    videoUrl: (d.videoUrl as string) || undefined,
+    mediaType: (d.mediaType as TimelinePost['mediaType']) || 'text',
   } as TimelinePost), []);
 
   useEffect(() => {
     let active = true;
-    if (!id) {
-      setLoading(false);
-      setNotFound(true);
-      return () => { active = false; };
-    }
-
-    if (!isFirestoreAvailable()) {
-      setLoading(false);
-      setNotFound(true);
+    if (!id || !isFirestoreAvailable()) {
       return () => { active = false; };
     }
 

@@ -124,9 +124,10 @@ export default function DesktopTimelineView() {
     }
     try {
       const { uploadMediaBlob } = await import('@/lib/storage');
-      const urls = await Promise.all(
+      const rawUrls = await Promise.all(
         files.map(file => uploadMediaBlob({ kind: 'posts', file, mimeType: file.type }))
       );
+      const urls = rawUrls.filter((u): u is string => u !== null);
       setImages(prev => [...prev, ...urls]);
     } catch {
       toast.error('Failed to upload image');
@@ -205,11 +206,10 @@ export default function DesktopTimelineView() {
                           key={value}
                           type="button"
                           onClick={() => setVisibility(value)}
-                          className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${
-                            visibility === value
+                          className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${visibility === value
                               ? 'bg-[#00C300] text-white'
                               : 'text-[#8D8D8D] hover:text-[#111111]'
-                          }`}
+                            }`}
                           aria-pressed={visibility === value}
                           aria-label={`Set visibility to ${label}`}
                         >

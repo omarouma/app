@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Image, Plus, X, Loader, Globe, Users, Lock, RefreshCw, Camera, TrendingUp, Sparkles,
-Search, ArrowRight, Share2, Heart, Play, Hash, Film, Flame, List, Radio, Flag, Vote, Youtube,
+  Search, ArrowRight, Share2, Heart, Play, Hash, Film, Flame, List, Radio, Flag, Vote, Youtube,
   MessageCircle as MessageCircleIcon, Send, Twitter, Facebook, Link2
 } from 'lucide-react';
 import { useAuthStore } from '@/store/useAuthStore';
@@ -48,6 +48,7 @@ export default function TimelinePage() {
   const [showComposer, setShowComposer] = useState(false);
   const [content, setContent] = useState('');
   const [images, setImages] = useState<string[]>([]);
+  const [videoUrls, setVideoUrls] = useState<Set<string>>(new Set());
   const [visibility, setVisibility] = useState<Visibility>('public');
   const [uploading, setUploading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -114,6 +115,8 @@ export default function TimelinePage() {
     pollData: (d.pollData as PostPollData) || undefined,
     userName: (d.userName as string) || (d.userId === uid ? user?.name : 'User'),
     userAvatar: (d.userAvatar as string) || (d.userId === uid ? user?.avatar : undefined),
+    videoUrl: (d.videoUrl as string) || undefined,
+    mediaType: (d.mediaType as TimelinePost['mediaType']) || 'text',
   }), [user?.name, user?.avatar]);
 
   // ── Real-time post subscription with deduplication ─────────────────
@@ -130,7 +133,7 @@ export default function TimelinePage() {
       (data) => {
         const list: TimelinePost[] = (data || [])
           .map((d: Record<string, unknown>) => mapPost(d, user.id));
-        
+
         // Deduplication: skip already-seen post IDs
         const unique: TimelinePost[] = [];
         for (const post of list) {
@@ -148,7 +151,7 @@ export default function TimelinePage() {
           merged.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
           return merged;
         });
-        
+
         // Update cursor for pagination
         if (list.length > 0) {
           const oldest = list[list.length - 1];
@@ -166,7 +169,7 @@ export default function TimelinePage() {
   // ── Post view tracking via IntersectionObserver ───────────────────
   const viewedPostIdsRef = useRef<Set<string>>(new Set());
   const observerRef = useRef<IntersectionObserver | null>(null);
-  const recordViewRef = useRef<(postId: string) => void>(() => {});
+  const recordViewRef = useRef<(postId: string) => void>(() => { });
 
   useEffect(() => {
     if (!isFirestoreAvailable()) return;
@@ -222,7 +225,7 @@ export default function TimelinePage() {
         limit(POSTS_PER_PAGE),
       ]);
       const list: TimelinePost[] = (data || []).map((d: Record<string, unknown>) => mapPost(d, user?.id));
-      
+
       // Deduplicate
       const unique: TimelinePost[] = [];
       for (const post of list) {
@@ -231,7 +234,7 @@ export default function TimelinePage() {
           unique.push(post);
         }
       }
-      
+
       setPosts(prev => [...prev, ...unique]);
       if (list.length > 0) {
         setCursor(list[list.length - 1].timestamp);
@@ -315,9 +318,9 @@ export default function TimelinePage() {
               const text = [data.title, data.text, data.url].filter(Boolean).join(' ');
               if (text) setContent(text);
               caches.delete('/shared-data');
-            }).catch(() => {});
+            }).catch(() => { });
           }
-        }).catch(() => {});
+        }).catch(() => { });
       }
       window.history.replaceState({}, document.title, window.location.pathname);
     }
@@ -339,7 +342,7 @@ export default function TimelinePage() {
     if (user?.id) {
       getSuggestedFriends(user.id).then((users) => {
         setSuggestedUsers(users.slice(0, 6));
-      }).catch(() => {});
+      }).catch(() => { });
     }
   }, [user?.id, getSuggestedFriends]);
 
@@ -413,6 +416,7 @@ export default function TimelinePage() {
     setUploading(true);
     try {
       if (isFirestoreAvailable()) {
+        const firstVideo = images.find(url => videoUrls.has(url));
         const payload: Record<string, unknown> = {
           userId: user.id,
           content: content.trim(),
@@ -422,6 +426,8 @@ export default function TimelinePage() {
           visibility,
           userName: user.name || '',
           userAvatar: user.avatar || '',
+          mediaType: firstVideo ? 'video' : images.length > 0 ? 'photo' : 'text',
+          ...(firstVideo && { videoUrl: firstVideo }),
         };
         if (pollQuestion.trim() && pollOptions.filter(o => o.trim()).length >= 2) {
           payload.pollData = {
@@ -433,11 +439,13 @@ export default function TimelinePage() {
       }
       setContent('');
       setImages([]);
+      setVideoUrls(new Set());
       setVisibility('public');
       setPollQuestion('');
       setPollOptions(['', '']);
       setShowComposer(false);
       setShowPollComposer(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
       toast.success('Post shared!');
     } catch {
       toast.error('Failed to post');
@@ -478,7 +486,7 @@ export default function TimelinePage() {
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
     if (files.length + images.length > 4) {
-      toast.error('Max 4 images per post');
+      toast.error('Max 4 files per post');
       return;
     }
     setUploading(true);
@@ -486,12 +494,25 @@ export default function TimelinePage() {
       const { uploadMediaBlob } = await import('@/lib/storage');
       const urls: string[] = [];
       for (const file of files) {
-        const url = await uploadMediaBlob({ kind: 'posts', file, mimeType: file.type });
+        if (!file.type.startsWith('image/') && !file.type.startsWith('video/')) {
+          toast.error(`"${file.name}" is not a supported file type`);
+          continue;
+        }
+        const limitMB = file.type.startsWith('video/') ? 50 : 10;
+        if (file.size > limitMB * 1024 * 1024) {
+          toast.error(`"${file.name}" exceeds ${limitMB}MB limit`);
+          continue;
+        }
+        const isVideo = file.type.startsWith('video/');
+        const kind = isVideo ? 'reels' : 'posts';
+        const url = await uploadMediaBlob({ kind, file, mimeType: file.type });
+        if (!url) continue;
         urls.push(url);
+        if (isVideo) setVideoUrls(prev => new Set([...prev, url]));
       }
       setImages(prev => [...prev, ...urls]);
     } catch {
-      toast.error('Failed to upload images');
+      toast.error('Failed to upload media');
     } finally {
       setUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
@@ -599,7 +620,7 @@ export default function TimelinePage() {
   return (
     <div className="h-full flex flex-col bg-[#0d0d0d]">
       {/* Header with Tabs */}
-      <div className="shrink-0 px-4 py-3 border-b border-[#1a1a1a]">
+      <div className="shrink-0 px-4 pb-3 border-b border-[#1a1a1a]" style={{ paddingTop: 'max(12px, env(safe-area-inset-top, 0px))' }}>
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
             <h1 className="text-lg font-bold text-white">GaGa Feed</h1>
@@ -638,15 +659,14 @@ export default function TimelinePage() {
                     setFeedTab(t.key);
                   }
                 }}
-                className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium transition-all ${
-                  isActive && t.key !== 'reels'
-                    ? 'bg-[#00C300] text-black'
-                    : t.key === 'reels'
+                className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium transition-all ${isActive && t.key !== 'reels'
+                  ? 'bg-[#00C300] text-black'
+                  : t.key === 'reels'
                     ? 'bg-[#FF4081]/20 text-[#FF4081] hover:bg-[#FF4081]/30'
                     : t.key === 'videos'
-                    ? 'bg-red-600/20 text-red-400 hover:bg-red-600/30'
-                    : 'bg-[#1a1a1a] text-[#8D8D8D] hover:text-white'
-                }`}
+                      ? 'bg-red-600/20 text-red-400 hover:bg-red-600/30'
+                      : 'bg-[#1a1a1a] text-[#8D8D8D] hover:text-white'
+                  }`}
               >
                 <Icon size={16} />
                 {t.label}
@@ -682,9 +702,8 @@ export default function TimelinePage() {
           {(['all', 'public', 'friends', 'mine'] as const).map(f => (
             <button type="button" key={f}
               onClick={() => setFeedFilter(f)}
-              className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap ${
-                feedFilter === f ? 'bg-[#00C300] text-black' : 'bg-[#1a1a1a] text-[#8D8D8D]'
-              }`}
+              className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap ${feedFilter === f ? 'bg-[#00C300] text-black' : 'bg-[#1a1a1a] text-[#8D8D8D]'
+                }`}
             >
               {f === 'all' ? 'All' : f === 'public' ? 'Public' : f === 'friends' ? 'Friends' : 'My Posts'}
             </button>
@@ -853,7 +872,7 @@ export default function TimelinePage() {
               </div>
             )}
 
-{/* In-App Promotions Carousel (fallback when no Google Ad slots configured) */}
+            {/* In-App Promotions Carousel (fallback when no Google Ad slots configured) */}
             <div className="shrink-0 px-4 py-3 border-b border-[#1a1a1a]">
               <AdBannerCarousel ads={MOCK_ADS} interval={6000} />
             </div>
@@ -967,7 +986,7 @@ export default function TimelinePage() {
         {feedTab === 'videos' && (
           <YouTubeFeed />
         )}
-</div>
+      </div>
 
       {/* Story viewer with progress bar and tap navigation */}
       <AnimatePresence>
@@ -1084,12 +1103,12 @@ export default function TimelinePage() {
               className="bg-[#1a1a1a] rounded-t-2xl sm:rounded-2xl p-6 w-full max-w-sm"
               onClick={e => e.stopPropagation()}
             >
-<h3 className="text-white font-semibold mb-4">Share Post</h3>
+              <h3 className="text-white font-semibold mb-4">Share Post</h3>
               <div className="flex flex-col gap-3">
                 {/* Social share buttons */}
                 <div className="grid grid-cols-4 gap-2 mb-1">
                   <button type="button"
-                    onClick={() => window.open(`https://wa.me/?text=${encodeURIComponent(`${sharePost.content?.slice(0,120) || 'Check out this post on GaGa Chat'} ${window.location.origin}/post/${sharePost.id}`)}`, '_blank', 'noopener,noreferrer')}
+                    onClick={() => window.open(`https://wa.me/?text=${encodeURIComponent(`${sharePost.content?.slice(0, 120) || 'Check out this post on GaGa Chat'} ${window.location.origin}/post/${sharePost.id}`)}`, '_blank', 'noopener,noreferrer')}
                     className="flex flex-col items-center gap-1 p-2 rounded-xl bg-[#25D366]/15 hover:bg-[#25D366]/25 transition-colors"
                     aria-label="Share on WhatsApp"
                   >
@@ -1105,7 +1124,7 @@ export default function TimelinePage() {
                     <span className="text-[10px] text-[#8D8D8D]">Facebook</span>
                   </button>
                   <button type="button"
-                    onClick={() => window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(`${sharePost.content?.slice(0,120) || 'Check out this post on GaGa Chat'} ${window.location.origin}/post/${sharePost.id}`)}`, '_blank', 'noopener,noreferrer')}
+                    onClick={() => window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(`${sharePost.content?.slice(0, 120) || 'Check out this post on GaGa Chat'} ${window.location.origin}/post/${sharePost.id}`)}`, '_blank', 'noopener,noreferrer')}
                     className="flex flex-col items-center gap-1 p-2 rounded-xl bg-[#1DA1F2]/15 hover:bg-[#1DA1F2]/25 transition-colors"
                     aria-label="Share on X (Twitter)"
                   >
@@ -1113,7 +1132,7 @@ export default function TimelinePage() {
                     <span className="text-[10px] text-[#8D8D8D]">X / Twitter</span>
                   </button>
                   <button type="button"
-                    onClick={() => window.open(`https://t.me/share/url?url=${encodeURIComponent(`${window.location.origin}/post/${sharePost.id}`)}&text=${encodeURIComponent(sharePost.content?.slice(0,120) || 'Check out this post on GaGa Chat')}`, '_blank', 'noopener,noreferrer')}
+                    onClick={() => window.open(`https://t.me/share/url?url=${encodeURIComponent(`${window.location.origin}/post/${sharePost.id}`)}&text=${encodeURIComponent(sharePost.content?.slice(0, 120) || 'Check out this post on GaGa Chat')}`, '_blank', 'noopener,noreferrer')}
                     className="flex flex-col items-center gap-1 p-2 rounded-xl bg-[#0088cc]/15 hover:bg-[#0088cc]/25 transition-colors"
                     aria-label="Share on Telegram"
                   >
@@ -1122,31 +1141,31 @@ export default function TimelinePage() {
                   </button>
                 </div>
                 <button type="button" onClick={() => {
-                    navigator.clipboard.writeText(`${window.location.origin}/post/${sharePost.id}`);
-                    toast.success('Link copied!');
-                    setShowShareModal(false);
-                  }}
+                  navigator.clipboard.writeText(`${window.location.origin}/post/${sharePost.id}`);
+                  toast.success('Link copied!');
+                  setShowShareModal(false);
+                }}
                   className="flex items-center gap-3 p-3 rounded-xl bg-[#2a2a2a] text-white hover:bg-[#333]"
                 >
                   <Link2 size={18} /> Copy Link
                 </button>
                 <button type="button" onClick={() => {
-                    if (navigator.share) {
-                      navigator.share({ title: 'GaGa Chat Post', text: sharePost.content || 'Check out this post', url: `${window.location.origin}/post/${sharePost.id}` });
-                    } else {
-                      navigator.clipboard.writeText(`${window.location.origin}/post/${sharePost.id}`);
-                      toast.success('Link copied!');
-                    }
-                    setShowShareModal(false);
-                  }}
+                  if (navigator.share) {
+                    navigator.share({ title: 'GaGa Chat Post', text: sharePost.content || 'Check out this post', url: `${window.location.origin}/post/${sharePost.id}` });
+                  } else {
+                    navigator.clipboard.writeText(`${window.location.origin}/post/${sharePost.id}`);
+                    toast.success('Link copied!');
+                  }
+                  setShowShareModal(false);
+                }}
                   className="flex items-center gap-3 p-3 rounded-xl bg-[#2a2a2a] text-white hover:bg-[#333]"
                 >
                   <Share2 size={18} /> Share via...
                 </button>
                 <button type="button" onClick={() => {
-                    toast.success('Post saved to your bookmarks');
-                    setShowShareModal(false);
-                  }}
+                  toast.success('Post saved to your bookmarks');
+                  setShowShareModal(false);
+                }}
                   className="flex items-center gap-3 p-3 rounded-xl bg-[#2a2a2a] text-white hover:bg-[#333]"
                 >
                   <Heart size={18} /> Save to Bookmarks
@@ -1174,7 +1193,7 @@ export default function TimelinePage() {
                 <h3 className="text-white font-semibold">{editingPost ? 'Edit Post' : 'New Post'}</h3>
                 <button type="button" onClick={() => { setShowComposer(false); setEditingPost(null); }} className="text-[#8D8D8D]"><X size={20} /></button>
               </div>
-              
+
               {/* User preview */}
               {user && (
                 <div className="flex items-center gap-2 mb-3">
@@ -1187,9 +1206,8 @@ export default function TimelinePage() {
                           type="button"
                           key={opt.key}
                           onClick={() => setVisibility(opt.key)}
-                          className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] ${
-                            visibility === opt.key ? 'bg-[#00C300] text-black' : 'bg-[#2a2a2a] text-[#8D8D8D]'
-                          }`}
+                          className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] ${visibility === opt.key ? 'bg-[#00C300] text-black' : 'bg-[#2a2a2a] text-[#8D8D8D]'
+                            }`}
                         >
                           <opt.icon size={8} /> {opt.label}
                         </button>
@@ -1211,7 +1229,7 @@ export default function TimelinePage() {
                   {images.map((img, i) => (
                     <div key={i} className="relative shrink-0">
                       <img src={img} alt="Cover image" className="w-20 h-20 rounded-lg object-cover" />
-                      <button type="button" onClick={() => setImages(prev => prev.filter((_, idx) => idx !== i))} className="absolute -top-1 -right-1 bg-red-500 rounded-full p-0.5"><X size={12} /></button>
+                      <button type="button" onClick={() => { setImages(prev => prev.filter((_, idx) => idx !== i)); setVideoUrls(prev => { const next = new Set(prev); next.delete(img); return next; }); }} className="absolute -top-1 -right-1 bg-red-500 rounded-full p-0.5"><X size={12} /></button>
                     </div>
                   ))}
                 </div>
@@ -1270,7 +1288,7 @@ export default function TimelinePage() {
                   {uploading ? <Loader size={18} className="animate-spin" /> : editingPost ? 'Update' : 'Post'}
                 </button>
               </div>
-              <input type="file" ref={fileInputRef} accept="image/*" multiple className="hidden" onChange={handleImageUpload} />
+              <input type="file" ref={fileInputRef} accept="image/*,video/*" multiple className="hidden" onChange={handleImageUpload} />
             </motion.div>
           </motion.div>
         )}
@@ -1301,9 +1319,8 @@ export default function TimelinePage() {
                     type="button"
                     key={reason}
                     onClick={() => setReportReason(reason)}
-                    className={`w-full text-left px-3 py-2.5 rounded-xl text-sm transition-colors ${
-                      reportReason === reason ? 'bg-[#FF3B30]/20 text-white' : 'bg-[#2a2a2a] text-[#8D8D8D] hover:bg-[#333]'
-                    }`}
+                    className={`w-full text-left px-3 py-2.5 rounded-xl text-sm transition-colors ${reportReason === reason ? 'bg-[#FF3B30]/20 text-white' : 'bg-[#2a2a2a] text-[#8D8D8D] hover:bg-[#333]'
+                      }`}
                   >
                     {reason}
                   </button>

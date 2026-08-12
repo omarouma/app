@@ -27,7 +27,7 @@ export function useWebRTCManager() {
 
   const agora = useAgoraCall();
 
-const [isConnected, setIsConnected] = useState(false);
+  const [isConnected, setIsConnected] = useState(false);
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
   // Multi-party: bridged remote participants (Agora tracks → MediaStream) for
@@ -69,7 +69,7 @@ const [isConnected, setIsConnected] = useState(false);
     setLocalStream(tracks.length > 0 ? new MediaStream(tracks) : null);
   }, [agora.localAudioTrack, agora.localVideoTrack]);
 
-useEffect(() => {
+  useEffect(() => {
     const tracks: MediaStreamTrack[] = [];
     if (agora.remoteAudioTrack) tracks.push(agora.remoteAudioTrack.getMediaStreamTrack());
     if (agora.remoteVideoTrack) tracks.push(agora.remoteVideoTrack.getMediaStreamTrack());
@@ -190,7 +190,7 @@ useEffect(() => {
 
   const sendDTMF = useCallback(async (_tone: string): Promise<boolean> => false, []);
 
-return {
+  return {
     isConnected,
     localStream,
     remoteStream,

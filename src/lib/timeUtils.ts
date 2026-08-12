@@ -4,6 +4,25 @@ export function toDate(date: string | Date | null | undefined): Date | null {
   return typeof date === 'string' ? new Date(date) : date;
 }
 
+interface DbTimestampLike {
+  toDate: () => Date;
+}
+
+function isDbTimestamp(v: unknown): v is DbTimestampLike {
+  return typeof v === 'object' && v !== null && 'toDate' in v &&
+    typeof (v as DbTimestampLike).toDate === 'function';
+}
+
+export function toDateFromDb(raw: unknown): Date {
+  if (isDbTimestamp(raw)) return raw.toDate();
+  if (raw instanceof Date) return raw;
+  if (typeof raw === 'string' || typeof raw === 'number') {
+    const d = new Date(raw);
+    if (!isNaN(d.getTime())) return d;
+  }
+  return new Date();
+}
+
 export function formatTime(date: string | Date | null | undefined, locale?: string): string {
   const d = toDate(date);
   if (!d || isNaN(d.getTime())) return '';

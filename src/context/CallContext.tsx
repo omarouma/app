@@ -28,14 +28,20 @@ const {
     }
   }, [currentCall?.type]);
 
+  // Reset the duration when a new call connects (render-time adjustment, see
+  // https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes)
+  const [wasConnected, setWasConnected] = useState(isConnected);
+  if (isConnected !== wasConnected) {
+    setWasConnected(isConnected);
+    setCallDuration(0);
+  }
+
+  // Tick the duration only while connected and not held. Holding pauses the
+  // timer WITHOUT resetting accumulated duration (previous behaviour reset
+  // the counter to 0 on every resume).
   useEffect(() => {
-    if (isConnected && !isHeld) {
-      setCallDuration(0);
-      timerRef.current = setInterval(() => setCallDuration((d) => d + 1), 1000);
-    } else {
-      if (timerRef.current) clearInterval(timerRef.current);
-      if (!isHeld) setCallDuration(0);
-    }
+    if (!isConnected || isHeld) return;
+    timerRef.current = setInterval(() => setCallDuration((d) => d + 1), 1000);
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
     };

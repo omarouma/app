@@ -7,14 +7,6 @@ export function safeGetStorageItem(key: string): string | null {
   }
 }
 
-export function safeSetJsonStorageItem<T>(key: string, value: T): boolean {
-  try {
-    return safeSetStorageItem(key, JSON.stringify(value));
-  } catch {
-    return false;
-  }
-}
-
 export function safeSetStorageItem(key: string, value: string): boolean {
   try {
     if (typeof window === 'undefined' || !window.localStorage) return false;
@@ -54,14 +46,13 @@ export function safeGetJsonStorageItem<T>(key: string, fallback: T): T {
 export function safeGetAllStorageKeys(): string[] {
   try {
     if (typeof window === 'undefined' || !window.localStorage) return [];
-    return Object.keys(window.localStorage);
+    const keys: string[] = [];
+    for (let i = 0; i < window.localStorage.length; i++) {
+      const k = window.localStorage.key(i);
+      if (k) keys.push(k);
+    }
+    return keys;
   } catch {
     return [];
   }
-}
-
-export function safeClearStorageByPrefix(prefix: string): void {
-  safeGetAllStorageKeys()
-    .filter((k) => k.startsWith(prefix))
-    .forEach((k) => safeRemoveStorageItem(k));
 }

@@ -18,7 +18,7 @@ export function getDb() {
 // Supabase schema may be missing columns. Retry without unknown columns
 // so the app keeps working while the admin runs supabase_migration.sql.
 
-const MAX_COLUMN_RETRIES = 20;
+const MAX_COLUMN_RETRIES = 5;
 
 function isColumnMissingError(error: any): boolean {
   if (!error) return false;
@@ -319,6 +319,11 @@ function applyConstraints(query: any, constraints: QueryConstraint[]): any {
         case 'in': q = q.in(field, c.value); break;
         case 'array-contains': q = q.contains(field, [c.value]); break;
         case 'array-contains-any': q = q.overlaps(field, c.value); break;
+        case 'array-contains-all':
+          if (Array.isArray(c.value) && c.value.length > 0) {
+            for (const v of c.value) { q = q.contains(field, [v]); }
+          }
+          break;
       }
     } else if (c._type === 'orderBy') {
       const field = FIELD_TO_DB[c.field] ?? c.field.replace(/[A-Z]/g, (m) => `_${m.toLowerCase()}`);
@@ -714,6 +719,7 @@ export function subscribeToCollection<T = any>(
       case 'in': return Array.isArray(c.value) && c.value.includes(v);
       case 'array-contains': return Array.isArray(v) && v.includes(c.value);
       case 'array-contains-any': return Array.isArray(v) && Array.isArray(c.value) && v.some((x) => c.value.includes(x));
+      case 'array-contains-all': return Array.isArray(v) && Array.isArray(c.value) && c.value.every((x) => v.includes(x));
       default: return true;
     }
   };

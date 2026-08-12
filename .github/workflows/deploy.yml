@@ -1,4 +1,4 @@
-name: Deploy to Firebase Hosting
+name: Deploy to Firebase Hosting + Functions
 
 on:
   push:
@@ -7,12 +7,12 @@ on:
 
 jobs:
   build-and-deploy:
-    name: Build & Deploy
+    name: Build & Deploy (Hosting + Functions)
     runs-on: ubuntu-latest
     permissions:
       contents: read
       actions: read
-      id-token: write   # required by FirebaseExtended/action-hosting-deploy
+      id-token: write
 
     steps:
       - name: Checkout repository
@@ -23,11 +23,18 @@ jobs:
         with:
           node-version: 20
           cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            functions/package-lock.json
 
-      - name: Install dependencies
+      - name: Install frontend dependencies
         run: npm ci
 
-      - name: Lint
+      - name: Install functions dependencies
+        working-directory: functions
+        run: npm ci
+
+      - name: Lint frontend
         run: npm run lint
 
       - name: Build production bundle
@@ -37,11 +44,13 @@ jobs:
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
           VITE_FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY }}
           VITE_FIREBASE_AUTH_DOMAIN: ${{ secrets.VITE_FIREBASE_AUTH_DOMAIN }}
+          VITE_FIREBASE_DATABASE_URL: ${{ secrets.VITE_FIREBASE_DATABASE_URL }}
           VITE_FIREBASE_PROJECT_ID: ${{ secrets.VITE_FIREBASE_PROJECT_ID }}
           VITE_FIREBASE_STORAGE_BUCKET: ${{ secrets.VITE_FIREBASE_STORAGE_BUCKET }}
           VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.VITE_FIREBASE_MESSAGING_SENDER_ID }}
           VITE_FIREBASE_APP_ID: ${{ secrets.VITE_FIREBASE_APP_ID }}
           VITE_FIREBASE_MEASUREMENT_ID: ${{ secrets.VITE_FIREBASE_MEASUREMENT_ID }}
+          VITE_GA_MEASUREMENT_ID: ${{ secrets.VITE_GA_MEASUREMENT_ID }}
           VITE_ADSENSE_FEED_SLOT: ${{ secrets.VITE_ADSENSE_FEED_SLOT }}
           VITE_ADSENSE_BANNER_SLOT: ${{ secrets.VITE_ADSENSE_BANNER_SLOT }}
           VITE_ADSENSE_SIDEBAR_SLOT: ${{ secrets.VITE_ADSENSE_SIDEBAR_SLOT }}
@@ -52,11 +61,21 @@ jobs:
           VITE_TURN_SERVER_URL: ${{ secrets.VITE_TURN_SERVER_URL }}
           VITE_TURN_SERVER_USERNAME: ${{ secrets.VITE_TURN_SERVER_USERNAME }}
           VITE_TURN_SERVER_CREDENTIAL: ${{ secrets.VITE_TURN_SERVER_CREDENTIAL }}
+          VITE_AGORA_APP_ID: ${{ secrets.VITE_AGORA_APP_ID }}
+          VITE_AGORA_TOKEN_SERVER_URL: ${{ secrets.VITE_AGORA_TOKEN_SERVER_URL }}
+          VITE_YOUTUBE_API_KEY: ${{ secrets.VITE_YOUTUBE_API_KEY }}
+          VITE_YOUTUBE_REGION: ${{ secrets.VITE_YOUTUBE_REGION }}
+          VITE_PEXELS_API_KEY: ${{ secrets.VITE_PEXELS_API_KEY }}
 
-      - name: Deploy to Firebase Hosting
+      - name: Build Cloud Functions
+        working-directory: functions
+        run: npm run build
+
+      - name: Deploy Hosting + Functions to Firebase
         uses: FirebaseExtended/action-hosting-deploy@v0
         with:
           repoToken: ${{ secrets.GITHUB_TOKEN }}
           firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
           channelId: live
           projectId: oumagachat
+          firebaseToolsVersion: latest

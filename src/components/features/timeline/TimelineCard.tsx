@@ -35,6 +35,25 @@ const REACTIONS = [
   { emoji: '👏', label: 'Clap' },
 ];
 
+/** Determine whether a media URL points to a video, based on URL/extension heuristics. */
+function isVideoUrl(url: string | undefined | null): boolean {
+  if (!url) return false;
+  const clean = url.split('?')[0].toLowerCase();
+  if (/\.(mp4|webm|mov|m4v|ogg|ogv|avi|mkv|3gp)(#|$)/.test(clean)) return true;
+  if (clean.includes('video')) return true;
+  return false;
+}
+
+/** Resolve the effective video URL for a post (explicit videoUrl, mediaType, or video image entry). */
+function getPostVideoUrl(post: TimelinePost): string | undefined {
+  if (post.videoUrl) return post.videoUrl;
+  if (post.mediaType === 'video') {
+    return (post.images && post.images[0]) || undefined;
+  }
+  const vid = (post.images || []).find((img) => isVideoUrl(img));
+  return vid;
+}
+
 export default function TimelineCard({
   post, index, onDelete, onEdit, onShare, onImageClick, onTip, onReport, userName, userAvatar,
 }: TimelineCardProps) {
@@ -298,41 +317,60 @@ export default function TimelineCard({
         </div>
       )}
 
-      {/* ── Images ── */}
-      {images.length > 0 && (
-        <div className="relative" onClick={handleDoubleTap}>
-          {images.length === 1 ? (
-            <img src={images[0]} alt="Post" className="w-full max-h-[480px] object-cover cursor-pointer"
-              onClick={() => onImageClick?.(images[0])} />
-          ) : (
-            <>
-              <div className={`grid gap-0.5 ${images.length === 2 ? 'grid-cols-2' : images.length === 3 ? 'grid-cols-2' : 'grid-cols-2'}`}>
-                {images.slice(0, 4).map((img, i) => (
-                  <div key={i} className={`overflow-hidden relative ${images.length === 3 && i === 0 ? 'col-span-2' : ''}`}>
-                    <img src={img} alt={`Post image ${i + 1}`}
-                      className={`w-full object-cover cursor-pointer hover:brightness-90 transition-all ${
-                        images.length === 3 && i === 0 ? 'h-52' : 'h-44'
-                      }`}
-                      onClick={() => { setActiveImage(i); onImageClick?.(img); }}
-                    />
-                    {i === 3 && images.length > 4 && (
-                      <div className="absolute inset-0 bg-black/60 flex items-center justify-center cursor-pointer"
-                        onClick={() => onImageClick?.(img)}>
-                        <span className="text-white text-2xl font-bold">+{images.length - 4}</span>
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-              {images.length > 1 && (
-                <div className="absolute bottom-2 right-2 bg-black/60 text-white text-[10px] px-2 py-0.5 rounded-full">
-                  {activeImage + 1}/{images.length}
+{/* ── Media: video post vs image grid ── */}
+      {(() => {
+        const videoUrl = getPostVideoUrl(post);
+        if (videoUrl) {
+          return (
+            <div className="relative" onClick={handleDoubleTap}>
+              <video
+                key={videoUrl}
+                src={videoUrl}
+                className="w-full bg-black"
+                controls
+                playsInline
+                preload="metadata"
+                poster={post.mediaType !== 'video' ? images[0] : undefined}
+              />
+            </div>
+          );
+        }
+        if (images.length === 0) return null;
+        return (
+          <div className="relative" onClick={handleDoubleTap}>
+            {images.length === 1 ? (
+              <img src={images[0]} alt="Post" className="w-full max-h-[480px] object-cover cursor-pointer"
+                onClick={() => onImageClick?.(images[0])} />
+            ) : (
+              <>
+                <div className={`grid gap-0.5 ${images.length === 2 ? 'grid-cols-2' : images.length === 3 ? 'grid-cols-2' : 'grid-cols-2'}`}>
+                  {images.slice(0, 4).map((img, i) => (
+                    <div key={i} className={`overflow-hidden relative ${images.length === 3 && i === 0 ? 'col-span-2' : ''}`}>
+                      <img src={img} alt={`Post image ${i + 1}`}
+                        className={`w-full object-cover cursor-pointer hover:brightness-90 transition-all ${
+                          images.length === 3 && i === 0 ? 'h-52' : 'h-44'
+                        }`}
+                        onClick={() => { setActiveImage(i); onImageClick?.(img); }}
+                      />
+                      {i === 3 && images.length > 4 && (
+                        <div className="absolute inset-0 bg-black/60 flex items-center justify-center cursor-pointer"
+                          onClick={() => onImageClick?.(img)}>
+                          <span className="text-white text-2xl font-bold">+{images.length - 4}</span>
+                        </div>
+                      )}
+                    </div>
+                  ))}
                 </div>
-              )}
-            </>
-          )}
-        </div>
-      )}
+                {images.length > 1 && (
+                  <div className="absolute bottom-2 right-2 bg-black/60 text-white text-[10px] px-2 py-0.5 rounded-full">
+                    {activeImage + 1}/{images.length}
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        );
+      })()}
 
       {/* ── Double-tap heart ── */}
       <AnimatePresence>

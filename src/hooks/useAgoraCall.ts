@@ -63,12 +63,12 @@ export function useAgoraCall(): AgoraCallController {
   const localVideoRef = useRef<ILocalVideoTrack | null>(null);
   const remoteUserRef = useRef<IAgoraRTCRemoteUser | null>(null);
 
-const [localAudioTrack, setLocalAudioTrack] = useState<ILocalAudioTrack | null>(null);
+  const [localAudioTrack, setLocalAudioTrack] = useState<ILocalAudioTrack | null>(null);
   const [localVideoTrack, setLocalVideoTrack] = useState<ILocalVideoTrack | null>(null);
   const [remoteAudioTrack, setRemoteAudioTrack] = useState<IRemoteAudioTrack | null>(null);
   const [remoteVideoTrack, setRemoteVideoTrack] = useState<IRemoteVideoTrack | null>(null);
   const [remoteUser, setRemoteUser] = useState<IAgoraRTCRemoteUser | null>(null);
-// Multi-party: keyed by Agora uid → participant tracks.
+  // Multi-party: keyed by Agora uid → participant tracks.
   const remoteMapRef = useRef<Map<string | number, AgoraRemoteParticipant>>(new Map());
   const [remoteParticipants, setRemoteParticipants] = useState<AgoraRemoteParticipant[]>([]);
   const [isMuted, setIsMuted] = useState(false);
@@ -136,7 +136,7 @@ const [localAudioTrack, setLocalAudioTrack] = useState<ILocalAudioTrack | null>(
     localAudioRef.current = null;
     localVideoRef.current = null;
 
-remoteUserRef.current = null;
+    remoteUserRef.current = null;
     remoteMapRef.current.clear();
     setRemoteParticipants([]);
     setRemoteUser(null);
@@ -152,7 +152,7 @@ remoteUserRef.current = null;
     stopQualityMonitor();
   }, [safelyStop, stopQualityMonitor]);
 
-// ─── join() ────────────────────────────────────────────────────────────
+  // ─── join() ────────────────────────────────────────────────────────────
   const join = useCallback(async (channelName: string, uid: number, isVideo: boolean) => {
     await leave();
     if (!isAgoraConfigured()) {
@@ -160,12 +160,12 @@ remoteUserRef.current = null;
       return;
     }
 
-const appId = env.VITE_AGORA_APP_ID!;
+    const appId = env.VITE_AGORA_APP_ID!;
     const AgoraRTC = (await getAgoraRTC()).default;
     const client = AgoraRTC.createClient({ mode: 'rtc', codec: 'vp8' });
     clientRef.current = client;
 
-// ── Client event handlers (multi-party aware) ──
+    // ── Client event handlers (multi-party aware) ──
     client.on('user-joined', (user: IAgoraRTCRemoteUser) => {
       remoteUserRef.current = user;
       if (!remoteMapRef.current.has(user.uid)) {
@@ -223,7 +223,7 @@ const appId = env.VITE_AGORA_APP_ID!;
       }
     });
 
-// ── Local tracks ──
+    // ── Local tracks ──
     let audio: IMicrophoneAudioTrack | null = null;
     let video: ICameraVideoTrack | null = null;
     try {
@@ -257,20 +257,22 @@ const appId = env.VITE_AGORA_APP_ID!;
       if (tracks.length > 0) await client.publish(tracks);
     };
 
-// ── Token ──
-    // resolveAgoraToken handles the full precedence: serverless token
-    // endpoint (VITE_AGORA_TOKEN_SERVER_URL) → client-side generated token
-    // (VITE_AGORA_APP_CERTIFICATE) → no-token mode.
-    const token = await resolveAgoraToken(channelName, uid);
+    // ── Token ──
+    // resolveAgoraToken resolves via the serverless token endpoint
+    // (VITE_AGORA_TOKEN_SERVER_URL, authenticated with the Supabase session)
+    // or falls back to no-token mode. The server is authoritative for the
+    // Agora uid when a token is minted. Client-side token generation is
+    // disabled (certificate never ships).
+    const { token, uid: resolvedUid } = await resolveAgoraToken(channelName, uid);
 
     // ── Join + publish ──
     try {
-      await client.join(appId, channelName, token, uid);
+      await client.join(appId, channelName, token, resolvedUid);
       await publishTracks();
       setIsConnected(true);
       setError(null);
       startQualityMonitor();
-} catch (e) {
+    } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to join the call channel.');
       await leave();
     }
@@ -299,7 +301,7 @@ const appId = env.VITE_AGORA_APP_ID!;
     setIsHeld(held);
   }, []);
 
-const flipCamera = useCallback(async () => {
+  const flipCamera = useCallback(async () => {
     const track = localVideoRef.current as ICameraVideoTrack | null;
     if (!track) return;
     try {
@@ -318,7 +320,7 @@ const flipCamera = useCallback(async () => {
     return () => { void leave(); };
   }, [leave]);
 
-return {
+  return {
     localAudioTrack,
     localVideoTrack,
     remoteAudioTrack,

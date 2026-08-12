@@ -1,5 +1,4 @@
 import env from '@/config/env';
-import { buildAgoraRtcToken } from './agoraToken';
 
 // Type-only imports from the Agora SDK. These are erased at compile time and
 // do NOT pull the 1.1 MB SDK into the bundle. The runtime module is loaded
@@ -61,59 +60,86 @@ export function isAgoraConfigured(): boolean {
 }
 
 /**
+ * Result of resolving an RTC token. When a token server is configured the
+ * server is authoritative for the Agora uid (it derives it from the
+ * authenticated user); otherwise the caller-provided uid is used.
+ */
+export interface AgoraTokenResolution {
+  token: string;
+  uid: number;
+}
+
+/**
  * Resolve the RTC token for a channel.
  *
- * Precedence:
- *  1. A serverless token endpoint (VITE_AGORA_TOKEN_SERVER_URL), if configured.
- *  2. Client-side generated token (only meaningful when a certificate is set).
- *  3. Empty string — Agora will connect in "no-token" mode (works when the
- *     project has no App Certificate enabled).
+ * Security: the Agora App Certificate NEVER ships to the client. Token
+ * generation happens exclusively via a serverless endpoint. If no token
+ * server is configured, we fall back to "no-token" mode (only works when
+ * the Agora project has the App Certificate disabled — fine for dev/demo).
+ *
+ * The endpoint is authenticated with the current Supabase session's access
+ * token (the app's primary auth system); the deployed Cloud Function also
+ * accepts Firebase ID tokens as a fallback. The client does NOT send a uid —
+ * the server derives it from the authenticated user and returns it, which
+ * prevents users from minting tokens as someone else.
  */
 export async function resolveAgoraToken(
   channelName: string,
   uid: number,
-): Promise<string> {
+): Promise<AgoraTokenResolution> {
   const appId = env.VITE_AGORA_APP_ID;
-  if (!appId) return '';
+  if (!appId) return { token: '', uid };
 
-  // 1) Serverless token endpoint (preferred in production).
+  // 1) Serverless token endpoint (MANDATORY in production for security).
   const tokenServerUrl = env.VITE_AGORA_TOKEN_SERVER_URL;
   if (tokenServerUrl) {
     try {
-      const url = new URL(tokenServerUrl);
-      url.searchParams.set('channel', channelName);
-      url.searchParams.set('uid', String(uid));
-      const res = await fetch(url.toString(), { method: 'GET' });
-      if (!res.ok) {
-        throw new Error(`Token server returned ${res.status}`);
+      // Authenticate with whatever session the app has (Supabase primary,
+      // Firebase fallback). No session → endpoint will 401 and we fall back.
+      const headers: Record<string, string> = {};
+      try {
+        const { getSupabaseSafe } = await import('@/lib/supabase');
+        const supabase = getSupabaseSafe();
+        const { data } = supabase ? await supabase.auth.getSession() : { data: null };
+        const accessToken = data?.session?.access_token;
+        if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
+      } catch { /* session unavailable — try the endpoint unsigned */ }
+      if (!headers.Authorization) {
+        try {
+          const { getFirebaseAuth } = await import('@/lib/firebase');
+          const idToken = await getFirebaseAuth()?.currentUser?.getIdToken();
+          if (idToken) headers.Authorization = `Bearer ${idToken}`;
+        } catch { /* firebase auth not in use */ }
       }
-      const data = (await res.json()) as { token?: string; rtcToken?: string };
-      const token = data.token ?? data.rtcToken;
-      if (token) return token;
+
+      // Support relative endpoints (e.g. "/api/agora-token" via Hosting rewrite)
+      const base = typeof window !== 'undefined' ? window.location.origin : 'http://localhost';
+      const url = new URL(tokenServerUrl, base);
+      url.searchParams.set('channel', channelName);
+      const res = await fetch(url.toString(), { method: 'GET', headers });
+      if (res.ok) {
+        const data = (await res.json()) as { token?: string; rtcToken?: string; uid?: number | string };
+        const token = data.token ?? data.rtcToken;
+        const serverUid = Number(data.uid);
+        if (token) {
+          return {
+            token,
+            uid: Number.isFinite(serverUid) && serverUid > 0 ? serverUid : uid,
+          };
+        }
+      } else if (env.DEV) {
+        console.warn(`[Agora] Token server returned ${res.status}; falling back to no-token mode.`);
+      }
     } catch (e) {
-      if (env.DEV) console.warn('[Agora] Token server failed, falling back to local token:', e);
+      if (env.DEV) console.warn('[Agora] Token server failed, falling back to no-token mode:', e);
     }
   }
 
-  // 2) Client-side token (dev convenience when a certificate is configured).
-  const certificate = env.VITE_AGORA_APP_CERTIFICATE;
-  if (certificate) {
-    try {
-      const { token } = await buildAgoraRtcToken({
-        appId,
-        appCertificate: certificate,
-        channelName,
-        uid,
-        expireInSeconds: 12 * 3600,
-      });
-      return token;
-    } catch (e) {
-      if (env.DEV) console.warn('[Agora] Local token generation failed:', e);
-    }
-  }
-
-  // 3) No token.
-  return '';
+  // 2) No token. Only works when the Agora project has no App Certificate.
+  // NOTE: As of env.ts, AGORA_APP_CERTIFICATE has NO `VITE_` prefix, so it
+  // is never inlined into the client bundle. Client-side token generation is
+  // intentionally disabled. Deploy VITE_AGORA_TOKEN_SERVER_URL for production.
+  return { token: '', uid };
 }
 
 /**
@@ -127,7 +153,7 @@ export async function createAgoraClient(): Promise<IAgoraRTCClient> {
     codec: 'vp8',
   });
   // Both users need to publish their own tracks for a 1:1 call.
-  void client.setClientRole('host').catch(() => {});
+  void client.setClientRole('host').catch(() => { });
   return client;
 }
 
@@ -141,8 +167,8 @@ export async function joinAgoraChannel(
   localAudioTrack: ILocalAudioTrack | null,
   localVideoTrack: ILocalVideoTrack | null,
 ): Promise<void> {
-  const token = await resolveAgoraToken(config.channelName, config.uid);
-  await client.join(config.appId, config.channelName, token, config.uid);
+  const { token, uid } = await resolveAgoraToken(config.channelName, config.uid);
+  await client.join(config.appId, config.channelName, token, uid);
 
   const tracks = [localAudioTrack, localVideoTrack].filter(Boolean) as (
     | ILocalAudioTrack

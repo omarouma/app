@@ -55,13 +55,21 @@ const envSchema = z.object({
   // --- Agora RTC (Audio/Video Calling) ---
   // App ID is required for any Agora usage.
   VITE_AGORA_APP_ID: z.string().optional(),
-  // App Certificate is used to build RTC tokens. NEVER expose this in a
-  // production client build — prefer VITE_AGORA_TOKEN_SERVER_URL for a
-  // serverless token endpoint. It is kept here for local/dev convenience.
-  VITE_AGORA_APP_CERTIFICATE: z.string().optional(),
+  // App Certificate MUST stay server-side only. NEVER expose to client.
+  // Use VITE_AGORA_TOKEN_SERVER_URL for a secure token endpoint.
+  // App Certificate (SERVER-ONLY — NO VITE_ prefix, never bundled).
+  // Kept here so build/verification scripts can access it if needed.
+  AGORA_APP_CERTIFICATE: z.string().optional(),
   // Optional: a serverless endpoint that returns a RTC token.
-  // e.g. GET {url}?channel=...&uid=...  ->  { token: string }
-  VITE_AGORA_TOKEN_SERVER_URL: z.string().url().optional(),
+  // Accepts an absolute http(s) URL or a root-relative path (e.g.
+  // "/api/agora-token" proxied through the Firebase Hosting rewrite).
+  // If set, the client uses this endpoint exclusively (no local token gen).
+  VITE_AGORA_TOKEN_SERVER_URL: z
+    .string()
+    .refine((v) => v.startsWith('/') || /^https?:\/\//i.test(v), {
+      message: 'Must be an absolute http(s) URL or a root-relative path (e.g. /api/agora-token).',
+    })
+    .optional(),
 
   // --- Vite/Node Specific ---
   MODE: z.enum(['development', 'production', 'test']),
@@ -101,7 +109,8 @@ const parseAndValidateEnv = () => {
     };
 
     if (import.meta.env.DEV) {
-      (window as any).env = fullEnv;
+      // Only expose non-sensitive keys in dev for debugging
+      (window as any).__gagaEnvLoaded = true;
     }
 
     return fullEnv;

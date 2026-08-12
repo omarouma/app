@@ -1,5 +1,4 @@
 import { useEffect, useState, useCallback } from 'react';
-import { useIsMounted } from './use-mobile';
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
@@ -9,33 +8,28 @@ interface BeforeInstallPromptEvent extends Event {
 let deferredPrompt: BeforeInstallPromptEvent | null = null;
 
 export function usePwaInstall() {
-  const isMounted = useIsMounted();
-  const [canInstall, setCanInstall] = useState(false);
-  const [installed, setInstalled] = useState(false);
-  const [isIOS, setIsIOS] = useState(false);
+  const [canInstall, setCanInstall] = useState(() => !!deferredPrompt);
+  const [installed, setInstalled] = useState(
+    () =>
+      typeof window !== 'undefined' &&
+      (window.matchMedia('(display-mode: standalone)').matches ||
+        !!(window.navigator as any).standalone),
+  );
+  const [isIOS] = useState(
+    () =>
+      typeof window !== 'undefined' &&
+      /iPad|iPhone|iPod/.test(window.navigator.userAgent) &&
+      !(window as any).MSStream,
+  );
   const [showIOSGuide, setShowIOSGuide] = useState(false);
 
   useEffect(() => {
-    if (!isMounted) return;
-
-    const ua = window.navigator.userAgent;
-    const iOS = /iPad|iPhone|iPod/.test(ua) && !(window as any).MSStream;
-    setIsIOS(iOS);
-
-    if (window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone) {
-      setInstalled(true);
-      return;
-    }
-
-    if (iOS) return;
-
-    // Event may have already fired before this hook mounted
-    if (deferredPrompt) setCanInstall(true);
+    if (installed || isIOS) return;
 
     const handler = (e: Event) => {
       e.preventDefault();
       deferredPrompt = e as BeforeInstallPromptEvent;
-      if (isMounted) setCanInstall(true);
+      setCanInstall(true);
     };
 
     const installedHandler = () => {
@@ -50,7 +44,7 @@ export function usePwaInstall() {
       window.removeEventListener('beforeinstallprompt', handler);
       window.removeEventListener('appinstalled', installedHandler);
     };
-  }, [isMounted]);
+  }, [installed, isIOS]);
 
   const triggerInstall = useCallback(async () => {
     if (isIOS) {

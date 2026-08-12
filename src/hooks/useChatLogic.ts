@@ -43,7 +43,7 @@ export function useChatLogic() {
     };
   }, [user, subscribeGroups]);
 
-const allChats = useMemo<ChatListItemData[]>(() => {
+  const allChats = useMemo<ChatListItemData[]>(() => {
     const map = new Map<string, ChatListItemData>();
     chats.forEach(c => map.set(c.id, { ...c, itemType: 'direct' as const }));
     groups.forEach(g => map.set(g.id, { ...g, itemType: 'group' as const }));
@@ -65,7 +65,7 @@ const allChats = useMemo<ChatListItemData[]>(() => {
       activeTab === 'all' && !search ? [...pinnedChats, ...unpinnedChats] :
       activeChats;
 
-const filterFunctions: Record<string, (c: ChatListItemData) => boolean> = {
+  const filterFunctions: Record<string, (c: ChatListItemData) => boolean> = {
       direct: (c) => c.itemType === 'direct',
       groups: (c) => c.itemType === 'group',
       all: () => true,
@@ -85,7 +85,7 @@ const filterFunctions: Record<string, (c: ChatListItemData) => boolean> = {
     return base.filter(filterFunctions[activeTab]).filter(searchFilter);
   }, [activeTab, search, archivedChats, pinnedChats, unpinnedChats, activeChats, friends, nonFriendNames, user?.id]);
 
-const totalUnread = useMemo(
+  const totalUnread = useMemo(
     () => activeChats.reduce((sum, c) => sum + ((c.unreadCount as number) || 0), 0),
     [activeChats]
   );

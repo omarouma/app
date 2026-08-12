@@ -1,7 +1,7 @@
-import { memo } from 'react';
+import { memo, useMemo } from 'react';
 import { BarChart3 } from 'lucide-react';
 import { ReadReceipt } from '../ReadReceipt';
-import type { Message } from '@/types';
+import type { Message, PollOption } from '@/types';
 
 export interface PollMessageProps {
   msg: Message;
@@ -14,6 +14,20 @@ export interface PollMessageProps {
 export const PollMessage = memo(function PollMessage(props: PollMessageProps) {
   const { msg, isMe, currentUserId, chatId, onVotePoll } = props;
 
+  const { totalVotes, hasVoted } = useMemo(() => {
+    const opts = msg.pollData?.options ?? [];
+    let total = 0;
+    let voted = false;
+    for (const o of opts) {
+      const v = (o as PollOption).votes || [];
+      total += v.length;
+      if (v.includes(currentUserId)) voted = true;
+    }
+    return { totalVotes: total, hasVoted: voted };
+  }, [msg.pollData, currentUserId]);
+
+  const options = msg.pollData?.options ?? [];
+
   return (
     <div className={`max-w-[70%]`}>
       <div className={`inline-block px-4 py-3 rounded-2xl ${isMe ? 'bg-[#8B5CF6] text-white rounded-br-none' : 'bg-white text-[#111111] rounded-bl-none'}`}>
@@ -21,29 +35,27 @@ export const PollMessage = memo(function PollMessage(props: PollMessageProps) {
           <BarChart3 size={14} />
           <span className="text-xs font-medium">Poll</span>
         </div>
-<p className="text-sm font-medium mb-2">{msg.pollData!.question}</p>
+        <p className="text-sm font-medium mb-2">{msg.pollData!.question}</p>
         <div className="space-y-1.5" aria-live="polite">
-          {(msg.pollData!.options || []).map((opt: string, i: number) => {
-            const votes = (msg.pollData!.votes?.[String(i)] || []) as string[];
-            const total = msg.pollData!.totalVotes || 0;
-            const percent = total > 0 ? Math.round((votes.length / total) * 100) : 0;
+          {options.map((optRaw, i: number) => {
+            const opt = optRaw as unknown as PollOption;
+            const votes = opt.votes || [];
+            const percent = totalVotes > 0 ? Math.round((votes.length / totalVotes) * 100) : 0;
             const isVoted = votes.includes(currentUserId);
-            const hasVoted = Object.values(msg.pollData!.votes || {}).flat().includes(currentUserId);
             return (
-<button
+              <button
                 type="button"
                 key={i}
                 onClick={() => onVotePoll(chatId, msg.id, i, currentUserId)}
                 aria-pressed={isVoted}
-                className={`w-full text-left px-3 py-2 rounded-xl text-sm transition-all relative overflow-hidden ${
-                  isVoted
-                    ? isMe
-                      ? 'bg-white/30 text-white'
-                      : 'bg-[#8B5CF6]/10 text-[#8B5CF6]'
-                    : isMe
+                className={`w-full text-left px-3 py-2 rounded-xl text-sm transition-all relative overflow-hidden ${isVoted
+                  ? isMe
+                    ? 'bg-white/30 text-white'
+                    : 'bg-[#8B5CF6]/10 text-[#8B5CF6]'
+                  : isMe
                     ? 'bg-white/10 text-white/90 hover:bg-white/20'
                     : 'bg-[#F5F5F5] text-[#111111] hover:bg-[#EBEBEB]'
-                }`}
+                  }`}
               >
                 {hasVoted && (
                   <div
@@ -53,14 +65,14 @@ export const PollMessage = memo(function PollMessage(props: PollMessageProps) {
                   />
                 )}
                 <span className="relative z-10 flex items-center justify-between">
-                  <span>{opt}</span>
+                  <span>{opt.text}</span>
                   {hasVoted && <span className="text-xs opacity-70">{votes.length} ({percent}%)</span>}
                 </span>
               </button>
             );
           })}
         </div>
-        <ReadReceipt isMe={isMe} timestamp={msg.timestamp} read={msg.read} />
+        <ReadReceipt isMe={isMe} timestamp={msg.timestamp} deliveryStatus={msg.deliveryStatus} edited={msg.edited} />
       </div>
     </div>
   );

@@ -34,10 +34,12 @@ export const VoiceWaveform = memo(function VoiceWaveform({ audioUrl, duration: p
 
   useEffect(() => {
     // Reset transient state whenever the audio URL changes (remount-safe pattern).
-    setIsPlaying(false);
-    setCurrentTime(0);
-    setDuration(propDuration || 0);
-    setLoadError(false);
+    queueMicrotask(() => {
+      setIsPlaying(false);
+      setCurrentTime(0);
+      setDuration(propDuration || 0);
+      setLoadError(false);
+    });
 
     const audio = new Audio(audioUrl);
     audioRef.current = audio;

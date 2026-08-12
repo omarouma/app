@@ -35,7 +35,7 @@ export default function CreateGroupPage() {
     try {
       const { uploadMediaBlob } = await import('@/lib/storage');
       const url = await uploadMediaBlob({ kind: 'avatars', file });
-      setAvatarUrl(url);
+      if (url) setAvatarUrl(url);
     } catch {
       toast.error('Failed to upload avatar');
     }

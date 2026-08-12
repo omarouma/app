@@ -1,11 +1,43 @@
-import { defineConfig, loadEnv } from 'vite'
+import { defineConfig, loadEnv, type Plugin } from 'vite'
 import { visualizer } from 'rollup-plugin-visualizer';
 import react from '@vitejs/plugin-react'
 import path from 'path'
-import { readFileSync } from 'fs'
+import { readFileSync, writeFileSync, existsSync } from 'fs'
 
 // Read version from package.json for SW_VERSION injection
 const pkg = JSON.parse(readFileSync('./package.json', 'utf-8')) as { version: string };
+
+/**
+ * Post-processes the Service Worker after Vite copies it from public/ to dist/.
+ *
+ * Files in public/ are copied verbatim (no esbuild/rollup transforms), so
+ * the `__APP_VERSION__` global declared in `define` never reaches sw.js.
+ * This plugin runs after the build completes, reads dist/sw.js from disk,
+ * and replaces the sentinel with the real package.json version string.
+ */
+function injectSwVersion(version: string): Plugin {
+  return {
+    name: 'inject-sw-version',
+    apply: 'build',
+    async closeBundle() {
+      const swPath = path.resolve(process.cwd(), 'dist', 'sw.js');
+      if (!existsSync(swPath)) return;
+      try {
+        const src = readFileSync(swPath, 'utf8');
+        const quoted = JSON.stringify(version);
+        const replaced = src.replace(/__APP_VERSION__/g, quoted);
+        if (replaced !== src) {
+          writeFileSync(swPath, replaced, 'utf8');
+           
+          console.log(`  ✓ inject-sw-version (vite): stamped dist/sw.js with v${version}`);
+        }
+      } catch (e) {
+         
+        console.warn(`  ! inject-sw-version (vite): failed: ${e}`);
+      }
+    },
+  };
+}
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
@@ -27,7 +59,6 @@ export default defineConfig(({ mode }) => {
       throw new Error(`[env-guard] Missing required env vars:\n  ${missing.join('\n  ')}`);
     }
   }
-
   return {
     plugins: [
       react(),
@@ -37,9 +68,15 @@ export default defineConfig(({ mode }) => {
         gzipSize: true,
         brotliSize: true,
       }),
+      injectSwVersion(pkg.version),
     ],
+    // Production: strip all console.* calls + debugger statements (info leak prevention)
+    // Development: keep console for debugging.
+    esbuild: mode === 'production'
+      ? { drop: ['console', 'debugger'] }
+      : {},
     define: {
-      // Inject package version so sw.js can be stamped at build time
+      // Inject package version for bundled modules (sw.js handled via injectSwVersion)
       __APP_VERSION__: JSON.stringify(pkg.version),
     },
     optimizeDeps: {
@@ -83,9 +120,22 @@ export default defineConfig(({ mode }) => {
           chunkFileNames: 'assets/[name]-[hash].js',
           assetFileNames: 'assets/[name]-[hash][extname]',
           manualChunks: (id) => {
-            if (id.includes('node_modules')) {
-              return id.toString().split('node_modules/')[1].split('/')[0].toString();
-            }
+            if (!id.includes('node_modules')) return undefined;
+            // Group large vendors into named chunks to avoid one giant bundle
+            if (id.includes('firebase')) return 'vendor-firebase';
+            if (id.includes('@supabase')) return 'vendor-supabase';
+            if (id.includes('framer-motion')) return 'vendor-framer';
+            if (id.includes('recharts') || id.includes('d3-')) return 'vendor-charts';
+            if (id.includes('agora-rtc-sdk-ng')) return 'vendor-agora';
+            if (id.includes('@radix-ui')) return 'vendor-radix';
+            if (id.includes('react-router') || id.includes('react-router-dom')) return 'vendor-router';
+            if (id.includes('react') || id.includes('react-dom')) return 'vendor-react';
+            if (id.includes('lucide-react')) return 'vendor-icons';
+            if (id.includes('zustand')) return 'vendor-zustand';
+            if (id.includes('i18next') || id.includes('react-i18next')) return 'vendor-i18n';
+            if (id.includes('zod')) return 'vendor-zod';
+            // Everything else in a shared vendor chunk
+            return 'vendor';
           },
         },
       },

@@ -211,12 +211,12 @@ export default function NotificationsPage() {
   };
 
   return (
-    <div className="min-h-[100dvh] bg-[#F5F5F5]">
+    <div className="min-h-screen-safe bg-[#F5F5F5]">
       {/* Header */}
       <div className="sticky top-0 z-10 bg-white/90 backdrop-blur-md border-b border-[#EBEBEB]">
-        <div className="flex items-center justify-between p-4">
+        <div className="flex items-center justify-between px-4 pb-4" style={{ paddingTop: 'max(16px, env(safe-area-inset-top, 0px))' }}>
           <div className="flex items-center gap-3">
-            <button type="button" onClick={() => navigate(-1)} className="text-[#111111] hover:text-[#8D8D8D] p-1 -ml-1">
+            <button type="button" onClick={() => navigate(-1)} className="w-11 h-11 flex items-center justify-center text-[#111111] hover:text-[#8D8D8D] -ml-2">
               <ArrowLeft size={22} />
             </button>
             <div>
@@ -228,19 +228,19 @@ export default function NotificationsPage() {
             {notifications.length > 0 && (
               <>
                 <button type="button" onClick={() => setShowSettings(true)}
-                  className="p-1.5 rounded-full text-[#8D8D8D] hover:text-[#111111] transition-colors"
+                  className="w-11 h-11 flex items-center justify-center rounded-full text-[#8D8D8D] hover:text-[#111111] transition-colors"
                 >
                   <Settings size={18} />
                 </button>
                 <button type="button" onClick={() => { setSelectMode(s => !s); setSelectedIds([]); }}
-                  className={`text-xs font-medium px-2 py-1 rounded-full transition-colors ${
+                  className={`text-xs font-medium px-3 py-2 rounded-full transition-colors min-h-[36px] ${
                     selectMode ? 'bg-[#00C300] text-white' : 'text-[#00C300]'
                   }`}
                 >
                   {selectMode ? 'Done' : 'Select'}
                 </button>
                 <button type="button" onClick={() => setShowFilter(!showFilter)}
-                  className={`p-1.5 rounded-full transition-colors ${showFilter ? 'bg-[#00C300]/10 text-[#00C300]' : 'text-[#8D8D8D]'}`}
+                  className={`w-11 h-11 flex items-center justify-center rounded-full transition-colors ${showFilter ? 'bg-[#00C300]/10 text-[#00C300]' : 'text-[#8D8D8D]'}`}
                 >
                   <Filter size={18} />
                 </button>
@@ -367,7 +367,7 @@ export default function NotificationsPage() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           onClick={markAllRead}
-          className="fixed bottom-20 left-1/2 -translate-x-1/2 flex items-center gap-2 px-4 py-2.5 bg-[#00C300] text-white rounded-full text-sm font-medium shadow-lg hover:bg-[#00A300] transition-colors z-20"
+          className="fixed bottom-[calc(80px+env(safe-area-inset-bottom,0px))] left-1/2 -translate-x-1/2 flex items-center gap-2 px-4 py-2.5 bg-[#00C300] text-white rounded-full text-sm font-medium shadow-lg hover:bg-[#00A300] transition-colors z-20"
         >
           <CheckCheck size={16} /> Mark all as read ({unreadCount})
         </motion.button>

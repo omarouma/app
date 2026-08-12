@@ -110,64 +110,70 @@ export default function CallsPage() {
   };
 
   return (
-    <div className="h-[100dvh] flex flex-col bg-white text-gray-900 page-enter">
-      {/* Header */}
-      <div className="shrink-0 px-4 pt-5 pb-3 flex justify-between items-center bg-white">
-        <h1 className="text-2xl font-bold tracking-tight">Calls</h1>
-        <div className="flex items-center gap-2">
-          {history.length > 0 && (
+    <div className="h-[100dvh] flex flex-col bg-secondary/40 page-enter">
+      <header className="page-header flex-col !items-stretch !gap-3">
+        <div className="flex items-center justify-between">
+          <div className="min-w-0">
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">Calls</h1>
+            <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
+              {history.length} total · {history.filter(c => c.status === 'missed').length} missed
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            {history.length > 0 && (
+              <button
+                type="button"
+                onClick={handleClearAll}
+                className="icon-btn w-10 h-10 sm:w-11 sm:h-11 bg-accent"
+                aria-label="Clear all call history"
+              >
+                <Trash2 size={18} className="text-muted-foreground" />
+              </button>
+            )}
             <button
               type="button"
-              onClick={handleClearAll}
-              className="w-9 h-9 flex items-center justify-center bg-gray-100 hover:bg-gray-200 rounded-full transition-colors tap-scale"
-              aria-label="Clear all call history"
+              onClick={() => navigate('/contacts', { state: { from: 'calls' } })}
+              className="icon-btn w-10 h-10 sm:w-11 sm:h-11 bg-accent"
+              aria-label="New call"
             >
-              <Trash2 size={18} />
+              <Phone size={18} className="text-foreground" />
             </button>
-          )}
-          <button
-            type="button"
-            onClick={() => navigate('/contacts', { state: { from: 'calls' } })}
-            className="w-9 h-9 flex items-center justify-center bg-gray-100 hover:bg-gray-200 rounded-full transition-colors tap-scale"
-            aria-label="New call"
-          >
-            <Phone size={18} />
-          </button>
+          </div>
         </div>
-      </div>
 
-      {/* Search */}
-      <div className="shrink-0 px-4 pb-2">
-        <div className="relative">
-          <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
-          <input
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search by name..."
-            className="w-full bg-gray-100 rounded-full pl-10 pr-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#00C300]/40 placeholder:text-gray-400"
-          />
+        <div className="max-w-md mx-auto sm:mx-0 w-full">
+          <div className="relative">
+            <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+            <input
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search by name..."
+              className="input-surface w-full pl-10 pr-4 py-2.5"
+            />
+          </div>
         </div>
-      </div>
 
-      {/* Tabs */}
-      <div className="shrink-0 flex gap-2 px-4 pb-2">
-        {(['all', 'missed'] as const).map((tab) => (
-          <button
-            type="button"
-            key={tab}
-            onClick={() => setActiveTab(tab)}
-            className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-colors tap-scale ${activeTab === tab
-                ? 'bg-[#00C300] text-white shadow-sm'
-                : 'bg-gray-100 text-gray-600 hover:text-gray-900'
-              }`}
-          >
-            {tab === 'all' ? 'All' : 'Missed'}
-          </button>
-        ))}
-      </div>
+        <div className="w-full">
+          <div className="flex gap-2 mx-auto sm:mx-0 max-w-xs sm:max-w-none">
+            {(['all', 'missed'] as const).map((tab) => (
+              <button
+                type="button"
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={`flex-1 px-4 sm:px-5 py-1.5 sm:py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all tap-scale ${activeTab === tab
+                    ? 'bg-primary text-primary-foreground shadow-sm'
+                    : 'bg-accent text-muted-foreground hover:text-foreground'
+                  }`}
+              >
+                {tab === 'all' ? 'All' : 'Missed'}
+              </button>
+            ))}
+          </div>
+        </div>
+      </header>
 
       {/* Call List */}
-      <div className="flex-1 overflow-y-auto pb-nav">
+      <div className="page-content max-w-3xl mx-auto w-full">
         {loading && <LoadingSkeleton count={5} variant="list" />}
 
         {!loading && filteredCalls.length === 0 && (
@@ -190,7 +196,7 @@ export default function CallsPage() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="divide-y divide-gray-100"
+              className="card-surface overflow-hidden divide-y divide-border"
             >
               {filteredCalls.map((call) => (
                 <CallListItem

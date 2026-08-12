@@ -103,6 +103,7 @@ const [showStickerPicker, setShowStickerPicker] = useState(false);
                       onClick={() => {
                         if (item.label === 'Photos') photoInputRef.current?.click();
                         else if (item.label === 'Camera') cameraInputRef.current?.click();
+                        else if (item.label === 'Video') videoInputRef.current?.click();
                         else if (item.label === 'Location') { onLocationShare(); }
                         else if (item.label === 'File') fileInputRef.current?.click();
                         else if (item.label === 'Audio') { onStartRecording(); }

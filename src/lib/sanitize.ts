@@ -16,8 +16,10 @@ const ENTITY_MAP: Record<string, string> = {
 
 /**
  * Encode special HTML characters to prevent XSS injection.
+ * Use only when building raw HTML strings (emails, exports) — React text
+ * nodes are escaped automatically and should NOT be pre-encoded.
  */
-function encodeHtml(str: string): string {
+export function encodeHtml(str: string): string {
   return str.replace(/[&<>"'/]/g, (char) => ENTITY_MAP[char] || char);
 }
 
@@ -54,18 +56,18 @@ function stripTrackingParams(url: string): string {
 function sanitizeUrl(url: string): string {
   const clean = url.trim();
   if (!clean) return '';
-  
+
   // Reject dangerous protocols
   if (/^(javascript|data|vbscript|file):/i.test(clean)) {
     return '';
   }
-  
+
   // Ensure http/https protocol  
   let sanitized = clean;
   if (!/^https?:\/\//i.test(sanitized)) {
     sanitized = 'https://' + sanitized;
   }
-  
+
   return stripTrackingParams(sanitized);
 }
 
@@ -110,7 +112,8 @@ function stripControlChars(str: string): string {
  * Default max is 10 consecutive same characters.
  */
 function limitRepeatedChars(str: string, maxRepeat = 10): string {
-  return str.replace(/(.)\1{10,}/g, (match, char) => char.repeat(maxRepeat));
+  const repeatedRegex = new RegExp(`(.)\\1{${maxRepeat},}`, 'g');
+  return str.replace(repeatedRegex, (_match, char) => char.repeat(maxRepeat));
 }
 
 // ─── Public API ────────────────────────────────────────────────────────
@@ -118,38 +121,31 @@ function limitRepeatedChars(str: string, maxRepeat = 10): string {
 /**
  * Sanitize user-generated text for safe storage and display.
  * 
- * This function:
- * 1. Strips dangerous HTML/JS patterns
- * 2. Encodes remaining HTML entities
- * 3. Strips control characters
- * 4. Limits length
- * 5. Limits repeated characters
- * 6. Trims whitespace
+ * Strips dangerous patterns and control characters but does NOT HTML-encode
+ * the output — React renders text nodes safely, so encoding here would cause
+ * visible `&lt;` artifacts in chat messages.
  * 
  * @param text - The input text to sanitize
  * @param maxLength - Maximum allowed length (default: 5000)
- * @returns Sanitized text safe for display
+ * @returns Sanitized text safe for storage and React rendering
  */
 export function sanitizeText(text: string, maxLength = 5000): string {
   if (!text) return '';
-  
+
   let cleaned = text;
-  
+
   // 1. Strip dangerous patterns
   cleaned = stripDangerousPatterns(cleaned);
-  
-  // 2. Encode HTML entities (after stripping dangerous patterns)
-  cleaned = encodeHtml(cleaned);
-  
-  // 3. Strip control characters
+
+  // 2. Strip control characters (do NOT HTML-encode — React handles that)
   cleaned = stripControlChars(cleaned);
-  
-  // 4. Limit repeated characters
+
+  // 3. Limit repeated characters
   cleaned = limitRepeatedChars(cleaned, 15);
-  
-  // 5. Trim and limit length
+
+  // 4. Trim and limit length
   cleaned = cleaned.trim().slice(0, maxLength);
-  
+
   return cleaned;
 }
 
@@ -160,7 +156,7 @@ export function sanitizeText(text: string, maxLength = 5000): string {
  */
 export function sanitizeDisplayName(name: string): string {
   if (!name) return '';
-return name
+  return name
     .replace(/[^a-zA-Z0-9\s_'.-]/g, '')
     .trim()
     .slice(0, 50);
@@ -181,7 +177,7 @@ export function sanitizePhoneNumber(phone: string): string {
  */
 export function sanitizeEmail(email: string): string {
   if (!email) return '';
-return email.replace(/[^a-zA-Z0-9@._+-]/g, '').trim().slice(0, 254);
+  return email.replace(/[^a-zA-Z0-9@._+-]/g, '').trim().slice(0, 254);
 }
 
 /**
@@ -198,18 +194,18 @@ export function sanitizeUserUrl(url: string): string {
  */
 export function isTextSafe(text: string): boolean {
   if (!text) return true;
-  
+
   // Check for dangerous patterns
   for (const pattern of DANGEROUS_PATTERNS) {
     if (pattern.test(text)) return false;
   }
-  
+
   // Check for too many URLs (spam indicator)
   const urls = findUrls(text);
   if (urls.length > 5) return false;
-  
+
   // Check for excessive length
   if (text.length > 10000) return false;
-  
+
   return true;
 }
