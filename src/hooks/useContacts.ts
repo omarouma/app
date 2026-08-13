@@ -1,5 +1,6 @@
 import { useState, useCallback, useMemo } from 'react';
 import { toast } from 'sonner';
+import { loadDeviceContacts, saveDeviceContacts } from '@/lib/deviceContacts';
 
 interface Contact {
   name: string[];
@@ -22,7 +23,9 @@ interface ContactResult {
 }
 
 export function useContacts(): ContactResult {
-  const [contacts, setContacts] = useState<Contact[]>([]);
+  // Hydrate from local storage — contacts picked during onboarding (or a
+  // previous session) are immediately available without re-importing.
+  const [contacts, setContacts] = useState<Contact[]>(() => loadDeviceContacts());
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -43,7 +46,6 @@ export function useContacts(): ContactResult {
 
     setLoading(true);
     setError(null);
-    setContacts([]);
 
     try {
       const results = await (navigator as NavigatorWithContacts).contacts.select(
@@ -58,6 +60,7 @@ export function useContacts(): ContactResult {
           tel: c.tel || [],
         }));
         setContacts(parsed);
+        saveDeviceContacts(parsed);
         toast.success(`Imported ${parsed.length} contacts`);
       } else {
         toast.info('No contacts selected');

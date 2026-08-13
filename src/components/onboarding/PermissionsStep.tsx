@@ -4,6 +4,7 @@ import {
   Bell, Mic, Camera, MapPin, Users, Check, AlertTriangle, Ban,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { saveDeviceContacts } from '@/lib/deviceContacts';
 
 type PermissionState = 'idle' | 'granted' | 'denied' | 'unavailable' | 'requesting';
 
@@ -170,10 +171,18 @@ export default function PermissionsStep() {
     }
     updateState('contacts', 'requesting');
     try {
-      const selected = await contactsApi.select(['name', 'tel'], { multiple: true });
+      const selected = await contactsApi.select(['name', 'tel', 'email'], { multiple: true });
       updateState('contacts', 'granted');
       if (Array.isArray(selected) && selected.length > 0) {
-        toast.success(`${selected.length} contact${selected.length > 1 ? 's' : ''} selected — friend matching coming soon.`);
+        // Persist so Add Friends → Contacts tab shows matches without re-picking
+        saveDeviceContacts(
+          selected.map((c: { name?: string[]; tel?: string[]; email?: string[] }) => ({
+            name: c.name || [],
+            tel: c.tel || [],
+            email: c.email || [],
+          })),
+        );
+        toast.success(`${selected.length} contact${selected.length > 1 ? 's' : ''} saved — see matches in Add Friends → Contacts.`);
       }
     } catch {
       // User cancelled the picker — back to idle, not an error
