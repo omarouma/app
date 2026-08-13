@@ -1,58 +1,30 @@
-interface LogContext {
-    [key: string]: unknown;
-}
+import { toast } from 'sonner';
+import { trackError } from '@/lib/firebase';
 
-interface ErrorLogEntry {
-    timestamp: string;
-    scope: string;
-    message: string;
-    context?: LogContext;
-    stack?: string;
-}
+export const handleError = (error: unknown, defaultMessage: string) => {
+    console.error(error);
 
-const MAX_BUFFER = 50;
-const buffer: ErrorLogEntry[] = [];
+    let message = defaultMessage;
+    if (error instanceof Error) {
+        message = error.message;
+    }
 
-function push(entry: ErrorLogEntry) {
-    buffer.push(entry);
-    if (buffer.length > MAX_BUFFER) buffer.shift();
-}
+    toast.error(message);
+};
 
-export function logStoreError(
-    scope: string,
+/**
+ * Structured logger for store-level failures. Keeps a consistent shape for
+ * debugging and forwards to production error tracking (no-op in dev).
+ * Never throws — logging must not break the store's own error handling.
+ */
+export const logStoreError = (
+    action: string,
     error: unknown,
-    context: LogContext = {},
-): void {
-    const message = error instanceof Error ? error.message : String(error);
-    const stack = error instanceof Error ? error.stack : undefined;
-
-    const entry: ErrorLogEntry = {
-        timestamp: new Date().toISOString(),
-        scope,
-        message,
-        context: Object.keys(context).length > 0 ? context : undefined,
-        stack,
-    };
-
-    push(entry);
-
-    if (typeof window !== 'undefined' && (window as any).__GAGA_ERROR_BUFFER__) {
-        (window as any).__GAGA_ERROR_BUFFER__.push(entry);
-    }
-
-    if (import.meta.env?.DEV) {
-        console.error(`[store:${scope}]`, message, context, error);
-    }
-}
-
-export function getErrorBuffer(): ErrorLogEntry[] {
-    return [...buffer];
-}
-
-export function clearErrorBuffer(): void {
-    buffer.length = 0;
-}
-
-if (typeof window !== 'undefined') {
-    (window as any).__GAGA_ERROR_BUFFER__ = buffer;
-}
+    context: Record<string, unknown> = {},
+) => {
+    try {
+        const message = error instanceof Error ? error.message : String(error);
+        console.error(`[store:${action}]`, message, context);
+        trackError(`store:${action}: ${message}`);
+    } catch { /* logging must never throw */ }
+};

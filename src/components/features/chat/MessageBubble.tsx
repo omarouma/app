@@ -244,10 +244,10 @@ export const MessageBubble = memo(function MessageBubble(props: MessageBubblePro
         )}
 
         {/* Image */}
-        {msg.type === 'image' && msg.mediaUrl && (
+        {msg.type === 'image' && msg.mediaUrl && sanitizeMediaUrl(msg.mediaUrl) && (
           <img
-            src={msg.mediaUrl}
-            onClick={() => onSetLightbox(msg.mediaUrl!)}
+            src={sanitizeMediaUrl(msg.mediaUrl)}
+            onClick={() => onSetLightbox(sanitizeMediaUrl(msg.mediaUrl))}
             className="rounded-2xl mb-1 max-w-full cursor-pointer hover:opacity-95 transition-opacity"
             alt="Shared image"
             loading="lazy"
@@ -255,20 +255,20 @@ export const MessageBubble = memo(function MessageBubble(props: MessageBubblePro
         )}
 
         {/* Video */}
-        {msg.type === 'video' && msg.mediaUrl && (
-          <video src={msg.mediaUrl} className="rounded-2xl mb-1 max-w-full" controls preload="metadata" />
+        {msg.type === 'video' && msg.mediaUrl && sanitizeMediaUrl(msg.mediaUrl) && (
+          <video src={sanitizeMediaUrl(msg.mediaUrl)} className="rounded-2xl mb-1 max-w-full" controls preload="metadata" />
         )}
 
         {/* Voice Message with Waveform */}
-        {msg.type === 'voice' && msg.mediaUrl && (
+        {msg.type === 'voice' && msg.mediaUrl && sanitizeMediaUrl(msg.mediaUrl) && (
           <div className={`rounded-2xl mb-1 px-3 py-2 ${isMe ? 'bg-[#00C300]' : 'bg-white'}`}>
-            <VoiceWaveform audioUrl={msg.mediaUrl} isOwnMessage={isMe} />
+            <VoiceWaveform audioUrl={sanitizeMediaUrl(msg.mediaUrl)} isOwnMessage={isMe} />
           </div>
         )}
 
         {/* File */}
-        {msg.type === 'file' && msg.mediaUrl && (
-          <a href={msg.mediaUrl} target="_blank" rel="noopener noreferrer"
+        {msg.type === 'file' && msg.mediaUrl && sanitizeMediaUrl(msg.mediaUrl) && (
+          <a href={sanitizeMediaUrl(msg.mediaUrl)} target="_blank" rel="noopener noreferrer"
             className="flex items-center gap-2 bg-black/10 rounded-xl px-3 py-2 mb-1 max-w-full hover:bg-black/20 transition-colors"
             onClick={(e) => e.stopPropagation()}
           >
@@ -278,8 +278,8 @@ export const MessageBubble = memo(function MessageBubble(props: MessageBubblePro
         )}
 
         {/* Location */}
-        {msg.type === 'location' && msg.mediaUrl && (
-          <a href={msg.mediaUrl} target="_blank" rel="noopener noreferrer"
+        {msg.type === 'location' && msg.mediaUrl && sanitizeMediaUrl(msg.mediaUrl) && (
+          <a href={sanitizeMediaUrl(msg.mediaUrl)} target="_blank" rel="noopener noreferrer"
             className="flex items-center gap-2 bg-black/10 rounded-xl px-3 py-2 mb-1 max-w-full hover:bg-black/20 transition-colors"
             onClick={(e) => e.stopPropagation()}
           >

@@ -149,7 +149,7 @@ export default function ChatsPage() {
       {/* Chat List */}
       <div
         ref={containerRef}
-        className="flex-1 overflow-y-auto scrollbar-hide scroll-smooth relative pb-nav"
+        className="flex-1 overflow-y-auto scrollbar-hide scroll-smooth relative pb-16"
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
         onTouchCancel={handleTouchEnd}

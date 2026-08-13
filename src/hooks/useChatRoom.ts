@@ -3,12 +3,14 @@ import { useChatStore } from '@/store/useChatStore';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useFriendStore } from '@/store/useFriendStore';
 import { useTyping } from '@/hooks/useTyping';
-import { useOfflineQueue, isOnline } from '@/hooks/useOfflineQueue';
+import { useOfflineQueue } from '@/hooks/useOfflineQueue';
+import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { useMessagePin } from '@/hooks/useMessagePin';
 import { useSavedMessages } from '@/hooks/useSavedMessages';
 import { useScheduledMessages } from '@/hooks/useScheduledMessages';
 import { useChatEffects } from '@/hooks/useChatEffects';
 import { uploadMediaBlob } from '@/lib/storage';
+import { handleError } from '@/lib/errorLogger';
 import { toast } from 'sonner';
 import type { Message, User } from '@/types';
 
@@ -31,6 +33,7 @@ export const useChatRoom = (chatId: string, userId: string) => {
   } = useFriendStore();
   const { typingUsers, sendTyping, stopTyping } = useTyping(chatId);
   const { queueMessage } = useOfflineQueue();
+  const { isOnline } = useNetworkStatus();
   const { schedule, getPending } = useScheduledMessages(chatId, sendMessage);
 
   // ── Input state ──────────────────────────────────────────────────────────
@@ -141,7 +144,9 @@ export const useChatRoom = (chatId: string, userId: string) => {
       await editMessage(chatId, msgId, content);
       setEditingMessageId(null);
       setEditInput('');
-    } catch { toast.error('Failed to edit message.'); }
+    } catch (error) {
+      handleError(error, 'Failed to edit message.');
+    }
   }, [chatId, editInput, editMessage]);
 
   const handleSend = useCallback(async () => {
@@ -149,23 +154,21 @@ export const useChatRoom = (chatId: string, userId: string) => {
     if (editingMessageId) { await handleEditSave(editingMessageId); return; }
     const content = input.trim();
     if (!content) return;
-    const localId = `offline_${Date.now()}_${Math.random().toString(36).slice(2)}`;
     try {
-      if (isOnline()) {
+      if (isOnline) {
         await sendMessage(chatId, currentUser.id, content, 'text', undefined, replyingTo?.id);
       } else {
         queueMessage({ chatId, senderId: currentUser.id, content, type: 'direct', replyTo: replyingTo?.id });
-        useChatStore.getState().addMessage({
-          id: localId, localId, chatId, senderId: currentUser.id, content,
-          type: 'text', timestamp: new Date(), read: false, reactions: {},
-          replyTo: replyingTo?.id, deliveryStatus: 'failed',
-        } as Message);
+        toast.info('You are offline. Message will be sent when you are back online.');
       }
       setInput('');
       setReplyingTo(null);
       stopTyping();
-    } catch { stopTyping(); toast.error('Failed to send message.'); }
-  }, [chatId, currentUser, input, editingMessageId, replyingTo, sendMessage, queueMessage, stopTyping, handleEditSave]);
+    } catch (error) {
+      stopTyping();
+      handleError(error, 'Failed to send message.');
+    }
+  }, [chatId, currentUser, input, editingMessageId, replyingTo, sendMessage, queueMessage, stopTyping, handleEditSave, isOnline]);
 
   const handleMediaUpload = useCallback(async (files: File[]) => {
     if (!currentUser) return;
@@ -174,15 +177,24 @@ export const useChatRoom = (chatId: string, userId: string) => {
       try {
         const url = await uploadMediaBlob(file, { userId: currentUser.id, kind: 'chats', fileName: file.name, contentType: file.type });
         const type = file.type.startsWith('image/') ? 'image' : file.type.startsWith('video/') ? 'video' : 'file';
-        if (!url) { toast.error(`Failed to upload ${file.name}.`); continue; }
+        if (!url) {
+          toast.error(`Failed to upload ${file.name}.`);
+          continue;
+        }
         await sendMessage(chatId, currentUser.id, file.name, type, url);
-      } catch { toast.error(`Failed to upload ${file.name}.`); }
+      } catch (error) {
+        handleError(error, `Failed to upload ${file.name}.`);
+      }
     }
   }, [chatId, currentUser, sendMessage]);
 
   const handleDelete = useCallback(async (msgId: string) => {
-    try { await deleteMessage(chatId, msgId); setContextMenu(null); }
-    catch { toast.error('Failed to delete message.'); }
+    try {
+      await deleteMessage(chatId, msgId);
+      setContextMenu(null);
+    } catch (error) {
+      handleError(error, 'Failed to delete message.');
+    }
   }, [chatId, deleteMessage]);
 
   const handleDeleteForEveryone = useCallback(async (msgId: string) => {
@@ -191,15 +203,20 @@ export const useChatRoom = (chatId: string, userId: string) => {
       await deleteForEveryone(chatId, msgId);
       setContextMenu(null);
       setShowDeleteForEveryoneConfirm(null);
-    } catch (err) { toast.error(err instanceof Error ? err.message : 'Failed to delete for everyone.'); }
+    } catch (error) {
+      handleError(error, 'Failed to delete for everyone.');
+    }
   }, [chatId, currentUser, deleteForEveryone]);
 
   const handleForward = useCallback(async (targetChatId: string) => {
     if (!currentUser || (!forwardMsg && forwardBatch.length === 0)) return;
     const msgs = forwardMsg ? [forwardMsg] : forwardBatch;
     for (const msg of msgs) {
-      try { await sendMessage(targetChatId, currentUser.id, msg.content, msg.type, msg.mediaUrl); }
-      catch { toast.error(`Failed to forward message.`); }
+      try {
+        await sendMessage(targetChatId, currentUser.id, msg.content, msg.type, msg.mediaUrl);
+      } catch (error) {
+        handleError(error, 'Failed to forward message.');
+      }
     }
     setShowForwardModal(false);
     setForwardMsg(null);
@@ -211,9 +228,16 @@ export const useChatRoom = (chatId: string, userId: string) => {
     if (!currentUser?.id) return;
     setContextMenu(null);
     try {
-      if (isSaved(msg.id)) { await unsaveMessage(msg.id); toast.success('Message unsaved.'); }
-      else { await saveMessage(msg, displayUser?.name || 'User'); toast.success('Message saved.'); }
-    } catch { toast.error('Failed to save message.'); }
+      if (isSaved(msg.id)) {
+        await unsaveMessage(msg.id);
+        toast.success('Message unsaved.');
+      } else {
+        await saveMessage(msg, displayUser?.name || 'User');
+        toast.success('Message saved.');
+      }
+    } catch (error) {
+      handleError(error, 'Failed to save message.');
+    }
   }, [currentUser?.id, isSaved, saveMessage, unsaveMessage, displayUser?.name]);
 
   const handlePin = useCallback(async (msg: Message) => {
@@ -224,14 +248,20 @@ export const useChatRoom = (chatId: string, userId: string) => {
       } else {
         await pinMessage(chatId, msg.id, msg.content); toast.success('Message pinned.');
       }
-    } catch { toast.error('Failed to pin message.'); }
+    } catch (error) {
+      handleError(error, 'Failed to pin message.');
+    }
   }, [chatId, pinnedMessages, pinMessage, unpinMessage]);
 
   const handleRecall = useCallback(async (msgId: string) => {
     if (!currentUser) return;
     setContextMenu(null);
-    try { await recallMessage(chatId, msgId); toast.success('Message recalled.'); }
-    catch (err) { toast.error(err instanceof Error ? err.message : 'Failed to recall message.'); }
+    try {
+      await recallMessage(chatId, msgId);
+      toast.success('Message recalled.');
+    } catch (error) {
+      handleError(error, 'Failed to recall message.');
+    }
   }, [chatId, currentUser, recallMessage]);
 
   const handleReport = useCallback(async () => {
@@ -246,9 +276,15 @@ export const useChatRoom = (chatId: string, userId: string) => {
   const handleAddFriend = useCallback(async () => {
     if (!currentUser?.id || !userId) return;
     setProcessingAction(true);
-    try { await sendRequest(currentUser.id, userId); setFriendStatus('request_sent'); toast.success('Friend request sent!'); }
-    catch (err) { toast.error(err instanceof Error ? err.message : 'Failed to send request'); }
-    finally { setProcessingAction(false); }
+    try {
+      await sendRequest(currentUser.id, userId);
+      setFriendStatus('request_sent');
+      toast.success('Friend request sent!');
+    } catch (error) {
+      handleError(error, 'Failed to send request');
+    } finally {
+      setProcessingAction(false);
+    }
   }, [currentUser?.id, userId, sendRequest]);
 
   const handleCancelRequest = useCallback(async () => {
@@ -256,9 +292,16 @@ export const useChatRoom = (chatId: string, userId: string) => {
     setProcessingAction(true);
     try {
       const req = (sentRequests as FriendRequest[]).find(r => (r.toUserId || r.to_user_id) === userId);
-      if (req) { await cancelRequest(req.id); setFriendStatus('not_friends'); toast.success('Friend request cancelled.'); }
-    } catch { toast.error('Failed to cancel request.'); }
-    finally { setProcessingAction(false); }
+      if (req) {
+        await cancelRequest(req.id);
+        setFriendStatus('not_friends');
+        toast.success('Friend request cancelled.');
+      }
+    } catch (error) {
+      handleError(error, 'Failed to cancel request.');
+    } finally {
+      setProcessingAction(false);
+    }
   }, [currentUser?.id, userId, sentRequests, cancelRequest]);
 
   const handleAcceptRequest = useCallback(async () => {
@@ -266,9 +309,16 @@ export const useChatRoom = (chatId: string, userId: string) => {
     setProcessingAction(true);
     try {
       const req = (requests as FriendRequest[]).find(r => (r.fromUserId || r.from_user_id) === userId);
-      if (req) { await acceptRequest(req.id); setFriendStatus('friends'); toast.success('Friend request accepted!'); }
-    } catch { toast.error('Failed to accept request.'); }
-    finally { setProcessingAction(false); }
+      if (req) {
+        await acceptRequest(req.id);
+        setFriendStatus('friends');
+        toast.success('Friend request accepted!');
+      }
+    } catch (error) {
+      handleError(error, 'Failed to accept request.');
+    } finally {
+      setProcessingAction(false);
+    }
   }, [currentUser?.id, userId, requests, acceptRequest]);
 
   const handleRejectRequest = useCallback(async () => {
@@ -276,27 +326,48 @@ export const useChatRoom = (chatId: string, userId: string) => {
     setProcessingAction(true);
     try {
       const req = (requests as FriendRequest[]).find(r => (r.fromUserId || r.from_user_id) === userId);
-      if (req) { await rejectRequest(req.id); setFriendStatus('not_friends'); toast.info('Friend request rejected.'); }
-    } catch { toast.error('Failed to reject request.'); }
-    finally { setProcessingAction(false); }
+      if (req) {
+        await rejectRequest(req.id);
+        setFriendStatus('not_friends');
+        toast.info('Friend request rejected.');
+      }
+    } catch (error) {
+      handleError(error, 'Failed to reject request.');
+    } finally {
+      setProcessingAction(false);
+    }
   }, [currentUser?.id, userId, requests, rejectRequest]);
 
   // Replaces window.confirm — caller shows showRemoveFriendConfirm dialog, then calls this
   const handleRemoveFriend = useCallback(async () => {
     if (!currentUser?.id || !userId) return;
     setProcessingAction(true);
-    try { await removeFriend(currentUser.id, userId); setFriendStatus('not_friends'); toast.success('Friend removed.'); }
-    catch { toast.error('Failed to remove friend.'); }
-    finally { setProcessingAction(false); setShowRemoveFriendConfirm(false); }
+    try {
+      await removeFriend(currentUser.id, userId);
+      setFriendStatus('not_friends');
+      toast.success('Friend removed.');
+    } catch (error) {
+      handleError(error, 'Failed to remove friend.');
+    } finally {
+      setProcessingAction(false);
+      setShowRemoveFriendConfirm(false);
+    }
   }, [currentUser?.id, userId, removeFriend]);
 
   // Replaces window.confirm — caller shows showBlockConfirm dialog, then calls this
   const handleBlockUser = useCallback(async () => {
     if (!currentUser?.id || !userId) return;
     setProcessingAction(true);
-    try { await blockUser(currentUser.id, userId); setFriendStatus('blocked'); toast.success('User blocked.'); }
-    catch { toast.error('Failed to block user.'); }
-    finally { setProcessingAction(false); setShowBlockConfirm(false); }
+    try {
+      await blockUser(currentUser.id, userId);
+      setFriendStatus('blocked');
+      toast.success('User blocked.');
+    } catch (error) {
+      handleError(error, 'Failed to block user.');
+    } finally {
+      setProcessingAction(false);
+      setShowBlockConfirm(false);
+    }
   }, [currentUser?.id, userId, blockUser]);
 
   const handleUnblockUser = useCallback(async () => {
@@ -305,23 +376,34 @@ export const useChatRoom = (chatId: string, userId: string) => {
     try {
       await unblockUser(currentUser.id, userId);
       const status = await getFriendStatus(currentUser.id, userId);
-      setFriendStatus(status); toast.success('User unblocked.');
-    } catch { toast.error('Failed to unblock user.'); }
-    finally { setProcessingAction(false); }
+      setFriendStatus(status);
+      toast.success('User unblocked.');
+    } catch (error) {
+      handleError(error, 'Failed to unblock user.');
+    } finally {
+      setProcessingAction(false);
+    }
   }, [currentUser?.id, userId, unblockUser, getFriendStatus]);
 
   const handleSendPoll = useCallback(async () => {
     if (!currentUser || !pollQuestion.trim() || pollOptions.some(o => !o.trim())) return;
     try {
       await sendPoll(chatId, currentUser.id, pollQuestion, pollOptions);
-      setShowPollModal(false); setPollQuestion(''); setPollOptions(['', '']);
-    } catch { toast.error('Failed to send poll.'); }
+      setShowPollModal(false);
+      setPollQuestion('');
+      setPollOptions(['', '']);
+    } catch (error) {
+      handleError(error, 'Failed to send poll.');
+    }
   }, [chatId, currentUser, pollQuestion, pollOptions, sendPoll]);
 
   const handleVote = useCallback(async (_chatId: string, msgId: string, optionIndex: number, voterId: string) => {
     if (!currentUser) return;
-    try { await votePoll(_chatId, msgId, optionIndex, voterId); }
-    catch (err) { toast.error(err instanceof Error ? err.message : 'Failed to vote.'); }
+    try {
+      await votePoll(_chatId, msgId, optionIndex, voterId);
+    } catch (error) {
+      handleError(error, 'Failed to vote.');
+    }
   }, [currentUser, votePoll]);
 
   const handleScheduleSend = useCallback(() => {
@@ -335,8 +417,12 @@ export const useChatRoom = (chatId: string, userId: string) => {
 
   const handleSendContact = useCallback(async (contact: { userId: string; name: string; phone?: string; email?: string; avatar?: string; username?: string; bio?: string }) => {
     if (!currentUser) return;
-    try { await sendContactCard(chatId, currentUser.id, contact); toast.success('Contact card sent.'); }
-    catch { toast.error('Failed to send contact card.'); }
+    try {
+      await sendContactCard(chatId, currentUser.id, contact);
+      toast.success('Contact card sent.');
+    } catch (error) {
+      handleError(error, 'Failed to send contact card.');
+    }
   }, [chatId, currentUser, sendContactCard]);
 
   return {

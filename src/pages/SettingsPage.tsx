@@ -193,7 +193,7 @@ export default function SettingsPage() {
         </div>
       </header>
 
-      <div className="container-page py-4 pb-nav">
+      <div className="container-page py-4 pb-16">
         <AnimatePresence mode="wait">
           {!section ? (
             <motion.div key="main" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-2 sm:space-y-3">
@@ -399,8 +399,8 @@ export default function SettingsPage() {
                             updateSettings({ notifications: { ...settings.notifications, soundProfile: profile.code } });
                           }}
                           className={`flex-1 py-2.5 sm:py-2 px-3 rounded-xl text-xs font-medium transition-all tap-scale ${settings.notifications.soundProfile === profile.code
-                              ? 'bg-primary text-primary-foreground shadow-sm'
-                              : 'bg-accent text-foreground hover:bg-accent/80'
+                            ? 'bg-primary text-primary-foreground shadow-sm'
+                            : 'bg-accent text-foreground hover:bg-accent/80'
                             }`}
                         >
                           {profile.label}

@@ -231,6 +231,18 @@
       }
     </script>
   <!-- End JSON-LD Structured Data -->
+  <script>
+    // Lock screen orientation to portrait mode on supported devices
+    document.addEventListener('DOMContentLoaded', () => {
+      if (screen.orientation && typeof screen.orientation.lock === 'function') {
+        screen.orientation.lock('portrait-primary').catch(error => {
+          // This may fail on desktop or in unsupported browsers, which is fine.
+          // We only want to enforce this on mobile devices.
+          console.log('Screen orientation lock failed:', error);
+        });
+      }
+    });
+  </script>
 </head>
 
 <body>
@@ -238,20 +250,6 @@
   <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-MDN48KKL" height="0" width="0"
       style="display: none; visibility: hidden"></iframe></noscript>
   <!-- End Google Tag Manager (noscript) -->
-  <a href="#main-content" class="skip-link">Skip to main content</a>
-  <div id="rotate-device-warning" aria-hidden="true">
-    <div class="rotate-device-inner">
-      <div class="rotate-phone" aria-hidden="true">
-        <svg viewBox="0 0 64 64" width="72" height="72">
-          <rect x="18" y="6" width="28" height="52" rx="5" ry="5" fill="none" stroke="currentColor" stroke-width="3" />
-          <rect x="29" y="50" width="6" height="2" rx="1" fill="currentColor" />
-        </svg>
-      </div>
-      <h2 class="rotate-title">Please Rotate Your Device</h2>
-      <p class="rotate-desc">GaGa Chat is designed for portrait mode on mobile phones. Please turn your phone upright
-        for the best experience.</p>
-    </div>
-  </div>
   <div id="root"></div>
   <noscript>
     <div style="text-align: center; padding: 40px; font-family: sans-serif">

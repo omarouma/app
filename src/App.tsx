@@ -22,6 +22,7 @@ import Logo from '@/components/Logo';
 import { toast } from 'sonner';
 import { getDefaultAvatar, sanitizeMediaUrl } from '@/lib/utils';
 import { initAudioOnInteraction } from '@/lib/sounds';
+import { startOfflineQueueSync } from '@/lib/offlineSync';
 import { safeGetBooleanStorageItem } from '@/lib/safeStorage';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import ScrollToTop from '@/components/ScrollToTop';
@@ -425,6 +426,9 @@ function AppContent() {
   useTrackPresence(user?.id);
 
   useEffect(() => { initAudioOnInteraction(); }, []);
+
+  // Start the global offline-queue flusher (singleton, idempotent)
+  useEffect(() => { startOfflineQueueSync(); }, []);
 
   useServiceWorker();
 

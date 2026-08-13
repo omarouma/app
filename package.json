@@ -9,7 +9,7 @@
     "postbuild": "node scripts/postbuild-sw-stamp.mjs",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
-    "deploy": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\" && npm run build && firebase deploy --only hosting",
+    "deploy": "npm run build && npm run deploy:hosting",
     "deploy:full": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\" && npm run build && firebase deploy --only hosting",
     "deploy:rules": "echo 'No Firestore/Storage rules to deploy — app data is managed via Supabase RLS.'",
     "deploy:hosting": "firebase deploy --only hosting",

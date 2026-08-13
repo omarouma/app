@@ -223,7 +223,7 @@ export default function ProfilePage() {
         </div>
       </div>
 
-      <div className="max-w-2xl mx-auto px-4 py-4 space-y-3 pb-nav">
+      <div className="max-w-2xl mx-auto px-4 py-4 space-y-3 pb-16">
         {/* Avatar + Name card */}
         <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
           {/* Cover image */}

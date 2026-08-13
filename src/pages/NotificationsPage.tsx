@@ -180,14 +180,12 @@ export default function NotificationsPage() {
                   else if (notif.type === 'friend_request') navigate('/add-friends');
                 }
               }}
-              className={`flex items-start gap-3 p-4 active:bg-gray-50 transition-colors cursor-pointer relative ${
-                !notif.read ? 'bg-[#00C300]/5' : 'bg-white'
-              } ${isSelected ? 'bg-[#00C300]/10' : ''}`}
+              className={`flex items-start gap-3 p-4 active:bg-gray-50 transition-colors cursor-pointer relative ${!notif.read ? 'bg-[#00C300]/5' : 'bg-white'
+                } ${isSelected ? 'bg-[#00C300]/10' : ''}`}
             >
               {selectMode && (
-                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 mt-2 ${
-                  isSelected ? 'bg-[#00C300] border-[#00C300]' : 'border-[#C7C7CC]'
-                }`}>
+                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 mt-2 ${isSelected ? 'bg-[#00C300] border-[#00C300]' : 'border-[#C7C7CC]'
+                  }`}>
                   {isSelected && <Check size={12} className="text-white" />}
                 </div>
               )}
@@ -233,9 +231,8 @@ export default function NotificationsPage() {
                   <Settings size={18} />
                 </button>
                 <button type="button" onClick={() => { setSelectMode(s => !s); setSelectedIds([]); }}
-                  className={`text-xs font-medium px-3 py-2 rounded-full transition-colors min-h-[36px] ${
-                    selectMode ? 'bg-[#00C300] text-white' : 'text-[#00C300]'
-                  }`}
+                  className={`text-xs font-medium px-3 py-2 rounded-full transition-colors min-h-[36px] ${selectMode ? 'bg-[#00C300] text-white' : 'text-[#00C300]'
+                    }`}
                 >
                   {selectMode ? 'Done' : 'Select'}
                 </button>
@@ -280,18 +277,16 @@ export default function NotificationsPage() {
             >
               <div className="flex gap-2 p-3 overflow-x-auto scrollbar-hide">
                 <button type="button" onClick={() => changeFilter('all')}
-                  className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${
-                    filterType === 'all' ? 'bg-[#00C300] text-white' : 'bg-[#F5F5F5] text-[#8D8D8D]'
-                  }`}
+                  className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${filterType === 'all' ? 'bg-[#00C300] text-white' : 'bg-[#F5F5F5] text-[#8D8D8D]'
+                    }`}
                 >
                   All
                 </button>
                 {Object.entries(typeLabels).map(([type, label]) => (
                   <button type="button" key={type}
                     onClick={() => changeFilter(type)}
-                    className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${
-                      filterType === type ? 'bg-[#00C300] text-white' : 'bg-[#F5F5F5] text-[#8D8D8D]'
-                    }`}
+                    className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${filterType === type ? 'bg-[#00C300] text-white' : 'bg-[#F5F5F5] text-[#8D8D8D]'
+                      }`}
                   >
                     {label}
                   </button>
@@ -333,7 +328,7 @@ export default function NotificationsPage() {
       </div>
 
       {/* Notification List */}
-      <div className="divide-y divide-[#EBEBEB] pb-nav">
+      <div className="divide-y divide-[#EBEBEB] pb-16">
         {loading ? (
           <div className="p-4">
             <LoadingSkeleton count={6} variant="list" />
