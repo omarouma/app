@@ -23,6 +23,7 @@ import { toast } from 'sonner';
 import { getDefaultAvatar, sanitizeMediaUrl } from '@/lib/utils';
 import { initAudioOnInteraction } from '@/lib/sounds';
 import { startOfflineQueueSync } from '@/lib/offlineSync';
+import { getPostAuthPath } from '@/lib/onboarding';
 import { safeGetBooleanStorageItem } from '@/lib/safeStorage';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import ScrollToTop from '@/components/ScrollToTop';
@@ -452,7 +453,7 @@ function AppContent() {
             path="/"
             element={
               isAuthenticated
-                ? (isMobile ? <Navigate to="/contacts" replace /> : <Navigate to="/chat" replace />)
+                ? <Navigate to={getPostAuthPath(isMobile)} replace />
                 : <LandingView />
             }
           />
@@ -460,7 +461,7 @@ function AppContent() {
             path="/auth"
             element={
               isAuthenticated
-                ? (isMobile ? <Navigate to="/contacts" replace /> : <Navigate to="/chat" replace />)
+                ? <Navigate to={getPostAuthPath(isMobile)} replace />
                 : <AuthView />
             }
           />

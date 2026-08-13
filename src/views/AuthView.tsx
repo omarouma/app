@@ -12,6 +12,7 @@ import { pushNotificationService } from '@/services/pushNotificationService';
 import { safePlay, playNotification, vibrateNotification } from '@/lib/sounds';
 import { sendEmailVerification, fetchUserProfile } from '@/lib/supabaseAuth';
 import { isSupabaseConfigured, getSupabaseSafe } from '@/lib/supabase';
+import { getPostAuthPath } from '@/lib/onboarding';
 
 // ─── Types ────────────────────────────────────────────────────
 type Screen = 'landing' | 'login-email' | 'login-phone' | 'signup-email' | 'signup-phone' | 'magic' | 'forgot' | 'verify';
@@ -288,7 +289,7 @@ export default function AuthView() {
   // or after verifying their email in another tab), route them into the app.
   useEffect(() => {
     if (isAuthenticated) {
-      navigate('/contacts', { replace: true });
+      navigate(getPostAuthPath(true), { replace: true });
     }
   }, [isAuthenticated, navigate]);
 
@@ -306,7 +307,7 @@ export default function AuthView() {
       const profile = await fetchUserProfile(sessionUser.id);
       if (profile) {
         auth.login(profile.email || '', '').catch(() => {});
-        navigate('/contacts', { replace: true });
+        navigate(getPostAuthPath(true), { replace: true });
       }
     }, 3000);
     return () => clearInterval(t);

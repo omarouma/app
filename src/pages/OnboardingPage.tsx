@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { safeSetStorageItem } from '@/lib/safeStorage';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   MessageCircle, Users, Video, Wallet, Sparkles,
-  ArrowRight, Check, Shield
+  ArrowRight, Check, Shield, Settings2
 } from 'lucide-react';
 import Logo from '@/components/Logo';
+import PermissionsStep from '@/components/onboarding/PermissionsStep';
+import { markOnboardingComplete } from '@/lib/onboarding';
 
 const STEPS = [
   {
@@ -51,6 +52,15 @@ const STEPS = [
     color: 'text-[#00C3C3]',
     bg: 'bg-[#00C3C3]/10',
   },
+  // Final step renders the interactive permissions setup (custom layout)
+  {
+    icon: Settings2,
+    title: 'App Permissions',
+    description: '',
+    color: 'text-[#00C300]',
+    bg: 'bg-[#00C300]/10',
+    isPermissions: true,
+  },
 ];
 
 export default function OnboardingPage() {
@@ -75,17 +85,18 @@ export default function OnboardingPage() {
   };
 
   const completeOnboarding = () => {
-    safeSetStorageItem('gaga-onboarding-complete', 'true');
+    markOnboardingComplete();
     navigate('/contacts');
   };
 
   const skip = () => {
-    safeSetStorageItem('gaga-onboarding-complete', 'true');
+    markOnboardingComplete();
     navigate('/contacts');
   };
 
   const current = STEPS[step];
   const Icon = current.icon;
+  const isPermissionsStep = 'isPermissions' in current && current.isPermissions;
 
   return (
     <div className="h-[100dvh] w-screen bg-white flex flex-col overflow-hidden">
@@ -117,7 +128,7 @@ export default function OnboardingPage() {
       </div>
 
       {/* Content */}
-      <div className="flex-1 flex items-center justify-center px-6 relative">
+      <div className={`flex-1 px-6 relative ${isPermissionsStep ? 'overflow-y-auto py-4' : 'flex items-center justify-center'}`}>
         <AnimatePresence mode="wait" custom={direction}>
           <motion.div
             key={step}
@@ -126,13 +137,19 @@ export default function OnboardingPage() {
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: direction * -50 }}
             transition={{ duration: 0.3, ease: 'easeInOut' }}
-            className="text-center max-w-sm mx-auto"
+            className={isPermissionsStep ? 'w-full' : 'text-center max-w-sm mx-auto'}
           >
-            <div className={`w-24 h-24 rounded-3xl ${current.bg} flex items-center justify-center mx-auto mb-6`}>
-              <Icon size={40} className={current.color} />
-            </div>
-            <h2 className="text-2xl font-bold text-[#111111] mb-3">{current.title}</h2>
-            <p className="text-[#8D8D8D] text-base leading-relaxed">{current.description}</p>
+            {isPermissionsStep ? (
+              <PermissionsStep />
+            ) : (
+              <>
+                <div className={`w-24 h-24 rounded-3xl ${current.bg} flex items-center justify-center mx-auto mb-6`}>
+                  <Icon size={40} className={current.color} />
+                </div>
+                <h2 className="text-2xl font-bold text-[#111111] mb-3">{current.title}</h2>
+                <p className="text-[#8D8D8D] text-base leading-relaxed">{current.description}</p>
+              </>
+            )}
           </motion.div>
         </AnimatePresence>
       </div>
