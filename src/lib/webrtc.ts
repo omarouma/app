@@ -43,9 +43,7 @@ export class WebRTCCall {
   private remoteStream: MediaStream | null = null;
   private readonly isVideo: boolean;
   private callId: string | null = null;
-  private myUserId: string;
-  private otherUserId: string;
-private onStateChange?: (state: WebRTCCallState) => void;
+  private onStateChange?: (state: WebRTCCallState) => void;
   private onRemoteStream?: (stream: MediaStream) => void;
   private onLocalStream?: (stream: MediaStream) => void;
   private onQualityChange?: (quality: 'good' | 'poor' | 'reconnecting') => void;
@@ -61,7 +59,7 @@ private onStateChange?: (state: WebRTCCallState) => void;
   private disconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private statsTimer: ReturnType<typeof setInterval> | null = null;
   private lastQuality: 'good' | 'poor' | 'reconnecting' = 'good';
-private wasConnected = false;
+  private wasConnected = false;
   private _isHeld = false;
   private dtmfSender: RTCDTMFSender | null = null;
 
@@ -123,21 +121,17 @@ private wasConnected = false;
   }
 
   constructor(
-    myUserId: string,
-    otherUserId: string,
+    _myUserId: string,
+    _otherUserId: string,
     isVideo: boolean,
     onStateChange?: (state: WebRTCCallState) => void,
     onRemoteStream?: (stream: MediaStream) => void,
     onLocalStream?: (stream: MediaStream) => void,
   ) {
     if (!isClient) {
-      this.myUserId = myUserId;
-      this.otherUserId = otherUserId;
       this.isVideo = isVideo;
       return;
     }
-    this.myUserId = myUserId;
-    this.otherUserId = otherUserId;
     this.isVideo = isVideo;
     this.onStateChange = onStateChange;
     this.onRemoteStream = onRemoteStream;
@@ -153,7 +147,7 @@ private wasConnected = false;
     if (cb) cb(state);
   }
 
-setOnStateChange(cb: ((state: WebRTCCallState) => void) | undefined) {
+  setOnStateChange(cb: ((state: WebRTCCallState) => void) | undefined) {
     this.onStateChange = cb;
   }
 
@@ -186,7 +180,7 @@ setOnStateChange(cb: ((state: WebRTCCallState) => void) | undefined) {
       if (this.onRemoteStream) this.onRemoteStream(this.remoteStream);
     };
 
-this._pc.onconnectionstatechange = () => {
+    this._pc.onconnectionstatechange = () => {
       const s = this._pc?.connectionState;
       if (s === 'connected') {
         this.wasConnected = true;
@@ -243,10 +237,10 @@ this._pc.onconnectionstatechange = () => {
       },
       video: this.isVideo
         ? {
-            width: { ideal: 1280 },
-            height: { ideal: 720 },
-            frameRate: { ideal: 30, max: 60 },
-          }
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+          frameRate: { ideal: 30, max: 60 },
+        }
         : false,
     };
 
@@ -362,7 +356,7 @@ this._pc.onconnectionstatechange = () => {
     );
   }
 
-private async handleSignalingData(sig: SignalingData) {
+  private async handleSignalingData(sig: SignalingData) {
     // Mutex: prevent concurrent executions from causing double setRemoteDescription
     if (this.handlingSignaling) return;
     this.handlingSignaling = true;
@@ -548,7 +542,7 @@ private async handleSignalingData(sig: SignalingData) {
     }
   }
 
-async startCall(callId: string) {
+  async startCall(callId: string) {
     this.callId = callId;
     this.isCaller = true;
     this.setState('ringing');
@@ -627,7 +621,7 @@ async startCall(callId: string) {
       this._pc?.close();
     } catch { /* ignore */ }
 
-this.clearDisconnectTimer();
+    this.clearDisconnectTimer();
     this.stopQualityMonitor();
     this.lastQuality = 'good';
     this.localStream = null;
@@ -694,7 +688,7 @@ this.clearDisconnectTimer();
       }
     }
 
-const sender = this.dtmfSender;
+    const sender = this.dtmfSender;
     if (!sender || typeof sender.insertDTMF !== 'function') return false;
 
     const char = tone.charAt(0).toUpperCase();
@@ -706,7 +700,7 @@ const sender = this.dtmfSender;
     } catch { return false; }
   }
 
-async flipCamera() {
+  async flipCamera() {
     if (!this.localStream) return;
     const oldTrack = this.localStream.getVideoTracks()[0];
     if (!oldTrack) return;

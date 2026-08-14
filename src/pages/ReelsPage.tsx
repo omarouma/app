@@ -16,6 +16,7 @@ import { hasAnyVideoKey } from '@/config/videoApis';
 import EmptyState from '@/components/EmptyState';
 import LoadingSkeleton from '@/components/LoadingSkeleton';
 import { getDefaultAvatar, sanitizeText } from '@/lib/utils';
+import { copyToClipboard } from '@/lib/share';
 import { toast } from 'sonner';
 import type { Reel } from '@/types';
 
@@ -323,8 +324,10 @@ export default function ReelsPage() {
       } else {
         link = `https://gagachat.app/reel/${reel.id}`;
       }
-      await navigator.clipboard.writeText(link);
-      toast.success('Link copied to clipboard');
+      const ok = await copyToClipboard(link);
+      if (ok) {
+        toast.success('Link copied to clipboard');
+      }
     } catch { /* noop */ }
   };
 

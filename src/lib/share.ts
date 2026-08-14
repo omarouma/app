@@ -13,6 +13,39 @@ export interface SharePayload {
 
 const enc = (value: string) => encodeURIComponent(value);
 
+async function copyTextWithFallback(text: string): Promise<boolean> {
+  const nav = typeof navigator !== 'undefined' ? navigator : undefined;
+  if (nav?.clipboard && typeof nav.clipboard.writeText === 'function') {
+    try {
+      await nav.clipboard.writeText(text);
+      return true;
+    } catch {
+      // Fall through to DOM fallback below.
+    }
+  }
+
+  if (typeof document === 'undefined') return false;
+
+  const textarea = document.createElement('textarea');
+  textarea.value = text;
+  textarea.setAttribute('readonly', 'true');
+  textarea.style.position = 'fixed';
+  textarea.style.top = '-9999px';
+  textarea.style.left = '-9999px';
+  document.body.appendChild(textarea);
+
+  try {
+    textarea.focus();
+    textarea.select();
+    const successful = document.execCommand?.('copy') ?? false;
+    return successful;
+  } catch {
+    return false;
+  } finally {
+    document.body.removeChild(textarea);
+  }
+}
+
 /** Build a WhatsApp share URL. */
 export function whatsappShareUrl({ text, url }: { text: string; url: string }): string {
   return `https://wa.me/?text=${enc(`${text}\n${url}`)}`;
@@ -48,7 +81,7 @@ export function emailShareUrl({ title, text, url }: SharePayload): string {
  * Returns `true` if the native sheet was used.
  */
 export async function nativeShare(payload: SharePayload): Promise<boolean> {
-  if (typeof navigator !== 'undefined' && navigator.share) {
+  if (typeof navigator !== 'undefined' && 'share' in navigator && typeof navigator.share === 'function') {
     try {
       await navigator.share(payload);
       return true;
@@ -56,16 +89,28 @@ export async function nativeShare(payload: SharePayload): Promise<boolean> {
       // User cancelled or share failed — fall through to clipboard
     }
   }
-  await navigator.clipboard.writeText(payload.url);
+
+  await copyTextWithFallback(payload.url);
   return false;
 }
 
 /** Simple clipboard copy. */
 export async function copyToClipboard(text: string): Promise<boolean> {
-  try {
-    await navigator.clipboard.writeText(text);
+  return copyTextWithFallback(text);
+}
+
+/**
+ * Safer confirmation dialog that degrades gracefully when the browser blocks
+ * modal prompts or when running in restricted WebView contexts.
+ */
+export function safeConfirm(message: string): boolean {
+  if (typeof window === 'undefined' || typeof window.confirm !== 'function') {
     return true;
+  }
+
+  try {
+    return window.confirm(message);
   } catch {
-    return false;
+    return true;
   }
 }

@@ -13,6 +13,7 @@ import { searchUsers, fetchUserProfile } from '@/lib/supabaseAuth';
 import { buildGagaChatUri, buildGagaChatWebUrl, parseGagaChatUri } from '@/lib/utils';
 import { useContacts } from '@/hooks/useContacts';
 import { useGeolocation, getDistanceKm, formatDistance } from '@/hooks/useGeolocation';
+import { copyToClipboard, nativeShare } from '@/lib/share';
 import { toast } from 'sonner';
 import type { User } from '@/types';
 import { where, limit, isFirestoreAvailable, updateDocById, queryCollection } from '@/lib/firestore';
@@ -566,10 +567,14 @@ export default function AddFriendsPage() {
 
   const handleCopyLink = async () => {
     try {
-      await navigator.clipboard.writeText(myWebLink);
-      setCopied(true);
-      toast.success('Link copied to clipboard');
-      setTimeout(() => setCopied(false), 2000);
+      const ok = await copyToClipboard(myWebLink);
+      if (ok) {
+        setCopied(true);
+        toast.success('Link copied to clipboard');
+        setTimeout(() => setCopied(false), 2000);
+      } else {
+        toast.error('Unable to copy link in this browser');
+      }
     } catch {
       toast.error('Failed to copy');
     }
@@ -577,14 +582,13 @@ export default function AddFriendsPage() {
 
   const handleShare = async () => {
     try {
-      if (navigator.share) {
-        await navigator.share({
-          title: `Add ${currentUser?.name || 'me'} on GaGa Chat`,
-          text: `Connect with me on GaGa Chat!`,
-          url: myWebLink,
-        });
-      } else {
-        handleCopyLink();
+      const usedNative = await nativeShare({
+        title: `Add ${currentUser?.name || 'me'} on GaGa Chat`,
+        text: `Connect with me on GaGa Chat!`,
+        url: myWebLink,
+      });
+      if (!usedNative) {
+        await handleCopyLink();
       }
     } catch {
       /* user cancelled */
@@ -595,11 +599,10 @@ export default function AddFriendsPage() {
     const link = 'https://gagachat.app';
     const text = 'Join me on GaGa Chat - the free messaging app for everyone! 🌍';
     try {
-      if (navigator.share) {
-        await navigator.share({ title: 'GaGa Chat', text, url: link });
-      } else {
-        await navigator.clipboard.writeText(`${text} ${link}`);
-        toast.success('Invite link copied to clipboard');
+      const usedNative = await nativeShare({ title: 'GaGa Chat', text, url: link });
+      if (!usedNative) {
+        const ok = await copyToClipboard(`${text} ${link}`);
+        if (ok) toast.success('Invite link copied to clipboard');
       }
     } catch { /* user cancelled */ }
   };

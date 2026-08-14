@@ -24,7 +24,7 @@ import { getDefaultAvatar, sanitizeMediaUrl } from '@/lib/utils';
 import { initAudioOnInteraction } from '@/lib/sounds';
 import { startOfflineQueueSync } from '@/lib/offlineSync';
 import { getPostAuthPath } from '@/lib/onboarding';
-import { safeGetBooleanStorageItem } from '@/lib/safeStorage';
+import { safeGetBooleanStorageItem, safeGetStorageItem, safeSetStorageItem } from '@/lib/safeStorage';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import ScrollToTop from '@/components/ScrollToTop';
 import BottomNav from '@/components/layout/BottomNav';
@@ -66,25 +66,35 @@ function usePortraitLock(enabled: boolean) {
     };
 
     const onFirstInteraction = () => { void lockOrientation(); };
+    const enforcePortraitLayout = () => {
+      const isSmallLandscape = window.matchMedia('(orientation: landscape) and (max-width: 900px)').matches;
+      document.documentElement.style.setProperty('overflow-x', 'hidden');
+      document.documentElement.style.setProperty('overflow-y', isSmallLandscape ? 'hidden' : 'auto');
+      document.body.style.overflow = isSmallLandscape ? 'hidden' : 'auto';
+      document.body.style.width = '100%';
+      document.body.style.maxWidth = '100vw';
+      document.body.style.touchAction = isSmallLandscape ? 'none' : 'manipulation';
+      document.body.dataset.portraitLock = isSmallLandscape ? 'true' : 'false';
+    };
 
-    // Immediate attempt (some browsers allow it pre-interaction)
+    enforcePortraitLayout();
     void lockOrientation();
 
-    // Retry on common first interaction events (required for lock on many browsers)
     const interactionEvents = ['touchstart', 'pointerdown', 'mousedown', 'click', 'keydown', 'orientationchange', 'resize'] as const;
     interactionEvents.forEach((evt) => {
       window.addEventListener(evt, onFirstInteraction as EventListener, { once: true, passive: true });
     });
 
-    // Continuously re-apply lock on orientation changes / resize
-    const reLock = () => { void lockOrientation(); };
+    const reLock = () => {
+      enforcePortraitLayout();
+      void lockOrientation();
+    };
     window.addEventListener('orientationchange', reLock);
     window.addEventListener('resize', reLock);
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'visible') void lockOrientation();
     });
 
-    // Also re-apply every 8s as a safety net (many browsers silently drop the lock)
     const safetyInterval = window.setInterval(reLock, 8000);
 
     return () => {
@@ -94,6 +104,7 @@ function usePortraitLock(enabled: boolean) {
       window.removeEventListener('orientationchange', reLock);
       window.removeEventListener('resize', reLock);
       window.clearInterval(safetyInterval);
+      delete document.body.dataset.portraitLock;
     };
   }, [enabled]);
 }
@@ -289,8 +300,7 @@ function useServiceWorker() {
     if (!('serviceWorker' in navigator)) return;
 
     let registration: ServiceWorkerRegistration | null = null;
-    let lastSwVersion = '';
-    try { lastSwVersion = localStorage.getItem('gaga_sw_last_version') || ''; } catch { /* ignore */ }
+    let lastSwVersion = safeGetStorageItem('gaga_sw_last_version') || '';
 
     const handleUpdateFound = () => {
       if (!registration) return;
@@ -321,7 +331,7 @@ function useServiceWorker() {
       if (!next || next === lastSwVersion) return;
       const shouldReload = !!lastSwVersion && lastSwVersion !== next;
       lastSwVersion = next;
-      try { localStorage.setItem('gaga_sw_last_version', next); } catch { /* ignore */ }
+      safeSetStorageItem('gaga_sw_last_version', next);
       if (shouldReload) window.location.reload();
     };
 
@@ -445,7 +455,7 @@ function AppContent() {
     location.pathname !== '/';
 
   return (
-    <div className="w-screen bg-white" style={{ minHeight: '100dvh' }}>
+    <div className="w-full max-w-[100vw] bg-white" style={{ minHeight: '100dvh' }}>
       <Suspense fallback={<PageLoader />}>
         <Routes location={location}>
           {/* Public routes */}

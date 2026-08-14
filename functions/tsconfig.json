@@ -1,6 +1,6 @@
 {
   "compilerOptions": {
-    "module": "commonjs",
+    "module": "Node16",
     "target": "es2020",
     "lib": ["es2020"],
     "noImplicitAny": true,
@@ -11,7 +11,8 @@
     "resolveJsonModule": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
-    "moduleResolution": "node",
+    "moduleResolution": "Node16",
+    "ignoreDeprecations": "6.0",
     "sourceMap": true,
     "declaration": true,
     "baseUrl": ".",

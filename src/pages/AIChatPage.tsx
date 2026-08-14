@@ -1,12 +1,14 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { v4 as uuidv4 } from 'uuid';
 import { motion } from 'framer-motion';
 import {
-  Send, ArrowLeft, Sparkles, Copy, Trash2,Bot,Wand2,
-  Image as ImageIcon, Lightbulb, HelpCircle, Zap,X
+  Send, ArrowLeft, Sparkles, Copy, Trash2, Bot, Wand2,
+  Image as ImageIcon, Lightbulb, HelpCircle, Zap, X
 } from 'lucide-react';
 import { useAuthStore } from '@/store/useAuthStore';
 import { getDefaultAvatar } from '@/lib/utils';
+import { copyToClipboard } from '@/lib/share';
 import { toast } from 'sonner';
 
 interface AIMessage {
@@ -109,7 +111,7 @@ export default function AIChatPage() {
     if (!input.trim()) return;
 
     const userMsg: AIMessage = {
-      id: `msg_${Date.now()}`,
+      id: `msg_${uuidv4()}`,
       role: 'user',
       content: input.trim(),
       timestamp: new Date(),
@@ -123,7 +125,7 @@ export default function AIChatPage() {
     setTimeout(() => {
       const response = generateAIResponse(userMsg.content);
       const aiMsg: AIMessage = {
-        id: `ai_${Date.now()}`,
+        id: `ai_${uuidv4()}`,
         role: 'assistant',
         content: response,
         timestamp: new Date(),
@@ -133,9 +135,13 @@ export default function AIChatPage() {
     }, 800 + Math.random() * 1000);
   };
 
-  const handleCopy = (text: string) => {
-    navigator.clipboard.writeText(text);
-    toast.success('Copied to clipboard');
+  const handleCopy = async (text: string) => {
+    const ok = await copyToClipboard(text);
+    if (ok) {
+      toast.success('Copied to clipboard');
+    } else {
+      toast.error('Unable to copy in this browser');
+    }
   };
 
   const handleClear = () => {
@@ -205,11 +211,10 @@ export default function AIChatPage() {
               {/* Message bubble */}
               <div className={`max-w-[80%] ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
                 <div
-                  className={`px-4 py-3 rounded-2xl text-sm whitespace-pre-wrap ${
-                    msg.role === 'user'
+                  className={`px-4 py-3 rounded-2xl text-sm whitespace-pre-wrap ${msg.role === 'user'
                       ? 'bg-[#00C300] text-black rounded-tr-sm'
                       : 'bg-[#1a1a1a] text-white rounded-tl-sm'
-                  }`}
+                    }`}
                 >
                   {msg.content}
                 </div>

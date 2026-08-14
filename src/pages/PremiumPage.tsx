@@ -15,6 +15,7 @@ import {
   PLAN_PRICING_COINS,
   REFERRAL_REWARD_COINS,
 } from '@/store/usePremiumStore';
+import { copyToClipboard, nativeShare } from '@/lib/share';
 import { toast } from 'sonner';
 
 const currencySymbols: Record<string, string> = {
@@ -80,13 +81,16 @@ export default function PremiumPage() {
     if (!success) setActivePlan(null);
   };
 
-  const handleCopyReferral = () => {
-    navigator.clipboard.writeText(effectiveCode).then(() => {
+  const handleCopyReferral = async () => {
+    const ok = await copyToClipboard(effectiveCode);
+    if (ok) {
       setCopied(true);
       toast.success('Referral code copied!');
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
       timeoutRef.current = setTimeout(() => setCopied(false), 2000);
-    });
+    } else {
+      toast.error('Unable to copy referral code in this browser');
+    }
   };
 
   const handleShareReferral = async () => {
@@ -96,10 +100,9 @@ export default function PremiumPage() {
       url: window.location.origin,
     };
     try {
-      if (navigator.share) {
-        await navigator.share(shareData);
-      } else {
-        handleCopyReferral();
+      const usedNative = await nativeShare(shareData);
+      if (!usedNative) {
+        await handleCopyReferral();
       }
     } catch {
       // ignore

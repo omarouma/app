@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { v4 as uuidv4 } from 'uuid';
 import { toast } from 'sonner';
 import {
   isFirestoreAvailable,
@@ -98,7 +99,7 @@ export const useMessageStore = create<MessageStore>((set, get) => ({
   messages: {},
   hasMore: {},
   subscribeMessages: (chatId: string, initialLimit = 100) => {
-    if (!chatId) return () => {};
+    if (!chatId) return () => { };
 
     let unsub: (() => void) | null = null;
     try {
@@ -150,27 +151,29 @@ export const useMessageStore = create<MessageStore>((set, get) => ({
     if (rateLimitError) {
       toast.error(rateLimitError);
       // Still add the message with 'failed' status so user sees it
-      const localId = `pending_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+      const localId = `pending_${uuidv4()}`;
       set((s) => ({
-        messages: { ...s.messages, [chatId]: [...(s.messages[chatId] ?? []), {
-          id: localId,
-          chatId,
-          senderId,
-          content,
-          type: (type as Message['type']) || 'text',
-          mediaUrl: mediaUrl || '',
-          timestamp: new Date(),
-          read: false,
-          edited: false,
-          reactions: {},
-          deliveryStatus: 'failed' as Message['deliveryStatus'],
-          localId,
-        }]},
+        messages: {
+          ...s.messages, [chatId]: [...(s.messages[chatId] ?? []), {
+            id: localId,
+            chatId,
+            senderId,
+            content,
+            type: (type as Message['type']) || 'text',
+            mediaUrl: mediaUrl || '',
+            timestamp: new Date(),
+            read: false,
+            edited: false,
+            reactions: {},
+            deliveryStatus: 'failed' as Message['deliveryStatus'],
+            localId,
+          }]
+        },
       }));
       return;
     }
     // Optimistic pending state
-    const localId = `pending_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+    const localId = `pending_${uuidv4()}`;
     const optimisticMsg: Message = {
       id: localId,
       chatId,

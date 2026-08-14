@@ -1,4 +1,5 @@
 import { VIDEO_API_CONFIG, getCategoryKeyword, hasYouTubeKey, hasPexelsKey } from '@/config/videoApis';
+import { safeGetStorageItem, safeSetStorageItem } from '@/lib/safeStorage';
 import type { Reel } from '@/types';
 
 // ── Cache ────────────────────────────────────────────────
@@ -7,7 +8,7 @@ const CACHE_TTL_MS = 1000 * 60 * 30; // 30 minutes
 
 function getCache<T>(key: string): T | null {
   try {
-    const raw = localStorage.getItem(CACHE_PREFIX + key);
+    const raw = safeGetStorageItem(CACHE_PREFIX + key);
     if (!raw) return null;
     const parsed = JSON.parse(raw);
     if (Date.now() - parsed.ts > CACHE_TTL_MS) return null;
@@ -17,7 +18,7 @@ function getCache<T>(key: string): T | null {
 
 function setCache<T>(key: string, data: T) {
   try {
-    localStorage.setItem(CACHE_PREFIX + key, JSON.stringify({ ts: Date.now(), data }));
+    safeSetStorageItem(CACHE_PREFIX + key, JSON.stringify({ ts: Date.now(), data }));
   } catch { /* ignore */ }
 }
 

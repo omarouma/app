@@ -43,19 +43,21 @@ export default function Navbar() {
       initial={{ y: -100 }}
       animate={{ y: 0 }}
       transition={{ duration: 0.6, ease: 'easeOut' }}
-      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-        scrolled ? 'bg-white/90 backdrop-blur-md border-b border-[#EBEBEB]' : 'bg-transparent'
-      }`}
+      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${scrolled ? 'bg-white/90 backdrop-blur-md border-b border-[#EBEBEB]' : 'bg-transparent'
+        }`}
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
-<Link to="/" className="flex items-center gap-2 group">
+          <Link to="/" className="flex items-center gap-2 group">
             <Logo size={40} className="drop-shadow-sm" withWordmark />
           </Link>
 
           <div className="hidden md:flex items-center gap-8">
             {navLinks.map((link) => (
-              <button type="button" key={link.label}
+              <button
+                type="button"
+                key={link.label}
+                aria-label={link.label}
                 onClick={() => {
                   if (link.href.startsWith('/#')) {
                     scrollToSection(link.href);
@@ -64,7 +66,7 @@ export default function Navbar() {
                     setMobileMenuOpen(false);
                   }
                 }}
-                className="text-sm font-medium uppercase tracking-wider text-[#8D8D8D] hover:text-[#111111] transition-colors relative group"
+                className="text-sm font-medium uppercase tracking-wider text-[#8D8D8D] hover:text-[#111111] transition-colors relative group rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00C300] focus-visible:ring-offset-2"
               >
                 {link.label}
                 <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-[#00C300] transition-all duration-300 group-hover:w-full" />
@@ -74,25 +76,39 @@ export default function Navbar() {
 
           <div className="hidden md:flex items-center gap-4">
             {canInstall && (
-              <button type="button" onClick={triggerInstall}
-                className="flex items-center gap-2 border border-[#00C300] text-[#00C300] hover:bg-[#00C300] hover:text-white rounded-full px-5 py-2 text-sm font-bold transition-colors"
+              <button
+                type="button"
+                aria-label="Install app"
+                onClick={triggerInstall}
+                className="flex items-center gap-2 border border-[#00C300] text-[#00C300] hover:bg-[#00C300] hover:text-white rounded-full px-5 py-2 text-sm font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00C300] focus-visible:ring-offset-2"
               >
                 <Download size={14} /> Install App
               </button>
             )}
             {isAuthenticated ? (
-              <button type="button" onClick={() => navigate('/chats')}
-                className="bg-[#00C300] hover:bg-[#00A300] text-white rounded-full px-6 py-2 text-sm font-bold transition-colors flex items-center gap-2"
+              <button
+                type="button"
+                aria-label="Open chat"
+                onClick={() => navigate('/chats')}
+                className="bg-[#00C300] hover:bg-[#00A300] text-white rounded-full px-6 py-2 text-sm font-bold transition-colors flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00C300] focus-visible:ring-offset-2"
               >
                 <MessageCircle className="w-4 h-4" />Open Chat
               </button>
             ) : (
               <>
-                <button type="button" onClick={() => navigate('/auth')} className="text-[#8D8D8D] hover:text-[#111111] text-sm font-medium transition-colors">
+                <button
+                  type="button"
+                  aria-label="Log in"
+                  onClick={() => navigate('/auth')}
+                  className="text-[#8D8D8D] hover:text-[#111111] text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00C300] focus-visible:ring-offset-2 rounded-sm"
+                >
                   Log In
                 </button>
-                <button type="button" onClick={() => navigate('/auth')}
-                  className="bg-[#00C300] hover:bg-[#00A300] text-white rounded-full px-6 py-2 text-sm font-bold transition-colors"
+                <button
+                  type="button"
+                  aria-label="Get started"
+                  onClick={() => navigate('/auth')}
+                  className="bg-[#00C300] hover:bg-[#00A300] text-white rounded-full px-6 py-2 text-sm font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00C300] focus-visible:ring-offset-2"
                 >
                   Get Started
                 </button>
@@ -105,7 +121,7 @@ export default function Navbar() {
             aria-controls="mobile-menu"
             aria-expanded={mobileMenuOpen}
             aria-label={mobileMenuOpen ? 'Close navigation menu' : 'Open navigation menu'}
-            className="md:hidden text-[#111111]"
+            className="md:hidden text-[#111111] rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00C300] focus-visible:ring-offset-2"
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
           >
             {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}

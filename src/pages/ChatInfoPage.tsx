@@ -13,6 +13,7 @@ import { useFriendStore } from '@/store/useFriendStore';
 import { isFirestoreAvailable } from '@/lib/firestore';
 import { getDefaultAvatar, sanitizeMediaUrl } from '@/lib/utils';
 import { toast } from 'sonner';
+import { safeGetStorageItem, safeSetStorageItem } from '@/lib/safeStorage';
 import type { Message, User } from '@/types';
 
 export default function ChatInfoPage() {
@@ -111,7 +112,7 @@ export default function ChatInfoPage() {
   useEffect(() => {
     if (!chatId || !currentUser) return;
     const key = `muted_${chatId}_${currentUser.id}`;
-    setIsMuted(localStorage.getItem(key) === 'true');
+    setIsMuted(safeGetStorageItem(key) === 'true');
   }, [chatId, currentUser]);
 
   const mediaMessages = useMemo(() =>
@@ -130,7 +131,7 @@ export default function ChatInfoPage() {
     if (!chatId || !currentUser) return;
     const key = `muted_${chatId}_${currentUser.id}`;
     const next = !isMuted;
-    localStorage.setItem(key, String(next));
+    safeSetStorageItem(key, String(next));
     setIsMuted(next);
     toast.success(next ? 'Chat muted' : 'Chat unmuted');
   };

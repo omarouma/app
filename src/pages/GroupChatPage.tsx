@@ -11,6 +11,7 @@ import { useOfflineQueue, isOnline } from '@/hooks/useOfflineQueue';
 import { useScheduledMessages } from '@/hooks/useScheduledMessages';
 import type { Message } from '@/types';
 import { toast } from 'sonner';
+import { copyToClipboard } from '@/lib/share';
 import { GroupChatHeader } from '@/components/features/chat/GroupChatHeader';
 import { GroupChatMessageList } from '@/components/features/chat/GroupChatMessageList';
 import { GroupChatInput } from '@/components/features/chat/GroupChatInput';
@@ -298,7 +299,7 @@ export default function GroupChatPage() {
                     >
                         {[
                             { label: 'Reply', action: () => { setReplyingTo(contextMenu.msg); setContextMenu(null); } },
-                            { label: 'Copy', action: () => { navigator.clipboard.writeText(contextMenu.msg.content); toast.success('Copied'); setContextMenu(null); } },
+                            { label: 'Copy', action: async () => { const ok = await copyToClipboard(contextMenu.msg.content); if (ok) toast.success('Copied'); else toast.error('Unable to copy in this browser'); setContextMenu(null); } },
                             { label: 'Delete', action: () => { handleDeleteMessage(contextMenu.msg); } },
                         ].map(({ label, action }) => (
                             <button key={label} type="button" onClick={action}

@@ -9,6 +9,8 @@ import type {
   ICameraVideoTrack,
   IMicrophoneAudioTrack,
 } from 'agora-rtc-sdk-ng';
+// Agora SDK is lazy-loaded via getAgoraRTC() to defer the 1.1MB bundle until a call is active.
+// Type imports above are type-only and don't require the runtime module.
 import env from '@/config/env';
 import { isAgoraConfigured, resolveAgoraToken, getAgoraRTC } from '@/lib/agora';
 

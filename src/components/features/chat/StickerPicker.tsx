@@ -2,6 +2,7 @@ import { memo, useState, useCallback, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { Search, X, Loader, TrendingUp, Smile } from 'lucide-react';
 import env from '@/config/env';
+import { safeGetJsonStorageItem, safeSetStorageItem } from '@/lib/safeStorage';
 
 // Default sticker packs
 const DEFAULT_STICKERS = [
@@ -53,14 +54,7 @@ export const StickerPicker = memo(function StickerPicker({ onSelect, onClose }: 
   const [gifQuery, setGifQuery] = useState('');
   const [gifs, setGifs] = useState<string[]>([]);
   const [loadingGifs, setLoadingGifs] = useState(false);
-  const [recentGifs, setRecentGifs] = useState<string[]>(() => {
-    try {
-      const stored = localStorage.getItem('gaga_recent_gifs');
-      return stored ? JSON.parse(stored) : [];
-    } catch {
-      return [];
-    }
-  });
+  const [recentGifs, setRecentGifs] = useState<string[]>(() => safeGetJsonStorageItem<string[]>('gaga_recent_gifs', []));
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const searchGifs = useCallback(async (query: string) => {
@@ -104,9 +98,7 @@ export const StickerPicker = memo(function StickerPicker({ onSelect, onClose }: 
     // Add to recent
     const updated = [url, ...recentGifs.filter(g => g !== url)].slice(0, 12);
     setRecentGifs(updated);
-    try {
-      localStorage.setItem('gaga_recent_gifs', JSON.stringify(updated));
-    } catch { /* ignore */ }
+    safeSetStorageItem('gaga_recent_gifs', JSON.stringify(updated));
     onClose();
   }, [onSelect, onClose, recentGifs]);
 

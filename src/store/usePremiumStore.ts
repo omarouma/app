@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { v4 as uuidv4 } from 'uuid';
 import {
   COLLECTIONS,
   getDocById,
@@ -184,7 +185,7 @@ export const usePremiumStore = create<PremiumStoreState & PremiumStoreActions>((
   subscribeToPremium: (userId: string) => {
     if (!userId) {
       set({ subscription: null, currentTier: 'free', isPremium: false, loading: false });
-      return () => {};
+      return () => { };
     }
 
     set({ loading: true });
@@ -202,17 +203,17 @@ export const usePremiumStore = create<PremiumStoreState & PremiumStoreActions>((
 
           const subscription: PremiumSubscription | null = tier !== 'free' && userDoc.premiumStartedAt
             ? {
-                id: `sub_${userId}`,
-                userId,
-                planId: tier,
-                status: isActive ? 'active' : 'expired',
-                startedAt: new Date(userDoc.premiumStartedAt),
-                expiresAt: expiresAt || now,
-                autoRenew: userDoc.autoRenew ?? false,
-                price: userDoc.premiumPrice || 0,
-                currency: userDoc.premiumCurrency || 'BDT',
-                plan: PREMIUM_PLANS.find(p => p.id === tier),
-              }
+              id: `sub_${userId}`,
+              userId,
+              planId: tier,
+              status: isActive ? 'active' : 'expired',
+              startedAt: new Date(userDoc.premiumStartedAt),
+              expiresAt: expiresAt || now,
+              autoRenew: userDoc.autoRenew ?? false,
+              price: userDoc.premiumPrice || 0,
+              currency: userDoc.premiumCurrency || 'BDT',
+              plan: PREMIUM_PLANS.find(p => p.id === tier),
+            }
             : null;
 
           set({
@@ -247,17 +248,17 @@ export const usePremiumStore = create<PremiumStoreState & PremiumStoreActions>((
 
         const subscription: PremiumSubscription | null = tier !== 'free' && data.premiumStartedAt
           ? {
-              id: `sub_${userId}`,
-              userId,
-              planId: tier,
-              status: isActive ? 'active' : 'expired',
-              startedAt: new Date(data.premiumStartedAt),
-              expiresAt: expiresAt || now,
-              autoRenew: data.autoRenew ?? false,
-              price: data.premiumPrice || 0,
-              currency: data.premiumCurrency || 'BDT',
-              plan: PREMIUM_PLANS.find(p => p.id === tier),
-            }
+            id: `sub_${userId}`,
+            userId,
+            planId: tier,
+            status: isActive ? 'active' : 'expired',
+            startedAt: new Date(data.premiumStartedAt),
+            expiresAt: expiresAt || now,
+            autoRenew: data.autoRenew ?? false,
+            price: data.premiumPrice || 0,
+            currency: data.premiumCurrency || 'BDT',
+            plan: PREMIUM_PLANS.find(p => p.id === tier),
+          }
           : null;
 
         set({
@@ -307,7 +308,7 @@ export const usePremiumStore = create<PremiumStoreState & PremiumStoreActions>((
 
       // Record subscription in subscriptions collection
       try {
-        await setDocById(PREMIUM_COLLECTIONS.SUBSCRIPTIONS, `sub_${userId}_${Date.now()}`, {
+        await setDocById(PREMIUM_COLLECTIONS.SUBSCRIPTIONS, `sub_${userId}_${uuidv4()}`, {
           userId,
           planId,
           status: 'active',
@@ -382,7 +383,7 @@ export const usePremiumStore = create<PremiumStoreState & PremiumStoreActions>((
     const code = `GAGA-${userId.slice(0, 6).toUpperCase()}-${randomPart}`;
     // Best-effort save to user doc
     try {
-      updateDocById(COLLECTIONS.USERS, userId, { referralCode: code }).catch(() => {});
+      updateDocById(COLLECTIONS.USERS, userId, { referralCode: code }).catch(() => { });
     } catch {
       // ignore
     }

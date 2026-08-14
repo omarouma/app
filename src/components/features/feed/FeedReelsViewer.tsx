@@ -24,6 +24,7 @@ import EmptyState from '@/components/EmptyState';
 import LoadingSkeleton from '@/components/LoadingSkeleton';
 import { getDefaultAvatar } from '@/lib/utils';
 import { toast } from 'sonner';
+import { copyToClipboard, nativeShare } from '@/lib/share';
 import type { Reel } from '@/types';
 
 interface FeedReelsViewerProps {
@@ -229,8 +230,12 @@ export default function FeedReelsViewer({ onClose }: FeedReelsViewerProps) {
 
   const handleCopyLink = async (reel: Reel) => {
     try {
-      await navigator.clipboard.writeText(`https://gagachat.app/reel/${reel.id}`);
-      toast.success('Link copied to clipboard');
+      const ok = await copyToClipboard(`https://gagachat.app/reel/${reel.id}`);
+      if (ok) {
+        toast.success('Link copied to clipboard');
+      } else {
+        toast.error('Unable to copy in this browser');
+      }
     } catch { toast.error('Failed to copy'); }
     setShowShareOptions(null);
   };
@@ -783,22 +788,23 @@ export default function FeedReelsViewer({ onClose }: FeedReelsViewerProps) {
               >
                 <MessageCircle size={18} /> Share to Chat
               </button>
-              {navigator.share && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    navigator.share({
-                      title: 'GaGa Chat Reel',
-                      text: showShareOptions.caption || 'Check out this reel',
-                      url: `https://gagachat.app/reel/${showShareOptions.id}`,
-                    });
-                    setShowShareOptions(null);
-                  }}
-                  className="w-full flex items-center gap-3 p-3 rounded-xl bg-[#2a2a2a] text-white hover:bg-[#333] transition-colors"
-                >
-                  <Send size={18} /> Share via...
-                </button>
-              )}
+              <button
+                type="button"
+                onClick={async () => {
+                  const usedNative = await nativeShare({
+                    title: 'GaGa Chat Reel',
+                    text: showShareOptions.caption || 'Check out this reel',
+                    url: `https://gagachat.app/reel/${showShareOptions.id}`,
+                  });
+                  if (!usedNative) {
+                    await handleCopyLink(showShareOptions);
+                  }
+                  setShowShareOptions(null);
+                }}
+                className="w-full flex items-center gap-3 p-3 rounded-xl bg-[#2a2a2a] text-white hover:bg-[#333] transition-colors"
+              >
+                <Send size={18} /> Share via...
+              </button>
               <button
                 type="button"
                 onClick={() => setShowShareOptions(null)}

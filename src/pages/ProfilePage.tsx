@@ -10,6 +10,7 @@ import { useAuthStore } from '@/store/useAuthStore';
 import { useFriendStore } from '@/store/useFriendStore';
 import { buildGagaChatWebUrl, getDefaultAvatar, sanitizeMediaUrl } from '@/lib/utils';
 import { isFirestoreAvailable, COLLECTIONS, updateDocById, subscribeToDoc } from '@/lib/firestore';
+import { copyToClipboard, nativeShare } from '@/lib/share';
 import { toast } from 'sonner';
 import type { User } from '@/types';
 
@@ -150,17 +151,20 @@ export default function ProfilePage() {
     return () => { cancelled = true; };
   }, [displayUser?.id]);
 
-  const handleCopyLink = useCallback(() => {
-    navigator.clipboard.writeText(profileUrl);
-    toast.success('Profile link copied');
+  const handleCopyLink = useCallback(async () => {
+    const ok = await copyToClipboard(profileUrl);
+    if (ok) {
+      toast.success('Profile link copied');
+    } else {
+      toast.error('Unable to copy link in this browser');
+    }
     setShowShareSheet(false);
   }, [profileUrl]);
 
-  const handleNativeShare = useCallback(() => {
-    if (navigator.share) {
-      navigator.share({ title: `${displayUser?.name} on GaGa Chat`, url: profileUrl });
-    } else {
-      handleCopyLink();
+  const handleNativeShare = useCallback(async () => {
+    const usedNative = await nativeShare({ title: `${displayUser?.name} on GaGa Chat`, url: profileUrl, text: 'Check out my profile on GaGa Chat' });
+    if (!usedNative) {
+      await handleCopyLink();
     }
     setShowShareSheet(false);
   }, [displayUser?.name, profileUrl, handleCopyLink]);

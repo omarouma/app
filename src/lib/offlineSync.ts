@@ -20,6 +20,7 @@ import {
   updateQueueStatus,
   isOnline,
 } from '@/lib/offlineQueue';
+import { safeGetStorageItem, safeRemoveStorageItem } from '@/lib/safeStorage';
 import { useChatStore } from '@/store/useChatStore';
 import { useGroupStore } from '@/store/useGroupStore';
 
@@ -41,7 +42,7 @@ interface LegacyQueuedMessage {
 /** Move entries from the retired hook-level queue into the lib queue. */
 function migrateLegacyQueue(): void {
   try {
-    const raw = localStorage.getItem(LEGACY_QUEUE_KEY);
+    const raw = safeGetStorageItem(LEGACY_QUEUE_KEY);
     if (!raw) return;
     const legacy = JSON.parse(raw) as LegacyQueuedMessage[];
     if (Array.isArray(legacy)) {
@@ -57,7 +58,7 @@ function migrateLegacyQueue(): void {
         });
       }
     }
-    localStorage.removeItem(LEGACY_QUEUE_KEY);
+    safeRemoveStorageItem(LEGACY_QUEUE_KEY);
   } catch { /* corrupted legacy queue — drop it */ }
 }
 

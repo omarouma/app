@@ -23,6 +23,11 @@ export async function uploadToSupabaseStorage(
 ): Promise<string> {
   const supabase = getSupabase();
 
+  // Validate file path — must not contain special characters or be empty
+  if (!filePath || filePath.trim() === '' || filePath.includes('//')) {
+    throw new Error(`[Supabase Storage] Invalid file path: "${filePath}". Path must not be empty or contain consecutive slashes.`);
+  }
+
   const { data, error } = await supabase.storage
     .from(bucketName)
     .upload(filePath, file, {
@@ -31,7 +36,17 @@ export async function uploadToSupabaseStorage(
       contentType: inferContentType(file, contentType),
     });
 
-  if (error) throw new Error(`[Supabase Storage] ${error.message}`);
+  if (error) {
+    // Handle specific error cases with helpful guidance
+    const errorMsg = error.message || '';
+    if (errorMsg.includes('400') || errorMsg.includes('not found') || errorMsg.includes('does not exist')) {
+      throw new Error(`[Supabase Storage] Bucket "${bucketName}" not found or not accessible. Create the bucket in Supabase Dashboard → Storage, then retry. Error: ${errorMsg}`);
+    }
+    if (errorMsg.includes('policy') || errorMsg.includes('permission') || errorMsg.includes('403') || errorMsg.includes('authenticated')) {
+      throw new Error(`[Supabase Storage] Permission denied uploading to "${bucketName}/${filePath}". Check RLS policies allow your role. Error: ${errorMsg}`);
+    }
+    throw new Error(`[Supabase Storage] Upload failed: ${errorMsg}`);
+  }
 
   const { data: { publicUrl } } = supabase.storage
     .from(bucketName)

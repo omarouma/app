@@ -1,4 +1,5 @@
 import env from '@/config/env';
+import { v4 as uuidv4 } from 'uuid';
 
 /*
   Media storage adapter.
@@ -69,7 +70,7 @@ function openIDB(): Promise<IDBDatabase> {
 }
 
 async function idbFallback(file: Blob | File): Promise<string> {
-  const id = `${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+  const id = `${uuidv4()}`;
   const db = await openIDB();
   await new Promise<void>((resolve, reject) => {
     const tx = db.transaction(IDB_STORE_NAME, 'readwrite');
@@ -166,7 +167,7 @@ async function localStorageFallback(file: Blob | File): Promise<string> {
     reader.onloadend = () => {
       const dataUrl = reader.result as string;
       try {
-        const store = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY) || '{}');
+        const store = JSON.parse((typeof window !== 'undefined' && window.localStorage ? window.localStorage.getItem(LOCAL_STORAGE_KEY) : null) || '{}');
         const id = `${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
         store[id] = {
           dataUrl,
@@ -175,7 +176,9 @@ async function localStorageFallback(file: Blob | File): Promise<string> {
           size: file.size,
           createdAt: Date.now(),
         };
-        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(store));
+        if (typeof window !== 'undefined' && window.localStorage) {
+          window.localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(store));
+        }
         resolve(dataUrl); // Return data URL directly
       } catch {
         reject(new Error('localStorage quota exceeded. Clear storage and try again.'));
@@ -186,10 +189,36 @@ async function localStorageFallback(file: Blob | File): Promise<string> {
   });
 }
 
+async function browserFileFallback(file: Blob | File): Promise<string | null> {
+  if (typeof FileReader !== 'undefined') {
+    return await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const value = typeof reader.result === 'string' ? reader.result : null;
+        if (value) resolve(value);
+        else reject(new Error('Failed to read file for browser fallback'));
+      };
+      reader.onerror = () => reject(new Error('Failed to read file for browser fallback'));
+      reader.readAsDataURL(file);
+    });
+  }
+
+  if (typeof URL !== 'undefined' && typeof URL.createObjectURL === 'function') {
+    return URL.createObjectURL(file);
+  }
+
+  return null;
+}
+
 async function cloudinaryUpload(
   file: Blob | File,
   opts: CloudinaryUploadOpts
 ): Promise<string> {
+  // Validate configuration before attempting upload
+  if (!CLOUDINARY_CLOUD_NAME || !CLOUDINARY_UPLOAD_PRESET) {
+    throw new Error('Cloudinary not configured. Set VITE_CLOUDINARY_CLOUD_NAME and VITE_CLOUDINARY_UPLOAD_PRESET in .env');
+  }
+
   const resourceType = inferResourceType(file);
   const uploadUrl = `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/${resourceType}/upload`;
 
@@ -198,11 +227,13 @@ async function cloudinaryUpload(
   form.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
   // Do NOT send api_key from the client — use an unsigned upload preset instead.
   // Sending the API key exposes it to all users. Configure an unsigned preset in Cloudinary.
+  // ⚠️ IMPORTANT: Ensure the preset is set to "Unsigned" mode in Cloudinary Dashboard → Settings → Upload.
+  // If the preset is in "Signed" mode, uploads will fail with 400 Bad Request.
 
   const folder = buildDynamicFolder(opts);
   form.append('folder', folder);
 
-// Optional: use filename for better public_id
+  // Optional: use filename for better public_id
   if (opts.fileName) {
     form.append('public_id', opts.fileName.replace(/[^a-zA-Z0-9_-]/g, '_'));
   }
@@ -234,6 +265,10 @@ async function cloudinaryUpload(
           } catch {
             reject(new Error('Cloudinary upload returned an invalid response'));
           }
+        } else if (xhr.status === 400) {
+          // 400 Bad Request — usually due to unsigned upload preset not configured
+          const detail = xhr.responseText ? ` (${xhr.responseText.slice(0, 150)})` : '';
+          reject(new Error(`Cloudinary upload failed with 400 Bad Request. Verify upload preset is set to "Unsigned" mode in Cloudinary Dashboard${detail}`));
         } else {
           reject(new Error(`Cloudinary upload failed: ${xhr.status} ${xhr.responseText}`));
         }
@@ -251,6 +286,11 @@ async function cloudinaryUpload(
 
   if (!res.ok) {
     const text = await res.text().catch(() => '');
+    if (res.status === 400) {
+      // 400 Bad Request — usually due to unsigned upload preset not configured
+      const detail = text ? ` (${text.slice(0, 150)})` : '';
+      throw new Error(`Cloudinary upload failed with 400 Bad Request. Verify upload preset is set to "Unsigned" mode in Cloudinary Dashboard${detail}`);
+    }
     throw new Error(`Cloudinary upload failed: ${res.status} ${text}`);
   }
 
@@ -313,9 +353,9 @@ async function uploadWithFallback(
   }
 
   // 3) Prefer the localStorage base64 fallback for small images FIRST because it
-  //    returns a displayable data URL that persists across reloads. The IndexedDB
-  //    fallback returns a synthetic `idb://` URL that images can't render directly,
-  //    so it is only used as a last resort (e.g. non-image blobs over the 2MB cap).
+  //    returns a displayable data URL that persists across reloads. For larger
+  //    images or videos, the browser-level fallback returns a renderable URL that
+  //    works immediately, even when the app cannot persist the blob externally.
   if (file.size <= MAX_FALLBACK_SIZE && inferResourceType(file) === 'image') {
     try {
       return await localStorageFallback(file);
@@ -324,11 +364,16 @@ async function uploadWithFallback(
     }
   }
 
-  // 4) IndexedDB fallback — return null so callers can handle gracefully
-  //    (e.g., show a placeholder instead of broken image)
+  try {
+    const browserFallback = await browserFileFallback(file);
+    if (browserFallback) return browserFallback;
+  } catch (err) {
+    errors.push(`browserFallback: ${err instanceof Error ? err.message : String(err)}`);
+  }
+
+  // 4) IndexedDB fallback — only used if no browser URL can be created.
   try {
     await idbFallback(file);
-    // Return null instead of idb:// URL so callers can show a fallback UI
     return null;
   } catch (err) {
     errors.push(`IndexedDB: ${err instanceof Error ? err.message : String(err)}`);
@@ -347,16 +392,16 @@ export async function uploadMediaBlob(
   arg1:
     | (Blob | File)
     | {
-        userId?: string;
-        kind?: string;
-        chatId?: string;
-        folder?: string;
-        fileName?: string;
-        mimeType?: string;
-        contentType?: string;
-        onProgress?: (percent: number) => void;
-        file: Blob | File;
-      },
+      userId?: string;
+      kind?: string;
+      chatId?: string;
+      folder?: string;
+      fileName?: string;
+      mimeType?: string;
+      contentType?: string;
+      onProgress?: (percent: number) => void;
+      file: Blob | File;
+    },
   arg2: {
     userId?: string;
     kind?: string;
@@ -368,7 +413,7 @@ export async function uploadMediaBlob(
     onProgress?: (percent: number) => void;
   } = {}
 ): Promise<string | null> {
-// Object-style
+  // Object-style
   if (typeof arg1 === 'object' && 'file' in arg1) {
     const opts = arg1;
     return uploadWithFallback(opts.file, {
@@ -397,7 +442,8 @@ export async function uploadMediaBlob(
 // ── Helper to clear old fallback entries (call periodically) ──
 export function cleanupMediaFallback(maxAgeMs: number = 7 * 24 * 60 * 60 * 1000) {
   try {
-    const store = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY) || '{}');
+    const raw = typeof window !== 'undefined' && window.localStorage ? window.localStorage.getItem(LOCAL_STORAGE_KEY) : null;
+    const store = JSON.parse(raw || '{}');
     const now = Date.now();
     let changed = false;
     for (const [id, entry] of Object.entries(store)) {
@@ -407,8 +453,8 @@ export function cleanupMediaFallback(maxAgeMs: number = 7 * 24 * 60 * 60 * 1000)
         changed = true;
       }
     }
-    if (changed) {
-      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(store));
+    if (changed && typeof window !== 'undefined' && window.localStorage) {
+      window.localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(store));
     }
   } catch {
     /* noop */

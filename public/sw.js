@@ -53,13 +53,22 @@ self.addEventListener('fetch', (event) => {
   if (
     url.pathname.startsWith('/api/') ||
     url.pathname.startsWith('/auth/') ||
+    url.protocol === 'idb:' ||
     url.hostname.includes('supabase.co') ||
     url.hostname.includes('googleapis.com') ||
+    url.hostname.includes('gstatic.com') ||
     url.hostname.includes('cloudinary.com') ||
     url.hostname.includes('googletagmanager.com') ||
     url.hostname.includes('googlesyndication.com') ||
     url.hostname.includes('doubleclick.net') ||
-    url.hostname.includes('dicebear.com')
+    url.hostname.includes('adtrafficquality.google') ||
+    url.hostname.includes('google.com') ||
+    url.hostname.includes('youtube.com') ||
+    url.hostname.includes('ytimg.com') ||
+    url.hostname.includes('images.unsplash.com') ||
+    url.hostname.includes('pexels.com') ||
+    url.hostname.includes('dicebear.com') ||
+    url.hostname.includes('pravatar.cc')
   ) return;
 
   // Cache-first for static assets (hashed filenames)

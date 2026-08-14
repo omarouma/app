@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { v4 as uuidv4 } from 'uuid';
 import {
   isFirestoreAvailable,
   COLLECTIONS,
@@ -70,6 +71,7 @@ export function getCurrencySymbol(currency: CurrencyCode): string {
 const hasSecureCrypto = () => typeof crypto !== 'undefined' && !!crypto.subtle && typeof crypto.getRandomValues === 'function';
 const readStoredValue = (key: string) => {
   try {
+    if (typeof window === 'undefined' || !window.localStorage) return null;
     return window.localStorage.getItem(key);
   } catch {
     return null;
@@ -77,6 +79,7 @@ const readStoredValue = (key: string) => {
 };
 const writeStoredValue = (key: string, value: string) => {
   try {
+    if (typeof window === 'undefined' || !window.localStorage) return;
     window.localStorage.setItem(key, value);
   } catch {
     // ignore storage failures
@@ -127,31 +130,31 @@ interface WalletStore {
   loading: boolean;
   lastError: string | null;
   exchangeRates: ExchangeRate[];
-  
+
   // Subscription
   subscribeWallet: (userId: string) => () => void;
-  
+
   // Core wallet ops
   earnCoins: (userId: string, amount: number, description: string) => Promise<void>;
   deposit: (userId: string, amount: number, currency: CurrencyCode, method: string) => Promise<void>;
   withdraw: (userId: string, amount: number, currency: CurrencyCode, method: string, account: string) => Promise<boolean>;
-  
+
   // Currency conversion
   convert: (userId: string, amount: number, from: CurrencyCode, to: CurrencyCode) => Promise<boolean>;
-  
+
   // P2P transfers
   sendFromChat: (fromUserId: string, fromUserName: string, chatId: string, toUserId: string, amount: number, currency: CurrencyCode, note?: string) => Promise<boolean>;
   sendP2P: (fromUserId: string, toUserId: string, toUserName: string, amount: number, currency: CurrencyCode, note?: string) => Promise<boolean>;
   requestMoney: (fromUserId: string, fromUserName: string, toUserId: string, amount: number, currency: CurrencyCode, note?: string) => Promise<boolean>;
   splitBill: (fromUserId: string, toUserIds: string[], totalAmount: number, currency: CurrencyCode, description: string) => Promise<boolean>;
-  
+
   // Promo codes
   redeemCode: (userId: string, code: string, promoCodes: Record<string, { coins: number; label: string }>) => Promise<boolean>;
-  
+
   // Staking / Interest
   claimDailyInterest: (userId: string) => Promise<number>;
   getDailyInterestAmount: (userId: string) => number;
-  
+
   // Wallet security
   setWalletPin: (userId: string, pin: string) => Promise<void>;
   verifyPin: (pin: string) => Promise<boolean>;
@@ -160,7 +163,7 @@ interface WalletStore {
   unlockWallet: () => void;
   lockWallet: () => void;
   hasPinSet: () => boolean;
-  
+
   // Stats
   getTotalBalanceInGaga: () => number;
   getStakingAPY: () => number;
@@ -180,11 +183,11 @@ export const useWalletStore = create<WalletStore>((set, get) => ({
     if (!isFirestoreAvailable()) {
       console.warn('[WalletStore.subscribeWallet] Firestore unavailable');
       set({ wallet: null, loading: false, lastError: 'Firestore unavailable' });
-      return () => {};
+      return () => { };
     }
     if (!userId) {
       set({ wallet: null, loading: false, lastError: null });
-      return () => {};
+      return () => { };
     }
 
     // subscribeToDoc fires immediately with the current state,
@@ -206,7 +209,7 @@ export const useWalletStore = create<WalletStore>((set, get) => ({
         } else {
           // No wallet yet — create one with welcome bonus
           const welcomeTx: WalletTransaction = {
-            id: `tx_${Date.now()}_welcome`,
+            id: `tx_${uuidv4()}_welcome`,
             type: 'earn',
             amount: 50,
             currency: 'coins',
@@ -226,8 +229,8 @@ export const useWalletStore = create<WalletStore>((set, get) => ({
               createdAt: serverTimestamp(),
             });
           } catch {
-        set({ lastError: 'Failed to initialize wallet.' });
-      }
+            set({ lastError: 'Failed to initialize wallet.' });
+          }
           set({
             wallet: { coins: 50, bdtBalance: 0, usdBalance: 0, transactions: [welcomeTx] },
             loading: false,
@@ -258,7 +261,7 @@ export const useWalletStore = create<WalletStore>((set, get) => ({
     try {
       const existing = await getDocById(COLLECTIONS.WALLETS, userId);
       const tx: WalletTransaction = {
-        id: `tx_${Date.now()}`,
+        id: `tx_${uuidv4()}`,
         type: 'earn',
         amount,
         currency: 'coins',
@@ -299,7 +302,7 @@ export const useWalletStore = create<WalletStore>((set, get) => ({
     try {
       const existing = await getDocById(COLLECTIONS.WALLETS, userId);
       const tx: WalletTransaction = {
-        id: `tx_${Date.now()}_dep`,
+        id: `tx_${uuidv4()}_dep`,
         type: 'deposit',
         amount,
         currency: (currency === 'GAGA' ? 'coins' : currency) as 'coins' | 'USD' | 'BDT' | 'RMB' | 'INR',
@@ -307,7 +310,7 @@ export const useWalletStore = create<WalletStore>((set, get) => ({
         timestamp: new Date().toISOString(),
         status: 'completed',
       };
-      
+
       if (existing) {
         const update: Record<string, unknown> = {
           transactions: [...(existing.transactions || []), tx],
@@ -345,7 +348,7 @@ export const useWalletStore = create<WalletStore>((set, get) => ({
         set({ lastError: 'Wallet not found.' });
         return false;
       }
-      
+
       const balanceKey = currency === 'GAGA' ? 'coins' : 'usdBalance';
       const current = (existing[balanceKey] as number) || 0;
       if (current < amount) {
@@ -354,7 +357,7 @@ export const useWalletStore = create<WalletStore>((set, get) => ({
       }
 
       const tx: WalletTransaction = {
-        id: `tx_${Date.now()}_wd`,
+        id: `tx_${uuidv4()}_wd`,
         type: 'withdraw',
         amount,
         currency: (currency === 'GAGA' ? 'coins' : currency) as 'coins' | 'USD' | 'BDT' | 'RMB' | 'INR',
@@ -362,12 +365,12 @@ export const useWalletStore = create<WalletStore>((set, get) => ({
         timestamp: new Date().toISOString(),
         status: 'pending',
       };
-      
+
       const update: Record<string, unknown> = {
         transactions: [...(existing.transactions || []), tx],
       };
       update[balanceKey] = current - amount;
-      
+
       await updateDocById(COLLECTIONS.WALLETS, userId, update);
       set({ lastError: null });
       return true;
@@ -388,7 +391,7 @@ export const useWalletStore = create<WalletStore>((set, get) => ({
         set({ lastError: 'Wallet not found.' });
         return false;
       }
-      
+
       const fromKey = from === 'GAGA' ? 'coins' : 'usdBalance';
       const toKey = to === 'GAGA' ? 'coins' : 'usdBalance';
       const currentFrom = (existing[fromKey] as number) || 0;
@@ -396,11 +399,11 @@ export const useWalletStore = create<WalletStore>((set, get) => ({
         set({ lastError: 'Insufficient balance for conversion.' });
         return false;
       }
-      
+
       const converted = convertCurrency(amount, from, to);
-      
+
       const tx: WalletTransaction = {
-        id: `tx_${Date.now()}_conv`,
+        id: `tx_${uuidv4()}_conv`,
         type: 'convert',
         amount,
         currency: from === 'GAGA' ? 'coins' : from,
@@ -408,13 +411,13 @@ export const useWalletStore = create<WalletStore>((set, get) => ({
         timestamp: new Date().toISOString(),
         status: 'completed',
       };
-      
+
       const update: Record<string, unknown> = {
         transactions: [...(existing.transactions || []), tx],
       };
       update[fromKey] = currentFrom - amount;
       update[toKey] = ((existing[toKey] as number) || 0) + converted;
-      
+
       await updateDocById(COLLECTIONS.WALLETS, userId, update);
       set({ lastError: null });
       return true;
@@ -442,8 +445,8 @@ export const useWalletStore = create<WalletStore>((set, get) => ({
         const senderBalance = (senderWallet?.[balanceKey] as number) || 0;
         if (senderBalance < amount) throw new Error('Insufficient balance.');
         const receiverWallet = await getDocById(COLLECTIONS.WALLETS, toUserId);
-        const tx: WalletTransaction = { id: `tx_${Date.now()}_send`, type: 'send', amount, currency: (currency === 'GAGA' ? 'coins' : currency) as 'coins' | 'BDT' | 'USD' | 'RMB' | 'INR', description: `Sent ${formatCurrency(amount, currency)}${note ? ': ' + note : ''}`, timestamp: new Date().toISOString(), status: 'completed' };
-        const receiverTx: WalletTransaction = { id: `tx_${Date.now()}_recv`, type: 'receive', amount, currency: (currency === 'GAGA' ? 'coins' : currency) as 'coins' | 'BDT' | 'USD' | 'RMB' | 'INR', description: `Received ${formatCurrency(amount, currency)} from ${fromUserName}${note ? ': ' + note : ''}`, timestamp: new Date().toISOString(), status: 'completed' };
+        const tx: WalletTransaction = { id: `tx_${uuidv4()}_send`, type: 'send', amount, currency: (currency === 'GAGA' ? 'coins' : currency) as 'coins' | 'BDT' | 'USD' | 'RMB' | 'INR', description: `Sent ${formatCurrency(amount, currency)}${note ? ': ' + note : ''}`, timestamp: new Date().toISOString(), status: 'completed' };
+        const receiverTx: WalletTransaction = { id: `tx_${uuidv4()}_recv`, type: 'receive', amount, currency: (currency === 'GAGA' ? 'coins' : currency) as 'coins' | 'BDT' | 'USD' | 'RMB' | 'INR', description: `Received ${formatCurrency(amount, currency)} from ${fromUserName}${note ? ': ' + note : ''}`, timestamp: new Date().toISOString(), status: 'completed' };
         await updateDocById(COLLECTIONS.WALLETS, fromUserId, { [balanceKey]: senderBalance - amount, transactions: [...(senderWallet?.transactions || []), tx] });
         await updateDocById(COLLECTIONS.WALLETS, toUserId, { [balanceKey]: ((receiverWallet?.[balanceKey] as number) || 0) + amount, transactions: [...(receiverWallet?.transactions || []), receiverTx] });
         transferOk = true;
@@ -496,7 +499,7 @@ export const useWalletStore = create<WalletStore>((set, get) => ({
         if (senderBalance < amount) throw new Error('Insufficient balance.');
 
         const tx: WalletTransaction = {
-          id: `tx_${Date.now()}_send`,
+          id: `tx_${uuidv4()}_send`,
           type: 'send',
           amount,
           currency: (currency === 'GAGA' ? 'coins' : currency) as 'coins' | 'BDT' | 'USD' | 'RMB' | 'INR',
@@ -505,7 +508,7 @@ export const useWalletStore = create<WalletStore>((set, get) => ({
           status: 'completed',
         };
         const receiverTx: WalletTransaction = {
-          id: `tx_${Date.now()}_recv`,
+          id: `tx_${uuidv4()}_recv`,
           type: 'receive',
           amount,
           currency: (currency === 'GAGA' ? 'coins' : currency) as 'coins' | 'BDT' | 'USD' | 'RMB' | 'INR',
@@ -719,23 +722,23 @@ export const useWalletStore = create<WalletStore>((set, get) => ({
     try {
       const wallet = await getDocById(COLLECTIONS.WALLETS, userId);
       if (!wallet) return 0;
-      
+
       const lastClaim = wallet.lastInterestClaim ? new Date(wallet.lastInterestClaim) : null;
       const now = new Date();
       if (lastClaim && (now.getTime() - lastClaim.getTime()) < 20 * 60 * 60 * 1000) {
         return 0; // Must wait ~20 hours between claims
       }
-      
+
       const coins = wallet.coins || 0;
       const tier = getStakingTier(coins);
       if (tier.apy === 0) return 0;
-      
+
       // Daily interest = (balance * APY) / 365
       const dailyInterest = Math.round((coins * (tier.apy / 100) / 365) * 100) / 100;
       if (dailyInterest <= 0) return 0;
-      
+
       const tx: WalletTransaction = {
-        id: `tx_${Date.now()}_interest`,
+        id: `tx_${uuidv4()}_interest`,
         type: 'earn',
         amount: dailyInterest,
         currency: 'coins',
@@ -743,14 +746,14 @@ export const useWalletStore = create<WalletStore>((set, get) => ({
         timestamp: new Date().toISOString(),
         status: 'completed',
       };
-      
+
       await updateDocById(COLLECTIONS.WALLETS, userId, {
         coins: coins + dailyInterest,
         transactions: [...(wallet.transactions || []), tx],
         lastInterestClaim: now.toISOString(),
         totalEarned: (wallet.totalEarned || 0) + dailyInterest,
       });
-      
+
       set({ lastError: null });
       return dailyInterest;
     } catch {
@@ -791,7 +794,9 @@ export const useWalletStore = create<WalletStore>((set, get) => ({
 
   clearWalletPin: (userId) => {
     try {
-      window.localStorage.removeItem(`gaga_wallet_pin_${userId}`);
+      if (typeof window !== 'undefined' && window.localStorage) {
+        window.localStorage.removeItem(`gaga_wallet_pin_${userId}`);
+      }
     } catch {
       // ignore storage failures
     }
@@ -800,7 +805,9 @@ export const useWalletStore = create<WalletStore>((set, get) => ({
 
   resetPin: (userId) => {
     try {
-      window.localStorage.removeItem(`gaga_wallet_pin_${userId}`);
+      if (typeof window !== 'undefined' && window.localStorage) {
+        window.localStorage.removeItem(`gaga_wallet_pin_${userId}`);
+      }
     } catch {
       // ignore storage failures
     }

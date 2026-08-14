@@ -14,6 +14,8 @@
  * ```
  */
 
+import { safeGetJsonStorageItem, safeSetStorageItem } from '@/lib/safeStorage';
+
 export interface RateLimiter {
   /** Returns true if the action is allowed, false if rate limited */
   canProceed: () => boolean;
@@ -47,12 +49,7 @@ export function createRateLimiter(
   function loadEntries(key?: string): RateLimitEntry[] {
     if (!key) return [];
     try {
-      const raw = localStorage.getItem(key);
-      if (!raw) return [];
-      const parsed = JSON.parse(raw) as RateLimitEntry[];
-      // Filter out expired entries
-      const now = Date.now();
-      return parsed.filter(e => now - e.timestamp < windowMs);
+      return safeGetJsonStorageItem<RateLimitEntry[]>(key, []).filter(e => Date.now() - e.timestamp < windowMs);
     } catch {
       return [];
     }
@@ -61,7 +58,7 @@ export function createRateLimiter(
   function saveEntries(key?: string) {
     if (!key) return;
     try {
-      localStorage.setItem(key, JSON.stringify(entries));
+      safeSetStorageItem(key, JSON.stringify(entries));
     } catch {
       // Ignore storage errors
     }

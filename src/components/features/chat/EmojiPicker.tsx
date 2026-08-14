@@ -1,16 +1,18 @@
 import { useState } from 'react';
+import { safeGetJsonStorageItem, safeSetStorageItem } from '@/lib/safeStorage';
 
 const RECENT_KEY = 'emoji_recent';
 const MAX_RECENT = 16;
 
 function getRecentEmojis(): string[] {
-  try { return JSON.parse(localStorage.getItem(RECENT_KEY) || '[]'); } catch { return []; }
+  return safeGetJsonStorageItem<string[]>(RECENT_KEY, []);
 }
 
 function addRecentEmoji(emoji: string) {
   const recent = getRecentEmojis().filter(e => e !== emoji);
-  recent.unshift(emoji);
-  localStorage.setItem(RECENT_KEY, JSON.stringify(recent.slice(0, MAX_RECENT)));
+  const next = recent.slice(0, MAX_RECENT - 1);
+  next.unshift(emoji);
+  safeSetStorageItem(RECENT_KEY, JSON.stringify(next.slice(0, MAX_RECENT)));
 }
 
 const emojiCategories: Record<string, string[]> = {

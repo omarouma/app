@@ -187,7 +187,7 @@ export const useChallengeStore = create<ChallengeStore>((set, get) => ({
     return () => { if (unsub) unsub(); };
   },
 
-  updateProgress: async (userId, type, amount = 1) => {
+  updateProgress: async (_userId, type, amount = 1) => {
     const { challenges } = get();
     const challenge = challenges.find(c => c.type === type && !c.completed);
     if (!challenge) return;

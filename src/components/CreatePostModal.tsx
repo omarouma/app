@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
+import { v4 as uuidv4 } from 'uuid';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useEnhancedTimelineStore } from '@/store/useEnhancedTimelineStore';
@@ -31,11 +32,11 @@ const PRESET_LOCATIONS = [
 
 // Trimmed to a practical set — avoids shipping 500+ rarely-used emojis
 const EMOJIS = [
-  '😀','😂','😍','😎','🤔','😭','😡','🥳','🤩','😴','👏','🔥','❤️','💯','🙏',
-  '💪','🎉','🌟','🎵','📸','🍕','✈️','🏆','🎮','🎬','💼','🎓','🏠','🚗','🌈',
-  '🌊','🌅','🌺','🐶','🐱','🦋','🌻','☕','🍦','🍔','🍣','🎂','🍷','🍹','🎁',
-  '👍','👎','👌','🤞','✌️','🤟','👋','🙌','🤝','💡','🎯','🚀','💎','🌍','⭐',
-  '😊','😇','🥰','😘','🤗','😏','😒','😔','😢','😤','🤣','😆','😅','🙃','😬',
+  '😀', '😂', '😍', '😎', '🤔', '😭', '😡', '🥳', '🤩', '😴', '👏', '🔥', '❤️', '💯', '🙏',
+  '💪', '🎉', '🌟', '🎵', '📸', '🍕', '✈️', '🏆', '🎮', '🎬', '💼', '🎓', '🏠', '🚗', '🌈',
+  '🌊', '🌅', '🌺', '🐶', '🐱', '🦋', '🌻', '☕', '🍦', '🍔', '🍣', '🎂', '🍷', '🍹', '🎁',
+  '👍', '👎', '👌', '🤞', '✌️', '🤟', '👋', '🙌', '🤝', '💡', '🎯', '🚀', '💎', '🌍', '⭐',
+  '😊', '😇', '🥰', '😘', '🤗', '😏', '😒', '😔', '😢', '😤', '🤣', '😆', '😅', '🙃', '😬',
 ];
 
 const MAX_IMAGES = 10;
@@ -58,7 +59,7 @@ function getInitialState() {
     contentWarning: false,
     scheduledDate: '',
     showSchedule: false,
-hashtags: [] as string[],
+    hashtags: [] as string[],
     isPosting: false,
     showSuccess: false,
     uploadProgress: 0,
@@ -69,7 +70,7 @@ export default function CreatePostModal({ isOpen, onClose, onPost }: CreatePostM
   const [state, setState] = useState(getInitialState);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-const { user } = useAuthStore();
+  const { user } = useAuthStore();
   const { createPost, refreshPosts } = useEnhancedTimelineStore();
 
   // Reset state when modal opens/closes
@@ -112,7 +113,7 @@ const { user } = useAuthStore();
     const toProcess = files.slice(0, remaining);
     let rejected = 0;
 
-toProcess.forEach((file) => {
+    toProcess.forEach((file) => {
       if (!file.type.startsWith('image/') && !file.type.startsWith('video/')) {
         rejected++;
         return;
@@ -123,13 +124,13 @@ toProcess.forEach((file) => {
         toast.error(`"${file.name}" exceeds ${limitMB}MB limit`);
         return;
       }
-    // Use objectURL for video to avoid 67MB base64 in memory; dataURL for images
+      // Use objectURL for video to avoid 67MB base64 in memory; dataURL for images
       if (file.type.startsWith('video/')) {
         const objectUrl = URL.createObjectURL(file);
         setState((prev) => ({
           ...prev,
           images: [...prev.images, {
-            id: `${Date.now()}_${Math.random().toString(36).slice(2)}`,
+            id: uuidv4(),
             dataUrl: objectUrl,
             file,
             type: 'video',
@@ -142,7 +143,7 @@ toProcess.forEach((file) => {
             setState((prev) => ({
               ...prev,
               images: [...prev.images, {
-                id: `${Date.now()}_${Math.random().toString(36).slice(2)}`,
+                id: uuidv4(),
                 dataUrl: ev.target!.result as string,
                 file,
                 type: 'image',
@@ -238,15 +239,15 @@ toProcess.forEach((file) => {
       }
     }
 
-set('isPosting', true);
+    set('isPosting', true);
     setState((prev) => ({ ...prev, uploadProgress: 0 }));
     try {
       const pollData = state.showPoll
         ? {
-            question: state.pollQuestion,
-            options: state.pollOptions.map((text) => ({ text, votes: [] })),
-            totalVotes: 0,
-          }
+          question: state.pollQuestion,
+          options: state.pollOptions.map((text) => ({ text, votes: [] })),
+          totalVotes: 0,
+        }
         : undefined;
 
       // Upload sequentially so progress is meaningful
@@ -287,7 +288,7 @@ set('isPosting', true);
         videoUrl,
       );
 
-// Refresh the feed so the newly created post appears at the top in
+      // Refresh the feed so the newly created post appears at the top in
       // real-time, complementing the optimistic insert done in the store.
       void refreshPosts();
 
@@ -406,7 +407,7 @@ set('isPosting', true);
             />
           </div>
 
-{/* Image previews */}
+          {/* Image previews */}
           {state.images.length > 0 && (
             <div className="px-4 pb-3 flex gap-2 overflow-x-auto">
               {state.images.map((img) => (
@@ -664,7 +665,7 @@ set('isPosting', true);
             </button>
           </div>
 
-{/* Upload progress bar */}
+          {/* Upload progress bar */}
           {state.isPosting && state.images.length > 0 && (
             <div className="px-4 pb-2">
               <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">

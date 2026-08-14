@@ -175,28 +175,100 @@ CREATE TABLE IF NOT EXISTS messages (
 
 CREATE INDEX IF NOT EXISTS idx_messages_chat_id ON messages (chat_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_messages_sender_id ON messages (sender_id);
+CREATE INDEX IF NOT EXISTS idx_messages_sender_created ON messages (sender_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_messages_read ON messages (chat_id, read) WHERE read = false;
 
 ALTER TABLE messages ENABLE ROW LEVEL SECURITY;
 
-DROP POLICY IF EXISTS "messages_chat_participant" ON messages;
-CREATE POLICY "messages_chat_participant" ON messages
-  FOR ALL TO authenticated
+-- Read access: any chat participant can view messages in that chat.
+DROP POLICY IF EXISTS "messages_participant_select" ON messages;
+CREATE POLICY "messages_participant_select" ON messages
+  FOR SELECT TO authenticated
   USING (
     EXISTS (
       SELECT 1 FROM chats
       WHERE chats.id = messages.chat_id
-      AND auth.uid()::text = ANY(chats.participants)
+        AND auth.uid()::text = ANY(chats.participants)
+    )
+  );
+
+-- Write access: only the sender can insert their own messages into a chat they belong to.
+DROP POLICY IF EXISTS "messages_participant_insert" ON messages;
+CREATE POLICY "messages_participant_insert" ON messages
+  FOR INSERT TO authenticated
+  WITH CHECK (
+    auth.uid()::text = sender_id
+    AND EXISTS (
+      SELECT 1 FROM chats
+      WHERE chats.id = messages.chat_id
+        AND auth.uid()::text = ANY(chats.participants)
+    )
+  );
+
+-- Sender can update their own message content, metadata, and edits.
+DROP POLICY IF EXISTS "messages_sender_update" ON messages;
+CREATE POLICY "messages_sender_update" ON messages
+  FOR UPDATE TO authenticated
+  USING (auth.uid()::text = sender_id)
+  WITH CHECK (
+    auth.uid()::text = sender_id
+    AND NEW.chat_id IS NOT DISTINCT FROM OLD.chat_id
+    AND NEW.sender_id IS NOT DISTINCT FROM OLD.sender_id
+    AND NEW.created_at IS NOT DISTINCT FROM OLD.created_at
+  );
+
+-- Recipients may only update read-delivery metadata; they cannot change message content.
+DROP POLICY IF EXISTS "messages_recipient_read_update" ON messages;
+CREATE POLICY "messages_recipient_read_update" ON messages
+  FOR UPDATE TO authenticated
+  USING (
+    auth.uid()::text <> sender_id
+    AND EXISTS (
+      SELECT 1 FROM chats
+      WHERE chats.id = messages.chat_id
+        AND auth.uid()::text = ANY(chats.participants)
     )
   )
   WITH CHECK (
-    auth.uid()::text = sender_id AND
-    EXISTS (
-      SELECT 1 FROM chats
-      WHERE chats.id = messages.chat_id
-      AND auth.uid()::text = ANY(chats.participants)
+    auth.uid()::text <> sender_id
+    AND NEW.chat_id IS NOT DISTINCT FROM OLD.chat_id
+    AND NEW.sender_id IS NOT DISTINCT FROM OLD.sender_id
+    AND NEW.content IS NOT DISTINCT FROM OLD.content
+    AND NEW.type IS NOT DISTINCT FROM OLD.type
+    AND NEW.media_url IS NOT DISTINCT FROM OLD.media_url
+    AND NEW.media_urls IS NOT DISTINCT FROM OLD.media_urls
+    AND NEW.reply_to IS NOT DISTINCT FROM OLD.reply_to
+    AND NEW.reactions IS NOT DISTINCT FROM OLD.reactions
+    AND NEW.forwarded_from IS NOT DISTINCT FROM OLD.forwarded_from
+    AND NEW.poll_data IS NOT DISTINCT FROM OLD.poll_data
+    AND NEW.transfer_data IS NOT DISTINCT FROM OLD.transfer_data
+    AND NEW.contact_card IS NOT DISTINCT FROM OLD.contact_card
+    AND NEW.edited IS NOT DISTINCT FROM OLD.edited
+    AND NEW.destroyed IS NOT DISTINCT FROM OLD.destroyed
+    AND NEW.disappearing_timer IS NOT DISTINCT FROM OLD.disappearing_timer
+    AND NEW.disappearing_initiated_at IS NOT DISTINCT FROM OLD.disappearing_initiated_at
+    AND NEW.local_id IS NOT DISTINCT FROM OLD.local_id
+    AND NEW.retry_count IS NOT DISTINCT FROM OLD.retry_count
+    AND NEW.created_at IS NOT DISTINCT FROM OLD.created_at
+    AND (
+      (NEW.read IS NOT DISTINCT FROM OLD.read AND NEW.read_at IS NOT DISTINCT FROM OLD.read_at)
+      OR (NEW.read = true AND NEW.read_at IS NOT NULL)
+    )
+    AND (
+      NEW.delivered_at IS NOT DISTINCT FROM OLD.delivered_at
+      OR NEW.delivered_at IS NOT NULL
+    )
+    AND (
+      NEW.delivery_status IS NOT DISTINCT FROM OLD.delivery_status
+      OR NEW.delivery_status IN ('sent', 'delivered', 'read')
     )
   );
+
+-- Delete access: only the sender may delete their own message.
+DROP POLICY IF EXISTS "messages_sender_delete" ON messages;
+CREATE POLICY "messages_sender_delete" ON messages
+  FOR DELETE TO authenticated
+  USING (auth.uid()::text = sender_id);
 
 -- ============================================================
 -- 4. POSTS

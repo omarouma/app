@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { v4 as uuidv4 } from 'uuid';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   ChevronLeft, Users, Heart, Flame, Star, ThumbsUp, Smile, Hand,
@@ -12,6 +13,7 @@ import { useWalletStore } from '@/store/useWalletStore';
 import { getDefaultAvatar } from '@/lib/utils';
 import { getDocById, updateDocById, runDbTransaction, COLLECTIONS, subscribeToSubcollection } from '@/lib/firestore';
 import { useLiveStreamRTC } from '@/hooks/useLiveStreamRTC';
+import { copyToClipboard, safeConfirm } from '@/lib/share';
 import { toast } from 'sonner';
 import type { LiveStream, LiveComment, LiveReactions } from '@/types';
 import { orderBy } from '@/lib/firestore';
@@ -52,7 +54,7 @@ async function spendCoins(userId: string, amount: number, description: string): 
       const coins = (wallet.coins as number) || 0;
       if (coins < amount) return;
       const tx = {
-        id: `tx_${Date.now()}_gift`,
+        id: `tx_${uuidv4()}_gift`,
         type: 'spend',
         amount,
         currency: 'coins',
@@ -297,7 +299,7 @@ export default function LiveStreamPage() {
   const handleSendComment = async () => {
     if (!chatInput.trim() || !streamId || !user?.id) return;
     const content = chatInput.trim();
-    const tempId = `temp_${Date.now()}`;
+    const tempId = `temp_${uuidv4()}`;
     const newComment: LiveComment = {
       id: tempId,
       userId: user.id,
@@ -307,7 +309,7 @@ export default function LiveStreamPage() {
       isPinned: false,
       isModerator: false,
     };
-setComments((prev) => [...prev, newComment]);
+    setComments((prev) => [...prev, newComment]);
     setChatInput('');
     await sendLiveComment(streamId, user.id, content, user.name || 'You');
   };
@@ -337,7 +339,7 @@ setComments((prev) => [...prev, newComment]);
       toast.error('Failed to spend coins');
       return;
     }
-await sendLiveGift(streamId, user.id, { type, amount: cost, currency: 'coins', userId: user.id }, user.name || '');
+    await sendLiveGift(streamId, user.id, { type, amount: cost, currency: 'coins', userId: user.id }, user.name || '');
     toast.success(`Sent ${type}!`);
     setShowGiftPanel(false);
   };
@@ -359,7 +361,7 @@ await sendLiveGift(streamId, user.id, { type, amount: cost, currency: 'coins', u
 
   const handleEndStream = async () => {
     if (!streamId || !isBroadcaster) return;
-    if (!window.confirm('End your live stream?')) return;
+    if (!safeConfirm('End your live stream?')) return;
     rtc.leaveStream();
     await endLive(streamId);
     await saveReplay(streamId, '');
@@ -376,12 +378,13 @@ await sendLiveGift(streamId, user.id, { type, amount: cost, currency: 'coins', u
     navigate('/live-streams');
   };
 
-  const handleCopyLink = () => {
-    navigator.clipboard?.writeText(window.location.href).then(() => {
+  const handleCopyLink = async () => {
+    const ok = await copyToClipboard(window.location.href);
+    if (ok) {
       setCopied(true);
       toast.success('Link copied');
       setTimeout(() => setCopied(false), 2000);
-    });
+    }
   };
 
   if (loading) {
@@ -538,9 +541,8 @@ await sendLiveGift(streamId, user.id, { type, amount: cost, currency: 'coins', u
                 <button
                   type="button"
                   onClick={rtc.toggleMute}
-                  className={`w-12 h-12 rounded-full flex items-center justify-center backdrop-blur-sm ${
-                    rtc.isMuted ? 'bg-[#FF3B30]/70 text-white' : 'bg-black/40 text-white'
-                  }`}
+                  className={`w-12 h-12 rounded-full flex items-center justify-center backdrop-blur-sm ${rtc.isMuted ? 'bg-[#FF3B30]/70 text-white' : 'bg-black/40 text-white'
+                    }`}
                   title={rtc.isMuted ? 'Unmute' : 'Mute'}
                 >
                   {rtc.isMuted ? <MicOff size={20} /> : <Mic size={20} />}
@@ -548,9 +550,8 @@ await sendLiveGift(streamId, user.id, { type, amount: cost, currency: 'coins', u
                 <button
                   type="button"
                   onClick={rtc.toggleCamera}
-                  className={`w-12 h-12 rounded-full flex items-center justify-center backdrop-blur-sm ${
-                    rtc.isCameraOff ? 'bg-[#FF3B30]/70 text-white' : 'bg-black/40 text-white'
-                  }`}
+                  className={`w-12 h-12 rounded-full flex items-center justify-center backdrop-blur-sm ${rtc.isCameraOff ? 'bg-[#FF3B30]/70 text-white' : 'bg-black/40 text-white'
+                    }`}
                   title={rtc.isCameraOff ? 'Turn camera on' : 'Turn camera off'}
                 >
                   {rtc.isCameraOff ? <VideoOff size={20} /> : <Video size={20} />}

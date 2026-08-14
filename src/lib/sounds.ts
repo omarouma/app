@@ -214,7 +214,7 @@ const profiles: Record<SoundProfile, ProfileSounds> = {
 
 function getSettings() {
   try {
-    const raw = localStorage.getItem('gaga-settings');
+    const raw = typeof window !== 'undefined' && window.localStorage ? window.localStorage.getItem('gaga-settings') : null;
     if (!raw) return {};
     return JSON.parse(raw)?.state?.settings?.notifications ?? {};
   } catch {

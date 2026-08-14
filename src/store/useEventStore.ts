@@ -81,9 +81,9 @@ function haversineDistance(lat1: number, lng1: number, lat2: number, lng2: numbe
   const a =
     Math.sin(dLat / 2) * Math.sin(dLat / 2) +
     Math.cos(lat1 * (Math.PI / 180)) *
-      Math.cos(lat2 * (Math.PI / 180)) *
-      Math.sin(dLng / 2) *
-      Math.sin(dLng / 2);
+    Math.cos(lat2 * (Math.PI / 180)) *
+    Math.sin(dLng / 2) *
+    Math.sin(dLng / 2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   return R * c;
 }
@@ -183,7 +183,7 @@ export const useEventStore = create<EventStore>((set, get) => ({
     }
   },
 
-  inviteToEvent: async (eventId, userId, invitedUserIds) => {
+  inviteToEvent: async (eventId, _userId, invitedUserIds) => {
     if (!isFirestoreAvailable()) return;
     try {
       for (const id of invitedUserIds) {
@@ -248,7 +248,7 @@ export const useEventStore = create<EventStore>((set, get) => ({
   },
 
   subscribeEvents: () => {
-    if (!isFirestoreAvailable()) return () => {};
+    if (!isFirestoreAvailable()) return () => { };
     set({ loading: true });
     let unsub: (() => void) | null = null;
     try {

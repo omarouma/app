@@ -14,6 +14,7 @@ import WalletPinLock from '@/components/WalletPinLock';
 import SendToFriendModal from '@/components/SendToFriendModal';
 import RequestMoneyModal from '@/components/RequestMoneyModal';
 import SplitBillModal from '@/components/SplitBillModal';
+import { copyToClipboard } from '@/lib/share';
 
 const promoCodes: Record<string, { coins: number; label: string }> = {
   'GAGA100': { coins: 100, label: 'Welcome Bonus' },
@@ -278,11 +279,13 @@ const w = wallet as unknown as Record<string, unknown> | undefined;
             </div>
 
             {/* Wallet ID */}
-            <button type="button" onClick={() => {
-                navigator.clipboard.writeText(walletId);
-                setCopied(true);
-                if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current);
-                copiedTimerRef.current = setTimeout(() => setCopied(false), 2000);
+            <button type="button" onClick={async () => {
+                const ok = await copyToClipboard(walletId);
+                if (ok) {
+                  setCopied(true);
+                  if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current);
+                  copiedTimerRef.current = setTimeout(() => setCopied(false), 2000);
+                }
               }}
               className="mt-3 flex items-center gap-1.5 text-white/60 text-[10px] hover:text-white/80 transition-colors"
             >

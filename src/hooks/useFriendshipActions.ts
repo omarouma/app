@@ -2,6 +2,7 @@
 import { useState, useCallback } from 'react';
 import { useFriendStore } from '@/store/useFriendStore';
 import { useAuthStore } from '@/store/useAuthStore';
+import { safeConfirm } from '@/lib/share';
 import { toast } from 'sonner';
 
 export const useFriendshipActions = (userId: string) => {
@@ -88,7 +89,7 @@ export const useFriendshipActions = (userId: string) => {
 
   const handleRemoveFriend = useCallback(async () => {
     if (!currentUser?.id || !userId) return;
-    if (window.confirm('Are you sure you want to remove this friend?')) {
+    if (safeConfirm('Are you sure you want to remove this friend?')) {
       setProcessingAction(true);
       try {
         await removeFriend(currentUser.id, userId);
@@ -104,7 +105,7 @@ export const useFriendshipActions = (userId: string) => {
 
   const handleBlockUser = useCallback(async () => {
     if (!currentUser?.id || !userId) return;
-    if (window.confirm('Are you sure you want to block this user?')) {
+    if (safeConfirm('Are you sure you want to block this user?')) {
       setProcessingAction(true);
       try {
         await blockUser(currentUser.id, userId);

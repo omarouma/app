@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { fetchTrendingVideos, searchYouTube, clearYouTubeCache, type YouTubeVideo } from '@/services/youtubeService';
 import { fetchPopularPexelsVideos, searchPexels, clearPexelsCache, type PexelsVideo } from '@/services/pexelsService';
+import { safeGetJsonStorageItem, safeRemoveStorageItem, safeSetStorageItem } from '@/lib/safeStorage';
 import YouTubeVideoCard from './YouTubeVideoCard';
 import { YouTubeModalPlayer, PexelsModalPlayer } from '@/components/YouTubePlayer';
 import EmptyState from '@/components/EmptyState';
@@ -38,9 +39,7 @@ interface WatchHistoryItem {
 }
 
 function loadHistory(): WatchHistoryItem[] {
-  try {
-    return JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
-  } catch { return []; }
+  return safeGetJsonStorageItem<WatchHistoryItem[]>(HISTORY_KEY, []);
 }
 
 function saveToHistory(video: FeedVideo, source: VideoSource) {
@@ -55,12 +54,12 @@ function saveToHistory(video: FeedVideo, source: VideoSource) {
       watchedAt: Date.now(),
     };
     const filtered = history.filter(h => h.id !== item.id);
-    localStorage.setItem(HISTORY_KEY, JSON.stringify([item, ...filtered].slice(0, MAX_HISTORY)));
+    safeSetStorageItem(HISTORY_KEY, JSON.stringify([item, ...filtered].slice(0, MAX_HISTORY)));
   } catch { /* ignore */ }
 }
 
 function clearHistory() {
-  localStorage.removeItem(HISTORY_KEY);
+  safeRemoveStorageItem(HISTORY_KEY);
 }
 
 export default function YouTubeFeed() {

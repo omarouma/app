@@ -22,6 +22,7 @@ import { InputBar } from './InputBar';
 import TransferModal from '@/components/TransferModal';
 import { Virtuoso } from 'react-virtuoso';
 import { toast } from 'sonner';
+import { copyToClipboard } from '@/lib/share';
 
 import { useChatRoom } from '@/hooks/useChatRoom';
 import { useChatStore } from '@/store/useChatStore';
@@ -104,11 +105,11 @@ export default function ChatRoom({ chatId, userId, onBack }: {
     setEditingMessageId,
     showDeleteForEveryoneConfirm,
     setShowDeleteForEveryoneConfirm,
-translations,
+    translations,
     setTranslations,
     translatingIds,
     setTranslatingIds,
-chatBg,
+    chatBg,
     setChatBg,
     showBgPicker,
     setShowBgPicker,
@@ -143,11 +144,11 @@ chatBg,
     sendTyping,
     stopTyping,
     unlockChat,
-} = useChatRoom(chatId, userId);
+  } = useChatRoom(chatId, userId);
 
   const { chats } = useChatStore();
 
-const { isRecording, duration, startRecording, stopRecording, cancelRecording } = useVoiceRecorder();
+  const { isRecording, duration, startRecording, stopRecording, cancelRecording } = useVoiceRecorder();
   useFilteredOnline(currentUser?.id || '', friends);
   const { onlineUsers } = useOnlineUsers();
   const callCtx = useCallContext();
@@ -160,7 +161,7 @@ const { isRecording, duration, startRecording, stopRecording, cancelRecording } 
 
   const virtuoso = useRef<any>(null);
   const initialLatestTimestampRef = useRef<number | null>(null);
-const [hasNewMessages, setHasNewMessages] = useState(false);
+  const [hasNewMessages, setHasNewMessages] = useState(false);
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedMessages, setSelectedMessages] = useState<Set<string>>(new Set());
   const [showTransfer, setShowTransfer] = useState(false);
@@ -172,7 +173,7 @@ const [hasNewMessages, setHasNewMessages] = useState(false);
   const isUserOnline = !!onlineUsers[userId];
   const activeTypingUsers = Object.values(typingUsers || {});
 
-const { scrollToBottom, isAtBottom, msgs, handleAtBottomStateChange } = useChatScrollBehavior({
+  const { scrollToBottom, isAtBottom, msgs, handleAtBottomStateChange } = useChatScrollBehavior({
     chatId,
     messages,
     virtuoso,
@@ -183,7 +184,7 @@ const { scrollToBottom, isAtBottom, msgs, handleAtBottomStateChange } = useChatS
 
   // markAsRead is handled inside useChatRoom on message subscription
 
-const handleVoiceSend = useCallback(async () => {
+  const handleVoiceSend = useCallback(async () => {
     if (!currentUser) return;
     try {
       const blob = await stopRecording();
@@ -198,7 +199,7 @@ const handleVoiceSend = useCallback(async () => {
     }
   }, [chatId, currentUser, scrollToBottom, stopRecording]);
 
-// Retry a failed message send. The failed optimistic copy is removed from
+  // Retry a failed message send. The failed optimistic copy is removed from
   // the store first, then sendMessage re-adds a fresh 'sending' optimistic
   // message and attempts the write again (with its internal backoff retry).
   const handleRetryMessage = useCallback(async (msg: Message) => {
@@ -244,38 +245,14 @@ const handleVoiceSend = useCallback(async () => {
       setUnlocking(false);
       setLockPinInput('');
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chat, unlockChat, lockPinInput]);
 
-  const _handleReaction = useCallback(async (msgId: string, reaction: string) => {
-    if (!currentUser) return;
-    try {
-      await addReaction(chatId, msgId, reaction, currentUser.id);
-      setSelectedReactionMsg(null);
-    } catch {
-      toast.error('Failed to add reaction.');
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [chatId, currentUser, addReaction]);
-
-const handleEditStart = useCallback((msg: Message) => {
+  const handleEditStart = useCallback((msg: Message) => {
     setEditingMessageId(msg.id);
     setEditInput(msg.content);
     setContextMenu(null);
   }, [setEditingMessageId, setEditInput, setContextMenu]);
-
-  const _handleReply = useCallback((msg: Message) => {
-    setReplyingTo(msg);
-    setContextMenu(null);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const _handleForwardClick = useCallback((msg: Message) => {
-    setForwardMsg(msg);
-    setShowForwardModal(true);
-    setContextMenu(null);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   const handleTranslate = useCallback(async (msg: Message) => {
     const { id: msgId, content: text } = msg;
@@ -301,7 +278,7 @@ const handleEditStart = useCallback((msg: Message) => {
     } finally {
       setTranslatingIds(prev => { const s = new Set(prev); s.delete(msgId); return s; });
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [translations]);
 
   const searchResults = useMemo(() => {
@@ -357,10 +334,10 @@ const handleEditStart = useCallback((msg: Message) => {
       } else {
         newSet.add(msgId);
       }
-if (newSet.size === 0) {
+      if (newSet.size === 0) {
         setSelectionMode(false);
       }
-return newSet;
+      return newSet;
     });
   }, []);
 
@@ -374,7 +351,7 @@ return newSet;
     setReplyingTo(msg);
   }, [setReplyingTo]);
 
-const handleLongPress = useCallback((msg: Message) => {
+  const handleLongPress = useCallback((msg: Message) => {
     longPressTimerRef.current = setTimeout(() => {
       setSelectionMode(true);
       setSelectedMessages(prev => new Set(prev).add(msg.id));
@@ -391,10 +368,14 @@ const handleLongPress = useCallback((msg: Message) => {
     const text = selected.map(m => m.content).filter(Boolean).join('\n');
     if (!text) return;
     try {
-      await navigator.clipboard.writeText(text);
-      toast.success(`Copied ${selected.length} message(s).`);
+      const ok = await copyToClipboard(text);
+      if (ok) {
+        toast.success(`Copied ${selected.length} message(s).`);
+      } else {
+        toast.error('Unable to copy messages in this browser.');
+      }
     } catch {
-toast.error('Failed to copy messages.');
+      toast.error('Failed to copy messages.');
     }
     handleClearSelection();
   }, [msgs, selectedMessages, handleClearSelection]);
@@ -405,7 +386,7 @@ toast.error('Failed to copy messages.');
     setForwardBatch(selected as Message[]);
     setShowForwardModal(true);
     handleClearSelection();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [msgs, selectedMessages, handleClearSelection]);
 
   const handleDeleteSelected = useCallback(async () => {
@@ -428,7 +409,7 @@ toast.error('Failed to copy messages.');
     handleClearSelection();
   }, [msgs, selectedMessages, handleClearSelection, handleDelete]);
 
-const [_swipeState, setSwipeState] = useState<{ msgId: string; offset: number } | null>(null);
+  const [_swipeState, setSwipeState] = useState<{ msgId: string; offset: number } | null>(null);
 
   const handleTouchStart = useCallback((e: React.TouchEvent, msg: Message) => {
     if (selectionMode) return;
@@ -457,17 +438,17 @@ const [_swipeState, setSwipeState] = useState<{ msgId: string; offset: number } 
     if (!selectionMode && diff > SWIPE_THRESHOLD) {
       setReplyingTo(msg);
     }
-setSwipeState(null);
+    setSwipeState(null);
     touchStartXRef.current = 0;
     touchCurrentXRef.current = 0;
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectionMode]);
 
   return (
     <div className="flex flex-col h-full bg-white" style={{ backgroundImage: chatBg }}>
       <ChatHeader
-        displayUser={displayUser && typeof displayUser === 'object' && 'id' in displayUser && !('then' in displayUser) ? { id: (displayUser as {id:string;name:string;avatar?:string}).id, name: (displayUser as {id:string;name:string}).name || '', avatar: (displayUser as {id:string;avatar?:string}).avatar || '' } : { id: userId, name: '', avatar: '' }}
-userId={userId}
+        displayUser={displayUser && typeof displayUser === 'object' && 'id' in displayUser && !('then' in displayUser) ? { id: (displayUser as { id: string; name: string; avatar?: string }).id, name: (displayUser as { id: string; name: string }).name || '', avatar: (displayUser as { id: string; avatar?: string }).avatar || '' } : { id: userId, name: '', avatar: '' }}
+        userId={userId}
         isUserOnline={isUserOnline}
         activeTypingUsers={activeTypingUsers}
         friendStatus={friendStatus || ''}
@@ -516,11 +497,10 @@ userId={userId}
                   key={opt.label}
                   type="button"
                   onClick={() => setChatBg(opt.value)}
-                  className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
-                    chatBg === opt.value
-                      ? 'bg-[#00C300] text-white'
-                      : 'bg-[#F5F5F5] text-[#111111] hover:bg-[#EBEBEB]'
-                  }`}
+                  className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${chatBg === opt.value
+                    ? 'bg-[#00C300] text-white'
+                    : 'bg-[#F5F5F5] text-[#111111] hover:bg-[#EBEBEB]'
+                    }`}
                 >
                   {opt.label}
                 </button>
@@ -583,17 +563,17 @@ userId={userId}
           )}
         </AnimatePresence>
 
-<Virtuoso
+        <Virtuoso
           ref={virtuoso}
           data={msgs}
           initialTopMostItemIndex={msgs.length > 0 ? msgs.length - 1 : 0}
           atBottomStateChange={handleAtBottomStateChange}
           followOutput={'auto'}
-itemContent={(index, msg) => (
+          itemContent={(index, msg) => (
             <MessageItem
               key={msg.id}
               msg={msg}
-isMe={msg.senderId === currentUser?.id}
+              isMe={msg.senderId === currentUser?.id}
               showAvatar={shouldShowAvatar(msg, index)}
               showDate={shouldShowDate(msg, index)}
               msgDate={formatDateSeparator(msg.timestamp)}
@@ -604,9 +584,9 @@ isMe={msg.senderId === currentUser?.id}
               editInput={editInput}
               selectionMode={selectionMode}
               selectedReactionMsg={selectedReactionMsg}
-              displayUser={displayUser && typeof displayUser === 'object' && 'id' in displayUser && !('then' in displayUser) ? { id: (displayUser as {id:string;name:string;avatar?:string}).id, name: (displayUser as {id:string;name:string}).name || '', avatar: (displayUser as {id:string;avatar?:string}).avatar || '' } : { id: userId, name: '', avatar: '' }}
-userId={userId}
-currentUserId={currentUser?.id || ''}
+              displayUser={displayUser && typeof displayUser === 'object' && 'id' in displayUser && !('then' in displayUser) ? { id: (displayUser as { id: string; name: string; avatar?: string }).id, name: (displayUser as { id: string; name: string }).name || '', avatar: (displayUser as { id: string; avatar?: string }).avatar || '' } : { id: userId, name: '', avatar: '' }}
+              userId={userId}
+              currentUserId={currentUser?.id || ''}
               msgs={msgs}
               translatedText={translations[msg.id]}
               isTranslating={translatingIds.has(msg.id)}
@@ -614,7 +594,7 @@ currentUserId={currentUser?.id || ''}
                 e.preventDefault();
                 setContextMenu({ msg: message, position: { x: e.clientX, y: e.clientY } });
               }}
-onTouchStart={(e) => handleTouchStart(e, msg)}
+              onTouchStart={(e) => handleTouchStart(e, msg)}
               onTouchMove={(e) => handleTouchMove(e, msg)}
               onTouchEnd={() => handleTouchEnd(msg)}
               onMouseDown={handleMouseDown}
@@ -622,7 +602,7 @@ onTouchStart={(e) => handleTouchStart(e, msg)}
               onMouseLeave={handleMouseLeave}
               onClick={handleClickMsg}
               onDoubleClick={handleDoubleClickMsg}
-onReact={(msgId, reaction) => addReaction(chatId, msgId, reaction, currentUser?.id || '')}
+              onReact={(msgId, reaction) => addReaction(chatId, msgId, reaction, currentUser?.id || '')}
               onSetReactionMsg={setSelectedReactionMsg}
               onEditInputChange={setEditInput}
               onEditSave={handleEditSave}
@@ -630,7 +610,7 @@ onReact={(msgId, reaction) => addReaction(chatId, msgId, reaction, currentUser?.
               onSetReplyingTo={setReplyingTo}
               onSetLightbox={setLightboxImage}
               onVotePoll={handleVote}
-onNavigate={navigate}
+              onNavigate={navigate}
               onRetry={handleRetryMessage}
               chatId={chatId}
             />
@@ -678,7 +658,7 @@ onNavigate={navigate}
         onToggleEmojiPicker={() => setShowEmojiPicker(!showEmojiPicker)}
         isRecording={isRecording}
         duration={duration}
-onSend={() => handleSend()}
+        onSend={() => handleSend()}
         onTyping={() => sendTyping()}
         onStopTyping={stopTyping}
         onEmojiSelect={(emoji) => setInput(input + emoji)}
@@ -757,7 +737,7 @@ onSend={() => handleSend()}
           >
             {[
               { label: 'Reply', action: () => { setReplyingTo(contextMenu.msg); setContextMenu(null); } },
-              { label: 'Copy', action: () => { navigator.clipboard.writeText(contextMenu.msg.content); toast.success('Copied'); setContextMenu(null); } },
+              { label: 'Copy', action: async () => { const ok = await copyToClipboard(contextMenu.msg.content); if (ok) toast.success('Copied'); else toast.error('Unable to copy in this browser'); setContextMenu(null); } },
               ...(contextMenu.msg.senderId === currentUser?.id ? [
                 { label: 'Edit', action: () => handleEditStart(contextMenu.msg as Message) },
                 { label: 'Recall', action: () => handleRecall(contextMenu.msg.id) },
@@ -774,9 +754,8 @@ onSend={() => handleSend()}
                 key={label}
                 type="button"
                 onClick={action}
-                className={`w-full text-left px-4 py-2.5 text-sm hover:bg-gray-50 transition-colors ${
-                  label === 'Delete for everyone' || label === 'Delete for me' ? 'text-red-500' : 'text-gray-800'
-                }`}
+                className={`w-full text-left px-4 py-2.5 text-sm hover:bg-gray-50 transition-colors ${label === 'Delete for everyone' || label === 'Delete for me' ? 'text-red-500' : 'text-gray-800'
+                  }`}
               >
                 {label}
               </button>
@@ -796,7 +775,7 @@ onSend={() => handleSend()}
               className="bg-white rounded-t-3xl p-5 w-full max-w-lg max-h-[70vh] flex flex-col"
               onClick={e => e.stopPropagation()}
             >
-<div className="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-4" />
+              <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-4" />
               <h3 className="text-base font-bold text-[#111111] mb-3">Forward to…</h3>
               <div className="flex-1 overflow-y-auto space-y-1">
                 {chats.filter(c => c.id !== chatId).map(target => {
@@ -881,10 +860,9 @@ onSend={() => handleSend()}
               <div className="space-y-2 mb-4">
                 {['Spam', 'Harassment', 'Hate speech', 'Violence', 'Other'].map(reason => (
                   <button key={reason} type="button"
-onClick={() => { setReportReason(reportReason === reason ? '' : reason); }}
-                    className={`w-full text-left px-4 py-2.5 rounded-xl text-sm transition-colors ${
-                      reportReason === reason ? 'bg-[#00C300]/10 text-[#00C300] font-medium' : 'bg-[#F5F5F5] text-[#111111] hover:bg-[#EBEBEB]'
-                    }`}
+                    onClick={() => { setReportReason(reportReason === reason ? '' : reason); }}
+                    className={`w-full text-left px-4 py-2.5 rounded-xl text-sm transition-colors ${reportReason === reason ? 'bg-[#00C300]/10 text-[#00C300] font-medium' : 'bg-[#F5F5F5] text-[#111111] hover:bg-[#EBEBEB]'
+                      }`}
                   >{reason}</button>
                 ))}
               </div>

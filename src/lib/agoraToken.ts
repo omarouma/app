@@ -72,10 +72,6 @@ function putBytes(bytes: Uint8Array): Uint8Array {
   return concatBytes(u16(bytes.length), bytes);
 }
 
-function _putString(str: string): Uint8Array {
-  return putBytes(new TextEncoder().encode(str));
-}
-
 function putTreeMapUInt32(map: Record<number, number>): Uint8Array {
   const keys = Object.keys(map).map(Number);
   const size = u16(keys.length);

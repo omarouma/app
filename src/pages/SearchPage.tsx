@@ -10,6 +10,7 @@ import { useEventStore } from '@/store/useEventStore';
 import { useMarketplaceStore } from '@/store/useMarketplaceStore';
 import { useGroupStore } from '@/store/useGroupStore';
 import { isFirestoreAvailable, queryCollection, COLLECTIONS, where, orderBy, limit } from '@/lib/firestore';
+import { safeGetStorageItem, safeRemoveStorageItem, safeSetStorageItem } from '@/lib/safeStorage';
 import { getDefaultAvatar, formatTime } from '@/lib/utils';
 import type { Chat, TimelinePost, User as UserType, EventData, MarketplaceItem, Hashtag } from '@/types';
 
@@ -55,7 +56,7 @@ export default function SearchPage() {
   useEffect(() => {
     const loadRecentSearches = () => {
       try {
-        const saved = localStorage.getItem('gaga-recent-searches');
+        const saved = safeGetStorageItem('gaga-recent-searches');
         if (saved) setRecentSearches(JSON.parse(saved));
       } catch {
         // ignore
@@ -69,7 +70,7 @@ export default function SearchPage() {
     if (!q.trim()) return;
     setRecentSearches(prev => {
       const next = [q.trim(), ...prev.filter(s => s !== q.trim())].slice(0, 10);
-      localStorage.setItem('gaga-recent-searches', JSON.stringify(next));
+      safeSetStorageItem('gaga-recent-searches', JSON.stringify(next));
       return next;
     });
   }, []);
@@ -256,7 +257,7 @@ export default function SearchPage() {
 
   const clearRecents = () => {
     setRecentSearches([]);
-    localStorage.removeItem('gaga-recent-searches');
+    safeRemoveStorageItem('gaga-recent-searches');
   };
 
   return (

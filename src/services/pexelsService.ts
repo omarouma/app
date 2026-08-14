@@ -50,11 +50,12 @@ const DEMO_PEXELS_VIDEOS: PexelsVideo[] = [
 
 function getCachedVideos(): PexelsVideo[] | null {
   try {
-    const raw = localStorage.getItem(CACHE_KEY);
+    if (typeof window === 'undefined' || !window.localStorage) return null;
+    const raw = window.localStorage.getItem(CACHE_KEY);
     if (!raw) return null;
     const { data, timestamp } = JSON.parse(raw);
     if (Date.now() - timestamp > CACHE_DURATION) {
-      localStorage.removeItem(CACHE_KEY);
+      window.localStorage.removeItem(CACHE_KEY);
       return null;
     }
     return data;
@@ -65,7 +66,9 @@ function getCachedVideos(): PexelsVideo[] | null {
 
 function cacheVideos(data: PexelsVideo[]) {
   try {
-    localStorage.setItem(CACHE_KEY, JSON.stringify({ data, timestamp: Date.now() }));
+    if (typeof window !== 'undefined' && window.localStorage) {
+      window.localStorage.setItem(CACHE_KEY, JSON.stringify({ data, timestamp: Date.now() }));
+    }
   } catch (e) {
     console.warn('[Pexels] Failed to cache videos:', e);
   }
@@ -142,7 +145,9 @@ export async function searchPexels(query: string, perPage = 16): Promise<PexelsV
 
 export function clearPexelsCache() {
   try {
-    localStorage.removeItem(CACHE_KEY);
+    if (typeof window !== 'undefined' && window.localStorage) {
+      window.localStorage.removeItem(CACHE_KEY);
+    }
   } catch (e) {
     console.warn('[Pexels] Failed to clear cache:', e);
   }

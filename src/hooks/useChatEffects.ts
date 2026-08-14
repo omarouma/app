@@ -5,6 +5,7 @@ import { useChatStore } from '@/store/useChatStore';
 import { useFriendStore } from '@/store/useFriendStore';
 import { isFirestoreAvailable, COLLECTIONS } from '@/lib/firestore';
 import { isSupabaseConfigured, getSupabase } from '@/lib/supabase';
+import { safeGetStorageItem, safeRemoveStorageItem, safeSetStorageItem } from '@/lib/safeStorage';
 
 function formatLastSeen(date: Date): string {
   const diff = Date.now() - date.getTime();
@@ -79,15 +80,15 @@ getFriendStatusRef.current(currentUser.id, userId).then((status) => {
   useEffect(() => {
     if (!chatId) return;
     const draftKey = `draft_${chatId}`;
-    const savedDraft = localStorage.getItem(draftKey);
+    const savedDraft = safeGetStorageItem(draftKey);
     if (savedDraft) setInput(savedDraft);
     const inputRefCurrent = inputRef;
     return () => {
       const current = inputRefCurrent.current ?? '';
       if (current) {
-        localStorage.setItem(draftKey, current);
+        safeSetStorageItem(draftKey, current);
       } else {
-        localStorage.removeItem(draftKey);
+        safeRemoveStorageItem(draftKey);
       }
     };
   }, [chatId, setInput, inputRef]);
@@ -155,7 +156,7 @@ const supabase = isSupabaseConfigured() ? getSupabase() : null;
 
   // ── Chat background ──────────────────────────────────────────────────────
   useEffect(() => {
-    const savedBg = localStorage.getItem(`chat_bg_${chatId}`);
+    const savedBg = safeGetStorageItem(`chat_bg_${chatId}`);
     if (savedBg) setChatBg(savedBg);
   }, [chatId, setChatBg]);
 }

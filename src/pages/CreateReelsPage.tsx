@@ -306,6 +306,7 @@ export default function CreateReelsPage() {
 
     setUploading(true);
     setError('');
+    setUploadStep('');
     uploadAbortRef.current = new AbortController();
 
     try {
@@ -365,12 +366,16 @@ export default function CreateReelsPage() {
       setUploadProgress(100);
       clearDraft();
       toast.success('Reel posted successfully!');
+      setUploading(false);
       navigate('/timeline');
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Failed to post reel';
       setError(msg);
       toast.error('Failed to post reel. Please try again.');
+    } finally {
       setUploading(false);
+      setUploadStep('');
+      uploadAbortRef.current = null;
     }
   };
 
@@ -729,8 +734,8 @@ export default function CreateReelsPage() {
                 type="button"
                 onClick={() => setCategory(cat)}
                 className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${category === cat
-                    ? 'bg-[#00C300] text-black'
-                    : 'bg-[#1a1a1a] text-[#8D8D8D] hover:text-white'
+                  ? 'bg-[#00C300] text-black'
+                  : 'bg-[#1a1a1a] text-[#8D8D8D] hover:text-white'
                   }`}
               >
                 {cat}
@@ -756,8 +761,8 @@ export default function CreateReelsPage() {
                   type="button"
                   onClick={() => setVisibility(opt.key)}
                   className={`flex-1 flex flex-col items-center gap-1 px-3 py-2.5 rounded-xl transition-colors ${isActive
-                      ? 'bg-[#00C300]/10 text-[#00C300] border border-[#00C300]/30'
-                      : 'bg-[#1a1a1a] text-[#8D8D8D] border border-transparent'
+                    ? 'bg-[#00C300]/10 text-[#00C300] border border-[#00C300]/30'
+                    : 'bg-[#1a1a1a] text-[#8D8D8D] border border-transparent'
                     }`}
                 >
                   <Icon size={16} />

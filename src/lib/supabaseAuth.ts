@@ -94,12 +94,12 @@ export function onAuthStateChange(callback: (user: User | null) => void) {
   const supabase = getSupabaseSafe();
   if (!supabase) {
     callback(null);
-    return () => {};
+    return () => { };
   }
 
   let initialHandled = false;
 
-  const { data } = supabase.auth.onAuthStateChange(async (event, session) => {
+  const { data } = supabase.auth.onAuthStateChange(async (_event, session) => {
     // On INITIAL_SESSION the listener fires with the current session,
     // so we don't need a separate getSession() call.
     if (!initialHandled) initialHandled = true;
@@ -128,7 +128,7 @@ export function subscribeToUserProfile(
   onUser: (user: User | null) => void,
 ): () => void {
   const supabase = getSupabaseSafe();
-  if (!supabase || !userId) return () => {};
+  if (!supabase || !userId) return () => { };
 
   let channel: ReturnType<SupabaseClient['channel']> | null = null;
   let disposed = false;
@@ -251,7 +251,7 @@ export async function signUpWithPhone(
   const supabase = getSupabaseSafe();
   if (!supabase) return { success: false, error: 'Supabase not configured' };
 
-// Use phone as email prefix so Supabase auth (email-based) still works
+  // Use phone as email prefix so Supabase auth (email-based) still works
   const syntheticEmail = `${phone.replace(/\D/g, '')}@phone.gagachat.app`;
   const displayName = name || `User${phone.slice(-4)}`;
 

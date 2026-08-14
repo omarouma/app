@@ -47,7 +47,7 @@ const envSchema = z.object({
   VITE_ADSENSE_BANNER_SLOT: z.string().optional(),
   VITE_ADSENSE_SIDEBAR_SLOT: z.string().optional(),
 
-// --- WebRTC (Conditionally Required) ---
+  // --- WebRTC (Conditionally Required) ---
   VITE_TURN_SERVER_URL: z.string().optional(),
   VITE_TURN_SERVER_USERNAME: z.string().optional(),
   VITE_TURN_SERVER_CREDENTIAL: z.string().optional(),
@@ -108,7 +108,7 @@ const parseAndValidateEnv = () => {
       ),
     };
 
-    if (import.meta.env.DEV) {
+    if (import.meta.env.DEV && typeof window !== 'undefined') {
       // Only expose non-sensitive keys in dev for debugging
       (window as any).__gagaEnvLoaded = true;
     }

@@ -16,10 +16,11 @@ export function getDefaultAvatar(seed: string): string {
 export function sanitizeMediaUrl(url: string | undefined | null): string {
   if (!url) return '';
   const trimmed = url.trim();
-  // Block dangerous URI schemes
+  // Block dangerous URI schemes. Keep app-owned browser/browser-storage URLs
+  // working so media that falls back through IndexedDB or blob URLs still loads.
   const lower = trimmed.toLowerCase();
   if (lower.startsWith('javascript:') || lower.startsWith('vbscript:') || lower.startsWith('data:text') || lower.startsWith('data:application')) return '';
-  if (trimmed.startsWith('blob:')) return trimmed;
+  if (trimmed.startsWith('blob:') || trimmed.startsWith('idb://')) return trimmed;
   if (trimmed.startsWith('data:image/')) return trimmed;
   if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) return trimmed;
   return '';

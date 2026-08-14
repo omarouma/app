@@ -12,39 +12,28 @@ const YouTubeThumbnailSchema = z.object({
 });
 
 const YouTubeSnippetSchema = z.object({
-  publishedAt: z.string(),
-  channelId: z.string(),
-  title: z.string(),
-  description: z.string(),
+  publishedAt: z.string().optional(),
+  channelId: z.string().optional(),
+  title: z.string().optional(),
+  description: z.string().optional(),
   thumbnails: z.object({
-    default: YouTubeThumbnailSchema,
-    medium: YouTubeThumbnailSchema,
-    high: YouTubeThumbnailSchema,
+    default: YouTubeThumbnailSchema.optional(),
+    medium: YouTubeThumbnailSchema.optional(),
+    high: YouTubeThumbnailSchema.optional(),
     standard: YouTubeThumbnailSchema.optional(),
     maxres: YouTubeThumbnailSchema.optional(),
-  }),
-  channelTitle: z.string(),
+  }).passthrough().optional(),
+  channelTitle: z.string().optional(),
 });
 
 const YouTubeContentDetailsSchema = z.object({
-  duration: z.string(),
-});
+  duration: z.string().optional(),
+}).passthrough();
 
 const YouTubeStatisticsSchema = z.object({
-  viewCount: z.string(),
-  likeCount: z.string(),
-});
-
-const YouTubeVideoItemSchema = z.object({
-  id: z.union([z.string(), z.object({ videoId: z.string() })]),
-  snippet: YouTubeSnippetSchema,
-  contentDetails: YouTubeContentDetailsSchema.optional(),
-  statistics: YouTubeStatisticsSchema.optional(),
-});
-
-const _YouTubeApiResponseSchema = z.object({
-  items: z.array(YouTubeVideoItemSchema),
-});
+  viewCount: z.string().optional(),
+  likeCount: z.string().optional(),
+}).passthrough();
 
 // Application's internal representation of a YouTube video
 export interface YouTubeVideo {
@@ -144,7 +133,8 @@ const DEMO_VIDEOS: YouTubeVideo[] = [
 
 function getCached(key: string): YouTubeVideo[] | null {
   try {
-    const raw = localStorage.getItem(key);
+    if (typeof window === 'undefined' || !window.localStorage) return null;
+    const raw = window.localStorage.getItem(key);
     if (!raw) return null;
     const { data, timestamp } = JSON.parse(raw);
     if (Date.now() - timestamp > CACHE_DURATION) return null;
@@ -156,31 +146,39 @@ function getCached(key: string): YouTubeVideo[] | null {
 
 function setCached(key: string, data: YouTubeVideo[]) {
   try {
-    localStorage.setItem(key, JSON.stringify({ data, timestamp: Date.now() }));
+    if (typeof window !== 'undefined' && window.localStorage) {
+      window.localStorage.setItem(key, JSON.stringify({ data, timestamp: Date.now() }));
+    }
   } catch {
     // ignore
   }
 }
 
 function parseYouTubeResponse(items: any[]): YouTubeVideo[] {
-  return items.map(item => {
-    const snippet = item.snippet || {};
-    const stats = item.statistics || {};
-    const content = item.contentDetails || {};
-    const thumbs = snippet.thumbnails || {};
+  return items.flatMap((item) => {
+    const snippet = YouTubeSnippetSchema.safeParse(item?.snippet ?? {});
+    const stats = YouTubeStatisticsSchema.safeParse(item?.statistics ?? {});
+    const content = YouTubeContentDetailsSchema.safeParse(item?.contentDetails ?? {});
+
+    if (!snippet.success) return [];
+
+    const thumbs = snippet.data.thumbnails ?? {};
     const bestThumb = thumbs.maxres?.url || thumbs.standard?.url || thumbs.high?.url || thumbs.medium?.url || thumbs.default?.url || '';
-    return {
-      id: item.id?.videoId || item.id,
-      title: snippet.title || 'Untitled',
-      description: snippet.description || '',
+    const normalized = {
+      id: item?.id?.videoId || item?.id || '',
+      title: snippet.data.title || 'Untitled',
+      description: snippet.data.description || '',
       thumbnail: bestThumb,
-      channelTitle: snippet.channelTitle || 'Unknown',
-      channelId: snippet.channelId || '',
-      publishedAt: snippet.publishedAt || '',
-      viewCount: stats.viewCount,
-      likeCount: stats.likeCount,
-      duration: content.duration,
+      channelTitle: snippet.data.channelTitle || 'Unknown',
+      channelId: snippet.data.channelId || '',
+      publishedAt: snippet.data.publishedAt || '',
+      viewCount: stats.success ? stats.data.viewCount : undefined,
+      likeCount: stats.success ? stats.data.likeCount : undefined,
+      duration: content.success ? content.data.duration : undefined,
     };
+
+    if (!normalized.id) return [];
+    return [normalized];
   });
 }
 
@@ -308,7 +306,8 @@ export function formatPublishedAt(dateStr: string): string {
  * Clear the YouTube cache.
  */
 export function clearYouTubeCache() {
-  Object.keys(localStorage)
+  if (typeof window === 'undefined' || !window.localStorage) return;
+  Object.keys(window.localStorage)
     .filter(k => k.startsWith('gaga_youtube_'))
-    .forEach(k => localStorage.removeItem(k));
+    .forEach(k => window.localStorage.removeItem(k));
 }

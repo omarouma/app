@@ -26,6 +26,7 @@ import FeedReelsViewer from '@/components/features/feed/FeedReelsViewer';
 import YouTubeFeed from '@/components/features/feed/YouTubeFeed';
 import { toast } from 'sonner';
 import { getDefaultAvatar } from '@/lib/utils';
+import { copyToClipboard, nativeShare } from '@/lib/share';
 
 type Visibility = 'public' | 'friends' | 'private' | 'followers' | 'groups' | 'custom' | 'close_friends';
 
@@ -1140,21 +1141,24 @@ export default function TimelinePage() {
                     <span className="text-[10px] text-[#8D8D8D]">Telegram</span>
                   </button>
                 </div>
-                <button type="button" onClick={() => {
-                  navigator.clipboard.writeText(`${window.location.origin}/post/${sharePost.id}`);
-                  toast.success('Link copied!');
+                <button type="button" onClick={async () => {
+                  const ok = await copyToClipboard(`${window.location.origin}/post/${sharePost.id}`);
+                  if (ok) {
+                    toast.success('Link copied!');
+                  } else {
+                    toast.error('Unable to copy link in this browser');
+                  }
                   setShowShareModal(false);
                 }}
                   className="flex items-center gap-3 p-3 rounded-xl bg-[#2a2a2a] text-white hover:bg-[#333]"
                 >
                   <Link2 size={18} /> Copy Link
                 </button>
-                <button type="button" onClick={() => {
-                  if (navigator.share) {
-                    navigator.share({ title: 'GaGa Chat Post', text: sharePost.content || 'Check out this post', url: `${window.location.origin}/post/${sharePost.id}` });
-                  } else {
-                    navigator.clipboard.writeText(`${window.location.origin}/post/${sharePost.id}`);
-                    toast.success('Link copied!');
+                <button type="button" onClick={async () => {
+                  const usedNative = await nativeShare({ title: 'GaGa Chat Post', text: sharePost.content || 'Check out this post', url: `${window.location.origin}/post/${sharePost.id}` });
+                  if (!usedNative) {
+                    const ok = await copyToClipboard(`${window.location.origin}/post/${sharePost.id}`);
+                    if (ok) toast.success('Link copied!');
                   }
                   setShowShareModal(false);
                 }}

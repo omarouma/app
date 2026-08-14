@@ -13,6 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { buildGagaChatUri, buildGagaChatWebUrl, getDefaultAvatar, sanitizeMediaUrl } from '@/lib/utils';
 import { isSupabaseConfigured, getSupabase } from '@/lib/supabase';
 import { isFirestoreAvailable, updateDocById } from '@/lib/firestore';
+import { copyToClipboard, nativeShare } from '@/lib/share';
 import { toast } from 'sonner';
 import Logo from '@/components/Logo';
 
@@ -244,32 +245,39 @@ export default function QRScannerPage() {
 
   const handleCopyProfile = async () => {
     try {
-      await navigator.clipboard.writeText(profileUrl);
-      setCopiedProfile(true);
-      toast.success('Copied to clipboard');
-      setTimeout(() => setCopiedProfile(false), 2000);
+      const ok = await copyToClipboard(profileUrl);
+      if (ok) {
+        setCopiedProfile(true);
+        toast.success('Copied to clipboard');
+        setTimeout(() => setCopiedProfile(false), 2000);
+      } else {
+        toast.error('Unable to copy in this browser');
+      }
     } catch { toast.error('Failed to copy'); }
   };
 
   const handleCopyWallet = async () => {
     try {
-      await navigator.clipboard.writeText(walletId);
-      setCopiedWallet(true);
-      toast.success('Copied to clipboard');
-      setTimeout(() => setCopiedWallet(false), 2000);
+      const ok = await copyToClipboard(walletId);
+      if (ok) {
+        setCopiedWallet(true);
+        toast.success('Copied to clipboard');
+        setTimeout(() => setCopiedWallet(false), 2000);
+      } else {
+        toast.error('Unable to copy in this browser');
+      }
     } catch { toast.error('Failed to copy'); }
   };
 
   const handleShare = async () => {
     try {
-      if (navigator.share) {
-        await navigator.share({
-          title: `Add ${user?.name || 'me'} on GaGa Chat`,
-          text: qrType === 'transfer' ? `Send money to ${user?.name}` : `Connect with me on GaGa Chat!`,
-          url: qrType === 'profile' ? profileUrl : undefined,
-        });
-      } else {
-        handleCopyProfile();
+      const usedNative = await nativeShare({
+        title: `Add ${user?.name || 'me'} on GaGa Chat`,
+        text: qrType === 'transfer' ? `Send money to ${user?.name}` : `Connect with me on GaGa Chat!`,
+        url: qrType === 'profile' ? profileUrl : window.location.origin,
+      });
+      if (!usedNative) {
+        await handleCopyProfile();
       }
     } catch { /* cancelled */ }
   };

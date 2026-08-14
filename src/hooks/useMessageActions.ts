@@ -1,5 +1,6 @@
 
 import { useCallback } from 'react';
+import { v4 as uuidv4 } from 'uuid';
 import { useChatStore } from '@/store/useChatStore';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useOfflineQueue, isOnline } from '@/hooks/useOfflineQueue';
@@ -46,7 +47,7 @@ export const useMessageActions = (chatId: string) => {
         });
         // Optimistically update UI
         useChatStore.getState().addMessage({
-          id: `offline_${Date.now()}`,
+          id: `offline_${uuidv4()}`,
           chatId,
           senderId: currentUser.id,
           content,
@@ -76,8 +77,8 @@ export const useMessageActions = (chatId: string) => {
         const type = file.type.startsWith('image/')
           ? 'image'
           : file.type.startsWith('video/')
-          ? 'video'
-          : 'file';
+            ? 'video'
+            : 'file';
         if (!url) { toast.error(`Failed to upload ${file.name}.`); continue; }
         await sendMessage(chatId, currentUser.id, file.name, type, url);
       } catch {
@@ -128,7 +129,7 @@ export const useMessageActions = (chatId: string) => {
   ) => {
     if (!currentUser) return;
     try {
-await addReaction(chatId, msgId, reaction, currentUser.id);
+      await addReaction(chatId, msgId, reaction, currentUser.id);
     } catch {
       toast.error('Failed to add reaction.');
     }

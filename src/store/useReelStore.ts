@@ -1,4 +1,5 @@
 ﻿import { create } from 'zustand';
+import { v4 as uuidv4 } from 'uuid';
 import {
   isFirestoreAvailable,
   COLLECTIONS,
@@ -140,7 +141,7 @@ export const useReelStore = create<ReelStore>((set, get) => ({
     }
   },
 
-likeReel: async (reelId, userId) => {
+  likeReel: async (reelId, userId) => {
     if (!isFirestoreAvailable()) return;
     try {
       await updateDocById(COLLECTION_REELS, reelId, {
@@ -188,7 +189,7 @@ likeReel: async (reelId, userId) => {
       // Coerce serverTimestamp to a string/Date so it can be stored inside the
       // comments array (arrays in Firestore/Supabase cannot hold serverTimestamp()).
       const comment = {
-        id: `c_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+        id: `c_${uuidv4()}`,
         userId,
         content,
         timestamp: new Date().toISOString(),
@@ -196,7 +197,7 @@ likeReel: async (reelId, userId) => {
         userAvatar: user?.avatar || '',
         likes: [],
       };
-const reel = await getDocById(COLLECTION_REELS, reelId);
+      const reel = await getDocById(COLLECTION_REELS, reelId);
       if (!reel) return;
       const comments = (reel.comments as any[]) || [];
       await updateDocById(COLLECTION_REELS, reelId, { comments: [...comments, comment] });
@@ -410,7 +411,7 @@ const reel = await getDocById(COLLECTION_REELS, reelId);
   subscribeReels: () => {
     if (!isFirestoreAvailable()) {
       set({ reels: [], loading: false, hasMore: false });
-      return () => {};
+      return () => { };
     }
 
     set({ loading: true });

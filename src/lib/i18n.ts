@@ -1559,7 +1559,8 @@ const dictionaries: Record<LangCode, Translations> = { en, bn, es, fr, ar, zh };
 
 function getInitialLang(): LangCode {
   try {
-    return (typeof window !== 'undefined' && localStorage.getItem('gaga_language') as LangCode) || 'en';
+    const raw = typeof window !== 'undefined' ? window.localStorage.getItem('gaga_language') : null;
+    return (raw as LangCode) || 'en';
   } catch {
     return 'en';
   }
@@ -1569,7 +1570,13 @@ let currentLang: LangCode = getInitialLang();
 
 export function setLanguage(lang: LangCode) {
   currentLang = lang;
-  localStorage.setItem('gaga_language', lang);
+  try {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      window.localStorage.setItem('gaga_language', lang);
+    }
+  } catch {
+    // ignore storage failures
+  }
   if (typeof document !== 'undefined') {
     document.documentElement.lang = lang;
     document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr';

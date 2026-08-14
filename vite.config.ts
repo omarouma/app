@@ -28,11 +28,11 @@ function injectSwVersion(version: string): Plugin {
         const replaced = src.replace(/__APP_VERSION__/g, quoted);
         if (replaced !== src) {
           writeFileSync(swPath, replaced, 'utf8');
-           
+
           console.log(`  ✓ inject-sw-version (vite): stamped dist/sw.js with v${version}`);
         }
       } catch (e) {
-         
+
         console.warn(`  ! inject-sw-version (vite): failed: ${e}`);
       }
     },
@@ -121,25 +121,28 @@ export default defineConfig(({ mode }) => {
           assetFileNames: 'assets/[name]-[hash][extname]',
           manualChunks: (id) => {
             if (!id.includes('node_modules')) return undefined;
-            // Group large vendors into named chunks to avoid one giant bundle
-            if (id.includes('firebase')) return 'vendor-firebase';
+
+            if (id.includes('/react/') || id.includes('/scheduler/') || id.includes('/use-sync-external-store/')) return 'vendor-react';
+            if (id.includes('firebase') || id.includes('@firebase')) return 'vendor-firebase';
             if (id.includes('@supabase')) return 'vendor-supabase';
+            if (id.includes('agora-rtc-sdk-ng') || id.includes('agora')) return 'vendor-agora';
             if (id.includes('framer-motion')) return 'vendor-framer';
-            if (id.includes('recharts') || id.includes('d3-')) return 'vendor-charts';
-            if (id.includes('agora-rtc-sdk-ng')) return 'vendor-agora';
+            if (id.includes('recharts') || id.includes('d3-') || id.includes('echarts') || id.includes('plotly')) return 'vendor-charts';
             if (id.includes('@radix-ui')) return 'vendor-radix';
             if (id.includes('react-router') || id.includes('react-router-dom')) return 'vendor-router';
-            // NOTE: react/react-dom/scheduler intentionally fall through to
-            // the shared 'vendor' chunk. Splitting react into its own chunk
-            // creates a circular chunk dependency (react-day-picker etc. pull
-            // date-fns from 'vendor' while sonner in 'vendor' pulls react),
-            // which crashes at startup with "Cannot access before
-            // initialization" (TDZ) errors.
             if (id.includes('lucide-react')) return 'vendor-icons';
             if (id.includes('zustand')) return 'vendor-zustand';
             if (id.includes('i18next') || id.includes('react-i18next')) return 'vendor-i18n';
             if (id.includes('zod')) return 'vendor-zod';
-            // Everything else in a shared vendor chunk
+            if (id.includes('date-fns') || id.includes('dayjs') || id.includes('luxon')) return 'vendor-dates';
+            if (id.includes('clsx') || id.includes('tailwind-merge')) return 'vendor-ui';
+            if (id.includes('@hookform/resolvers') || id.includes('react-hook-form')) return 'vendor-forms';
+            if (id.includes('react-virtuoso') || id.includes('cmdk') || id.includes('vaul') || id.includes('sonner')) return 'vendor-ux';
+            if (id.includes('qrcode') || id.includes('uuid') || id.includes('input-otp') || id.includes('react-day-picker')) return 'vendor-utils';
+            if (id.includes('@dataconnect/generated')) return 'vendor-dataconnect';
+
+            // Keep the fallback vendor chunk intentionally small by covering the
+            // remaining unclassified third-party modules as they are encountered.
             return 'vendor';
           },
         },

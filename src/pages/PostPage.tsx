@@ -20,7 +20,8 @@ function applyPostMeta(post: TimelinePost) {
   const url = `${origin}/post/${post.id}`;
   const title = `${post.userName || 'GaGa Chat User'} shared a post on GaGa Chat`;
   const description = (post.content || '').slice(0, 160) || 'Check out this post on GaGa Chat';
-  const image = post.images?.[0] || `${origin}/logo-512.png`;
+  // Use video thumbnail if available, otherwise first image, otherwise logo
+  const image = post.videoUrl || post.images?.[0] || `${origin}/logo-512.png`;
 
   const setMeta = (prop: string, content: string) => {
     let el = document.head.querySelector(`meta[property="${prop}"]`) as HTMLMetaElement | null;
@@ -84,7 +85,7 @@ export default function PostPage() {
       }
       return new Date(ts as string | number);
     })(),
-visibility: (d.visibility as TimelinePost['visibility']) || 'public',
+    visibility: (d.visibility as TimelinePost['visibility']) || 'public',
     pollData: (d.pollData as PostPollData) || undefined,
     userName: (d.userName as string) || 'User',
     userAvatar: (d.userAvatar as string) || undefined,

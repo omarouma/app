@@ -8,6 +8,7 @@ import {
 import { useAuthStore } from '@/store/useAuthStore';
 import { useWalletStore, STAKING_TIERS } from '@/store/useWalletStore';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { copyToClipboard, nativeShare } from '@/lib/share';
 
 interface Mission {
   id: string;
@@ -340,11 +341,13 @@ export default function GagaRewardsPage() {
               <p className="text-[#8D8D8D] text-sm mb-4">Share your referral code with friends and earn 50 GAGA for each signup!</p>
               <div className="bg-[#F5F5F5] rounded-xl p-4 flex items-center justify-between mb-4">
                 <span className="text-[#111111] font-mono font-bold">{referralCode}</span>
-                <button type="button" onClick={() => {
-                    navigator.clipboard.writeText(referralCode);
-                    setCopiedRef(true);
-                    if (timeoutRef.current) clearTimeout(timeoutRef.current);
-                    timeoutRef.current = setTimeout(() => setCopiedRef(false), 2000);
+                <button type="button" onClick={async () => {
+                    const ok = await copyToClipboard(referralCode);
+                    if (ok) {
+                      setCopiedRef(true);
+                      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+                      timeoutRef.current = setTimeout(() => setCopiedRef(false), 2000);
+                    }
                   }}
                   className="text-[#00C300] text-sm font-medium"
                 >
@@ -353,7 +356,7 @@ export default function GagaRewardsPage() {
               </div>
               <button type="button" onClick={async () => {
                   try {
-                    await navigator.share({
+                    await nativeShare({
                       title: 'Join me on GaGa Chat!',
                       text: `Use my referral code ${referralCode} and get 50 free Gaga Coins!`,
                       url: window.location.origin,

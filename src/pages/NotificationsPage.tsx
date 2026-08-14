@@ -12,6 +12,7 @@ import { usePushNotifications } from '@/hooks/usePushNotifications';
 import { formatTime } from '@/lib/timeUtils';
 import { toast } from 'sonner';
 import LoadingSkeleton from '@/components/LoadingSkeleton';
+import { safeGetJsonStorageItem, safeSetStorageItem } from '@/lib/safeStorage';
 
 const iconMap: Record<string, typeof MessageCircle> = {
   message: MessageCircle,
@@ -90,14 +91,12 @@ export default function NotificationsPage() {
   const { requestPermission, isSupported } = usePushNotifications();
 
   const [showSettings, setShowSettings] = useState(false);
-  const [mutedTypes, setMutedTypes] = useState<string[]>(() => {
-    try { return JSON.parse(localStorage.getItem('gaga-muted-notif-types') || '[]'); } catch { return []; }
-  });
+  const [mutedTypes, setMutedTypes] = useState<string[]>(() => safeGetJsonStorageItem<string[]>('gaga-muted-notif-types', []));
 
   const toggleMuteType = (type: string) => {
     setMutedTypes(prev => {
       const next = prev.includes(type) ? prev.filter(t => t !== type) : [...prev, type];
-      localStorage.setItem('gaga-muted-notif-types', JSON.stringify(next));
+      safeSetStorageItem('gaga-muted-notif-types', JSON.stringify(next));
       return next;
     });
   };

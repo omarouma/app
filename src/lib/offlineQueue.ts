@@ -1,3 +1,4 @@
+import { v4 as uuidv4 } from 'uuid';
 import { safeGetStorageItem, safeSetStorageItem } from '@/lib/safeStorage';
 
 export type SyncStatus = 'synced' | 'pending' | 'sending' | 'failed';
@@ -33,7 +34,7 @@ export function saveQueue(queue: QueuedMessage[]) {
 export function addToQueue(msg: Omit<QueuedMessage, 'id' | 'timestamp' | 'syncStatus'> & { id?: string; timestamp?: number; syncStatus?: SyncStatus }): QueuedMessage {
   const queue = getQueue();
   const queued: QueuedMessage = {
-    id: msg.id ?? `${Date.now()}_${Math.random().toString(36).slice(2)}`,
+    id: msg.id ?? uuidv4(),
     timestamp: msg.timestamp ?? Date.now(),
     syncStatus: msg.syncStatus ?? 'pending',
     type: msg.type,

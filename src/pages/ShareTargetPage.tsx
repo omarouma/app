@@ -6,8 +6,9 @@ import {
   ChevronRight, User, MessageCircle, TrendingUp
 } from 'lucide-react';
 import { useAuthStore } from '@/store/useAuthStore';
-import { useTimelineStore } from '@/store/useTimelineStore';
+import { useEnhancedTimelineStore } from '@/store/useEnhancedTimelineStore';
 import { useChatStore } from '@/store/useChatStore';
+import { uploadMediaBlob } from '@/lib/storage';
 import { toast } from 'sonner';
 
 interface SharedData {
@@ -21,7 +22,7 @@ interface SharedData {
 export default function ShareTargetPage() {
   const navigate = useNavigate();
   const { user } = useAuthStore();
-  const { createPost } = useTimelineStore();
+  const { createPost } = useEnhancedTimelineStore();
   const { chats } = useChatStore();
   const [sharedData, setSharedData] = useState<SharedData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -85,11 +86,34 @@ export default function ShareTargetPage() {
     if (!user) { toast.error('Please log in first'); return; }
     try {
       const text = `${caption}\n\n${sharedData?.text || ''}\n${sharedData?.url || ''}`.trim();
-      const imageUrls = mediaFiles.map(f => URL.createObjectURL(f));
-      await createPost(user.id, text, imageUrls, 'public');
+
+      // Upload media files to cloud storage
+      const uploadedUrls: string[] = [];
+      const videoUrls = new Set<string>();
+
+      for (const file of mediaFiles) {
+        const isVideo = file.type.startsWith('video/');
+        const kind = isVideo ? 'reels' : 'posts';
+        const url = await uploadMediaBlob({
+          file,
+          kind,
+          mimeType: file.type,
+        });
+        if (url) {
+          uploadedUrls.push(url);
+          if (isVideo) videoUrls.add(url);
+        }
+      }
+
+      // Separate images and video URLs
+      const imageUrls = uploadedUrls.filter(url => !videoUrls.has(url));
+      const videoUrl = Array.from(videoUrls)[0]; // First video if any
+
+      await createPost(user.id, text, imageUrls, 'public', undefined, undefined, undefined, undefined, undefined, videoUrl);
       toast.success('Posted to timeline!');
       navigate('/timeline');
-    } catch {
+    } catch (err) {
+      console.error('Failed to post:', err);
       toast.error('Failed to post');
     }
   };

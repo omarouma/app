@@ -15,6 +15,8 @@ import EmptyState from '@/components/EmptyState';
 import LoadingSkeleton from '@/components/LoadingSkeleton';
 import { getDefaultAvatar, sanitizeMediaUrl, formatTime } from '@/lib/utils';
 import { toast } from 'sonner';
+import { safeGetStorageItem, safeSetStorageItem, safeRemoveStorageItem } from '@/lib/safeStorage';
+import { copyToClipboard, nativeShare } from '@/lib/share';
 import type { User } from '@/types';
 
 interface PhoneContact {
@@ -38,7 +40,7 @@ const STORAGE_TIMESTAMP_KEY = 'gaga_contacts_synced_at';
 
 function loadStoredContacts(): PhoneContact[] {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = safeGetStorageItem(STORAGE_KEY);
     return raw ? JSON.parse(raw) : [];
   } catch {
     return [];
@@ -47,14 +49,14 @@ function loadStoredContacts(): PhoneContact[] {
 
 function saveStoredContacts(contacts: PhoneContact[]) {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(contacts));
-    localStorage.setItem(STORAGE_TIMESTAMP_KEY, Date.now().toString());
+    safeSetStorageItem(STORAGE_KEY, JSON.stringify(contacts));
+    safeSetStorageItem(STORAGE_TIMESTAMP_KEY, Date.now().toString());
   } catch { /* ignore storage full */ }
 }
 
 function getStoredSyncTime(): string | null {
   try {
-    const ts = localStorage.getItem(STORAGE_TIMESTAMP_KEY);
+    const ts = safeGetStorageItem(STORAGE_TIMESTAMP_KEY);
     if (!ts) return null;
     const date = new Date(Number(ts));
     const now = new Date();
@@ -193,11 +195,10 @@ export default function ContactsPage() {
   const handleInvite = async (contactName?: string) => {
     const text = contactName ? `${INVITE_TEXT} — Hey ${contactName}, let's chat!` : INVITE_TEXT;
     try {
-      if (navigator.share) {
-        await navigator.share({ title: 'GaGa Chat', text, url: INVITE_LINK });
-      } else {
-        await navigator.clipboard.writeText(`${text} ${INVITE_LINK}`);
-        toast.success('Invite link copied to clipboard');
+      const usedNative = await nativeShare({ title: 'GaGa Chat', text, url: INVITE_LINK });
+      if (!usedNative) {
+        const ok = await copyToClipboard(`${text} ${INVITE_LINK}`);
+        if (ok) toast.success('Invite link copied to clipboard');
       }
     } catch { /* user cancelled */ }
   };
@@ -259,8 +260,8 @@ export default function ContactsPage() {
     setPhoneContacts([]);
     setMatchedContacts([]);
     setUnmatchedContacts([]);
-    localStorage.removeItem(STORAGE_KEY);
-    localStorage.removeItem(STORAGE_TIMESTAMP_KEY);
+    safeRemoveStorageItem(STORAGE_KEY);
+    safeRemoveStorageItem(STORAGE_TIMESTAMP_KEY);
     setSyncTime(null);
     toast.success('Contacts cleared');
   };

@@ -16,19 +16,6 @@ interface InternalTypingState {
   [chatId: string]: TypingInfo; // Internal state with timestamps
 }
 
-
-
-function _hashChatIds(ids: string[]): string {
-  let h = 2166136261;
-  for (const id of ids) {
-    for (let i = 0; i < id.length; i++) {
-      h ^= id.charCodeAt(i);
-      h = Math.imul(h, 16777619);
-    }
-  }
-  return (h >>> 0).toString(36);
-}
-
 export function useChatListTyping(chatIdsKey: string) {
   const chatIds = useMemo(() => chatIdsKey ? chatIdsKey.split(',') : [], [chatIdsKey]);
   const { user } = useAuthStore();
@@ -39,7 +26,7 @@ export function useChatListTyping(chatIdsKey: string) {
     chatIdSetRef.current = new Set(chatIds);
   }, [chatIds]);
 
-  
+
   const channelName = useMemo(
     () => `chat-list-typing-${chatIdsKey}`,
     [chatIdsKey]

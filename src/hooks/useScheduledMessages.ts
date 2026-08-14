@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { v4 as uuidv4 } from 'uuid';
 import { safeGetStorageItem, safeSetStorageItem } from '@/lib/safeStorage';
 import type { Message } from '@/types';
 
@@ -32,7 +33,7 @@ function saveScheduledMessages(msgs: ScheduledMessage[]) {
 export function addScheduledMessage(msg: Omit<ScheduledMessage, 'id' | 'createdAt'>): ScheduledMessage {
   const scheduled: ScheduledMessage = {
     ...msg,
-    id: `sched_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+    id: `sched_${uuidv4()}`,
     createdAt: Date.now(),
   };
   const existing = getScheduledMessages();
@@ -72,7 +73,7 @@ export function cleanupOldScheduledMessages() {
 
 export function useScheduledMessages(
   chatId: string,
-  sendMessage: (chatId: string, senderId: string, content: string, type?: string, mediaUrl?: string, replyTo?: Message | string) => Promise<void>
+  sendMessage: (chatId: string, senderId: string, content: string, type?: string, mediaUrl?: string, replyTo?: Message | string) => Promise<{ success: boolean; id: string } | void>
 ) {
   const processedRef = useRef<Set<string>>(new Set());
   // E1: stable ref so getPending never changes identity between renders

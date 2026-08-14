@@ -27,15 +27,14 @@
   </script>
   <!-- End Google Analytics 4 -->
   <meta name="viewport"
-    content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content" />
+    content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content" />
   <meta name="orientation" content="portrait" />
   <meta name="screen-orientation" content="portrait" />
   <meta name="x5-orientation" content="portrait" />
   <meta name="x5-fullscreen" content="true" />
   <meta name="x5-page-mode" content="app" />
-  <!-- theme-color: supported by Chrome/Edge/Safari; Firefox uses manifest.json theme_color -->
-  <meta name="theme-color" content="#00C300" media="(prefers-color-scheme: light)" />
-  <meta name="theme-color" content="#00C300" media="(prefers-color-scheme: dark)" />
+  <meta name="apple-mobile-web-app-orientation" content="portrait" />
+  <meta name="theme-color" content="#00C300" />
   <meta name="background-color" content="#ffffff" />
   <meta name="description"
     content="GaGa Chat is a free global messaging app with HD voice & video calls, group chat, live streaming, reels, marketplace, and Gaga Coins. Secure, no VPN needed, works everywhere in Bangladesh and globally!" />
@@ -45,6 +44,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="application-name" content="GaGa Chat" />
   <meta name="apple-mobile-web-app-title" content="GaGa Chat" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="format-detection" content="telephone=no" />
   <meta name="rating" content="general" />
   <meta name="distribution" content="global" />
@@ -92,6 +92,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="GaGa Chat" />
+  <meta name="apple-mobile-web-app-orientation" content="portrait" />
   <meta name="mobile-web-app-capable" content="yes" />
 
   <!-- Windows PWA -->
@@ -232,15 +233,24 @@
     </script>
   <!-- End JSON-LD Structured Data -->
   <script>
-    // Lock screen orientation to portrait mode on supported devices
+    // Lock screen orientation to portrait mode on supported devices.
+    // Fail silently on unsupported browsers or desktop environments.
     document.addEventListener('DOMContentLoaded', () => {
-      if (screen.orientation && typeof screen.orientation.lock === 'function') {
-        screen.orientation.lock('portrait-primary').catch(error => {
-          // This may fail on desktop or in unsupported browsers, which is fine.
-          // We only want to enforce this on mobile devices.
-          console.log('Screen orientation lock failed:', error);
-        });
-      }
+      const tryLockPortrait = () => {
+        try {
+          const orientation = screen && screen.orientation;
+          if (orientation && typeof orientation.lock === 'function') {
+            orientation.lock('portrait-primary').catch(() => {});
+            orientation.lock('portrait').catch(() => {});
+          }
+        } catch (error) {
+          // no-op: unsupported or restricted browser context
+        }
+      };
+
+      tryLockPortrait();
+      window.addEventListener('orientationchange', tryLockPortrait, { passive: true });
+      window.addEventListener('resize', tryLockPortrait, { passive: true });
     });
   </script>
 </head>

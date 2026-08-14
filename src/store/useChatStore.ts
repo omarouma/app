@@ -1,5 +1,7 @@
 import { create } from 'zustand';
 import { toast } from 'sonner';
+import type { Chat, Message, MessageType, PinnedMessage } from '@/types';
+import { chatApi, mapMessage, mapChat } from '@/services/chatApi';
 import {
   isFirestoreAvailable,
   COLLECTIONS,
@@ -8,7 +10,6 @@ import {
   addDocToSubcollection,
   queryCollection,
   querySubcollection,
-  updateSubcollectionDoc,
   deleteSubcollectionDoc,
   subscribeToCollection,
   subscribeToSubcollection,
@@ -18,93 +19,19 @@ import {
   limit,
   startAfter,
 } from '@/lib/firestore';
-import type { Chat, Message, MessageType, PollData, TransferData, PinnedMessage } from '@/types';
 import { checkMessageRateLimit } from '@/hooks/useMessageRateLimiter';
-import { enqueueOfflineMessage, isOnline } from '@/lib/offlineQueue';
-import { toDateFromDb } from '@/lib/timeUtils';
+import { isOnline, enqueueOfflineMessage } from '@/lib/offlineQueue';
 import { sanitizeText } from '@/lib/sanitize';
 import { logStoreError } from '@/lib/errorLogger';
+import { v4 as uuidv4 } from 'uuid';
 
-interface ContactCard {
-  userId: string;
-  name: string;
-  username?: string;
-  phone?: string;
-  email?: string;
-  avatar?: string;
-  bio?: string;
-}
-
-const mapMessage = (d: Record<string, unknown> & { id?: string }): Message => {
-  let contactCard: ContactCard | undefined;
-  const cc = d.contactCard;
-  if (cc && typeof cc === 'object') {
-    const r = cc as Record<string, unknown>;
-    const userId = typeof r.userId === 'string' ? r.userId : undefined;
-    const name = typeof r.name === 'string' ? r.name : undefined;
-    if (userId || name) {
-      contactCard = {
-        userId: userId ?? '',
-        name: name ?? '',
-        username: typeof r.username === 'string' ? r.username : undefined,
-        phone: typeof r.phone === 'string' ? r.phone : undefined,
-        email: typeof r.email === 'string' ? r.email : undefined,
-        avatar: typeof r.avatar === 'string' ? r.avatar : undefined,
-        bio: typeof r.bio === 'string' ? r.bio : undefined,
-      };
-    }
-  }
-
-  return {
-    id: d.id as string,
-    chatId: (d.chatId as string) || '',
-    senderId: (d.senderId as string) || '',
-    content: (d.content as string) || '',
-    type: ((d.type as MessageType) || 'text') as MessageType,
-    mediaUrl: (d.mediaUrl as string) || '',
-    timestamp: d.createdAt ? toDateFromDb(d.createdAt) : d.timestamp ? toDateFromDb(d.timestamp) : new Date(),
-    read: (d.read as boolean) || false,
-    edited: (d.edited as boolean) || false,
-    replyTo: (d.replyTo as string) || undefined,
-    reactions: (d.reactions as Record<string, string[]>) || {},
-    forwardedFrom: (d.forwardedFrom as string) || undefined,
-    pollData: d.pollData as PollData | undefined,
-    transferData: d.transferData as TransferData | undefined,
-    contactCard,
-    disappearingTimer: (d.disappearingTimer as number) || 0,
-    disappearingInitiatedAt: d.disappearingInitiatedAt ? toDateFromDb(d.disappearingInitiatedAt) : undefined,
-    destroyed: (d.destroyed as boolean) || false,
-    deliveryStatus: (d.deliveryStatus as Message['deliveryStatus']) || (d.read ? 'read' : d.senderId ? 'sent' : undefined),
-    deliveredAt: d.deliveredAt ? toDateFromDb(d.deliveredAt) : undefined,
-    readAt: d.readAt ? toDateFromDb(d.readAt) : undefined,
-    retryCount: (d.retryCount as number) || undefined,
-    localId: (d.localId as string) || undefined,
-  };
-};
-
-const mapChat = (d: Record<string, unknown> & { id?: string }): Chat => ({
-  id: d.id as string,
-  type: ((d.type as string) === 'group' ? 'group' : 'direct') as 'direct' | 'group',
-  participants: (d.participants as string[]) || [],
-  name: (d.name as string) || '',
-  avatar: (d.avatar as string) || '',
-  lastMessage: (d.lastMessage as string) || '',
-  lastMessageSenderId: (d.lastMessageSenderId as string) || '',
-
-  updatedAt: (d.updatedAt as string) || '',
-  unreadCount: (d.unreadCount as number) || 0,
-  isMuted: (d.isMuted as boolean) || false,
-  admins: (d.admins as string[]) || [],
-  createdBy: (d.createdBy as string) || '',
-  pinnedMessages: (d.pinnedMessages as PinnedMessage[]) || [],
-  description: (d.description as string) || '',
-  disappearingMessages: (d.disappearingMessages as number) || 0,
-  chatLocked: (d.chatLocked as boolean) || false,
-  lockType: (d.lockType as 'pin' | 'biometric') || undefined,
-  lockValue: (d.lockValue as string) || undefined,
-  archived: (d.archived as boolean) || false,
-  pinned: (d.pinned as boolean) || false,
-});
+/**
+ * Chat Store - Refactored to use API layer
+ *
+ * This store now delegates all I/O operations to the chatApi service,
+ * keeping only pure state management logic. This separation of concerns
+ * makes the store easier to test, maintain, and extend.
+ */
 
 interface ChatStore {
   chats: Chat[];
@@ -113,12 +40,15 @@ interface ChatStore {
   loadingChats: boolean;
   hasMore: Record<string, boolean>;
   totalUnread: number;
+  pendingMessageIds: string[]; // Track unsent messages with UUIDs
+  lastSendError?: { message: string; timestamp: number };
 
   fetchChats: (userId?: string) => Promise<void>;
   addMessage: (message: Message) => void;
   subscribeChats: (userId: string) => () => void;
   subscribeMessages: (chatId: string, limit?: number) => () => void;
-  sendMessage: (chatId: string, senderId: string, content: string, type?: string, mediaUrl?: string, replyTo?: Message | string) => Promise<void>;
+  sendMessage: (chatId: string, senderId: string, content: string, type?: string, mediaUrl?: string, replyTo?: Message | string) => Promise<{ success: boolean; id: string }>;
+  retryFailedMessage: (chatId: string, localId: string) => Promise<{ success: boolean; id: string }>;
   editMessage: (chatId: string, messageId: string, content: string) => Promise<void>;
   deleteMessage: (chatId: string, messageId: string) => Promise<void>;
   deleteForEveryone: (chatId: string, messageId: string) => Promise<void>;
@@ -156,6 +86,41 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   loadingChats: true,
   hasMore: {},
   totalUnread: 0,
+  pendingMessageIds: [],
+  lastSendError: undefined,
+
+  addMessage: (message) => {
+    set((state) => {
+      const chatMessages = state.messages[message.chatId] ?? [];
+      const matchMessage = (candidate: Message) => {
+        if (message.localId) {
+          return candidate.localId === message.localId || candidate.id === message.id;
+        }
+        return candidate.id === message.id;
+      };
+
+      const existing = chatMessages.find(matchMessage);
+      if (existing) {
+        return {
+          messages: {
+            ...state.messages,
+            [message.chatId]: chatMessages.map((candidate) =>
+              matchMessage(candidate)
+                ? { ...existing, ...message, id: message.id, localId: message.localId ?? existing.localId }
+                : candidate
+            ),
+          },
+        };
+      }
+
+      return {
+        messages: {
+          ...state.messages,
+          [message.chatId]: [...chatMessages, message],
+        },
+      };
+    });
+  },
 
   fetchChats: async (userId) => {
     if (!isFirestoreAvailable() || !userId) return;
@@ -174,15 +139,6 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       logStoreError('fetchChats', error, { userId });
       set({ loadingChats: false });
     }
-  },
-
-  addMessage: (message) => {
-    set((state) => ({
-      messages: {
-        ...state.messages,
-        [message.chatId]: [...(state.messages[message.chatId] || []), message],
-      },
-    }));
   },
 
   subscribeChats: (userId) => {
@@ -208,21 +164,64 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       COLLECTIONS.MESSAGES,
       [orderBy('timestamp', 'desc'), limit(limitCount)],
       (rawMessages) => {
-        const messages = rawMessages.map(m => mapMessage(m as unknown as Record<string, unknown> & { id?: string })).reverse();
-        set(state => ({
-          messages: { ...state.messages, [chatId]: messages },
-          hasMore: { ...state.hasMore, [chatId]: messages.length === limitCount },
-        }));
+        const incomingMessages = rawMessages.map(m => mapMessage(m as unknown as Record<string, unknown> & { id?: string })).reverse();
+        // Merge incoming server messages with existing local state using atomic matching logic.
+        // This prevents the race condition where subscription replacement overwrites pending
+        // tempId→newDocId mappings before the store can reconcile them.
+        set(state => {
+          let mergedMessages = state.messages[chatId] ?? [];
+
+          for (const incomingMsg of incomingMessages) {
+            const matchMessage = (candidate: Message) => {
+              // Match by localId first (works for tempId→newDocId reconciliation)
+              if (incomingMsg.localId) {
+                return candidate.localId === incomingMsg.localId || candidate.id === incomingMsg.id;
+              }
+              // Fall back to ID matching for messages that never had localId
+              return candidate.id === incomingMsg.id;
+            };
+
+            const existingIdx = mergedMessages.findIndex(matchMessage);
+            if (existingIdx >= 0) {
+              // Merge: preserve optimistic delivery status if it's ahead
+              const existing = mergedMessages[existingIdx];
+              const optimisticDeliveryPriority = { sending: 3, sent: 2, failed: 1, delivered: 0 };
+              const incomingPriority = optimisticDeliveryPriority[incomingMsg.deliveryStatus as keyof typeof optimisticDeliveryPriority] ?? 0;
+              const existingPriority = optimisticDeliveryPriority[existing.deliveryStatus as keyof typeof optimisticDeliveryPriority] ?? 0;
+
+              mergedMessages[existingIdx] = {
+                ...existing,
+                ...incomingMsg,
+                // Preserve the server ID but keep localId for future correlation
+                id: incomingMsg.id,
+                localId: incomingMsg.localId ?? existing.localId,
+                // Use the most optimistic delivery status (don't downgrade 'sent' to a lower state)
+                deliveryStatus: existingPriority > incomingPriority ? existing.deliveryStatus : incomingMsg.deliveryStatus,
+              };
+            } else {
+              // New message from server
+              mergedMessages.push(incomingMsg);
+            }
+          }
+
+          return {
+            messages: { ...state.messages, [chatId]: mergedMessages },
+            hasMore: { ...state.hasMore, [chatId]: incomingMessages.length === limitCount },
+          };
+        });
       },
     );
   },
 
   sendMessage: async (chatId, senderId, content, type = 'text', mediaUrl, replyTo) => {
-    if (!isFirestoreAvailable()) { return; }
+    if (!isFirestoreAvailable()) { return { success: false, id: '' }; }
     const rateErr = checkMessageRateLimit();
-    if (rateErr) { toast.warning(rateErr); return; }
+    if (rateErr) { toast.warning(rateErr); return { success: false, id: '' }; }
 
-    const tempId = `${Date.now()}`;
+    // Generate UUID locally - guaranteed unique + deterministic for sorting
+    const tempId = uuidv4();
+    const now = Date.now();
+
     const replyToId: string | undefined = typeof replyTo === 'string' ? replyTo : replyTo?.id;
     const message: Message = {
       id: tempId,
@@ -231,13 +230,22 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       content: sanitizeText(content),
       type: type as MessageType,
       mediaUrl,
-      timestamp: new Date(),
+      timestamp: new Date(now),
       deliveryStatus: 'sending',
       replyTo: replyToId,
+      localId: tempId, // Track the client-generated ID
+      retryCount: 0,
     };
 
+    // Optimistic update - add message to store immediately
     get().addMessage(message);
 
+    // Track pending message ID
+    set(state => ({
+      pendingMessageIds: [...state.pendingMessageIds, tempId],
+    }));
+
+    // Offline handling
     if (!isOnline()) {
       enqueueOfflineMessage({
         chatId,
@@ -248,40 +256,142 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         mediaUrl,
         replyTo: replyToId,
       });
-      return;
+      return { success: true, id: tempId }; // Local ID returned
     }
 
     try {
+      // Send to database
       const newDocId = await addDocToSubcollection(COLLECTIONS.CHATS, chatId, COLLECTIONS.MESSAGES, {
         ...message,
         timestamp: serverTimestamp(),
+        localId: tempId, // Store client ID for correlation
       });
+
+      // Update chat metadata
       updateDocById(COLLECTIONS.CHATS, chatId, {
         lastMessage: content,
         lastMessageSenderId: senderId,
         updatedAt: serverTimestamp(),
       });
-      set(state => ({
-        messages: {
-          ...state.messages,
-          [chatId]: (state.messages[chatId] || []).map(m => m.id === tempId ? { ...m, id: newDocId, deliveryStatus: 'sent' as const } : m),
-        }
-      }));
+
+      // Update message with server ID and mark as sent
+      set(state => {
+        const updatedMessages = { ...state.messages };
+        updatedMessages[chatId] = (state.messages[chatId] || []).map(m =>
+          m.id === tempId
+            ? { ...m, id: newDocId, deliveryStatus: 'sent' as const, localId: tempId }
+            : m
+        );
+        return {
+          messages: updatedMessages,
+          pendingMessageIds: state.pendingMessageIds.filter(id => id !== tempId),
+        };
+      });
+
+      return { success: true, id: newDocId };
     } catch (error) {
-      logStoreError('sendMessage', error, { chatId, senderId });
+      logStoreError('sendMessage', error, { chatId, senderId, tempId });
+
+      // Mark message as failed but keep it in store for retry
+      set(state => {
+        const updatedMessages = { ...state.messages };
+        updatedMessages[chatId] = (state.messages[chatId] || []).map(m =>
+          m.id === tempId
+            ? { ...m, deliveryStatus: 'failed' as const, retryCount: (m.retryCount || 0) + 1 }
+            : m
+        );
+        return {
+          messages: updatedMessages,
+          lastSendError: { message: String(error), timestamp: Date.now() },
+        };
+      });
+
+      // Keep in pending for retry
+      return { success: false, id: tempId };
+    }
+  },
+
+  // Retry failed message with exponential backoff
+  retryFailedMessage: async (chatId, localId) => {
+    const state = get();
+    const failedMsg = state.messages[chatId]?.find(m => m.localId === localId || m.id === localId);
+
+    if (!failedMsg) {
+      throw new Error(`Message not found: ${localId}`);
+    }
+
+    if (failedMsg.deliveryStatus !== 'failed') {
+      throw new Error('Message is not in failed state');
+    }
+
+    // Check retry limit (max 3 attempts)
+    if ((failedMsg.retryCount || 0) >= 3) {
+      throw new Error('Message retry limit exceeded');
+    }
+
+    // Exponential backoff: 1s, 2s, 4s
+    const delay = Math.pow(2, failedMsg.retryCount || 0) * 1000;
+    await new Promise(r => setTimeout(r, delay));
+
+    // Retry send
+    try {
+      set(state => {
+        const updatedMessages = { ...state.messages };
+        updatedMessages[chatId] = (state.messages[chatId] || []).map(m =>
+          m.id === failedMsg.id
+            ? { ...m, deliveryStatus: 'sending' as const }
+            : m
+        );
+        return { messages: updatedMessages };
+      });
+
+      const newDocId = await addDocToSubcollection(COLLECTIONS.CHATS, chatId, COLLECTIONS.MESSAGES, {
+        chatId,
+        senderId: failedMsg.senderId,
+        content: failedMsg.content,
+        type: failedMsg.type,
+        mediaUrl: failedMsg.mediaUrl,
+        replyTo: failedMsg.replyTo,
+        localId: localId,
+        timestamp: serverTimestamp(),
+      });
+
+      set(state => {
+        const updatedMessages = { ...state.messages };
+        updatedMessages[chatId] = (state.messages[chatId] || []).map(m =>
+          m.id === failedMsg.id || m.localId === localId
+            ? { ...m, id: newDocId, deliveryStatus: 'sent' as const }
+            : m
+        );
+        return {
+          messages: updatedMessages,
+          pendingMessageIds: state.pendingMessageIds.filter(id => id !== failedMsg.id && id !== localId),
+        };
+      });
+
+      return { success: true, id: newDocId };
+    } catch (error) {
+      logStoreError('retryFailedMessage', error, { chatId, localId });
+
       set(state => ({
         messages: {
           ...state.messages,
-          [chatId]: (state.messages[chatId] || []).map(m => m.id === tempId ? { ...m, deliveryStatus: 'failed' as const } : m),
+          [chatId]: (state.messages[chatId] || []).map(m =>
+            m.id === failedMsg.id || m.localId === localId
+              ? { ...m, deliveryStatus: 'failed' as const, retryCount: (m.retryCount || 0) + 1 }
+              : m
+          ),
         }
       }));
+
+      throw error;
     }
   },
 
   editMessage: async (chatId, messageId, content) => {
     if (!isFirestoreAvailable()) return;
     try {
-      await updateSubcollectionDoc(COLLECTIONS.CHATS, chatId, COLLECTIONS.MESSAGES, messageId, { content: sanitizeText(content), edited: true });
+      await chatApi.editMessage(chatId, messageId, content);
     } catch (error) {
       logStoreError('editMessage', error, { chatId, messageId });
     }
@@ -290,7 +400,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   deleteMessage: async (chatId, messageId) => {
     if (!isFirestoreAvailable()) return;
     try {
-      await updateSubcollectionDoc(COLLECTIONS.CHATS, chatId, COLLECTIONS.MESSAGES, messageId, { content: 'This message was deleted', type: 'deleted' });
+      await chatApi.deleteMessage(chatId, messageId);
     } catch (error) {
       logStoreError('deleteMessage', error, { chatId, messageId });
     }
@@ -299,7 +409,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   deleteForEveryone: async (chatId, messageId) => {
     if (!isFirestoreAvailable()) return;
     try {
-      await deleteSubcollectionDoc(COLLECTIONS.CHATS, chatId, COLLECTIONS.MESSAGES, messageId);
+      await chatApi.deleteForEveryone(chatId, messageId);
     } catch (error) {
       logStoreError('deleteForEveryone', error, { chatId, messageId });
     }
@@ -308,7 +418,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   recallMessage: async (chatId, messageId) => {
     if (!isFirestoreAvailable()) return;
     try {
-      await deleteSubcollectionDoc(COLLECTIONS.CHATS, chatId, COLLECTIONS.MESSAGES, messageId);
+      await chatApi.recallMessage(chatId, messageId);
     } catch (error) {
       logStoreError('recallMessage', error, { chatId, messageId });
     }
@@ -317,47 +427,16 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   addReaction: async (chatId, messageId, emoji, userId) => {
     if (!isFirestoreAvailable()) return;
     try {
-      const message = get().messages[chatId]?.find(m => m.id === messageId);
-      if (message) {
-        const reactions = { ...(message.reactions || {}) };
-        if (reactions[emoji]?.includes(userId)) {
-          reactions[emoji] = reactions[emoji].filter(id => id !== userId);
-        } else {
-          reactions[emoji] = [...(reactions[emoji] || []), userId];
-        }
-        await updateSubcollectionDoc(COLLECTIONS.CHATS, chatId, COLLECTIONS.MESSAGES, messageId, { reactions });
-      }
+      await chatApi.addReaction(chatId, messageId, emoji, userId);
     } catch (error) {
       logStoreError('addReaction', error, { chatId, messageId, emoji, userId });
     }
   },
 
   markAsRead: async (chatId, currentUserId) => {
-    if (!isFirestoreAvailable() || !chatId || !currentUserId) return;
+    if (!chatId || !currentUserId) return;
     try {
-      await updateDocById(COLLECTIONS.CHATS, chatId, { unreadCount: 0 });
-
-      const unreadMessages = await querySubcollection<Message>(
-        COLLECTIONS.CHATS,
-        chatId,
-        COLLECTIONS.MESSAGES,
-        [where('deliveryStatus', '!=', 'read')],
-      );
-
-      const othersMessages = unreadMessages.filter(m => m.senderId !== currentUserId);
-      if (othersMessages.length > 0) {
-        await Promise.all(
-          othersMessages.map(m =>
-            updateSubcollectionDoc(
-              COLLECTIONS.CHATS,
-              chatId,
-              COLLECTIONS.MESSAGES,
-              m.id,
-              { deliveryStatus: 'read', readAt: serverTimestamp() },
-            )
-          )
-        );
-      }
+      await chatApi.markAsRead(chatId, currentUserId);
     } catch (error) {
       logStoreError('markAsRead', error, { chatId, currentUserId });
     }
@@ -657,21 +736,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     if (!isFirestoreAvailable() || !chatId || !senderId) return;
 
     try {
-      const pollData: PollData = {
-        question,
-        options: options.map(option => ({ text: option, votes: [] })),
-        totalVotes: 0,
-      };
-
-      const messageData = {
-        chatId,
-        senderId,
-        type: 'poll',
-        pollData,
-        createdAt: serverTimestamp(),
-      };
-
-      await addDocToSubcollection(COLLECTIONS.CHATS, chatId, COLLECTIONS.MESSAGES, messageData);
+      await chatApi.sendPoll(chatId, senderId, question, options);
       toast.success('Poll sent successfully.');
     } catch (error) {
       logStoreError('sendPoll', error, { chatId, senderId });
@@ -683,27 +748,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     if (!isFirestoreAvailable() || !chatId || !messageId || !userId) return;
 
     try {
-      const message = get().messages[chatId]?.find(m => m.id === messageId);
-      if (!message || message.type !== 'poll' || !message.pollData) {
-        toast.error('Poll not found.');
-        return;
-      }
-
-      const pollData = { ...message.pollData };
-      const option = pollData.options[optionIndex];
-      if (!option) {
-        toast.error('Invalid option.');
-        return;
-      }
-
-      // Allow changing vote
-      pollData.options.forEach(opt => {
-        opt.votes = opt.votes.filter(v => v !== userId);
-      });
-
-      option.votes.push(userId);
-
-      await updateSubcollectionDoc(COLLECTIONS.CHATS, chatId, COLLECTIONS.MESSAGES, messageId, { pollData });
+      await chatApi.votePoll(chatId, messageId, optionIndex, userId);
       toast.success('Vote cast successfully.');
     } catch (error) {
       logStoreError('votePoll', error, { chatId, messageId, optionIndex, userId });

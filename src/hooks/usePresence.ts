@@ -150,15 +150,19 @@ export function useTrackPresence(userId: string | undefined) {
       const writePresence = async (isOnline: boolean) => {
         if (isDestroyed || mountIdRef.current !== myMountId) return;
         try {
+          const { data: { user }, error: userError } = await supabase.auth.getUser();
+          if (userError || !user || user.id !== userId) return;
+
           const now = new Date().toISOString();
-          await supabase
-            .from('users')
-            .update({ status: isOnline ? 'online' : 'offline', last_seen: now })
-            .eq('id', userId);
-          await supabase.from('presence').upsert(
+          // Presence belongs in the dedicated presence table. Writing the same
+          // status back into the users table triggers the PATCH /users 400 in
+          // environments where the users RLS/policy contract is stricter or stale.
+          const { error } = await supabase.from('presence').upsert(
             { user_id: userId, is_online: isOnline, last_seen: now, updated_at: now },
             { onConflict: 'user_id' },
           );
+
+          if (error) throw error;
           sharedPresenceInfo[userId] = { isOnline, lastSeen: Date.parse(now) || Date.now() };
           syncBroadcast();
         } catch { /* ignore */ }
@@ -172,7 +176,7 @@ export function useTrackPresence(userId: string | undefined) {
         sharedPresenceInfo[userId] = { isOnline: false, lastSeen: Date.now() };
         syncBroadcast();
       };
-      const markOffline = () => { markOfflineLocal(); writePresence(false).catch(() => {}); };
+      const markOffline = () => { markOfflineLocal(); writePresence(false).catch(() => { }); };
       const handleBeforeUnload = () => { markOffline(); };
       const handlePageHide = () => { markOffline(); };
       const onVisibility = () => {
@@ -225,7 +229,7 @@ export function useTrackPresence(userId: string | undefined) {
       // actively using the app (only visibilitychange/beforeunload fire otherwise).
       const heartbeat = setInterval(() => {
         if (document.visibilityState === 'hidden') return;
-        writePresence(true).catch(() => {});
+        writePresence(true).catch(() => { });
       }, 30_000);
 
       const sweep = setInterval(() => { syncBroadcast(); }, 15_000);
@@ -275,22 +279,22 @@ export function useTrackPresence(userId: string | undefined) {
     };
 
     const markOffline = () => {
-      setDocById('users', userId, { status: 'offline', lastSeen: serverTimestamp() }).catch(() => {});
-      setDocById('presence', 'online', { [`users.${userId}`]: false, lastUpdated: serverTimestamp() }).catch(() => {});
+      setDocById('users', userId, { status: 'offline', lastSeen: serverTimestamp() }).catch(() => { });
+      setDocById('presence', 'online', { [`users.${userId}`]: false, lastUpdated: serverTimestamp() }).catch(() => { });
     };
 
     const onVisibility = () => {
       if (document.visibilityState === 'hidden') markOffline();
-      else { markOnline().catch(() => {}); }
+      else { markOnline().catch(() => { }); }
     };
     const handleBeforeUnload = () => { markOffline(); };
 
-    markOnline().catch(() => {});
+    markOnline().catch(() => { });
 
     // Heartbeat — keeps presence alive while the tab is open & visible.
     const heartbeat = setInterval(() => {
       if (document.visibilityState === 'hidden') return;
-      markOnline().catch(() => {});
+      markOnline().catch(() => { });
     }, 30_000);
 
     window.addEventListener('beforeunload', handleBeforeUnload);

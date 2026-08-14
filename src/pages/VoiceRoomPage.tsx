@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { v4 as uuidv4 } from 'uuid';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Mic, MicOff, Hand, X, Users, PhoneOff,
@@ -66,7 +67,7 @@ export default function VoiceRoomPage() {
     if (!roomId || !user?.id) return;
     const unsub = subscribeRooms();
     joinRoom(roomId, user.id);
-    
+
     // Subscribe to room updates in real-time
     const unsubRoom = subscribeToDoc(
       COLLECTIONS.VOICE_ROOMS,
@@ -78,7 +79,7 @@ export default function VoiceRoomPage() {
         }
       }
     );
-    
+
     return () => {
       unsub();
       unsubRoom();
@@ -128,7 +129,7 @@ export default function VoiceRoomPage() {
   const handleSendChat = () => {
     if (!chatInput.trim() || !user?.id) return;
     const msg = {
-      id: `msg_${Date.now()}`,
+      id: `msg_${uuidv4()}`,
       userId: user.id,
       name: user.name || 'User',
       text: chatInput.trim(),
@@ -279,14 +280,13 @@ export default function VoiceRoomPage() {
       <div className="shrink-0 px-4 py-4 border-t border-[#1a1a1a]">
         <div className="flex items-center justify-center gap-4">
           {/* Mute toggle - uses real WebRTC */}
-{isSpeaker && (
+          {isSpeaker && (
             <button
               type="button"
               onClick={rtc.toggleMute}
               aria-label={rtc.isMuted ? 'Unmute microphone' : 'Mute microphone'}
-              className={`w-14 h-14 rounded-full flex items-center justify-center transition-colors ${
-                rtc.isMuted ? 'bg-[#FF3B30]/20 text-[#FF3B30]' : 'bg-[#00C300]/20 text-[#00C300]'
-              }`}
+              className={`w-14 h-14 rounded-full flex items-center justify-center transition-colors ${rtc.isMuted ? 'bg-[#FF3B30]/20 text-[#FF3B30]' : 'bg-[#00C300]/20 text-[#00C300]'
+                }`}
             >
               {rtc.isMuted ? <MicOff size={24} /> : <Mic size={24} />}
             </button>
@@ -298,9 +298,8 @@ export default function VoiceRoomPage() {
               type="button"
               onClick={handleRaiseHand}
               aria-label={hasHandRaised ? 'Lower hand' : 'Raise hand'}
-              className={`w-14 h-14 rounded-full flex items-center justify-center transition-colors ${
-                hasHandRaised ? 'bg-[#00C300]/20 text-[#00C300]' : 'bg-[#1a1a1a] text-white'
-              }`}
+              className={`w-14 h-14 rounded-full flex items-center justify-center transition-colors ${hasHandRaised ? 'bg-[#00C300]/20 text-[#00C300]' : 'bg-[#1a1a1a] text-white'
+                }`}
             >
               <Hand size={24} />
             </button>
@@ -388,9 +387,8 @@ export default function VoiceRoomPage() {
                 chatMessages.map(msg => (
                   <div key={msg.id} className={`flex gap-2 ${msg.userId === user?.id ? 'flex-row-reverse' : ''}`}>
                     <img src={getDefaultAvatar(msg.userId)} alt="User" className="w-6 h-6 rounded-full object-cover shrink-0" />
-                    <div className={`px-3 py-2 rounded-xl text-xs max-w-[70%] ${
-                      msg.userId === user?.id ? 'bg-[#00C300] text-black' : 'bg-[#2a2a2a] text-white'
-                    }`}>
+                    <div className={`px-3 py-2 rounded-xl text-xs max-w-[70%] ${msg.userId === user?.id ? 'bg-[#00C300] text-black' : 'bg-[#2a2a2a] text-white'
+                      }`}>
                       <p className="font-medium text-[10px] opacity-70 mb-0.5">{msg.name}</p>
                       <p>{msg.text}</p>
                     </div>
@@ -433,9 +431,8 @@ function SpeakerAvatar({ userId, isHost, isCoHost, isMe, isMuted, name }: {
         <img
           src={getDefaultAvatar(userId)}
           alt={name || `User ${userId.slice(0, 6)}`}
-          className={`w-14 h-14 rounded-full object-cover mx-auto transition-all ${
-            isHost ? 'border-2 border-[#FFD700]' : isCoHost ? 'border-2 border-[#00C300]' : isSpeaking ? 'border-2 border-[#00C300] shadow-[0_0_10px_#00C300]' : 'border-2 border-[#333]'
-          }`}
+          className={`w-14 h-14 rounded-full object-cover mx-auto transition-all ${isHost ? 'border-2 border-[#FFD700]' : isCoHost ? 'border-2 border-[#00C300]' : isSpeaking ? 'border-2 border-[#00C300] shadow-[0_0_10px_#00C300]' : 'border-2 border-[#333]'
+            }`}
         />
         {isMuted && (
           <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-[#FF3B30] rounded-full flex items-center justify-center border border-[#0a0a0a]" aria-label="Muted">
