@@ -8,11 +8,23 @@ async function savePushSubscription(userId: string, sub: PushSubscription) {
   if (!supabase) return;
   try {
     // push_subscription column may not exist on older schemas — ignore column errors
-    await supabase
+    const { error } = await supabase
       .from('users')
       .update({ push_subscription: JSON.stringify(sub) })
       .eq('id', userId);
-  } catch { /* ignore — non-critical */ }
+
+    if (error) {
+      // Non-critical error - push notifications will still work, just won't be saved to DB
+      if (error.code === 'PGRST204') {
+        console.debug('Push subscription column not yet migrated in database - this is expected during deployment');
+      } else {
+        console.debug('Push notification subscription save skipped:', error.message);
+      }
+    }
+  } catch (err) {
+    // Silently ignore - push notifications are non-critical
+    console.debug('Error saving push subscription (non-critical):', err instanceof Error ? err.message : String(err));
+  }
 }
 
 export function usePushNotifications() {
@@ -28,7 +40,7 @@ export function usePushNotifications() {
       if (Notification.permission !== 'granted') return;
       const sub = await pushNotificationService.subscribeToPush();
       if (sub) await savePushSubscription(user.id, sub);
-    }).catch(() => {});
+    }).catch(() => { });
   }, [user?.id, init]);
 
   const requestPermission = useCallback(async () => {
