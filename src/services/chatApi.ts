@@ -830,6 +830,45 @@ export const chatApi = {
     },
 
     /**
+     * Mark messages as delivered — called automatically on the recipient's
+     * device when messages arrive, so the sender sees the "delivered" state
+     * (WeChat/WhatsApp-style two-stage receipt: sent → delivered → read).
+     */
+    async markDelivered(chatId: string, currentUserId: string): Promise<void> {
+        if (!isFirestoreAvailable() || !chatId || !currentUserId) {
+            return;
+        }
+
+        try {
+            // Messages that reached the server but haven't been marked delivered
+            const sentMessages = await querySubcollection<Message>(
+                COLLECTIONS.CHATS,
+                chatId,
+                COLLECTIONS.MESSAGES,
+                [where('deliveryStatus', '==', 'sent')],
+            );
+
+            const othersMessages = sentMessages.filter(m => m.senderId !== currentUserId);
+            if (othersMessages.length === 0) return;
+
+            await Promise.all(
+                othersMessages.map(m =>
+                    updateSubcollectionDoc(
+                        COLLECTIONS.CHATS,
+                        chatId,
+                        COLLECTIONS.MESSAGES,
+                        m.id,
+                        { deliveryStatus: 'delivered', deliveredAt: serverTimestamp() },
+                    ),
+                ),
+            );
+        } catch (error) {
+            // Best-effort: delivery receipts are non-critical
+            logStoreError('chatApi.markDelivered', error, { chatId });
+        }
+    },
+
+    /**
      * Send a poll
      */
     async sendPoll(chatId: string, senderId: string, question: string, options: string[]): Promise<void> {

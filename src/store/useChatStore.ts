@@ -190,9 +190,11 @@ export const useChatStore = create<ChatStore>((set, get) => ({
 
               const existingIdx = mergedMessages.findIndex(matchMessage);
               if (existingIdx >= 0) {
-                // Merge: preserve optimistic delivery status if it's ahead
+                // Merge: keep the most advanced delivery state. Server-side
+                // states (delivered/read) must outrank local 'sent' so
+                // receipts advance; 'failed' stays sticky so retry survives.
                 const existing = mergedMessages[existingIdx];
-                const optimisticDeliveryPriority = { sending: 3, sent: 2, failed: 1, delivered: 0 };
+                const optimisticDeliveryPriority = { pending: 0, sending: 1, sent: 2, delivered: 3, read: 4, failed: 5 };
                 const incomingPriority = optimisticDeliveryPriority[incomingMsg.deliveryStatus as keyof typeof optimisticDeliveryPriority] ?? 0;
                 const existingPriority = optimisticDeliveryPriority[existing.deliveryStatus as keyof typeof optimisticDeliveryPriority] ?? 0;
 
@@ -216,6 +218,22 @@ export const useChatStore = create<ChatStore>((set, get) => ({
               hasMore: { ...state.hasMore, [chatId]: incomingMessages.length === limitCount },
             };
           });
+
+          // WeChat-style delivery receipts: when messages from the other
+          // party arrive on this device, mark them 'delivered' so the
+          // sender's ticks advance (sent → delivered → read).
+          if (incomingMessages.some(m => m.deliveryStatus === 'sent')) {
+            void (async () => {
+              try {
+                const { useAuthStore } = await import('@/store/useAuthStore');
+                const uid = useAuthStore.getState().user?.id;
+                if (!uid) return;
+                if (incomingMessages.some(m => m.deliveryStatus === 'sent' && m.senderId !== uid)) {
+                  await chatApi.markDelivered(chatId, uid);
+                }
+              } catch { /* delivery receipts are best-effort */ }
+            })();
+          }
         },
       )
     );
