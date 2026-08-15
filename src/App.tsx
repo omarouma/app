@@ -13,6 +13,7 @@ import { usePushNotifications } from '@/hooks/usePushNotifications';
 import { useGATracking } from '@/hooks/useGATracking';
 import { useForegroundNotifications } from '@/hooks/useForegroundNotifications';
 import { useIncomingCallNotifications } from '@/hooks/useIncomingCallNotifications';
+import { useMessageNotifications } from '@/hooks/useMessageNotifications';
 import { useTrackPresence } from '@/hooks/usePresence';
 import { MessageCircle, Phone, Users, Flame, Settings } from 'lucide-react';
 import { Toaster } from '@/components/ui/sonner';
@@ -404,6 +405,7 @@ function AppContent() {
   usePushNotifications();
   useForegroundNotifications();
   useIncomingCallNotifications();  // NEW: Handle incoming call notifications & sounds
+  useMessageNotifications();       // NEW: WeChat-style message sounds + background notifications
 
   useEffect(() => {
     const publicPaths = ['/privacy', '/terms', '/help'];

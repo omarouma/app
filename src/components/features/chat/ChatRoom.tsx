@@ -1,4 +1,4 @@
-import { useState, useRef, useMemo, useCallback } from 'react';
+import { useState, useRef, useMemo, useCallback, useEffect } from 'react';
 import type { ReactElement } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -12,6 +12,7 @@ import { useChatScrollBehavior } from '@/hooks/useChatScrollBehavior';
 import { uploadMediaBlob } from '@/lib/storage';
 import { SWIPE_THRESHOLD, formatDateSeparator } from '@/lib/chatConstants';
 import { sanitizeMediaUrl } from '@/lib/utils';
+import { setActiveChatId } from '@/lib/activeChat';
 
 import type { Message } from '@/types';
 import { useCallContext } from '@/context/CallContextBase';
@@ -41,6 +42,13 @@ export default function ChatRoom({ chatId, userId, onBack }: {
   onBack?: () => void;
 }): ReactElement {
   const navigate = useNavigate();
+
+  // Mark this conversation as the active chat so global notification
+  // hooks stay silent while the user is reading it (WeChat behavior).
+  useEffect(() => {
+    setActiveChatId(chatId);
+    return () => setActiveChatId(null);
+  }, [chatId]);
   const {
     currentUser,
     messages,
