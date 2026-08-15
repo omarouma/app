@@ -123,7 +123,7 @@ export default defineConfig(({ mode }) => {
             if (!id.includes('node_modules')) return undefined;
 
             // Core infrastructure (loaded early)
-            if (id.includes('/react/') || id.includes('/scheduler/') || id.includes('/use-sync-external-store/')) return 'vendor-react';
+            if (id.includes('/react/') || id.includes('/react-dom/') || id.includes('/scheduler/') || id.includes('/use-sync-external-store/')) return 'vendor-react';
             if (id.includes('react-router') || id.includes('react-router-dom')) return 'vendor-router';
             if (id.includes('@radix-ui')) return 'vendor-radix';
             if (id.includes('zustand')) return 'vendor-zustand';
@@ -147,11 +147,13 @@ export default defineConfig(({ mode }) => {
             if (id.includes('agora-rtc-sdk-ng') || id.includes('agora')) return 'vendor-agora';
 
             // UI & animation (loaded early but splittable)
-            if (id.includes('framer-motion')) return 'vendor-framer';
+            if (id.includes('framer-motion') || id.includes('motion-dom') || id.includes('motion-utils')) return 'vendor-framer';
             if (id.includes('lucide-react')) return 'vendor-icons';
 
-            // Charts & visualization (lazy-loaded on AnalyticsPage)
-            if (id.includes('recharts') || id.includes('d3-') || id.includes('echarts') || id.includes('plotly')) return 'vendor-charts';
+            // Charts & visualization (lazy-loaded on AnalyticsPage) —
+            // include recharts' own dependency tree so nothing chart-related
+            // leaks into the eager fallback vendor chunk.
+            if (id.includes('recharts') || id.includes('d3-') || id.includes('echarts') || id.includes('plotly') || id.includes('react-smooth') || id.includes('decimal.js-light') || id.includes('lodash') || id.includes('fast-equals')) return 'vendor-charts';
 
             // Data & validation
             if (id.includes('zod')) return 'vendor-zod';
