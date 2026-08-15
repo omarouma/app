@@ -3,6 +3,18 @@
 
 <head>
   <meta charset="UTF-8" />
+
+  <!-- Performance: early connection hints for required third-party origins.
+       These let the browser warm up DNS/TLS while the HTML is still parsing,
+       cutting hundreds of ms off first API/analytics calls on mobile. -->
+  <link rel="preconnect" href="https://alzwgikndwbecuqmlrca.supabase.co" crossorigin />
+  <link rel="dns-prefetch" href="https://alzwgikndwbecuqmlrca.supabase.co" />
+  <link rel="preconnect" href="https://www.googletagmanager.com" />
+  <link rel="dns-prefetch" href="https://www.googletagmanager.com" />
+  <link rel="preconnect" href="https://pagead2.googlesyndication.com" />
+  <link rel="dns-prefetch" href="https://pagead2.googlesyndication.com" />
+  <link rel="preconnect" href="https://www.google-analytics.com" />
+  <link rel="dns-prefetch" href="https://www.google-analytics.com" />
   <!-- Google Tag Manager -->
   <script>
     (function (w, d, s, l, i) {
@@ -170,7 +182,7 @@
         "image": "https://gagachat.app/logo-192.png",
         "screenshot": "https://gagachat.app/logo-192.png",
         "featureList": "Instant Messaging, Voice Calls, Video Calls, Group Chat, Secure Authentication, Gaga Coins, QR Code Sharing, File Sharing, Live Streaming, Reels, Marketplace, Wallet",
-        "softwareVersion": "2.0.0",
+        "softwareVersion": "1.0.0",
         "author": {
           "@type": "Organization",
           "name": "GaGa Chat"

@@ -69,8 +69,17 @@ function installBinanceBridgeGuard() {
 
 installBinanceBridgeGuard();
 
-// Initialize Firebase before React renders
-initFirebase();
+// Initialize Firebase during browser idle time (after first paint).
+// Only the tiny firebase/app core is on the critical path; the ~300KB of
+// service submodules (auth/firestore/analytics/messaging) load async and
+// must not compete with the initial render for network/CPU on mobile.
+const scheduleFirebaseInit = () => initFirebase();
+if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+  (window as Window & { requestIdleCallback: (cb: () => void, opts?: { timeout: number }) => void })
+    .requestIdleCallback(scheduleFirebaseInit, { timeout: 2000 });
+} else {
+  setTimeout(scheduleFirebaseInit, 800);
+}
 
 // Lock app orientation to portrait on supported mobile browsers/devices.
 async function lockPortraitOrientation() {

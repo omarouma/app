@@ -120,7 +120,8 @@ export async function resolveAgoraToken(
       } catch { /* session unavailable — try the endpoint unsigned */ }
       if (!headers.Authorization) {
         try {
-          const { getFirebaseAuth } = await import('@/lib/firebase');
+          const { getFirebaseAuth, firebaseServicesReady } = await import('@/lib/firebase');
+          await firebaseServicesReady();
           const idToken = await getFirebaseAuth()?.currentUser?.getIdToken();
           if (idToken) headers.Authorization = `Bearer ${idToken}`;
         } catch { /* firebase auth not in use */ }

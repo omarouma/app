@@ -129,6 +129,17 @@ export default defineConfig(({ mode }) => {
             if (id.includes('zustand')) return 'vendor-zustand';
 
             // Auth & backend services
+            // Firebase core + its shared runtime deps stay eager (tiny);
+            // every service submodule (auth/firestore/analytics/messaging/
+            // performance) is only reached via dynamic import, so it lands
+            // in a separate chunk loaded AFTER first paint.
+            if (
+              id.includes('/firebase/app') ||
+              id.includes('@firebase/app') ||
+              id.includes('@firebase/util') ||
+              id.includes('@firebase/component') ||
+              id.includes('@firebase/logger')
+            ) return 'vendor-firebase-core';
             if (id.includes('firebase') || id.includes('@firebase')) return 'vendor-firebase';
             if (id.includes('@supabase')) return 'vendor-supabase';
 
