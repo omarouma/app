@@ -102,7 +102,7 @@ export const ChatHeader = memo(function ChatHeader(props: ChatHeaderProps) {
         </div>
         <div className="min-w-0">
           <h3 className="text-base font-bold text-[#111111] leading-tight truncate">{props.displayUser?.name || 'Chat'}</h3>
-          <p className="text-[11px] text-[#8D8D8D]">
+          <p className="text-[11px] text-[#8D8D8D] truncate">
             {props.activeTypingUsers.length > 0
               ? renderTypingText(props.activeTypingUsers)
               : props.isUserOnline ? 'Online' : props.lastSeen ? `last seen ${props.lastSeen}` : 'Offline'}
@@ -203,8 +203,13 @@ export const ChatHeader = memo(function ChatHeader(props: ChatHeaderProps) {
   );
 });
 
+const MAX_NAME_LEN = 16;
+function truncateName(s: string): string {
+  return s.length > MAX_NAME_LEN ? s.slice(0, MAX_NAME_LEN) + '\u2026' : s;
+}
+
 function renderTypingText(typingUsers: string[]): string {
-  if (typingUsers.length === 1) return `${typingUsers[0]} is typing...`;
-  if (typingUsers.length === 2) return `${typingUsers[0]} and ${typingUsers[1]} are typing...`;
-  return `${typingUsers[0]} and ${typingUsers.length - 1} others are typing...`;
+  if (typingUsers.length === 1) return `${truncateName(typingUsers[0])} is typing...`;
+  if (typingUsers.length === 2) return `${truncateName(typingUsers[0])} and ${truncateName(typingUsers[1])} are typing...`;
+  return `${truncateName(typingUsers[0])} and ${typingUsers.length - 1} others are typing...`;
 }

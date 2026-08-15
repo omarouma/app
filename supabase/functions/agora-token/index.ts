@@ -1,3 +1,7 @@
+// @ts-nocheck - Supabase Edge Functions run on Deno runtime.
+// Deno globals (Deno.env, Deno.serve, crypto.subtle, BufferSource) are
+// available at runtime but not in the host project's browser TS lib.
+// Supabase deploys compile this file separately with Deno TS.
 // Supabase Edge Function: agora-token
 //
 // Mints short-lived Agora RTC tokens for authenticated GaGa Chat users.
@@ -24,10 +28,13 @@ const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
 const TOKEN_TTL_SEC = Number(Deno.env.get('AGORA_TOKEN_TTL_SEC') ?? '43200'); // 12h
 
 const ALLOWED_ORIGINS = [
+  'https://gagachat.app',
+  'https://www.gagachat.app',
   'https://oumagachat.web.app',
   'https://oumagachat.firebaseapp.com',
   'http://localhost:3000',
   'http://localhost:4173',
+  'https://gagachat.web.app',
 ];
 
 function corsHeaders(origin: string): Record<string, string> {

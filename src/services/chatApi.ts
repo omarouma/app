@@ -16,8 +16,9 @@ import { v4 as uuidv4 } from 'uuid';
 import {
     isFirestoreAvailable,
     COLLECTIONS,
+    getDocById,
+    setDocById,
     updateDocById,
-    addDocToCollection,
     addDocToSubcollection,
     queryCollection,
     querySubcollection,
@@ -187,6 +188,8 @@ export const chatApi = {
 
     /**
      * Create a direct chat between two users
+     * Uses a deterministic chatId (dm_<user1>_<user2>) so both users
+     * can compute the same chatId without needing to look it up.
      */
     async createDirectChat(userId: string, currentUserId: string): Promise<Chat | null> {
         if (!isFirestoreAvailable() || !userId || !currentUserId) {
@@ -198,7 +201,17 @@ export const chatApi = {
         }
 
         try {
-            // Check if chat already exists
+            // Compute deterministic chatId: dm_<sorted_participants>
+            const participants = [userId, currentUserId].sort((a, b) => a.localeCompare(b));
+            const chatId = `dm_${participants.join('_')}`;
+
+            // Check if chat already exists by deterministic ID
+            const existing = await getDocById(COLLECTIONS.CHATS, chatId);
+            if (existing) {
+                return mapChat(existing as unknown as Record<string, unknown> & { id?: string });
+            }
+
+            // Also check by participants query (for legacy chats with random IDs)
             const existingChats = await queryCollection<Chat>(
                 COLLECTIONS.CHATS,
                 [
@@ -211,8 +224,8 @@ export const chatApi = {
                 return mapChat(existingChats[0] as unknown as Record<string, unknown> & { id?: string });
             }
 
-            // Create new chat
-            const newChatId = await addDocToCollection(COLLECTIONS.CHATS, {
+            // Create new chat with deterministic ID
+            await setDocById(COLLECTIONS.CHATS, chatId, {
                 type: 'direct',
                 participants: [userId, currentUserId],
                 createdAt: serverTimestamp(),
@@ -220,7 +233,7 @@ export const chatApi = {
                 unreadCount: 0,
             });
 
-            return { id: newChatId } as Chat;
+            return { id: chatId } as Chat;
         } catch (error) {
             logStoreError('chatApi.createDirectChat', error, { userId, currentUserId });
             throw error;

@@ -1,20 +1,25 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import ChatRoom from '@/components/features/chat/ChatRoom';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useChatStore } from '@/store/useChatStore';
+import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import Logo from '@/components/Logo';
+import { withRetry } from '@/lib/errorHandling';
+import { toast } from 'sonner';
 
 interface ChatRoomLoaderProps {
   userId: string;
+  onRetry?: () => void;
 }
 
-export default function ChatRoomLoader({ userId }: ChatRoomLoaderProps) {
+export default function ChatRoomLoader({ userId, onRetry }: ChatRoomLoaderProps) {
   const navigate = useNavigate();
   const { user } = useAuthStore();
   const { createDirectChat } = useChatStore();
   const chats = useChatStore((s) => s.chats);
+  const { isOnline } = useNetworkStatus();
 
   const isSelfChat = !!user && userId === user.id;
 
@@ -35,29 +40,54 @@ export default function ChatRoomLoader({ userId }: ChatRoomLoaderProps) {
 
   const createAttemptedForRef = useRef<string>('');
   const [createResult, setCreateResult] = useState<'none' | 'ok' | 'error'>('none');
+  const [isCreating, setIsCreating] = useState(false);
 
   const canAttemptCreate = !!user && !isSelfChat && participants.length === 2 && !!chatId;
 
-  useEffect(() => {
+  const handleCreateChat = useCallback(async () => {
     if (!canAttemptCreate || chatExists || createAttemptedForRef.current === chatId) return;
+    if (!user) return;
 
-    let cancelled = false;
     createAttemptedForRef.current = chatId;
+    setIsCreating(true);
 
-    createDirectChat(userId, user!.id)
-      .then((createdChat) => {
-        if (cancelled) return;
-        setCreateResult(createdChat ? 'ok' : 'error');
-      })
-      .catch(() => {
-        if (cancelled) return;
-        setCreateResult('error');
-      });
-
-    return () => { cancelled = true; };
+    try {
+      const createdChat = await withRetry(
+        () => createDirectChat(userId, user.id),
+        2,
+        500,
+        { component: 'ChatRoomLoader', action: 'createDirectChat', userId: user.id },
+      );
+      setCreateResult(createdChat ? 'ok' : 'error');
+      if (!createdChat) {
+        toast.error('Could not start chat. Please try again.');
+      }
+    } catch {
+      setCreateResult('error');
+      toast.error('Failed to create chat. Please check your connection.');
+    } finally {
+      setIsCreating(false);
+    }
   }, [canAttemptCreate, chatExists, chatId, userId, user, createDirectChat]);
 
-  const loading = canAttemptCreate && !chatExists && createResult !== 'error';
+  useEffect(() => {
+    if (!canAttemptCreate || chatExists || createAttemptedForRef.current === chatId) return;
+    if (!isOnline) {
+      // Wait for network to come back before attempting
+      return;
+    }
+    void handleCreateChat();
+  }, [canAttemptCreate, chatExists, chatId, userId, user, createDirectChat, isOnline, handleCreateChat]);
+
+  // Auto-retry when network comes back online
+  useEffect(() => {
+    if (isOnline && createResult === 'error' && canAttemptCreate && !chatExists) {
+      createAttemptedForRef.current = '';
+      void handleCreateChat();
+    }
+  }, [isOnline, createResult, canAttemptCreate, chatExists, handleCreateChat]);
+
+  const loading = canAttemptCreate && !chatExists && createResult !== 'error' && isCreating;
   const error = createResult === 'error';
 
   if (isSelfChat) {
@@ -97,14 +127,35 @@ export default function ChatRoomLoader({ userId }: ChatRoomLoaderProps) {
     return (
       <div className="h-[100dvh] bg-white flex flex-col items-center justify-center p-6">
         <p className="text-[#FF3B30] text-sm font-medium mb-2">Could not start chat</p>
-        <p className="text-[#8D8D8D] text-xs text-center mb-4">The user may have blocked you or the chat could not be created.</p>
-        <button
-          type="button"
-          onClick={() => navigate(-1)}
-          className="px-4 py-2 bg-[#F5F5F5] text-[#111111] rounded-xl text-sm font-medium"
-        >
-          Go Back
-        </button>
+        <p className="text-[#8D8D8D] text-xs text-center mb-4">
+          {isOnline
+            ? 'The user may have blocked you or the chat could not be created.'
+            : 'You are offline. Please check your connection and try again.'}
+        </p>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              createAttemptedForRef.current = '';
+              setCreateResult('none');
+              if (onRetry) {
+                onRetry();
+              } else {
+                void handleCreateChat();
+              }
+            }}
+            className="px-4 py-2 bg-[#00C300] text-white rounded-xl text-sm font-medium"
+          >
+            Try Again
+          </button>
+          <button
+            type="button"
+            onClick={() => navigate(-1)}
+            className="px-4 py-2 bg-[#F5F5F5] text-[#111111] rounded-xl text-sm font-medium"
+          >
+            Go Back
+          </button>
+        </div>
       </div>
     );
   }

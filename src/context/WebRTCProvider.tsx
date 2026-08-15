@@ -52,26 +52,7 @@ export function WebRTCProvider({ onStateChange }: WebRTCProviderProps): null {
         hold: webrtc.hold,
         resume: webrtc.resume,
         endCall: webrtc.endCall,
-    }), [
-        webrtc.isConnected,
-        webrtc.localStream,
-        webrtc.remoteStream,
-        webrtc.remoteParticipants,
-        webrtc.isMuted,
-        webrtc.isVideoOn,
-        webrtc.isHeld,
-        webrtc.quality,
-        webrtc.configuredError,
-        webrtc.mediaError,
-        webrtc.toggleMute,
-        webrtc.toggleVideo,
-        webrtc.flipCamera,
-        webrtc.toggleHold,
-        webrtc.sendDTMF,
-        webrtc.hold,
-        webrtc.resume,
-        webrtc.endCall,
-    ]);
+    }), [webrtc]);
 
     useEffect(() => {
         onStateChange(nextState);

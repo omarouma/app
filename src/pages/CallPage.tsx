@@ -5,6 +5,7 @@ import { useFriendStore } from '@/store/useFriendStore';
 import { useCallStore } from '@/store/useCallStore';
 import { useCallContext } from '@/context/CallContextBase';
 import { PhoneOff, MessageSquare, RotateCw } from 'lucide-react';
+import { withRetry, logErrorEvent } from '@/lib/errorHandling';
 
 export default function CallPage() {
   const location = useLocation();
@@ -19,7 +20,7 @@ export default function CallPage() {
   const mode = navState.mode ?? navState.callType;
   const { user: currentUser } = useAuthStore();
   const { friends } = useFriendStore();
-  const { startCall, currentCall } = useCallStore();
+  const { startCall, currentCall, cancelCallIfStale } = useCallStore();
   const { endCall } = useCallContext();
   const initiatedRef = useRef(false);
   const hadCallRef = useRef(false);
@@ -70,20 +71,42 @@ export default function CallPage() {
     }
   }, [currentCall, navigate, userId]);
 
+  // Clean up pending call timeouts on unmount
+  useEffect(() => {
+    return () => {
+      cancelCallIfStale();
+    };
+  }, [cancelCallIfStale]);
+
   const handleEndCall = async () => {
     await endCall();
     navigate('/calls', { replace: true });
   };
 
-  const handleRetry = () => {
-    initiatedRef.current = false;
-    setError(null);
-    if (userId && currentUser) {
-      initiatedRef.current = true;
-      startCall(userId, currentUser.id, isVideo ? 'video' : 'voice')
-        .catch((err) => {
-          setError(err instanceof Error ? err.message : 'Failed to start the call.');
-        });
+  const handleRetry = async () => {
+    try {
+      initiatedRef.current = false;
+      setError(null);
+      if (userId && currentUser) {
+        initiatedRef.current = true;
+        // Use withRetry for automatic exponential backoff on network failures
+        await withRetry(
+          () => startCall(userId, currentUser.id, isVideo ? 'video' : 'voice'),
+          3, // max 3 retries
+          1000, // 1s initial delay
+          { component: 'CallPage', action: 'call_initiation' }
+        );
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to start the call.';
+      setError(message);
+      // Log error event for monitoring
+      logErrorEvent(err instanceof Error ? err : new Error(message), {
+        component: 'CallPage',
+        action: 'call_initiation',
+        userId,
+        isVideo,
+      });
     }
   };
 
@@ -92,8 +115,13 @@ export default function CallPage() {
       <div className="h-[100dvh] bg-white flex flex-col items-center justify-center p-6 text-center">
         <p className="text-[#111111] text-lg font-semibold mb-2">No contact selected</p>
         <p className="text-[#8D8D8D] text-sm max-w-sm mb-4">Choose a contact from chats or contacts before starting a call.</p>
-        <button type="button" onClick={() => navigate('/chats')}
-          className="px-5 py-3 bg-[#00C300] text-white rounded-full text-sm font-semibold">
+        <button 
+          type="button" 
+          onClick={() => navigate('/chats')}
+          aria-label="Go to Chats to select a contact"
+          title="Go to Chats"
+          className="px-5 py-3 bg-[#00C300] text-white rounded-full text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#00C300] hover:bg-[#00A800] transition-colors"
+        >
           Go to Chats
         </button>
       </div>

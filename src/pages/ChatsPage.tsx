@@ -17,7 +17,7 @@ export default function ChatsPage() {
   const {
     search, setSearch, activeTab, setActiveTab,
     loading, filtered, totalUnread, activeChats, archivedChats,
-    typingMap, friends, nonFriendNames, visibleOnline, handleAddFriend, user,
+    typingMap, friends, nonFriendNames, nonFriendAvatars, visibleOnline, handleAddFriend, user,
     handleRefresh,
   } = useChatLogic();
 
@@ -208,6 +208,7 @@ export default function ChatsPage() {
               userId={user?.id}
               friends={friends}
               nonFriendNames={nonFriendNames}
+              nonFriendAvatars={nonFriendAvatars}
               visibleOnline={visibleOnline}
               typingMap={typingMap}
               onAddFriend={handleAddFriend}

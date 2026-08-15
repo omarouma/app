@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, useCallback, useLayoutEffect } from 'react
 import { useCallStore } from '@/store/useCallStore';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useAgoraCall, type AgoraRemoteParticipant } from '@/hooks/useAgoraCall';
-import { isAgoraConfigured as isAgoraEnvConfigured } from '@/lib/agoraToken';
+import { deriveAgoraUid, isAgoraConfigured as isAgoraEnvConfigured } from '@/lib/agora';
 import { playCallConnected, vibrateCallConnected, playCallEnded, vibrateCallEnded } from '@/lib/sounds';
 
 const CONNECTION_TIMEOUT_MS = 30_000;
@@ -11,15 +11,6 @@ const CONNECTION_TIMEOUT_MS = 30_000;
 // instead of an endless "Connecting…" ring.
 export const AGORA_NOT_CONFIGURED_ERROR =
   'Calls are not enabled yet. Agora App ID is not configured.';
-
-function hashUid(input: string): number {
-  let hash = 0;
-  for (let i = 0; i < input.length; i++) {
-    hash = (hash << 5) - hash + input.charCodeAt(i);
-    hash |= 0;
-  }
-  return (hash >>> 0) || 1;
-}
 
 export function useWebRTCManager() {
   const { currentCall, endCall: endCallInStore } = useCallStore();
@@ -128,7 +119,7 @@ export function useWebRTCManager() {
     joinedCallIdRef.current = callId;
 
     const channelName = `call_${callId}`;
-    const uid = hashUid(currentUser.id);
+    const uid = deriveAgoraUid(currentUser.id);
     const isVideo = currentCall.type === 'video';
 
     setIsVideoOn(isVideo);

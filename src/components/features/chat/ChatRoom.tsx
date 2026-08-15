@@ -291,6 +291,21 @@ export default function ChatRoom({ chatId, userId, onBack }: {
     }, [] as number[]);
   }, [msgs, searchQuery]);
 
+  const msgIdMap = useMemo(() => {
+    const map = new Map<string, Message>();
+    for (const m of msgs) map.set(m.id, m);
+    return map;
+  }, [msgs]);
+
+  const resolvedDisplayUser =
+    displayUser && typeof displayUser === 'object' && 'id' in displayUser && !('then' in displayUser)
+      ? {
+        id: (displayUser as { id: string; name: string; avatar?: string }).id,
+        name: (displayUser as { id: string; name: string }).name || '',
+        avatar: (displayUser as { id: string; avatar?: string }).avatar || '',
+      }
+      : { id: userId, name: '', avatar: '' };
+
   const handleSearchNavigate = useCallback((direction: 'up' | 'down') => {
     if (searchResults.length === 0) return;
     const nextIndex = direction === 'up'
@@ -447,7 +462,7 @@ export default function ChatRoom({ chatId, userId, onBack }: {
   return (
     <div className="flex flex-col h-full bg-white" style={{ backgroundImage: chatBg }}>
       <ChatHeader
-        displayUser={displayUser && typeof displayUser === 'object' && 'id' in displayUser && !('then' in displayUser) ? { id: (displayUser as { id: string; name: string; avatar?: string }).id, name: (displayUser as { id: string; name: string }).name || '', avatar: (displayUser as { id: string; avatar?: string }).avatar || '' } : { id: userId, name: '', avatar: '' }}
+        displayUser={resolvedDisplayUser}
         userId={userId}
         isUserOnline={isUserOnline}
         activeTypingUsers={activeTypingUsers}
@@ -584,10 +599,11 @@ export default function ChatRoom({ chatId, userId, onBack }: {
               editInput={editInput}
               selectionMode={selectionMode}
               selectedReactionMsg={selectedReactionMsg}
-              displayUser={displayUser && typeof displayUser === 'object' && 'id' in displayUser && !('then' in displayUser) ? { id: (displayUser as { id: string; name: string; avatar?: string }).id, name: (displayUser as { id: string; name: string }).name || '', avatar: (displayUser as { id: string; avatar?: string }).avatar || '' } : { id: userId, name: '', avatar: '' }}
+              displayUser={resolvedDisplayUser}
+              otherUserName={resolvedDisplayUser.name || 'Chat'}
               userId={userId}
               currentUserId={currentUser?.id || ''}
-              msgs={msgs}
+              msgIdMap={msgIdMap}
               translatedText={translations[msg.id]}
               isTranslating={translatingIds.has(msg.id)}
               onContextMenu={(e, message) => {

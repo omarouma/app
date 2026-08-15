@@ -109,7 +109,7 @@ export default defineConfig(({ mode }) => {
     build: {
       outDir: 'dist',
       sourcemap: 'hidden', // Use 'hidden' for production to keep source maps private
-      chunkSizeWarningLimit: 800,
+      chunkSizeWarningLimit: 1200, // Increased from 800; large vendor chunks are acceptable given async loading patterns
       minify: 'esbuild',
       target: 'es2020',
       reportCompressedSize: true,
@@ -122,22 +122,43 @@ export default defineConfig(({ mode }) => {
           manualChunks: (id) => {
             if (!id.includes('node_modules')) return undefined;
 
+            // Core infrastructure (loaded early)
             if (id.includes('/react/') || id.includes('/scheduler/') || id.includes('/use-sync-external-store/')) return 'vendor-react';
+            if (id.includes('react-router') || id.includes('react-router-dom')) return 'vendor-router';
+            if (id.includes('@radix-ui')) return 'vendor-radix';
+            if (id.includes('zustand')) return 'vendor-zustand';
+
+            // Auth & backend services
             if (id.includes('firebase') || id.includes('@firebase')) return 'vendor-firebase';
             if (id.includes('@supabase')) return 'vendor-supabase';
+
+            // RTC (async-loaded during calls only)
             if (id.includes('agora-rtc-sdk-ng') || id.includes('agora')) return 'vendor-agora';
+
+            // UI & animation (loaded early but splittable)
             if (id.includes('framer-motion')) return 'vendor-framer';
-            if (id.includes('recharts') || id.includes('d3-') || id.includes('echarts') || id.includes('plotly')) return 'vendor-charts';
-            if (id.includes('@radix-ui')) return 'vendor-radix';
-            if (id.includes('react-router') || id.includes('react-router-dom')) return 'vendor-router';
             if (id.includes('lucide-react')) return 'vendor-icons';
-            if (id.includes('zustand')) return 'vendor-zustand';
-            if (id.includes('i18next') || id.includes('react-i18next')) return 'vendor-i18n';
+
+            // Charts & visualization (lazy-loaded on AnalyticsPage)
+            if (id.includes('recharts') || id.includes('d3-') || id.includes('echarts') || id.includes('plotly')) return 'vendor-charts';
+
+            // Data & validation
             if (id.includes('zod')) return 'vendor-zod';
+
+            // Internationalization
+            if (id.includes('i18next') || id.includes('react-i18next')) return 'vendor-i18n';
+
+            // Date handling
             if (id.includes('date-fns') || id.includes('dayjs') || id.includes('luxon')) return 'vendor-dates';
+
+            // Forms & UI utilities
             if (id.includes('clsx') || id.includes('tailwind-merge')) return 'vendor-ui';
             if (id.includes('@hookform/resolvers') || id.includes('react-hook-form')) return 'vendor-forms';
+
+            // User experience components
             if (id.includes('react-virtuoso') || id.includes('cmdk') || id.includes('vaul') || id.includes('sonner')) return 'vendor-ux';
+
+            // Utilities
             if (id.includes('qrcode') || id.includes('uuid') || id.includes('input-otp') || id.includes('react-day-picker')) return 'vendor-utils';
             if (id.includes('@dataconnect/generated')) return 'vendor-dataconnect';
 

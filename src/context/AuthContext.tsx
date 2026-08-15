@@ -62,7 +62,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signupWithPhoneFn = async (name: string, phone: string, password: string) => {
     if (!isSupabaseConfigured()) return notConfigured;
     const result = await signUpWithPhone(phone, password, name);
-    if (result.success && result.user) { setUser(result.user); return { success: true }; }
+    if (result.needsEmailVerification) {
+      setNeedsEmailVerification(true);
+      return { success: true, needsEmailVerification: true };
+    }
+    if (result.success && result.user) {
+      setUser(result.user);
+      setNeedsEmailVerification(false);
+      return { success: true };
+    }
     return { success: false, error: result.error || 'Signup failed.' };
   };
 

@@ -38,7 +38,7 @@ const CallListItemComponent = ({ call, userName, userAvatar, currentUserId, onCa
   const direction = getCallDirection(call, currentUserId);
   const otherUserId = getOtherParticipantId(call, currentUserId);
 
-const isMissed = call.status === 'missed';
+  const isMissed = call.status === 'missed';
   const isOutgoing = direction === 'outgoing';
   const isGroup = isGroupCall(call);
   const isVideoType = isVideoCallType(call.type);
@@ -51,6 +51,7 @@ const isMissed = call.status === 'missed';
 
   const avatarSrc = sanitizeMediaUrl(userAvatar);
   const duration = formatDuration(call.duration);
+  const targetUserId = otherUserId || currentUserId;
 
   return (
     <div className="flex items-center gap-3 px-4 py-3 hover:bg-[#F5F5F5] active:bg-[#EBEBEB] transition-colors">
@@ -68,7 +69,7 @@ const isMissed = call.status === 'missed';
         <p className={`text-sm font-semibold truncate ${isMissed ? 'text-red-500' : 'text-[#111111]'}`}>
           {userName}
         </p>
-<div className="flex items-center gap-1.5 mt-0.5">
+        <div className="flex items-center gap-1.5 mt-0.5">
           <CallIcon size={13} className={iconColor} />
           <span className={`text-xs ${labelColor}`}>{label}</span>
           <span className="text-[#CCCCCC] text-xs">·</span>
@@ -88,16 +89,18 @@ const isMissed = call.status === 'missed';
       <div className="flex items-center gap-0.5 shrink-0">
         <button
           type="button"
-          onClick={() => onCall('voice', otherUserId)}
-          className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-[#00C300]/10 text-[#00C300] active:scale-95 transition-transform"
+          disabled={!targetUserId}
+          onClick={() => targetUserId && onCall('voice', targetUserId)}
+          className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-[#00C300]/10 text-[#00C300] active:scale-95 transition-transform disabled:opacity-50 disabled:cursor-not-allowed"
           aria-label={`Voice call ${userName}`}
         >
           <Phone size={18} />
         </button>
         <button
           type="button"
-          onClick={() => onCall('video', otherUserId)}
-          className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-[#00C300]/10 text-[#00C300] active:scale-95 transition-transform"
+          disabled={!targetUserId}
+          onClick={() => targetUserId && onCall('video', targetUserId)}
+          className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-[#00C300]/10 text-[#00C300] active:scale-95 transition-transform disabled:opacity-50 disabled:cursor-not-allowed"
           aria-label={`Video call ${userName}`}
         >
           <Video size={18} />

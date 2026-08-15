@@ -12,10 +12,12 @@ import { usePageTracking, useEngagementTracking } from '@/hooks/useFirebaseAnaly
 import { usePushNotifications } from '@/hooks/usePushNotifications';
 import { useGATracking } from '@/hooks/useGATracking';
 import { useForegroundNotifications } from '@/hooks/useForegroundNotifications';
+import { useIncomingCallNotifications } from '@/hooks/useIncomingCallNotifications';
 import { useTrackPresence } from '@/hooks/usePresence';
 import { MessageCircle, Phone, Users, Flame, Settings } from 'lucide-react';
 import { Toaster } from '@/components/ui/sonner';
 import { CallProvider } from '@/context/CallContext';
+import { VoicePlayerProvider } from '@/context/VoicePlayerContext';
 import CallOverlay from '@/components/calling/CallOverlay';
 import PWAPrompt from '@/components/PWAPrompt';
 import Logo from '@/components/Logo';
@@ -154,6 +156,9 @@ const HelpCenterPage = lazy(() => import('@/pages/HelpCenterPage'));
 const SettingsPage = lazy(() => import('@/pages/SettingsPage'));
 const CreatorCenterPage = lazy(() => import('@/pages/CreatorCenterPage'));
 const OnboardingPage = lazy(() => import('@/pages/OnboardingPage'));
+const AboutPage = lazy(() => import('@/pages/AboutPage'));
+const BlogPage = lazy(() => import('@/pages/BlogPage'));
+const CareersPage = lazy(() => import('@/pages/CareersPage'));
 const BroadcastListsPage = lazy(() => import('@/pages/BroadcastListsPage'));
 const CreateReelsPage = lazy(() => import('@/pages/CreateReelsPage'));
 const CookiePolicyPage = lazy(() => import('@/pages/CookiePolicyPage'));
@@ -268,8 +273,8 @@ const DesktopNav = memo(function DesktopNav() {
           <button type="button" key={item.to}
             onClick={() => navigate(item.to)}
             className={`w-12 h-12 rounded-xl flex items-center justify-center transition-colors mb-1 ${isActive
-                ? 'bg-[#00C300]/10 text-[#00C300]'
-                : 'text-[#8D8D8D] hover:text-[#111111] hover:bg-[#F5F5F5]'
+              ? 'bg-[#00C300]/10 text-[#00C300]'
+              : 'text-[#8D8D8D] hover:text-[#111111] hover:bg-[#F5F5F5]'
               }`}
             title={item.label}
             aria-label={item.label}
@@ -398,6 +403,7 @@ function AppContent() {
   useGATracking();
   usePushNotifications();
   useForegroundNotifications();
+  useIncomingCallNotifications();  // NEW: Handle incoming call notifications & sounds
 
   useEffect(() => {
     const publicPaths = ['/privacy', '/terms', '/help'];
@@ -474,8 +480,9 @@ function AppContent() {
                 ? <Navigate to={getPostAuthPath(isMobile)} replace />
                 : <AuthView />
             }
-          />
-          <Route path="/privacy" element={isMobile ? <PrivacyPage /> : <PrivacyView />} />
+          />          <Route path="/about" element={<AboutPage />} />
+          <Route path="/blog" element={<BlogPage />} />
+          <Route path="/careers" element={<CareersPage />} />          <Route path="/privacy" element={isMobile ? <PrivacyPage /> : <PrivacyView />} />
           <Route path="/terms" element={isMobile ? <TermsPage /> : <TermsView />} />
           <Route path="/onboarding" element={<OnboardingPage />} />
 
@@ -581,10 +588,12 @@ export default function App() {
 function AppWithCallProvider() {
   const location = useLocation();
   return (
-    <CallProvider>
-      <ErrorBoundary resetKey={location.pathname}>
-        <AppContent />
-      </ErrorBoundary>
-    </CallProvider>
+    <VoicePlayerProvider>
+      <CallProvider>
+        <ErrorBoundary resetKey={location.pathname}>
+          <AppContent />
+        </ErrorBoundary>
+      </CallProvider>
+    </VoicePlayerProvider>
   );
 }

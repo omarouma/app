@@ -31,7 +31,37 @@ vi.mock('@/lib/firestore', () => ({
 }));
 
 vi.mock('@/services/chatApi', () => ({
-    chatApi: {},
+    chatApi: {
+        sendMessage: vi.fn(async (_params: any) => ({ success: true, id: 'doc-1' })),
+        retryFailedMessage: vi.fn(async () => ({ success: true, id: 'doc-1' })),
+        editMessage: vi.fn(async () => undefined),
+        deleteMessage: vi.fn(async () => undefined),
+        deleteForEveryone: vi.fn(async () => undefined),
+        recallMessage: vi.fn(async () => undefined),
+        addReaction: vi.fn(async () => undefined),
+        markAsRead: vi.fn(async () => undefined),
+        createDirectChat: vi.fn(async () => ({ id: 'chat-1' })),
+        toggleMuteChat: vi.fn(async () => undefined),
+        updateChat: vi.fn(async () => undefined),
+        removeParticipant: vi.fn(async () => undefined),
+        promoteAdmin: vi.fn(async () => undefined),
+        demoteAdmin: vi.fn(async () => undefined),
+        clearChat: vi.fn(async () => undefined),
+        leaveGroup: vi.fn(async () => undefined),
+        addParticipant: vi.fn(async () => undefined),
+        sendPoll: vi.fn(async () => undefined),
+        votePoll: vi.fn(async () => undefined),
+        pinMessage: vi.fn(async () => undefined),
+        unpinMessage: vi.fn(async () => undefined),
+        archiveChat: vi.fn(async () => undefined),
+        unarchiveChat: vi.fn(async () => undefined),
+        setDisappearingMessages: vi.fn(async () => undefined),
+        lockChat: vi.fn(async () => undefined),
+        unlockChat: vi.fn(async () => undefined),
+        sendContactCard: vi.fn(async () => undefined),
+        exportChat: vi.fn(async () => ({ chatInfo: {}, messages: [] })),
+        getSharedMedia: vi.fn(async () => []),
+    },
     mapMessage: (message: any) => message,
     mapChat: (chat: any) => chat,
 }));
@@ -51,6 +81,11 @@ vi.mock('@/lib/sanitize', () => ({
 
 vi.mock('@/lib/errorLogger', () => ({
     logStoreError: vi.fn(),
+}));
+
+vi.mock('@/lib/errorHandling', () => ({
+    withRetry: async <T>(fn: () => Promise<T>) => fn(),
+    isTransientError: () => false,
 }));
 
 describe('useChatStore', () => {
@@ -124,6 +159,34 @@ describe('useChatStore', () => {
         expect(messages[0].deliveryStatus).toBe('sent');
     });
 
+    it('reconciles optimistic messages when the server payload only carries the localId as the message ID', () => {
+        useChatStore.getState().addMessage({
+            id: 'temp-abc',
+            chatId: 'chat-1',
+            senderId: 'user-1',
+            content: 'Hello',
+            type: 'text',
+            timestamp: new Date(),
+            localId: 'client-uuid-123',
+            deliveryStatus: 'sending',
+        });
+
+        useChatStore.getState().addMessage({
+            id: 'client-uuid-123',
+            chatId: 'chat-1',
+            senderId: 'user-1',
+            content: 'Hello',
+            type: 'text',
+            timestamp: new Date(),
+            deliveryStatus: 'sent',
+        });
+
+        const messages = useChatStore.getState().messages['chat-1'];
+        expect(messages).toHaveLength(1);
+        expect(messages[0].id).toBe('client-uuid-123');
+        expect(messages[0].deliveryStatus).toBe('sent');
+    });
+
     it('keeps messages isolated to their chat', () => {
         useChatStore.getState().addMessage({
             id: 'msg-1',
@@ -172,6 +235,14 @@ describe('useChatStore', () => {
 
         expect(useChatStore.getState().messages['chat-1']).toEqual([]);
         expect(useChatStore.getState().messages['chat-2']).toHaveLength(1);
+    });
+
+    it('rejects empty or whitespace-only messages before adding an optimistic entry', async () => {
+        const result = await useChatStore.getState().sendMessage('chat-1', 'user-1', '   ');
+
+        expect(result.success).toBe(false);
+        expect(result.id).toBe('');
+        expect(useChatStore.getState().messages['chat-1'] ?? []).toEqual([]);
     });
 
     it('queues a message optimistically when sending', async () => {
@@ -253,10 +324,10 @@ describe('useChatStore', () => {
         expect(result.success).toBe(true);
     });
 
-it('sets initial delivery status to sending', async () => {
-        const result = await useChatStore.getState().sendMessage('chat-1', 'user-1', 'Test');
+    it('sets initial delivery status to sending', async () => {
+        await useChatStore.getState().sendMessage('chat-1', 'user-1', 'Test');
         const messages = useChatStore.getState().messages['chat-1'];
-        
+
         // The sent message should have a delivery status
         expect(messages[0]).toBeDefined();
         expect(messages[0].deliveryStatus).toBeTruthy();

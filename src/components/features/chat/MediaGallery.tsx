@@ -1,6 +1,7 @@
 import { memo, useState, useCallback, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, ChevronLeft, ChevronRight, Download } from 'lucide-react';
+import { suggestFileExtension } from '@/lib/chatConstants';
 
 interface MediaItem {
   url: string;
@@ -20,6 +21,7 @@ export const MediaGallery = memo(function MediaGallery({ images, initialIndex, o
   const [touchEnd, setTouchEnd] = useState<number | null>(null);
   const [scale, setScale] = useState(1);
   const [isZoomed, setIsZoomed] = useState(false);
+  const [downloading, setDownloading] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const goToRef = useRef<(direction: 'prev' | 'next') => void>(() => {});
 
@@ -27,7 +29,7 @@ export const MediaGallery = memo(function MediaGallery({ images, initialIndex, o
 
   const goTo = useCallback((direction: 'prev' | 'next') => {
     if (isZoomed) return;
-    setCurrentIndex(prev => {
+    setCurrentIndex((prev) => {
       if (direction === 'prev') return prev > 0 ? prev - 1 : images.length - 1;
       return prev < images.length - 1 ? prev + 1 : 0;
     });
@@ -35,12 +37,10 @@ export const MediaGallery = memo(function MediaGallery({ images, initialIndex, o
     setIsZoomed(false);
   }, [images.length, isZoomed]);
 
-  // Store goTo in ref for keyboard handler
   useEffect(() => {
     goToRef.current = goTo;
   }, [goTo]);
 
-  // Keyboard navigation
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
@@ -51,13 +51,14 @@ export const MediaGallery = memo(function MediaGallery({ images, initialIndex, o
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [onClose]);
 
-  // Prevent body scroll when open
   useEffect(() => {
+    const previous = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
-    return () => { document.body.style.overflow = ''; };
+    return () => {
+      document.body.style.overflow = previous;
+    };
   }, []);
 
-  // Swipe handling
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
     setTouchStart(e.touches[0].clientX);
     setTouchEnd(null);
@@ -80,19 +81,22 @@ export const MediaGallery = memo(function MediaGallery({ images, initialIndex, o
 
   const handleDownload = useCallback(async () => {
     try {
-      const response = await fetch(current.url);
+      setDownloading(true);
+      const response = await fetch(current.url, { mode: 'cors' });
       const blob = await response.blob();
+      const ext = suggestFileExtension({ type: blob.type, url: current.url }) || (current.type === 'video' ? '.mp4' : '.jpg');
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `gaga-media-${currentIndex + 1}`;
+      a.download = `gaga-media-${currentIndex + 1}${ext}`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
     } catch {
-      // Fallback: open in new tab
-      window.open(current.url, '_blank');
+      window.open(current.url, '_blank', 'noopener');
+    } finally {
+      setDownloading(false);
     }
   }, [current, currentIndex]);
 
@@ -117,7 +121,6 @@ export const MediaGallery = memo(function MediaGallery({ images, initialIndex, o
         className="fixed inset-0 bg-black/95 z-50 flex flex-col"
         onClick={onClose}
       >
-        {/* Top bar */}
         <div className="absolute top-0 left-0 right-0 z-10 flex items-center justify-between px-4 py-3 bg-gradient-to-b from-black/60 to-transparent">
           <button type="button" onClick={onClose} className="p-2 text-white/80 hover:text-white" aria-label="Close gallery">
             <X size={24} />
@@ -125,12 +128,17 @@ export const MediaGallery = memo(function MediaGallery({ images, initialIndex, o
           <span className="text-white/90 text-sm font-medium">
             {currentIndex + 1} / {images.length}
           </span>
-          <button type="button" onClick={handleDownload} className="p-2 text-white/80 hover:text-white" aria-label="Download media">
+          <button
+            type="button"
+            onClick={handleDownload}
+            disabled={downloading}
+            className="p-2 text-white/80 hover:text-white disabled:opacity-60"
+            aria-label="Download media"
+          >
             <Download size={22} />
           </button>
         </div>
 
-        {/* Media content */}
         <div
           ref={containerRef}
           className="flex-1 flex items-center justify-center"
@@ -139,11 +147,13 @@ export const MediaGallery = memo(function MediaGallery({ images, initialIndex, o
           onTouchEnd={handleTouchEnd}
           onClick={(e) => e.stopPropagation()}
         >
-          {/* Previous button */}
           {images.length > 1 && (
             <button
               type="button"
-              onClick={(e) => { e.stopPropagation(); goTo('prev'); }}
+              onClick={(e) => {
+                e.stopPropagation();
+                goTo('prev');
+              }}
               className="absolute left-4 top-1/2 -translate-y-1/2 p-2 bg-white/10 hover:bg-white/20 rounded-full text-white transition-colors z-10"
               aria-label="Previous"
             >
@@ -176,16 +186,20 @@ export const MediaGallery = memo(function MediaGallery({ images, initialIndex, o
                 src={current.url}
                 className="max-w-full max-h-[85vh] rounded-lg"
                 controls
-                autoPlay
+                playsInline
+                muted
+                preload="metadata"
               />
             )}
           </motion.div>
 
-          {/* Next button */}
           {images.length > 1 && (
             <button
               type="button"
-              onClick={(e) => { e.stopPropagation(); goTo('next'); }}
+              onClick={(e) => {
+                e.stopPropagation();
+                goTo('next');
+              }}
               className="absolute right-4 top-1/2 -translate-y-1/2 p-2 bg-white/10 hover:bg-white/20 rounded-full text-white transition-colors z-10"
               aria-label="Next"
             >
@@ -194,7 +208,6 @@ export const MediaGallery = memo(function MediaGallery({ images, initialIndex, o
           )}
         </div>
 
-        {/* Thumbnails strip */}
         {images.length > 1 && (
           <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent px-4 py-3">
             <div className="flex justify-center gap-2 overflow-x-auto scrollbar-hide">
@@ -202,7 +215,10 @@ export const MediaGallery = memo(function MediaGallery({ images, initialIndex, o
                 <button
                   type="button"
                   key={img.id}
-                  onClick={(e) => { e.stopPropagation(); setCurrentIndex(i); }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setCurrentIndex(i);
+                  }}
                   className={`w-12 h-12 rounded-lg overflow-hidden border-2 transition-all shrink-0 ${
                     i === currentIndex ? 'border-white opacity-100' : 'border-transparent opacity-50 hover:opacity-80'
                   }`}
@@ -212,7 +228,7 @@ export const MediaGallery = memo(function MediaGallery({ images, initialIndex, o
                       <span className="text-white text-lg">▶</span>
                     </div>
                   ) : (
-                    <img src={img.url} className="w-full h-full object-cover" alt={`Thumbnail ${i + 1}`} />
+                    <img src={img.url} className="w-full h-full object-cover" alt={`Thumbnail ${i + 1}`} loading="lazy" />
                   )}
                 </button>
               ))}
@@ -223,4 +239,3 @@ export const MediaGallery = memo(function MediaGallery({ images, initialIndex, o
     </AnimatePresence>
   );
 });
-

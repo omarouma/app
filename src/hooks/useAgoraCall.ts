@@ -265,7 +265,21 @@ export function useAgoraCall(): AgoraCallController {
     // or falls back to no-token mode. The server is authoritative for the
     // Agora uid when a token is minted. Client-side token generation is
     // disabled (certificate never ships).
-    const { token, uid: resolvedUid } = await resolveAgoraToken(channelName, uid);
+    let token: string | null = null;
+    let resolvedUid = uid;
+    try {
+      const resolution = await resolveAgoraToken(channelName, uid);
+      token = resolution.token || null;
+      resolvedUid = resolution.uid;
+      if (!token && env.DEV) {
+        console.warn('[Agora] No token available — using no-token mode. Ensure Agora project has App Certificate disabled or VITE_AGORA_TOKEN_SERVER_URL is configured.');
+      }
+    } catch (e) {
+      console.error('[Agora] Token resolution failed:', e);
+      setError(`Token error: ${e instanceof Error ? e.message : 'Unknown error'}`);
+      await leave();
+      return;
+    }
 
     // ── Join + publish ──
     try {
@@ -274,8 +288,11 @@ export function useAgoraCall(): AgoraCallController {
       setIsConnected(true);
       setError(null);
       startQualityMonitor();
+      console.log('[Agora] Successfully joined channel:', channelName);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to join the call channel.');
+      const errorMsg = e instanceof Error ? e.message : 'Failed to join the call channel.';
+      console.error('[Agora] Join failed:', errorMsg);
+      setError(errorMsg);
       await leave();
     }
   }, [leave, startQualityMonitor, syncRemoteParticipants, syncPrimaryRemote]);

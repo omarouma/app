@@ -5,6 +5,7 @@ import { CallContextBase } from '@/context/CallContextBase';
 import type { CallContextValue } from '@/context/CallContextBase';
 import type { CallRecord } from '@/types';
 import type { WebRTCState } from '@/context/WebRTCProvider';
+import { CallConnectionMonitor } from '@/components/calling/CallConnectionMonitor';
 
 const isClient = typeof window !== 'undefined';
 
@@ -131,6 +132,9 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <CallContextBase.Provider value={value}>
+      {/* Monitor connection state and handle errors */}
+      <CallConnectionMonitor />
+
       {/* Only load WebRTC when there's an active call */}
       {currentCall && (
         <Suspense fallback={null}>

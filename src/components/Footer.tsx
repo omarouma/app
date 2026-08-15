@@ -20,9 +20,9 @@ const footerLinks = [
   {
     title: 'Company',
     links: [
-      { label: 'About', href: '#' },
-      { label: 'Blog', href: '#' },
-      { label: 'Careers', href: '#' },
+      { label: 'About', to: '/about' },
+      { label: 'Blog', to: '/blog' },
+      { label: 'Careers', to: '/careers' },
       { label: 'Admin', to: '/admin' },
     ],
   },
@@ -59,18 +59,18 @@ export default function Footer() {
               GaGa Chat - The future of messaging. Free global messaging, HD voice &amp; video calls, reels, live streaming, marketplace, and creator tools. Secure, fast, and beautiful. Free for everyone in Bangladesh and worldwide.
             </p>
             <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-white border border-[#EBEBEB] flex items-center justify-center" title="Messaging">
-                  <MessageCircle size={14} className="text-[#8D8D8D]" />
-                </div>
-                <div className="w-8 h-8 rounded-lg bg-white border border-[#EBEBEB] flex items-center justify-center" title="Global">
-                  <Globe size={14} className="text-[#8D8D8D]" />
-                </div>
-                <div className="w-8 h-8 rounded-lg bg-white border border-[#EBEBEB] flex items-center justify-center" title="Secure">
-                  <Shield size={14} className="text-[#8D8D8D]" />
-                </div>
-                <div className="w-8 h-8 rounded-lg bg-white border border-[#EBEBEB] flex items-center justify-center" title="Fast">
-                  <Zap size={14} className="text-[#8D8D8D]" />
-                </div>
+              <div className="w-8 h-8 rounded-lg bg-white border border-[#EBEBEB] flex items-center justify-center" title="Messaging">
+                <MessageCircle size={14} className="text-[#8D8D8D]" />
+              </div>
+              <div className="w-8 h-8 rounded-lg bg-white border border-[#EBEBEB] flex items-center justify-center" title="Global">
+                <Globe size={14} className="text-[#8D8D8D]" />
+              </div>
+              <div className="w-8 h-8 rounded-lg bg-white border border-[#EBEBEB] flex items-center justify-center" title="Secure">
+                <Shield size={14} className="text-[#8D8D8D]" />
+              </div>
+              <div className="w-8 h-8 rounded-lg bg-white border border-[#EBEBEB] flex items-center justify-center" title="Fast">
+                <Zap size={14} className="text-[#8D8D8D]" />
+              </div>
             </div>
           </div>
           {footerLinks.map((section) => (
@@ -101,8 +101,8 @@ export default function Footer() {
           <div className="flex items-center gap-4">
             <span className="text-[#8D8D8D] text-xs">Made with care for Bangladesh &amp; the world</span>
           </div>
-          </div>
         </div>
+      </div>
     </footer>
   );
 }

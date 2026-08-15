@@ -1,4 +1,4 @@
-import { memo, useRef } from 'react';
+import { memo, useRef, useEffect } from 'react';
 import { ChatListItem } from './ChatListItem';
 import type { Chat } from '@/types';
 
@@ -7,10 +7,10 @@ interface ChatListProps {
   userId?: string;
   friends: { id: string; name: string; avatar?: string }[];
   nonFriendNames: Record<string, string>;
+  nonFriendAvatars: Record<string, string>;
   visibleOnline: Record<string, boolean>;
   typingMap: Record<string, string>;
   onAddFriend: (friendId: string) => Promise<void>;
-  // Optional long-press / context-menu handlers (used by ChatsPage)
   onLongPress?: (chatId: string, archived: boolean, y: number) => void;
 }
 
@@ -19,6 +19,7 @@ export const ChatList = memo(({
   userId,
   friends,
   nonFriendNames,
+  nonFriendAvatars,
   visibleOnline,
   typingMap,
   onAddFriend,
@@ -28,8 +29,20 @@ export const ChatList = memo(({
 
   const clearTimer = (chatId: string) => {
     const t = longPressTimers.current.get(chatId);
-    if (t) { clearTimeout(t); longPressTimers.current.delete(chatId); }
+    if (t) {
+      clearTimeout(t);
+      longPressTimers.current.delete(chatId);
+    }
   };
+
+  useEffect(() => {
+    return () => {
+      for (const t of longPressTimers.current.values()) {
+        clearTimeout(t);
+      }
+      longPressTimers.current.clear();
+    };
+  }, []);
 
   return (
     <div>
@@ -39,7 +52,7 @@ export const ChatList = memo(({
         const friend = friends.find(fr => fr.id === otherId);
         const isFriend = !!friend;
         const name = isGroup ? (chat.name || 'Group') : (friend?.name || nonFriendNames[otherId] || 'Chat');
-        const avatar = isGroup ? (chat.avatar || '') : (friend?.avatar || '');
+        const avatar = isGroup ? (chat.avatar || '') : (friend?.avatar || nonFriendAvatars[otherId] || '');
         const isOnline = !isGroup && visibleOnline[otherId];
         const typingName = typingMap[chat.id];
 

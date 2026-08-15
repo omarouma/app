@@ -5,15 +5,10 @@ import { chatApi, mapMessage, mapChat } from '@/services/chatApi';
 import {
   isFirestoreAvailable,
   COLLECTIONS,
-  updateDocById,
-  addDocToCollection,
-  addDocToSubcollection,
   queryCollection,
   querySubcollection,
-  deleteSubcollectionDoc,
   subscribeToCollection,
   subscribeToSubcollection,
-  serverTimestamp,
   where,
   orderBy,
   limit,
@@ -23,6 +18,8 @@ import { checkMessageRateLimit } from '@/hooks/useMessageRateLimiter';
 import { isOnline, enqueueOfflineMessage } from '@/lib/offlineQueue';
 import { sanitizeText } from '@/lib/sanitize';
 import { logStoreError } from '@/lib/errorLogger';
+import { withRetry } from '@/lib/errorHandling';
+import { subscribeDeduped } from '@/lib/subscriptionManager';
 import { v4 as uuidv4 } from 'uuid';
 
 /**
@@ -32,6 +29,23 @@ import { v4 as uuidv4 } from 'uuid';
  * keeping only pure state management logic. This separation of concerns
  * makes the store easier to test, maintain, and extend.
  */
+
+const matchesMessageIdentity = (left: Partial<Message> | undefined, right: Partial<Message> | undefined) => {
+  if (!left || !right) return false;
+
+  const leftKeys = [left.localId, left.id].filter(
+    (value): value is string => typeof value === 'string' && value.trim().length > 0,
+  );
+  const rightKeys = [right.localId, right.id].filter(
+    (value): value is string => typeof value === 'string' && value.trim().length > 0,
+  );
+
+  if (leftKeys.length === 0 || rightKeys.length === 0) {
+    return !!left.id && !!right.id && left.id === right.id;
+  }
+
+  return leftKeys.some((value) => rightKeys.includes(value));
+};
 
 interface ChatStore {
   chats: Chat[];
@@ -92,12 +106,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   addMessage: (message) => {
     set((state) => {
       const chatMessages = state.messages[message.chatId] ?? [];
-      const matchMessage = (candidate: Message) => {
-        if (message.localId) {
-          return candidate.localId === message.localId || candidate.id === message.id;
-        }
-        return candidate.id === message.id;
-      };
+      const matchMessage = (candidate: Message) => matchesMessageIdentity(candidate, message);
 
       const existing = chatMessages.find(matchMessage);
       if (existing) {
@@ -106,7 +115,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
             ...state.messages,
             [message.chatId]: chatMessages.map((candidate) =>
               matchMessage(candidate)
-                ? { ...existing, ...message, id: message.id, localId: message.localId ?? existing.localId }
+                ? { ...existing, ...message, id: message.id ?? existing.id, localId: message.localId ?? existing.localId }
                 : candidate
             ),
           },
@@ -143,78 +152,85 @@ export const useChatStore = create<ChatStore>((set, get) => ({
 
   subscribeChats: (userId) => {
     if (!isFirestoreAvailable() || !userId) return () => { };
-    return subscribeToCollection<Chat>(
-      COLLECTIONS.CHATS,
-      [where('participants', 'array-contains', userId)],
-      (rawChats) => {
-        const chats = rawChats.map(c => mapChat(c as unknown as Record<string, unknown> & { id?: string }));
-        const archivedChats = chats.filter(c => c.archived);
-        const activeChats = chats.filter(c => !c.archived);
-        const totalUnread = activeChats.reduce((sum, chat) => sum + (chat.unreadCount || 0), 0);
-        set({ chats: activeChats, archivedChats, totalUnread });
-      },
+    return subscribeDeduped(
+      `chats_${userId}`,
+      () => subscribeToCollection<Chat>(
+        COLLECTIONS.CHATS,
+        [where('participants', 'array-contains', userId)],
+        (rawChats) => {
+          const chats = rawChats.map(c => mapChat(c as unknown as Record<string, unknown> & { id?: string }));
+          const archivedChats = chats.filter(c => c.archived);
+          const activeChats = chats.filter(c => !c.archived);
+          const totalUnread = activeChats.reduce((sum, chat) => sum + (chat.unreadCount || 0), 0);
+          set({ chats: activeChats, archivedChats, totalUnread });
+        },
+      )
     );
   },
 
   subscribeMessages: (chatId, limitCount = 50) => {
     if (!isFirestoreAvailable() || !chatId) return () => { };
-    return subscribeToSubcollection<Message>(
-      COLLECTIONS.CHATS,
-      chatId,
-      COLLECTIONS.MESSAGES,
-      [orderBy('timestamp', 'desc'), limit(limitCount)],
-      (rawMessages) => {
-        const incomingMessages = rawMessages.map(m => mapMessage(m as unknown as Record<string, unknown> & { id?: string })).reverse();
-        // Merge incoming server messages with existing local state using atomic matching logic.
-        // This prevents the race condition where subscription replacement overwrites pending
-        // tempId→newDocId mappings before the store can reconcile them.
-        set(state => {
-          let mergedMessages = state.messages[chatId] ?? [];
+    return subscribeDeduped(
+      `messages_${chatId}`,
+      () => subscribeToSubcollection<Message>(
+        COLLECTIONS.CHATS,
+        chatId,
+        COLLECTIONS.MESSAGES,
+        [orderBy('timestamp', 'desc'), limit(limitCount)],
+        (rawMessages) => {
+          const incomingMessages = rawMessages.map(m => mapMessage(m as unknown as Record<string, unknown> & { id?: string })).reverse();
+          // Merge incoming server messages with existing local state using atomic matching logic.
+          // This prevents the race condition where subscription replacement overwrites pending
+          // tempId→newDocId mappings before the store can reconcile them.
+          set(state => {
+            const mergedMessages = state.messages[chatId] ?? [];
 
-          for (const incomingMsg of incomingMessages) {
-            const matchMessage = (candidate: Message) => {
-              // Match by localId first (works for tempId→newDocId reconciliation)
-              if (incomingMsg.localId) {
-                return candidate.localId === incomingMsg.localId || candidate.id === incomingMsg.id;
+            for (const incomingMsg of incomingMessages) {
+              const matchMessage = (candidate: Message) => matchesMessageIdentity(candidate, incomingMsg);
+
+              const existingIdx = mergedMessages.findIndex(matchMessage);
+              if (existingIdx >= 0) {
+                // Merge: preserve optimistic delivery status if it's ahead
+                const existing = mergedMessages[existingIdx];
+                const optimisticDeliveryPriority = { sending: 3, sent: 2, failed: 1, delivered: 0 };
+                const incomingPriority = optimisticDeliveryPriority[incomingMsg.deliveryStatus as keyof typeof optimisticDeliveryPriority] ?? 0;
+                const existingPriority = optimisticDeliveryPriority[existing.deliveryStatus as keyof typeof optimisticDeliveryPriority] ?? 0;
+
+                mergedMessages[existingIdx] = {
+                  ...existing,
+                  ...incomingMsg,
+                  // Preserve the server ID but keep localId for future correlation
+                  id: incomingMsg.id,
+                  localId: incomingMsg.localId ?? existing.localId,
+                  // Use the most optimistic delivery status (don't downgrade 'sent' to a lower state)
+                  deliveryStatus: existingPriority > incomingPriority ? existing.deliveryStatus : incomingMsg.deliveryStatus,
+                };
+              } else {
+                // New message from server
+                mergedMessages.push(incomingMsg);
               }
-              // Fall back to ID matching for messages that never had localId
-              return candidate.id === incomingMsg.id;
-            };
-
-            const existingIdx = mergedMessages.findIndex(matchMessage);
-            if (existingIdx >= 0) {
-              // Merge: preserve optimistic delivery status if it's ahead
-              const existing = mergedMessages[existingIdx];
-              const optimisticDeliveryPriority = { sending: 3, sent: 2, failed: 1, delivered: 0 };
-              const incomingPriority = optimisticDeliveryPriority[incomingMsg.deliveryStatus as keyof typeof optimisticDeliveryPriority] ?? 0;
-              const existingPriority = optimisticDeliveryPriority[existing.deliveryStatus as keyof typeof optimisticDeliveryPriority] ?? 0;
-
-              mergedMessages[existingIdx] = {
-                ...existing,
-                ...incomingMsg,
-                // Preserve the server ID but keep localId for future correlation
-                id: incomingMsg.id,
-                localId: incomingMsg.localId ?? existing.localId,
-                // Use the most optimistic delivery status (don't downgrade 'sent' to a lower state)
-                deliveryStatus: existingPriority > incomingPriority ? existing.deliveryStatus : incomingMsg.deliveryStatus,
-              };
-            } else {
-              // New message from server
-              mergedMessages.push(incomingMsg);
             }
-          }
 
-          return {
-            messages: { ...state.messages, [chatId]: mergedMessages },
-            hasMore: { ...state.hasMore, [chatId]: incomingMessages.length === limitCount },
-          };
-        });
-      },
+            return {
+              messages: { ...state.messages, [chatId]: mergedMessages },
+              hasMore: { ...state.hasMore, [chatId]: incomingMessages.length === limitCount },
+            };
+          });
+        },
+      )
     );
   },
 
   sendMessage: async (chatId, senderId, content, type = 'text', mediaUrl, replyTo) => {
     if (!isFirestoreAvailable()) { return { success: false, id: '' }; }
+
+    const cleanedContent = sanitizeText(content ?? '').trim();
+    const hasMediaContent = !!mediaUrl;
+
+    if (!cleanedContent && !hasMediaContent) {
+      return { success: false, id: '' };
+    }
+
     const rateErr = checkMessageRateLimit();
     if (rateErr) { toast.warning(rateErr); return { success: false, id: '' }; }
 
@@ -227,7 +243,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       id: tempId,
       chatId,
       senderId,
-      content: sanitizeText(content),
+      content: cleanedContent || '',
       type: type as MessageType,
       mediaUrl,
       timestamp: new Date(now),
@@ -260,19 +276,26 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     }
 
     try {
-      // Send to database
-      const newDocId = await addDocToSubcollection(COLLECTIONS.CHATS, chatId, COLLECTIONS.MESSAGES, {
-        ...message,
-        timestamp: serverTimestamp(),
-        localId: tempId, // Store client ID for correlation
-      });
+      // Send to database via chatApi with retry for transient errors
+      const result = await withRetry(
+        () => chatApi.sendMessage({
+          chatId,
+          senderId,
+          content: cleanedContent,
+          type,
+          mediaUrl,
+          replyTo: replyToId,
+        }),
+        2,
+        500,
+        { component: 'useChatStore', action: 'sendMessage', userId: senderId },
+      );
 
-      // Update chat metadata
-      updateDocById(COLLECTIONS.CHATS, chatId, {
-        lastMessage: content,
-        lastMessageSenderId: senderId,
-        updatedAt: serverTimestamp(),
-      });
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to send message');
+      }
+
+      const newDocId = result.id;
 
       // Update message with server ID and mark as sent
       set(state => {
@@ -345,16 +368,18 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         return { messages: updatedMessages };
       });
 
-      const newDocId = await addDocToSubcollection(COLLECTIONS.CHATS, chatId, COLLECTIONS.MESSAGES, {
-        chatId,
-        senderId: failedMsg.senderId,
-        content: failedMsg.content,
-        type: failedMsg.type,
-        mediaUrl: failedMsg.mediaUrl,
-        replyTo: failedMsg.replyTo,
-        localId: localId,
-        timestamp: serverTimestamp(),
-      });
+      const result = await withRetry(
+        () => chatApi.retryFailedMessage(chatId, localId, failedMsg.content, failedMsg.senderId),
+        2,
+        500,
+        { component: 'useChatStore', action: 'retryFailedMessage', userId: failedMsg.senderId },
+      );
+
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to retry message');
+      }
+
+      const newDocId = result.id;
 
       set(state => {
         const updatedMessages = { ...state.messages };
@@ -450,27 +475,12 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     }
 
     try {
-      const existingChats = await queryCollection<Chat>(
-        COLLECTIONS.CHATS,
-        [
-          where('type', '==', 'direct'),
-          where('participants', 'array-contains-all', [userId, currentUserId]),
-        ],
+      return await withRetry(
+        () => chatApi.createDirectChat(userId, currentUserId),
+        2,
+        500,
+        { component: 'useChatStore', action: 'createDirectChat', userId: currentUserId },
       );
-
-      if (existingChats.length > 0) {
-        return mapChat(existingChats[0] as unknown as Record<string, unknown> & { id?: string });
-      }
-
-      const newChatId = await addDocToCollection(COLLECTIONS.CHATS, {
-        type: 'direct',
-        participants: [userId, currentUserId],
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-        unreadCount: 0,
-      });
-
-      return { id: newChatId } as Chat;
     } catch (error) {
       logStoreError('createDirectChat', error, { userId, currentUserId });
       toast.error('Failed to create chat. Please try again.');
@@ -530,7 +540,12 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       }
 
       const newMutedState = !chat.isMuted;
-      await updateDocById(COLLECTIONS.CHATS, chatId, { isMuted: newMutedState });
+      await withRetry(
+        () => chatApi.toggleMuteChat(chatId, newMutedState),
+        2,
+        500,
+        { component: 'useChatStore', action: 'muteChat' },
+      );
 
       set(s => ({
         chats: s.chats.map(c =>
@@ -548,7 +563,12 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     if (!isFirestoreAvailable() || !chatId) return;
 
     try {
-      await updateDocById(COLLECTIONS.CHATS, chatId, data);
+      await withRetry(
+        () => chatApi.updateChat(chatId, data),
+        2,
+        500,
+        { component: 'useChatStore', action: 'updateChat' },
+      );
       set(s => ({
         chats: s.chats.map(c =>
           c.id === chatId ? { ...c, ...data } : c
@@ -572,7 +592,12 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       }
 
       const newParticipants = chat.participants.filter(p => p !== userId);
-      await updateDocById(COLLECTIONS.CHATS, chatId, { participants: newParticipants });
+      await withRetry(
+        () => chatApi.removeParticipant(chatId, userId),
+        2,
+        500,
+        { component: 'useChatStore', action: 'removeParticipant' },
+      );
 
       set(s => ({
         chats: s.chats.map(c =>
@@ -603,7 +628,12 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       }
 
       const newAdmins = [...admins, userId];
-      await updateDocById(COLLECTIONS.CHATS, chatId, { admins: newAdmins });
+      await withRetry(
+        () => chatApi.promoteAdmin(chatId, userId),
+        2,
+        500,
+        { component: 'useChatStore', action: 'promoteAdmin' },
+      );
 
       set(s => ({
         chats: s.chats.map(c =>
@@ -634,7 +664,12 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       }
 
       const newAdmins = admins.filter(adminId => adminId !== userId);
-      await updateDocById(COLLECTIONS.CHATS, chatId, { admins: newAdmins });
+      await withRetry(
+        () => chatApi.demoteAdmin(chatId, userId),
+        2,
+        500,
+        { component: 'useChatStore', action: 'demoteAdmin' },
+      );
 
       set(s => ({
         chats: s.chats.map(c =>
@@ -652,19 +687,12 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     if (!isFirestoreAvailable() || !chatId) return;
 
     try {
-      const allMessages = await querySubcollection<Message>(
-        COLLECTIONS.CHATS,
-        chatId,
-        COLLECTIONS.MESSAGES,
-        [],
+      await withRetry(
+        () => chatApi.clearChat(chatId),
+        2,
+        500,
+        { component: 'useChatStore', action: 'clearChat' },
       );
-      if (allMessages.length > 0) {
-        await Promise.all(
-          allMessages.map(m =>
-            deleteSubcollectionDoc(COLLECTIONS.CHATS, chatId, COLLECTIONS.MESSAGES, m.id)
-          )
-        );
-      }
 
       set(s => ({
         messages: {
@@ -689,8 +717,12 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         return;
       }
 
-      const newParticipants = chat.participants.filter(p => p !== userId);
-      await updateDocById(COLLECTIONS.CHATS, chatId, { participants: newParticipants });
+      await withRetry(
+        () => chatApi.leaveGroup(chatId, userId),
+        2,
+        500,
+        { component: 'useChatStore', action: 'leaveGroup' },
+      );
 
       set(s => ({
         chats: s.chats.filter(c => c.id !== chatId),
@@ -717,12 +749,16 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         return;
       }
 
-      const newParticipants = [...chat.participants, userId];
-      await updateDocById(COLLECTIONS.CHATS, chatId, { participants: newParticipants });
+      await withRetry(
+        () => chatApi.addParticipant(chatId, userId),
+        2,
+        500,
+        { component: 'useChatStore', action: 'addParticipant' },
+      );
 
       set(s => ({
         chats: s.chats.map(c =>
-          c.id === chatId ? { ...c, participants: newParticipants } : c
+          c.id === chatId ? { ...c, participants: [...c.participants, userId] } : c
         ),
       }));
       toast.success('Participant added successfully.');
@@ -777,7 +813,12 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       };
       const newPinnedMessages = [...(chat.pinnedMessages || []), newPinnedMessage];
 
-      await updateDocById(COLLECTIONS.CHATS, chatId, { pinnedMessages: newPinnedMessages });
+      await withRetry(
+        () => chatApi.pinMessage(chatId, messageId, content),
+        2,
+        500,
+        { component: 'useChatStore', action: 'pinMessage' },
+      );
 
       set(s => ({
         chats: s.chats.map(c =>
@@ -802,7 +843,12 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       }
 
       const newPinnedMessages = (chat.pinnedMessages || []).filter(p => p.messageId !== messageId);
-      await updateDocById(COLLECTIONS.CHATS, chatId, { pinnedMessages: newPinnedMessages });
+      await withRetry(
+        () => chatApi.unpinMessage(chatId, messageId),
+        2,
+        500,
+        { component: 'useChatStore', action: 'unpinMessage' },
+      );
 
       set(s => ({
         chats: s.chats.map(c =>
@@ -820,7 +866,12 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     if (!isFirestoreAvailable() || !chatId) return;
 
     try {
-      await updateDocById(COLLECTIONS.CHATS, chatId, { archived: true });
+      await withRetry(
+        () => chatApi.archiveChat(chatId),
+        2,
+        500,
+        { component: 'useChatStore', action: 'archiveChat' },
+      );
       set(s => {
         const chatToArchive = s.chats.find(c => c.id === chatId);
         if (!chatToArchive) return s;
@@ -840,7 +891,12 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     if (!isFirestoreAvailable() || !chatId) return;
 
     try {
-      await updateDocById(COLLECTIONS.CHATS, chatId, { archived: false });
+      await withRetry(
+        () => chatApi.unarchiveChat(chatId),
+        2,
+        500,
+        { component: 'useChatStore', action: 'unarchiveChat' },
+      );
       set(s => {
         const chatToUnarchive = s.archivedChats.find(c => c.id === chatId);
         if (!chatToUnarchive) return s;
@@ -860,7 +916,12 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     if (!isFirestoreAvailable() || !chatId) return;
 
     try {
-      await updateDocById(COLLECTIONS.CHATS, chatId, { disappearingMessages: seconds });
+      await withRetry(
+        () => chatApi.setDisappearingMessages(chatId, seconds),
+        2,
+        500,
+        { component: 'useChatStore', action: 'setDisappearingMessages' },
+      );
       set(s => ({
         chats: s.chats.map(c =>
           c.id === chatId ? { ...c, disappearingMessages: seconds } : c
@@ -877,7 +938,12 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     if (!isFirestoreAvailable() || !chatId) return;
 
     try {
-      await updateDocById(COLLECTIONS.CHATS, chatId, { chatLocked: true, lockType, lockValue });
+      await withRetry(
+        () => chatApi.lockChat(chatId, lockType, lockValue),
+        2,
+        500,
+        { component: 'useChatStore', action: 'lockChat' },
+      );
       set(s => ({
         chats: s.chats.map(c =>
           c.id === chatId ? { ...c, chatLocked: true, lockType, lockValue } : c
@@ -894,7 +960,12 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     if (!isFirestoreAvailable() || !chatId) return;
 
     try {
-      await updateDocById(COLLECTIONS.CHATS, chatId, { chatLocked: false, lockType: null, lockValue: null });
+      await withRetry(
+        () => chatApi.unlockChat(chatId),
+        2,
+        500,
+        { component: 'useChatStore', action: 'unlockChat' },
+      );
       set(s => ({
         chats: s.chats.map(c =>
           c.id === chatId ? { ...c, chatLocked: false, lockType: undefined, lockValue: undefined } : c
@@ -911,15 +982,55 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     if (!isFirestoreAvailable() || !chatId || !senderId) return;
 
     try {
-      const messageData = {
+      const tempId = uuidv4();
+      const content = `Contact: ${contactData.name || contactData.username || 'User'}`;
+      const optimisticMsg: Message = {
+        id: tempId,
+        localId: tempId,
         chatId,
         senderId,
+        content,
         type: 'contact_card',
         contactCard: contactData,
-        createdAt: serverTimestamp(),
+        timestamp: new Date(),
+        deliveryStatus: 'sending',
+        retryCount: 0,
       };
+      get().addMessage(optimisticMsg);
+      set(state => ({
+        pendingMessageIds: [...state.pendingMessageIds, tempId],
+      }));
 
-      await addDocToSubcollection(COLLECTIONS.CHATS, chatId, COLLECTIONS.MESSAGES, messageData);
+      if (!isOnline()) {
+        enqueueOfflineMessage({
+          chatId,
+          senderId,
+          content,
+          type: 'direct',
+          messageType: 'contact_card',
+        });
+        return;
+      }
+
+      await withRetry(
+        () => chatApi.sendContactCard(chatId, senderId, contactData),
+        2,
+        500,
+        { component: 'useChatStore', action: 'sendContactCard', userId: senderId },
+      );
+
+      set(state => {
+        const updatedMessages = { ...state.messages };
+        updatedMessages[chatId] = (state.messages[chatId] || []).map(m =>
+          m.id === tempId || m.localId === tempId
+            ? { ...m, deliveryStatus: 'sent' as const, localId: tempId }
+            : m
+        );
+        return {
+          messages: updatedMessages,
+          pendingMessageIds: state.pendingMessageIds.filter(id => id !== tempId),
+        };
+      });
       toast.success('Contact card sent successfully.');
     } catch (error) {
       logStoreError('sendContactCard', error, { chatId, senderId });
@@ -931,22 +1042,14 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     if (!isFirestoreAvailable() || !chatId) return null;
 
     try {
-      const messages = get().messages[chatId] || [];
-      if (messages.length === 0) {
-        toast.info('No messages to export.');
-        return null;
-      }
-
-      const chat = get().chats.find(c => c.id === chatId);
-      const dataToExport = {
-        chatInfo: chat,
-        messages: messages,
-      };
-
-      // In a real app, you would use a library to generate a file (e.g., CSV, JSON)
-      // and trigger a download. For this example, we'll just return the data.
-      toast.success('Chat exported successfully.');
-      return dataToExport;
+      const result = await withRetry(
+        () => chatApi.exportChat(chatId),
+        2,
+        500,
+        { component: 'useChatStore', action: 'exportChat' },
+      );
+      if (result) toast.success('Chat exported successfully.');
+      return result;
     } catch (error) {
       logStoreError('exportChat', error, { chatId });
       toast.error('Failed to export chat.');
@@ -958,22 +1061,12 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     if (!isFirestoreAvailable() || !chatId) return [];
 
     try {
-      const messages = get().messages[chatId] || [];
-      const mediaMessages = messages.filter(m => {
-        const mediaTypes: MessageType[] = ['image', 'video', 'file', 'voice'];
-        if (!mediaTypes.includes(m.type)) return false;
-        if (mediaType) {
-          // Match against either media URL content or the message type
-          if (m.mediaUrl?.includes(mediaType)) return true;
-          if (mediaType === 'image' && m.type === 'image') return true;
-          if (mediaType === 'video' && m.type === 'video') return true;
-          if (mediaType === 'voice' && m.type === 'voice') return true;
-          if (mediaType === 'file' && m.type === 'file') return true;
-          return false;
-        }
-        return true;
-      });
-      return mediaMessages;
+      return await withRetry(
+        () => chatApi.getSharedMedia(chatId, mediaType),
+        2,
+        500,
+        { component: 'useChatStore', action: 'getSharedMedia' },
+      );
     } catch (error) {
       logStoreError('getSharedMedia', error, { chatId, mediaType });
       toast.error('Failed to get shared media.');

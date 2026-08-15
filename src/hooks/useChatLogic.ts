@@ -20,7 +20,9 @@ export function useChatLogic() {
   const [search, setSearch] = useState('');
   const [activeTab, setActiveTab] = useState<'all' | 'direct' | 'groups' | 'archived'>('all');
   const [nonFriendNames, setNonFriendNames] = useState<Record<string, string>>({});
+  const [nonFriendAvatars, setNonFriendAvatars] = useState<Record<string, string>>({});
   const nonFriendNamesRef = useRef<Record<string, string>>({});
+  const nonFriendAvatarsRef = useRef<Record<string, string>>({});
 
   // Store the active subscription unsubscribers so handleRefresh can cancel them
   const activeUnsubRef = useRef<Array<() => void>>([]);
@@ -65,7 +67,7 @@ export function useChatLogic() {
       activeTab === 'all' && !search ? [...pinnedChats, ...unpinnedChats] :
       activeChats;
 
-  const filterFunctions: Record<string, (c: ChatListItemData) => boolean> = {
+    const filterFunctions: Record<string, (c: ChatListItemData) => boolean> = {
       direct: (c) => c.itemType === 'direct',
       groups: (c) => c.itemType === 'group',
       all: () => true,
@@ -113,31 +115,46 @@ export function useChatLogic() {
 
     const fetchAndSetNonFriendNames = async () => {
       try {
-        if (!isFirestoreAvailable()) return;
-
+        // Supabase is the app's PRIMARY database — try it first. Only fall
+        // back to Firestore when Supabase is unavailable. (Previously this
+        // effect returned early when Firestore was unavailable, which meant
+        // names/avatars were NEVER fetched in the Supabase-only production
+        // setup and the chat list rendered every non-friend as "Chat".)
         const { getSupabaseSafe } = await import('@/lib/supabase');
         const supabase = getSupabaseSafe();
         const newNames: Record<string, string> = {};
+        const newAvatars: Record<string, string> = {};
 
         if (supabase) {
-          const { data } = await supabase.from('users').select('id, name').in('id', nonFriendIds);
+          const { data, error } = await supabase
+            .from('users')
+            .select('id, name, avatar')
+            .in('id', nonFriendIds);
+          if (error) throw error;
           if (data) {
-            data.forEach((u: { id: string; name?: string }) => {
+            data.forEach((u: { id: string; name?: string; avatar?: string }) => {
               newNames[u.id] = u.name || 'User';
+              if (u.avatar) newAvatars[u.id] = u.avatar;
             });
           }
-        } else {
+        } else if (isFirestoreAvailable()) {
           const results = await Promise.all(
             nonFriendIds.map(id => getDocById('users', id).catch(() => null))
           );
           results.forEach((data, i) => {
-            if (data) newNames[nonFriendIds[i]] = (data as { name?: string }).name || 'User';
+            if (data) {
+              const d = data as { name?: string; avatar?: string };
+              newNames[nonFriendIds[i]] = d.name || 'User';
+              if (d.avatar) newAvatars[nonFriendIds[i]] = d.avatar;
+            }
           });
         }
 
         if (!cancelled) {
           nonFriendNamesRef.current = { ...nonFriendNamesRef.current, ...newNames };
+          nonFriendAvatarsRef.current = { ...nonFriendAvatarsRef.current, ...newAvatars };
           setNonFriendNames(prev => ({ ...prev, ...newNames }));
+          setNonFriendAvatars(prev => ({ ...prev, ...newAvatars }));
         }
       } catch {
         // silently ignore — non-friend name fetch is best-effort
@@ -171,6 +188,7 @@ export function useChatLogic() {
     typingMap,
     friends,
     nonFriendNames,
+    nonFriendAvatars,
     visibleOnline,
     handleAddFriend,
     handleRefresh,

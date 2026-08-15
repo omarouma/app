@@ -1,6 +1,6 @@
 import { useState, useCallback, useMemo } from 'react';
 import { toast } from 'sonner';
-import { loadDeviceContacts, saveDeviceContacts } from '@/lib/deviceContacts';
+import { loadDeviceContacts, normalizeDeviceContacts, saveDeviceContacts } from '@/lib/deviceContacts';
 
 interface Contact {
   name: string[];
@@ -54,11 +54,11 @@ export function useContacts(): ContactResult {
       );
 
       if (results?.length > 0) {
-        const parsed: Contact[] = results.map((c) => ({
+        const parsed: Contact[] = normalizeDeviceContacts(results.map((c) => ({
           name: c.name || [],
           email: c.email || [],
           tel: c.tel || [],
-        }));
+        })));
         setContacts(parsed);
         saveDeviceContacts(parsed);
         toast.success(`Imported ${parsed.length} contacts`);

@@ -25,9 +25,10 @@ export interface MessageItemProps {
   selectionMode: boolean;
   selectedReactionMsg: string | null;
   displayUser: { name: string; avatar: string; id: string };
+  otherUserName?: string;
   userId: string;
   currentUserId: string;
-  msgs: Message[];
+  msgIdMap?: Map<string, Message>;
   translatedText?: string;
   isTranslating?: boolean;
 
@@ -71,7 +72,7 @@ export const MessageItem = memo(function MessageItem(props: MessageItemProps) {
   const {
     msg, isMe, showAvatar, showDate, msgDate, showUnreadSeparator, isSelected,
     editingMessageId, editInput, selectionMode: _selectionMode, selectedReactionMsg,
-    displayUser, userId, currentUserId, msgs,
+    displayUser, otherUserName, userId, currentUserId, msgIdMap,
     translatedText, isTranslating,
     onContextMenu, onTouchStart, onTouchMove, onTouchEnd, onMouseDown, onMouseUp,
     onMouseLeave, onClick, onReact, onEditInputChange,
@@ -94,23 +95,19 @@ export const MessageItem = memo(function MessageItem(props: MessageItemProps) {
 
   const MessageComponent = messageComponentMap[msg.type] || TextMessage;
 
-  const msgIdMap = useMemo(() => {
-    const map = new Map<string, Message>();
-    for (const m of msgs) {
-      map.set(m.id, m);
-    }
-    return map;
-  }, [msgs]);
-
   const repliedInfo = useMemo(() => {
     if (!msg.replyTo) return null;
-    const r = msgIdMap.get(msg.replyTo);
+    const r = msgIdMap?.get(msg.replyTo);
     if (!r) return null;
+    const senderIsMe = r.senderId === currentUserId;
+    const senderIsSystem = r.senderId === 'system';
+    const senderName = senderIsMe ? 'You' : senderIsSystem ? 'System' : (otherUserName || displayUser.name || 'Chat');
     return {
       message: r,
-      preview: r.content.substring(0, 30) + (r.content.length > 30 ? '...' : ''),
+      preview: r.content.substring(0, 60) + (r.content.length > 60 ? '...' : ''),
+      senderName,
     };
-  }, [msg.replyTo, msgIdMap]);
+  }, [msg.replyTo, msgIdMap, currentUserId, otherUserName, displayUser.name]);
 
   const renderMessageContent = () => {
     const componentProps = {
@@ -129,6 +126,8 @@ export const MessageItem = memo(function MessageItem(props: MessageItemProps) {
     };
     return <MessageComponent {...componentProps} />;
   };
+
+  const failed = msg.deliveryStatus === 'failed' && !!onRetry;
 
   return (
     <div>
@@ -157,8 +156,12 @@ export const MessageItem = memo(function MessageItem(props: MessageItemProps) {
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          className={`flex ${isMe ? 'justify-end' : 'justify-start'} ${isSelected ? 'opacity-70' : ''}`}
-          onContextMenu={(e: React.MouseEvent) => { if (msg.type !== 'deleted') onContextMenu(e, msg); }}
+          className={`flex ${isMe ? 'justify-end' : 'justify-start'} ${isSelected ? 'opacity-70' : ''} ${
+            failed ? 'cursor-pointer' : ''
+          }`}
+          onContextMenu={(e: React.MouseEvent) => {
+            if (msg.type !== 'deleted') onContextMenu(e, msg);
+          }}
           onTouchStart={onTouchStart}
           onTouchMove={onTouchMove}
           onTouchEnd={onTouchEnd}
@@ -168,13 +171,31 @@ export const MessageItem = memo(function MessageItem(props: MessageItemProps) {
           onClick={() => onClick(msg)}
         >
           {avatarEl}
-          <div className={`max-w-[70%] relative ${!isMe && !showAvatar ? 'ml-10' : ''}`}>
+          <div
+            className={`max-w-[70%] relative ${!isMe && !showAvatar ? 'ml-10' : ''} ${
+              failed ? 'active:bg-[#FF3B30]/5 rounded-xl' : ''
+            }`}
+            onClick={(e) => {
+              if (failed && onRetry) {
+                e.stopPropagation();
+                onRetry(msg);
+              }
+            }}
+          >
             {msg.replyTo && (
               <div
                 className="bg-black/10 rounded-t-2xl px-3 py-1.5 mb-0.5 cursor-pointer hover:opacity-80 transition-opacity"
-                onClick={(e) => { e.stopPropagation(); if (repliedInfo?.message) onSetReplyingTo(repliedInfo.message); }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (repliedInfo?.message) onSetReplyingTo(repliedInfo.message);
+                }}
               >
-                <p className={`text-[10px] truncate ${isMe ? 'text-white/70' : 'text-[#8D8D8D]'}`}>
+                {repliedInfo?.senderName && (
+                  <p className={`text-[10px] font-medium mb-0.5 truncate ${isMe ? 'text-white/70' : 'text-[#00C300]'}`}>
+                    Replying to {repliedInfo.senderName}
+                  </p>
+                )}
+                <p className={`text-[11px] truncate ${isMe ? 'text-white/60' : 'text-[#8D8D8D]'}`}>
                   {repliedInfo?.preview || 'Replying to message'}
                 </p>
               </div>
@@ -200,7 +221,10 @@ export const MessageItem = memo(function MessageItem(props: MessageItemProps) {
                     <button
                       type="button"
                       key={reaction}
-                      onClick={() => onReact(msg.id, reaction)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onReact(msg.id, reaction);
+                      }}
                       className={`rounded-full px-1.5 py-0.5 text-xs shadow-sm flex items-center gap-0.5 border transition-all hover:scale-105 ${isMeReacted ? 'bg-[#00C300]/10 border-[#00C300]/30' : 'bg-white border-transparent'}`}
                     >
                       <span className="text-sm">{rc.emoji}</span>
@@ -211,18 +235,23 @@ export const MessageItem = memo(function MessageItem(props: MessageItemProps) {
               </div>
             )}
 
-            <ReadReceipt isMe={isMe} timestamp={msg.timestamp} deliveryStatus={msg.deliveryStatus} edited={msg.edited} />
-
-            {msg.deliveryStatus === 'failed' && onRetry && (
-              <button
-                type="button"
-                onClick={() => onRetry(msg)}
-                className="text-[10px] text-[#FF3B30] flex items-center gap-1 mt-0.5"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" /><path d="M3 3v5h5" /></svg>
-                Tap to retry
-              </button>
-            )}
+            <div
+              onClick={(e) => {
+                if (failed && onRetry) {
+                  e.stopPropagation();
+                  onRetry(msg);
+                }
+              }}
+              style={failed ? { cursor: 'pointer' } : undefined}
+            >
+              <ReadReceipt
+                isMe={isMe}
+                timestamp={msg.timestamp}
+                deliveryStatus={msg.deliveryStatus}
+                edited={msg.edited}
+                highlightFailed={failed}
+              />
+            </div>
           </div>
         </motion.div>
       )}

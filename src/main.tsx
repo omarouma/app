@@ -49,8 +49,12 @@ function installBinanceBridgeGuard() {
       constructor(url: string | URL, eventSourceInitDict?: EventSourceInit) {
         const target = typeof url === 'string' ? url : url.toString();
         if (isBlockedBinanceTonBridgeUrl(target)) {
-          // Silently reject without console warning to avoid console noise
-          throw new Error('Blocked external Binance TON bridge EventSource');
+          // Silently reject without throwing — return a never-connecting stub
+          // instead of throwing an uncaught error that pollutes the console.
+          super('data:text/plain,blocked', eventSourceInitDict);
+          // Immediately close the connection so it never actually connects
+          queueMicrotask(() => this.close());
+          return;
         }
         super(target, eventSourceInitDict);
       }

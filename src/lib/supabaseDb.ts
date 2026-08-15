@@ -5,6 +5,7 @@
   All field mapping (camelCase ↔ snake_case) happens here transparently.
 */
 import { getSupabaseSafe } from './supabase';
+import { getCached, setCached, cacheKeys } from './dbCache';
 
 export function isSupabaseAvailable(): boolean {
   return !!getSupabaseSafe();
@@ -485,9 +486,23 @@ export async function getDocById<T = any>(
 ): Promise<(T & { id: string }) | null> {
   const supabase = getDb();
   if (!supabase || !id) return null;
+
+  // Use cache for user profile lookups (most frequently queried)
+  if (table === COLLECTIONS.USERS) {
+    const cacheKey = cacheKeys.user(id);
+    const cached = getCached<T & { id: string }>(cacheKey);
+    if (cached !== null) return cached;
+  }
+
   const { data, error } = await supabase.from(table).select('*').eq('id', id).single();
   if (error || !data) return null;
-  return { ...toCamel(data), id: data.id } as T & { id: string };
+  const mapped = { ...toCamel(data), id: data.id } as T & { id: string };
+
+  if (table === COLLECTIONS.USERS) {
+    setCached(cacheKeys.user(id), mapped, 30_000); // 30s TTL for user profiles
+  }
+
+  return mapped;
 }
 
 export async function setDocById(

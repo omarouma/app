@@ -55,8 +55,22 @@ export function getAgoraRTC(): Promise<typeof import('agora-rtc-sdk-ng')> {
 /**
  * Whether the Agora App ID is configured.
  */
-export function isAgoraConfigured(): boolean {
-  return !!env.VITE_AGORA_APP_ID;
+export function isAgoraConfigured(appId?: string): boolean {
+  return !!(appId ?? env.VITE_AGORA_APP_ID);
+}
+
+/**
+ * Derive the deterministic Agora uid from an authenticated app user id.
+ * This MUST match the server-side implementation in the token endpoints.
+ */
+export function deriveAgoraUid(userId: string): number {
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < userId.length; i++) {
+    hash ^= userId.charCodeAt(i);
+    hash = Math.imul(hash, 0x01000193);
+  }
+  const n = hash >>> 0;
+  return n === 0 ? 1 : n;
 }
 
 /**
@@ -65,7 +79,7 @@ export function isAgoraConfigured(): boolean {
  * authenticated user); otherwise the caller-provided uid is used.
  */
 export interface AgoraTokenResolution {
-  token: string;
+  token: string | null;
   uid: number;
 }
 
@@ -139,7 +153,8 @@ export async function resolveAgoraToken(
   // NOTE: As of env.ts, AGORA_APP_CERTIFICATE has NO `VITE_` prefix, so it
   // is never inlined into the client bundle. Client-side token generation is
   // intentionally disabled. Deploy VITE_AGORA_TOKEN_SERVER_URL for production.
-  return { token: '', uid };
+  // Use null instead of empty string (Agora SDK requires null for no-token mode).
+  return { token: null as any, uid };
 }
 
 /**

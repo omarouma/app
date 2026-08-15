@@ -104,7 +104,12 @@ self.addEventListener('fetch', (event) => {
         })
         .catch(async () => {
           // Offline fallback: prefer offline.html, then cached index.html
-          return (await caches.match('/offline.html')) || (await caches.match('/index.html'));
+          const offline = await caches.match('/offline.html');
+          if (offline) return offline;
+          const index = await caches.match('/index.html');
+          if (index) return index;
+          // Always return a valid Response — never undefined
+          return new Response('Offline', { status: 503, headers: { 'Content-Type': 'text/plain' } });
         })
     );
     return;
@@ -121,7 +126,12 @@ self.addEventListener('fetch', (event) => {
         return response;
       })
       .catch(async () => {
-        return (await caches.match(event.request)) || (await caches.match('/index.html'));
+        const cached = await caches.match(event.request);
+        if (cached) return cached;
+        const index = await caches.match('/index.html');
+        if (index) return index;
+        // Always return a valid Response — never undefined
+        return new Response('Offline', { status: 503, headers: { 'Content-Type': 'text/plain' } });
       })
   );
 });

@@ -1,29 +1,43 @@
-import { useMemo } from 'react';
+import { memo, useState, useEffect, useRef, useMemo } from 'react';
 import { motion } from 'framer-motion';
 
 interface RecordingWaveformProps {
-  /** Current recording duration in seconds. */
   duration: number;
-  /** Color of the bars. */
   barColor?: string;
-  /** Number of bars to render. */
   bars?: number;
 }
 
-/**
- * Animated live waveform shown while the microphone is recording.
- * Bars bounce with randomized stagger to give the "live recording" feel,
- * without requiring an actual audio analyser node.
- */
-export function RecordingWaveform(props: RecordingWaveformProps) {
+export const RecordingWaveform = memo(function RecordingWaveform(props: RecordingWaveformProps) {
   const { duration, barColor = '#00C300', bars = 28 } = props;
+  const [tick, setTick] = useState(0);
+  const tickRef = useRef<number | null>(null);
 
-  const heights = useMemo(
-    () => Array.from({ length: bars }, (_, i) => 0.25 + ((i * 37) % 61) / 100),
-    [bars],
-  );
+  useEffect(() => {
+    tickRef.current = window.setInterval(() => {
+      setTick((prev) => (prev + 1) % 1000000);
+    }, 120);
+    return () => {
+      if (tickRef.current !== null) {
+        window.clearInterval(tickRef.current);
+        tickRef.current = null;
+      }
+    };
+  }, []);
 
-  // Slightly speed up the bounce as the recording gets longer.
+  const heights = useMemo<number[]>(() => {
+    const out: number[] = new Array(bars);
+    for (let i = 0; i < bars; i += 1) {
+      const seed = i + tick * 13 + duration * 7;
+      const pseudo = ((Math.sin(seed + i * 0.9) * 0.5) + 1) / 2;
+      const vary = 0.3 + pseudo * 0.55;
+      const center = bars / 2;
+      const distance = Math.abs(i - center) / center;
+      const envelope = 1 - distance * 0.45;
+      out[i] = Math.max(0.18, vary * envelope);
+    }
+    return out;
+  }, [bars, tick, duration]);
+
   const bounceDuration = Math.max(0.35, 0.6 - duration * 0.004);
 
   return (
@@ -46,4 +60,6 @@ export function RecordingWaveform(props: RecordingWaveformProps) {
       ))}
     </div>
   );
-}
+});
+
+RecordingWaveform.displayName = 'RecordingWaveform';

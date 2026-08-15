@@ -266,55 +266,103 @@ export function playMessageSent() {
 
 /* ── Call Sounds (profile-independent) ──────── */
 
+/**
+ * WeChat-style incoming call ringtone.
+ *
+ * A rich 15-second melodic phrase (marimba-like dual oscillators) that loops
+ * until the call is answered, rejected, or times out. Master volume is set
+ * high (0.6) so it is audible from a pocket; pair with `vibrateIncomingCall()`
+ * re-triggered on an interval for a full WeChat-style alert.
+ */
 export function playIncomingCall(): { stop: () => void } {
   const ctx = getCtx();
   if (!ctx || !globalEnabled || !areCallSoundsEnabled() || isQuietHours()) return { stop: () => {} };
 
+  const RING_CYCLE_MS = 15000; // full melodic phrase length before it repeats
+
   const masterGain = ctx.createGain();
-  masterGain.gain.setValueAtTime(0.35, ctx.currentTime);
+  masterGain.gain.setValueAtTime(0.6, ctx.currentTime); // high volume ringtone
   masterGain.connect(ctx.destination);
 
   let running = true;
-  const intervals: ReturnType<typeof setInterval>[] = [];
+  let cycleTimer: ReturnType<typeof setInterval> | null = null;
+  const scheduled: OscillatorNode[] = [];
 
-  const playRing = () => {
+  // 15s WeChat-style phrase: bright two-note motif, answer phrase, then a
+  // rising tail — followed by ~6s of silence so it doesn't feel naggy.
+  // [startTimeSec, freqHz, durationSec, volume]
+  const PHRASE: Array<[number, number, number, number]> = [
+    // Motif 1 (0–2s): ding-dong, ding-dong
+    [0.00, 1046.5, 0.35, 0.50], // C6
+    [0.40, 783.99, 0.45, 0.50], // G5
+    [1.10, 1046.5, 0.35, 0.50],
+    [1.50, 783.99, 0.60, 0.55],
+    // Motif 2 (2.4–4.6s): echo one step lower
+    [2.40, 987.77, 0.35, 0.45], // B5
+    [2.80, 739.99, 0.45, 0.45], // F#5
+    [3.50, 987.77, 0.35, 0.45],
+    [3.90, 739.99, 0.60, 0.50],
+    // Answer phrase (4.9–6.9s): rising triad
+    [4.90, 659.25, 0.30, 0.45], // E5
+    [5.25, 830.61, 0.30, 0.45], // G#5
+    [5.60, 1046.5, 0.55, 0.55], // C6
+    [6.20, 1318.5, 0.70, 0.50], // E6
+    // Tail (7.2–9.0s): soft resolve
+    [7.20, 1046.5, 0.40, 0.40],
+    [7.70, 880.00, 0.70, 0.40], // A5
+    [8.50, 1046.5, 0.90, 0.35],
+    // 9.4s–15s: silence before the phrase repeats
+  ];
+
+  const playNote = (at: number, freq: number, dur: number, vol: number) => {
     if (!running) return;
-    const t = ctx.currentTime;
-    const osc1 = ctx.createOscillator();
-    const g1 = ctx.createGain();
-    osc1.type = 'sine';
-    osc1.frequency.setValueAtTime(440, t);
-    osc1.frequency.linearRampToValueAtTime(660, t + 0.2);
-    g1.gain.setValueAtTime(0, t);
-    g1.gain.linearRampToValueAtTime(0.35, t + 0.05);
-    g1.gain.exponentialRampToValueAtTime(0.0001, t + 0.4);
-    osc1.connect(g1);
-    g1.connect(masterGain);
-    osc1.start(t);
-    osc1.stop(t + 0.4);
+    const t = ctx.currentTime + at;
+    // Marimba-ish voice: triangle fundamental + quiet sine octave above
+    const osc = ctx.createOscillator();
+    const g = ctx.createGain();
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(freq, t);
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(vol, t + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    osc.connect(g);
+    g.connect(masterGain);
+    osc.start(t);
+    osc.stop(t + dur + 0.05);
 
-    const osc2 = ctx.createOscillator();
+    const overtone = ctx.createOscillator();
     const g2 = ctx.createGain();
-    osc2.type = 'sine';
-    osc2.frequency.setValueAtTime(880, t + 0.5);
-    osc2.frequency.linearRampToValueAtTime(1100, t + 0.7);
-    g2.gain.setValueAtTime(0, t + 0.5);
-    g2.gain.linearRampToValueAtTime(0.3, t + 0.55);
-    g2.gain.exponentialRampToValueAtTime(0.0001, t + 0.9);
-    osc2.connect(g2);
+    overtone.type = 'sine';
+    overtone.frequency.setValueAtTime(freq * 2, t);
+    g2.gain.setValueAtTime(0, t);
+    g2.gain.linearRampToValueAtTime(vol * 0.25, t + 0.02);
+    g2.gain.exponentialRampToValueAtTime(0.0001, t + dur * 0.7);
+    overtone.connect(g2);
     g2.connect(masterGain);
-    osc2.start(t + 0.5);
-    osc2.stop(t + 0.9);
+    overtone.start(t);
+    overtone.stop(t + dur);
+
+    scheduled.push(osc, overtone);
   };
 
-  playRing();
-  const interval = setInterval(playRing, 2500);
-  intervals.push(interval);
+  const playPhrase = () => {
+    if (!running) return;
+    for (const [at, freq, dur, vol] of PHRASE) playNote(at, freq, dur, vol);
+  };
+
+  playPhrase();
+  cycleTimer = setInterval(playPhrase, RING_CYCLE_MS);
 
   const stop = () => {
     running = false;
-    intervals.forEach(clearInterval);
-    masterGain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.1);
+    if (cycleTimer) clearInterval(cycleTimer);
+    for (const osc of scheduled) {
+      try { osc.stop(); } catch { /* already stopped */ }
+    }
+    scheduled.length = 0;
+    try {
+      masterGain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.1);
+    } catch { /* noop */ }
     setTimeout(() => masterGain.disconnect(), 200);
   };
 
@@ -327,30 +375,32 @@ export function playOutgoingCall(): { stop: () => void } {
   if (!ctx || !globalEnabled || !areCallSoundsEnabled() || isQuietHours()) return { stop: () => {} };
 
   const masterGain = ctx.createGain();
-  masterGain.gain.setValueAtTime(0.2, ctx.currentTime);
+  masterGain.gain.setValueAtTime(0.4, ctx.currentTime);
   masterGain.connect(ctx.destination);
 
   let running = true;
   const intervals: ReturnType<typeof setInterval>[] = [];
 
+  // WeChat-style ringback: soft dual-tone "doo…" every 4s while waiting.
   const playRingback = () => {
     if (!running) return;
     const t = ctx.currentTime;
     const osc = ctx.createOscillator();
     const g = ctx.createGain();
     osc.type = 'sine';
-    osc.frequency.setValueAtTime(440, t);
+    osc.frequency.setValueAtTime(450, t);
     g.gain.setValueAtTime(0, t);
-    g.gain.linearRampToValueAtTime(0.2, t + 0.05);
-    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.4);
+    g.gain.linearRampToValueAtTime(0.35, t + 0.05);
+    g.gain.setValueAtTime(0.35, t + 0.9);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 1.0);
     osc.connect(g);
     g.connect(masterGain);
     osc.start(t);
-    osc.stop(t + 0.4);
+    osc.stop(t + 1.0);
   };
 
   playRingback();
-  const interval = setInterval(playRingback, 2000);
+  const interval = setInterval(playRingback, 4000);
   intervals.push(interval);
 
   const stop = () => {
@@ -394,6 +444,46 @@ export function playTimelineNotification() {
 
 export function playErrorSound() {
   getProfileSounds().error();
+}
+
+/* ── Extra notification sounds (WeChat-style) ── */
+
+/** Mentioned in a group chat (@you) — bright double-ping. */
+export function playMention() {
+  if (!globalEnabled || isQuietHours()) return;
+  playTone({ freq: 1174.7, duration: 0.12, volume: 0.28, type: 'triangle' }); // D6
+  playTone({ freq: 1568.0, duration: 0.16, volume: 0.24, type: 'triangle', delay: 0.10 }); // G6
+}
+
+/** Group chat message — softer, shorter ping so busy groups don't annoy. */
+export function playGroupMessage() {
+  if (!globalEnabled || isQuietHours()) return;
+  playTone({ freq: 987.77, duration: 0.08, volume: 0.16, type: 'sine' }); // B5
+  playTone({ freq: 1318.5, duration: 0.10, volume: 0.13, type: 'sine', delay: 0.06 }); // E6
+}
+
+/** Money received (transfer / red packet) — WeChat-style "ka-ching". */
+export function playMoneyReceived() {
+  if (!globalEnabled || isQuietHours()) return;
+  playTone({ freq: 1046.5, duration: 0.10, volume: 0.26, type: 'triangle' }); // C6
+  playTone({ freq: 1318.5, duration: 0.10, volume: 0.26, type: 'triangle', delay: 0.08 }); // E6
+  playTone({ freq: 1568.0, duration: 0.14, volume: 0.26, type: 'triangle', delay: 0.16 }); // G6
+  playTone({ freq: 2093.0, duration: 0.22, volume: 0.22, type: 'sine', delay: 0.24 }); // C7
+}
+
+/** Missed call alert — descending double tone after the ringtone stops. */
+export function playMissedCall() {
+  if (!globalEnabled || !areCallSoundsEnabled() || isQuietHours()) return;
+  playTone({ freq: 880.0, duration: 0.18, volume: 0.26, type: 'sine' });
+  playTone({ freq: 659.25, duration: 0.26, volume: 0.24, type: 'sine', delay: 0.18 });
+}
+
+/** New friend request accepted — warm ascending chime. */
+export function playFriendAccepted() {
+  if (!globalEnabled || isQuietHours()) return;
+  playTone({ freq: 523.25, duration: 0.12, volume: 0.22, type: 'triangle' }); // C5
+  playTone({ freq: 659.25, duration: 0.12, volume: 0.22, type: 'triangle', delay: 0.10 }); // E5
+  playTone({ freq: 783.99, duration: 0.20, volume: 0.24, type: 'triangle', delay: 0.20 }); // G5
 }
 
 /* ── Vibration ───────────────────────────────── */

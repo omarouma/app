@@ -62,7 +62,7 @@ export function useChatEffects(
     };
   }, [chatId, currentUser?.id]);
 
-// ── Friend status ────────────────────────────────────────────────────────
+  // ── Friend status ────────────────────────────────────────────────────────
   const getFriendStatusRef = useRef(getFriendStatus);
   useLayoutEffect(() => {
     getFriendStatusRef.current = getFriendStatus;
@@ -70,7 +70,7 @@ export function useChatEffects(
   useEffect(() => {
     if (!currentUser?.id || !userId) return;
     let cancelled = false;
-getFriendStatusRef.current(currentUser.id, userId).then((status) => {
+    getFriendStatusRef.current(currentUser.id, userId).then((status) => {
       if (!cancelled) setFriendStatus(status);
     });
     return () => { cancelled = true; };
@@ -98,9 +98,9 @@ getFriendStatusRef.current(currentUser.id, userId).then((status) => {
     if (!userId || !isFirestoreAvailable()) return;
     let unsub: (() => void) | null = null;
 
-const supabase = isSupabaseConfigured() ? getSupabase() : null;
+    const supabase = isSupabaseConfigured() ? getSupabase() : null;
     if (supabase) {
-// Initial fetch
+      // Initial fetch
       void (async () => {
         try {
           const { data } = await supabase
@@ -141,7 +141,7 @@ const supabase = isSupabaseConfigured() ? getSupabase() : null;
             const ls = userDoc.lastSeen;
             setLastSeen(ls ? (typeof ls.toDate === 'function' ? ls.toDate().toLocaleString() : new Date(ls).toLocaleString()) : 'online');
           }
-        }).catch(() => {});
+        }).catch(() => { });
       });
     }
 

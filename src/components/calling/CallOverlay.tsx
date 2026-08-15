@@ -40,7 +40,7 @@ const navigate = useNavigate();
 
 const {
     isConnected, localStream, remoteStream, remoteParticipants, isMuted, isVideoOn, isHeld, quality,
-    callDuration, configuredError,
+    callDuration, configuredError, mediaError,
     endCall, acceptCall, rejectCall, toggleMute, toggleVideo, flipCamera, toggleHold,
   } = useCallContext();
 
@@ -339,8 +339,8 @@ const {
 
             <div className="text-center">
               <h2 className="text-white text-2xl font-bold">{otherUser?.name ?? 'User'}</h2>
-              {configuredError ? (
-                <p className="text-[#FF6B6B] text-sm mt-1 max-w-sm mx-auto">{configuredError}</p>
+              {configuredError || mediaError ? (
+                <p className="text-[#FF6B6B] text-sm mt-1 max-w-sm mx-auto">{configuredError || mediaError}</p>
               ) : (
                 <p className="text-white/50 text-sm mt-1">
                   {isIncoming

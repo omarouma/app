@@ -80,14 +80,15 @@ export function useVoiceRecorder() {
 
       timerRef.current = setInterval(() => {
         const elapsed = Math.floor((Date.now() - startTimeRef.current) / 1000);
-        setState((s) => ({ ...s, duration: elapsed }));
-        // Auto-stop once the max duration is reached.
         if (elapsed >= MAX_VOICE_DURATION) {
           limitReachedRef.current = true;
+          setState({ isRecording: false, duration: elapsed, error: null, limitReached: true });
           if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
             try { mediaRecorderRef.current.stop(); } catch { /* noop */ }
           }
+          return;
         }
+        setState((s) => ({ ...s, duration: elapsed, isRecording: true, limitReached: false }));
       }, 1000);
 
       setState({ isRecording: true, duration: 0, error: null, limitReached: false });
@@ -96,7 +97,7 @@ export function useVoiceRecorder() {
     }
   }, [isMounted]);
 
-const isSendingRef = useRef(false);
+  const isSendingRef = useRef(false);
 
   const stopRecording = useCallback(async (): Promise<Blob | null> => {
     if (isSendingRef.current || !mediaRecorderRef.current) return null;
@@ -116,19 +117,23 @@ const isSendingRef = useRef(false);
         isRecordingRef.current = false;
         isSendingRef.current = false;
 
+        const finalDuration = limitReachedRef.current
+          ? Math.min(MAX_VOICE_DURATION, Math.max(0, Math.floor((Date.now() - startTimeRef.current) / 1000)))
+          : 0;
+
         // Production guard: reject empty recordings and blobs over the voice cap.
         if (blob.size === 0) {
-          setState({ isRecording: false, duration: 0, error: 'Recording was empty. Please try again.', limitReached: false });
+          setState({ isRecording: false, duration: finalDuration, error: 'Recording was empty. Please try again.', limitReached: limitReachedRef.current });
           resolve(null);
           return;
         }
         if (blob.size > MAX_VOICE_SIZE) {
-          setState({ isRecording: false, duration: 0, error: 'Voice message is too large. Please keep it under 5MB.', limitReached: false });
+          setState({ isRecording: false, duration: finalDuration, error: 'Voice message is too large. Please keep it under 5MB.', limitReached: limitReachedRef.current });
           resolve(null);
           return;
         }
 
-        setState({ isRecording: false, duration: 0, error: null, limitReached: false });
+        setState({ isRecording: false, duration: finalDuration, error: null, limitReached: limitReachedRef.current });
         resolve(blob);
       };
 

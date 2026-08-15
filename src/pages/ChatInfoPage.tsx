@@ -208,12 +208,12 @@ export default function ChatInfoPage() {
   };
 
   const handleUnlockFromInfo = async () => {
-    const chat = chats.find(c => c.id === chatId);
-    if (!chat?.lockValue) {
+    const currentChat = chats.find(c => c.id === chatId);
+    if (!currentChat?.lockValue) {
       setUnlockPinError('No PIN configured.');
       return;
     }
-    const storedPin = chat.lockValue;
+    const storedPin = currentChat.lockValue;
     const pin = unlockPinInput;
     let matched: boolean;
     if (storedPin.length === 64) {

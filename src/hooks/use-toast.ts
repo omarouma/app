@@ -31,7 +31,7 @@ function genId() {
 
 type ActionType = typeof actionTypes
 
-type Action = 
+type Action =
   | { type: ActionType["ADD_TOAST"]; toast: ToasterToast }
   | { type: ActionType["UPDATE_TOAST"]; toast: Partial<ToasterToast> }
   | { type: ActionType["DISMISS_TOAST"]; toastId?: ToasterToast["id"] }
@@ -90,9 +90,9 @@ export const reducer = (state: State, action: Action): State => {
         toasts: state.toasts.map((t) =>
           t.id === toastId || toastId === undefined
             ? {
-                ...t,
-                open: false,
-              }
+              ...t,
+              open: false,
+            }
             : t
         ),
       }

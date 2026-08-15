@@ -132,8 +132,15 @@ export default function ContactsPage() {
 
     try {
       const { queryCollection, where, limit: qLimit } = await import('@/lib/firestore');
-      const emails = phoneContacts.map(c => c.email).filter(Boolean) as string[];
-      const phones = phoneContacts.map(c => c.phone?.replace(/[^\d]/g, '')).filter(Boolean) as string[];
+      const { dedupeContactEntries, normalizeEmailForMatching, normalizePhoneForMatching } = await import('@/lib/contactMatching');
+
+      const cleanedContacts = dedupeContactEntries(phoneContacts);
+      const emails = cleanedContacts
+        .map(c => normalizeEmailForMatching(c.email))
+        .filter(Boolean) as string[];
+      const phones = cleanedContacts
+        .map(c => normalizePhoneForMatching(c.phone))
+        .filter(Boolean) as string[];
 
       const foundUsers: User[] = [];
       await Promise.all([
@@ -152,12 +159,17 @@ export default function ContactsPage() {
       const matchedContactIds = new Set<string>();
 
       unique.forEach((u) => {
-        const userEmail = u.email || '';
-        const userPhone = (u.phone || '').replace(/[^\d]/g, '');
-        const matchingContact = phoneContacts.find((c) =>
-          (c.email && c.email === userEmail) ||
-          (c.phone && c.phone.replace(/[^\d]/g, '') === userPhone)
-        );
+        const userEmail = normalizeEmailForMatching(u.email || '');
+        const userPhone = normalizePhoneForMatching(u.phone || '');
+
+        const matchingContact = cleanedContacts.find((c) => {
+          const contactEmail = normalizeEmailForMatching(c.email);
+          const contactPhone = normalizePhoneForMatching(c.phone);
+          return (contactEmail && contactEmail === userEmail)
+            || (contactPhone && contactPhone === userPhone)
+            || (c.name && u.name && c.name.trim().toLowerCase() === u.name.trim().toLowerCase());
+        });
+
         if (matchingContact) {
           matched.push({ contact: matchingContact, user: u });
           matchedContactIds.add(matchingContact.id);
@@ -165,7 +177,7 @@ export default function ContactsPage() {
       });
 
       setMatchedContacts(matched);
-      setUnmatchedContacts(phoneContacts.filter((c) => !matchedContactIds.has(c.id)));
+      setUnmatchedContacts(cleanedContacts.filter((c) => !matchedContactIds.has(c.id)));
 
       if (matched.length > 0) {
         toast.success(`Found ${matched.length} contact${matched.length > 1 ? 's' : ''} on GaGa Chat!`);
@@ -622,11 +634,10 @@ export default function ContactsPage() {
           {(['all', 'favorites', 'requests', 'sent', 'blocked'] as const).map(t => (
             <button type="button" key={t}
               onClick={() => setTab(t)}
-              className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all whitespace-nowrap tap-scale ${
-                tab === t
+              className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all whitespace-nowrap tap-scale ${tab === t
                   ? 'bg-[#111111] text-white shadow-sm'
                   : 'bg-[#F5F5F5] text-[#8D8D8D] hover:text-[#111111]'
-              }`}
+                }`}
             >
               {tabLabels[t]}
             </button>
@@ -638,11 +649,10 @@ export default function ContactsPage() {
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
               <button type="button" onClick={() => setShowOnlineOnly(!showOnlineOnly)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
-                  showOnlineOnly
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${showOnlineOnly
                     ? 'bg-[#00C300]/10 text-[#00C300]'
                     : 'bg-[#F5F5F5] text-[#8D8D8D]'
-                }`}
+                  }`}
               >
                 <Globe size={12} />
                 {showOnlineOnly ? `Online (${onlineFriends.length})` : 'All Friends'}
@@ -718,17 +728,17 @@ export default function ContactsPage() {
                     </div>
                     <div className="flex gap-1.5">
                       <button type="button" onClick={async () => {
-                          try { await acceptRequest(req.id); toast.success('Friend request accepted'); }
-                          catch { toast.error('Failed to accept request'); }
-                        }}
+                        try { await acceptRequest(req.id); toast.success('Friend request accepted'); }
+                        catch { toast.error('Failed to accept request'); }
+                      }}
                         className="px-3 py-1.5 bg-[#00C300] text-white text-xs rounded-full font-medium active:bg-[#00A300] transition-colors"
                       >
                         Accept
                       </button>
                       <button type="button" onClick={async () => {
-                          try { await rejectRequest(req.id); toast.success('Friend request declined'); }
-                          catch { toast.error('Failed to decline request'); }
-                        }}
+                        try { await rejectRequest(req.id); toast.success('Friend request declined'); }
+                        catch { toast.error('Failed to decline request'); }
+                      }}
                         className="px-3 py-1.5 bg-white text-[#8D8D8D] text-xs rounded-full active:bg-gray-100 transition-colors"
                       >
                         Decline
@@ -869,101 +879,101 @@ export default function ContactsPage() {
                 />
               ) : (
                 groupedFriends.map(([letter, friendsInGroup]) => (
-                    <div key={letter} id={`contact-section-${letter.replace(/[^A-Z]/g, '')}`}>
-                      <div className="sticky top-0 bg-white/95 backdrop-blur-sm z-10 py-1 px-1">
-                        <span className="text-xs font-bold text-[#8D8D8D] uppercase tracking-wider">{letter}</span>
-                      </div>
-                      {friendsInGroup.map((friend, i) => {
-                        const isFav = user?.favorites?.includes(friend.id);
-                        const isOnline = visibleOnline[friend.id];
-                        const showMenu = actionMenu === friend.id;
+                  <div key={letter} id={`contact-section-${letter.replace(/[^A-Z]/g, '')}`}>
+                    <div className="sticky top-0 bg-white/95 backdrop-blur-sm z-10 py-1 px-1">
+                      <span className="text-xs font-bold text-[#8D8D8D] uppercase tracking-wider">{letter}</span>
+                    </div>
+                    {friendsInGroup.map((friend, i) => {
+                      const isFav = user?.favorites?.includes(friend.id);
+                      const isOnline = visibleOnline[friend.id];
+                      const showMenu = actionMenu === friend.id;
 
-                        return (
-                          <motion.div
-                            key={friend.id}
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            transition={{ delay: i * 0.03 }}
-                            className="relative"
+                      return (
+                        <motion.div
+                          key={friend.id}
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          transition={{ delay: i * 0.03 }}
+                          className="relative"
+                        >
+                          <button type="button" onClick={() => setActionMenu(showMenu ? null : friend.id)}
+                            className="w-full flex items-center py-2.5 active:bg-gray-50 rounded-xl transition-colors text-left"
                           >
-                      <button type="button" onClick={() => setActionMenu(showMenu ? null : friend.id)}
-                        className="w-full flex items-center py-2.5 active:bg-gray-50 rounded-xl transition-colors text-left"
-                      >
-                        <div className="relative mr-4">
-                          <div className="w-11 h-11 rounded-full bg-[#F5F5F5] flex items-center justify-center overflow-hidden">
-                            {sanitizeMediaUrl(friend.avatar) ? (
-                              <img src={sanitizeMediaUrl(friend.avatar)} className="w-full h-full object-cover" alt="User avatar" />
-                            ) : (
-                              <img src={getDefaultAvatar(friend.id || friend.name || 'U')} className="w-full h-full object-cover" alt="User avatar" />
-                            )}
-                          </div>
-                          {isOnline && (
-                            <div className="absolute bottom-0 right-0 w-3 h-3 bg-[#00C300] rounded-full border-2 border-white" />
-                          )}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-1">
-                            <h3 className="text-[16px] font-medium text-[#111111]">{friend.name || 'User'}</h3>
-                            {isFav && <Star size={12} className="text-[#00C300] fill-current" />}
-                          </div>
-                          <p className="text-[12px] text-[#8D8D8D] truncate">
-                            {friend.statusMessage || (isOnline ? 'Online' : 'Offline')}
-                          </p>
-                        </div>
-                      </button>
-
-                      {/* Action Menu */}
-                      <AnimatePresence>
-                        {showMenu && (
-                          <motion.div
-                            initial={{ opacity: 0, height: 0 }}
-                            animate={{ opacity: 1, height: 'auto' }}
-                            exit={{ opacity: 0, height: 0 }}
-                            className="overflow-hidden"
-                          >
-                            <div className="flex flex-wrap gap-2 px-14 pb-2">
-                              <button type="button" onClick={(e) => { e.stopPropagation(); navigate(`/profile/${friend.id}`); setActionMenu(null); }}
-                                className="flex items-center gap-1 px-3 py-1.5 bg-[#2196F3]/10 text-[#2196F3] text-xs rounded-full font-medium active:bg-[#2196F3]/20 transition-colors"
-                              >
-                                <UserIcon size={12} /> Profile
-                              </button>
-                              <button type="button" onClick={(e) => { e.stopPropagation(); handleMessage(friend.id); }}
-                                className="flex items-center gap-1 px-3 py-1.5 bg-[#00C300]/10 text-[#00C300] text-xs rounded-full font-medium active:bg-[#00C300]/20 transition-colors"
-                              >
-                                <MessageCircle size={12} /> Message
-                              </button>
-                              <button type="button" onClick={(e) => { e.stopPropagation(); navigate('/call', { state: { userId: friend.id, mode: 'voice' } }); }}
-                                className="flex items-center gap-1 px-3 py-1.5 bg-[#2196F3]/10 text-[#2196F3] text-xs rounded-full font-medium active:bg-[#2196F3]/20 transition-colors"
-                              >
-                                <Phone size={12} /> Voice
-                              </button>
-                              <button type="button" onClick={(e) => { e.stopPropagation(); navigate('/call', { state: { userId: friend.id, mode: 'video' } }); }}
-                                className="flex items-center gap-1 px-3 py-1.5 bg-[#9C27B0]/10 text-[#9C27B0] text-xs rounded-full font-medium active:bg-[#9C27B0]/20 transition-colors"
-                              >
-                                <Video size={12} /> Video
-                              </button>
-                              <button type="button" onClick={(e) => { e.stopPropagation(); toggleFavorite(friend.id, user?.id || '', user?.favorites || []); }}
-                                className="flex items-center gap-1 px-3 py-1.5 bg-[#FF9800]/10 text-[#FF9800] text-xs rounded-full font-medium active:bg-[#FF9800]/20 transition-colors"
-                              >
-                                {isFav ? <><StarOff size={12} /> Unstar</> : <><Star size={12} /> Star</>}
-                              </button>
-                              <button type="button" onClick={(e) => { e.stopPropagation(); handleBlock(friend.id); }}
-                                className="flex items-center gap-1 px-3 py-1.5 bg-[#FF3B30]/10 text-[#FF3B30] text-xs rounded-full font-medium active:bg-[#FF3B30]/20 transition-colors"
-                              >
-                                <Ban size={12} /> Block
-                              </button>
-                              <button type="button" onClick={(e) => { e.stopPropagation(); removeFriend(friend.id, user?.id || ''); setActionMenu(null); }}
-                                className="flex items-center gap-1 px-3 py-1.5 bg-[#FF3B30]/10 text-[#FF3B30] text-xs rounded-full font-medium active:bg-[#FF3B30]/20 transition-colors"
-                              >
-                                <Trash2 size={12} /> Remove
-                              </button>
+                            <div className="relative mr-4">
+                              <div className="w-11 h-11 rounded-full bg-[#F5F5F5] flex items-center justify-center overflow-hidden">
+                                {sanitizeMediaUrl(friend.avatar) ? (
+                                  <img src={sanitizeMediaUrl(friend.avatar)} className="w-full h-full object-cover" alt="User avatar" />
+                                ) : (
+                                  <img src={getDefaultAvatar(friend.id || friend.name || 'U')} className="w-full h-full object-cover" alt="User avatar" />
+                                )}
+                              </div>
+                              {isOnline && (
+                                <div className="absolute bottom-0 right-0 w-3 h-3 bg-[#00C300] rounded-full border-2 border-white" />
+                              )}
                             </div>
-                          </motion.div>
-                        )}
-                      </AnimatePresence>
-                    </motion.div>
-                  );
-                })}
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-1">
+                                <h3 className="text-[16px] font-medium text-[#111111]">{friend.name || 'User'}</h3>
+                                {isFav && <Star size={12} className="text-[#00C300] fill-current" />}
+                              </div>
+                              <p className="text-[12px] text-[#8D8D8D] truncate">
+                                {friend.statusMessage || (isOnline ? 'Online' : 'Offline')}
+                              </p>
+                            </div>
+                          </button>
+
+                          {/* Action Menu */}
+                          <AnimatePresence>
+                            {showMenu && (
+                              <motion.div
+                                initial={{ opacity: 0, height: 0 }}
+                                animate={{ opacity: 1, height: 'auto' }}
+                                exit={{ opacity: 0, height: 0 }}
+                                className="overflow-hidden"
+                              >
+                                <div className="flex flex-wrap gap-2 px-14 pb-2">
+                                  <button type="button" onClick={(e) => { e.stopPropagation(); navigate(`/profile/${friend.id}`); setActionMenu(null); }}
+                                    className="flex items-center gap-1 px-3 py-1.5 bg-[#2196F3]/10 text-[#2196F3] text-xs rounded-full font-medium active:bg-[#2196F3]/20 transition-colors"
+                                  >
+                                    <UserIcon size={12} /> Profile
+                                  </button>
+                                  <button type="button" onClick={(e) => { e.stopPropagation(); handleMessage(friend.id); }}
+                                    className="flex items-center gap-1 px-3 py-1.5 bg-[#00C300]/10 text-[#00C300] text-xs rounded-full font-medium active:bg-[#00C300]/20 transition-colors"
+                                  >
+                                    <MessageCircle size={12} /> Message
+                                  </button>
+                                  <button type="button" onClick={(e) => { e.stopPropagation(); navigate('/call', { state: { userId: friend.id, mode: 'voice' } }); }}
+                                    className="flex items-center gap-1 px-3 py-1.5 bg-[#2196F3]/10 text-[#2196F3] text-xs rounded-full font-medium active:bg-[#2196F3]/20 transition-colors"
+                                  >
+                                    <Phone size={12} /> Voice
+                                  </button>
+                                  <button type="button" onClick={(e) => { e.stopPropagation(); navigate('/call', { state: { userId: friend.id, mode: 'video' } }); }}
+                                    className="flex items-center gap-1 px-3 py-1.5 bg-[#9C27B0]/10 text-[#9C27B0] text-xs rounded-full font-medium active:bg-[#9C27B0]/20 transition-colors"
+                                  >
+                                    <Video size={12} /> Video
+                                  </button>
+                                  <button type="button" onClick={(e) => { e.stopPropagation(); toggleFavorite(friend.id, user?.id || '', user?.favorites || []); }}
+                                    className="flex items-center gap-1 px-3 py-1.5 bg-[#FF9800]/10 text-[#FF9800] text-xs rounded-full font-medium active:bg-[#FF9800]/20 transition-colors"
+                                  >
+                                    {isFav ? <><StarOff size={12} /> Unstar</> : <><Star size={12} /> Star</>}
+                                  </button>
+                                  <button type="button" onClick={(e) => { e.stopPropagation(); handleBlock(friend.id); }}
+                                    className="flex items-center gap-1 px-3 py-1.5 bg-[#FF3B30]/10 text-[#FF3B30] text-xs rounded-full font-medium active:bg-[#FF3B30]/20 transition-colors"
+                                  >
+                                    <Ban size={12} /> Block
+                                  </button>
+                                  <button type="button" onClick={(e) => { e.stopPropagation(); removeFriend(friend.id, user?.id || ''); setActionMenu(null); }}
+                                    className="flex items-center gap-1 px-3 py-1.5 bg-[#FF3B30]/10 text-[#FF3B30] text-xs rounded-full font-medium active:bg-[#FF3B30]/20 transition-colors"
+                                  >
+                                    <Trash2 size={12} /> Remove
+                                  </button>
+                                </div>
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
+                        </motion.div>
+                      );
+                    })}
                   </div>
                 ))
               )}

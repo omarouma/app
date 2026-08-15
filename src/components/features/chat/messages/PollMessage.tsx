@@ -14,8 +14,9 @@ export interface PollMessageProps {
 export const PollMessage = memo(function PollMessage(props: PollMessageProps) {
   const { msg, isMe, currentUserId, chatId, onVotePoll } = props;
 
+  const pollData = msg.pollData;
   const { totalVotes, hasVoted } = useMemo(() => {
-    const opts = msg.pollData?.options ?? [];
+    const opts = pollData?.options ?? [];
     let total = 0;
     let voted = false;
     for (const o of opts) {
@@ -24,9 +25,24 @@ export const PollMessage = memo(function PollMessage(props: PollMessageProps) {
       if (v.includes(currentUserId)) voted = true;
     }
     return { totalVotes: total, hasVoted: voted };
-  }, [msg.pollData, currentUserId]);
+  }, [pollData, currentUserId]);
 
-  const options = msg.pollData?.options ?? [];
+  const options = pollData?.options ?? [];
+
+  if (!pollData) {
+    return (
+      <div className={`max-w-[70%]`}>
+        <div className={`inline-block px-4 py-3 rounded-2xl ${isMe ? 'bg-[#8B5CF6] text-white rounded-br-none' : 'bg-white text-[#111111] rounded-bl-none'}`}>
+          <div className="flex items-center gap-1.5 mb-2">
+            <BarChart3 size={14} />
+            <span className="text-xs font-medium">Poll</span>
+          </div>
+          <p className="text-sm opacity-70">Poll unavailable</p>
+          <ReadReceipt isMe={isMe} timestamp={msg.timestamp} deliveryStatus={msg.deliveryStatus} edited={msg.edited} />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={`max-w-[70%]`}>
@@ -35,7 +51,7 @@ export const PollMessage = memo(function PollMessage(props: PollMessageProps) {
           <BarChart3 size={14} />
           <span className="text-xs font-medium">Poll</span>
         </div>
-        <p className="text-sm font-medium mb-2">{msg.pollData!.question}</p>
+        <p className="text-sm font-medium mb-2">{pollData.question}</p>
         <div className="space-y-1.5" aria-live="polite">
           {options.map((optRaw, i: number) => {
             const opt = optRaw as unknown as PollOption;

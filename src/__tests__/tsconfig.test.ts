@@ -12,4 +12,9 @@ describe('TypeScript build config', () => {
         expect(rootConfig).toMatch(/"ignoreDeprecations"\s*:\s*"5\.0"/);
         expect(appConfig).toMatch(/"ignoreDeprecations"\s*:\s*"5\.0"/);
     });
+
+    it('has strict mode enabled', () => {
+        const appConfig = readConfig('../../tsconfig.app.json');
+        expect(appConfig).toMatch(/"strict"\s*:\s*true/);
+    });
 });

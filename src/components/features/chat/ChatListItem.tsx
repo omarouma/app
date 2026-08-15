@@ -1,7 +1,7 @@
-import { memo, useMemo } from 'react';
+import { memo, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Pin, Users } from 'lucide-react';
+import { Pin, Users, UserPlus } from 'lucide-react';
 import type { Chat } from '@/types';
 import { formatTime, getDefaultAvatar, sanitizeMediaUrl } from '@/lib/utils';
 import { useAuthStore } from '@/store/useAuthStore';
@@ -11,7 +11,6 @@ import { useFilteredOnline } from '@/hooks/usePresence';
 interface ChatListItemProps {
   chat: Chat;
   index: number;
-  // Optional props used by ChatList (not required when used from ChatsPage)
   userId?: string;
   isFriend?: boolean;
   isOnline?: boolean;
@@ -25,16 +24,16 @@ export const ChatListItem = memo(function ChatListItem({
   chat,
   index,
   userId: propUserId,
-  isFriend: _propIsFriend,
+  isFriend: propIsFriend,
   isOnline: propIsOnline,
   name: propName,
   avatar: propAvatar,
   typingName,
-  onAddFriend: _onAddFriend,
+  onAddFriend,
 }: ChatListItemProps) {
   const navigate = useNavigate();
   const { user } = useAuthStore();
-  const { friends } = useFriendStore();
+  const { friends, requests, sentRequests } = useFriendStore();
   const { filtered: visibleOnline } = useFilteredOnline(user?.id || '', friends);
 
   const userId = propUserId ?? user?.id ?? '';
@@ -42,9 +41,11 @@ export const ChatListItem = memo(function ChatListItem({
   const otherId = isGroup ? '' : (chat.participants.find(p => p !== userId) || '');
   const friend = friends.find(f => f.id === otherId);
 
-  // When the parent ChatList already provides resolved values, use them to
-  // avoid redundant per-row store lookups. Fall back to internal derivation
-  // only for the direct ChatsPage usage where props are not supplied.
+  const resolvedIsFriend = propIsFriend ?? !!friend;
+  const hasIncoming = !isGroup && !!otherId && requests.some(r => r.from === otherId);
+  const hasSent = !isGroup && !!otherId && sentRequests.some(r => r.toUserId === otherId);
+  const showAddFriend = !isGroup && !resolvedIsFriend && !hasIncoming && !hasSent && !!otherId && otherId !== userId;
+
   const name = propName ?? (isGroup ? (chat.name || 'Group') : (friend?.name || 'Chat'));
   const avatar = propAvatar ?? (isGroup ? (chat.avatar || '') : (friend?.avatar || ''));
   const isOnline = propIsOnline ?? (!isGroup && !!visibleOnline[otherId]);
@@ -58,6 +59,18 @@ export const ChatListItem = memo(function ChatListItem({
 
   const avatarSrc = sanitizeMediaUrl(avatar) || getDefaultAvatar(otherId || chat.id || name || 'C');
 
+  const handleAddFriend = useCallback(async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    if (onAddFriend && otherId) {
+      try {
+        await onAddFriend(otherId);
+      } catch {
+          /* parent handles toast */
+        }
+    }
+  }, [onAddFriend, otherId]);
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 6 }}
@@ -66,7 +79,6 @@ export const ChatListItem = memo(function ChatListItem({
       onClick={() => navigate(isGroup ? `/group/${chat.id}` : `/chat/${otherId || chat.id}`)}
       className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 active:bg-gray-100 transition-colors cursor-pointer relative"
     >
-      {/* Avatar */}
       <div className="relative shrink-0">
         <div className="w-12 h-12 rounded-full bg-gray-100 overflow-hidden flex items-center justify-center">
           {isGroup ? (
@@ -86,18 +98,40 @@ export const ChatListItem = memo(function ChatListItem({
         )}
       </div>
 
-      {/* Content */}
       <div className="flex-1 min-w-0">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-1 min-w-0">
             {chat.pinned && <Pin size={11} className="text-gray-400 shrink-0" />}
             <p className="text-sm font-semibold text-gray-900 truncate">{name}</p>
           </div>
-          {chat.updatedAt && (
-            <span className="text-[11px] text-gray-400 shrink-0">
-              {formatTime(chat.updatedAt)}
-            </span>
-          )}
+          <div className="flex items-center gap-2 shrink-0">
+            {showAddFriend && onAddFriend && (
+              <button
+                type="button"
+                onClick={handleAddFriend}
+                className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[11px] font-semibold bg-[#00C300] text-white hover:bg-[#00A300] active:opacity-80 transition-colors"
+                aria-label="Add friend"
+              >
+                <UserPlus size={12} />
+                Add
+              </button>
+            )}
+            {hasIncoming && (
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[#FF9800]/15 text-[#FF9800]">
+                Pending
+              </span>
+            )}
+            {hasSent && (
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-gray-100 text-gray-500">
+                Requested
+              </span>
+            )}
+            {chat.updatedAt && (
+              <span className="text-[11px] text-gray-400">
+                {formatTime(chat.updatedAt)}
+              </span>
+            )}
+          </div>
         </div>
         <div className="flex items-center justify-between gap-2 mt-0.5">
           <p className={`text-xs truncate ${typingName ? 'text-[#00C300] font-medium' : 'text-gray-500'}`}>

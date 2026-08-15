@@ -210,10 +210,28 @@ async function browserFileFallback(file: Blob | File): Promise<string | null> {
   return null;
 }
 
+/** Classifies error types to determine if retry is appropriate. */
+function isTransientNetworkError(error: any): boolean {
+  const msg = error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase();
+  // Transient errors that should trigger retry
+  return msg.includes('network error') ||
+    msg.includes('timeout') ||
+    msg.includes('econnrefused') ||
+    msg.includes('econnreset') ||
+    msg.includes('enotfound') ||
+    msg.includes('service unavailable') ||
+    msg.includes('gateway') ||
+    msg.includes('connection') ||
+    msg.includes('abort');
+}
+
 async function cloudinaryUpload(
   file: Blob | File,
-  opts: CloudinaryUploadOpts
+  opts: CloudinaryUploadOpts,
+  retryAttempt = 0
 ): Promise<string> {
+  const MAX_RETRIES = 2; // Total attempts: 1 initial + 2 retries
+
   // Validate configuration before attempting upload
   if (!CLOUDINARY_CLOUD_NAME || !CLOUDINARY_UPLOAD_PRESET) {
     throw new Error('Cloudinary not configured. Set VITE_CLOUDINARY_CLOUD_NAME and VITE_CLOUDINARY_UPLOAD_PRESET in .env');
@@ -238,20 +256,46 @@ async function cloudinaryUpload(
     form.append('public_id', opts.fileName.replace(/[^a-zA-Z0-9_-]/g, '_'));
   }
 
+  const UPLOAD_TIMEOUT = 30000; // 30 seconds per attempt
+
   // If a progress callback is provided, use XMLHttpRequest so we can report
   // real upload progress (fetch has no upload progress event). Otherwise keep
   // the lightweight fetch path for callers that don't need progress.
   if (opts.onProgress) {
     return new Promise<string>((resolve, reject) => {
       const xhr = new XMLHttpRequest();
+      let timeoutHandle: ReturnType<typeof setTimeout> | null = null;
+
+      const cleanup = () => {
+        if (timeoutHandle) clearTimeout(timeoutHandle);
+      };
+
       xhr.open('POST', uploadUrl);
+
+      // Set upload timeout
+      timeoutHandle = setTimeout(() => {
+        xhr.abort();
+        const error = new Error('Upload timeout - please try again');
+        if (isTransientNetworkError(error) && retryAttempt < MAX_RETRIES) {
+          // Auto-retry on timeout
+          cleanup();
+          cloudinaryUpload(file, opts, retryAttempt + 1)
+            .then(resolve)
+            .catch(reject);
+        } else {
+          reject(error);
+        }
+      }, UPLOAD_TIMEOUT);
+
       xhr.upload.onprogress = (e) => {
         if (e.lengthComputable && e.total > 0) {
           const pct = Math.min(99, Math.round((e.loaded / e.total) * 100));
           opts.onProgress?.(pct);
         }
       };
+
       xhr.onload = () => {
+        cleanup();
         if (xhr.status >= 200 && xhr.status < 300) {
           try {
             const data = JSON.parse(xhr.responseText) as { secure_url?: string; url?: string };
@@ -266,46 +310,101 @@ async function cloudinaryUpload(
             reject(new Error('Cloudinary upload returned an invalid response'));
           }
         } else if (xhr.status === 400) {
-          // 400 Bad Request — usually due to unsigned upload preset not configured
+          // 400 Bad Request — usually due to unsigned upload preset not configured (permanent)
           const detail = xhr.responseText ? ` (${xhr.responseText.slice(0, 150)})` : '';
           reject(new Error(`Cloudinary upload failed with 400 Bad Request. Verify upload preset is set to "Unsigned" mode in Cloudinary Dashboard${detail}`));
+        } else if ([408, 429, 500, 502, 503, 504].includes(xhr.status)) {
+          // Transient server errors — retry with backoff
+          const error = new Error(`Cloudinary upload failed: ${xhr.status} (retrying...)`);
+          if (retryAttempt < MAX_RETRIES) {
+            const delay = Math.pow(2, retryAttempt) * 1000;
+            setTimeout(() => {
+              cloudinaryUpload(file, opts, retryAttempt + 1)
+                .then(resolve)
+                .catch(reject);
+            }, delay);
+          } else {
+            reject(error);
+          }
         } else {
           reject(new Error(`Cloudinary upload failed: ${xhr.status} ${xhr.responseText}`));
         }
       };
-      xhr.onerror = () => reject(new Error('Cloudinary upload network error'));
-      xhr.onabort = () => reject(new Error('Cloudinary upload aborted'));
+
+      xhr.onerror = () => {
+        cleanup();
+        const error = new Error('Cloudinary upload network error');
+        if (isTransientNetworkError(error) && retryAttempt < MAX_RETRIES) {
+          const delay = Math.pow(2, retryAttempt) * 1000;
+          setTimeout(() => {
+            cloudinaryUpload(file, opts, retryAttempt + 1)
+              .then(resolve)
+              .catch(reject);
+          }, delay);
+        } else {
+          reject(error);
+        }
+      };
+
+      xhr.onabort = () => {
+        cleanup();
+        reject(new Error('Cloudinary upload aborted'));
+      };
+
       xhr.send(form);
     });
   }
 
-  const res = await fetch(uploadUrl, {
-    method: 'POST',
-    body: form,
-  });
+  // Fetch-based path with timeout and retry
+  try {
+    const controller = new AbortController();
+    const timeoutHandle = setTimeout(() => controller.abort(), UPLOAD_TIMEOUT);
 
-  if (!res.ok) {
-    const text = await res.text().catch(() => '');
-    if (res.status === 400) {
-      // 400 Bad Request — usually due to unsigned upload preset not configured
-      const detail = text ? ` (${text.slice(0, 150)})` : '';
-      throw new Error(`Cloudinary upload failed with 400 Bad Request. Verify upload preset is set to "Unsigned" mode in Cloudinary Dashboard${detail}`);
+    try {
+      const res = await fetch(uploadUrl, {
+        method: 'POST',
+        body: form,
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutHandle);
+
+      if (!res.ok) {
+        const text = await res.text().catch(() => '');
+        if (res.status === 400) {
+          // 400 Bad Request — permanent configuration error, don't retry
+          const detail = text ? ` (${text.slice(0, 150)})` : '';
+          throw new Error(`Cloudinary upload failed with 400 Bad Request. Verify upload preset is set to "Unsigned" mode in Cloudinary Dashboard${detail}`);
+        } else if ([408, 429, 500, 502, 503, 504].includes(res.status) && retryAttempt < MAX_RETRIES) {
+          // Transient server errors — retry with exponential backoff
+          const delay = Math.pow(2, retryAttempt) * 1000;
+          await new Promise(r => setTimeout(r, delay));
+          return cloudinaryUpload(file, opts, retryAttempt + 1);
+        }
+        throw new Error(`Cloudinary upload failed: ${res.status} ${text}`);
+      }
+
+      const data = (await res.json()) as { secure_url?: string; url?: string };
+      return data.secure_url || data.url || (() => {
+        throw new Error('Cloudinary upload returned no URL');
+      })();
+    } catch (err) {
+      clearTimeout(timeoutHandle);
+      // Check if this is a timeout or transient error that should retry
+      if (isTransientNetworkError(err) && retryAttempt < MAX_RETRIES) {
+        const delay = Math.pow(2, retryAttempt) * 1000;
+        await new Promise(r => setTimeout(r, delay));
+        return cloudinaryUpload(file, opts, retryAttempt + 1);
+      }
+      throw err;
     }
-    throw new Error(`Cloudinary upload failed: ${res.status} ${text}`);
+  } catch (err) {
+    // Final error after all retries
+    if (retryAttempt > 0) {
+      throw new Error(`Upload failed after ${retryAttempt + 1} attempts. ${err instanceof Error ? err.message : String(err)}`);
+    }
+    throw err;
   }
-
-  const data = (await res.json()) as {
-    secure_url?: string;
-    url?: string;
-  };
-
-  return (
-    data.secure_url ||
-    data.url ||
-    (() => {
-      throw new Error('Cloudinary upload returned no URL');
-    })()
-  );
 }
 
 import { uploadToSupabaseStorage } from './supabaseStorage';
@@ -413,6 +512,18 @@ export async function uploadMediaBlob(
     onProgress?: (percent: number) => void;
   } = {}
 ): Promise<string | null> {
+  const fallbackKind = typeof arg1 === 'object' && 'file' in arg1 ? arg1.kind : arg2.kind;
+  const file = typeof arg1 === 'object' && 'file' in arg1 ? arg1.file : (arg1 as Blob | File);
+
+  if (!file || file.size === 0) {
+    throw new Error('Cannot upload an empty file.');
+  }
+
+  const sizeError = validateFileSize(file, fallbackKind);
+  if (sizeError) {
+    throw new Error(sizeError);
+  }
+
   // Object-style
   if (typeof arg1 === 'object' && 'file' in arg1) {
     const opts = arg1;
@@ -427,7 +538,6 @@ export async function uploadMediaBlob(
   }
 
   // Positional-style
-  const file = arg1 as Blob | File;
   const opts = arg2;
   return uploadWithFallback(file, {
     userId: opts.userId,
