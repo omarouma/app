@@ -2,7 +2,7 @@
  * GaGa Chat — Cloud Functions for Firebase (gen2 / V2).
  *
  * Deployed alongside Firebase Hosting. Endpoints are exposed to the SPA via
- * rewrites declared in `firebase.json` (e.g. /api/agora-token).
+ * rewrites declared in `firebase.json` (e.g. /api/zego-token).
  */
 
 import { initializeApp, getApps } from 'firebase-admin/app';
@@ -10,7 +10,7 @@ import { getAuth } from 'firebase-admin/auth';
 import { defineString, defineSecret } from 'firebase-functions/params';
 import { onRequest } from 'firebase-functions/v2/https';
 import { setGlobalOptions } from 'firebase-functions/v2/options';
-import { RtcTokenBuilder, RtcRole } from 'agora-access-token';
+import jwt from 'jsonwebtoken';
 
 // ─── Initialize Firebase Admin SDK ──────────────────────────────────────────
 if (getApps().length === 0) {
@@ -18,8 +18,6 @@ if (getApps().length === 0) {
 }
 
 // ─── Default runtime options ────────────────────────────────────────────────
-// Keep instances colocated with your primary database region for lower
-// latency to Supabase. asia-southeast1 = Singapore.
 setGlobalOptions({
   region: 'asia-southeast1',
   concurrency: 80,
@@ -27,31 +25,14 @@ setGlobalOptions({
 
 // ─── Parameters (declarative config) ────────────────────────────────────────
 // Public/non-sensitive params:
-const AGORA_APP_ID = defineString('AGORA_APP_ID', {
-  label: 'Agora App ID',
-  description: 'Agora.io project App ID (public).',
-  input: { text: { example: 'your-agora-app-id' } },
+const ZEGO_APP_ID = defineString('ZEGO_APP_ID', {
+  label: 'ZEGO Cloud App ID',
+  description: 'ZEGO Cloud project App ID (public).',
+  input: { text: { example: 'your-zego-app-id' } },
 });
 
 // Server-only secret — NEVER exposed to the client.
-const AGORA_APP_CERTIFICATE = defineSecret('AGORA_APP_CERTIFICATE');
-
-// Token lifetime in seconds. Default: 12 hours (max safe window before
-// auto-renew kicks in from the client). Can be overridden via env.
-const AGORA_TOKEN_TTL_SEC = defineString('AGORA_TOKEN_TTL_SEC', {
-  label: 'Agora Token TTL (seconds)',
-  description: 'How long a minted RTC token remains valid.',
-  default: '43200', // 12h
-});
-
-// Allowed CORS origins. Comma-separated list.
-// The Hosting rewrite proxies through same-origin so this is only hit if the
-// endpoint is called directly.
-const ALLOWED_CORS_ORIGINS = defineString('ALLOWED_CORS_ORIGINS', {
-  label: 'Allowed CORS origins (comma-separated)',
-  description: 'Origins allowed to call token endpoints directly.',
-  default: '*',
-});
+const ZEGO_SERVER_SECRET = defineSecret('ZEGO_SERVER_SECRET');
 
 // Supabase project config — the app's PRIMARY auth system. Both values are
 // public (they ship in the client bundle anyway), so plain params suffice.
@@ -71,8 +52,8 @@ function applyCors(req: { headers: { origin?: string } }, res: {
   status: (code: number) => any;
   end: () => void;
 }): boolean {
-  const allowList = ALLOWED_CORS_ORIGINS.value().split(',').map((s) => s.trim());
   const origin = req.headers.origin ?? '';
+  const allowList = ['*'];
   const isAllowed = allowList.includes('*') || allowList.includes(origin);
   if (isAllowed && origin) {
     res.setHeader('Access-Control-Allow-Origin', origin);
@@ -148,23 +129,19 @@ async function requireAuthenticatedUser(
   }
 }
 
-// ─── Agora RTC Token Endpoint ───────────────────────────────────────────────
+// ─── ZEGO Cloud Token Endpoint ───────────────────────────────────────────────
 //
-//   GET /api/agora-token?channel=<channel>&uid=<uid>
+//   GET /api/zego-token?room=<roomID>&user=<userID>
 //   Headers: Authorization: Bearer <firebase-id-token>
-//   → { token, uid, channelName, expireAt }
+//   → { token, appID, roomID, userID, expireAt }
 //
 // Security:
 //   * Endpoint requires a valid Firebase Auth ID token.
-//   * App Certificate is read from Secret Manager (defineSecret binding),
+//   * Server Secret is read from Secret Manager (defineSecret binding),
 //     never logged or returned.
-//   * The requested `uid` must either be numeric and match the caller's
-//     Firebase uid (converted to Agora's uint32), or explicitly match a
-//     server-generated uid derived from the Firebase uid.
-//   * Channel names are restricted to 64 chars of safe chars.
-export const agoraToken = onRequest(
+export const zegoToken = onRequest(
   {
-    secrets: [AGORA_APP_CERTIFICATE],
+    secrets: [ZEGO_SERVER_SECRET],
     memory: '256MiB',
     timeoutSeconds: 15,
     invoker: 'public', // Hit via Hosting rewrite; Hosting itself is public.
@@ -175,7 +152,6 @@ export const agoraToken = onRequest(
 
     // JSON responses only.
     res.setHeader('Content-Type', 'application/json; charset=utf-8');
-    // Never cache auth-gated tokens.
     res.setHeader('Cache-Control', 'private, no-store, no-cache, must-revalidate');
 
     // 1. Authenticate the caller.
@@ -183,98 +159,73 @@ export const agoraToken = onRequest(
     if (!callerUid) return;
 
     // 2. Validate inputs.
-    const channel = String(req.query.channel ?? '').trim();
-    const rawUid = String(req.query.uid ?? '').trim();
+    const room = String(req.query.room ?? '').trim();
+    const user = String(req.query.user ?? '').trim();
 
-    if (!channel) {
-      res.status(400).json({ error: 'MISSING_CHANNEL', message: '`channel` query param required.' });
-      return;
-    }
-    if (channel.length > 64 || !/^[A-Za-z0-9_\-+=!@#$%&*()\[\]{}|.:;<>,?~^]+$/.test(channel)) {
+    if (!room || !user) {
       res.status(400).json({
-        error: 'INVALID_CHANNEL',
-        message: '`channel` must be 1-64 URL-safe characters.',
+        error: 'MISSING_PARAMS',
+        message: '`room` and `user` query params are required.',
       });
       return;
     }
 
-    // If uid is empty, derive one deterministically from the authenticated
-    // user id so the client doesn't have to pass one (simpler). If the client
-    // DOES pass a uid, it must be the SAME as the derived uid (prevents
-    // user A from minting a token as user B).
-    const expectedUid = userIdToAgoraUid(callerUid);
-    const uid = rawUid ? Number(rawUid) : expectedUid;
-    if (!Number.isFinite(uid) || uid <= 0 || uid >= 0xffffffff) {
+    // Room ID validation: alphanumeric + _ - only, max 64 chars.
+    if (room.length > 64 || !/^[A-Za-z0-9_-]+$/.test(room)) {
       res.status(400).json({
-        error: 'INVALID_UID',
-        message: '`uid` must be a uint32 (> 0, < 2^32).',
-      });
-      return;
-    }
-    if (uid !== expectedUid) {
-      res.status(403).json({
-        error: 'UID_MISMATCH',
-        message: 'Requested uid does not match authenticated user.',
-        expected: expectedUid,
+        error: 'INVALID_ROOM',
+        message: '`room` must be 1-64 alphanumeric characters (letters, digits, _ -).',
       });
       return;
     }
 
-    // 3. Mint the token.
-    const appId = AGORA_APP_ID.value();
-    const appCertificate = AGORA_APP_CERTIFICATE.value();
-    const ttlSeconds = Math.max(60, Number(AGORA_TOKEN_TTL_SEC.value()) || 43200);
-
-    if (!appId || !appCertificate) {
+    const appId = Number(ZEGO_APP_ID.value());
+    const serverSecret = ZEGO_SERVER_SECRET.value();
+    if (!appId || !serverSecret) {
       res.status(500).json({
-        error: 'AGORA_NOT_CONFIGURED',
-        message: 'Server is missing Agora credentials.',
+        error: 'ZEGO_NOT_CONFIGURED',
+        message: 'Server is missing ZEGO Cloud credentials.',
       });
       return;
     }
 
-    const token = RtcTokenBuilder.buildTokenWithUid(
-      appId,
-      appCertificate,
-      channel,
-      uid,
-      RtcRole.PUBLISHER,
-      Math.floor(Date.now() / 1000) + ttlSeconds,
-    );
+    const nowSec = Math.floor(Date.now() / 1000);
+    const expireAt = nowSec + 24 * 3600; // 24h
 
-    const expireAt = Math.floor(Date.now() / 1000) + ttlSeconds;
+    let token: string;
+    try {
+      token = jwt.sign(
+        {
+          app_id: appId,
+          user_id: user,
+          ctime: nowSec,
+          expire: expireAt,
+          room_id: room,
+        },
+        serverSecret,
+        {
+          algorithm: 'HS256',
+          // ZEGO WebKit tokens use a custom `verify: '0'` header field. The
+          // jsonwebtoken@9 types don't include it, so we extend the header.
+          header: { typ: 'JWT', alg: 'HS256', verify: '0' } as unknown as jwt.SignOptions['header'],
+          noTimestamp: true,
+        },
+      );
+    } catch (tokenErr) {
+      console.error('[ZEGO] Token minting failed:', tokenErr);
+      res.status(500).json({
+        error: 'TOKEN_MINT_FAILED',
+        message: 'Failed to generate a ZEGO token.',
+      });
+      return;
+    }
+
     res.status(200).json({
       token,
-      rtcToken: token,
-      uid,
-      channelName: channel,
+      appID: appId,
+      roomID: room,
+      userID: user,
       expireAt,
-      ttlSeconds,
     });
   },
 );
-
-// ─── Misc utils ──────────────────────────────────────────────────────────────
-
-/**
- * Derives a deterministic Agora uint32 uid from an authenticated user id
- * string (Supabase user id or Firebase uid, prefixed by provider).
- *
- * Agora requires numeric uids; auth user ids are opaque strings. We use a
- * FNV-1a style 32-bit hash and clamp to the safe non-zero range. Collisions
- * are astronomically unlikely (the entire user base lives on the same 32-bit
- * number space; duplicates would mean one pair of users cannot be in the
- * same call — but this is rare enough that production apps with 1M+ users
- * still use this pattern).
- */
-function userIdToAgoraUid(userId: string): number {
-  let hash = 0x811c9dc5;
-  for (let i = 0; i < userId.length; i++) {
-    hash ^= userId.charCodeAt(i);
-    hash = Math.imul(hash, 0x01000193);
-  }
-  // Ensure positive uint32 and non-zero.
-  let n = hash >>> 0;
-  if (n === 0) n = 1;
-  return n;
-}

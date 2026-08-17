@@ -1,4 +1,4 @@
-import { memo } from 'react';
+import { memo, useMemo } from 'react';
 import type { Message } from '@/types';
 
 export interface TextMessageProps {
@@ -11,8 +11,57 @@ export interface TextMessageProps {
   onEditCancel: () => void;
 }
 
+// Render text with clickable links, hashtags, and mentions
+function renderRichText(content: string, isMe: boolean) {
+  const parts: React.ReactNode[] = [];
+  const regex = /(https?:\/\/[^\s]+)|(#[\w\u0980-\u09FF]+)|(@[\w\u0980-\u09FF]+)/g;
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+  let key = 0;
+
+  while ((match = regex.exec(content)) !== null) {
+    if (match.index > lastIndex) {
+      parts.push(<span key={key++}>{content.slice(lastIndex, match.index)}</span>);
+    }
+    const token = match[0];
+    if (token.startsWith('http')) {
+      parts.push(
+        <a
+          key={key++}
+          href={token}
+          target="_blank"
+          rel="noopener noreferrer"
+          className={`underline ${isMe ? 'text-white/90 hover:text-white' : 'text-[#00C300] hover:text-[#00A300]'}`}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {token}
+        </a>
+      );
+    } else if (token.startsWith('#')) {
+      parts.push(
+        <span key={key++} className={`font-medium ${isMe ? 'text-white/90' : 'text-[#00C300]'}`}>
+          {token}
+        </span>
+      );
+    } else if (token.startsWith('@')) {
+      parts.push(
+        <span key={key++} className={`font-medium ${isMe ? 'text-white/90' : 'text-[#2196F3]'}`}>
+          {token}
+        </span>
+      );
+    }
+    lastIndex = match.index + token.length;
+  }
+  if (lastIndex < content.length) {
+    parts.push(<span key={key++}>{content.slice(lastIndex)}</span>);
+  }
+  return parts;
+}
+
 export const TextMessage = memo(function TextMessage(props: TextMessageProps) {
   const { msg, isMe, isEditing, editInput, onEditInputChange, onEditSave, onEditCancel } = props;
+
+  const richContent = useMemo(() => renderRichText(msg.content, isMe), [msg.content, isMe]);
 
   return (
     <>
@@ -48,7 +97,7 @@ export const TextMessage = memo(function TextMessage(props: TextMessageProps) {
           aria-label="Open reactions or double tap to reply"
           className={`inline-block px-3 py-2 rounded-2xl text-[15px] cursor-pointer active:scale-[0.98] transition-transform ${isMe ? 'bg-[#00C300] text-white rounded-br-none' : 'bg-white text-[#111111] rounded-bl-none'}`}
         >
-          <p className="whitespace-pre-wrap break-words">{msg.content}</p>
+          <p className="whitespace-pre-wrap break-words">{richContent}</p>
         </div>
       )}
     </>

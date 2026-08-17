@@ -239,9 +239,29 @@ export default function ChatRoom({ chatId, userId, onBack }: {
     setUnlocking(true);
     setLockError('');
     try {
-      await unlockChat(chat.id);
-      const success = true;
-      if (success) {
+      // Verify the PIN against the stored (hashed) value before unlocking
+      const storedValue = chat.lockValue;
+      if (!storedValue) {
+        setLockError('No PIN configured for this chat.');
+        return;
+      }
+      let matched = false;
+      if (storedValue.length === 64) {
+        // Stored value is a SHA-256 hash — hash the input and compare
+        try {
+          const encoder = new TextEncoder();
+          const hashBuffer = await crypto.subtle.digest('SHA-256', encoder.encode(lockPinInput));
+          const hex = Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
+          matched = hex === storedValue;
+        } catch {
+          matched = false;
+        }
+      } else {
+        // Legacy plain-text PIN — compare directly
+        matched = lockPinInput === storedValue;
+      }
+      if (matched) {
+        await unlockChat(chat.id);
         setIsChatLocked(false);
         toast.success('Chat unlocked!');
       } else {

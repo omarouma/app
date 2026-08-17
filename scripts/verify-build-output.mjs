@@ -12,12 +12,12 @@ if (!fs.existsSync(path.join(dist, 'index.html'))) {
 const html = fs.readFileSync(path.join(dist, 'index.html'), 'utf8');
 const initialScripts = html.match(/assets\/index-[^"']+\.js/g) || [];
 const files = fs.readdirSync(assetsDir).filter((f) => f.endsWith('.js'));
-const agoraFiles = files.filter((f) => f.startsWith('agora'));
+const zegoFiles = files.filter((f) => f.startsWith('zego'));
 
 console.log('Initial scripts in index.html:', JSON.stringify(initialScripts));
-console.log('Agora separate chunks:', JSON.stringify(agoraFiles));
+console.log('ZEGO separate chunks:', JSON.stringify(zegoFiles));
 
-for (const f of [...initialScripts, ...agoraFiles]) {
+for (const f of [...initialScripts, ...zegoFiles]) {
   const name = f.replace('assets/', '');
   const full = path.join(assetsDir, name);
   if (fs.existsSync(full)) {

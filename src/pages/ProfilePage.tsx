@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect } from 'react';
+import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -169,11 +169,24 @@ export default function ProfilePage() {
     setShowShareSheet(false);
   }, [displayUser?.name, profileUrl, handleCopyLink]);
 
+  const profileCompletion = useMemo(() => {
+    const fields = [
+      Boolean(displayUser?.name),
+      Boolean(displayUser?.bio),
+      Boolean(displayUser?.avatar),
+      Boolean(displayUser?.coverImage),
+      Boolean(displayUser?.location),
+      Boolean(displayUser?.website),
+    ];
+    const completed = fields.filter(Boolean).length;
+    return Math.round((completed / fields.length) * 100);
+  }, [displayUser]);
+
   const stats = [
-    { label: 'Friends', value: user?.friends?.length ?? friends.length },
+    { label: 'Friends', value: displayUser?.friends?.length ?? (isOwnProfile ? friends.length : 0) },
     { label: 'Posts', value: userPostsCount },
-    { label: 'Followers', value: user?.followers?.length ?? 0 },
-    { label: 'Following', value: user?.following?.length ?? 0 },
+    { label: 'Followers', value: displayUser?.followers?.length ?? 0 },
+    { label: 'Following', value: displayUser?.following?.length ?? 0 },
   ];
 
   if (!displayUser) {
@@ -435,6 +448,14 @@ export default function ProfilePage() {
                       </button>
                       <button
                         type="button"
+                        onClick={() => navigate('/privacy')}
+                        className="flex items-center gap-1.5 px-5 py-2 bg-[#F5F5F5] text-[#111111] rounded-full text-sm font-medium hover:bg-[#EBEBEB] transition-colors"
+                        aria-label="Privacy settings"
+                      >
+                        <Settings size={14} /> Privacy
+                      </button>
+                      <button
+                        type="button"
                         onClick={() => setShowShareSheet(true)}
                         className="flex items-center gap-1.5 px-5 py-2 bg-[#F5F5F5] text-[#111111] rounded-full text-sm font-medium hover:bg-[#EBEBEB] transition-colors"
                         aria-label="Share profile"
@@ -460,6 +481,25 @@ export default function ProfilePage() {
             ))}
           </div>
         </div>
+
+        {isOwnProfile && (
+          <div className="bg-white rounded-2xl p-4 shadow-sm">
+            <div className="flex items-center justify-between gap-3 mb-2">
+              <div>
+                <h3 className="text-sm font-semibold text-[#111111]">Profile completeness</h3>
+                <p className="text-[11px] text-[#8D8D8D]">Add a bio, photo, and links to make your profile feel complete.</p>
+              </div>
+              <span className="text-sm font-bold text-[#00C300]">{profileCompletion}%</span>
+            </div>
+            <div className="h-2 bg-[#F5F5F5] rounded-full overflow-hidden">
+              <div className="h-full rounded-full bg-[#00C300] transition-all" style={{ width: `${profileCompletion}%` }} />
+            </div>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {user?.hideOnlineStatus ? <span className="rounded-full bg-[#F5F5F5] px-2.5 py-1 text-[10px] font-medium text-[#111111]">Online status hidden</span> : <span className="rounded-full bg-[#00C300]/10 px-2.5 py-1 text-[10px] font-medium text-[#00C300]">Online status visible</span>}
+              {user?.hideFriendList ? <span className="rounded-full bg-[#F5F5F5] px-2.5 py-1 text-[10px] font-medium text-[#111111]">Friend list hidden</span> : <span className="rounded-full bg-[#2196F3]/10 px-2.5 py-1 text-[10px] font-medium text-[#2196F3]">Friend list visible</span>}
+            </div>
+          </div>
+        )}
 
         {/* Contact info */}
         {(displayUser.email || displayUser.phone || profileUrl) && (

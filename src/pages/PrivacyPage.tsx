@@ -7,14 +7,7 @@ import { isFirestoreAvailable } from '@/lib/firestore';
 import { toast } from 'sonner';
 import type { ThemeSettings } from '@/types';
 
-type PrivacyOpts = ThemeSettings['privacy'] & {
-  storyPrivacy?: 'everyone' | 'friends' | 'close_friends';
-  callPrivacy?: 'everyone' | 'friends' | 'nobody';
-  profilePhotoPrivacy?: 'everyone' | 'friends' | 'nobody';
-  whoCanSendRequests?: 'everyone' | 'friends_of_friends' | 'nobody';
-};
-// Helper to cast a privacy union back to the base shape for updateSettings
-const privacyForSettings = (p: PrivacyOpts): ThemeSettings['privacy'] => p as ThemeSettings['privacy'];
+type PrivacyOpts = ThemeSettings['privacy'];
 type FriendRequestOpt = 'everyone' | 'friends_of_friends' | 'nobody';
 type OnlineOpt = 'everyone' | 'friends' | 'nobody';
 type StoryOpt = 'everyone' | 'friends' | 'close_friends';
@@ -107,11 +100,10 @@ export default function PrivacyPage() {
                 syncPrivacyToDB({ friend_request_privacy: option });
                 updateSettings({ privacy: { ...privacy, whoCanSendRequests: option } });
               }}
-              className={`flex-1 py-2 rounded-lg text-xs font-medium capitalize transition-colors ${
-                friendRequestPrivacy === option
-                  ? 'bg-[#00C300] text-white'
-                  : 'bg-[#F5F5F5] text-[#8D8D8D]'
-              }`}
+              className={`flex-1 py-2 rounded-lg text-xs font-medium capitalize transition-colors ${friendRequestPrivacy === option
+                ? 'bg-[#00C300] text-white'
+                : 'bg-[#F5F5F5] text-[#8D8D8D]'
+                }`}
             >
               {option === 'friends_of_friends' ? 'Friends of Friends' : option}
             </button>
@@ -152,11 +144,10 @@ export default function PrivacyPage() {
                 updateSettings({ privacy: { ...privacy, onlineStatus: option } });
                 syncPrivacyToDB({ hide_online_status: option === 'nobody' });
               }}
-              className={`flex-1 py-2 rounded-lg text-xs font-medium capitalize transition-colors ${
-                privacy.onlineStatus === option
-                  ? 'bg-[#00C300] text-white'
-                  : 'bg-[#F5F5F5] text-[#8D8D8D]'
-              }`}
+              className={`flex-1 py-2 rounded-lg text-xs font-medium capitalize transition-colors ${privacy.onlineStatus === option
+                ? 'bg-[#00C300] text-white'
+                : 'bg-[#F5F5F5] text-[#8D8D8D]'
+                }`}
             >
               {option}
             </button>
@@ -176,12 +167,11 @@ export default function PrivacyPage() {
         <div className="flex gap-2">
           {(['everyone', 'friends', 'close_friends'] as StoryOpt[]).map(option => (
             <button type="button" key={option}
-onClick={() => updateSettings({ privacy: privacyForSettings({ ...privacy, storyPrivacy: option }) })}
-              className={`flex-1 py-2 rounded-lg text-xs font-medium capitalize transition-colors ${
-                privacy.storyPrivacy === option
-                  ? 'bg-[#00C300] text-white'
-                  : 'bg-[#F5F5F5] text-[#8D8D8D]'
-              }`}
+              onClick={() => updateSettings({ privacy: { ...privacy, storyPrivacy: option } })}
+              className={`flex-1 py-2 rounded-lg text-xs font-medium capitalize transition-colors ${privacy.storyPrivacy === option
+                ? 'bg-[#00C300] text-white'
+                : 'bg-[#F5F5F5] text-[#8D8D8D]'
+                }`}
             >
               {option === 'close_friends' ? 'Close Friends' : option}
             </button>
@@ -201,12 +191,11 @@ onClick={() => updateSettings({ privacy: privacyForSettings({ ...privacy, storyP
         <div className="flex gap-2">
           {(['everyone', 'friends', 'nobody'] as OnlineOpt[]).map(option => (
             <button type="button" key={option}
-onClick={() => updateSettings({ privacy: privacyForSettings({ ...privacy, callPrivacy: option }) })}
-              className={`flex-1 py-2 rounded-lg text-xs font-medium capitalize transition-colors ${
-                privacy.callPrivacy === option
-                  ? 'bg-[#00C300] text-white'
-                  : 'bg-[#F5F5F5] text-[#8D8D8D]'
-              }`}
+              onClick={() => updateSettings({ privacy: { ...privacy, callPrivacy: option } })}
+              className={`flex-1 py-2 rounded-lg text-xs font-medium capitalize transition-colors ${privacy.callPrivacy === option
+                ? 'bg-[#00C300] text-white'
+                : 'bg-[#F5F5F5] text-[#8D8D8D]'
+                }`}
             >
               {option}
             </button>
@@ -226,12 +215,11 @@ onClick={() => updateSettings({ privacy: privacyForSettings({ ...privacy, callPr
         <div className="flex gap-2">
           {(['everyone', 'friends', 'nobody'] as OnlineOpt[]).map(option => (
             <button type="button" key={option}
-onClick={() => updateSettings({ privacy: privacyForSettings({ ...privacy, profilePhotoPrivacy: option }) })}
-              className={`flex-1 py-2 rounded-lg text-xs font-medium capitalize transition-colors ${
-                privacy.profilePhotoPrivacy === option
-                  ? 'bg-[#00C300] text-white'
-                  : 'bg-[#F5F5F5] text-[#8D8D8D]'
-              }`}
+              onClick={() => updateSettings({ privacy: { ...privacy, profilePhotoPrivacy: option } })}
+              className={`flex-1 py-2 rounded-lg text-xs font-medium capitalize transition-colors ${privacy.profilePhotoPrivacy === option
+                ? 'bg-[#00C300] text-white'
+                : 'bg-[#F5F5F5] text-[#8D8D8D]'
+                }`}
             >
               {option}
             </button>

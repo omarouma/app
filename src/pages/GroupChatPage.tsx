@@ -5,11 +5,12 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useGroupStore } from '@/store/useGroupStore';
 import { useFriendStore } from '@/store/useFriendStore';
+import { useUserSettings } from '@/store/useSettingsStore';
 import { useVoiceRecorder } from '@/hooks/useVoiceRecorder';
 import { useTyping } from '@/hooks/useTyping';
 import { useOfflineQueue, isOnline } from '@/hooks/useOfflineQueue';
 import { useScheduledMessages } from '@/hooks/useScheduledMessages';
-import type { Message } from '@/types';
+import type { Message, User } from '@/types';
 import { toast } from 'sonner';
 import { copyToClipboard } from '@/lib/share';
 import { GroupChatHeader } from '@/components/features/chat/GroupChatHeader';
@@ -19,6 +20,7 @@ import { GroupChatInput } from '@/components/features/chat/GroupChatInput';
 function formatDateSeparator(date: Date) {
     const now = new Date();
     const d = new Date(date);
+    if (Number.isNaN(d.getTime())) return '';
     if (d.toDateString() === now.toDateString()) return 'Today';
     const yesterday = new Date(now); yesterday.setDate(yesterday.getDate() - 1);
     if (d.toDateString() === yesterday.toDateString()) return 'Yesterday';
@@ -29,12 +31,15 @@ export default function GroupChatPage() {
     const navigate = useNavigate();
     const { groupId } = useParams<{ groupId: string }>();
     const { user: currentUser } = useAuthStore();
+    const { settings } = useUserSettings();
     const {
         groups, groupMessages, subscribeGroupMessages, sendGroupMessage, leaveGroup,
         deleteGroupMessage, deleteGroupMessageForEveryone
     } = useGroupStore();
     const { friends } = useFriendStore();
     const { isRecording, duration, startRecording, stopRecording, cancelRecording } = useVoiceRecorder();
+    const isDarkChat = settings.theme === 'dark' || settings.theme === 'midnight' || settings.theme === 'oled';
+    const chatBgClass = isDarkChat ? 'bg-[#0d0d0d]' : 'bg-[#F5F5F5]';
 
     const [input, setInput] = useState('');
     const [showMenu, setShowMenu] = useState(false);
@@ -64,14 +69,12 @@ export default function GroupChatPage() {
     const memberCount = useMemo(() => group?.participants.length || 0, [group]);
 
     // Lookup map for resolving real member names/avatars in the group call picker.
-    const memberInfo = useMemo(() => {
-        const map: Record<string, { name: string; avatar?: string }> = {};
-        if (currentUser) map[currentUser.id] = { name: currentUser.name, avatar: currentUser.avatar };
-        for (const f of friends) {
-            map[f.id] = { name: f.name, avatar: f.avatar };
-        }
-        return map;
-    }, [currentUser, friends]);
+    const memberInfo = useMemo<Record<string, { name: string; avatar?: string }>>(() => {
+        const entries: Array<[string, { name: string; avatar?: string }]> = [];
+        if (currentUser) entries.push([currentUser.id, { name: currentUser.name, avatar: currentUser.avatar }]);
+        for (const f of friends) entries.push([f.id, { name: f.name, avatar: (f as unknown as Partial<User>).avatar }]);
+        return Object.fromEntries(entries);
+    }, [currentUser?.id, currentUser?.name, currentUser?.avatar, friends]);
 
     const filteredMsgs = useMemo(() =>
         searchQuery ? msgs.filter(m => m.content.toLowerCase().includes(searchQuery.toLowerCase())) : msgs,
@@ -229,8 +232,8 @@ export default function GroupChatPage() {
 
     if (!group) {
         return (
-            <div className="h-[100dvh] bg-[#8BA3C7] flex items-center justify-center">
-                <div className="text-center text-white">
+            <div className={`h-[100dvh] ${chatBgClass} flex items-center justify-center`}>
+                <div className={isDarkChat ? 'text-center text-white' : 'text-center text-[#111111]'}>
                     <Users size={48} className="mx-auto mb-4 opacity-50" />
                     <p className="text-lg font-medium">Group not found</p>
                     <button type="button" onClick={() => navigate('/chats')} className="mt-4 text-sm underline">Go back</button>
@@ -240,7 +243,7 @@ export default function GroupChatPage() {
     }
 
     return (
-        <div className="flex flex-col h-full bg-[#8BA3C7]">
+        <div className={`flex flex-col h-full ${chatBgClass}`}>
             <GroupChatHeader
                 group={group}
                 currentUser={currentUser}

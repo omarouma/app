@@ -384,6 +384,9 @@ export interface ThemeSettings {
     whoCanComment: 'everyone' | 'friends' | 'nobody';
     groupAddPrivacy: 'everyone' | 'friends_of_friends' | 'nobody';
     allowScreenshot: boolean;
+    storyPrivacy?: 'everyone' | 'friends' | 'close_friends';
+    callPrivacy?: 'everyone' | 'friends' | 'nobody';
+    profilePhotoPrivacy?: 'everyone' | 'friends' | 'nobody';
   };
   data: {
     autoDownloadMedia: boolean;

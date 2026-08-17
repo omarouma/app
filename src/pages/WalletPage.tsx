@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
@@ -8,20 +8,14 @@ import {
   Copy, Check, Send, HandCoins, Split
 } from 'lucide-react';
 import { useAuthStore } from '@/store/useAuthStore';
-import { useWalletStore, STAKING_TIERS, getStakingTier, convertCurrency, formatCurrency, getCurrencySymbol, type CurrencyCode } from '@/store/useWalletStore';
+import { useWalletStore, STAKING_TIERS, getStakingTier, convertCurrency, formatCurrency, getCurrencySymbol, type CurrencyCode, normalizeWalletData } from '@/store/useWalletStore';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import WalletPinLock from '@/components/WalletPinLock';
 import SendToFriendModal from '@/components/SendToFriendModal';
 import RequestMoneyModal from '@/components/RequestMoneyModal';
 import SplitBillModal from '@/components/SplitBillModal';
 import { copyToClipboard } from '@/lib/share';
-
-const promoCodes: Record<string, { coins: number; label: string }> = {
-  'GAGA100': { coins: 100, label: 'Welcome Bonus' },
-  'REFER20': { coins: 20, label: 'Referral Reward' },
-  'BONUS50': { coins: 50, label: 'Extra Bonus' },
-  'GAGA500': { coins: 500, label: 'Mega Bonus' },
-};
+import { PROMO_CODES, DEFAULT_WALLET } from '@/lib/walletPromo';
 
 const depositMethods = [
   { icon: CreditCard, label: 'Visa/Mastercard', color: 'bg-[#1A1F71]', currency: 'USD' as CurrencyCode },
@@ -97,31 +91,32 @@ export default function WalletPage() {
     return subscribeWallet(user.id);
   }, [user?.id, subscribeWallet]);
 
-  const coins = wallet?.coins || 0;
-  const usdBalance = wallet?.usdBalance || wallet?.usd_balance || 0;
+  // Use a strongly-typed normalized wallet (handles legacy snake_case fields gracefully)
+  const normalizedWallet = useMemo(() => wallet ? normalizeWalletData(wallet as unknown as Record<string, unknown>) : DEFAULT_WALLET, [wallet]);
+
+  const coins = normalizedWallet.coins;
+  const usdBalance = normalizedWallet.usdBalance;
   const apy = getStakingAPY();
   const tier = getStakingTier(coins);
   const dailyInterest = getDailyInterestAmount(user?.id || '');
   const totalGagaValue = getTotalBalanceInGaga();
 
-// Currency display data (balances for fiat currencies default to USD if not separately tracked)
-const w = wallet as unknown as Record<string, unknown> | undefined;
-  const num = (v: unknown) => (typeof v === 'number' ? v : Number(v) || 0);
   const currencies: { code: CurrencyCode; balance: number; label: string; color: string }[] = ALL_CURRENCIES.map((c) => {
     let balance = 0;
     if (c.code === 'GAGA') balance = coins;
-    else if (c.code === 'USD') balance = usdBalance || 0;
-    else if (c.code === 'BDT') balance = num(w?.bdtBalance ?? w?.bdt_balance);
-    else if (c.code === 'RMB') balance = num(w?.rmbBalance ?? w?.rmb_balance);
-    else if (c.code === 'INR') balance = num(w?.inrBalance ?? w?.inr_balance);
+    else if (c.code === 'USD') balance = usdBalance;
+    else if (c.code === 'BDT') balance = normalizedWallet.bdtBalance || 0;
+    else if (c.code === 'RMB') balance = (wallet && 'rmbBalance' in wallet ? Number((wallet as unknown as Record<string, unknown>).rmbBalance) : 0) || 0;
+    else if (c.code === 'INR') balance = (wallet && 'inrBalance' in wallet ? Number((wallet as unknown as Record<string, unknown>).inrBalance) : 0) || 0;
     return { ...c, balance };
   });
 
   const handleRedeem = async () => {
     setPromoError(''); setPromoSuccess('');
-    if (!user || !promoInput.trim()) { setPromoError('Enter a promo code'); return; }
-    const success = await redeemCode(user.id, promoInput, promoCodes);
-    if (success) { setPromoSuccess(`${promoCodes[promoInput.toUpperCase()]?.coins || 0} Gaga Coins added!`); setPromoInput(''); }
+    const trimmed = promoInput.trim().toUpperCase();
+    if (!user || !trimmed) { setPromoError('Enter a promo code'); return; }
+    const success = await redeemCode(user.id, trimmed, PROMO_CODES as Record<string, { coins: number; label: string }>);
+    if (success) { setPromoSuccess(`${PROMO_CODES[trimmed]?.coins || 0} Gaga Coins added!`); setPromoInput(''); }
     else { setPromoError('Invalid or expired promo code'); }
   };
 
@@ -188,7 +183,7 @@ const w = wallet as unknown as Record<string, unknown> | undefined;
     return (
       <WalletPinLock
         mode="set"
-        onUnlock={() => {}}
+        onUnlock={() => { }}
         onSetPin={async (pin) => { await setWalletPin(user.id, pin); setPinMode('none'); }}
         onClose={() => setPinMode('none')}
       />
@@ -229,14 +224,13 @@ const w = wallet as unknown as Record<string, unknown> | undefined;
           >
             {/* Currency Tabs */}
             <div className="flex gap-2 mb-4">
-{currencies.map(c => (
+              {currencies.map(c => (
                 <button type="button" key={c.code}
                   onClick={() => { haptic(); setActiveCurrency(c.code); }}
-                  className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
-                    activeCurrency === c.code
-                      ? 'bg-white text-[#00C300]'
-                      : 'bg-white/20 text-white/80 hover:bg-white/30'
-                  }`}
+                  className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${activeCurrency === c.code
+                    ? 'bg-white text-[#00C300]'
+                    : 'bg-white/20 text-white/80 hover:bg-white/30'
+                    }`}
                 >
                   {c.code}
                 </button>
@@ -280,13 +274,13 @@ const w = wallet as unknown as Record<string, unknown> | undefined;
 
             {/* Wallet ID */}
             <button type="button" onClick={async () => {
-                const ok = await copyToClipboard(walletId);
-                if (ok) {
-                  setCopied(true);
-                  if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current);
-                  copiedTimerRef.current = setTimeout(() => setCopied(false), 2000);
-                }
-              }}
+              const ok = await copyToClipboard(walletId);
+              if (ok) {
+                setCopied(true);
+                if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current);
+                copiedTimerRef.current = setTimeout(() => setCopied(false), 2000);
+              }
+            }}
               className="mt-3 flex items-center gap-1.5 text-white/60 text-[10px] hover:text-white/80 transition-colors"
             >
               <span>ID: {walletId}</span>
@@ -474,16 +468,15 @@ const w = wallet as unknown as Record<string, unknown> | undefined;
                   className="flex items-center justify-between p-4 bg-white rounded-xl border border-[#EBEBEB] hover:shadow-md transition-shadow"
                 >
                   <div className="flex items-center gap-3">
-                    <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                      isPositive
-                        ? 'bg-gradient-to-br from-[#00C300]/20 to-[#00C300]/30' : tx.type === 'convert'
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center ${isPositive
+                      ? 'bg-gradient-to-br from-[#00C300]/20 to-[#00C300]/30' : tx.type === 'convert'
                         ? 'bg-gradient-to-br from-[#2196F3]/20 to-[#2196F3]/30' : 'bg-gradient-to-br from-[#FF3B30]/20 to-[#FF3B30]/30'
-                    }`}>
+                      }`}>
                       {isPositive
                         ? <TrendingUp size={16} className="text-[#00C300]" />
                         : tx.type === 'convert'
-                        ? <ArrowRightLeft size={16} className="text-[#2196F3]" />
-                        : <TrendingDown size={16} className="text-[#FF3B30]" />
+                          ? <ArrowRightLeft size={16} className="text-[#2196F3]" />
+                          : <TrendingDown size={16} className="text-[#FF3B30]" />
                       }
                     </div>
                     <div>
@@ -494,11 +487,10 @@ const w = wallet as unknown as Record<string, unknown> | undefined;
                     </div>
                   </div>
                   <div className="text-right">
-                    <span className={`text-sm font-bold ${
-                      isPositive
-                        ? 'text-[#00C300]' : tx.type === 'convert'
+                    <span className={`text-sm font-bold ${isPositive
+                      ? 'text-[#00C300]' : tx.type === 'convert'
                         ? 'text-[#2196F3]' : 'text-[#FF3B30]'
-                    }`}>
+                      }`}>
                       {isPositive ? '+' : '-'}
                       {tx.currency === 'USD' ? '$' : ''}{tx.amount}
                       {!tx.currency && ' GAGA'}
@@ -541,7 +533,7 @@ const w = wallet as unknown as Record<string, unknown> | undefined;
             </button>
             <div className="mt-4 space-y-2">
               <p className="text-[#8D8D8D] text-xs">Available codes:</p>
-              {Object.entries(promoCodes).map(([code, data]) => (
+              {Object.entries(PROMO_CODES).map(([code, data]) => (
                 <div key={code} className="flex items-center justify-between bg-[#F5F5F5] rounded-lg px-3 py-2">
                   <span className="text-[#111111] text-xs font-bold">{code}</span>
                   <span className="text-[#00C300] text-xs font-medium">+{data.coins} GAGA</span>
@@ -563,9 +555,8 @@ const w = wallet as unknown as Record<string, unknown> | undefined;
                 {(['GAGA', 'USD'] as CurrencyCode[]).map(c => (
                   <button type="button" key={c}
                     onClick={() => setDepositCurrency(c)}
-                    className={`flex-1 py-2 rounded-xl text-sm font-medium transition-colors ${
-                      depositCurrency === c ? 'bg-[#00C300] text-white' : 'bg-[#F5F5F5] text-[#8D8D8D]'
-                    }`}
+                    className={`flex-1 py-2 rounded-xl text-sm font-medium transition-colors ${depositCurrency === c ? 'bg-[#00C300] text-white' : 'bg-[#F5F5F5] text-[#8D8D8D]'
+                      }`}
                   >
                     {c}
                   </button>
@@ -578,11 +569,10 @@ const w = wallet as unknown as Record<string, unknown> | undefined;
                 {depositMethods.filter(m => m.currency === depositCurrency || depositCurrency === 'GAGA').map((method) => (
                   <button type="button" key={method.label}
                     onClick={() => setDepositMethod(method.label)}
-                    className={`flex items-center gap-2 p-3 rounded-xl border transition-colors ${
-                      depositMethod === method.label
-                        ? 'border-[#00C300] bg-[#00C300]/5'
-                        : 'border-[#EBEBEB] bg-[#F5F5F5]'
-                    }`}
+                    className={`flex items-center gap-2 p-3 rounded-xl border transition-colors ${depositMethod === method.label
+                      ? 'border-[#00C300] bg-[#00C300]/5'
+                      : 'border-[#EBEBEB] bg-[#F5F5F5]'
+                      }`}
                   >
                     <div className={`w-8 h-8 rounded-full ${method.color} flex items-center justify-center text-white`}>
                       <method.icon size={14} />
@@ -626,9 +616,8 @@ const w = wallet as unknown as Record<string, unknown> | undefined;
                 {(['GAGA', 'USD'] as CurrencyCode[]).map(c => (
                   <button type="button" key={c}
                     onClick={() => setWithdrawCurrency(c)}
-                    className={`flex-1 py-2 rounded-xl text-sm font-medium transition-colors ${
-                      withdrawCurrency === c ? 'bg-[#00C300] text-white' : 'bg-[#F5F5F5] text-[#8D8D8D]'
-                    }`}
+                    className={`flex-1 py-2 rounded-xl text-sm font-medium transition-colors ${withdrawCurrency === c ? 'bg-[#00C300] text-white' : 'bg-[#F5F5F5] text-[#8D8D8D]'
+                      }`}
                   >
                     {c}
                   </button>
@@ -682,9 +671,8 @@ const w = wallet as unknown as Record<string, unknown> | undefined;
               {(['GAGA_USD', 'USD_GAGA'] as const).map(pair => (
                 <button type="button" key={pair}
                   onClick={() => setConvertTab(pair)}
-                  className={`px-3 py-2 text-xs font-medium whitespace-nowrap transition-colors ${
-                    convertTab === pair ? 'text-[#00C300] border-b-2 border-[#00C300]' : 'text-[#8D8D8D]'
-                  }`}
+                  className={`px-3 py-2 text-xs font-medium whitespace-nowrap transition-colors ${convertTab === pair ? 'text-[#00C300] border-b-2 border-[#00C300]' : 'text-[#8D8D8D]'
+                    }`}
                 >
                   {pair.replace('_', ' → ')}
                 </button>
@@ -756,9 +744,8 @@ const w = wallet as unknown as Record<string, unknown> | undefined;
               {STAKING_TIERS.filter(t => t.minCoins > 0).map(t => (
                 <div
                   key={t.label}
-                  className={`flex items-center justify-between p-2.5 rounded-lg ${
-                    coins >= t.minCoins ? 'bg-[#00C300]/10 border border-[#00C300]/30' : 'bg-[#F5F5F5]'
-                  }`}
+                  className={`flex items-center justify-between p-2.5 rounded-lg ${coins >= t.minCoins ? 'bg-[#00C300]/10 border border-[#00C300]/30' : 'bg-[#F5F5F5]'
+                    }`}
                 >
                   <div className="flex items-center gap-2">
                     <Award size={14} className={coins >= t.minCoins ? 'text-[#00C300]' : 'text-[#C7C7CC]'} />

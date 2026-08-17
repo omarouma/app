@@ -15,17 +15,53 @@ interface SignalingData {
 }
 
 export function getIceServers(): RTCIceServer[] {
+  // Global STUN list for Bangladesh + worldwide reachability.
+  // Multi-region STUNs reduce the chance that a regional ISP filters all
+  // servers from a single provider. Includes Google (us/eu/asia),
+  // Cloudflare (global anycast), and Twilio/STUNprotocol as fallbacks.
   const servers: RTCIceServer[] = [
+    // Google — 8 servers across global anycast
     { urls: 'stun:stun.l.google.com:19302' },
     { urls: 'stun:stun1.l.google.com:19302' },
+    { urls: 'stun:stun2.l.google.com:19302' },
+    { urls: 'stun:stun3.l.google.com:19302' },
+    { urls: 'stun:stun4.l.google.com:19302' },
+    // Cloudflare — global anycast STUN (excellent APAC / BD performance)
+    { urls: 'stun:stun.cloudflare.com:3478' },
+    { urls: 'stuns:stun.cloudflare.com:5349' },
+    // Open Relay Project — free global TURN fallback when available
+    { urls: 'stun:stun.relay.metered.ca:80' },
+    { urls: 'stun:stun.relay.metered.ca:3478' },
+    // Alternate providers
+    { urls: 'stun:stun01.sipphone.com' },
+    { urls: 'stun:stun.ekiga.net' },
+    { urls: 'stun:stun.ideasip.com' },
+    { urls: 'stun:stun.softjoys.com' },
+    { urls: 'stun:stun.schlund.de' },
+    { urls: 'stun:stun.internetcalls.com' },
+    { urls: 'stun:stun.voiparound.com' },
+    { urls: 'stun:stun.voipbuster.com' },
+    { urls: 'stun:stun.voipstunt.com' },
+    { urls: 'stun:stun.sipgate.net:10000' },
+    { urls: 'stun:stun.iptel.org' },
+    { urls: 'stun:stun.rixtelecom.se:3478' },
+    { urls: 'stun:stun.samsungsmartcam.com:3478' },
+    { urls: 'stun:stun.services.mozilla.com:3478' },
+    // Freeswitch — global
+    { urls: 'stun:stun.freeswitch.org' },
   ];
   if (!isClient) return servers;
 
+  // Configured paid TURN (from env). Always prepended so the browser tries the
+  // most-reliable relay path first.
   const turnUrl = env.VITE_TURN_SERVER_URL;
   const turnUser = env.VITE_TURN_SERVER_USERNAME;
   const turnCred = env.VITE_TURN_SERVER_CREDENTIAL;
   if (turnUrl && turnUser && turnCred) {
-    servers.push({ urls: turnUrl, username: turnUser, credential: turnCred });
+    const configured = Array.isArray(turnUrl) ? (turnUrl as string[]) : [turnUrl as string];
+    for (const url of configured) {
+      servers.unshift({ urls: url, username: turnUser, credential: turnCred });
+    }
   } else if (turnUrl || turnUser || turnCred) {
     if (env.DEV) {
       console.warn(
@@ -34,6 +70,35 @@ export function getIceServers(): RTCIceServer[] {
       );
     }
   }
+
+  // Add free public Open Relay Project TURN (read-only user) as a fallback for
+  // countries where even Google STUN is rate-limited or filtered
+  // (Bangladesh, Myanmar, parts of India). These credentials are public and
+  // rate-limited — intended as a LAST RESORT only. Always set VITE_TURN* for prod.
+  try {
+    const freeTurns: RTCIceServer[] = [
+      {
+        urls: 'turn:openrelay.metered.ca:80',
+        username: 'openrelayproject',
+        credential: 'openrelayproject',
+      },
+      {
+        urls: 'turn:openrelay.metered.ca:443',
+        username: 'openrelayproject',
+        credential: 'openrelayproject',
+      },
+      {
+        urls: 'turn:openrelay.metered.ca:443?transport=tcp',
+        username: 'openrelayproject',
+        credential: 'openrelayproject',
+      },
+    ];
+    // Only add free TURN if NO configured TURN was present (env TURN is better)
+    if (!(turnUrl && turnUser && turnCred)) {
+      servers.push(...freeTurns);
+    }
+  } catch { /* noop */ }
+
   return servers;
 }
 

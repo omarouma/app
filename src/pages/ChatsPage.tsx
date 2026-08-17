@@ -2,7 +2,7 @@ import { useState, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 
-import { UserPlus, Plus, Search, Users, Archive, MessageCircle, MessageSquare, ArchiveRestore, Phone, Bell } from 'lucide-react';
+import { UserPlus, Plus, Search, Users, Archive, MessageCircle, MessageSquare, ArchiveRestore, Phone, Bell, CheckCheck, Volume2, VolumeX } from 'lucide-react';
 
 import { ChatList } from '@/components/features/chat/ChatList';
 import LoadingSkeleton from '@/components/LoadingSkeleton';
@@ -21,18 +21,38 @@ export default function ChatsPage() {
     handleRefresh,
   } = useChatLogic();
 
-  const { archiveChat, unarchiveChat } = useChatStore();
+  const { archiveChat, unarchiveChat, markAsRead, muteChat } = useChatStore();
 
   useDocumentTitle(`Chats (${totalUnread})`);
 
   const [refreshing, setRefreshing] = useState(false);
-  const [contextMenu, setContextMenu] = useState<{ chatId: string; archived: boolean; x: number; y: number } | null>(null);
+  const [contextMenu, setContextMenu] = useState<{ chatId: string; archived: boolean; muted: boolean; x: number; y: number } | null>(null);
   const touchStartRef = useRef(0);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const handleLongPress = useCallback((chatId: string, archived: boolean, y: number) => {
-    setContextMenu({ chatId, archived, x: 20, y: Math.min(y, window.innerHeight - 120) });
+  const handleLongPress = useCallback((chatId: string, archived: boolean, muted: boolean, y: number) => {
+    setContextMenu({ chatId, archived, muted, x: 20, y: Math.min(y, window.innerHeight - 120) });
   }, []);
+
+  const handleMarkAllAsRead = useCallback(async () => {
+    if (!user?.id || activeChats.every((chat) => (chat.unreadCount ?? 0) === 0)) return;
+
+    try {
+      await Promise.all(activeChats.map((chat) => markAsRead(chat.id, user.id)));
+      toast.success('All unread chats are marked as read');
+    } catch {
+      toast.error('Failed to update chat status');
+    }
+  }, [activeChats, markAsRead, user?.id]);
+
+  const handleToggleMute = useCallback(async (chatId: string) => {
+    try {
+      await muteChat(chatId);
+      setContextMenu(null);
+    } catch {
+      toast.error('Failed to update mute status');
+    }
+  }, [muteChat]);
 
   const handleArchiveToggle = useCallback(async (chatId: string, isArchived: boolean) => {
     try {
@@ -82,6 +102,15 @@ export default function ChatsPage() {
           )}
         </div>
         <div className="flex gap-1.5 sm:gap-2 text-foreground">
+          {totalUnread > 0 && (
+            <button type="button" onClick={handleMarkAllAsRead}
+              className="icon-btn w-10 h-10 sm:w-11 sm:h-11 bg-accent text-foreground"
+              aria-label="Mark all chats as read"
+              title="Mark all as read"
+            >
+              <CheckCheck size={18} strokeWidth={2} />
+            </button>
+          )}
           <button type="button" onClick={() => navigate('/calls')}
             className="icon-btn w-10 h-10 sm:w-11 sm:h-11 bg-accent text-foreground"
             aria-label="Calls"
@@ -118,6 +147,7 @@ export default function ChatsPage() {
             onChange={e => setSearch(e.target.value)}
             placeholder="Search chats or start a new one..."
             className="w-full input-surface pl-10 pr-4 py-2.5 text-foreground text-sm placeholder:text-muted-foreground"
+            aria-label="Search chats"
           />
         </div>
       </div>
@@ -239,6 +269,29 @@ export default function ChatsPage() {
             style={{ top: contextMenu.y, left: contextMenu.x }}
             onClick={(e) => e.stopPropagation()}
           >
+            {totalUnread > 0 && (
+              <button
+                type="button"
+                onClick={() => {
+                  if (!user?.id) return;
+                  void markAsRead(contextMenu.chatId, user.id);
+                  setContextMenu(null);
+                }}
+                className="w-full flex items-center gap-3 px-4 py-3 text-sm text-foreground hover:bg-accent transition-colors"
+              >
+                <CheckCheck size={16} className="text-primary" /> Mark as Read
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => void handleToggleMute(contextMenu.chatId)}
+              className="w-full flex items-center gap-3 px-4 py-3 text-sm text-foreground hover:bg-accent transition-colors"
+            >
+              {contextMenu.muted
+                ? <><Volume2 size={16} className="text-primary" /> Unmute Chat</>
+                : <><VolumeX size={16} className="text-primary" /> Mute Chat</>
+              }
+            </button>
             <button
               type="button"
               onClick={() => handleArchiveToggle(contextMenu.chatId, contextMenu.archived)}

@@ -59,23 +59,32 @@ const typeLabels: Record<string, string> = {
   blocked_interaction: 'Security',
 };
 
+function toDate(v: Date | string | number): Date {
+  if (v instanceof Date) return v;
+  const d = new Date(v);
+  return Number.isNaN(d.getTime()) ? new Date(0) : d;
+}
+
 function isToday(date: Date) {
+  const d = toDate(date);
   const now = new Date();
-  return date.toDateString() === now.toDateString();
+  return d.toDateString() === now.toDateString();
 }
 
 function isYesterday(date: Date) {
+  const d = toDate(date);
   const now = new Date();
   const yest = new Date(now);
   yest.setDate(yest.getDate() - 1);
-  return date.toDateString() === yest.toDateString();
+  return d.toDateString() === yest.toDateString();
 }
 
 function isThisWeek(date: Date) {
+  const d = toDate(date);
   const now = new Date();
   const weekAgo = new Date(now);
   weekAgo.setDate(weekAgo.getDate() - 7);
-  return date >= weekAgo && !isToday(date) && !isYesterday(date);
+  return d >= weekAgo && !isToday(date) && !isYesterday(date);
 }
 
 export default function NotificationsPage() {

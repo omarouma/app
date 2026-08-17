@@ -264,19 +264,119 @@ export function playMessageSent() {
   getProfileSounds().messageSent();
 }
 
+/* ── Custom MP3 Ringtone (Thug Life x GTA) ─── */
+
+/**
+ * URL-safe filename of the GTA ringtone asset deployed under /public.
+ * The original filename was renamed from "Thug Life x GTA Ringtone __ ... .mp4"
+ * to this slug for predictable fetching. MP4 is used here because mobile browsers
+ * natively support MP4 audio (AAC) everywhere — and since the
+ * original was provided as MP4, we avoid a re-encoding step at build time.
+ */
+const RINGTONE_SRC = '/gta-ringtone.mp4';
+
+/**
+ * Plays the GaGa Chat custom ringtone (Thug Life x GTA) from the
+ * deployed asset. The returned controller is:
+ *   - Preloads the asset via <audio preload="auto" so it starts instantly
+ *   - Loops it for the entire ringback / incoming ring until stop() is called
+ *   - If the asset load fails (network, CORS, 404) it immediately falls back to the
+ *     synthesized WeChat-style ringtone (never silent)
+ *   - Resumes a 1.2× boost on the GainNode to be audible in quiet environments
+ */
+function playCustomRingtone({
+  loop = true,
+  volume = 0.9,
+  fallbackSynthesized,
+}: {
+  loop?: boolean;
+  volume?: number;
+  fallbackSynthesized?: () => { stop: () => void };
+}): { stop: () => void } {
+  if (typeof window === 'undefined') return { stop: () => { } };
+  let fallback: { stop: () => void } | null = fallbackSynthesized?.() ?? null;
+  let audio: HTMLAudioElement | null = null;
+  let ctxGain: GainNode | null = null;
+  let ctxSource: MediaElementAudioSourceNode | null = null;
+  let stopped = false;
+  try {
+    audio = new Audio();
+    audio.src = RINGTONE_SRC;
+    audio.preload = 'auto';
+    audio.loop = loop;
+    audio.volume = volume;
+    audio.crossOrigin = 'anonymous';
+    // Route through Web Audio GainNode so audio-context unlock via
+    // resumeAudio() also unlocks the ringtone (iOS Safari rules)
+    const ctx = getCtx();
+    if (ctx) {
+      try {
+        ctxGain = ctx.createGain();
+        ctxGain.gain.value = 1.2;
+        ctxGain.connect(ctx.destination);
+        ctxSource = ctx.createMediaElementSource(audio);
+        ctxSource.connect(ctxGain);
+      } catch {
+        ctxGain = null;
+        ctxSource = null;
+      }
+    }
+    let settled = false;
+    let fallbackTimer: ReturnType<typeof setTimeout> | null = setTimeout(() => {
+      if (!settled && !stopped && !fallback && fallbackSynthesized) fallback = fallbackSynthesized();
+    }, 1500);
+    const playPromise = audio.play();
+    if (playPromise && typeof playPromise.then === 'function') {
+      playPromise
+        .then(() => {
+          settled = true;
+          if (fallbackTimer) clearTimeout(fallbackTimer);
+          if (fallback) { fallback.stop(); fallback = null; }
+        })
+        .catch(() => {
+          settled = true;
+          if (fallbackTimer) clearTimeout(fallbackTimer);
+          if (!stopped && !fallback && fallbackSynthesized) fallback = fallbackSynthesized();
+        });
+    } else {
+      settled = true;
+      if (fallbackTimer) clearTimeout(fallbackTimer);
+    }
+    audio.addEventListener('error', () => {
+      if (!stopped && !fallback && fallbackSynthesized) fallback = fallbackSynthesized();
+    });
+  } catch {
+    if (!fallback && fallbackSynthesized) fallback = fallbackSynthesized();
+  }
+  return {
+    stop() {
+      stopped = true;
+      try {
+        if (audio) {
+          audio.pause();
+          audio.src = '';
+          audio.load();
+        }
+      } catch { /* noop */ }
+      try { ctxGain?.disconnect(); } catch { /* noop */ }
+      try { ctxSource?.disconnect(); } catch { /* noop */ }
+      ctxGain = null;
+      ctxSource = null;
+      audio = null;
+      if (fallback) { try { fallback.stop(); } catch { /* noop */ } }
+      fallback = null;
+    },
+  };
+}
+
 /* ── Call Sounds (profile-independent) ──────── */
 
 /**
- * WeChat-style incoming call ringtone.
- *
- * A rich 15-second melodic phrase (marimba-like dual oscillators) that loops
- * until the call is answered, rejected, or times out. Master volume is set
- * high (0.6) so it is audible from a pocket; pair with `vibrateIncomingCall()`
- * re-triggered on an interval for a full WeChat-style alert.
+ * (Synthesized fallback) WeChat-style incoming call ringtone — 15-second melodic phrase.
  */
-export function playIncomingCall(): { stop: () => void } {
+function playIncomingCallSynth(): { stop: () => void } {
   const ctx = getCtx();
-  if (!ctx || !globalEnabled || !areCallSoundsEnabled() || isQuietHours()) return { stop: () => {} };
+  if (!ctx || !globalEnabled || !areCallSoundsEnabled() || isQuietHours()) return { stop: () => { } };
 
   const RING_CYCLE_MS = 15000; // full melodic phrase length before it repeats
 
@@ -288,36 +388,27 @@ export function playIncomingCall(): { stop: () => void } {
   let cycleTimer: ReturnType<typeof setInterval> | null = null;
   const scheduled: OscillatorNode[] = [];
 
-  // 15s WeChat-style phrase: bright two-note motif, answer phrase, then a
-  // rising tail — followed by ~6s of silence so it doesn't feel naggy.
-  // [startTimeSec, freqHz, durationSec, volume]
   const PHRASE: Array<[number, number, number, number]> = [
-    // Motif 1 (0–2s): ding-dong, ding-dong
-    [0.00, 1046.5, 0.35, 0.50], // C6
-    [0.40, 783.99, 0.45, 0.50], // G5
+    [0.00, 1046.5, 0.35, 0.50],
+    [0.40, 783.99, 0.45, 0.50],
     [1.10, 1046.5, 0.35, 0.50],
     [1.50, 783.99, 0.60, 0.55],
-    // Motif 2 (2.4–4.6s): echo one step lower
-    [2.40, 987.77, 0.35, 0.45], // B5
-    [2.80, 739.99, 0.45, 0.45], // F#5
+    [2.40, 987.77, 0.35, 0.45],
+    [2.80, 739.99, 0.45, 0.45],
     [3.50, 987.77, 0.35, 0.45],
     [3.90, 739.99, 0.60, 0.50],
-    // Answer phrase (4.9–6.9s): rising triad
-    [4.90, 659.25, 0.30, 0.45], // E5
-    [5.25, 830.61, 0.30, 0.45], // G#5
-    [5.60, 1046.5, 0.55, 0.55], // C6
-    [6.20, 1318.5, 0.70, 0.50], // E6
-    // Tail (7.2–9.0s): soft resolve
+    [4.90, 659.25, 0.30, 0.45],
+    [5.25, 830.61, 0.30, 0.45],
+    [5.60, 1046.5, 0.55, 0.55],
+    [6.20, 1318.5, 0.70, 0.50],
     [7.20, 1046.5, 0.40, 0.40],
-    [7.70, 880.00, 0.70, 0.40], // A5
+    [7.70, 880.00, 0.70, 0.40],
     [8.50, 1046.5, 0.90, 0.35],
-    // 9.4s–15s: silence before the phrase repeats
   ];
 
   const playNote = (at: number, freq: number, dur: number, vol: number) => {
     if (!running) return;
     const t = ctx.currentTime + at;
-    // Marimba-ish voice: triangle fundamental + quiet sine octave above
     const osc = ctx.createOscillator();
     const g = ctx.createGain();
     osc.type = 'triangle';
@@ -366,13 +457,15 @@ export function playIncomingCall(): { stop: () => void } {
     setTimeout(() => masterGain.disconnect(), 200);
   };
 
-  activeRingtone = { stop };
   return { stop };
 }
 
-export function playOutgoingCall(): { stop: () => void } {
+/**
+ * (Synthesized fallback) WeChat-style ringback — soft "doo…" every 4s while waiting.
+ */
+function playOutgoingCallSynth(): { stop: () => void } {
   const ctx = getCtx();
-  if (!ctx || !globalEnabled || !areCallSoundsEnabled() || isQuietHours()) return { stop: () => {} };
+  if (!ctx || !globalEnabled || !areCallSoundsEnabled() || isQuietHours()) return { stop: () => { } };
 
   const masterGain = ctx.createGain();
   masterGain.gain.setValueAtTime(0.4, ctx.currentTime);
@@ -381,7 +474,6 @@ export function playOutgoingCall(): { stop: () => void } {
   let running = true;
   const intervals: ReturnType<typeof setInterval>[] = [];
 
-  // WeChat-style ringback: soft dual-tone "doo…" every 4s while waiting.
   const playRingback = () => {
     if (!running) return;
     const t = ctx.currentTime;
@@ -410,8 +502,44 @@ export function playOutgoingCall(): { stop: () => void } {
     setTimeout(() => masterGain.disconnect(), 200);
   };
 
-  activeRingtone = { stop };
   return { stop };
+}
+
+/**
+ * Incoming call ringtone.
+ *
+ * Primary source = custom Thug Life x GTA MP4 asset (`/gta-ringtone.mp4`).
+ * Falls back to the synthesized WeChat-style ringtone immediately if the
+ * asset fails to load within 1.5s (network, 404, permission).
+ * Used for the callee device (receiver) — the user hearing the call.
+ */
+export function playIncomingCall(): { stop: () => void } {
+  if (!globalEnabled || !areCallSoundsEnabled() || isQuietHours()) return { stop: () => { } };
+  const ctrl = playCustomRingtone({
+    loop: true,
+    volume: 0.9,
+    fallbackSynthesized: playIncomingCallSynth,
+  });
+  activeRingtone = ctrl;
+  return ctrl;
+}
+
+/**
+ * Outgoing call ringback tone.
+ *
+ * Primary source = custom Thug Life x GTA MP4 (`/gta-ringtone.mp4`)
+ * played to the caller (the person placing the call) while waiting.
+ * Falls back to synthesized ringback if asset unavailable.
+ */
+export function playOutgoingCall(): { stop: () => void } {
+  if (!globalEnabled || !areCallSoundsEnabled() || isQuietHours()) return { stop: () => { } };
+  const ctrl = playCustomRingtone({
+    loop: true,
+    volume: 0.75,
+    fallbackSynthesized: playOutgoingCallSynth,
+  });
+  activeRingtone = ctrl;
+  return ctrl;
 }
 
 export function playCallConnected() {
@@ -608,5 +736,5 @@ export function previewSound(profile: SoundProfile) {
   resumeAudio().then(() => {
     p.messageReceived();
     setTimeout(() => p.messageSent(), 500);
-  }).catch(() => {});
+  }).catch(() => { });
 }

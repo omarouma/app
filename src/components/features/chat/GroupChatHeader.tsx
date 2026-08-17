@@ -44,7 +44,7 @@ export function GroupChatHeader({
     setShowMembersModal,
     memberInfo
 }: GroupChatHeaderProps) {
-const navigate = useNavigate();
+    const navigate = useNavigate();
     const menuRef = useRef<HTMLDivElement>(null);
     const [showCallPicker, setShowCallPicker] = useState(false);
 
@@ -63,8 +63,8 @@ const navigate = useNavigate();
     const menuItems = [
         { icon: UserPlus, label: 'Add Member', action: () => { navigate(`/add-friends`); setShowMenu(false); } },
         { icon: Users, label: 'View Members', action: () => { setShowMembersModal(true); setShowMenu(false); } },
-        { icon: Settings, label: 'Group Settings', action: () => { if (group.id) { navigate(`/group-info/${group.id}`); } setShowMenu(false); } },
-        { icon: LogOut, label: 'Leave Group', action: () => { if (group.id && currentUser) { leaveGroup(group.id, currentUser.id); navigate('/chats'); } } },
+        { icon: Settings, label: 'Group Settings', action: () => { if (group.id) { navigate(`/group-info/${group.id}`); setShowMenu(false); } } },
+        { icon: LogOut, label: 'Leave Group', action: () => { if (group.id && currentUser) { leaveGroup(group.id, currentUser.id); navigate('/chats'); setShowMenu(false); } } },
     ];
 
     return (
@@ -105,7 +105,7 @@ const navigate = useNavigate();
                                 >
                                     {menuItems.map((item, i) => (
                                         <button type="button" key={i}
-                                            onClick={() => { item.action(); setShowMenu(false); }}
+                                            onClick={() => item.action()}
                                             className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-[#F5F5F5] active:bg-gray-100 transition-colors"
                                         >
                                             <item.icon size={18} className={item.label === 'Leave Group' ? 'text-[#FF3B30]' : 'text-[#8D8D8D]'} />
@@ -146,7 +146,7 @@ const navigate = useNavigate();
                             </p>
                         )}
                     </motion.div>
-)}
+                )}
             </AnimatePresence>
 
             {/* Call member picker — choose a group member to call (voice or video) */}
@@ -174,46 +174,46 @@ const navigate = useNavigate();
                                 </button>
                             </div>
                             <div className="max-h-[60dvh] overflow-y-auto">
-{(group.participants || [])
+                                {(group.participants || [])
                                     .filter((id: string) => id !== currentUser?.id)
                                     .map((memberId: string) => {
                                         const info = memberInfo?.[memberId];
                                         const name = info?.name || 'Member';
                                         const avatar = info?.avatar;
                                         return (
-                                        <div key={memberId} className="flex items-center gap-3 px-4 py-3 hover:bg-[#F5F5F5] transition-colors">
-                                            <div className="w-10 h-10 rounded-full bg-[#00C300]/10 flex items-center justify-center shrink-0 overflow-hidden">
-                                                {avatar ? (
-                                                    <img src={avatar} className="w-full h-full object-cover" alt={name} />
-                                                ) : (
-                                                    <Users size={18} className="text-[#00C300]" />
-                                                )}
+                                            <div key={memberId} className="flex items-center gap-3 px-4 py-3 hover:bg-[#F5F5F5] transition-colors">
+                                                <div className="w-10 h-10 rounded-full bg-[#00C300]/10 flex items-center justify-center shrink-0 overflow-hidden">
+                                                    {avatar ? (
+                                                        <img src={avatar} className="w-full h-full object-cover" alt={name} />
+                                                    ) : (
+                                                        <Users size={18} className="text-[#00C300]" />
+                                                    )}
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                    <p className="text-sm font-medium text-[#111111] truncate">{name}</p>
+                                                    <p className="text-[11px] text-[#8D8D8D] truncate">{info?.name ? memberId : 'Group member'}</p>
+                                                </div>
+                                                <div className="flex items-center gap-1 shrink-0">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => { setShowCallPicker(false); navigate('/call', { state: { userId: memberId, mode: 'voice' } }); }}
+                                                        className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-[#00C300]/10 text-[#00C300] active:scale-95 transition-transform"
+                                                        aria-label={`Voice call member ${memberId}`}
+                                                        title="Voice call"
+                                                    >
+                                                        <Phone size={18} />
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => { setShowCallPicker(false); navigate('/call', { state: { userId: memberId, mode: 'video' } }); }}
+                                                        className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-[#00C300]/10 text-[#00C300] active:scale-95 transition-transform"
+                                                        aria-label={`Video call member ${memberId}`}
+                                                        title="Video call"
+                                                    >
+                                                        <Video size={18} />
+                                                    </button>
+                                                </div>
                                             </div>
-                                            <div className="flex-1 min-w-0">
-                                                <p className="text-sm font-medium text-[#111111] truncate">{name}</p>
-                                                <p className="text-[11px] text-[#8D8D8D] truncate">{info?.name ? memberId : 'Group member'}</p>
-                                            </div>
-                                            <div className="flex items-center gap-1 shrink-0">
-                                                <button
-                                                    type="button"
-                                                    onClick={() => { setShowCallPicker(false); navigate('/call', { state: { userId: memberId, mode: 'voice' } }); }}
-                                                    className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-[#00C300]/10 text-[#00C300] active:scale-95 transition-transform"
-                                                    aria-label={`Voice call member ${memberId}`}
-                                                    title="Voice call"
-                                                >
-                                                    <Phone size={18} />
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => { setShowCallPicker(false); navigate('/call', { state: { userId: memberId, mode: 'video' } }); }}
-                                                    className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-[#00C300]/10 text-[#00C300] active:scale-95 transition-transform"
-                                                    aria-label={`Video call member ${memberId}`}
-                                                    title="Video call"
->
-                                                    <Video size={18} />
-                                                </button>
-                                            </div>
-                                        </div>
                                         );
                                     })}
                                 {(!group.participants || group.participants.filter((id: string) => id !== currentUser?.id).length === 0) && (

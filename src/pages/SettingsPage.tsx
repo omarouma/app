@@ -10,8 +10,9 @@ import {
   Mail, MoonStar, Eraser,
   FileText, Crown,
   Clock, Bug, LifeBuoy, FileQuestion, ArrowLeft,
-  KeyRound, HardDrive
+  KeyRound, HardDrive, ShieldCheck, RefreshCw
 } from 'lucide-react';
+import { useAppPermissions, type PermissionType, type PermissionStatus } from '@/hooks/useAppPermissions';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useAuth } from '@/context/AuthContext';
 import { useUserSettings } from '@/store/useSettingsStore';
@@ -67,6 +68,19 @@ export default function SettingsPage() {
   const { wallet } = useWalletStore();
   const { blockedUsers } = useFriendStore();
   const { setLang } = useTranslation();
+  const {
+    statuses, audioStatus, requesting,
+    requestPermission, requestAudio, checkAll,
+    permissions,
+  } = useAppPermissions();
+
+  const permissionStatusInfo: Record<PermissionStatus, { label: string; color: string; bg: string }> = {
+    granted: { label: 'Allowed', color: 'text-green-600', bg: 'bg-green-100 dark:bg-green-500/20' },
+    denied: { label: 'Denied', color: 'text-red-500', bg: 'bg-red-100 dark:bg-red-500/20' },
+    prompt: { label: 'Ask', color: 'text-amber-600', bg: 'bg-amber-100 dark:bg-amber-500/20' },
+    unsupported: { label: 'N/A', color: 'text-muted-foreground', bg: 'bg-accent' },
+    unknown: { label: 'Check', color: 'text-muted-foreground', bg: 'bg-accent' },
+  };
 
   const [section, setSection] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -153,6 +167,7 @@ export default function SettingsPage() {
 
   const sections = [
     { id: 'account', label: 'Account', icon: User, desc: 'Profile, security, privacy' },
+    { id: 'permissions', label: 'App Permissions', icon: ShieldCheck, desc: 'Camera, mic, notifications, location & more' },
     { id: 'appearance', label: 'Appearance', icon: Palette, desc: 'Theme, colors, fonts' },
     { id: 'notifications', label: 'Notifications', icon: Bell, desc: 'Sounds, alerts, previews' },
     { id: 'privacy', label: 'Privacy', icon: Shield, desc: 'Last seen, read receipts, blocked' },
@@ -252,6 +267,118 @@ export default function SettingsPage() {
             </motion.div>
           ) : (
             <motion.div key={section} initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-4">
+              {section === 'permissions' && (
+                <div className="space-y-4">
+                  {/* Summary card */}
+                  <div className="card-surface p-4 sm:p-5">
+                    <div className="flex items-center justify-between mb-3">
+                      <div>
+                        <p className="text-sm font-semibold text-foreground">App Permissions</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">Manage what GaGa Chat can access on this device</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={async () => { await checkAll(); toast.success('Permissions refreshed'); }}
+                        className="icon-btn w-9 h-9 bg-accent/50"
+                        aria-label="Refresh permissions"
+                      >
+                        <RefreshCw size={16} />
+                      </button>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      {permissions.map(p => {
+                        const info = permissionStatusInfo[statuses[p.id] || 'unknown'];
+                        return (
+                          <div key={p.id} className="flex items-center gap-2 p-2 rounded-lg bg-accent/50">
+                            <span className="text-lg">{p.icon}</span>
+                            <div className="min-w-0">
+                              <p className="text-[11px] font-medium text-foreground truncate">{p.label}</p>
+                              <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${info.bg} ${info.color}`}>{info.label}</span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                      <div className="flex items-center gap-2 p-2 rounded-lg bg-accent/50">
+                        <span className="text-lg">🎵</span>
+                        <div className="min-w-0">
+                          <p className="text-[11px] font-medium text-foreground truncate">Music & Audio</p>
+                          <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${permissionStatusInfo[audioStatus || 'unknown'].bg} ${permissionStatusInfo[audioStatus || 'unknown'].color}`}>
+                            {permissionStatusInfo[audioStatus || 'unknown'].label}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Individual permission rows */}
+                  <div className="card-surface p-3 sm:p-4 space-y-1">
+                    {permissions.map(p => (
+                      <div key={p.id} className="flex items-center gap-3 px-2 py-2.5 rounded-xl">
+                        <span className="text-xl shrink-0">{p.icon}</span>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-foreground">{p.label}</p>
+                          <p className="text-[11px] text-muted-foreground truncate">{p.description}</p>
+                        </div>
+                        {statuses[p.id] === 'granted' ? (
+                          <span className="shrink-0 inline-flex items-center gap-1 text-[11px] font-medium px-2 py-1 rounded-full bg-green-100 dark:bg-green-500/20 text-green-600">
+                            <Check size={12} /> Allowed
+                          </span>
+                        ) : statuses[p.id] === 'denied' ? (
+                          <button
+                            type="button"
+                            onClick={() => requestPermission(p.id as PermissionType)}
+                            disabled={!!requesting[p.id]}
+                            className="shrink-0 text-[11px] font-semibold px-3 py-1.5 rounded-full bg-red-500 text-white disabled:opacity-50"
+                          >
+                            {requesting[p.id] ? '...' : 'Open Settings'}
+                          </button>
+                        ) : p.isSupported() ? (
+                          <button
+                            type="button"
+                            onClick={() => requestPermission(p.id as PermissionType)}
+                            disabled={!!requesting[p.id]}
+                            className="shrink-0 text-[11px] font-semibold px-3 py-1.5 rounded-full bg-primary text-primary-foreground disabled:opacity-50"
+                          >
+                            {requesting[p.id] ? 'Requesting…' : statuses[p.id] === 'prompt' || statuses[p.id] === 'unknown' ? 'Allow' : 'Re-request'}
+                          </button>
+                        ) : (
+                          <span className="shrink-0 text-[11px] text-muted-foreground px-2 py-1 rounded-full bg-accent">Not supported</span>
+                        )}
+                      </div>
+                    ))}
+
+                    {/* Music & Audio row */}
+                    <div className="flex items-center gap-3 px-2 py-2.5 rounded-xl">
+                      <span className="text-xl shrink-0">🎵</span>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-foreground">Music & Audio</p>
+                        <p className="text-[11px] text-muted-foreground truncate">Notification sounds, voice messages, and background audio</p>
+                      </div>
+                      {audioStatus === 'granted' ? (
+                        <span className="shrink-0 inline-flex items-center gap-1 text-[11px] font-medium px-2 py-1 rounded-full bg-green-100 dark:bg-green-500/20 text-green-600">
+                          <Check size={12} /> Allowed
+                        </span>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => requestAudio().then(() => toast.success('Audio unlocked'))}
+                          disabled={!!requesting.__audio}
+                          className="shrink-0 text-[11px] font-semibold px-3 py-1.5 rounded-full bg-primary text-primary-foreground disabled:opacity-50"
+                        >
+                          {requesting.__audio ? 'Unlocking…' : 'Unlock Audio'}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  <p className="text-[11px] text-muted-foreground px-2 leading-relaxed">
+                    💡 Tip: Permissions are managed by your browser. If a permission is denied,
+                    click the lock icon in the address bar to change it. Camera and microphone
+                    are required for voice & video calls.
+                  </p>
+                </div>
+              )}
+
               {section === 'appearance' && (
                 <div className="space-y-4 sm:space-y-5">
                   {/* Theme */}

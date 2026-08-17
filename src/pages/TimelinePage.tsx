@@ -10,9 +10,10 @@ import {
 import { useAuthStore } from '@/store/useAuthStore';
 import { useFriendStore } from '@/store/useFriendStore';
 import { useReelStore } from '@/store/useReelStore';
+import { useUserSettings } from '@/store/useSettingsStore';
 import {
   isFirestoreAvailable, COLLECTIONS, addDocToCollection,
-  updateDocById, deleteDocById, subscribeToCollection, serverTimestamp,
+  updateDocById, deleteDocById, subscribeToCollection, serverTimestamp, increment,
   where, orderBy, limit, startAfter, queryCollection
 } from '@/lib/firestore';
 import TimelineCard from '@/components/features/timeline/TimelineCard';
@@ -42,7 +43,9 @@ export default function TimelinePage() {
   const { user } = useAuthStore();
   const { friends, subscribeFriends, getSuggestedFriends } = useFriendStore();
   const { reels, getReels } = useReelStore();
+  const { settings } = useUserSettings();
   const navigate = useNavigate();
+  const isDarkFeed = settings.theme === 'dark' || settings.theme === 'midnight' || settings.theme === 'oled';
 
   const [posts, setPosts] = useState<TimelinePost[]>([]);
   const [loading, setLoading] = useState(true);
@@ -97,28 +100,36 @@ export default function TimelinePage() {
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // ── Map raw DB data to TimelinePost ──────────────────────────────────
-  const mapPost = useCallback((d: Record<string, unknown>, uid: string | undefined): TimelinePost => ({
-    id: d.id as string,
-    userId: d.userId as string,
-    content: (d.content as string) || '',
-    images: (d.images as string[]) || [],
-    likes: (d.likes as string[]) || [],
-    comments: (d.comments as PostComment[]) || [],
-    shares: (d.shares as string[]) || [],
-    timestamp: (() => {
-      const ts = d.timestamp;
-      if (ts && typeof ts === 'object' && 'toDate' in ts && typeof (ts as { toDate(): Date }).toDate === 'function') {
-        return (ts as { toDate(): Date }).toDate();
+  const mapPost = useCallback((d: Record<string, unknown>, uid: string | undefined): TimelinePost => {
+    const resolveTimestamp = (ts: unknown): Date => {
+      if (ts == null) return new Date();
+      if (ts instanceof Date) return ts;
+      if (typeof ts === 'object' && ts !== null && typeof (ts as { toDate?: () => Date }).toDate === 'function') {
+        try { return (ts as { toDate(): Date }).toDate(); } catch { /* fallthrough */ }
       }
-      return new Date(ts as string | number);
-    })(),
-    visibility: (d.visibility as TimelinePost['visibility']) || 'public',
-    pollData: (d.pollData as PostPollData) || undefined,
-    userName: (d.userName as string) || (d.userId === uid ? user?.name : 'User'),
-    userAvatar: (d.userAvatar as string) || (d.userId === uid ? user?.avatar : undefined),
-    videoUrl: (d.videoUrl as string) || undefined,
-    mediaType: (d.mediaType as TimelinePost['mediaType']) || 'text',
-  }), [user?.name, user?.avatar]);
+      const asNum = Number(ts);
+      if (!Number.isNaN(asNum) && asNum > 0) return new Date(asNum);
+      const asStr = String(ts);
+      const parsed = new Date(asStr);
+      return Number.isNaN(parsed.getTime()) ? new Date() : parsed;
+    };
+    return {
+      id: d.id as string,
+      userId: d.userId as string,
+      content: (d.content as string) || '',
+      images: (d.images as string[]) || [],
+      likes: (d.likes as string[]) || [],
+      comments: (d.comments as PostComment[]) || [],
+      shares: (d.shares as string[]) || [],
+      timestamp: resolveTimestamp(d.timestamp),
+      visibility: (d.visibility as TimelinePost['visibility']) || 'public',
+      pollData: (d.pollData as PostPollData) || undefined,
+      userName: (d.userName as string) || (d.userId === uid ? user?.name : 'User'),
+      userAvatar: (d.userAvatar as string) || (d.userId === uid ? user?.avatar : undefined),
+      videoUrl: (d.videoUrl as string) || undefined,
+      mediaType: (d.mediaType as TimelinePost['mediaType']) || 'text',
+    };
+  }, [user?.name, user?.avatar]);
 
   // ── Real-time post subscription with deduplication ─────────────────
   useEffect(() => {
@@ -175,12 +186,9 @@ export default function TimelinePage() {
   useEffect(() => {
     if (!isFirestoreAvailable()) return;
 
-    // Pre-bind the view recording function to avoid dynamic requires
     recordViewRef.current = async (postId: string) => {
       try {
-        const { increment: inc } = await import('@/lib/firestore');
-        const { updateDocById: update, COLLECTIONS: cols } = await import('@/lib/firestore');
-        await update(cols.POSTS, postId, { viewCount: inc(1) });
+        await updateDocById(COLLECTIONS.POSTS, postId, { viewCount: increment(1) });
       } catch { /* ignore view tracking errors */ }
     };
 
@@ -619,21 +627,21 @@ export default function TimelinePage() {
   }
 
   return (
-    <div className="h-full flex flex-col bg-[#0d0d0d]">
+    <div className={`h-full flex flex-col ${isDarkFeed ? 'bg-[#0d0d0d]' : 'bg-[#F5F5F5]'}`}>
       {/* Header with Tabs */}
-      <div className="shrink-0 px-4 pb-3 border-b border-[#1a1a1a]" style={{ paddingTop: 'max(12px, env(safe-area-inset-top, 0px))' }}>
+      <div className={`shrink-0 px-4 pb-3 border-b ${isDarkFeed ? 'border-[#1a1a1a]' : 'border-[#EBEBEB]'} ${isDarkFeed ? 'bg-[#0d0d0d]' : 'bg-white'}`} style={{ paddingTop: 'max(12px, env(safe-area-inset-top, 0px))' }}>
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
-            <h1 className="text-lg font-bold text-white">GaGa Feed</h1>
-            <button type="button" onClick={handleRefresh} className="p-1.5 rounded-lg hover:bg-[#1a1a1a] text-[#8D8D8D]">
+            <h1 className={`text-lg font-bold ${isDarkFeed ? 'text-white' : 'text-[#111111]'}`}>GaGa Feed</h1>
+            <button type="button" onClick={handleRefresh} className={`p-1.5 rounded-lg ${isDarkFeed ? 'hover:bg-[#1a1a1a] text-[#8D8D8D]' : 'hover:bg-[#F5F5F5] text-[#8D8D8D]'}`}>
               <RefreshCw size={16} className={refreshing ? 'animate-spin' : ''} />
             </button>
           </div>
           <div className="flex items-center gap-2">
-            <button type="button" onClick={() => setShowPostSearch(!showPostSearch)} className="p-2 rounded-lg hover:bg-[#1a1a1a] text-[#8D8D8D]">
+            <button type="button" onClick={() => setShowPostSearch(!showPostSearch)} className={`p-2 rounded-lg ${isDarkFeed ? 'hover:bg-[#1a1a1a] text-[#8D8D8D]' : 'hover:bg-[#F5F5F5] text-[#111111]'}`}>
               <Search size={18} />
             </button>
-            <button type="button" onClick={() => { setShowComposer(true); setEditingPost(null); setContent(''); setImages([]); setVisibility('public'); }} className="p-2 rounded-lg bg-[#00C300] text-black hover:bg-[#00C300]/90">
+            <button type="button" onClick={() => { setShowComposer(true); setEditingPost(null); setContent(''); setImages([]); setVisibility('public'); }} className="p-2 rounded-lg bg-[#00C300] text-black hover:bg-[#00A300]/90">
               <Plus size={18} />
             </button>
           </div>
@@ -665,8 +673,10 @@ export default function TimelinePage() {
                   : t.key === 'reels'
                     ? 'bg-[#FF4081]/20 text-[#FF4081] hover:bg-[#FF4081]/30'
                     : t.key === 'videos'
-                      ? 'bg-red-600/20 text-red-400 hover:bg-red-600/30'
-                      : 'bg-[#1a1a1a] text-[#8D8D8D] hover:text-white'
+                      ? 'bg-red-600/20 text-red-500 hover:bg-red-600/30'
+                      : isDarkFeed
+                        ? 'bg-[#1a1a1a] text-[#8D8D8D] hover:text-white'
+                        : 'bg-[#F5F5F5] text-[#111111] hover:bg-[#EBEBEB]'
                   }`}
               >
                 <Icon size={16} />
@@ -681,7 +691,7 @@ export default function TimelinePage() {
       <AnimatePresence>
         {showPostSearch && (
           <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
-            <div className="px-4 py-2 border-b border-[#1a1a1a]">
+            <div className={`px-4 py-2 border-b ${isDarkFeed ? 'border-[#1a1a1a] bg-[#0d0d0d]' : 'border-[#EBEBEB] bg-white'}`}>
               <div className="relative">
                 <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8D8D8D]" />
                 <input
@@ -689,7 +699,7 @@ export default function TimelinePage() {
                   placeholder="Search posts..."
                   value={postSearch}
                   onChange={e => setPostSearch(e.target.value)}
-                  className="w-full bg-[#1a1a1a] text-white pl-10 pr-4 py-2 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#00C300]"
+                  className={`w-full pl-10 pr-4 py-2 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#00C300] ${isDarkFeed ? 'bg-[#1a1a1a] text-white placeholder:text-[#8D8D8D]' : 'bg-[#F5F5F5] text-[#111111]'}`}
                 />
               </div>
             </div>
@@ -699,11 +709,11 @@ export default function TimelinePage() {
 
       {/* Feed filter (only in feed tab) */}
       {feedTab === 'feed' && (
-        <div className="shrink-0 flex gap-1 px-4 py-2 overflow-x-auto border-b border-[#1a1a1a]">
+        <div className={`shrink-0 flex gap-1 px-4 py-2 overflow-x-auto border-b ${isDarkFeed ? 'border-[#1a1a1a]' : 'border-[#EBEBEB]'}`}>
           {(['all', 'public', 'friends', 'mine'] as const).map(f => (
             <button type="button" key={f}
               onClick={() => setFeedFilter(f)}
-              className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap ${feedFilter === f ? 'bg-[#00C300] text-black' : 'bg-[#1a1a1a] text-[#8D8D8D]'
+              className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap ${feedFilter === f ? 'bg-[#00C300] text-black' : isDarkFeed ? 'bg-[#1a1a1a] text-[#8D8D8D] hover:text-white' : 'bg-[#F5F5F5] text-[#111111] hover:bg-[#EBEBEB]'
                 }`}
             >
               {f === 'all' ? 'All' : f === 'public' ? 'Public' : f === 'friends' ? 'Friends' : 'My Posts'}

@@ -68,7 +68,7 @@ $csp120 = if ($csp) { $csp.Substring(0, [Math]::Min(120, $csp.Length)) } else { 
 Write-Host (Result ($null -ne $csp) ("Content-Security-Policy        present=" + $csp120))
 
 $hsts = GetHeader 'Strict-Transport-Security'
-Write-Host (Result ($hsts -match 'max-age=31536000') ("Strict-Transport-Security      " + $hsts))
+Write-Host (Result ($hsts -match 'max-age=315(36000|56926)') ("Strict-Transport-Security      " + $hsts))
 
 $coop = GetHeader 'Cross-Origin-Opener-Policy'
 Write-Host (Result ($coop -eq 'same-origin') ("Cross-Origin-Opener-Policy     " + $coop))

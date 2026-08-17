@@ -11,7 +11,7 @@ interface ChatListProps {
   visibleOnline: Record<string, boolean>;
   typingMap: Record<string, string>;
   onAddFriend: (friendId: string) => Promise<void>;
-  onLongPress?: (chatId: string, archived: boolean, y: number) => void;
+  onLongPress?: (chatId: string, archived: boolean, muted: boolean, y: number) => void;
 }
 
 export const ChatList = memo(({
@@ -63,7 +63,7 @@ export const ChatList = memo(({
               if (!onLongPress) return;
               const y = e.touches[0].clientY;
               const id = chat.id;
-              longPressTimers.current.set(id, setTimeout(() => onLongPress(id, !!chat.archived, y), 500));
+              longPressTimers.current.set(id, setTimeout(() => onLongPress(id, !!chat.archived, !!chat.isMuted, y), 500));
             }}
             onTouchEnd={() => clearTimer(chat.id)}
             onTouchMove={() => clearTimer(chat.id)}
@@ -71,7 +71,7 @@ export const ChatList = memo(({
             onContextMenu={(e) => {
               if (!onLongPress) return;
               e.preventDefault();
-              onLongPress(chat.id, !!chat.archived, e.clientY);
+              onLongPress(chat.id, !!chat.archived, !!chat.isMuted, e.clientY);
             }}
           >
             <ChatListItem

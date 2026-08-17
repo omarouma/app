@@ -1,9 +1,9 @@
 import { useRef, useEffect } from 'react';
 import { getDefaultAvatar } from '@/lib/utils';
-import type { Message, User } from '@/types';
+import type { Message, User, Chat } from '@/types';
 
 interface GroupChatMessageListProps {
-    group: any;
+    group: Chat;
     filteredMsgs: Message[];
     currentUser: User | null;
     searchQuery: string;
@@ -15,13 +15,19 @@ interface GroupChatMessageListProps {
     handleContextMenu: (e: React.MouseEvent, msg: Message) => void;
 }
 
-function formatTime(date: Date): string {
-    return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+function toDate(d: unknown): Date {
+    if (d instanceof Date) return d;
+    if (d) return new Date(String(d));
+    return new Date();
 }
 
-function formatDateSeparator(date: Date) {
+function formatTime(date: unknown): string {
+    return toDate(date).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+}
+
+function formatDateSeparator(date: unknown) {
     const now = new Date();
-    const d = new Date(date);
+    const d = toDate(date);
     if (d.toDateString() === now.toDateString()) return 'Today';
     const yesterday = new Date(now); yesterday.setDate(yesterday.getDate() - 1);
     if (d.toDateString() === yesterday.toDateString()) return 'Yesterday';
@@ -74,7 +80,7 @@ export function GroupChatMessageList({
                     const isSystem = msg.senderId === 'system';
                     const msgDate = formatDateSeparator(msg.timestamp);
                     const showDate = dateSeparatorMap.get(msg.id) || false;
-                    const isSearchMatch = searchQuery && msg.content.toLowerCase().includes(searchQuery.toLowerCase());
+                    const isSearchMatch = searchQuery && msg.content && msg.content.toLowerCase().includes(searchQuery.toLowerCase());
                     const reactions = msg.reactions || {};
                     const hasReactions = Object.values(reactions).some((users: string[]) => users.length > 0);
 
@@ -101,7 +107,7 @@ export function GroupChatMessageList({
                                 )}
                                 <div className={`max-w-[70%] p-0 relative`}>
                                     {!isMe && <p className="text-[11px] text-white/80 mb-0.5 ml-1">{getSenderName(msg.senderId)}</p>}
-                                    <div className={`px-3 py-2 rounded-xl text-sm leading-tight relative ${isMe ? 'bg-white text-[#111111] rounded-br-none' : 'bg-[#00C300] text-white rounded-bl-none'}`}>
+                                    <div className={`px-3 py-2 rounded-xl text-sm leading-tight relative ${isMe ? 'bg-[#00C300] text-white rounded-br-none' : 'bg-white text-[#111111] rounded-bl-none'}`}>
                                         {msg.content}
                                         <span className="text-[10px] ml-2 float-right mt-1.5 opacity-70">{formatTime(msg.timestamp)}</span>
                                         {hasReactions && (

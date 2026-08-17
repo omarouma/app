@@ -27,7 +27,7 @@ interface GroupChatInputProps {
 
 const attachmentOptions = [
     { icon: <ImageIcon size={28} strokeWidth={1.5} />, label: 'Photos', color: 'bg-[#4CAF50]', action: 'photo' },
-    { icon: <Camera size={28} strokeWidth={1.5} />, label: 'Camera', color: 'bg-[#2196F3]', action: 'video' },
+    { icon: <Camera size={28} strokeWidth={1.5} />, label: 'Camera', color: 'bg-[#2196F3]', action: 'camera' },
     { icon: <Phone size={28} strokeWidth={1.5} />, label: 'Audio', color: 'bg-[#00C300]', action: 'audio' },
     { icon: <User size={28} strokeWidth={1.5} />, label: 'Contact', color: 'bg-[#FF9800]', action: 'contact' },
     { icon: <MapPin size={28} strokeWidth={1.5} />, label: 'Location', color: 'bg-[#E91E63]', action: 'location' },
@@ -41,6 +41,7 @@ export function GroupChatInput({
     const [showAttachments, setShowAttachments] = useState(false);
     const [showEmojiPicker, setShowEmojiPicker] = useState(false);
     const photoInputRef = useRef<HTMLInputElement>(null);
+    const cameraInputRef = useRef<HTMLInputElement>(null);
     const videoInputRef = useRef<HTMLInputElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -48,6 +49,7 @@ export function GroupChatInput({
         setShowAttachments(false);
         switch (action) {
             case 'photo': photoInputRef.current?.click(); break;
+            case 'camera': cameraInputRef.current?.click(); break;
             case 'video': videoInputRef.current?.click(); break;
             case 'file': fileInputRef.current?.click(); break;
             case 'location': handleLocationShare(); break;
@@ -120,7 +122,7 @@ export function GroupChatInput({
                     <button type="button" onClick={handleSend} className="w-10 h-10 flex items-center justify-center bg-[#00C300] rounded-full text-white">
                         <Send size={20} className="ml-0.5" />
                     </button>
-) : isRecording ? (
+                ) : isRecording ? (
                     <div className="flex-1 flex items-center gap-2 bg-[#F5F5F5] rounded-xl px-3 h-10">
                         <div className="w-2.5 h-2.5 rounded-full bg-[#FF3B30] animate-pulse shrink-0" />
                         <RecordingWaveform duration={duration} barColor="#00C300" />
@@ -137,6 +139,7 @@ export function GroupChatInput({
                 )}
             </div>
             <input type="file" accept="image/*" ref={photoInputRef} onChange={(e) => handleMediaUpload(e, 'image')} className="hidden" />
+            <input type="file" accept="image/*" capture="environment" ref={cameraInputRef} onChange={(e) => handleMediaUpload(e, 'image')} className="hidden" />
             <input type="file" accept="video/*" ref={videoInputRef} onChange={(e) => handleMediaUpload(e, 'video')} className="hidden" />
             <input type="file" ref={fileInputRef} onChange={handleFileUpload} className="hidden" />
             <AnimatePresence>

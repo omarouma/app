@@ -69,6 +69,27 @@ export function getCurrencySymbol(currency: CurrencyCode): string {
 }
 
 const hasSecureCrypto = () => typeof crypto !== 'undefined' && !!crypto.subtle && typeof crypto.getRandomValues === 'function';
+
+export function normalizeWalletData(data: Record<string, unknown> | null | undefined): WalletData {
+  if (!data) return { coins: 0, usdBalance: 0, bdtBalance: 0, transactions: [] };
+  const coins = typeof data.coins === 'number' ? data.coins : Number(data.coins || 0);
+  const usdBalance =
+    typeof data.usdBalance === 'number'
+      ? data.usdBalance
+      : typeof data.usd_balance === 'number'
+        ? data.usd_balance
+        : typeof data.bdtBalance === 'number'
+          ? data.bdtBalance
+          : 0;
+  const bdtBalance = typeof data.bdtBalance === 'number' ? data.bdtBalance : usdBalance;
+  return {
+    coins: Number.isFinite(coins) ? coins : 0,
+    usdBalance: Number.isFinite(usdBalance) ? usdBalance : 0,
+    bdtBalance: Number.isFinite(bdtBalance) ? bdtBalance : 0,
+    transactions: Array.isArray(data.transactions) ? (data.transactions as WalletTransaction[]) : [],
+  };
+}
+
 const readStoredValue = (key: string) => {
   try {
     if (typeof window === 'undefined' || !window.localStorage) return null;
@@ -197,12 +218,7 @@ export const useWalletStore = create<WalletStore>((set, get) => ({
       unsub = subscribeToDoc(COLLECTIONS.WALLETS, userId, async (data) => {
         if (data) {
           set({
-            wallet: {
-              coins: data.coins || 0,
-              bdtBalance: data.bdtBalance || 0,
-              usdBalance: data.usdBalance || data.bdtBalance || 0,
-              transactions: data.transactions || [],
-            },
+            wallet: normalizeWalletData(data as Record<string, unknown>),
             loading: false,
             lastError: null,
           });

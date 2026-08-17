@@ -37,11 +37,21 @@ interface CallStore {
 const mapCall = (d: Record<string, unknown>): CallRecord => {
   const caller = (d.callerId as string) ?? (d.caller as string) ?? '';
   const callee = (d.calleeId as string) ?? (d.callee as string) ?? '';
+  // Use the persisted participant_ids list when available (needed for group
+  // calls / invited participants). Fall back to the legacy caller+callee pair.
+  const storedParticipants = Array.isArray((d as any).participantIds)
+    ? ((d as any).participantIds as string[]).filter(Boolean)
+    : Array.isArray((d as any).participant_ids)
+      ? ((d as any).participant_ids as string[]).filter(Boolean)
+      : [];
+  const participantIds: string[] = storedParticipants.length > 0
+    ? Array.from(new Set([...storedParticipants, caller, callee].filter(Boolean) as string[]))
+    : [caller, callee].filter(Boolean) as string[];
   return {
     id: d.id as string,
     initiatorId: caller,
-    participantIds: [caller, callee].filter(Boolean) as string[],
-    type: (d.type as 'voice' | 'video') || 'voice',
+    participantIds,
+    type: (d.type as CallRecord['type']) || 'voice',
     status: (d.status as CallRecord['status']) || 'ended',
     timestamp: d.createdAt && typeof d.createdAt === 'object' && 'toDate' in d.createdAt
       ? (d.createdAt as { toDate(): Date }).toDate()
@@ -383,6 +393,16 @@ export const useCallStore = create<CallStore>((set, get) => ({
 
     // Only accept calls in 'calling' state — don't accept already-connected or rejected calls
     if (incomingCall.status !== 'calling') return;
+
+    // Verify the callee's camera/microphone BEFORE marking the call connected.
+    // ZEGO's UI kit will hang on "Joining…" forever if permissions are missing.
+    try {
+      await verifyCallMediaAccess(incomingCall.type);
+    } catch (error) {
+      // Still mark connected — the ZEGO UI will surface the permission error
+      // so the user can retry, rather than silently hanging on "Joining…".
+      console.warn('[Call] Media permission check failed on accept:', error);
+    }
 
     try {
       await updateDocById(COLLECTIONS.CALL_HISTORY, incomingCall.id, { status: 'connected' });

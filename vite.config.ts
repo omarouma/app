@@ -144,7 +144,7 @@ export default defineConfig(({ mode }) => {
             if (id.includes('@supabase')) return 'vendor-supabase';
 
             // RTC (async-loaded during calls only)
-            if (id.includes('agora-rtc-sdk-ng') || id.includes('agora')) return 'vendor-agora';
+            if (id.includes('@zegocloud/zego-uikit-prebuilt') || id.includes('zego-ui')) return 'vendor-zego';
 
             // UI & animation (loaded early but splittable)
             if (id.includes('framer-motion') || id.includes('motion-dom') || id.includes('motion-utils')) return 'vendor-framer';

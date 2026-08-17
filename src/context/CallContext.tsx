@@ -10,11 +10,13 @@ import { CallConnectionMonitor } from '@/components/calling/CallConnectionMonito
 const isClient = typeof window !== 'undefined';
 
 // Lazy-load the WebRTC manager component only when a call is active.
-// This defers the 1.1MB Agora SDK bundle until it's actually needed.
+// This defers the ZEGO Cloud SDK bundle until it's actually needed.
 const WebRTCProviderLazy = lazy(() => import('@/context/WebRTCProvider'));
 
 // Default values when WebRTC is not initialized (no active call)
 const DEFAULT_WEBRTC_STATE: WebRTCState = {
+  containerRef: { current: null } as React.RefObject<HTMLDivElement | null>,
+  isZegoActive: false,
   isConnected: false,
   localStream: null,
   remoteStream: null,
@@ -100,6 +102,11 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
   } : null;
 
   const value: CallContextValue = {
+    // ZEGO prebuilt container ref — CallOverlay mounts this <div> so ZEGO renders inside.
+    containerRef: webrtcState.containerRef,
+    // Only true once ZEGO has joined the room — lets CallOverlay swap from the
+    // legacy ring UI to ZEGO's full-screen UI. Prevents black screen.
+    isZegoActive: webrtcState.isZegoActive,
     activeCall,
     isCallActive: !!currentCall && currentCall.status !== 'ended' && currentCall.status !== 'rejected',
     localStream: webrtcState.localStream,

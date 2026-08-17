@@ -1,6 +1,7 @@
 # Calling Features — Production Build Fix Tracking
 
 ## Objective
+
 Fix all remaining calling-related implementations so the existing deployed app builds and runs cleanly for production.
 
 ## Steps
@@ -67,3 +68,19 @@ Fix all remaining calling-related implementations so the existing deployed app b
 - [x] 5. Verified with `npx tsc --noEmit` → 0 errors (confirmed)
 - [x] 6. Verified with `npm run build` → clean production build (confirmed)
 
+## Calling Fixes (2026-08-17)
+
+- [x] 1. **Fixed double end-call in `useWebRTCManager.ts`**:
+      - `endCall()` no longer calls `endCallInStoreRef.current()` — `CallContext.endCall` already calls the store's `endCall` via `_endCall()`. Calling it here caused the store's `endCall` to run twice.
+- [x] 2. **Fixed `onLeaveRoom` firing `endedCb` on programmatic leave in `useZegoCall.ts`**:
+      - Added `isLeavingRef` flag that's set to `true` in `leave()` and checked in `onLeaveRoom` to prevent the room-ended callback from firing when leaving programmatically.
+      - The flag stays `true` until the next `join()` call because `destroy()` may be asynchronous and `onLeaveRoom` could fire after `leave()` returns.
+      - `join()` resets `isLeavingRef.current = false` so a new call can fire `onLeaveRoom` normally.
+- [x] 3. **Removed unused `showZegoUi` variable in `CallOverlay.tsx`**:
+      - The variable was declared but never used.
+- [x] 4. **Fixed unawaited `endCall()` in `CallPage.tsx`**:
+      - Changed `endCall()` to `void endCall().then(() => { initiatedRef.current = false; })` to properly await the async end-call before resetting the initiation flag.
+- [x] 5. **Fixed pre-existing build error in `usePhoneContacts.ts`**:
+      - Removed unused `prevFriendKeyRef` variable that was declared but never read.
+- [x] 6. Verified with `npx tsc --noEmit` → 0 errors (confirmed)
+- [x] 7. Verified with `npm run build` → BUILD_SUCCESS (confirmed)

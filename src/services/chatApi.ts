@@ -469,7 +469,21 @@ export const chatApi = {
         }
 
         try {
-            await updateDocById(COLLECTIONS.CHATS, chatId, { chatLocked: true, lockType, lockValue });
+            let storedValue = lockValue;
+            if (lockType === 'pin' && lockValue && lockValue.length !== 64) {
+                // Hash the PIN with SHA-256 before storing — never store plain text
+                try {
+                    const encoder = new TextEncoder();
+                    const hashBuffer = await crypto.subtle.digest('SHA-256', encoder.encode(lockValue));
+                    storedValue = Array.from(new Uint8Array(hashBuffer))
+                        .map(b => b.toString(16).padStart(2, '0'))
+                        .join('');
+                } catch {
+                    // crypto.subtle unavailable (non-secure context) — store as-is
+                    storedValue = lockValue;
+                }
+            }
+            await updateDocById(COLLECTIONS.CHATS, chatId, { chatLocked: true, lockType, lockValue: storedValue });
         } catch (error) {
             logStoreError('chatApi.lockChat', error, { chatId, lockType });
             throw error;
@@ -532,7 +546,8 @@ export const chatApi = {
             const chat = await queryCollection<Chat>(COLLECTIONS.CHATS, [where('id', '==', chatId)]);
             if (chat.length > 0) {
                 const pinnedMessages = (chat[0].pinnedMessages as PinnedMessage[]) ?? [];
-                const filtered = pinnedMessages.filter(p => p.messageId !== messageId);
+                // Use message_id (snake_case) consistently with pinMessage
+                const filtered = pinnedMessages.filter(p => p.message_id !== messageId);
                 await updateDocById(COLLECTIONS.CHATS, chatId, { pinnedMessages: filtered });
             }
         } catch (error) {

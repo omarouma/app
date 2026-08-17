@@ -43,7 +43,7 @@ export default function Navbar() {
       initial={{ y: -100 }}
       animate={{ y: 0 }}
       transition={{ duration: 0.6, ease: 'easeOut' }}
-      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${scrolled ? 'bg-white/90 backdrop-blur-md border-b border-[#EBEBEB]' : 'bg-transparent'
+      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${scrolled ? 'bg-background/90 backdrop-blur-md border-b border-border' : 'bg-transparent'
         }`}
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -66,10 +66,10 @@ export default function Navbar() {
                     setMobileMenuOpen(false);
                   }
                 }}
-                className="text-sm font-medium uppercase tracking-wider text-[#8D8D8D] hover:text-[#111111] transition-colors relative group rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00C300] focus-visible:ring-offset-2"
+                className="text-sm font-medium uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors relative group rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
               >
                 {link.label}
-                <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-[#00C300] transition-all duration-300 group-hover:w-full" />
+                <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-primary transition-all duration-300 group-hover:w-full" />
               </button>
             ))}
           </div>
@@ -80,7 +80,7 @@ export default function Navbar() {
                 type="button"
                 aria-label="Install app"
                 onClick={triggerInstall}
-                className="flex items-center gap-2 border border-[#00C300] text-[#00C300] hover:bg-[#00C300] hover:text-white rounded-full px-5 py-2 text-sm font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00C300] focus-visible:ring-offset-2"
+                className="flex items-center gap-2 border border-primary text-primary hover:bg-primary hover:text-primary-foreground rounded-full px-5 py-2 text-sm font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
               >
                 <Download size={14} /> Install App
               </button>
@@ -90,7 +90,7 @@ export default function Navbar() {
                 type="button"
                 aria-label="Open chat"
                 onClick={() => navigate('/chats')}
-                className="bg-[#00C300] hover:bg-[#00A300] text-white rounded-full px-6 py-2 text-sm font-bold transition-colors flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00C300] focus-visible:ring-offset-2"
+                className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-full px-6 py-2 text-sm font-bold transition-colors flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
               >
                 <MessageCircle className="w-4 h-4" />Open Chat
               </button>
@@ -100,7 +100,7 @@ export default function Navbar() {
                   type="button"
                   aria-label="Log in"
                   onClick={() => navigate('/auth')}
-                  className="text-[#8D8D8D] hover:text-[#111111] text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00C300] focus-visible:ring-offset-2 rounded-sm"
+                  className="text-muted-foreground hover:text-foreground text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 rounded-sm"
                 >
                   Log In
                 </button>
@@ -108,7 +108,7 @@ export default function Navbar() {
                   type="button"
                   aria-label="Get started"
                   onClick={() => navigate('/auth')}
-                  className="bg-[#00C300] hover:bg-[#00A300] text-white rounded-full px-6 py-2 text-sm font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00C300] focus-visible:ring-offset-2"
+                  className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-full px-6 py-2 text-sm font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
                 >
                   Get Started
                 </button>
@@ -121,7 +121,7 @@ export default function Navbar() {
             aria-controls="mobile-menu"
             aria-expanded={mobileMenuOpen}
             aria-label={mobileMenuOpen ? 'Close navigation menu' : 'Open navigation menu'}
-            className="md:hidden text-[#111111] rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00C300] focus-visible:ring-offset-2"
+            className="md:hidden text-foreground rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
           >
             {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
@@ -137,7 +137,7 @@ export default function Navbar() {
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
-            className="md:hidden bg-white dark:bg-slate-950 border-t border-[#EBEBEB] dark:border-slate-800"
+            className="md:hidden bg-background border-t border-border"
           >
             <div className="px-4 py-4 space-y-3">
               {navLinks.map((link) => (
@@ -150,20 +150,20 @@ export default function Navbar() {
                       setMobileMenuOpen(false);
                     }
                   }}
-                  className="block w-full text-left text-sm font-medium uppercase tracking-wider text-[#8D8D8D] hover:text-[#111111] py-2"
+                  className="block w-full text-left text-sm font-medium uppercase tracking-wider text-muted-foreground hover:text-foreground py-2"
                 >
                   {link.label}
                 </button>
               ))}
-              <div className="pt-3 border-t border-[#EBEBEB] flex flex-col gap-2">
+              <div className="pt-3 border-t border-border flex flex-col gap-2">
                 <button type="button" onClick={() => navigate('/auth')}
-                  className="w-full bg-[#00C300] text-white rounded-full py-3 font-bold text-sm"
+                  className="w-full bg-primary text-primary-foreground rounded-full py-3 font-bold text-sm"
                 >
                   Get Started
                 </button>
                 {canInstall && (
                   <button type="button" onClick={triggerInstall}
-                    className="w-full flex items-center justify-center gap-2 border border-[#00C300] text-[#00C300] rounded-full py-3 font-bold text-sm"
+                    className="w-full flex items-center justify-center gap-2 border border-primary text-primary rounded-full py-3 font-bold text-sm"
                   >
                     <Download size={14} /> Install App
                   </button>

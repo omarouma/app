@@ -10,68 +10,16 @@ import { useAuthStore } from '@/store/useAuthStore';
 import { useFriendStore } from '@/store/useFriendStore';
 import { useFilteredOnline } from '@/hooks/usePresence';
 import { useChatStore } from '@/store/useChatStore';
-import { useContacts } from '@/hooks/useContacts';
+import { usePhoneContacts } from '@/hooks/usePhoneContacts';
 import EmptyState from '@/components/EmptyState';
 import LoadingSkeleton from '@/components/LoadingSkeleton';
 import { getDefaultAvatar, sanitizeMediaUrl, formatTime } from '@/lib/utils';
 import { toast } from 'sonner';
-import { safeGetStorageItem, safeSetStorageItem, safeRemoveStorageItem } from '@/lib/safeStorage';
 import { copyToClipboard, nativeShare } from '@/lib/share';
 import type { User } from '@/types';
 
-interface PhoneContact {
-  id: string;
-  name: string;
-  email?: string;
-  phone?: string;
-  avatar?: string;
-}
-
-interface MatchedContact {
-  contact: PhoneContact;
-  user: User;
-}
-
 const INVITE_LINK = 'https://gagachat.app';
 const INVITE_TEXT = 'Join me on GaGa Chat - the free messaging app for everyone!';
-
-const STORAGE_KEY = 'gaga_phone_contacts';
-const STORAGE_TIMESTAMP_KEY = 'gaga_contacts_synced_at';
-
-function loadStoredContacts(): PhoneContact[] {
-  try {
-    const raw = safeGetStorageItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : [];
-  } catch {
-    return [];
-  }
-}
-
-function saveStoredContacts(contacts: PhoneContact[]) {
-  try {
-    safeSetStorageItem(STORAGE_KEY, JSON.stringify(contacts));
-    safeSetStorageItem(STORAGE_TIMESTAMP_KEY, Date.now().toString());
-  } catch { /* ignore storage full */ }
-}
-
-function getStoredSyncTime(): string | null {
-  try {
-    const ts = safeGetStorageItem(STORAGE_TIMESTAMP_KEY);
-    if (!ts) return null;
-    const date = new Date(Number(ts));
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMs / 3600000);
-    const diffDays = Math.floor(diffMs / 86400000);
-    if (diffMins < 1) return 'Just now';
-    if (diffMins < 60) return `${diffMins}m ago`;
-    if (diffHours < 24) return `${diffHours}h ago`;
-    return `${diffDays}d ago`;
-  } catch {
-    return null;
-  }
-}
 
 export default function ContactsPage() {
   const navigate = useNavigate();
@@ -85,7 +33,7 @@ export default function ContactsPage() {
   } = useFriendStore();
   const { createDirectChat } = useChatStore();
   const { filtered: visibleOnline } = useFilteredOnline(user?.id || '', friends);
-  const { contacts: rawContacts, loading: contactsLoading, selectContacts, isSupported: contactsSupported } = useContacts();
+  const phone = usePhoneContacts(user?.id);
 
   const [search, setSearch] = useState('');
   const [tab, setTab] = useState<'all' | 'favorites' | 'requests' | 'sent' | 'blocked' | 'contacts'>('all');
@@ -96,13 +44,21 @@ export default function ContactsPage() {
   const userIdRef = useRef(user?.id);
   useEffect(() => { userIdRef.current = user?.id; }, [user?.id]);
 
-  // Phone contacts state
-  const [phoneContacts, setPhoneContacts] = useState<PhoneContact[]>(loadStoredContacts);
-  const [matchedContacts, setMatchedContacts] = useState<MatchedContact[]>([]);
-  const [unmatchedContacts, setUnmatchedContacts] = useState<PhoneContact[]>([]);
-  const [loadingContactMatch, setLoadingContactMatch] = useState(false);
   const [showContactSection, setShowContactSection] = useState(true);
-  const [syncTime, setSyncTime] = useState<string | null>(getStoredSyncTime());
+
+  const {
+    phoneContacts,
+    matchedContacts,
+    unmatchedContacts,
+    loadingContactMatch,
+    contactsLoading,
+    contactsSupported,
+    syncTime,
+    findContactsOnGaga,
+    syncContacts: handleSyncContacts,
+    clearContacts,
+    refreshMatches,
+  } = phone;
 
   // Subscribe to friends, sent requests, and blocked users (all real-time)
   useEffect(() => {
@@ -113,90 +69,17 @@ export default function ContactsPage() {
     return () => { unsubFriends(); unsubSent(); unsubBlocked(); };
   }, [user?.id, subscribeFriends, subscribeSentRequests, subscribeBlockedUsers]);
 
-  // Sync time updater
-  useEffect(() => {
-    const interval = setInterval(() => setSyncTime(getStoredSyncTime()), 60000);
-    return () => clearInterval(interval);
-  }, []);
-
   // Cleanup refresh timeout on unmount
   useEffect(() => () => {
     if (refreshTimeoutRef.current) clearTimeout(refreshTimeoutRef.current);
   }, []);
 
-  const userId = user?.id;
-
-  const findContactsOnGaga = useCallback(async () => {
-    if (!phoneContacts.length || !userId) return;
-    setLoadingContactMatch(true);
-
-    try {
-      const { queryCollection, where, limit: qLimit } = await import('@/lib/firestore');
-      const { dedupeContactEntries, normalizeEmailForMatching, normalizePhoneForMatching } = await import('@/lib/contactMatching');
-
-      const cleanedContacts = dedupeContactEntries(phoneContacts);
-      const emails = cleanedContacts
-        .map(c => normalizeEmailForMatching(c.email))
-        .filter(Boolean) as string[];
-      const phones = cleanedContacts
-        .map(c => normalizePhoneForMatching(c.phone))
-        .filter(Boolean) as string[];
-
-      const foundUsers: User[] = [];
-      await Promise.all([
-        ...emails.slice(0, 10).map(async (email) => {
-          const data = await queryCollection('users', [where('email', '==', email), qLimit(1)]);
-          foundUsers.push(...(data as unknown as User[]));
-        }),
-        ...phones.slice(0, 10).map(async (phone) => {
-          const data = await queryCollection('users', [where('phone', '>=', phone), where('phone', '<=', phone + '\uf8ff'), qLimit(5)]);
-          foundUsers.push(...(data as unknown as User[]));
-        }),
-      ]);
-
-      const unique = Array.from(new Map(foundUsers.map(u => [u.id, u])).values()).filter(u => u.id !== userId);
-      const matched: MatchedContact[] = [];
-      const matchedContactIds = new Set<string>();
-
-      unique.forEach((u) => {
-        const userEmail = normalizeEmailForMatching(u.email || '');
-        const userPhone = normalizePhoneForMatching(u.phone || '');
-
-        const matchingContact = cleanedContacts.find((c) => {
-          const contactEmail = normalizeEmailForMatching(c.email);
-          const contactPhone = normalizePhoneForMatching(c.phone);
-          return (contactEmail && contactEmail === userEmail)
-            || (contactPhone && contactPhone === userPhone)
-            || (c.name && u.name && c.name.trim().toLowerCase() === u.name.trim().toLowerCase());
-        });
-
-        if (matchingContact) {
-          matched.push({ contact: matchingContact, user: u });
-          matchedContactIds.add(matchingContact.id);
-        }
-      });
-
-      setMatchedContacts(matched);
-      setUnmatchedContacts(cleanedContacts.filter((c) => !matchedContactIds.has(c.id)));
-
-      if (matched.length > 0) {
-        toast.success(`Found ${matched.length} contact${matched.length > 1 ? 's' : ''} on GaGa Chat!`);
-      }
-    } catch {
-      toast.error('Could not match contacts.');
-    }
-
-    setLoadingContactMatch(false);
-  }, [phoneContacts, userId]);
-
   const handleRefresh = useCallback(() => {
     if (!userIdRef.current || refreshing) return;
     setRefreshing(true);
-    setMatchedContacts([]);
-    setUnmatchedContacts([]);
+    refreshMatches();
     refreshTimeoutRef.current = setTimeout(() => setRefreshing(false), 1200);
-    queueMicrotask(() => { void findContactsOnGaga(); });
-  }, [refreshing, findContactsOnGaga]);
+  }, [refreshing, refreshMatches]);
 
   const handleMessage = async (friendId: string) => {
     if (!user?.id) return;
@@ -215,26 +98,6 @@ export default function ContactsPage() {
     } catch { /* user cancelled */ }
   };
 
-  // ─── Phone Contacts Import & Matching ───
-
-  const parseImportedContacts = useCallback(() => {
-    if (!rawContacts.length) return;
-    const parsed: PhoneContact[] = rawContacts.map((c, i) => ({
-      id: `contact_${i}_${Date.now()}`,
-      name: c.name?.[0] || 'Unknown',
-      email: c.email?.[0] || undefined,
-      phone: c.tel?.[0] || undefined,
-    }));
-    setPhoneContacts(parsed);
-    saveStoredContacts(parsed);
-    setSyncTime('Just now');
-  }, [rawContacts]);
-
-  useEffect(() => {
-    if (rawContacts.length === 0) return;
-    const t = setTimeout(() => { parseImportedContacts(); }, 0);
-    return () => clearTimeout(t);
-  }, [rawContacts, parseImportedContacts]);
   const prevFriendKeyRef = useRef('');
   useEffect(() => {
     const key = friends.map((f) => f.id).sort().join(',');
@@ -244,38 +107,8 @@ export default function ContactsPage() {
     }
   }, [friends, phoneContacts.length, findContactsOnGaga]);
 
-
-
-
-  // Run contact matching when phone contacts are loaded
-  // (queueMicrotask avoids react-hooks/set-state-in-effect lint error)
-  useEffect(() => {
-    if (phoneContacts.length > 0 && userId) {
-      queueMicrotask(() => {
-        void findContactsOnGaga();
-      });
-    }
-  }, [phoneContacts, userId, findContactsOnGaga]);
-
-
-  const handleSyncContacts = async () => {
-    if (!contactsSupported) {
-      toast.error('Contact access not supported on this device. Try Chrome on Android.');
-      return;
-    }
-    setMatchedContacts([]);
-    setUnmatchedContacts([]);
-    await selectContacts();
-  };
-
   const handleClearContacts = () => {
-    setPhoneContacts([]);
-    setMatchedContacts([]);
-    setUnmatchedContacts([]);
-    safeRemoveStorageItem(STORAGE_KEY);
-    safeRemoveStorageItem(STORAGE_TIMESTAMP_KEY);
-    setSyncTime(null);
-    toast.success('Contacts cleared');
+    clearContacts();
   };
 
   const handleAddFromContact = async (matchedUserId: string) => {
@@ -288,7 +121,6 @@ export default function ContactsPage() {
     }
   };
 
-
   const handleMessageFromContact = async (matchedUserId: string) => {
     if (!user?.id) return;
     await createDirectChat(matchedUserId, user.id);
@@ -297,12 +129,22 @@ export default function ContactsPage() {
 
   // ─── Filtering ───
 
-  const filtered = useMemo(() => friends.filter(f => {
+  const filtered = useMemo(() => {
     const query = search.toLowerCase();
-    const match = f.name?.toLowerCase().includes(query) || f.username?.toLowerCase().includes(query);
-    if (tab === 'favorites') return match && user?.favorites?.includes(f.id);
-    return match;
-  }), [friends, search, tab, user?.favorites]);
+    const results = friends.filter(f => {
+      const match = f.name?.toLowerCase().includes(query) || f.username?.toLowerCase().includes(query);
+      if (tab === 'favorites') return match && user?.favorites?.includes(f.id);
+      return match;
+    });
+
+    return [...results].sort((a, b) => {
+      const aFav = user?.favorites?.includes(a.id) ? 1 : 0;
+      const bFav = user?.favorites?.includes(b.id) ? 1 : 0;
+      if (aFav !== bFav) return bFav - aFav;
+      if (visibleOnline[a.id] !== visibleOnline[b.id]) return Number(visibleOnline[b.id]) - Number(visibleOnline[a.id]);
+      return (a.name || '').localeCompare(b.name || '');
+    });
+  }, [friends, search, tab, user?.favorites, visibleOnline]);
 
   const onlineFriends = filtered.filter(f => visibleOnline[f.id]);
   const displayFriends = showOnlineOnly ? onlineFriends : filtered;
@@ -338,10 +180,15 @@ export default function ContactsPage() {
   };
 
 
+  const sortedRequests = useMemo(
+    () => [...requests].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()),
+    [requests],
+  );
+
   const tabLabels = {
     all: `Friends (${friends.length})`,
     favorites: 'Favorites',
-    requests: `Requests (${requests.length})`,
+    requests: `Requests (${sortedRequests.length})`,
     sent: `Sent (${sentRequests.length})`,
     blocked: `Blocked (${blockedUsers.length})`,
     contacts: `Contacts (${phoneContacts.length})`,
@@ -426,6 +273,7 @@ export default function ContactsPage() {
             value={search}
             onChange={e => setSearch(e.target.value)}
             className="bg-transparent border-none focus:outline-none text-[15px] w-full text-[#111111] placeholder-[#ADADAD]"
+            aria-label="Search contacts"
           />
         </div>
 
@@ -635,8 +483,8 @@ export default function ContactsPage() {
             <button type="button" key={t}
               onClick={() => setTab(t)}
               className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all whitespace-nowrap tap-scale ${tab === t
-                  ? 'bg-[#111111] text-white shadow-sm'
-                  : 'bg-[#F5F5F5] text-[#8D8D8D] hover:text-[#111111]'
+                ? 'bg-[#111111] text-white shadow-sm'
+                : 'bg-[#F5F5F5] text-[#8D8D8D] hover:text-[#111111]'
                 }`}
             >
               {tabLabels[t]}
@@ -650,8 +498,8 @@ export default function ContactsPage() {
             <div className="flex items-center gap-2">
               <button type="button" onClick={() => setShowOnlineOnly(!showOnlineOnly)}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${showOnlineOnly
-                    ? 'bg-[#00C300]/10 text-[#00C300]'
-                    : 'bg-[#F5F5F5] text-[#8D8D8D]'
+                  ? 'bg-[#00C300]/10 text-[#00C300]'
+                  : 'bg-[#F5F5F5] text-[#8D8D8D]'
                   }`}
               >
                 <Globe size={12} />
@@ -683,7 +531,7 @@ export default function ContactsPage() {
               exit={{ opacity: 0 }}
               className="space-y-2"
             >
-              {requests.length === 0 ? (
+              {sortedRequests.length === 0 ? (
                 <EmptyState
                   icon={UserPlus}
                   title="No pending requests"
@@ -691,7 +539,7 @@ export default function ContactsPage() {
                   compact
                 />
               ) : (
-                requests.map((req, i) => (
+                sortedRequests.map((req, i) => (
                   <motion.div
                     key={req.id}
                     initial={{ opacity: 0, y: 10 }}

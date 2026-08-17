@@ -4,7 +4,8 @@ import { useAuthStore } from '@/store/useAuthStore';
 import { useFriendStore } from '@/store/useFriendStore';
 import { useCallStore } from '@/store/useCallStore';
 import { useCallContext } from '@/context/CallContextBase';
-import { PhoneOff, MessageSquare, RotateCw } from 'lucide-react';
+import { useAppPermissions } from '@/hooks/useAppPermissions';
+import { PhoneOff, MessageSquare, RotateCw, ShieldAlert } from 'lucide-react';
 import { withRetry, logErrorEvent } from '@/lib/errorHandling';
 
 export default function CallPage() {
@@ -22,6 +23,7 @@ export default function CallPage() {
   const { friends } = useFriendStore();
   const { startCall, currentCall, cancelCallIfStale } = useCallStore();
   const { endCall } = useCallContext();
+  const { ensureCallPermissions } = useAppPermissions();
   const initiatedRef = useRef(false);
   const hadCallRef = useRef(false);
   const switchingToUserIdRef = useRef<string | null>(null);
@@ -38,20 +40,34 @@ export default function CallPage() {
     // auto-navigate effect from bouncing us to /calls before the new call starts.
     if (currentCall && !currentCall.participantIds.includes(userId)) {
       switchingToUserIdRef.current = userId;
-      endCall();
-      initiatedRef.current = false;
+      void endCall().then(() => {
+        initiatedRef.current = false;
+      });
       return;
     }
     if (currentCall) return;
     initiatedRef.current = true;
     switchingToUserIdRef.current = null;
     setError(null);
-    startCall(userId, currentUser.id, isVideo ? 'video' : 'voice')
-      .catch((err) => {
+    // Ensure camera/microphone permissions are granted before starting the call
+    void (async () => {
+      const allowed = await ensureCallPermissions(isVideo);
+      if (!allowed) {
+        initiatedRef.current = false;
+        setError(isVideo
+          ? 'Camera and microphone access are required for video calls. Please allow access in your browser settings and try again.'
+          : 'Microphone access is required for voice calls. Please allow access in your browser settings and try again.');
+        return;
+      }
+      try {
+        await startCall(userId, currentUser.id, isVideo ? 'video' : 'voice');
+      } catch (err) {
+        initiatedRef.current = false;
         setError(err instanceof Error ? err.message : 'Failed to start the call.');
-      });
+      }
+    })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userId, currentUser?.id, isVideo, currentCall]);
+  }, [userId, currentUser?.id, isVideo, currentCall, ensureCallPermissions]);
 
   // Track once a call has actually been established so we don't redirect on
   // the initial mount while startCall() is still resolving (currentCall is
@@ -88,6 +104,13 @@ export default function CallPage() {
       initiatedRef.current = false;
       setError(null);
       if (userId && currentUser) {
+        const allowed = await ensureCallPermissions(isVideo);
+        if (!allowed) {
+          setError(isVideo
+            ? 'Camera and microphone access are required for video calls. Please allow access in your browser settings and try again.'
+            : 'Microphone access is required for voice calls. Please allow access in your browser settings and try again.');
+          return;
+        }
         initiatedRef.current = true;
         // Use withRetry for automatic exponential backoff on network failures
         await withRetry(
@@ -115,8 +138,8 @@ export default function CallPage() {
       <div className="h-[100dvh] bg-white flex flex-col items-center justify-center p-6 text-center">
         <p className="text-[#111111] text-lg font-semibold mb-2">No contact selected</p>
         <p className="text-[#8D8D8D] text-sm max-w-sm mb-4">Choose a contact from chats or contacts before starting a call.</p>
-        <button 
-          type="button" 
+        <button
+          type="button"
           onClick={() => navigate('/chats')}
           aria-label="Go to Chats to select a contact"
           title="Go to Chats"
@@ -133,6 +156,9 @@ export default function CallPage() {
   if (error) {
     return (
       <div className="h-[100dvh] bg-[#111111] flex flex-col items-center justify-center gap-4 p-6 text-center">
+        <div className="w-16 h-16 rounded-full bg-red-500/20 flex items-center justify-center mb-1">
+          <ShieldAlert size={28} className="text-red-400" />
+        </div>
         <p className="text-white font-semibold">{friend?.name || 'User'}</p>
         <p className="text-[#FF6B6B] text-sm max-w-xs">{error}</p>
         <p className="text-white/40 text-xs max-w-xs">

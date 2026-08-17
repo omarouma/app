@@ -144,7 +144,7 @@ self.addEventListener('message', (event) => {
   }
 });
 
-// Push notification handler
+// Enhanced push notification handler with background calling support
 self.addEventListener('push', (event) => {
   let data = {};
   try {
@@ -152,24 +152,74 @@ self.addEventListener('push', (event) => {
   } catch {
     data = { title: event.data?.text() || 'GaGa Chat' };
   }
+
   const title = data.title || 'GaGa Chat';
+  const isIncomingCall = data.type === 'incoming_call' || data.notificationType === 'incoming_call';
+  const isMessage = data.type === 'message' || data.notificationType === 'message';
+
   const options = {
     body: data.body || 'You have a new notification',
     icon: data.icon || '/logo-192.png',
     badge: data.badge || '/logo-192.png',
-    tag: data.tag || 'default',
-    requireInteraction: data.requireInteraction ?? false,
+    tag: isIncomingCall ? 'incoming-call' : (data.tag || 'default'),
+    requireInteraction: isIncomingCall ? true : (data.requireInteraction ?? false),
     data: data.data || {},
-    actions: data.actions || [],
-    vibrate: [200, 100, 200],
+    actions: [],
+    vibrate: isIncomingCall ? [200, 100, 200, 100, 200] : [200, 100, 200],
+    silent: false,
+    // For incoming calls, enable persistent notification and higher priority
+    ...(isIncomingCall && {
+      priority: 'high',
+      actions: [
+        { action: 'accept_call', title: 'Accept' },
+        { action: 'reject_call', title: 'Decline' },
+      ],
+    }),
+    // For messages, add reply action if applicable
+    ...(isMessage && {
+      actions: [
+        { action: 'reply_message', title: 'Reply' },
+        { action: 'mark_read', title: 'Mark as read' },
+      ],
+    }),
   };
+
+  // Store call data for later retrieval if app is closed
+  if (isIncomingCall && data.data?.callId) {
+    event.waitUntil(
+      (async () => {
+        try {
+          const db = await new Promise((resolve, reject) => {
+            const request = self.indexedDB.open('GaGaChatDB', 1);
+            request.onupgradeneeded = () => {
+              const store = request.result.createObjectStore('incomingCalls', { keyPath: 'callId' });
+              store.createIndex('timestamp', 'timestamp', { unique: false });
+            };
+            request.onsuccess = () => resolve(request.result);
+            request.onerror = () => reject(request.error);
+          });
+
+          const tx = db.transaction('incomingCalls', 'readwrite');
+          tx.objectStore('incomingCalls').put({
+            callId: data.data.callId,
+            callerId: data.data.callerId,
+            callerName: data.data.callerName,
+            timestamp: Date.now(),
+            notification: options,
+          });
+        } catch (e) {
+          console.error('Failed to store incoming call:', e);
+        }
+      })()
+    );
+  }
 
   event.waitUntil(
     self.registration.showNotification(title, options)
   );
 });
 
-// Background sync handler — retries queued messages when network is restored
+// Enhanced background sync handler — retries queued messages and handles background calls
 self.addEventListener('sync', (event) => {
   if (event.tag === 'sync-messages') {
     event.waitUntil(
@@ -180,19 +230,104 @@ self.addEventListener('sync', (event) => {
       }).catch(() => { })
     );
   }
+  // Handle background call sync
+  if (event.tag === 'sync-incoming-call') {
+    event.waitUntil(
+      self.clients.matchAll({ type: 'window' }).then((clients) => {
+        for (const client of clients) {
+          client.postMessage({ type: 'INCOMING_CALL_SYNC' });
+        }
+      }).catch(() => { })
+    );
+  }
 });
 
-// Notification click handler — routes user to appropriate page when tapping a notification
+// Enhanced notification click handler with call actions
 self.addEventListener('notificationclick', (event) => {
-  event.notification.close();
   const data = event.notification.data || {};
   const action = event.action;
+  const isIncomingCall = data.type === 'incoming_call' || event.notification.tag === 'incoming-call';
+
+  // Handle call actions (accept/reject)
+  if (action === 'accept_call' && data.callId) {
+    event.notification.close();
+    event.waitUntil(
+      self.clients.matchAll({ type: 'window' }).then((clients) => {
+        if (clients.length > 0) {
+          clients[0].focus();
+          clients[0].postMessage({
+            type: 'ACCEPT_CALL',
+            callId: data.callId,
+            callerId: data.callerId,
+            callerName: data.callerName,
+          });
+        } else {
+          self.clients.openWindow(`/?callId=${encodeURIComponent(data.callId)}&action=accept`);
+        }
+      })
+    );
+    return;
+  }
+
+  if (action === 'reject_call' && data.callId) {
+    event.notification.close();
+    event.waitUntil(
+      self.clients.matchAll({ type: 'window' }).then((clients) => {
+        if (clients.length > 0) {
+          clients[0].focus();
+          clients[0].postMessage({
+            type: 'REJECT_CALL',
+            callId: data.callId,
+          });
+        }
+      })
+    );
+    return;
+  }
+
+  // Handle message reply action
+  if (action === 'reply_message' && data.chatId) {
+    event.notification.close();
+    const path = `/chat/${encodeURIComponent(data.chatId)}`;
+    const url = new URL(path, self.location.origin).href;
+    event.waitUntil(
+      self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {
+        if (clients.length > 0) {
+          clients[0].focus();
+          clients[0].postMessage({ type: 'NAVIGATE', url, action: 'reply' });
+        } else {
+          self.clients.openWindow(url);
+        }
+      })
+    );
+    return;
+  }
+
+  // Handle mark as read
+  if (action === 'mark_read' && data.chatId) {
+    event.notification.close();
+    event.waitUntil(
+      self.clients.matchAll({ type: 'window' }).then((clients) => {
+        for (const client of clients) {
+          client.postMessage({
+            type: 'MARK_MESSAGE_READ',
+            chatId: data.chatId,
+          });
+        }
+      }).catch(() => { })
+    );
+    return;
+  }
+
+  // Regular notification click — navigate to appropriate page
+  event.notification.close();
 
   // Build a safe relative path — never use untrusted external URLs
   let path = '/';
   if (data.chatId) path = `/chat/${encodeURIComponent(data.chatId)}`;
   if (data.userId) path = `/chat/${encodeURIComponent(data.userId)}`;
   if (data.callId) path = `/call`;
+  if (isIncomingCall && data.callId) path = `/call`;
   if (data.type === 'friend_request') path = '/add-friends';
   if (data.type === 'timeline') path = '/timeline';
   if (action === 'reply') path = data.chatId ? `/chat/${encodeURIComponent(data.chatId)}` : '/';

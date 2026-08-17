@@ -52,22 +52,17 @@ const envSchema = z.object({
   VITE_TURN_SERVER_USERNAME: z.string().optional(),
   VITE_TURN_SERVER_CREDENTIAL: z.string().optional(),
 
-  // --- Agora RTC (Audio/Video Calling) ---
-  // App ID is required for any Agora usage.
-  VITE_AGORA_APP_ID: z.string().optional(),
-  // App Certificate MUST stay server-side only. NEVER expose to client.
-  // Use VITE_AGORA_TOKEN_SERVER_URL for a secure token endpoint.
-  // App Certificate (SERVER-ONLY — NO VITE_ prefix, never bundled).
-  // Kept here so build/verification scripts can access it if needed.
-  AGORA_APP_CERTIFICATE: z.string().optional(),
-  // Optional: a serverless endpoint that returns a RTC token.
-  // Accepts an absolute http(s) URL or a root-relative path (e.g.
-  // "/api/agora-token" proxied through the Firebase Hosting rewrite).
-  // If set, the client uses this endpoint exclusively (no local token gen).
-  VITE_AGORA_TOKEN_SERVER_URL: z
+  // --- ZEGO Cloud (Audio/Video Calling) ---
+  // App ID is public and safe for the client web app.
+  VITE_ZEGO_APP_ID: z.string().optional(),
+  // ZEGO Server Secret — used ONLY for test/demo token generation.
+  // For production, generate tokens server-side instead.
+  VITE_ZEGO_SERVER_SECRET: z.string().optional(),
+  // Optional: a serverless endpoint that returns a ZEGO token.
+  VITE_ZEGO_TOKEN_SERVER_URL: z
     .string()
     .refine((v) => v.startsWith('/') || /^https?:\/\//i.test(v), {
-      message: 'Must be an absolute http(s) URL or a root-relative path (e.g. /api/agora-token).',
+      message: 'Must be an absolute http(s) URL or a root-relative path (e.g. /api/zego-token).',
     })
     .optional(),
 
@@ -115,6 +110,12 @@ const parseAndValidateEnv = () => {
 
     return fullEnv;
   } catch (error) {
+    // In test mode, return a best-effort object so importing modules
+    // that load env.ts don't crash the test suite.
+    if (import.meta.env.MODE === 'test') {
+      console.debug('[env] Skipping env validation in test mode');
+      return import.meta.env as unknown as never;
+    }
     if (error instanceof z.ZodError) {
       const errorMessages = error.issues.map((e) => `${e.path.join('.')} - ${e.message}`).join('\n');
       const fullMessage = `

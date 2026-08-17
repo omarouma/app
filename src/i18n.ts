@@ -8,8 +8,10 @@ i18n
   .use(LanguageDetector)
   .use(initReactI18next)
   .init({
-    supportedLngs: ['en', 'es'],
+    supportedLngs: ['en', 'bn', 'es', 'fr', 'ar', 'zh'],
     fallbackLng: 'en',
+    load: 'languageOnly',
+    nonExplicitSupportedLngs: true,
     detection: {
       order: ['path', 'cookie', 'htmlTag', 'localStorage', 'subdomain'],
       caches: ['cookie'],
@@ -19,6 +21,9 @@ i18n
     },
     react: {
       useSuspense: true,
+    },
+    interpolation: {
+      escapeValue: false,
     },
   });
 

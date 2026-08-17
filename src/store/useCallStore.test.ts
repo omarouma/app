@@ -1,6 +1,6 @@
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
 import type { CallRecord } from '@/types';
-import { deriveAgoraUid } from '@/lib/agora';
+import { deriveZegoUserID } from '@/lib/zego';
 import { useCallStore } from './useCallStore';
 
 const {
@@ -114,6 +114,8 @@ describe('useCallStore', () => {
             },
         });
 
+        mockUpdateDocById.mockResolvedValue(undefined);
+
         mockUpdateDocById.mockClear();
         await useCallStore.getState().acceptCall();
 
@@ -164,10 +166,19 @@ describe('useCallStore', () => {
         await expect(result).resolves.toContain('cannot start a call with yourself');
     });
 
-    it('derives the same Agora uid as the server token endpoint', () => {
-        expect(deriveAgoraUid('user-123')).toBe(2358496403);
-        expect(deriveAgoraUid('abc')).toBe(440920331);
-        expect(deriveAgoraUid('test-user')).toBe(2712678491);
-        expect(deriveAgoraUid('currentUserId')).toBe(1334763816);
+    it('derives a stable ZEGO user ID from the app user ID', () => {
+        expect(deriveZegoUserID('user-123')).toBe('user-123');
+        expect(deriveZegoUserID('abc')).toBe('abc');
+        expect(deriveZegoUserID('test-user')).toBe('test-user');
+        expect(deriveZegoUserID('currentUserId')).toBe('currentUserId');
+        expect(deriveZegoUserID('user@example.com')).toBe('user_example_com');
+    });
+
+    it('treats missing ZEGO configuration as disabled rather than silently valid', () => {
+        expect(() => {
+            const mod = require('@/lib/zego');
+            expect(mod.ZEGO_APP_ID).toBe(0);
+            expect(mod.isZegoConfigured()).toBe(false);
+        }).not.toThrow();
     });
 });

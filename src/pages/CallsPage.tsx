@@ -60,7 +60,11 @@ export default function CallsPage() {
           direction,
         };
       })
-      .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+      .sort((a, b) => {
+        const at = a.timestamp instanceof Date ? a.timestamp.getTime() : Number(new Date(a.timestamp as unknown as string | number));
+        const bt = b.timestamp instanceof Date ? b.timestamp.getTime() : Number(new Date(b.timestamp as unknown as string | number));
+        return bt - at;
+      });
   }, [history, user?.id, friendMap]);
 
   const filteredCalls = useMemo(() => {

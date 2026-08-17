@@ -113,8 +113,8 @@ function Bubble({ size, top, left, color, opacity, delay }: { size: number; top:
 }
 
 const BUBBLES = [
-  { size: 260, top: '2%',  left: '5%',  color: '#00C300', opacity: 0.07, delay: 0 },
-  { size: 180, top: '55%', left: '2%',  color: '#00C300', opacity: 0.05, delay: 1.2 },
+  { size: 260, top: '2%', left: '5%', color: '#00C300', opacity: 0.07, delay: 0 },
+  { size: 180, top: '55%', left: '2%', color: '#00C300', opacity: 0.05, delay: 1.2 },
   { size: 200, top: '10%', left: '60%', color: '#FF9800', opacity: 0.05, delay: 0.8 },
   { size: 300, top: '40%', left: '20%', color: '#00C300', opacity: 0.04, delay: 2 },
   { size: 150, top: '72%', left: '65%', color: '#FF4081', opacity: 0.05, delay: 1.6 },
@@ -180,7 +180,7 @@ function StrengthBar({ password }: { password: string }) {
   return (
     <div className="space-y-1 px-0.5">
       <div className="flex gap-1 h-1">
-        {[0,1,2,3].map(i => <div key={i} className={`flex-1 rounded-full ${s > i ? color : 'bg-[#E8E8E8]'}`} />)}
+        {[0, 1, 2, 3].map(i => <div key={i} className={`flex-1 rounded-full ${s > i ? color : 'bg-[#E8E8E8]'}`} />)}
       </div>
       <p className="text-[10px] text-[#ABABAB]">{label} password</p>
     </div>
@@ -304,9 +304,11 @@ export default function AuthView() {
       const { data } = await supabase.auth.getSession();
       const sessionUser = data.session?.user;
       if (!sessionUser) return;
-      const profile = await fetchUserProfile(sessionUser.id);
+      // The store's onAuthStateChange listener will auto-set the user when
+      // the session is confirmed. Just navigate — no need to call login
+      // with an empty password, which would fail.
+      const profile = await fetchUserProfile(sessionUser.id).catch(() => null);
       if (profile) {
-        auth.login(profile.email || '', '').catch(() => {});
         navigate(getPostAuthPath(true), { replace: true });
       }
     }, 3000);

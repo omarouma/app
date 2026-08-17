@@ -153,6 +153,7 @@ const BookmarksPage = lazy(() => import('@/pages/BookmarksPage'));
 const HashtagsPage = lazy(() => import('@/pages/HashtagsPage'));
 const AnalyticsPage = lazy(() => import('@/pages/AnalyticsPage'));
 const SearchPage = lazy(() => import('@/pages/SearchPage'));
+const PostPage = lazy(() => import('@/pages/PostPage'));
 const HelpCenterPage = lazy(() => import('@/pages/HelpCenterPage'));
 const SettingsPage = lazy(() => import('@/pages/SettingsPage'));
 const CreatorCenterPage = lazy(() => import('@/pages/CreatorCenterPage'));
@@ -208,6 +209,7 @@ const MOBILE_PROTECTED_ROUTE_PATHS: string[] = [
   '/events', '/marketplace', '/bookmarks', '/hashtags', '/analytics', '/search', '/help',
   '/broadcast-lists', '/create-reel', '/creators', '/voice-rooms', '/voice-room/:roomId',
   '/challenges', '/ai-chat', '/live-streams', '/live/:streamId', '/creator-dashboard',
+  '/post/:postId',
 ];
 
 function getMobileRouteElement(path: string) {
@@ -244,6 +246,7 @@ function getMobileRouteElement(path: string) {
     case '/hashtags': return <ErrorBoundary key="hashtags"><HashtagsPage /></ErrorBoundary>;
     case '/analytics': return <ErrorBoundary key="analytics"><AnalyticsPage /></ErrorBoundary>;
     case '/search': return <ErrorBoundary key="search"><SearchPage /></ErrorBoundary>;
+    case '/post/:postId': return <ErrorBoundary key="post"><PostPage /></ErrorBoundary>;
     case '/help': return <ErrorBoundary key="help"><HelpCenterPage /></ErrorBoundary>;
     case '/broadcast-lists': return <ErrorBoundary key="broadcast-lists"><BroadcastListsPage /></ErrorBoundary>;
     case '/create-reel': return <ErrorBoundary key="create-reel"><CreateReelsPage /></ErrorBoundary>;
@@ -482,9 +485,11 @@ function AppContent() {
                 ? <Navigate to={getPostAuthPath(isMobile)} replace />
                 : <AuthView />
             }
-          />          <Route path="/about" element={<AboutPage />} />
+          />
+          <Route path="/about" element={<AboutPage />} />
           <Route path="/blog" element={<BlogPage />} />
-          <Route path="/careers" element={<CareersPage />} />          <Route path="/privacy" element={isMobile ? <PrivacyPage /> : <PrivacyView />} />
+          <Route path="/careers" element={<CareersPage />} />
+          <Route path="/privacy" element={isMobile ? <PrivacyPage /> : <PrivacyView />} />
           <Route path="/terms" element={isMobile ? <TermsPage /> : <TermsView />} />
           <Route path="/onboarding" element={<OnboardingPage />} />
 
@@ -548,6 +553,7 @@ function AppContent() {
                         <Route path="hashtags" element={<HashtagsPage />} />
                         <Route path="analytics" element={<AnalyticsPage />} />
                         <Route path="search" element={<SearchPage />} />
+                        <Route path="post/:postId" element={<PostPage />} />
                         <Route path="help" element={<HelpCenterPage />} />
                         <Route path="broadcast-lists" element={<BroadcastListsPage />} />
                         <Route path="creators" element={<CreatorCenterPage />} />

@@ -1,8 +1,7 @@
 /**
- * Enhanced Agora Call Connection Manager
+ * Enhanced ZEGO Cloud Call Connection Manager
  * 
- * Ensures reliable connection to Agora channel with:
- * - Proper token resolution
+ * Ensures reliable connection to the ZEGO call room with:
  * - Connection state monitoring
  * - Automatic reconnection on failure
  * - Error recovery

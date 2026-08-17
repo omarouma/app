@@ -58,7 +58,7 @@ export default function ReelsPage() {
   const [followedUsers, setFollowedUsers] = useState<Set<string>>(new Set());
   const scrollRef = useRef<HTMLDivElement>(null);
   const videoRefs = useRef<Record<string, HTMLVideoElement | null>>({});
-  const loadingMoreRef = useRef(false);
+  const loadInFlightRef = useRef(false);
   const lastLoadIndexRef = useRef(0);
   const lastTapRef = useRef<Record<string, number>>({});
 
@@ -128,7 +128,7 @@ export default function ReelsPage() {
     });
   }, [activeIndex, displayReels]);
 
-// IntersectionObserver for robust auto-play/pause on scroll
+  // IntersectionObserver for robust auto-play/pause on scroll
   // Uses a single shared observer instead of one per video for better performance.
   useEffect(() => {
     const container = scrollRef.current;
@@ -212,12 +212,12 @@ export default function ReelsPage() {
 
     // Infinite scroll: load more when near bottom
     const isNearBottom = index >= effectiveReels.length - 3;
-    if (isNearBottom && hasMore && !loadingMore && !loadingMoreRef.current) {
+    if (isNearBottom && hasMore && !loadingMore && !loadInFlightRef.current) {
       if (index > lastLoadIndexRef.current) {
-        loadingMoreRef.current = true;
+        loadInFlightRef.current = true;
         lastLoadIndexRef.current = index;
         loadMoreReels(10).finally(() => {
-          loadingMoreRef.current = false;
+          loadInFlightRef.current = false;
         });
       }
     }
@@ -457,8 +457,8 @@ export default function ReelsPage() {
             type="button"
             onClick={() => handleCategoryChange(null)}
             className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${selectedCategory === null
-                ? 'bg-[#00C300] text-black'
-                : 'bg-white/10 text-white/80'
+              ? 'bg-[#00C300] text-black'
+              : 'bg-white/10 text-white/80'
               }`}
           >
             All
@@ -469,8 +469,8 @@ export default function ReelsPage() {
               type="button"
               onClick={() => handleCategoryChange(cat)}
               className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${selectedCategory === cat
-                  ? 'bg-[#00C300] text-black'
-                  : 'bg-white/10 text-white/80'
+                ? 'bg-[#00C300] text-black'
+                : 'bg-white/10 text-white/80'
                 }`}
             >
               {cat}

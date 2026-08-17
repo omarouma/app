@@ -38,19 +38,19 @@ export function EmojiPicker({ onEmojiSelect }: EmojiPickerProps) {
     onEmojiSelect(emoji);
   };
 
-const categories: Record<string, string[]> = { ...emojiCategories, Recent: recentEmojis };
+  const categories: Record<string, string[]> = { ...emojiCategories, Recent: recentEmojis };
   const tabs = recentEmojis.length > 0
     ? Object.keys(categories)
     : Object.keys(categories).filter(k => k !== 'Recent');
 
   return (
     <div className="w-full">
-      <div className="flex gap-1 mb-2 border-b border-[#EBEBEB] pb-2 overflow-x-auto scrollbar-hide">
+      <div className="flex gap-1 mb-2 border-b border-border pb-2 overflow-x-auto scrollbar-hide">
         {tabs.map(cat => (
           <button type="button" key={cat}
             onClick={() => setActiveTab(cat)}
             className={`text-xs px-2 py-1 rounded-full whitespace-nowrap transition-colors ${
-              activeTab === cat ? 'bg-[#00C300] text-white' : 'text-[#8D8D8D] hover:text-[#111111] hover:bg-[#F5F5F5]'
+              activeTab === cat ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-muted'
             }`}
           >
             {cat}
@@ -60,14 +60,14 @@ const categories: Record<string, string[]> = { ...emojiCategories, Recent: recen
       <div className="grid grid-cols-8 gap-1 max-h-48 overflow-y-auto scrollbar-hide p-1">
         {(categories[activeTab] ?? []).map((emoji, i) => (
           <button type="button" key={`${emoji}-${i}`}
-            className="text-xl hover:bg-[#F5F5F5] rounded p-1 transition-colors"
+            className="text-xl hover:bg-muted rounded p-1 transition-colors"
             onClick={() => handleSelect(emoji)}
           >
             {emoji}
           </button>
         ))}
         {(categories[activeTab] ?? []).length === 0 && (
-          <p className="col-span-8 text-center text-[#8D8D8D] text-xs py-4">No recent emojis yet</p>
+          <p className="col-span-8 text-center text-muted-foreground text-xs py-4">No recent emojis yet</p>
         )}
       </div>
     </div>

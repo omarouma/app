@@ -1,4 +1,5 @@
-import { memo } from 'react';
+import { memo, useState, useCallback, useEffect, useRef } from 'react';
+import { Loader } from 'lucide-react';
 import { VoiceWaveform } from '../VoiceWaveform';
 import type { Message } from '@/types';
 import { sanitizeMediaUrl } from '@/lib/utils';
@@ -10,8 +11,46 @@ export interface VoiceMessageProps {
 
 export const VoiceMessage = memo(function VoiceMessage(props: VoiceMessageProps) {
   const { msg, isMe } = props;
+  const [duration, setDuration] = useState<number | null>(null);
+  const [loading, setLoading] = useState(true);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const safeUrl = sanitizeMediaUrl(msg.mediaUrl);
+
+  // Load audio metadata to show duration
+  useEffect(() => {
+    if (!safeUrl) {
+      setLoading(false);
+      return;
+    }
+    const audio = new Audio(safeUrl);
+    audioRef.current = audio;
+    audio.preload = 'metadata';
+    const onLoaded = () => {
+      setDuration(audio.duration);
+      setLoading(false);
+    };
+    const onError = () => {
+      setDuration(null);
+      setLoading(false);
+    };
+    audio.addEventListener('loadedmetadata', onLoaded);
+    audio.addEventListener('error', onError);
+    return () => {
+      audio.removeEventListener('loadedmetadata', onLoaded);
+      audio.removeEventListener('error', onError);
+      audio.pause();
+      audio.src = '';
+    };
+  }, [safeUrl]);
+
+  const formatDuration = useCallback((secs: number | null) => {
+    if (secs === null || !isFinite(secs)) return '0:00';
+    const m = Math.floor(secs / 60);
+    const s = Math.floor(secs % 60);
+    return `${m}:${String(s).padStart(2, '0')}`;
+  }, []);
+
   if (!safeUrl) {
     return (
       <div className={`rounded-2xl mb-1 px-3 py-2 ${isMe ? 'bg-[#00C300]' : 'bg-white'}`}>
@@ -22,7 +61,20 @@ export const VoiceMessage = memo(function VoiceMessage(props: VoiceMessageProps)
 
   return (
     <div className={`rounded-2xl mb-1 px-3 py-2 ${isMe ? 'bg-[#00C300]' : 'bg-white'}`}>
-      <VoiceWaveform audioUrl={safeUrl} isOwnMessage={isMe} />
+      {loading ? (
+        <div className="flex items-center gap-2">
+          <Loader size={16} className={`animate-spin ${isMe ? 'text-white/70' : 'text-[#8D8D8D]'}`} />
+          <span className={`text-xs ${isMe ? 'text-white/70' : 'text-[#8D8D8D]'}`}>Loading...</span>
+        </div>
+      ) : (
+        <>
+          <VoiceWaveform audioUrl={safeUrl} isOwnMessage={isMe} />
+          <div className={`flex items-center justify-between mt-1 ${isMe ? 'text-white/70' : 'text-[#8D8D8D]'}`}>
+            <span className="text-[10px]">{formatDuration(duration)}</span>
+            <span className="text-[10px]">Voice message</span>
+          </div>
+        </>
+      )}
     </div>
   );
 });

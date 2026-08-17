@@ -184,7 +184,7 @@ export default function TimelineCard({
         </span>
         {clean.length > MAX && (
           <button type="button" onClick={() => setExpanded(v => !v)}
-            className="ml-1 text-[#8D8D8D] text-xs font-medium inline-flex items-center gap-0.5">
+            className="ml-1 text-muted-foreground text-xs font-medium inline-flex items-center gap-0.5">
             {expanded ? <><ChevronUp size={12} /> less</> : <><ChevronDown size={12} /> more</>}
           </button>
         )}
@@ -202,12 +202,12 @@ export default function TimelineCard({
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: Math.min(index * 0.04, 0.25), duration: 0.3 }}
-      className="bg-[#111111] border-b border-[#1e1e1e] relative overflow-hidden"
+      className="bg-card border-b border-border relative overflow-hidden"
     >
       {/* ── Header ── */}
       <div className="flex items-center gap-3 px-4 pt-4 pb-2">
         <div className="relative shrink-0">
-          <div className="w-11 h-11 rounded-full overflow-hidden ring-2 ring-[#00C300]/40">
+          <div className="w-11 h-11 rounded-full overflow-hidden ring-2 ring-primary/40">
             <img
               src={sanitizeMediaUrl(userAvatar || post.userAvatar) || getDefaultAvatar(post.userId || 'U')}
               className="w-full h-full object-cover"
@@ -215,22 +215,21 @@ export default function TimelineCard({
             />
           </div>
           {/* Online dot */}
-          <span className="absolute bottom-0 right-0 w-3 h-3 bg-[#00C300] rounded-full border-2 border-[#111111]" />
+          <span className="absolute bottom-0 right-0 w-3 h-3 bg-primary rounded-full border-2 border-card" />
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5">
-            <p className="text-white font-semibold text-[14px] truncate">{userName || post.userName || 'User'}</p>
+            <p className="text-foreground font-semibold text-[14px] truncate">{userName || post.userName || 'User'}</p>
             {post.userId === currentUser?.id && (
-              <BadgeCheck size={14} className="text-[#00C300] shrink-0" />
+              <BadgeCheck size={14} className="text-primary shrink-0" />
             )}
           </div>
           <div className="flex items-center gap-2 mt-0.5">
-            <p className="text-[#555] text-[11px]">{formatTime(post.timestamp)}</p>
-            <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${
-              post.visibility === 'public' ? 'text-[#00C300] bg-[#00C300]/10' :
+            <p className="text-muted-foreground text-[11px]">{formatTime(post.timestamp)}</p>
+            <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${post.visibility === 'public' ? 'text-primary bg-primary/10' :
               post.visibility === 'friends' ? 'text-[#2196F3] bg-[#2196F3]/10' :
-              'text-[#555] bg-[#1a1a1a]'
-            }`}>
+                'text-muted-foreground bg-muted'
+              }`}>
               {post.visibility === 'public' ? '🌍 Public' : post.visibility === 'friends' ? '👥 Friends' : '🔒 Only Me'}
             </span>
           </div>
@@ -238,7 +237,7 @@ export default function TimelineCard({
         {/* Menu */}
         <div className="relative">
           <button type="button" onClick={() => setShowMenu(v => !v)}
-            className="p-2 rounded-full hover:bg-white/5 text-[#555] hover:text-white transition-colors">
+            className="p-2 rounded-full hover:bg-foreground/5 text-muted-foreground hover:text-foreground transition-colors">
             <MoreHorizontal size={18} />
           </button>
           <AnimatePresence>
@@ -247,22 +246,22 @@ export default function TimelineCard({
                 initial={{ opacity: 0, scale: 0.9, y: -4 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.9, y: -4 }}
-                className="absolute right-0 top-10 bg-[#1a1a1a] border border-[#2a2a2a] rounded-2xl shadow-2xl py-1.5 z-30 w-36 overflow-hidden"
+                className="absolute right-0 top-10 bg-popover border border-border rounded-2xl shadow-2xl py-1.5 z-30 w-36 overflow-hidden"
               >
                 {post.userId === currentUser?.id ? (
                   <>
                     <button type="button" onClick={() => { onEdit?.(post); setShowMenu(false); }}
-                      className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-white hover:bg-white/5 transition-colors">
-                      <Edit3 size={14} className="text-[#00C300]" /> Edit
+                      className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-popover-foreground hover:bg-foreground/5 transition-colors">
+                      <Edit3 size={14} className="text-primary" /> Edit
                     </button>
                     <button type="button" onClick={() => { onDelete?.(post.id); setShowMenu(false); }}
-                      className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-[#FF3B30] hover:bg-[#FF3B30]/10 transition-colors">
+                      className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-destructive hover:bg-destructive/10 transition-colors">
                       <Trash2 size={14} /> Delete
                     </button>
                   </>
                 ) : (
                   <button type="button" onClick={() => { onReport?.(post); setShowMenu(false); }}
-                    className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-[#FF3B30] hover:bg-[#FF3B30]/10 transition-colors">
+                    className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-destructive hover:bg-destructive/10 transition-colors">
                     <Flag size={14} /> Report
                   </button>
                 )}
@@ -274,16 +273,16 @@ export default function TimelineCard({
 
       {/* ── Content ── */}
       {post.content && (
-        <div className="px-4 pb-3 text-[#E0E0E0] text-[14px] leading-relaxed" onClick={handleDoubleTap}>
+        <div className="px-4 pb-3 text-foreground/90 text-[14px] leading-relaxed" onClick={handleDoubleTap}>
           {renderContent(post.content)}
         </div>
       )}
 
       {/* ── Poll ── */}
       {post.pollData && (
-        <div className="mx-4 mb-3 bg-[#1a1a1a] rounded-2xl p-4 border border-[#2a2a2a] space-y-2.5">
-          <p className="text-white text-sm font-semibold flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-[#00C300] animate-pulse" />
+        <div className="mx-4 mb-3 bg-muted rounded-2xl p-4 border border-border space-y-2.5">
+          <p className="text-foreground text-sm font-semibold flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
             {post.pollData.question}
           </p>
           {post.pollData.options.map((opt, i) => {
@@ -293,20 +292,19 @@ export default function TimelineCard({
             return (
               <button type="button" key={i} onClick={() => handlePollVote(i)}
                 disabled={!!(hasVoted && !isVoted)}
-                className={`w-full relative rounded-xl overflow-hidden transition-all ${
-                  isVoted ? 'border-2 border-[#00C300]' : 'border border-[#2a2a2a] hover:border-[#00C300]/50'
-                } ${hasVoted && !isVoted ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}
+                className={`w-full relative rounded-xl overflow-hidden transition-all ${isVoted ? 'border-2 border-primary' : 'border border-border hover:border-primary/50'
+                  } ${hasVoted && !isVoted ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}
               >
-                <div className="absolute inset-0 bg-gradient-to-r from-[#00C300]/20 to-transparent transition-all duration-500"
+                <div className="absolute inset-0 bg-gradient-to-r from-primary/20 to-transparent transition-all duration-500"
                   style={{ width: `${pct}%` }} />
                 <div className="relative px-4 py-2.5 flex items-center justify-between">
-                  <span className="text-sm text-white font-medium">{opt.text}</span>
-                  <span className="text-xs font-bold text-[#00C300]">{pct}%</span>
+                  <span className="text-sm text-foreground font-medium">{opt.text}</span>
+                  <span className="text-xs font-bold text-primary">{pct}%</span>
                 </div>
               </button>
             );
           })}
-          <p className="text-[#555] text-[11px] text-right">{totalVotes} vote{totalVotes !== 1 ? 's' : ''}</p>
+          <p className="text-muted-foreground text-[11px] text-right">{totalVotes} vote{totalVotes !== 1 ? 's' : ''}</p>
         </div>
       )}
 
@@ -317,7 +315,7 @@ export default function TimelineCard({
         </div>
       )}
 
-{/* ── Media: video post vs image grid ── */}
+      {/* ── Media: video post vs image grid ── */}
       {(() => {
         const videoUrl = getPostVideoUrl(post);
         if (videoUrl) {
@@ -347,9 +345,8 @@ export default function TimelineCard({
                   {images.slice(0, 4).map((img, i) => (
                     <div key={i} className={`overflow-hidden relative ${images.length === 3 && i === 0 ? 'col-span-2' : ''}`}>
                       <img src={img} alt={`Post image ${i + 1}`}
-                        className={`w-full object-cover cursor-pointer hover:brightness-90 transition-all ${
-                          images.length === 3 && i === 0 ? 'h-52' : 'h-44'
-                        }`}
+                        className={`w-full object-cover cursor-pointer hover:brightness-90 transition-all ${images.length === 3 && i === 0 ? 'h-52' : 'h-44'
+                          }`}
                         onClick={() => { setActiveImage(i); onImageClick?.(img); }}
                       />
                       {i === 3 && images.length > 4 && (
@@ -384,19 +381,19 @@ export default function TimelineCard({
 
       {/* ── Engagement stats ── */}
       {(localLikes.length > 0 || localComments.length > 0) && (
-        <div className="flex items-center justify-between px-4 py-2 text-[#555] text-xs">
+        <div className="flex items-center justify-between px-4 py-2 text-muted-foreground text-xs">
           <div className="flex items-center gap-1.5">
             {localLikes.length > 0 && (
               <span className="flex items-center gap-1">
                 <span className="text-sm">{myReaction || '❤️'}</span>
-                <span className="text-[#8D8D8D]">{localLikes.length.toLocaleString()}</span>
+                <span className="text-muted-foreground">{localLikes.length.toLocaleString()}</span>
               </span>
             )}
           </div>
-<div className="flex items-center gap-3">
+          <div className="flex items-center gap-3">
             {localComments.length > 0 && (
               <button type="button" onClick={() => setShowComments(v => !v)}
-                className="hover:text-white transition-colors">
+                className="hover:text-foreground transition-colors">
                 {localComments.length} comment{localComments.length !== 1 ? 's' : ''}
               </button>
             )}
@@ -415,14 +412,13 @@ export default function TimelineCard({
       )}
 
       {/* ── Action bar ── */}
-      <div className="flex items-center border-t border-[#1e1e1e] px-1">
+      <div className="flex items-center border-t border-border px-1">
         {/* Like with hold-for-reactions */}
         <div className="relative flex-1">
           <button
             type="button"
-            className={`w-full flex items-center justify-center gap-1.5 py-3 rounded-xl text-sm font-medium transition-colors ${
-              isLiked ? 'text-[#FF3B30]' : 'text-[#555] hover:text-white hover:bg-white/5'
-            }`}
+            className={`w-full flex items-center justify-center gap-1.5 py-3 rounded-xl text-sm font-medium transition-colors ${isLiked ? 'text-destructive' : 'text-muted-foreground hover:text-foreground hover:bg-foreground/5'
+              }`}
             onClick={handleLike}
             onMouseEnter={() => { likeHoldTimer.current = setTimeout(() => setShowReactions(true), 400); }}
             onMouseLeave={() => { if (likeHoldTimer.current) clearTimeout(likeHoldTimer.current); }}
@@ -439,7 +435,7 @@ export default function TimelineCard({
                 initial={{ opacity: 0, y: 8, scale: 0.9 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: 8, scale: 0.9 }}
-                className="absolute bottom-14 left-0 bg-[#1a1a1a] border border-[#2a2a2a] rounded-2xl px-3 py-2 flex gap-2 shadow-2xl z-30"
+                className="absolute bottom-14 left-0 bg-popover border border-border rounded-2xl px-3 py-2 flex gap-2 shadow-2xl z-30"
                 onMouseLeave={() => setShowReactions(false)}
               >
                 {REACTIONS.map(r => (
@@ -454,27 +450,26 @@ export default function TimelineCard({
         </div>
 
         <button type="button" onClick={() => setShowComments(v => !v)}
-          className="flex-1 flex items-center justify-center gap-1.5 py-3 rounded-xl text-[#555] hover:text-white hover:bg-white/5 transition-colors text-sm font-medium">
+          className="flex-1 flex items-center justify-center gap-1.5 py-3 rounded-xl text-muted-foreground hover:text-foreground hover:bg-foreground/5 transition-colors text-sm font-medium">
           <MessageCircle size={19} />
           <span className="text-xs">Comment</span>
         </button>
 
         <button type="button" onClick={() => onShare?.(post)}
-          className="flex-1 flex items-center justify-center gap-1.5 py-3 rounded-xl text-[#555] hover:text-white hover:bg-white/5 transition-colors text-sm font-medium">
+          className="flex-1 flex items-center justify-center gap-1.5 py-3 rounded-xl text-muted-foreground hover:text-foreground hover:bg-foreground/5 transition-colors text-sm font-medium">
           <Share2 size={19} />
           <span className="text-xs">Share</span>
         </button>
 
         <button type="button" onClick={() => onTip?.(post)}
-          className="flex-1 flex items-center justify-center gap-1.5 py-3 rounded-xl text-[#555] hover:text-[#FFD700] hover:bg-[#FFD700]/5 transition-colors text-sm font-medium">
+          className="flex-1 flex items-center justify-center gap-1.5 py-3 rounded-xl text-muted-foreground hover:text-[#FFD700] hover:bg-[#FFD700]/5 transition-colors text-sm font-medium">
           <Sparkles size={17} />
           <span className="text-xs">Tip</span>
         </button>
 
         <button type="button" onClick={handleSave}
-          className={`flex-1 flex items-center justify-center gap-1.5 py-3 rounded-xl transition-colors text-sm font-medium ${
-            isSaved ? 'text-[#00C300]' : 'text-[#555] hover:text-white hover:bg-white/5'
-          }`}>
+          className={`flex-1 flex items-center justify-center gap-1.5 py-3 rounded-xl transition-colors text-sm font-medium ${isSaved ? 'text-primary' : 'text-muted-foreground hover:text-foreground hover:bg-foreground/5'
+            }`}>
           <Bookmark size={19} className={isSaved ? 'fill-current' : ''} />
           <span className="text-xs">{isSaved ? 'Saved' : 'Save'}</span>
         </button>
@@ -487,11 +482,11 @@ export default function TimelineCard({
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            className="overflow-hidden border-t border-[#1e1e1e]"
+            className="overflow-hidden border-t border-border"
           >
             <div className="px-4 py-3 space-y-3 max-h-64 overflow-y-auto">
               {localComments.length === 0 ? (
-                <p className="text-[#555] text-sm text-center py-4">No comments yet. Be the first!</p>
+                <p className="text-muted-foreground text-sm text-center py-4">No comments yet. Be the first!</p>
               ) : (
                 localComments.map(comment => {
                   const isCommentLiked = likedCommentIds.has(comment.id);
@@ -503,22 +498,21 @@ export default function TimelineCard({
                         className="w-8 h-8 rounded-full object-cover shrink-0"
                         alt="avatar"
                       />
-                      <div className="flex-1 bg-[#1a1a1a] rounded-2xl px-3 py-2">
-                        <p className="text-white text-xs font-semibold mb-0.5">
+                      <div className="flex-1 bg-muted rounded-2xl px-3 py-2">
+                        <p className="text-foreground text-xs font-semibold mb-0.5">
                           {(comment as PostComment & { userName?: string }).userName || 'User'}
                         </p>
-                        <p className="text-[#C0C0C0] text-sm leading-snug">{comment.content}</p>
+                        <p className="text-foreground/80 text-sm leading-snug">{comment.content}</p>
                         <div className="flex items-center gap-3 mt-1.5">
-                          <span className="text-[#555] text-[10px]">{formatTime(comment.timestamp)}</span>
+                          <span className="text-muted-foreground text-[10px]">{formatTime(comment.timestamp)}</span>
                           <button type="button" onClick={() => handleCommentLike(comment.id)}
-                            className={`text-[10px] flex items-center gap-0.5 font-medium transition-colors ${
-                              isCommentLiked ? 'text-[#FF3B30]' : 'text-[#555] hover:text-white'
-                            }`}>
+                            className={`text-[10px] flex items-center gap-0.5 font-medium transition-colors ${isCommentLiked ? 'text-destructive' : 'text-muted-foreground hover:text-foreground'
+                              }`}>
                             <ThumbsUp size={10} /> Like
                           </button>
                           {isOwn && (
                             <button type="button" onClick={() => handleCommentDelete(comment.id)}
-                              className="text-[10px] text-[#FF3B30] font-medium hover:text-red-400 transition-colors">
+                              className="text-[10px] text-destructive font-medium hover:text-red-400 transition-colors">
                               Delete
                             </button>
                           )}
@@ -536,17 +530,17 @@ export default function TimelineCard({
                 className="w-8 h-8 rounded-full object-cover shrink-0"
                 alt="me"
               />
-              <div className="flex-1 flex items-center gap-2 bg-[#1a1a1a] rounded-full px-4 py-2 border border-[#2a2a2a] focus-within:border-[#00C300]/50 transition-colors">
+              <div className="flex-1 flex items-center gap-2 bg-muted rounded-full px-4 py-2 border border-border focus-within:border-primary/50 transition-colors">
                 <input
                   value={commentText}
                   onChange={e => setCommentText(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && handleComment()}
                   placeholder="Write a comment…"
-                  className="flex-1 bg-transparent text-white text-sm placeholder:text-[#555] focus:outline-none"
+                  className="flex-1 bg-transparent text-foreground text-sm placeholder:text-muted-foreground focus:outline-none"
                 />
                 {commentText.trim() && (
                   <button type="button" onClick={handleComment}
-                    className="text-[#00C300] shrink-0 hover:text-[#00A300] transition-colors">
+                    className="text-primary shrink-0 hover:text-primary/80 transition-colors">
                     <Send size={16} />
                   </button>
                 )}

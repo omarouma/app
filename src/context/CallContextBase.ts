@@ -1,6 +1,10 @@
-import { createContext, useContext } from 'react';
+import React, { createContext, useContext } from 'react';
 
 export interface CallContextValue {
+  // ZEGO prebuilt container ref — CallOverlay mounts this <div> so ZEGO renders inside.
+  containerRef: React.RefObject<HTMLDivElement | null>;
+  // True only after ZEGO joined — CallOverlay swaps to ZEGO UI from legacy ring.
+  isZegoActive: boolean;
   activeCall: { id: string; status: string; type: string; initiatorId: string } | null;
   isCallActive: boolean;
   localStream: MediaStream | null;
@@ -12,10 +16,10 @@ export interface CallContextValue {
   isConnected: boolean;
   isHeld: boolean;
   quality: 'good' | 'poor' | 'reconnecting';
-  // Non-null when call media (Agora) is not configured; surfaced in the UI so
-  // users see a clear error instead of an endless "Connecting…" ring.
+  // Non-null when call media (ZEGO Cloud) is not configured; surfaced in the
+  // UI so users see a clear error instead of an endless "Connecting…" ring.
   configuredError: string | null;
-  // Runtime Agora / media error — permission denied, token failure, etc.
+  // Runtime ZEGO Cloud / media error — permission denied, token failure, etc.
   mediaError: string | null;
   callDuration: number;
   // currentUserId is optional — the provider derives it from the auth store

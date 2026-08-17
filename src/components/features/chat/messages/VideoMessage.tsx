@@ -1,4 +1,5 @@
-import { memo } from 'react';
+import { memo, useState, useCallback } from 'react';
+import { Loader } from 'lucide-react';
 import { sanitizeMediaUrl } from '@/lib/utils';
 import type { Message } from '@/types';
 
@@ -8,23 +9,48 @@ export interface VideoMessageProps {
 
 export const VideoMessage = memo(function VideoMessage(props: VideoMessageProps) {
   const { msg } = props;
+  const [failed, setFailed] = useState(false);
+  const [loaded, setLoaded] = useState(false);
 
   const safeUrl = sanitizeMediaUrl(msg.mediaUrl);
-  if (!safeUrl) {
+
+  const handleRetry = useCallback(() => {
+    setFailed(false);
+    setLoaded(false);
+  }, []);
+
+  if (!safeUrl || failed) {
     return (
-      <div className="rounded-2xl mb-1 w-full max-w-full h-32 bg-[#F5F5F5] flex items-center justify-center text-sm text-[#8D8D8D]">
-        Video unavailable
+      <div className="rounded-2xl mb-1 w-full max-w-full h-32 bg-[#F5F5F5] flex flex-col items-center justify-center gap-2 text-sm text-[#8D8D8D]">
+        <span className="text-2xl">🎬</span>
+        <span>Video unavailable</span>
+        <button
+          type="button"
+          onClick={handleRetry}
+          className="px-3 py-1 bg-[#00C300]/10 text-[#00C300] text-xs font-medium rounded-full hover:bg-[#00C300]/20 transition-colors"
+        >
+          Retry
+        </button>
       </div>
     );
   }
 
   return (
-    <video
-      src={safeUrl}
-      className="rounded-2xl mb-1 max-w-full"
-      controls
-      preload="metadata"
-      aria-label="Video message"
-    />
+    <div className="relative max-w-full">
+      {!loaded && (
+        <div className="rounded-2xl mb-1 h-32 bg-[#F5F5F5] animate-pulse flex items-center justify-center">
+          <Loader size={20} className="animate-spin text-[#8D8D8D]" />
+        </div>
+      )}
+      <video
+        src={safeUrl}
+        className={`rounded-2xl mb-1 max-w-full ${loaded ? 'block' : 'hidden'}`}
+        controls
+        preload="metadata"
+        onLoadedData={() => setLoaded(true)}
+        onError={() => setFailed(true)}
+        aria-label="Video message"
+      />
+    </div>
   );
 });
