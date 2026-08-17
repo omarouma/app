@@ -1,28 +1,30 @@
 import { useEffect, useRef, useState, useCallback, useLayoutEffect } from 'react';
 import { useCallStore } from '@/store/useCallStore';
 import { useAuthStore } from '@/store/useAuthStore';
-import { useAgoraCall, type AgoraRemoteParticipant } from '@/hooks/useAgoraCall';
-import { deriveAgoraUid, isAgoraConfigured as isAgoraEnvConfigured } from '@/lib/agora';
+import { useZegoCall, type ZegoCallController } from '@/hooks/useZegoCall';
+import { deriveZegoUserID, buildZegoRoomID, isZegoConfigured } from '@/lib/zego';
+import { isVideoCallType } from '@/lib/callUtils';
 import { playCallConnected, vibrateCallConnected, playCallEnded, vibrateCallEnded } from '@/lib/sounds';
 
 const CONNECTION_TIMEOUT_MS = 30_000;
 
-// Shown when Agora is not configured so the UI can surface a clear error
+// Shown when ZEGO is not configured so the UI can surface a clear error
 // instead of an endless "Connecting…" ring.
-export const AGORA_NOT_CONFIGURED_ERROR =
-  'Calls are not enabled yet. Agora App ID is not configured.';
+export const ZEGO_NOT_CONFIGURED_ERROR =
+  'Calls are not enabled yet. ZEGO Cloud is not configured.';
 
 export function useWebRTCManager() {
   const { currentCall, endCall: endCallInStore } = useCallStore();
   const currentUser = useAuthStore((s) => s.user);
 
-  const agora = useAgoraCall();
+  const zego = useZegoCall();
 
   const [isConnected, setIsConnected] = useState(false);
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
-  // Multi-party: bridged remote participants (Agora tracks → MediaStream) for
-  // the call UI grid. Each entry carries the Agora uid + combined stream.
+  // For compatibility with the existing call UI, we try to expose a remote
+  // stream when ZEGO reports a remote user. The prebuilt UI renders its own
+  // video elements, so we keep this minimal.
   const [remoteParticipants, setRemoteParticipants] = useState<
     { uid: string | number; stream: MediaStream }[]
   >([]);
@@ -37,14 +39,6 @@ export function useWebRTCManager() {
   const joinedCallIdRef = useRef<string | null>(null);
   const wasConnectedRef = useRef(false);
 
-  // Stable refs so closures always read the latest values without re-triggering effects
-  const agoraRef = useRef(agora);
-  const endCallInStoreRef = useRef(endCallInStore);
-  useLayoutEffect(() => {
-    agoraRef.current = agora;
-    endCallInStoreRef.current = endCallInStore;
-  });
-
   const clearConnectTimeout = useCallback(() => {
     if (connectTimeoutRef.current) {
       clearTimeout(connectTimeoutRef.current);
@@ -52,61 +46,56 @@ export function useWebRTCManager() {
     }
   }, []);
 
-  // ─── Bridge Agora tracks → MediaStream for the legacy UI ───────────────
-  useEffect(() => {
-    const tracks: MediaStreamTrack[] = [];
-    if (agora.localAudioTrack) tracks.push(agora.localAudioTrack.getMediaStreamTrack());
-    if (agora.localVideoTrack) tracks.push(agora.localVideoTrack.getMediaStreamTrack());
-    setLocalStream(tracks.length > 0 ? new MediaStream(tracks) : null);
-  }, [agora.localAudioTrack, agora.localVideoTrack]);
+  // Stable refs so closures always read the latest values without re-triggering effects
+  const zegoRef = useRef<ZegoCallController>(zego);
+  const endCallInStoreRef = useRef(endCallInStore);
+  useLayoutEffect(() => {
+    zegoRef.current = zego;
+    endCallInStoreRef.current = endCallInStore;
+  });
 
-  useEffect(() => {
-    const tracks: MediaStreamTrack[] = [];
-    if (agora.remoteAudioTrack) tracks.push(agora.remoteAudioTrack.getMediaStreamTrack());
-    if (agora.remoteVideoTrack) tracks.push(agora.remoteVideoTrack.getMediaStreamTrack());
-    setRemoteStream(tracks.length > 0 ? new MediaStream(tracks) : null);
-  }, [agora.remoteAudioTrack, agora.remoteVideoTrack]);
+  // When the ZEGO prebuilt UI's own End button is pressed, onLeaveRoom fires —
+  // we must close the Firestore call record too, otherwise the call is stuck.
+  useLayoutEffect(() => {
+    const invite = () => {
+      endCallInStoreRef.current();
+    };
+    zegoRef.current.onRoomEnded?.(invite);
+  }, []);
 
-  // Bridge every remote participant's Agora tracks → a combined MediaStream.
+  // ─── Bridge ZEGO local stream → MediaStream for the legacy UI ──────────
   useEffect(() => {
-    const participants = agora.remoteParticipants.map((p: AgoraRemoteParticipant) => {
-      const tracks: MediaStreamTrack[] = [];
-      if (p.audioTrack) tracks.push(p.audioTrack.getMediaStreamTrack());
-      if (p.videoTrack) tracks.push(p.videoTrack.getMediaStreamTrack());
-      return { uid: p.user.uid, stream: tracks.length > 0 ? new MediaStream(tracks) : new MediaStream() };
-    });
-    setRemoteParticipants(participants);
-  }, [agora.remoteParticipants]);
+    setLocalStream(zego.localStream);
+  }, [zego.localStream]);
 
-  // ─── Mirror Agora state into the hook's public fields ──────────────────
-  useEffect(() => setIsConnected(agora.isConnected), [agora.isConnected]);
-  useEffect(() => setIsMuted(agora.isMuted), [agora.isMuted]);
-  useEffect(() => setIsVideoOn(agora.isVideoOn), [agora.isVideoOn]);
-  useEffect(() => setIsHeld(agora.isHeld), [agora.isHeld]);
-  useEffect(() => setQuality(agora.quality), [agora.quality]);
-  useEffect(() => setMediaError(agora.error), [agora.error]);
+  // ─── Mirror ZEGO state into the hook's public fields ──────────────────
+  useEffect(() => setIsConnected(zego.isConnected), [zego.isConnected]);
+  useEffect(() => setIsMuted(zego.isMuted), [zego.isMuted]);
+  useEffect(() => setIsVideoOn(zego.isVideoOn), [zego.isVideoOn]);
+  useEffect(() => setIsHeld(zego.isHeld), [zego.isHeld]);
+  useEffect(() => setQuality(zego.quality), [zego.quality]);
+  useEffect(() => setMediaError(zego.error), [zego.error]);
   // Clear media errors when the call identity changes (a new call attempt)
   useEffect(() => {
     if (currentCall?.id) setMediaError(null);
   }, [currentCall?.id]);
 
-  // ─── Play "connected" sound when Agora connects ────────────────────────
+  // ─── Play "connected" sound when ZEGO connects ────────────────────────
   useEffect(() => {
-    if (agora.isConnected && !wasConnectedRef.current) {
+    if (zego.isConnected && !wasConnectedRef.current) {
       wasConnectedRef.current = true;
       playCallConnected();
       vibrateCallConnected();
-    } else if (!agora.isConnected) {
+    } else if (!zego.isConnected) {
       wasConnectedRef.current = false;
     }
-  }, [agora.isConnected]);
+  }, [zego.isConnected]);
 
-  // ─── Join the Agora channel when the call becomes active ───────────────
+  // ─── Join the ZEGO room when the call becomes active ────────────────
   useEffect(() => {
     if (!currentCall || !currentUser) return;
-    if (!isAgoraEnvConfigured(import.meta.env.VITE_AGORA_APP_ID)) {
-      // Surface a clear error instead of silently never connecting.
-      setConfiguredError('Agora is not configured. Set VITE_AGORA_APP_ID in your environment to enable calls.');
+    if (!isZegoConfigured()) {
+      setConfiguredError('ZEGO Cloud is not configured. Enable calls to continue.');
       return;
     }
     setConfiguredError(null);
@@ -115,39 +104,86 @@ export function useWebRTCManager() {
     if (!isInitiator && currentCall.status !== 'connected') return;
 
     const callId = currentCall.id;
-    if (joinedCallIdRef.current === callId) return;
-    joinedCallIdRef.current = callId;
+    // Only skip if we've already successfully joined THIS call.
+    // The container mount can happen slightly after the effect fires, so we must
+    // not mark this call as "joined" before the actual room join begins.
+    if (joinedCallIdRef.current === callId && zegoRef.current.isJoined) return;
 
-    const channelName = `call_${callId}`;
-    const uid = deriveAgoraUid(currentUser.id);
-    const isVideo = currentCall.type === 'video';
+    const roomID = buildZegoRoomID(callId);
+    const userID = deriveZegoUserID(currentUser.id);
+    const userName = currentUser.name || currentUser.displayName || currentUser.id || 'User';
+    // `video` and `group_video` both need the camera on
+    const isVideo = isVideoCallType(currentCall.type);
 
     setIsVideoOn(isVideo);
     setQuality('good');
     setIsHeld(false);
 
-    agoraRef.current.join(channelName, uid, isVideo);
+    // Wait for the ZEGO container div to be mounted in CallOverlay (React
+    // commits refs after render, but our effect runs before the next commit).
+    // We retry until the container is actually present, instead of ending the
+    // call early because the ref was not assigned in the first render pass.
+    let joined = false;
+    let joinAttempted = false;
+    const containerCheck = setInterval(() => {
+      if (joined || !zegoRef.current.containerRef.current) return;
+      joined = true;
+      clearInterval(containerCheck);
+      joinedCallIdRef.current = callId;
+      joinAttempted = true;
+      void (async () => {
+        try {
+          await zegoRef.current.join(roomID, userID, userName, isVideo);
+        } catch {
+          if (joinedCallIdRef.current === callId) {
+            joinedCallIdRef.current = null;
+          }
+        }
+      })();
+    }, 100);
+
+    // Safety: if the container never appears, cancel the check but do not auto-end
+    // immediately on a transient DOM timing mismatch; the retry loop above keeps
+    // waiting for the mounted ref while the call is still active.
+    const bailTimer = setTimeout(() => {
+      clearInterval(containerCheck);
+      if (!joined && !joinAttempted) {
+        console.warn('[ZEGO] Container never mounted within the retry window — keeping the call in retry state.');
+      }
+    }, 15000);
 
     clearConnectTimeout();
     connectTimeoutRef.current = setTimeout(() => {
       if (joinedCallIdRef.current !== callId) return;
-      if (agoraRef.current.isConnected) return;
-      agoraRef.current.leave();
+      if (zegoRef.current.isConnected) return;
+      clearInterval(containerCheck);
+      clearTimeout(bailTimer);
+      if (!joined) {
+        joinedCallIdRef.current = null;
+        return;
+      }
+      void zegoRef.current.leave();
       endCallInStoreRef.current();
     }, CONNECTION_TIMEOUT_MS);
 
-    return () => { clearConnectTimeout(); };
-    // Only re-run when the call identity/status changes, not on every agora render
+    return () => {
+      clearConnectTimeout();
+      clearInterval(containerCheck);
+      clearTimeout(bailTimer);
+    };
+    // Only re-run when the call identity/status changes, not on every render
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentCall?.id, currentCall?.status, currentCall?.initiatorId, currentCall?.type, currentUser?.id, clearConnectTimeout]);
 
   // ─── Cleanup when the call ends (from store) ───────────────────────────
   useEffect(() => {
     if (!currentCall && joinedCallIdRef.current) {
-      agoraRef.current.leave();
+      zegoRef.current.leave();
       joinedCallIdRef.current = null;
       clearConnectTimeout();
       wasConnectedRef.current = false;
+      setRemoteStream(null);
+      setRemoteParticipants([]);
     }
   }, [currentCall, clearConnectTimeout]);
 
@@ -155,33 +191,81 @@ export function useWebRTCManager() {
     clearConnectTimeout();
     joinedCallIdRef.current = null;
     wasConnectedRef.current = false;
-    agoraRef.current.leave();
+    zegoRef.current.leave();
+    setRemoteStream(null);
+    setRemoteParticipants([]);
     playCallEnded();
     vibrateCallEnded();
-    endCallInStoreRef.current();
+    // NOTE: Do NOT call endCallInStoreRef.current() here — CallContext.endCall
+    // already calls the store's endCall via _endCall(). Calling it here would
+    // cause a double end-call (the store's endCall would run twice).
   }, [clearConnectTimeout]);
 
-  const toggleMute = useCallback(() => { agoraRef.current.toggleMute(); }, []);
-  const toggleVideo = useCallback(() => { agoraRef.current.toggleVideo(); }, []);
-  const flipCamera = useCallback(() => { void agoraRef.current.flipCamera(); }, []);
+  const toggleMute = useCallback(() => { zegoRef.current.toggleMute(); }, []);
+  const toggleVideo = useCallback(() => { zegoRef.current.toggleVideo(); }, []);
+  const flipCamera = useCallback(() => { void zegoRef.current.flipCamera(); }, []);
 
   const hold = useCallback(() => {
-    if (agoraRef.current.isHeld) return;
-    agoraRef.current.setHeld(true);
+    if (zegoRef.current.isHeld) return;
+    zegoRef.current.setHeld(true);
   }, []);
 
   const resume = useCallback(() => {
-    if (!agoraRef.current.isHeld) return;
-    agoraRef.current.setHeld(false);
+    if (!zegoRef.current.isHeld) return;
+    zegoRef.current.setHeld(false);
   }, []);
 
   const toggleHold = useCallback(() => {
-    agoraRef.current.setHeld(!agoraRef.current.isHeld);
+    zegoRef.current.setHeld(!zegoRef.current.isHeld);
   }, []);
 
-  const sendDTMF = useCallback(async (_tone: string): Promise<boolean> => false, []);
+  const sendDTMF = useCallback(async (tone: string): Promise<boolean> => {
+    if (!tone || !zego.localStream) return false;
+    
+    try {
+      // Get audio track from the local stream (provided by ZEGO)
+      const audioTrack = zego.localStream.getAudioTracks()[0];
+      if (!audioTrack) return false;
+
+      // Find the peer connection from ZEGO instance
+      // ZEGO uses internal PC that we need to access via the instance
+      const zegoInstance = (zegoRef.current as unknown as { 
+        _engine?: { _pc?: RTCPeerConnection };
+        _peerConnectionManager?: { _pc?: RTCPeerConnection };
+      });
+      
+      let pc = zegoInstance._engine?._pc;
+      if (!pc) pc = zegoInstance._peerConnectionManager?._pc;
+      
+      if (!pc) return false;
+
+      // Find the sender for the audio track
+      const audioSender = pc.getSenders().find(s => s.track === audioTrack);
+      if (!audioSender) return false;
+
+      // Get DTMF sender and validate
+      const dtmfSender = audioSender.dtmf;
+      if (!dtmfSender || typeof dtmfSender.insertDTMF !== 'function') return false;
+
+      // Validate tone (0-9, *, #, A-D)
+      const char = tone.charAt(0).toUpperCase();
+      if (!'0123456789*#ABCD'.includes(char)) return false;
+
+      // Send the DTMF tone (100ms duration, 100ms gap)
+      dtmfSender.insertDTMF(char, 100, 100);
+      return true;
+    } catch {
+      // Silently fail if DTMF not supported or access fails
+      return false;
+    }
+  }, [zego.localStream]);
 
   return {
+    // ZEGO prebuilt container ref — mounted by CallOverlay to host the ZEGO UI
+    containerRef: zego.containerRef,
+    // True only after ZEGO has successfully joined the room. CallOverlay uses
+    // this to swap from the legacy ring UI to ZEGO's full-screen UI.
+    isZegoActive: zego.isJoined,
     isConnected,
     localStream,
     remoteStream,
