@@ -47,4 +47,5 @@ eslint-*.txt
 frontend_build_*.txt
 backend-*.log
 firebase-debug.log
-lint-output.log
+lint-output.log"deployed_index.html"  
+"supabase/.temp/"  
