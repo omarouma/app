@@ -203,15 +203,12 @@ export async function signInWithPhone(
   const supabase = getSupabaseSafe();
   if (!supabase) return { success: false, error: 'Supabase not configured' };
 
-  // Phone users sign in via email derived from phone stored in their profile
-  const { data: rows } = await supabase
-    .from('users')
-    .select('email')
-    .eq('phone', phone)
-    .single();
+  // Resolve the login email through an owner-safe RPC; direct users-table
+  // SELECT is intentionally disabled by the production privacy migration.
+  const { data: email, error: lookupError } = await supabase.rpc('lookup_phone_login', { p_phone: phone });
 
-  if (!rows?.email) return { success: false, error: 'No account found with this phone number' };
-  return signIn(rows.email, password);
+  if (lookupError || !email) return { success: false, error: 'No account found with this phone number' };
+  return signIn(String(email), password);
 }
 
 export async function signUp(

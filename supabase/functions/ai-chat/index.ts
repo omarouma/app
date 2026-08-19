@@ -2,8 +2,11 @@
 // GaGa AI assistant endpoint - real AI via OpenAI, fallback templates.
 
 const ALLOWED_ORIGINS = new Set([
+  'https://gagachat.app',
   'https://oumagachat.web.app',
   'https://oumagachat.firebaseapp.com',
+  'http://localhost:3000',
+  'http://localhost:5173',
 ]);
 
 function cors(req) {

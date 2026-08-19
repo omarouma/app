@@ -104,7 +104,7 @@ export function useChatEffects(
       void (async () => {
         try {
           const { data } = await supabase
-            .from('users')
+            .from('public_profiles')
             .select('status, last_seen')
             .eq('id', userId)
             .single();

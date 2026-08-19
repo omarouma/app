@@ -27,6 +27,11 @@ const VAPID_SUBJECT = Deno.env.get('VAPID_SUBJECT') ?? 'mailto:admin@gagachat.ap
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? '';
 const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
 
+function isAuthorizedWebhook(req: Request): boolean {
+  const header = req.headers.get('Authorization') ?? '';
+  return SERVICE_ROLE_KEY.length > 0 && header === `Bearer ${SERVICE_ROLE_KEY}`;
+}
+
 if (VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY) {
   webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
 }
@@ -97,6 +102,7 @@ async function sendPushToUser(
 
 Deno.serve(async (req: Request) => {
   if (req.method !== 'POST') return json({ error: 'METHOD_NOT_ALLOWED' }, 405);
+  if (!isAuthorizedWebhook(req)) return json({ error: 'UNAUTHORIZED' }, 401);
   if (!VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY) {
     return json({ error: 'VAPID_NOT_CONFIGURED' }, 500);
   }
@@ -117,8 +123,8 @@ Deno.serve(async (req: Request) => {
   // ── Incoming call → push to callee ──────────────────────────────────────
   if (table === 'call_history') {
     if (record.status !== 'calling') return json({ skipped: true, reason: 'not ringing' });
-    const calleeId: string = record.calleeId ?? record.callee ?? '';
-    const callerId: string = record.callerId ?? record.caller ?? '';
+    const calleeId: string = record.callee_id ?? record.calleeId ?? record.callee ?? '';
+    const callerId: string = record.caller_id ?? record.callerId ?? record.caller ?? '';
     if (!calleeId) return json({ skipped: true, reason: 'no callee' });
 
     const caller = callerId ? await getUser(callerId) : null;

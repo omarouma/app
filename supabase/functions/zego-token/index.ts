@@ -1,3 +1,4 @@
+// @ts-nocheck - Supabase Edge Functions run on the Deno runtime.
 // Supabase Edge Function: zego-token
 // Server-only ZEGO token minting without exposing the ZEGO secret to the client.
 
@@ -65,6 +66,39 @@ async function authenticate(req: Request): Promise<string | null> {
   }
 }
 
+async function isCallParticipant(req: Request, callerId: string, room: string): Promise<boolean> {
+  if (!room.startsWith('call_')) return false;
+  const callId = room.slice('call_'.length);
+  if (!callId) return false;
+  const authorization = req.headers.get('Authorization') ?? '';
+  try {
+    const query = new URL(`${SUPABASE_URL}/rest/v1/call_history`);
+    query.searchParams.set('id', `eq.${callId}`);
+    query.searchParams.set('select', 'id,status,caller_id,callee_id,participant_ids');
+    query.searchParams.set('limit', '1');
+    const response = await fetch(query, {
+      headers: {
+        Authorization: authorization,
+        apikey: SUPABASE_ANON_KEY,
+      },
+    });
+    if (!response.ok) return false;
+    const rows = await response.json() as Array<{
+      status?: string;
+      caller_id?: string;
+      callee_id?: string;
+      participant_ids?: string[];
+    }>;
+    const call = rows[0];
+    if (!call || !['calling', 'connected'].includes(call.status ?? '')) return false;
+    return call.caller_id === callerId
+      || call.callee_id === callerId
+      || (Array.isArray(call.participant_ids) && call.participant_ids.includes(callerId));
+  } catch {
+    return false;
+  }
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: corsHeaders(req) });
   if (req.method !== 'GET') return json(req, { error: 'METHOD_NOT_ALLOWED' }, 405);
@@ -80,6 +114,9 @@ Deno.serve(async (req: Request) => {
 
   const sanitizedCaller = callerId.replace(/[^A-Za-z0-9_-]/g, '_').slice(0, 64);
   if (user !== callerId && user !== sanitizedCaller) return json(req, { error: 'FORBIDDEN' }, 403);
+  if (!(await isCallParticipant(req, callerId, room))) {
+    return json(req, { error: 'CALL_ACCESS_DENIED' }, 403);
+  }
   if (!ZEGO_APP_ID || !ZEGO_SERVER_SECRET) return json(req, { error: 'ZEGO_NOT_CONFIGURED' }, 500);
 
   const now = Math.floor(Date.now() / 1000);
