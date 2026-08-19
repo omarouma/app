@@ -34,10 +34,29 @@ export const ZEGO_SERVER_URL: string = readEnvString('VITE_ZEGO_SERVER_URL', '')
 export const ZEGO_TOKEN_SERVER_URL: string = readEnvString('VITE_ZEGO_TOKEN_SERVER_URL', '');
 
 /**
+ * Resolve the token endpoint even when an older deployment was built without
+ * VITE_ZEGO_TOKEN_SERVER_URL. Supabase projects expose the Edge Function at a
+ * deterministic URL, so the public project URL is enough to derive it.
+ */
+export function getZegoTokenServerUrl(): string {
+    if (ZEGO_TOKEN_SERVER_URL) return ZEGO_TOKEN_SERVER_URL;
+    const supabaseUrl = readEnvString('VITE_SUPABASE_URL', '');
+    if (!supabaseUrl) return '';
+    try {
+        return `${new URL(supabaseUrl).origin}/functions/v1/zego-token`;
+    } catch {
+        return '';
+    }
+}
+
+/**
  * Whether ZEGO is configured.
  */
 export function isZegoConfigured(): boolean {
-    return !!(ZEGO_APP_ID && (ZEGO_SERVER_SECRET || ZEGO_TOKEN_SERVER_URL));
+    const hasTokenSource = import.meta.env.DEV
+        ? !!(ZEGO_SERVER_SECRET || getZegoTokenServerUrl())
+        : !!getZegoTokenServerUrl();
+    return !!(ZEGO_APP_ID && hasTokenSource);
 }
 
 /**

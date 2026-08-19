@@ -53,8 +53,14 @@ function applyCors(req: { headers: { origin?: string } }, res: {
   end: () => void;
 }): boolean {
   const origin = req.headers.origin ?? '';
-  const allowList = ['*'];
-  const isAllowed = allowList.includes('*') || allowList.includes(origin);
+  const allowList = new Set([
+    'https://gagachat.app',
+    'https://oumagachat.web.app',
+    'https://oumagachat.firebaseapp.com',
+    'http://localhost:3000',
+    'http://localhost:5173',
+  ]);
+  const isAllowed = !origin || allowList.has(origin);
   if (isAllowed && origin) {
     res.setHeader('Access-Control-Allow-Origin', origin);
   } else {

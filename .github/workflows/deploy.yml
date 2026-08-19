@@ -30,10 +30,6 @@ jobs:
       - name: Install frontend dependencies
         run: npm ci
 
-      - name: Install functions dependencies
-        working-directory: functions
-        run: npm ci
-
       - name: Lint frontend
         run: npm run lint
 
@@ -66,12 +62,13 @@ jobs:
           VITE_YOUTUBE_API_KEY: ${{ secrets.VITE_YOUTUBE_API_KEY }}
           VITE_YOUTUBE_REGION: ${{ secrets.VITE_YOUTUBE_REGION }}
           VITE_PEXELS_API_KEY: ${{ secrets.VITE_PEXELS_API_KEY }}
+          # ZEGO App ID is public client configuration. Keep the token secret
+          # server-side in Firebase Secret Manager; never add it here.
+          VITE_ZEGO_APP_ID: ${{ secrets.VITE_ZEGO_APP_ID || '1895317974' }}
+          VITE_ZEGO_TOKEN_SERVER_URL: https://alzwgikndwbecuqmlrca.supabase.co/functions/v1/zego-token
+          VITE_ZEGO_SERVER_URL: ${{ secrets.VITE_ZEGO_SERVER_URL }}
 
-      - name: Build Cloud Functions
-        working-directory: functions
-        run: npm run build
-
-      - name: Deploy Hosting + Functions to Firebase
+      - name: Deploy Hosting to Firebase
         uses: FirebaseExtended/action-hosting-deploy@v0
         with:
           repoToken: ${{ secrets.GITHUB_TOKEN }}

@@ -12,10 +12,8 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "moduleResolution": "Node16",
-    "ignoreDeprecations": "5.0",
     "sourceMap": true,
     "declaration": true,
-    "baseUrl": ".",
     "outDir": "lib",
     "rootDir": "src"
   },

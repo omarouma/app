@@ -8,9 +8,29 @@
  *   ❌  table MISSING (relation does not exist)
  */
 import { createClient } from '@supabase/supabase-js';
+import fs from 'node:fs';
+import path from 'node:path';
 
-const SUPABASE_URL = 'https://alzwgikndwbecuqmlrca.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFsendnaWtuZHdiZWN1cW1scmNhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU3Nzc0OTcsImV4cCI6MjEwMTM1MzQ5N30.4QI10WfQYvenslEFNTon3HbRbP1dZVDqas9zSz-zB7w';
+function readEnvFile() {
+  const envPath = path.resolve(process.cwd(), '.env');
+  if (!fs.existsSync(envPath)) return {};
+  return Object.fromEntries(fs.readFileSync(envPath, 'utf8').split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line && !line.startsWith('#') && line.includes('='))
+    .map((line) => {
+      const index = line.indexOf('=');
+      return [line.slice(0, index), line.slice(index + 1).replace(/^['"]|['"]$/g, '')];
+    }));
+}
+
+const env = { ...readEnvFile(), ...process.env };
+const SUPABASE_URL = env.VITE_SUPABASE_URL || env.SUPABASE_URL || '';
+const SUPABASE_ANON_KEY = env.VITE_SUPABASE_ANON_KEY || env.SUPABASE_ANON_KEY || '';
+
+if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+  console.error('Missing VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in .env or environment.');
+  process.exit(1);
+}
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -27,10 +47,10 @@ const TABLES = [
 ];
 
 // Error codes that mean "table exists but RLS blocks the anon key" — this is a PASS.
-// PGRST205 = row-level security check failed (RLS active), 42501 = permission denied.
-const RLS_GUARDED_CODES = new Set(['PGRST205', '42501', '42501', '42P01']);
+// PGRST205 = relation/table not found. 42501 is permission denied.
+const RLS_GUARDED_CODES = new Set(['42501']);
 // Error codes that mean the relation/table does not exist — this is a FAIL.
-const MISSING_CODES = new Set(['PGRST204', '42P01', '3F000']);
+const MISSING_CODES = new Set(['PGRST205', '42P01', '3F000']);
 // Codes that mean "column does not exist" (table exists, schema drift) — treat as present.
 const COLUMN_MISSING_CODES = new Set(['PGRST204', '42703']);
 
@@ -40,7 +60,7 @@ function classifyError(error) {
   const code = (error?.code || '').toUpperCase();
   const msg = (error?.message || '').toLowerCase();
   const hint = (error?.hint || '').toLowerCase();
-const details = (error?.details || '').toLowerCase();
+  const details = (error?.details || '').toLowerCase();
   const combined = `${msg} ${hint} ${details}`;
   // Error object exists AND has a message key (even if empty string). An empty
   // message on a SELECT is a permission-denied (RLS) response.
@@ -49,7 +69,7 @@ const details = (error?.details || '').toLowerCase();
   // Missing relation/table
   if (
     MISSING_CODES.has(code) ||
-    combined.includes('relation') ||
+    combined.includes('relation does not exist') ||
     combined.includes('does not exist') ||
     combined.includes('undefined_table') ||
     combined.includes('not found')
@@ -64,7 +84,6 @@ const details = (error?.details || '').toLowerCase();
     RLS_GUARDED_CODES.has(code) ||
     combined.includes('permission') ||
     combined.includes('row-level security') ||
-    combined.includes('pgrst205') ||
     combined.includes('42501') ||
     (hasError && !code && !msg && !hint && !details)
   ) {

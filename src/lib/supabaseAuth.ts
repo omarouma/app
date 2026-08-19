@@ -14,11 +14,19 @@ export async function fetchUserProfile(userId: string): Promise<User | null> {
   const supabase = getSupabaseSafe();
   if (!supabase || !userId) return null;
 
-  const { data, error } = await supabase
-    .from('users')
+  // Read the complete row only through the owner-scoped RPC. This restores
+  // auth-only fields such as is_admin and balances without exposing them in
+  // public profile queries. Older deployments can still use the public view.
+  const { data: privateData, error: privateError } = await supabase.rpc('get_my_profile');
+  const { data: publicData, error: publicError } = privateError || !privateData
+    ? await supabase
+    .from('public_profiles')
     .select('*')
     .eq('id', userId)
-    .single();
+    .single()
+    : { data: null, error: null };
+  let data = privateError || !privateData ? publicData : privateData;
+  const error = privateError && publicError ? publicError : null;
 
   if (error || !data) return null;
 
@@ -356,10 +364,10 @@ export async function searchUsers(query: string, currentUserId: string): Promise
 
   const [usernameResult, nameResult] = await Promise.all([
     Promise.resolve(
-      supabase.from('users').select(SAFE_COLS).ilike('username', `%${safeQuery}%`).neq('id', currentUserId).limit(20)
+      supabase.from('public_profiles').select(SAFE_COLS).ilike('username', `%${safeQuery}%`).neq('id', currentUserId).limit(20)
     ).then(({ data }) => (data ?? []) as Record<string, unknown>[]).catch((): Record<string, unknown>[] => []),
     Promise.resolve(
-      supabase.from('users').select(SAFE_COLS).ilike('name', `%${safeQuery}%`).neq('id', currentUserId).limit(20)
+      supabase.from('public_profiles').select(SAFE_COLS).ilike('name', `%${safeQuery}%`).neq('id', currentUserId).limit(20)
     ).then(({ data }) => (data ?? []) as Record<string, unknown>[]).catch((): Record<string, unknown>[] => []),
   ]);
 

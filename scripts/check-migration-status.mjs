@@ -27,7 +27,7 @@ const probes = [
   ['posts', 'poll_data', '20260814_add_video_support.sql'],
   ['posts', 'hashtags', '20260814_add_video_support.sql'],
   ['posts', 'content_warning', '20260814_add_video_support.sql'],
-  ['call_history', 'participant_ids', 'supabase_master_fix.sql §5'],
+  ['call_history', 'participant_ids', 'supabase/migrations/20260819_storage_and_call_columns.sql'],
 ];
 
 console.log('Probing live schema (read-only)...\n');
@@ -45,12 +45,25 @@ for (const [table, column, migration] of probes) {
 // Storage buckets from master fix §9
 console.log('\nStorage buckets:');
 const { data: buckets, error: bucketErr } = await supabase.storage.listBuckets();
-if (bucketErr) {
-  console.log(`ERROR    listBuckets: ${bucketErr.message}`);
-} else {
-  const expected = ['chat-media', 'avatars', 'posts', 'stories', 'reels', 'voice-messages'];
+const expected = ['chat-media', 'avatars', 'posts', 'stories', 'reels', 'voice-messages'];
+if (!bucketErr && buckets?.length) {
   const present = new Set((buckets || []).map(b => b.id));
   for (const b of expected) {
     console.log(`${present.has(b) ? 'OK      ' : 'MISSING'}  bucket ${b}`);
+  }
+} else {
+  // listBuckets() is commonly denied for anon users even when public buckets
+  // are configured correctly. Probe a harmless nonexistent public object:
+  // NoSuchKey proves the bucket exists; BucketNotFound proves it does not.
+  const storageBase = `${env.VITE_SUPABASE_URL || env.SUPABASE_URL}/storage/v1/object/public`;
+  for (const bucket of expected) {
+    try {
+      const response = await fetch(`${storageBase}/${bucket}/.gaga-schema-probe`);
+      const body = await response.text();
+      const exists = /NoSuchKey|Object not found|not_found/i.test(body);
+      console.log(`${exists ? 'OK      ' : 'MISSING'}  bucket ${bucket}`);
+    } catch (error) {
+      console.log(`ERROR    bucket ${bucket}   ${error instanceof Error ? error.message : String(error)}`);
+    }
   }
 }

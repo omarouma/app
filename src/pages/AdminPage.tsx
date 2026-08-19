@@ -45,7 +45,7 @@ export default function AdminPage() {
   const [contentLoading, setContentLoading] = useState(false);
   const [contentSearch, setContentSearch] = useState('');
   const [processingPostId, setProcessingPostId] = useState<string | null>(null);
-  const [reportedComments, setReportedComments] = useState<{ id: string; userId: string; content: string; postId: string; timestamp: Date; reports: number }[]>([]);
+  const [reportedComments, setReportedComments] = useState<{ id: string; userId: string; content: string; postId: string; timestamp: Date; reports: number; reportIds: string[] }[]>([]);
 
   // Analytics state
   const [stats, setStats] = useState<AdminDashboardStats | null>(null);
@@ -127,10 +127,13 @@ export default function AdminPage() {
     // fetchReports is intentionally excluded
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reportFilter, activeTab, user?.isAdmin]);
-  const updateReportStatus = async (reportId: string, status: string, action: string) => {
+  const updateReportStatus = async (reportId: string, status: UserReport['status'], action: string, banUserId?: string) => {
     if (!isFirestoreAvailable() || !user?.isAdmin) return;
     setProcessingReportId(reportId);
     try {
+      if (banUserId) {
+        await updateDocById(COLLECTIONS.USERS, banUserId, { status: 'banned' });
+      }
       await updateDocById(COLLECTIONS.REPORTS, reportId, {
         status,
         reviewedBy: user.id,
@@ -252,20 +255,25 @@ export default function AdminPage() {
         where('contentType', '==', 'comment'),
         where('status', '==', 'pending'),
       ]);
-      const commentMap = new Map<string, { id: string; userId: string; content: string; postId: string; timestamp: Date; reports: number }>();
+      const commentMap = new Map<string, { id: string; userId: string; content: string; postId: string; timestamp: Date; reports: number; reportIds: string[] }>();
       (reportsData || []).forEach((r: RawDoc) => {
-        const key = (r.contentId || r.id) as string;
+        const key = (r.commentId || r.contentId || r.id) as string;
+        const postId = (r.postId || r.contentId || '') as string;
+        const sourcePost = postsList.find((post) => post.id === postId);
+        const sourceComment = sourcePost?.comments.find((comment) => comment.id === key);
         if (commentMap.has(key)) {
           const existing = commentMap.get(key)!;
           existing.reports += 1;
+          existing.reportIds.push(r.id as string);
         } else {
           commentMap.set(key, {
             id: key,
-            userId: (r.reportedId || '') as string,
-            content: (r.details || 'No content') as string,
-            postId: (r.postId || '') as string,
+            userId: (sourceComment?.userId || r.reportedId || '') as string,
+            content: (sourceComment?.content || r.details || 'No content') as string,
+            postId,
             timestamp: new Date((r.timestamp || r.createdAt) as string),
             reports: 1,
+            reportIds: [r.id as string],
           });
         }
       });
@@ -292,6 +300,32 @@ export default function AdminPage() {
       toast.error('Failed to delete post');
     }
     setProcessingPostId(null);
+  };
+
+  const moderateComment = async (comment: typeof reportedComments[number], remove: boolean) => {
+    if (!isFirestoreAvailable() || !user?.isAdmin) return;
+    setProcessingPostId(comment.id);
+    try {
+      if (remove) {
+        const post = posts.find((item) => item.id === comment.postId);
+        if (!post) throw new Error('Post not found');
+        await updateDocById(COLLECTIONS.POSTS, post.id, {
+          comments: post.comments.filter((item) => item.id !== comment.id),
+        });
+      }
+      await Promise.all(comment.reportIds.map((reportId) => updateDocById(COLLECTIONS.REPORTS, reportId, {
+        status: remove ? 'resolved' : 'dismissed',
+        reviewedBy: user.id,
+        reviewedAt: new Date().toISOString(),
+        actionTaken: remove ? 'Comment removed' : 'No action taken',
+      })));
+      toast.success(remove ? 'Comment removed' : 'Comment dismissed');
+      fetchContent();
+    } catch {
+      toast.error(remove ? 'Failed to remove comment' : 'Failed to dismiss comment');
+    } finally {
+      setProcessingPostId(null);
+    }
   };
 
   const hidePost = async (post: TimelinePost) => {
@@ -641,7 +675,7 @@ export default function AdminPage() {
                         >
                           <Eye size={12} /> Review
                         </button>
-                        <button type="button" onClick={() => updateReportStatus(report.id, 'resolved', 'User banned')}
+                        <button type="button" onClick={() => updateReportStatus(report.id, 'resolved', 'User banned', report.reportedId)}
                           disabled={processingReportId === report.id}
                           className="flex items-center gap-1 px-3 py-1.5 bg-[#FF3B30]/10 text-[#FF3B30] text-xs rounded-full font-medium active:bg-[#FF3B30]/20 transition-colors disabled:opacity-50"
                         >
@@ -663,7 +697,7 @@ export default function AdminPage() {
                         >
                           <Check size={12} /> Resolve
                         </button>
-                        <button type="button" onClick={() => updateReportStatus(report.id, 'resolved', 'User banned')}
+                        <button type="button" onClick={() => updateReportStatus(report.id, 'resolved', 'User banned', report.reportedId)}
                           disabled={processingReportId === report.id}
                           className="flex items-center gap-1 px-3 py-1.5 bg-[#FF3B30]/10 text-[#FF3B30] text-xs rounded-full font-medium active:bg-[#FF3B30]/20 transition-colors disabled:opacity-50"
                         >
@@ -987,12 +1021,14 @@ export default function AdminPage() {
                       </div>
                       <p className="text-[#111111] text-sm bg-[#F5F5F5] rounded-lg p-2 mb-2">{c.content}</p>
                       <div className="flex gap-2">
-                        <button type="button" onClick={() => toast.success('Comment dismissed')}
+                        <button type="button" onClick={() => moderateComment(c, false)}
+                          disabled={processingPostId === c.id}
                           className="px-3 py-1.5 bg-[#F5F5F5] text-[#8D8D8D] text-xs rounded-full font-medium"
                         >
                           Dismiss
                         </button>
-                        <button type="button" onClick={() => toast.success('Comment removed')}
+                        <button type="button" onClick={() => moderateComment(c, true)}
+                          disabled={processingPostId === c.id}
                           className="px-3 py-1.5 bg-[#FF3B30]/10 text-[#FF3B30] text-xs rounded-full font-medium"
                         >
                           Remove

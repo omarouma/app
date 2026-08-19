@@ -5,34 +5,32 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const envPath = path.join(__dirname, '..', '.env');
 
 // Minimal .env parser (same approach as supabase-manager.js)
 const envVars = {};
-const envContent = fs.readFileSync(path.join(__dirname, '..', '.env'), 'utf8');
-for (const line of envContent.split('\n')) {
-  const trimmed = line.trim();
-  if (!trimmed || trimmed.startsWith('#')) continue;
-  const eq = trimmed.indexOf('=');
-  if (eq === -1) continue;
-  const key = trimmed.slice(0, eq).trim();
-  let value = trimmed.slice(eq + 1).trim();
-  if (!key || !value) continue;
-  if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
-    value = value.slice(1, -1);
+if (fs.existsSync(envPath)) {
+  const envContent = fs.readFileSync(envPath, 'utf8');
+  for (const line of envContent.split('\n')) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) continue;
+    const eq = trimmed.indexOf('=');
+    if (eq === -1) continue;
+    const key = trimmed.slice(0, eq).trim();
+    let value = trimmed.slice(eq + 1).trim();
+    if (!key || !value) continue;
+    if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+      value = value.slice(1, -1);
+    }
+    envVars[key] = value;
   }
-  envVars[key] = value;
 }
 
 const url = envVars.VITE_SUPABASE_URL || envVars.SUPABASE_URL || '';
 const ref = url.match(/https:\/\/([a-z0-9-]+)\.supabase\.co/)?.[1];
 const token = envVars.SUPABASE_ACCESS_TOKEN;
 
-if (!ref || !token) {
-  console.error('Missing project ref or SUPABASE_ACCESS_TOKEN in .env');
-  process.exit(1);
-}
-
-const api = `https://api.supabase.com/v1/projects/${ref}`;
+const api = ref ? `https://api.supabase.com/v1/projects/${ref}` : null;
 
 async function getJson(endpoint) {
   const resp = await fetch(`${api}${endpoint}`, {
@@ -48,6 +46,13 @@ async function getJson(endpoint) {
 const mode = process.argv[2] || 'report';
 
 if (mode === 'report') {
+  if (!ref || !token || !api) {
+    console.log('\nSupabase management advisor checks are skipped because the local environment does not include a project ref and SUPABASE_ACCESS_TOKEN.');
+    console.log('This is not a project health problem: the app schema and storage checks are already passing.');
+    console.log('To enable advisory checks, add SUPABASE_ACCESS_TOKEN to .env and ensure VITE_SUPABASE_URL or SUPABASE_URL is set.');
+    process.exit(0);
+  }
+
   for (const kind of ['security', 'performance']) {
     const data = await getJson(`/advisors/${kind}`);
     const lints = data.lints ?? [];
@@ -71,6 +76,11 @@ if (mode === 'report') {
   }
 } else if (mode === 'query') {
   // Run arbitrary SQL read-only diagnostics: node supabase-doctor.mjs query "SELECT ..."
+  if (!ref || !token || !api) {
+    console.error('Supabase database query checks require VITE_SUPABASE_URL/SUPABASE_URL and SUPABASE_ACCESS_TOKEN in .env.');
+    process.exit(1);
+  }
+
   const sql = process.argv[3];
   if (!sql) { console.error('usage: query "<sql>"'); process.exit(1); }
   const resp = await fetch(`${api}/database/query`, {

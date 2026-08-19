@@ -5,12 +5,14 @@ const readConfig = (relativePath: string) =>
     readFileSync(new URL(relativePath, import.meta.url), 'utf8');
 
 describe('TypeScript build config', () => {
-    it('uses the supported deprecation guard value', () => {
+    it('does not rely on deprecated baseUrl configuration', () => {
         const rootConfig = readConfig('../../tsconfig.json');
         const appConfig = readConfig('../../tsconfig.app.json');
 
-        expect(rootConfig).toMatch(/"ignoreDeprecations"\s*:\s*"5\.0"/);
-        expect(appConfig).toMatch(/"ignoreDeprecations"\s*:\s*"5\.0"/);
+        expect(rootConfig).not.toMatch(/"baseUrl"\s*:/);
+        expect(rootConfig).not.toMatch(/"ignoreDeprecations"\s*:/);
+        expect(appConfig).not.toMatch(/"baseUrl"\s*:/);
+        expect(appConfig).not.toMatch(/"ignoreDeprecations"\s*:/);
     });
 
     it('has strict mode enabled', () => {

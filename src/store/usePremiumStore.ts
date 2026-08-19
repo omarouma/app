@@ -391,7 +391,7 @@ export const usePremiumStore = create<PremiumStoreState & PremiumStoreActions>((
     return code;
   },
 
-  applyReferralCode: async (userId, code, referredByName) => {
+  applyReferralCode: async (userId, code, _referredByName) => {
     try {
       if (!code || !code.startsWith('GAGA-')) {
         toast.error('Invalid referral code');
@@ -428,13 +428,10 @@ export const usePremiumStore = create<PremiumStoreState & PremiumStoreActions>((
         createdAt: serverTimestamp(),
       });
 
-      // Reward referrer
-      try {
-        const { earnCoins } = (await import('@/store/useWalletStore')).useWalletStore.getState();
-        await earnCoins(referrer.id, REFERRAL_REWARD_COINS, `Referral reward: ${referredByName || 'a friend'} joined with your code`);
-      } catch {
-        // ignore wallet reward errors
-      }
+      // NOTE: Referral rewards are now awarded server-side via admin_award_coins.
+      // This requires server-side verification that the referral is legitimate.
+      // For now, referral rewards are disabled pending backend implementation.
+      console.info('[usePremiumStore.redeemReferral] Referral rewards require server-side verification');
 
       // Update referrer count
       await updateDocById(COLLECTIONS.USERS, referrer.id, {

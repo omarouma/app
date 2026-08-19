@@ -47,7 +47,7 @@ function haptic() {
 export default function WalletPage() {
   const navigate = useNavigate();
   const { user } = useAuthStore();
-  const { wallet, subscribeWallet, redeemCode, deposit, withdraw, convert, claimDailyInterest, getDailyInterestAmount, getStakingAPY, getTotalBalanceInGaga, setWalletPin, verifyPin, unlockWallet, lockWallet, hasPinSet, clearWalletPin, pinLocked } = useWalletStore();
+  const { wallet, subscribeWallet, redeemCode, withdraw, convert, claimDailyInterest, getDailyInterestAmount, getStakingAPY, getTotalBalanceInGaga, setWalletPin, verifyPin, unlockWallet, lockWallet, hasPinSet, clearWalletPin, pinLocked } = useWalletStore();
   const [activeCurrency, setActiveCurrency] = useState<CurrencyCode>('GAGA');
   const [showPromo, setShowPromo] = useState(false);
   const [promoInput, setPromoInput] = useState('');
@@ -122,9 +122,9 @@ export default function WalletPage() {
 
   const handleDeposit = async () => {
     if (!user || !depositAmount || !depositMethod) return;
-    setProcessing(true);
-    await deposit(user.id, parseFloat(depositAmount), depositCurrency, depositMethod);
-    setProcessing(false);
+    // NOTE: Deposits are being processed server-side.
+    // Temporarily disabled pending integration with payment gateway and admin RPC.
+    console.info('[WalletPage] Deposits require server-side payment verification (disabled for security)');
     setShowDeposit(false);
     setDepositAmount('');
     setDepositMethod('');

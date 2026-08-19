@@ -5,6 +5,7 @@ import {
     ZEGO_SERVER_SECRET,
     getZegoUIKit,
     getZegoCallConfig,
+    getZegoTokenServerUrl,
 } from '@/lib/zego';
 import env from '@/config/env';
 import { getSupabaseSafe } from '@/lib/supabase';
@@ -131,14 +132,14 @@ export function useZegoCall(): ZegoCallController {
         roomID: string,
         userID: string,
     ): Promise<string | null> => {
-        const tokenServerUrl = env.VITE_ZEGO_TOKEN_SERVER_URL;
+        const tokenServerUrl = getZegoTokenServerUrl() || env.VITE_ZEGO_TOKEN_SERVER_URL;
         if (!tokenServerUrl) return null;
 
         const supabase = getSupabaseSafe();
         const session = supabase ? await supabase.auth.getSession().catch(() => null) : null;
         const accessToken = session?.data?.session?.access_token;
         if (!accessToken) {
-            console.warn('[ZEGO] No auth session available for server token request — falling back to test token.');
+            console.warn('[ZEGO] No auth session available for server token request.');
             return null;
         }
 
@@ -156,17 +157,17 @@ export function useZegoCall(): ZegoCallController {
                 headers: { Authorization: `Bearer ${accessToken}` },
             });
             if (!response.ok) {
-                console.warn(`[ZEGO] Token server responded ${response.status}; falling back to test token.`);
+                console.warn(`[ZEGO] Token server responded ${response.status}.`);
                 return null;
             }
             const data = (await response.json()) as { token?: string };
             if (!data.token) {
-                console.warn('[ZEGO] Token server response missing `token`; falling back to test token.');
+                console.warn('[ZEGO] Token server response missing `token`.');
                 return null;
             }
             return data.token;
         } catch (err) {
-            console.warn('[ZEGO] Token server fetch failed; falling back to test token.', err);
+            console.warn('[ZEGO] Token server fetch failed.', err);
             return null;
         }
     }, []);

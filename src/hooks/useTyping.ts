@@ -93,7 +93,7 @@ export function useTyping(chatId: string | undefined) {
       const supabase = isSupabaseConfigured() ? getSupabase() : null;
       if (!supabase) return undefined;
       try {
-        const { data } = await supabase.from('users').select('name').eq('id', userId).single();
+        const { data } = await supabase.from('public_profiles').select('name').eq('id', userId).single();
         if (data?.name) {
           userNameCache.set(userId, data.name);
           return data.name;

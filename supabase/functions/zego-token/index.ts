@@ -6,17 +6,29 @@ const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
 const ZEGO_APP_ID = Number(Deno.env.get('ZEGO_APP_ID') ?? '0');
 const ZEGO_SERVER_SECRET = Deno.env.get('ZEGO_SERVER_SECRET') ?? '';
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
+const allowedOrigins = new Set([
+  'https://gagachat.app',
+  'https://oumagachat.web.app',
+  'https://oumagachat.firebaseapp.com',
+  'http://localhost:3000',
+  'http://localhost:5173',
+]);
+
+function corsHeaders(req: Request): Record<string, string> {
+  const origin = req.headers.get('Origin') ?? '';
+  return {
+  'Access-Control-Allow-Origin': allowedOrigins.has(origin) ? origin : 'null',
   'Access-Control-Allow-Headers': 'authorization, content-type, apikey',
   'Access-Control-Allow-Methods': 'GET, OPTIONS',
   'Cache-Control': 'private, no-store, no-cache, must-revalidate',
+  'Vary': 'Origin',
+  };
 };
 
-function json(body: Record<string, unknown>, status = 200): Response {
+function json(req: Request, body: Record<string, unknown>, status = 200): Response {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { ...corsHeaders, 'Content-Type': 'application/json; charset=utf-8' },
+    headers: { ...corsHeaders(req), 'Content-Type': 'application/json; charset=utf-8' },
   });
 }
 
@@ -54,24 +66,24 @@ async function authenticate(req: Request): Promise<string | null> {
 }
 
 Deno.serve(async (req: Request) => {
-  if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: corsHeaders });
-  if (req.method !== 'GET') return json({ error: 'METHOD_NOT_ALLOWED' }, 405);
+  if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: corsHeaders(req) });
+  if (req.method !== 'GET') return json(req, { error: 'METHOD_NOT_ALLOWED' }, 405);
 
   const callerId = await authenticate(req);
-  if (!callerId) return json({ error: 'UNAUTHORIZED', message: 'A valid Supabase session is required.' }, 401);
+  if (!callerId) return json(req, { error: 'UNAUTHORIZED', message: 'A valid Supabase session is required.' }, 401);
 
   const url = new URL(req.url);
   const room = (url.searchParams.get('room') ?? '').trim();
   const user = (url.searchParams.get('user') ?? '').trim();
-  if (!room || !user) return json({ error: 'MISSING_PARAMS' }, 400);
-  if (room.length > 64 || !/^[A-Za-z0-9_-]+$/.test(room)) return json({ error: 'INVALID_ROOM' }, 400);
+  if (!room || !user) return json(req, { error: 'MISSING_PARAMS' }, 400);
+  if (room.length > 64 || !/^[A-Za-z0-9_-]+$/.test(room)) return json(req, { error: 'INVALID_ROOM' }, 400);
 
   const sanitizedCaller = callerId.replace(/[^A-Za-z0-9_-]/g, '_').slice(0, 64);
-  if (user !== callerId && user !== sanitizedCaller) return json({ error: 'FORBIDDEN' }, 403);
-  if (!ZEGO_APP_ID || !ZEGO_SERVER_SECRET) return json({ error: 'ZEGO_NOT_CONFIGURED' }, 500);
+  if (user !== callerId && user !== sanitizedCaller) return json(req, { error: 'FORBIDDEN' }, 403);
+  if (!ZEGO_APP_ID || !ZEGO_SERVER_SECRET) return json(req, { error: 'ZEGO_NOT_CONFIGURED' }, 500);
 
   const now = Math.floor(Date.now() / 1000);
   const expireAt = now + 24 * 60 * 60;
   const token = await signZegoToken({ app_id: ZEGO_APP_ID, user_id: user, ctime: now, expire: expireAt, room_id: room }, ZEGO_SERVER_SECRET);
-  return json({ token, appID: ZEGO_APP_ID, roomID: room, userID: user, expireAt });
+  return json(req, { token, appID: ZEGO_APP_ID, roomID: room, userID: user, expireAt });
 });

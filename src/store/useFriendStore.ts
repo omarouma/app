@@ -15,6 +15,7 @@ import {
 } from '@/lib/firestore';
 import type { User, FriendRequest, FriendStatus, SentRequest, BlockedUserRecord, SuggestedUser } from '@/types';
 import { where, orderBy, limit } from '@/lib/firestore';
+import { fetchUserProfile } from '@/lib/supabaseAuth';
 import { toast } from 'sonner';
 
 type FirestoreTimestamp = { toDate: () => Date };
@@ -647,7 +648,6 @@ loading: {
     }
     // Supabase fallback
     try {
-      const { fetchUserProfile } = await import('@/lib/supabaseAuth');
       const user = await fetchUserProfile(userId);
       return user;
     } catch {

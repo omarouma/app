@@ -94,9 +94,10 @@ function usePortraitLock(enabled: boolean) {
     };
     window.addEventListener('orientationchange', reLock);
     window.addEventListener('resize', reLock);
-    document.addEventListener('visibilitychange', () => {
+    const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') void lockOrientation();
-    });
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
 
     const safetyInterval = window.setInterval(reLock, 8000);
 
@@ -106,7 +107,14 @@ function usePortraitLock(enabled: boolean) {
       });
       window.removeEventListener('orientationchange', reLock);
       window.removeEventListener('resize', reLock);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.clearInterval(safetyInterval);
+      document.documentElement.style.removeProperty('overflow-x');
+      document.documentElement.style.removeProperty('overflow-y');
+      document.body.style.removeProperty('overflow');
+      document.body.style.removeProperty('width');
+      document.body.style.removeProperty('max-width');
+      document.body.style.removeProperty('touch-action');
       delete document.body.dataset.portraitLock;
     };
   }, [enabled]);
@@ -196,7 +204,11 @@ const desktopNavItems = [
 ];
 
 // Routes where BottomNav should be hidden on mobile (full-screen experiences)
-const HIDE_BOTTOM_NAV_PATHS = ['/chat/', '/group/', '/call', '/onboarding', '/auth', '/qr-scanner', '/live/', '/voice-room/'];
+const HIDE_BOTTOM_NAV_PATHS = ['/chat/', '/group/', '/onboarding', '/auth', '/qr-scanner', '/live/', '/voice-room/'];
+
+function shouldHideBottomNav(pathname: string): boolean {
+  return pathname === '/call' || HIDE_BOTTOM_NAV_PATHS.some((path) => pathname.startsWith(path));
+}
 
 // Public paths accessible without authentication on desktop
 const DESKTOP_PUBLIC_PATHS = ['/privacy', '/terms', '/cookies', '/community-guidelines'];
@@ -206,7 +218,7 @@ const MOBILE_PROTECTED_ROUTE_PATHS: string[] = [
   '/contacts', '/timeline', '/profile', '/profile/:userId', '/settings', '/notifications',
   '/qr-scanner', '/wallet', '/rewards', '/add-friends', '/sent-requests', '/blocked-users',
   '/chat-info/:chatId', '/saved-messages', '/premium', '/reels', '/more', '/share',
-  '/events', '/marketplace', '/bookmarks', '/hashtags', '/analytics', '/search', '/help',
+  '/events', '/marketplace', '/bookmarks', '/hashtags', '/analytics', '/search',
   '/broadcast-lists', '/create-reel', '/creators', '/voice-rooms', '/voice-room/:roomId',
   '/challenges', '/ai-chat', '/live-streams', '/live/:streamId', '/creator-dashboard',
   '/post/:postId',
@@ -491,7 +503,7 @@ function AppContent() {
 
   // Determine if BottomNav should be shown on mobile
   const showBottomNav = isMobile && isAuthenticated &&
-    !HIDE_BOTTOM_NAV_PATHS.some((p) => location.pathname.startsWith(p)) &&
+    !shouldHideBottomNav(location.pathname) &&
     location.pathname !== '/onboarding' &&
     location.pathname !== '/auth' &&
     location.pathname !== '/';
@@ -522,6 +534,7 @@ function AppContent() {
           <Route path="/careers" element={<CareersPage />} />
           <Route path="/privacy" element={isMobile ? <PrivacyPage /> : <PrivacyView />} />
           <Route path="/terms" element={isMobile ? <TermsPage /> : <TermsView />} />
+          <Route path="/help" element={<HelpCenterPage />} />
           <Route path="/onboarding" element={
             <ProtectedRoute element={<OnboardingPage />} isAuthenticated={isAuthenticated} />
           } />

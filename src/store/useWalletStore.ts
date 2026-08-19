@@ -117,6 +117,18 @@ async function callWalletRpc<T>(fn: string, args: Record<string, unknown>): Prom
   return data as T;
 }
 
+export async function spendWalletCoins(userId: string, amount: number, description: string): Promise<boolean> {
+  if (!userId || !isValidPositiveAmount(amount)) return false;
+  try {
+    return await callWalletRpc<boolean>('wallet_spend_coins', {
+      p_amount: amount,
+      p_description: description,
+    });
+  } catch {
+    return false;
+  }
+}
+
 function normalizeCurrency(c: CurrencyCode): string {
   if (c === 'GAGA') return 'coins';
   return c.toLowerCase();
@@ -169,9 +181,8 @@ interface WalletStore {
   // Subscription
   subscribeWallet: (userId: string) => () => void;
 
-  // Core wallet ops
-  earnCoins: (userId: string, amount: number, description: string) => Promise<void>;
-  deposit: (userId: string, amount: number, currency: CurrencyCode, method: string) => Promise<void>;
+  // Core wallet ops (earnCoins and deposit are now admin-only; users claim via challenges)
+  claimChallenge: (userId: string, challengeId: string, amount: number) => Promise<boolean>;
   withdraw: (userId: string, amount: number, currency: CurrencyCode, method: string, account: string) => Promise<boolean>;
 
   // Currency conversion
@@ -237,19 +248,9 @@ export const useWalletStore = create<WalletStore>((set, get) => ({
             lastError: null,
           });
         } else {
-          // No wallet yet — create one with welcome bonus via server-side RPC.
+          // No wallet yet — wallet will be created by server on first transaction or admin action.
           // Direct INSERT on wallets is blocked by RLS (SELECT-only).
-          try {
-            await callWalletRpc<boolean>('wallet_earn_coins', {
-              p_amount: 50,
-              p_description: 'Welcome bonus - 50 Gaga Coins',
-            });
-            set({ lastError: null });
-          } catch {
-            set({ lastError: 'Failed to initialize wallet.' });
-          }
-          // The realtime subscription will push the created wallet on next event;
-          // optimistically show a zeroed wallet to avoid a flash.
+          // Optimistically show a zeroed wallet to avoid a flash.
           set({ wallet: { coins: 0, bdtBalance: 0, usdBalance: 0, transactions: [] }, loading: false });
         }
 
@@ -264,46 +265,35 @@ export const useWalletStore = create<WalletStore>((set, get) => ({
     return () => { if (unsub) unsub(); };
   },
 
-  earnCoins: async (userId, amount, description) => {
-    if (!isFirestoreAvailable()) {
-      console.warn('[WalletStore.earnCoins] Firestore unavailable');
-      return;
-    }
-    if (!userId || !isValidPositiveAmount(amount)) {
-      set({ lastError: 'Invalid amount.' });
-      return;
-    }
-    try {
-      // SECURITY: Route through server-side RPC — client cannot write balances directly.
-      await callWalletRpc<boolean>('wallet_earn_coins', {
-        p_amount: amount,
-        p_description: description || 'Earned coins',
-      });
-      set({ lastError: null });
-    } catch {
-      set({ lastError: 'Failed to earn coins.' });
-    }
-  },
+  // NOTE: earnCoins and deposit are now admin-only server functions.
+  // Users earn through challenges, referrals, or system events (via admin_award_coins).
+  // To earn coins, users must complete verified challenges via claimChallenge().
 
-  deposit: async (userId, amount, currency, method) => {
+  claimChallenge: async (userId: string, challengeId: string, amount: number): Promise<boolean> => {
     if (!isFirestoreAvailable()) {
-      console.warn('[WalletStore.deposit] Firestore unavailable');
-      return;
+      console.warn('[WalletStore.claimChallenge] Firestore unavailable');
+      return false;
     }
     if (!userId || !isValidPositiveAmount(amount)) {
-      set({ lastError: 'Invalid deposit amount.' });
-      return;
+      set({ lastError: 'Invalid challenge reward.' });
+      return false;
     }
     try {
-      // SECURITY: Route through server-side RPC — client cannot write balances directly.
-      await callWalletRpc<boolean>('wallet_deposit', {
+      // SECURITY: Server verifies challenge completion before awarding coins.
+      const ok = await callWalletRpc<boolean>('claim_challenge_coins', {
+        p_challenge_id: challengeId,
         p_amount: amount,
-        p_currency: normalizeCurrency(currency),
-        p_method: method || 'manual',
       });
+      if (!ok) {
+        set({ lastError: 'Failed to claim challenge reward.' });
+        return false;
+      }
       set({ lastError: null });
-    } catch {
-      set({ lastError: 'Deposit failed.' });
+      return true;
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Failed to claim challenge';
+      set({ lastError: msg });
+      return false;
     }
   },
 
@@ -344,13 +334,19 @@ export const useWalletStore = create<WalletStore>((set, get) => ({
     }
     try {
       // SECURITY: Route through server-side RPC — client cannot write balances directly.
-      void convertCurrency; // rate is passed to the server
+      if (normalizeCurrency(from) === normalizeCurrency(to)) {
+        set({ lastError: 'Source and destination currencies must differ.' });
+        return false;
+      }
+      if (!((normalizeCurrency(from) === 'coins' && normalizeCurrency(to) === 'usd') ||
+        (normalizeCurrency(from) === 'usd' && normalizeCurrency(to) === 'coins'))) {
+        set({ lastError: 'Unsupported currency conversion.' });
+        return false;
+      }
       const ok = await callWalletRpc<boolean>('wallet_convert', {
         p_amount: amount,
         p_from_currency: normalizeCurrency(from),
         p_to_currency: normalizeCurrency(to),
-        p_rate: EXCHANGE_RATES[`${normalizeCurrency(from)}_${normalizeCurrency(to)}`] ??
-               EXCHANGE_RATES[`${from}_${to}`] ?? 0,
       });
       if (!ok) {
         set({ lastError: 'Currency conversion failed.' });
@@ -616,18 +612,23 @@ export const useWalletStore = create<WalletStore>((set, get) => ({
     }
   },
 
-  redeemCode: async (userId, code, promoCodes) => {
+  redeemCode: async (_userId: string, code: string, promoCodes: Record<string, { coins: number; label: string }>): Promise<boolean> => {
     if (!isFirestoreAvailable()) {
       console.warn('[WalletStore.redeemCode] Firestore unavailable');
       return false;
     }
     const promo = promoCodes[code.toUpperCase()];
     if (!promo) return false;
-    await get().earnCoins(userId, promo.coins, `Redeemed ${code}: ${promo.label}`);
-    return true;
+
+    // NOTE: Promo code redemption requires server-side verification.
+    // For now, this is disabled until an admin-only RPC is created for promo code validation.
+    // To re-enable, create a server function that validates the promo code and awards coins via admin_award_coins.
+    console.warn('[WalletStore.redeemCode] Promo code redemption disabled; requires server-side verification.');
+    set({ lastError: 'Promo code redemption is temporarily unavailable.' });
+    return false;
   },
 
-  claimDailyInterest: async (userId) => {
+  claimDailyInterest: async (userId: string): Promise<number> => {
     void userId; // user is resolved server-side via auth.uid()
     if (!isFirestoreAvailable()) {
       console.warn('[WalletStore.claimDailyInterest] Firestore unavailable');

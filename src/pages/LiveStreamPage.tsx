@@ -9,9 +9,9 @@ import {
 } from 'lucide-react';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useLiveStore } from '@/store/useLiveStore';
-import { useWalletStore } from '@/store/useWalletStore';
+import { spendWalletCoins, useWalletStore } from '@/store/useWalletStore';
 import { getDefaultAvatar } from '@/lib/utils';
-import { getDocById, updateDocById, runDbTransaction, COLLECTIONS, subscribeToSubcollection } from '@/lib/firestore';
+import { COLLECTIONS, subscribeToSubcollection } from '@/lib/firestore';
 import { useLiveStreamRTC } from '@/hooks/useLiveStreamRTC';
 import { copyToClipboard, safeConfirm } from '@/lib/share';
 import { toast } from 'sonner';
@@ -44,35 +44,9 @@ const REACTIONS: { key: keyof LiveReactions; label: string; icon: React.ReactNod
   { key: 'clap', label: 'Clap', icon: <Hand size={18} />, color: '#8D8D8D' },
 ];
 
-/* Inline helper to deduct coins atomically via transaction */
+/* Deduct coins through the server-validated wallet RPC. */
 async function spendCoins(userId: string, amount: number, description: string): Promise<boolean> {
-  try {
-    let success = false;
-    await runDbTransaction(async () => {
-      const wallet = await getDocById(COLLECTIONS.WALLETS, userId);
-      if (!wallet) return;
-      const coins = (wallet.coins as number) || 0;
-      if (coins < amount) return;
-      const tx = {
-        id: `tx_${uuidv4()}_gift`,
-        type: 'spend',
-        amount,
-        currency: 'coins',
-        description,
-        timestamp: new Date().toISOString(),
-        status: 'completed',
-      };
-      await updateDocById(COLLECTIONS.WALLETS, userId, {
-        coins: coins - amount,
-        transactions: [...(wallet.transactions || []), tx],
-      });
-      success = true;
-    });
-    return success;
-  } catch (err) {
-    console.error('spendCoins error:', err);
-    return false;
-  }
+  return spendWalletCoins(userId, amount, description);
 }
 
 export default function LiveStreamPage() {

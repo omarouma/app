@@ -1,14 +1,23 @@
 // @ts-nocheck - Supabase Edge Functions run on Deno runtime.
 // GaGa AI assistant endpoint - real AI via OpenAI, fallback templates.
 
-const CORS = {
-  'Access-Control-Allow-Origin': '*',
+const ALLOWED_ORIGINS = new Set([
+  'https://oumagachat.web.app',
+  'https://oumagachat.firebaseapp.com',
+]);
+
+function cors(req) {
+  const origin = req.headers.get('Origin') ?? '';
+  return {
+  'Access-Control-Allow-Origin': ALLOWED_ORIGINS.has(origin) ? origin : 'null',
   'Access-Control-Allow-Headers': 'authorization, content-type, apikey',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Vary': 'Origin',
+  };
 };
 
-function json(body, status = 200) {
-  return new Response(JSON.stringify(body), { status, headers: { ...CORS, 'Content-Type': 'application/json' } });
+function json(req, body, status = 200) {
+  return new Response(JSON.stringify(body), { status, headers: { ...cors(req), 'Content-Type': 'application/json' } });
 }
 
 async function authenticate(req) {
@@ -45,27 +54,28 @@ function fallback(msg) {
 }
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS });
-  if (req.method !== 'POST') return json({ error: 'METHOD_NOT_ALLOWED' }, 405);
+  if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors(req) });
+  if (req.method !== 'POST') return json(req, { error: 'METHOD_NOT_ALLOWED' }, 405);
 
   const userId = await authenticate(req);
-  if (!userId) return json({ error: 'UNAUTHORIZED' }, 401);
+  if (!userId) return json(req, { error: 'UNAUTHORIZED' }, 401);
 
   let body;
-  try { body = await req.json(); } catch { return json({ error: 'INVALID_JSON' }, 400); }
+  try { body = await req.json(); } catch { return json(req, { error: 'INVALID_JSON' }, 400); }
 
   const message = (body?.message ?? '').trim();
-  if (!message) return json({ error: 'EMPTY_MESSAGE' }, 400);
+  if (!message) return json(req, { error: 'EMPTY_MESSAGE' }, 400);
+  if (message.length > 4000) return json(req, { error: 'MESSAGE_TOO_LONG' }, 413);
 
   const aiKey = Deno.env.get('OPENAI_API_KEY') ?? '';
-  if (!aiKey) return json({ text: fallback(message), usingFallback: true });
+  if (!aiKey) return json(req, { text: fallback(message), usingFallback: true });
 
   try {
     const system = Deno.env.get('AI_SYSTEM_PROMPT') ?? 'You are GaGa AI, a friendly assistant for the GaGa Chat app. Keep answers concise.';
     const history = Array.isArray(body?.history) ? body.history : [];
     const messages = [
       { role: 'system', content: system },
-      ...history.slice(-8).map((h) => ({ role: h.role, content: h.content })),
+      ...history.slice(-8).filter((h) => h && (h.role === 'user' || h.role === 'assistant') && typeof h.content === 'string').map((h) => ({ role: h.role, content: h.content.slice(0, 4000) })),
       { role: 'user', content: message },
     ];
     const res = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -77,9 +87,9 @@ Deno.serve(async (req) => {
     const data = await res.json();
     const text = data.choices?.[0]?.message?.content ?? '';
     if (!text) throw new Error('Empty response');
-    return json({ text, usingFallback: false });
+    return json(req, { text, usingFallback: false });
   } catch (err) {
     console.error('[ai-chat] error:', err);
-    return json({ text: fallback(message), usingFallback: true });
+    return json(req, { text: fallback(message), usingFallback: true });
   }
 });

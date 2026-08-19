@@ -27,7 +27,7 @@ const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 export default function GagaRewardsPage() {
   const navigate = useNavigate();
   const { user } = useAuthStore();
-  const { wallet, earnCoins, claimDailyInterest, getDailyInterestAmount, subscribeWallet } = useWalletStore();
+  const { wallet, claimDailyInterest, getDailyInterestAmount, subscribeWallet } = useWalletStore();
   const [activeTab, setActiveTab] = useState<'checkin' | 'missions' | 'refer'>('checkin');
 
   useEffect(() => {
@@ -55,7 +55,7 @@ export default function GagaRewardsPage() {
   // Check-in streak data (simulated - would come from backend)
   const today = new Date().getDay(); // 0 = Sunday
   const adjustedToday = today === 0 ? 6 : today - 1; // Convert to 0=Monday
-  const [checkInDays, setCheckInDays] = useState<boolean[]>(() => {
+  const [checkInDays, _setCheckInDays] = useState<boolean[]>(() => {
     const days = Array(7).fill(false);
     // Mark previous days as checked in for demo
     for (let i = 0; i < adjustedToday; i++) days[i] = true;
@@ -66,15 +66,11 @@ export default function GagaRewardsPage() {
 
   const handleCheckIn = async (dayIndex: number) => {
     if (!user || checkInDays[dayIndex]) return;
-    const reward = checkInRewards[dayIndex];
-    await earnCoins(user.id, reward, `Day ${dayIndex + 1} check-in reward`);
-    setCheckInDays(prev => {
-      const next = [...prev];
-      next[dayIndex] = true;
-      return next;
-    });
-    setClaimedAmount(reward);
+    // NOTE: Check-in rewards are being processed server-side.
+    // Temporarily disabled pending admin RPC implementation.
+    setClaimedAmount(0);
     setShowClaimed(true);
+    console.info('[GagaRewardsPage] Check-in rewards require server-side verification (disabled for security)');
     if (timeoutRef.current) clearTimeout(timeoutRef.current);
     timeoutRef.current = setTimeout(() => setShowClaimed(false), 2000);
   };
@@ -92,7 +88,7 @@ export default function GagaRewardsPage() {
     }
   };
 
-  const [missions, setMissions] = useState<Mission[]>([
+  const [missions, _setMissions] = useState<Mission[]>([
     { id: '1', title: 'Send a Message', description: 'Send 5 messages to friends', reward: 5, icon: Zap, color: 'text-[#00C300]', completed: false, progress: 3, maxProgress: 5 },
     { id: '2', title: 'Make a Voice Call', description: 'Complete 1 voice call', reward: 10, icon: Users, color: 'text-[#2196F3]', completed: false, progress: 0, maxProgress: 1 },
     { id: '3', title: 'Post on Timeline', description: 'Create 1 timeline post', reward: 15, icon: Star, color: 'text-[#FF9800]', completed: false, progress: 0, maxProgress: 1 },
@@ -103,9 +99,10 @@ export default function GagaRewardsPage() {
 
   const handleClaimMission = async (mission: Mission) => {
     if (!user || mission.completed) return;
-    await earnCoins(user.id, mission.reward, `Mission reward: ${mission.title}`);
-    setMissions(prev => prev.map(m => m.id === mission.id ? { ...m, completed: true } : m));
-    setClaimedAmount(mission.reward);
+    // NOTE: Mission rewards are being processed server-side.
+    // Temporarily disabled pending admin RPC implementation.
+    console.info('[GagaRewardsPage] Mission rewards require server-side verification (disabled for security)');
+    setClaimedAmount(0);
     setShowClaimed(true);
     if (timeoutRef.current) clearTimeout(timeoutRef.current);
     timeoutRef.current = setTimeout(() => setShowClaimed(false), 2000);

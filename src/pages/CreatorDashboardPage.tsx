@@ -508,7 +508,7 @@ const followerCount = useMemo(() => user?.followers?.length || 0, [user]);
           <h2 className="text-xl font-bold text-white mb-2">Sign in to view your Creator Dashboard</h2>
           <p className="text-sm mb-4" style={{ color: '#888' }}>Track your earnings, growth, and content performance.</p>
           <button
-            onClick={() => navigate('/login')}
+            onClick={() => navigate('/auth')}
             className="px-6 py-2.5 rounded-lg text-white font-medium text-sm transition-colors hover:brightness-110"
             style={{ background: '#00C300' }}
           >

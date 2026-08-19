@@ -23,6 +23,7 @@ import type { LangCode } from '@/lib/i18n';
 import type { ThemeSettings } from '@/types';
 import Logo from '@/components/Logo';
 import { previewSound, type SoundProfile, isVibrationSupported } from '@/lib/sounds';
+import { deleteAccount } from '@/lib/supabaseAuth';
 import { toast } from 'sonner';
 
 const accentColors = [
@@ -60,6 +61,17 @@ const languages = [
   { code: 'zh' as const, label: 'Chinese', native: '中文' },
 ];
 
+const openSourceLicenses = [
+  { name: 'React', license: 'MIT', url: 'https://github.com/facebook/react' },
+  { name: 'Supabase JS', license: 'MIT', url: 'https://github.com/supabase/supabase-js' },
+  { name: 'Vite', license: 'MIT', url: 'https://github.com/vitejs/vite' },
+  { name: 'Zustand', license: 'MIT', url: 'https://github.com/pmndrs/zustand' },
+  { name: 'Framer Motion', license: 'MIT', url: 'https://github.com/motiondivision/motion' },
+  { name: 'Lucide React', license: 'ISC', url: 'https://github.com/lucide-icons/lucide' },
+  { name: 'Tailwind CSS', license: 'MIT', url: 'https://github.com/tailwindlabs/tailwindcss' },
+  { name: 'Zod', license: 'MIT', url: 'https://github.com/colinhacks/zod' },
+];
+
 export default function SettingsPage() {
   const navigate = useNavigate();
   const { user } = useAuthStore();
@@ -85,6 +97,7 @@ export default function SettingsPage() {
   const [section, setSection] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showLicenses, setShowLicenses] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
 
   const [tempSettings, setTempSettings] = useState<Partial<ThemeSettings>>({});
@@ -121,7 +134,7 @@ export default function SettingsPage() {
       const supabase = getSupabaseSafe();
       if (!supabase || !user?.id) throw new Error('Not authenticated');
       const [{ data: profile }, { data: messages }, { data: posts }] = await Promise.all([
-        supabase.from('users').select('*').eq('id', user.id).single(),
+        supabase.from('public_profiles').select('*').eq('id', user.id).single(),
         supabase.from('messages').select('id,content,type,created_at').eq('sender_id', user.id).limit(500),
         supabase.from('posts').select('id,content,created_at').eq('user_id', user.id).limit(200),
       ]);
@@ -150,7 +163,6 @@ export default function SettingsPage() {
     }
     setLoading(true);
     try {
-      const { deleteAccount } = await import('@/lib/supabaseAuth');
       await deleteAccount();
       toast.success('Account deleted');
       await logout();
@@ -616,9 +628,53 @@ export default function SettingsPage() {
                   </div>
                   {settingItem('Terms of Service', FileText, undefined, () => navigate('/terms'))}
                   {settingItem('Privacy Policy', Shield, undefined, () => navigate('/privacy'))}
-                  {settingItem('Open Source Licenses', Info, undefined, () => toast.info('Open source licenses coming soon'))}
+                  {settingItem('Open Source Licenses', Info, undefined, () => setShowLicenses(true))}
                 </div>
               )}
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <AnimatePresence>
+          {showLicenses && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[90] flex items-end justify-center bg-black/50 p-4 sm:items-center"
+              onClick={() => setShowLicenses(false)}
+            >
+              <motion.div
+                initial={{ y: 24, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                exit={{ y: 24, opacity: 0 }}
+                className="w-full max-w-lg overflow-hidden rounded-2xl border border-border bg-popover shadow-float"
+                onClick={(event) => event.stopPropagation()}
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="open-source-licenses-title"
+              >
+                <div className="flex items-center justify-between border-b border-border p-4">
+                  <div>
+                    <h2 id="open-source-licenses-title" className="text-lg font-bold text-foreground">Open Source Licenses</h2>
+                    <p className="mt-0.5 text-xs text-muted-foreground">Projects used to build GaGa Chat.</p>
+                  </div>
+                  <button type="button" onClick={() => setShowLicenses(false)} className="rounded-full p-2 text-muted-foreground hover:bg-accent" aria-label="Close licenses">
+                    <ArrowLeft size={18} className="rotate-[-90deg]" />
+                  </button>
+                </div>
+                <div className="max-h-[60vh] divide-y divide-border overflow-y-auto">
+                  {openSourceLicenses.map((item) => (
+                    <a key={item.name} href={item.url} target="_blank" rel="noopener noreferrer" className="flex items-center justify-between gap-4 px-4 py-3 hover:bg-accent">
+                      <span className="text-sm font-medium text-foreground">{item.name}</span>
+                      <span className="text-xs text-muted-foreground">{item.license}</span>
+                    </a>
+                  ))}
+                </div>
+                <div className="border-t border-border p-4">
+                  <button type="button" onClick={() => setShowLicenses(false)} className="w-full rounded-xl bg-primary py-3 text-sm font-semibold text-primary-foreground">Done</button>
+                </div>
+              </motion.div>
             </motion.div>
           )}
         </AnimatePresence>

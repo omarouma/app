@@ -494,7 +494,9 @@ export async function getDocById<T = any>(
     if (cached !== null) return cached;
   }
 
-  const { data, error } = await supabase.from(table).select('*').eq('id', id).single();
+  // For users table, use public_profiles view to avoid exposing sensitive columns (email, phone, balances, admin)
+  const queryTable = table === COLLECTIONS.USERS ? 'public_profiles' : table;
+  const { data, error } = await supabase.from(queryTable).select('*').eq('id', id).single();
   if (error || !data) return null;
   const mapped = { ...toCamel(data), id: data.id } as T & { id: string };
 
@@ -536,6 +538,21 @@ export async function deleteDocById(table: string, id: string): Promise<void> {
   if (!supabase) throw new Error('Supabase not available');
   const { error } = await supabase.from(table).delete().eq('id', id);
   if (error) throw error;
+}
+
+export async function queryDocs<T = any>(
+  table: string,
+  constraints: QueryConstraint[] = [],
+): Promise<(T & { id: string })[]> {
+  const supabase = getDb();
+  if (!supabase) return [];
+
+  // For users table, use public_profiles view to avoid exposing sensitive columns
+  const queryTable = table === COLLECTIONS.USERS ? 'public_profiles' : table;
+  const query = applyConstraints(supabase.from(queryTable).select('*'), constraints);
+  const { data, error } = await query;
+  if (error || !data) return [];
+  return mapRows<T>(data);
 }
 
 export async function addDocToCollection(table: string, data: any): Promise<string> {
