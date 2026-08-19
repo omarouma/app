@@ -211,7 +211,16 @@ function shouldHideBottomNav(pathname: string): boolean {
 }
 
 // Public paths accessible without authentication on desktop
-const DESKTOP_PUBLIC_PATHS = ['/privacy', '/terms', '/cookies', '/community-guidelines'];
+const DESKTOP_PUBLIC_PATHS = [
+  '/about',
+  '/blog',
+  '/careers',
+  '/help',
+  '/privacy',
+  '/terms',
+  '/cookies',
+  '/community-guidelines',
+];
 
 const MOBILE_PROTECTED_ROUTE_PATHS: string[] = [
   '/chats', '/chat/:userId', '/group/:groupId', '/create-group', '/calls', '/call',
