@@ -11,6 +11,7 @@ import { useFriendStore } from '@/store/useFriendStore';
 import { buildGagaChatWebUrl, getDefaultAvatar, sanitizeMediaUrl } from '@/lib/utils';
 import { isFirestoreAvailable, COLLECTIONS, updateDocById, subscribeToDoc } from '@/lib/firestore';
 import { copyToClipboard, nativeShare } from '@/lib/share';
+import { usePageTitle } from '@/hooks/useDocumentTitle';
 import { toast } from 'sonner';
 import type { User } from '@/types';
 
@@ -23,6 +24,8 @@ export default function ProfilePage() {
   const isOwnProfile = !paramUserId || paramUserId === user?.id;
   const [otherUser, setOtherUser] = useState<User | null>(null);
   const [loadingOther, setLoadingOther] = useState(false);
+
+  usePageTitle(isOwnProfile ? 'My Profile' : 'Profile');
 
   useEffect(() => {
     if (isOwnProfile || !paramUserId) return;

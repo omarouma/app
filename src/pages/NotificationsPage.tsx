@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { useNotificationStore } from '@/store/useNotificationStore';
 import { useAuthStore } from '@/store/useAuthStore';
+import { usePageTitle } from '@/hooks/useDocumentTitle';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
 import { formatTime } from '@/lib/timeUtils';
 import { toast } from 'sonner';
@@ -88,6 +89,8 @@ function isThisWeek(date: Date) {
 }
 
 export default function NotificationsPage() {
+  usePageTitle('Notifications');
+
   const navigate = useNavigate();
   const { user } = useAuthStore();
   const { notifications, markRead, markAllRead, deleteNotification, subscribe, loading } = useNotificationStore();

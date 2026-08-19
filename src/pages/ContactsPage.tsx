@@ -16,12 +16,15 @@ import LoadingSkeleton from '@/components/LoadingSkeleton';
 import { getDefaultAvatar, sanitizeMediaUrl, formatTime } from '@/lib/utils';
 import { toast } from 'sonner';
 import { copyToClipboard, nativeShare } from '@/lib/share';
+import { usePageTitle } from '@/hooks/useDocumentTitle';
 import type { User } from '@/types';
 
 const INVITE_LINK = 'https://gagachat.app';
 const INVITE_TEXT = 'Join me on GaGa Chat - the free messaging app for everyone!';
 
 export default function ContactsPage() {
+  usePageTitle('Contacts');
+
   const navigate = useNavigate();
   const { user } = useAuthStore();
   const {
