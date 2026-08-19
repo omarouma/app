@@ -6,12 +6,18 @@
 let audioCtx: AudioContext | null = null;
 let globalEnabled = true;
 let activeRingtone: { stop: () => void } | null = null;
+// Chrome blocks AudioContext creation and navigator.vibrate() until the user
+// has interacted with the page. Track that so we don't spam console errors.
+let hasUserInteracted = false;
 
 export type SoundProfile = 'gaga' | 'classic' | 'minimal' | 'playful';
 
 /* ── Helpers ─────────────────────────────────── */
 
 function getCtx(): AudioContext | null {
+  // Chrome blocks AudioContext creation until the user has interacted with
+  // the page. Don't create it (or spam console errors) before that.
+  if (!hasUserInteracted) return null;
   if (!audioCtx) {
     try {
       audioCtx = new AudioContext();
@@ -322,7 +328,7 @@ function playCustomRingtone({
       }
     }
     let settled = false;
-    let fallbackTimer: ReturnType<typeof setTimeout> | null = setTimeout(() => {
+    const fallbackTimer: ReturnType<typeof setTimeout> | null = setTimeout(() => {
       if (!settled && !stopped && !fallback && fallbackSynthesized) fallback = fallbackSynthesized();
     }, 1500);
     const playPromise = audio.play();
@@ -625,7 +631,9 @@ export function isVibrationEnabled(): boolean {
 }
 
 function vibrate(pattern: number | number[]) {
-  if (!isVibrationSupported() || !isVibrationEnabled() || isQuietHours()) return;
+  // Chrome blocks navigator.vibrate() until the user has interacted with the
+  // page. Don't call it (or spam console errors) before that.
+  if (!hasUserInteracted || !isVibrationSupported() || !isVibrationEnabled() || isQuietHours()) return;
   try {
     navigator.vibrate(pattern);
   } catch {
@@ -698,6 +706,7 @@ export function initAudioOnInteraction() {
   interactionListenersAdded = true;
 
   const resume = () => {
+    hasUserInteracted = true;
     resumeAudio();
   };
 

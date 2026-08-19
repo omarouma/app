@@ -1,5 +1,6 @@
 import { memo } from 'react';
 import { formatTime } from '@/lib/utils';
+import { CURRENCY_FORMAT } from '@/lib/chatConstants';
 import type { Message } from '@/types';
 
 export interface MoneyTransferMessageProps {
@@ -23,7 +24,8 @@ export const MoneyTransferMessage = memo(function MoneyTransferMessage(props: Mo
   }
 
   const isReceived = transferData.toUserId === currentUserId;
-  const amountText = transferData.currency === 'BDT' ? `\u09F3${transferData.amount}` : `${transferData.amount} coins`;
+  const currencyFormat = CURRENCY_FORMAT[transferData.currency] || {};
+  const amountText = `${currencyFormat.prefix || ''}${transferData.amount}${currencyFormat.suffix || (!currencyFormat.prefix ? ` ${transferData.currency}` : '')}`;
 
   return (
     <div className={`rounded-2xl px-5 py-3 max-w-[80%] text-center border border-[#EBEBEB] ${isReceived ? 'bg-[#00C300]/10' : 'bg-white'}`}>

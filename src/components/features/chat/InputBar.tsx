@@ -44,8 +44,13 @@ export function InputBar({
   onPhotoUpload, onVideoUpload, onFileUpload,
   onLocationShare, onContactShare, onPollOpen, onStickerSelect,
 }: InputBarProps) {
-const [showStickerPicker, setShowStickerPicker] = useState(false);
+  const [showStickerPicker, setShowStickerPicker] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const clearInputValue = (element: HTMLInputElement | null) => {
+    if (element) {
+      element.value = '';
+    }
+  };
   const photoInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
@@ -118,10 +123,10 @@ const [showStickerPicker, setShowStickerPicker] = useState(false);
                   </div>
                 );
               })}
-              <input ref={photoInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => { onPhotoUpload(e); }} aria-label="Upload photo" />
-              <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => { onPhotoUpload(e); }} aria-label="Take photo" />
-              <input ref={videoInputRef} type="file" accept="video/*" className="hidden" onChange={(e) => { onVideoUpload(e); }} aria-label="Upload video" />
-              <input ref={fileInputRef} type="file" className="hidden" onChange={(e) => { onFileUpload(e); }} aria-label="Upload file" />
+              <input ref={photoInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => { onPhotoUpload(e); clearInputValue(e.currentTarget); }} aria-label="Upload photo" />
+              <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => { onPhotoUpload(e); clearInputValue(e.currentTarget); }} aria-label="Take photo" />
+              <input ref={videoInputRef} type="file" accept="video/*" className="hidden" onChange={(e) => { onVideoUpload(e); clearInputValue(e.currentTarget); }} aria-label="Upload video" />
+              <input ref={fileInputRef} type="file" className="hidden" onChange={(e) => { onFileUpload(e); clearInputValue(e.currentTarget); }} aria-label="Upload file" />
             </div>
           </motion.div>
         )}

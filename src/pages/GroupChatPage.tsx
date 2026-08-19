@@ -74,7 +74,7 @@ export default function GroupChatPage() {
         if (currentUser) entries.push([currentUser.id, { name: currentUser.name, avatar: currentUser.avatar }]);
         for (const f of friends) entries.push([f.id, { name: f.name, avatar: (f as unknown as Partial<User>).avatar }]);
         return Object.fromEntries(entries);
-    }, [currentUser?.id, currentUser?.name, currentUser?.avatar, friends]);
+    }, [currentUser, friends]);
 
     const filteredMsgs = useMemo(() =>
         searchQuery ? msgs.filter(m => m.content.toLowerCase().includes(searchQuery.toLowerCase())) : msgs,
@@ -129,6 +129,7 @@ export default function GroupChatPage() {
     }, [input, currentUser, groupId, stopTyping, queueMessage, replyingTo?.id, sendGroupMessage]);
 
     const handleMediaUpload = async (e: React.ChangeEvent<HTMLInputElement>, mediaType: string) => {
+        const inputElement = e.currentTarget;
         const file = e.target.files?.[0];
         if (!file || !currentUser || !groupId) return;
         try {
@@ -138,10 +139,13 @@ export default function GroupChatPage() {
             await sendGroupMessage(groupId, currentUser.id, mediaType === 'image' ? 'Photo' : 'Video', mediaType, url);
         } catch {
             toast.error('Failed to upload media');
+        } finally {
+            inputElement.value = '';
         }
     };
 
     const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const inputElement = e.currentTarget;
         const file = e.target.files?.[0];
         if (!file || !currentUser || !groupId) return;
         try {
@@ -151,6 +155,8 @@ export default function GroupChatPage() {
             await sendGroupMessage(groupId, currentUser.id, file.name, 'file', url);
         } catch {
             toast.error('Failed to upload file');
+        } finally {
+            inputElement.value = '';
         }
     };
 

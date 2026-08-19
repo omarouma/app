@@ -34,6 +34,7 @@ export interface AttachmentOption {
 export const attachmentOptions: AttachmentOption[] = [
   { iconKey: 'image', label: 'Photos', color: 'bg-[#4CAF50]' },
   { iconKey: 'camera', label: 'Camera', color: 'bg-[#2196F3]' },
+  { iconKey: 'video', label: 'Video', color: 'bg-[#9C27B0]' },
   { iconKey: 'phone', label: 'Audio', color: 'bg-[#00C300]' },
   { iconKey: 'user', label: 'Contact', color: 'bg-[#FF9800]' },
   { iconKey: 'map', label: 'Location', color: 'bg-[#E91E63]' },

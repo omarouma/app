@@ -27,6 +27,7 @@ const probes = [
   ['posts', 'poll_data', '20260814_add_video_support.sql'],
   ['posts', 'hashtags', '20260814_add_video_support.sql'],
   ['posts', 'content_warning', '20260814_add_video_support.sql'],
+  ['call_history', 'participant_ids', 'supabase_master_fix.sql §5'],
 ];
 
 console.log('Probing live schema (read-only)...\n');
@@ -38,5 +39,18 @@ for (const [table, column, migration] of probes) {
     console.log(`ERROR    ${table}.${column}   ${error.code || ''} ${error.message}`);
   } else {
     console.log(`OK       ${table}.${column}`);
+  }
+}
+
+// Storage buckets from master fix §9
+console.log('\nStorage buckets:');
+const { data: buckets, error: bucketErr } = await supabase.storage.listBuckets();
+if (bucketErr) {
+  console.log(`ERROR    listBuckets: ${bucketErr.message}`);
+} else {
+  const expected = ['chat-media', 'avatars', 'posts', 'stories', 'reels', 'voice-messages'];
+  const present = new Set((buckets || []).map(b => b.id));
+  for (const b of expected) {
+    console.log(`${present.has(b) ? 'OK      ' : 'MISSING'}  bucket ${b}`);
   }
 }

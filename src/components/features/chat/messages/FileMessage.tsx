@@ -76,6 +76,12 @@ export const FileMessage = memo(function FileMessage(props: FileMessageProps) {
     <div
       className="flex items-center gap-2 bg-black/10 rounded-xl px-3 py-2 mb-1 max-w-full hover:bg-black/20 transition-colors cursor-pointer"
       onClick={handleDownload}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          void handleDownload(e as unknown as React.MouseEvent);
+        }
+      }}
       role="button"
       tabIndex={0}
       aria-label={`Download ${fileName}`}

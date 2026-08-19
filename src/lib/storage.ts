@@ -33,7 +33,7 @@ export const MAX_UPLOAD_SIZE = 25 * 1024 * 1024; // 25 MB
 export const MAX_IMAGE_SIZE = 10 * 1024 * 1024; // 10 MB
 export const MAX_VIDEO_SIZE = 50 * 1024 * 1024; // 50 MB
 export const MAX_VOICE_SIZE = 5 * 1024 * 1024;  // 5 MB
-export type UploadKind = 'chats' | 'voice' | 'avatars' | 'posts' | 'stories' | 'reels';
+export type UploadKind = 'chats' | 'voice' | 'avatars' | 'posts' | 'stories' | 'reels' | 'covers';
 
 /** Validates file size against upload limits. Returns null if valid, or an error string. */
 export function validateFileSize(file: Blob | File, kind?: string): string | null {
@@ -112,6 +112,7 @@ const MAX_FALLBACK_SIZE = 2 * 1024 * 1024;
 // the Firebase fallback upload path is allowed by the rules.
 const KIND_TO_STORAGE_ROOT: Record<string, string> = {
   avatars: 'avatars',
+  covers: 'covers',
   posts: 'posts',
   stories: 'stories',
   reels: 'reels',
@@ -445,7 +446,17 @@ async function uploadWithFallback(
     const fileName = opts.fileName
       ? opts.fileName.replace(/[^a-zA-Z0-9._-]/g, '_')
       : `${Date.now()}_${Math.random().toString(36).slice(2, 8)}${ext}`;
-    const supabaseUrl = await uploadToSupabaseStorage('media', `${folder}/${fileName}`, file, opts.contentType);
+    const bucketByKind: Record<string, string> = {
+      chats: 'chat-media',
+      voice: 'voice-messages',
+      avatars: 'avatars',
+      covers: 'avatars',
+      posts: 'posts',
+      stories: 'stories',
+      reels: 'reels',
+    };
+    const bucket = bucketByKind[opts.kind || ''] || 'chat-media';
+    const supabaseUrl = await uploadToSupabaseStorage(bucket, `${folder}/${fileName}`, file, opts.contentType);
     return supabaseUrl;
   } catch (err) {
     errors.push(`Supabase: ${err instanceof Error ? err.message : String(err)}`);

@@ -11,12 +11,14 @@ export const VideoMessage = memo(function VideoMessage(props: VideoMessageProps)
   const { msg } = props;
   const [failed, setFailed] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  const [retryKey, setRetryKey] = useState(0);
 
   const safeUrl = sanitizeMediaUrl(msg.mediaUrl);
 
   const handleRetry = useCallback(() => {
     setFailed(false);
     setLoaded(false);
+    setRetryKey((key) => key + 1);
   }, []);
 
   if (!safeUrl || failed) {
@@ -43,6 +45,7 @@ export const VideoMessage = memo(function VideoMessage(props: VideoMessageProps)
         </div>
       )}
       <video
+        key={retryKey}
         src={safeUrl}
         className={`rounded-2xl mb-1 max-w-full ${loaded ? 'block' : 'hidden'}`}
         controls

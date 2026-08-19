@@ -10,6 +10,7 @@ import { useAuthStore } from '@/store/useAuthStore';
 import { getDefaultAvatar } from '@/lib/utils';
 import { copyToClipboard } from '@/lib/share';
 import { toast } from 'sonner';
+import { sendAiMessage, type AiChatHistoryItem } from '@/services/aiChat';
 
 interface AIMessage {
   id: string;
@@ -27,61 +28,6 @@ const SUGGESTED_PROMPTS = [
   { icon: ImageIcon, text: 'Describe a fun photo idea' },
   { icon: Sparkles, text: 'Motivate me with a quote' },
 ];
-
-function generateAIResponse(userMessage: string): string {
-  const lower = userMessage.toLowerCase();
-
-  // Quick responses for common queries
-  if (lower.includes('caption') || lower.includes('reel') || lower.includes('post idea')) {
-    const captions = [
-      "When the coffee hits just right ☕✨ #MorningVibes",
-      "Plot twist: I'm the main character 🎬✨",
-      "Just vibing through life one reel at a time 🎵",
-      "Caption this: [insert your amazing moment here] 🌟",
-      "Living my best life, no filter needed 😎",
-      "POV: You found your people on GaGa Chat 💚",
-      "Monday mood: Let's make it legendary 🔥",
-    ];
-    return `Here's a caption idea for you: \n\n${captions[Math.floor(Math.random() * captions.length)]}\n\nWant more options? Just ask! 😊`;
-  }
-
-  if (lower.includes('friend') || lower.includes('meet') || lower.includes('people')) {
-    return `Great question! Here are some tips to make friends on GaGa Chat:\n\n1. **Join Voice Rooms** - It's the easiest way to meet people with similar interests! 🎙️\n2. **Share Stories** - Let people see your personality through daily stories 📸\n3. **React & Comment** - Engage with others' posts and reels to start conversations 💬\n4. **Use Nearby** - Find people in your area with the nearby feature 📍\n5. **Be Active Daily** - Consistency builds connections! Check in every day 🔥`;
-  }
-
-  if (lower.includes('trending') || lower.includes('popular') || lower.includes('topic')) {
-    return `Here are the trending topics on GaGa right now:\n\n🔥 #GaGaChallenges\n🎵 #ReelStar\n💚 #VoiceRoomVibes\n📸 #StoryOfTheDay\n🎮 #GamingWithFriends\n\nJump into a voice room or create a reel on one of these topics to boost your engagement! 🚀`;
-  }
-
-  if (lower.includes('motivate') || lower.includes('quote') || lower.includes('inspire')) {
-    const quotes = [
-      "The best way to predict the future is to create it. ✨",
-      "Your vibe attracts your tribe. Keep shining! 💫",
-      "Every day is a fresh start. Make it count! 🌅",
-      "Success is the sum of small efforts repeated daily. 💪",
-      "Be the reason someone smiles today! 😊",
-    ];
-    return `${quotes[Math.floor(Math.random() * quotes.length)]}\n\nYou've got this! Remember, consistency is key. 🔥`;
-  }
-
-  if (lower.includes('photo') || lower.includes('picture') || lower.includes('selfie')) {
-    return `Here are some fun photo ideas:\n\n📸 Golden hour selfie with natural light\n🎨 Color-themed outfit challenge\n🍕 "What I eat in a day" story series\n🌿 Nature walk with a friend\n🎭 Mirror selfie with a funny face\n\nPro tip: Use the story filters for extra flair! ✨`;
-  }
-
-  if (lower.includes('hello') || lower.includes('hi') || lower.includes('hey')) {
-    return `Hey there! 👋 I'm GaGa AI, your personal assistant. I can help you with:\n\n💡 Content ideas & captions\n🤝 Tips for making friends\n📈 Trending topics & strategies\n✨ Motivation & inspiration\n\nWhat would you like help with today?`;
-  }
-
-  // Default creative responses
-  const defaults = [
-    `That's an interesting question! 🤔 Here's what I think:\n\nI'd suggest exploring the Voice Rooms feature - it's a great way to connect with people who share your interests. You can also try posting daily stories to show your personality! 💚`,
-    `Great idea! 💡 For the best experience on GaGa Chat, I'd recommend:\n\n1. Check in daily for streak rewards 🔥\n2. Join voice rooms in your favorite categories 🎙️\n3. Create engaging reels with trending sounds 🎵\n4. React to friends' posts to stay connected 💬`,
-    `I'm here to help! 🌟\n\nFor that specific question, try engaging with the community through comments and voice rooms. The more active you are, the more connections you'll make. Remember: consistency beats perfection! 💪`,
-    `Awesome question! 🎯\n\nMy top tip: Be authentic in your interactions. People connect with real personalities. Share your thoughts, join discussions, and don't be afraid to start conversations in voice rooms! 🎙️✨`,
-  ];
-
-  return defaults[Math.floor(Math.random() * defaults.length)];
-}
 
 export default function AIChatPage() {
   const navigate = useNavigate();
@@ -121,18 +67,25 @@ export default function AIChatPage() {
     setInput('');
     setIsTyping(true);
 
-    // Simulate AI thinking delay
+    // Send to AI — first try the real backend, fall back to the local responder
+    const history: AiChatHistoryItem[] = messages
+      .filter((m) => m.role === 'user' || m.role === 'assistant')
+      .slice(-10)
+      .map((m) => ({ role: m.role, content: m.content }));
+
+    const result = await sendAiMessage(userMsg.content, history);
+
+    // Minimal delay so the typing indicator is visible for good UX
     setTimeout(() => {
-      const response = generateAIResponse(userMsg.content);
       const aiMsg: AIMessage = {
         id: `ai_${uuidv4()}`,
         role: 'assistant',
-        content: response,
+        content: result.text,
         timestamp: new Date(),
       };
       setMessages(prev => [...prev, aiMsg]);
       setIsTyping(false);
-    }, 800 + Math.random() * 1000);
+    }, 400 + Math.random() * 300);
   };
 
   const handleCopy = async (text: string) => {

@@ -149,10 +149,10 @@ export const useChatRoom = (chatId: string, userId: string) => {
     }
   }, [chatId, editInput, editMessage]);
 
-  const handleSend = useCallback(async () => {
+  const handleSend = useCallback(async (contentOverride?: string) => {
     if (!currentUser) return;
     if (editingMessageId) { await handleEditSave(editingMessageId); return; }
-    const content = input.trim();
+    const content = (contentOverride ?? input).trim();
     if (!content) return;
     try {
       if (isOnline) {

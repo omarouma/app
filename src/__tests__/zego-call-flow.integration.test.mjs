@@ -11,6 +11,9 @@
 
 import assert from 'assert';
 
+const hasDom = typeof document !== 'undefined';
+const makeElement = () => (hasDom ? document.createElement('div') : {});
+
 // Test result tracking
 let passCount = 0;
 let failCount = 0;
@@ -48,7 +51,7 @@ describe('ZEGO Call Join Lifecycle', () => {
     // Simulate CallOverlay component mounting container
     // (NOT gated on isZegoActive anymore)
     if (callState.activeCall) {
-      callState.containerRef = { current: document.createElement('div') };
+      callState.containerRef = { current: makeElement() };
     }
 
     assert.ok(callState.containerRef, 'Container ref should be mounted when activeCall exists');
@@ -84,7 +87,7 @@ describe('ZEGO Call Join Lifecycle', () => {
 
     // Simulate container becoming available (React commit after render)
     await new Promise((resolve) => setTimeout(() => {
-      zegoRef.containerRef.current = document.createElement('div');
+      zegoRef.containerRef.current = makeElement();
       resolve();
     }, 50));
 

@@ -28,11 +28,11 @@ export const LocationMessage = memo(function LocationMessage(props: LocationMess
 
   const safeUrl = sanitizeMediaUrl(msg.mediaUrl);
   const coords = useMemo(
-    () => (safeUrl ? parseCoords(safeUrl, msg.content) : null),
+    () => parseCoords(safeUrl || '', msg.content),
     [safeUrl, msg.content],
   );
 
-  if (!safeUrl || !coords) {
+  if (!coords) {
     return (
       <div className="flex items-center gap-2 bg-black/10 rounded-xl px-3 py-2 mb-1 max-w-full">
         <MapPin size={18} className="text-[#FF3B30] shrink-0" />

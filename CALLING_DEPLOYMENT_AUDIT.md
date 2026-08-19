@@ -270,8 +270,9 @@ npm run build
 **Production** (`firebase.hosting` config or env file):
 ```env
 # ZEGO Cloud (CRITICAL for calls)
-VITE_ZEGO_APP_ID=1895317974          # Get from ZEGOCLOUD dashboard
-VITE_ZEGO_SERVER_SECRET=82ce0ff8...   # Get from ZEGOCLOUD dashboard
+# SECURITY: Do not commit real credentials. Use placeholders.
+VITE_ZEGO_APP_ID=YOUR_ZEGO_APP_ID    # Get from ZEGOCLOUD dashboard
+# VITE_ZEGO_SERVER_SECRET=            # NEVER commit — set in Supabase Secret Manager
 VITE_ZEGO_TOKEN_SERVER_URL=/api/zego-token  # Optional (uses test fallback)
 
 # Firebase (Required)

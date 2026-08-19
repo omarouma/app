@@ -1,5 +1,5 @@
 import { useRef, useEffect } from 'react';
-import { getDefaultAvatar } from '@/lib/utils';
+import { getDefaultAvatar, sanitizeMediaUrl } from '@/lib/utils';
 import type { Message, User, Chat } from '@/types';
 
 interface GroupChatMessageListProps {
@@ -103,12 +103,30 @@ export function GroupChatMessageList({
                                 onContextMenu={(e) => handleContextMenu(e, msg)}
                                 className={`flex items-end gap-2 ${isMe ? 'justify-end' : 'justify-start'} ${isSearchMatch ? 'bg-yellow-200/50 rounded-lg' : ''}`}>
                                 {!isMe && (
-                                    <img src={getSenderAvatar(msg.senderId) || getDefaultAvatar(msg.senderId)} alt="" className="w-6 h-6 rounded-full shrink-0" />
+                                    <img src={sanitizeMediaUrl(getSenderAvatar(msg.senderId)) || getDefaultAvatar(msg.senderId)} alt="" className="w-6 h-6 rounded-full shrink-0" />
                                 )}
                                 <div className={`max-w-[70%] p-0 relative`}>
                                     {!isMe && <p className="text-[11px] text-white/80 mb-0.5 ml-1">{getSenderName(msg.senderId)}</p>}
                                     <div className={`px-3 py-2 rounded-xl text-sm leading-tight relative ${isMe ? 'bg-[#00C300] text-white rounded-br-none' : 'bg-white text-[#111111] rounded-bl-none'}`}>
-                                        {msg.content}
+                                        {(() => {
+                                            const mediaUrl = sanitizeMediaUrl(msg.mediaUrl);
+                                            if (mediaUrl && msg.type === 'image') {
+                                                return <img src={mediaUrl} alt={msg.content || 'Shared image'} loading="lazy" className="max-w-full max-h-64 rounded-lg object-cover mb-1" />;
+                                            }
+                                            if (mediaUrl && msg.type === 'video') {
+                                                return <video src={mediaUrl} controls playsInline preload="metadata" className="max-w-full max-h-64 rounded-lg mb-1" aria-label="Video message" />;
+                                            }
+                                            if (mediaUrl && msg.type === 'voice') {
+                                                return <audio src={mediaUrl} controls preload="metadata" className="max-w-full mb-1" aria-label="Voice message" />;
+                                            }
+                                            if (mediaUrl && msg.type === 'file') {
+                                                return <a href={mediaUrl} target="_blank" rel="noopener noreferrer" download className="underline font-medium break-all">{msg.content || 'Download file'}</a>;
+                                            }
+                                            if (mediaUrl && msg.type === 'location') {
+                                                return <a href={mediaUrl} target="_blank" rel="noopener noreferrer" className="underline">{msg.content || 'Open location'}</a>;
+                                            }
+                                            return <span className="whitespace-pre-wrap break-words">{msg.content}</span>;
+                                        })()}
                                         <span className="text-[10px] ml-2 float-right mt-1.5 opacity-70">{formatTime(msg.timestamp)}</span>
                                         {hasReactions && (
                                             <div className="absolute -bottom-3 right-0 flex items-center gap-0.5 bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-full px-1 py-0.5">

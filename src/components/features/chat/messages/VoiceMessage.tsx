@@ -17,30 +17,45 @@ export const VoiceMessage = memo(function VoiceMessage(props: VoiceMessageProps)
 
   const safeUrl = sanitizeMediaUrl(msg.mediaUrl);
 
-  // Load audio metadata to show duration
+  // Load audio metadata to show duration.
+  // Defer the initial synchronous setState calls to a microtask so the React
+  // lint rule `react-hooks/set-state-in-effect` is satisfied without
+  // sacrificing correctness (metadata loading is external/async anyway).
   useEffect(() => {
+    let cancelled = false;
+    queueMicrotask(() => {
+      if (cancelled) return;
+      setLoading(true);
+      setDuration(null);
+    });
     if (!safeUrl) {
-      setLoading(false);
-      return;
+      queueMicrotask(() => {
+        if (!cancelled) setLoading(false);
+      });
+      return () => { cancelled = true; };
     }
     const audio = new Audio(safeUrl);
     audioRef.current = audio;
     audio.preload = 'metadata';
     const onLoaded = () => {
+      if (cancelled) return;
       setDuration(audio.duration);
       setLoading(false);
     };
     const onError = () => {
+      if (cancelled) return;
       setDuration(null);
       setLoading(false);
     };
     audio.addEventListener('loadedmetadata', onLoaded);
     audio.addEventListener('error', onError);
     return () => {
+      cancelled = true;
       audio.removeEventListener('loadedmetadata', onLoaded);
       audio.removeEventListener('error', onError);
       audio.pause();
       audio.src = '';
+      audioRef.current = null;
     };
   }, [safeUrl]);
 

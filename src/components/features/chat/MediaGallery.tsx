@@ -27,6 +27,11 @@ export const MediaGallery = memo(function MediaGallery({ images, initialIndex, o
 
   const current = images[currentIndex];
 
+  useEffect(() => {
+    if (images.length === 0) return;
+    setCurrentIndex((index) => Math.min(Math.max(index, 0), images.length - 1));
+  }, [images.length]);
+
   const goTo = useCallback((direction: 'prev' | 'next') => {
     if (isZoomed) return;
     setCurrentIndex((prev) => {
@@ -69,7 +74,7 @@ export const MediaGallery = memo(function MediaGallery({ images, initialIndex, o
   }, []);
 
   const handleTouchEnd = useCallback(() => {
-    if (!touchStart || !touchEnd) return;
+    if (touchStart === null || touchEnd === null) return;
     const distance = touchStart - touchEnd;
     const isSwiped = Math.abs(distance) > 80;
     if (isSwiped) {

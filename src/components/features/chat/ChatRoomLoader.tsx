@@ -90,6 +90,22 @@ export default function ChatRoomLoader({ userId, onRetry }: ChatRoomLoaderProps)
   const loading = canAttemptCreate && !chatExists && createResult !== 'error' && isCreating;
   const error = createResult === 'error';
 
+  if (!userId) {
+    return (
+      <div className="h-[100dvh] bg-white flex flex-col items-center justify-center p-6">
+        <p className="text-[#FF3B30] text-sm font-medium mb-2">Chat not available</p>
+        <p className="text-[#8D8D8D] text-xs text-center mb-4">The selected conversation is missing a valid user reference.</p>
+        <button
+          type="button"
+          onClick={() => navigate(-1)}
+          className="px-4 py-2 bg-[#F5F5F5] text-[#111111] rounded-xl text-sm font-medium"
+        >
+          Go Back
+        </button>
+      </div>
+    );
+  }
+
   if (isSelfChat) {
     return (
       <div className="h-[100dvh] bg-white flex flex-col items-center justify-center p-6">

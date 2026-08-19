@@ -179,6 +179,20 @@ export const zegoToken = onRequest(
       return;
     }
 
+    // Security: the `user` token subject MUST be the authenticated caller.
+    // Supabase ids are prefixed `sb_` and Firebase ids `fb_` by the
+    // authenticator, while ZEGO user ids are raw app ids. The web client
+    // derives a ZEGO user id from the *same* app user id, so strip any
+    // `sb_`/`fb_` prefix when comparing against the caller.
+    const sanitizedCaller = callerUid.replace(/^sb_|^fb_/, '');
+    if (user !== callerUid && user !== sanitizedCaller) {
+      res.status(403).json({
+        error: 'FORBIDDEN',
+        message: 'You may only mint a token for your own user id.',
+      });
+      return;
+    }
+
     const appId = Number(ZEGO_APP_ID.value());
     const serverSecret = ZEGO_SERVER_SECRET.value();
     if (!appId || !serverSecret) {

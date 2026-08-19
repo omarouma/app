@@ -1,4 +1,4 @@
-mc# GaGa Chat
+# GaGa Chat
 
 A production-ready, real-time social chat application built with **React 19 + TypeScript + Vite**. It combines instant messaging, stories, reels, live streaming, voice rooms, calls, wallet/gifting, and a full creator ecosystem — all backed by **Supabase** (primary) with **Firebase** (hosting + fallback).
 

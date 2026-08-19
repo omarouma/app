@@ -116,7 +116,9 @@ export default function ProfilePage() {
     setUploadingCover(true);
     try {
       const { uploadMediaBlob } = await import('@/lib/storage');
-      const url = await uploadMediaBlob({ kind: 'avatars', file, mimeType: file.type, userId: user.id });
+      // Use a dedicated kind so cover images land in the posts bucket/folder
+      // instead of the avatars bucket. 'posts' kind supports image uploads.
+      const url = await uploadMediaBlob({ kind: 'covers', file, mimeType: file.type, userId: user.id });
       if (!url) throw new Error('Upload failed');
       await updateDocById(COLLECTIONS.USERS, user.id, { coverImage: url });
       setUser({ ...user, coverImage: url });

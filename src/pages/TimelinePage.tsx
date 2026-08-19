@@ -14,7 +14,7 @@ import { useUserSettings } from '@/store/useSettingsStore';
 import {
   isFirestoreAvailable, COLLECTIONS, addDocToCollection,
   updateDocById, deleteDocById, subscribeToCollection, serverTimestamp, increment,
-  where, orderBy, limit, startAfter, queryCollection
+  where, orderBy, limit, startAfter, queryCollection, arrayUnion
 } from '@/lib/firestore';
 import TimelineCard from '@/components/features/timeline/TimelineCard';
 import EmptyState from '@/components/EmptyState';
@@ -41,7 +41,7 @@ const visibilityOptions: { key: Visibility; label: string; icon: typeof Globe }[
 
 export default function TimelinePage() {
   const { user } = useAuthStore();
-  const { friends, subscribeFriends, getSuggestedFriends } = useFriendStore();
+  const { friends, subscribeFriends, getSuggestedFriends, followUser } = useFriendStore();
   const { reels, getReels } = useReelStore();
   const { settings } = useUserSettings();
   const navigate = useNavigate();
@@ -113,21 +113,30 @@ export default function TimelinePage() {
       const parsed = new Date(asStr);
       return Number.isNaN(parsed.getTime()) ? new Date() : parsed;
     };
+    const rawImages = d.images ?? d.mediaUrls ?? d.media_urls;
+    const mappedImages = Array.isArray(rawImages)
+      ? rawImages.filter((value): value is string => typeof value === 'string' && value.length > 0)
+      : [];
+    const explicitVideoUrl = (d.videoUrl || d.video_url) as string | undefined;
+    const inferredVideoUrl = explicitVideoUrl || mappedImages.find((url) => /\.(mp4|webm|mov|m4v|ogg|ogv)(\?|#|$)/i.test(url) || url.includes('/video/'));
+    const rawMediaType = d.mediaType || d.media_type;
+    const mediaType = (rawMediaType as TimelinePost['mediaType']) || (inferredVideoUrl ? 'video' : mappedImages.length > 0 ? 'photo' : 'text');
+    const rawUserId = (d.userId || d.user_id) as string;
     return {
       id: d.id as string,
-      userId: d.userId as string,
+      userId: rawUserId,
       content: (d.content as string) || '',
-      images: (d.images as string[]) || [],
+      images: mappedImages,
       likes: (d.likes as string[]) || [],
       comments: (d.comments as PostComment[]) || [],
       shares: (d.shares as string[]) || [],
       timestamp: resolveTimestamp(d.timestamp),
       visibility: (d.visibility as TimelinePost['visibility']) || 'public',
       pollData: (d.pollData as PostPollData) || undefined,
-      userName: (d.userName as string) || (d.userId === uid ? user?.name : 'User'),
-      userAvatar: (d.userAvatar as string) || (d.userId === uid ? user?.avatar : undefined),
-      videoUrl: (d.videoUrl as string) || undefined,
-      mediaType: (d.mediaType as TimelinePost['mediaType']) || 'text',
+      userName: (d.userName || d.user_name) as string || (rawUserId === uid ? user?.name : 'User'),
+      userAvatar: (d.userAvatar || d.user_avatar) as string || (rawUserId === uid ? user?.avatar : undefined),
+      videoUrl: inferredVideoUrl,
+      mediaType,
     };
   }, [user?.name, user?.avatar]);
 
@@ -146,19 +155,18 @@ export default function TimelinePage() {
         const list: TimelinePost[] = (data || [])
           .map((d: Record<string, unknown>) => mapPost(d, user.id));
 
-        // Deduplication: skip already-seen post IDs
-        const unique: TimelinePost[] = [];
-        for (const post of list) {
-          if (!seenPostIdsRef.current.has(post.id)) {
-            seenPostIdsRef.current.add(post.id);
-            unique.push(post);
-          }
-        }
+        // Realtime snapshots contain both new and updated records. Keep the
+        // full snapshot so existing cards can be replaced with fresh data;
+        // deduplication is applied only when appending paginated results.
+        const unique = list;
+        list.forEach(post => seenPostIdsRef.current.add(post.id));
 
         setPosts(prev => {
-          // Merge: keep existing (not in new batch) + new unique posts
+          // Replace matching records so realtime likes/comments/edits are visible.
+          const incomingById = new Map(unique.map(post => [post.id, post]));
+          const updatedExisting = prev.map(post => incomingById.get(post.id) || post);
           const existingIds = new Set(prev.map(p => p.id));
-          const merged = [...unique.filter(p => !existingIds.has(p.id)), ...prev];
+          const merged = [...unique.filter(p => !existingIds.has(p.id)), ...updatedExisting];
           // Sort by timestamp desc
           merged.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
           return merged;
@@ -501,25 +509,28 @@ export default function TimelinePage() {
     setUploading(true);
     try {
       const { uploadMediaBlob } = await import('@/lib/storage');
-      const urls: string[] = [];
-      for (const file of files) {
+      const uploadResults = await Promise.all(files.map(async (file) => {
         if (!file.type.startsWith('image/') && !file.type.startsWith('video/')) {
           toast.error(`"${file.name}" is not a supported file type`);
-          continue;
+          return null;
         }
         const limitMB = file.type.startsWith('video/') ? 50 : 10;
         if (file.size > limitMB * 1024 * 1024) {
           toast.error(`"${file.name}" exceeds ${limitMB}MB limit`);
-          continue;
+          return null;
         }
         const isVideo = file.type.startsWith('video/');
         const kind = isVideo ? 'reels' : 'posts';
         const url = await uploadMediaBlob({ kind, file, mimeType: file.type });
-        if (!url) continue;
-        urls.push(url);
-        if (isVideo) setVideoUrls(prev => new Set([...prev, url]));
-      }
-      setImages(prev => [...prev, ...urls]);
+        return url ? { url, isVideo } : null;
+      }));
+      const urls = uploadResults.filter((item): item is { url: string; isVideo: boolean } => !!item);
+      setVideoUrls(prev => {
+        const next = new Set(prev);
+        urls.forEach(({ url, isVideo }) => isVideo ? next.add(url) : next.delete(url));
+        return next;
+      });
+      setImages(prev => [...prev, ...urls.map(({ url }) => url)]);
     } catch {
       toast.error('Failed to upload media');
     } finally {
@@ -614,6 +625,28 @@ export default function TimelinePage() {
     seenPostIdsRef.current.clear();
     setCursor(null);
     setHasMore(true);
+    // Actually fetch fresh posts from the database
+    try {
+      if (isFirestoreAvailable() && user?.id) {
+        const data = await queryCollection(COLLECTIONS.POSTS, [
+          orderBy('timestamp', 'desc'),
+          limit(POSTS_PER_PAGE),
+        ]);
+        const freshList: TimelinePost[] = (data || []).map((d: Record<string, unknown>) => mapPost(d, user.id));
+        freshList.forEach(post => seenPostIdsRef.current.add(post.id));
+        setPosts(freshList);
+        if (freshList.length > 0) {
+          setCursor(freshList[freshList.length - 1].timestamp);
+        }
+        setHasMore(freshList.length >= POSTS_PER_PAGE);
+      }
+    } catch {
+      // Ignore errors — realtime subscription will re-populate
+    }
+    setLoading(false);
+    setLoadingMore(false);
+    setLastSeenPostTime(Date.now());
+    setNewPostsCount(0);
     refreshTimeoutRef.current = setTimeout(() => setRefreshing(false), 1000);
   };
 
@@ -922,13 +955,18 @@ export default function TimelinePage() {
                       <img src={su.avatar || getDefaultAvatar(su.id)} alt="User avatar" className="w-12 h-12 rounded-full object-cover" />
                       <p className="text-white text-xs font-medium truncate w-full text-center">{su.name}</p>
                       <p className="text-[#8D8D8D] text-[10px] truncate w-full text-center">@{su.username || 'user'}</p>
-                      <button
-                        type="button"
-                        onClick={() => navigate('/add-friends')}
-                        className="w-full py-1.5 rounded-full bg-[#00C300] text-black text-xs font-medium hover:bg-[#00C300]/90"
-                      >
-                        Follow
-                      </button>
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            if (!user?.id) return;
+                            await followUser(su.id, user.id);
+                            // Remove from suggested after following
+                            setSuggestedUsers(prev => prev.filter(u => u.id !== su.id));
+                          }}
+                          className="w-full py-1.5 rounded-full bg-[#00C300] text-black text-xs font-medium hover:bg-[#00C300]/90"
+                        >
+                          Follow
+                        </button>
                     </div>
                   ))}
                 </div>
@@ -1176,8 +1214,18 @@ export default function TimelinePage() {
                 >
                   <Share2 size={18} /> Share via...
                 </button>
-                <button type="button" onClick={() => {
-                  toast.success('Post saved to your bookmarks');
+                <button type="button" onClick={async () => {
+                  if (!user?.id || !sharePost) return;
+                  try {
+                    if (isFirestoreAvailable()) {
+                      await updateDocById(COLLECTIONS.USERS, user.id, {
+                        savedPosts: arrayUnion(sharePost.id),
+                      });
+                    }
+                    toast.success('Post saved to your bookmarks');
+                  } catch {
+                    toast.error('Failed to save post');
+                  }
                   setShowShareModal(false);
                 }}
                   className="flex items-center gap-3 p-3 rounded-xl bg-[#2a2a2a] text-white hover:bg-[#333]"
@@ -1242,8 +1290,12 @@ export default function TimelinePage() {
                 <div className="flex gap-2 mt-3 overflow-x-auto">
                   {images.map((img, i) => (
                     <div key={i} className="relative shrink-0">
-                      <img src={img} alt="Cover image" className="w-20 h-20 rounded-lg object-cover" />
-                      <button type="button" onClick={() => { setImages(prev => prev.filter((_, idx) => idx !== i)); setVideoUrls(prev => { const next = new Set(prev); next.delete(img); return next; }); }} className="absolute -top-1 -right-1 bg-red-500 rounded-full p-0.5"><X size={12} /></button>
+                      {videoUrls.has(img) ? (
+                        <video src={img} className="w-20 h-20 rounded-lg object-cover bg-black" muted playsInline preload="metadata" />
+                      ) : (
+                        <img src={img} alt={`Upload ${i + 1}`} className="w-20 h-20 rounded-lg object-cover" />
+                      )}
+                      <button type="button" onClick={() => { setImages(prev => prev.filter((_, idx) => idx !== i)); setVideoUrls(prev => { const next = new Set(prev); next.delete(img); return next; }); }} className="absolute -top-1 -right-1 bg-red-500 rounded-full p-1 min-w-7 min-h-7 flex items-center justify-center" aria-label={`Remove upload ${i + 1}`}><X size={12} /></button>
                     </div>
                   ))}
                 </div>
@@ -1288,18 +1340,18 @@ export default function TimelinePage() {
               {/* Actions */}
               <div className="flex items-center justify-between mt-4">
                 <div className="flex items-center gap-1">
-                  <button type="button" onClick={() => fileInputRef.current?.click()} className="p-2 rounded-lg hover:bg-[#2a2a2a] text-[#8D8D8D]" title="Add image">
+                  <button type="button" onClick={() => fileInputRef.current?.click()} className="p-2.5 min-w-11 min-h-11 rounded-lg hover:bg-[#2a2a2a] text-[#8D8D8D]" title="Add photos or videos" aria-label="Add photos or videos">
                     <Image size={20} />
                   </button>
-                  <button type="button" onClick={() => setShowPollComposer(!showPollComposer)} className={`p-2 rounded-lg hover:bg-[#2a2a2a] ${showPollComposer ? 'text-[#00C300]' : 'text-[#8D8D8D]'}`} title="Add poll">
+                  <button type="button" onClick={() => setShowPollComposer(!showPollComposer)} className={`p-2.5 min-w-11 min-h-11 rounded-lg hover:bg-[#2a2a2a] ${showPollComposer ? 'text-[#00C300]' : 'text-[#8D8D8D]'}`} title="Add poll" aria-label="Add poll">
                     <Vote size={20} />
                   </button>
                 </div>
                 <button type="button" onClick={editingPost ? handleEditPost : handlePost}
                   disabled={uploading || (!content.trim() && images.length === 0 && !(showPollComposer && pollQuestion.trim() && pollOptions.filter(o => o.trim()).length >= 2))}
-                  className="px-6 py-2 rounded-xl bg-[#00C300] text-black font-medium disabled:opacity-50"
+                  className="min-h-11 px-6 py-2 rounded-xl bg-[#00C300] text-black font-medium disabled:opacity-50 inline-flex items-center justify-center gap-2"
                 >
-                  {uploading ? <Loader size={18} className="animate-spin" /> : editingPost ? 'Update' : 'Post'}
+                  {uploading ? <><Loader size={18} className="animate-spin" /> Uploading…</> : editingPost ? 'Update' : 'Post'}
                 </button>
               </div>
               <input type="file" ref={fileInputRef} accept="image/*,video/*" multiple className="hidden" onChange={handleImageUpload} />

@@ -163,9 +163,15 @@ export default function ChatRoom({ chatId, userId, onBack }: {
   const handleCall = useCallback((video: boolean) => {
     const du = displayUser;
     if (du && typeof du === 'object' && 'id' in du && !('then' in du)) {
-      callCtx.startCall({ id: (du as { id: string }).id }, video ? 'video' : 'voice');
+      callCtx.startCall({ id: String((du as { id: string }).id) }, video ? 'video' : 'voice');
     }
   }, [displayUser, callCtx]);
+
+  const resetForwardModal = useCallback(() => {
+    setShowForwardModal(false);
+    setForwardMsg(null);
+    setForwardBatch([]);
+  }, [setShowForwardModal, setForwardMsg, setForwardBatch]);
 
   const virtuoso = useRef<any>(null);
   const initialLatestTimestampRef = useRef<number | null>(null);
@@ -399,6 +405,10 @@ export default function ChatRoom({ chatId, userId, onBack }: {
       setSelectionMode(true);
       setSelectedMessages(prev => new Set(prev).add(msg.id));
     }, 500);
+  }, []);
+
+  useEffect(() => () => {
+    if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
   }, []);
 
   const handleClearSelection = useCallback(() => {
@@ -752,11 +762,9 @@ export default function ChatRoom({ chatId, userId, onBack }: {
           if (!currentUser) return;
           try {
             if (sticker.type === 'gif') {
-              setInput(sticker.content);
-              await handleSend();
+              await handleSend(sticker.content);
             } else {
-              setInput(sticker.content);
-              await handleSend();
+              await handleSend(sticker.content);
             }
             scrollToBottom();
           } catch {
@@ -785,7 +793,7 @@ export default function ChatRoom({ chatId, userId, onBack }: {
               ...(contextMenu.msg.senderId === currentUser?.id ? [
                 { label: 'Edit', action: () => handleEditStart(contextMenu.msg as Message) },
                 { label: 'Recall', action: () => handleRecall(contextMenu.msg.id) },
-                { label: 'Delete for everyone', action: () => setShowDeleteForEveryoneConfirm(contextMenu.msg.id) },
+                { label: 'Delete for everyone', action: () => { setShowDeleteForEveryoneConfirm(contextMenu.msg.id); setContextMenu(null); } },
               ] : []),
               { label: 'Delete for me', action: () => handleDelete(contextMenu.msg.id) },
               { label: isSaved(contextMenu.msg.id) ? 'Unsave' : 'Save', action: () => handleSaveMessage(contextMenu.msg) },
@@ -812,7 +820,7 @@ export default function ChatRoom({ chatId, userId, onBack }: {
         {showForwardModal && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             className="fixed inset-0 bg-black/50 z-50 flex items-end justify-center"
-            onClick={() => { setShowForwardModal(false); setForwardMsg(null); setForwardBatch([] as any); }}
+            onClick={resetForwardModal}
           >
             <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
               transition={{ type: 'spring', damping: 25, stiffness: 300 }}
@@ -855,7 +863,7 @@ export default function ChatRoom({ chatId, userId, onBack }: {
                   <p className="text-sm text-[#8D8D8D] px-3 py-4 text-center">No other chats to forward to.</p>
                 )}
               </div>
-              <button type="button" onClick={() => { setShowForwardModal(false); setForwardMsg(null); setForwardBatch([] as any); }}
+              <button type="button" onClick={resetForwardModal}
                 className="mt-3 w-full py-3 bg-[#F5F5F5] text-[#111111] rounded-xl text-sm font-bold"
               >Cancel</button>
             </motion.div>
@@ -880,7 +888,7 @@ export default function ChatRoom({ chatId, userId, onBack }: {
                 <button type="button" onClick={() => setShowDeleteForEveryoneConfirm(null)}
                   className="flex-1 py-3 bg-[#F5F5F5] text-[#111111] rounded-xl text-sm font-bold"
                 >Cancel</button>
-                <button type="button" onClick={() => { if (contextMenu) handleDeleteForEveryone(contextMenu.msg.id); setShowDeleteForEveryoneConfirm(null); }}
+                <button type="button" onClick={() => { if (showDeleteForEveryoneConfirm) handleDeleteForEveryone(showDeleteForEveryoneConfirm); }}
                   className="flex-1 py-3 bg-[#FF3B30] text-white rounded-xl text-sm font-bold"
                 >Delete</button>
               </div>

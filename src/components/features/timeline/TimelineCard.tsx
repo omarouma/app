@@ -46,12 +46,12 @@ function isVideoUrl(url: string | undefined | null): boolean {
 
 /** Resolve the effective video URL for a post (explicit videoUrl, mediaType, or video image entry). */
 function getPostVideoUrl(post: TimelinePost): string | undefined {
-  if (post.videoUrl) return post.videoUrl;
+  if (post.videoUrl) return sanitizeMediaUrl(post.videoUrl) || undefined;
   if (post.mediaType === 'video') {
-    return (post.images && post.images[0]) || undefined;
+    return (post.images && sanitizeMediaUrl(post.images[0])) || undefined;
   }
   const vid = (post.images || []).find((img) => isVideoUrl(img));
-  return vid;
+  return vid ? sanitizeMediaUrl(vid) || undefined : undefined;
 }
 
 export default function TimelineCard({
@@ -328,7 +328,11 @@ export default function TimelineCard({
                 controls
                 playsInline
                 preload="metadata"
-                poster={post.mediaType !== 'video' ? images[0] : undefined}
+                poster={post.mediaType !== 'video' ? sanitizeMediaUrl(images[0]) || undefined : undefined}
+                onError={(event) => {
+                  event.currentTarget.classList.add('hidden');
+                  toast.error('This video is unavailable');
+                }}
               />
             </div>
           );
@@ -337,16 +341,17 @@ export default function TimelineCard({
         return (
           <div className="relative" onClick={handleDoubleTap}>
             {images.length === 1 ? (
-              <img src={images[0]} alt="Post" className="w-full max-h-[480px] object-cover cursor-pointer"
-                onClick={() => onImageClick?.(images[0])} />
+              <img src={sanitizeMediaUrl(images[0]) || images[0]} alt="Post" className="w-full max-h-[480px] object-cover cursor-pointer"
+                loading="lazy" decoding="async" onClick={() => onImageClick?.(images[0])} />
             ) : (
               <>
                 <div className={`grid gap-0.5 ${images.length === 2 ? 'grid-cols-2' : images.length === 3 ? 'grid-cols-2' : 'grid-cols-2'}`}>
                   {images.slice(0, 4).map((img, i) => (
                     <div key={i} className={`overflow-hidden relative ${images.length === 3 && i === 0 ? 'col-span-2' : ''}`}>
-                      <img src={img} alt={`Post image ${i + 1}`}
+                      <img src={sanitizeMediaUrl(img) || img} alt={`Post image ${i + 1}`}
                         className={`w-full object-cover cursor-pointer hover:brightness-90 transition-all ${images.length === 3 && i === 0 ? 'h-52' : 'h-44'
                           }`}
+                        loading="lazy" decoding="async"
                         onClick={() => { setActiveImage(i); onImageClick?.(img); }}
                       />
                       {i === 3 && images.length > 4 && (

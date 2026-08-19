@@ -1,0 +1,31 @@
+# Improvements Checklist
+
+- [ ] Review src/pages/ContactsPage.tsx
+- [ ] Review src/pages/ChatPage.tsx (or ChatRoomPage.tsx)
+- [ ] Review src/pages/FeedPage.tsx (or TimelinePage.tsx)
+- [ ] Review src/pages/ProfilePage.tsx
+- [ ] Review src/pages/AIChatPage.tsx
+- [ ] Review src/pages/CallPage.tsx
+- [ ] Review src/store/useChatStore.ts + useEnhancedTimelineStore.ts
+- [ ] Review src/hooks/useZegoCall.ts, useChatRoom.ts
+- [ ] Review src/lib/dbCache.ts, src/lib/supabase.ts (if exists)
+- [ ] Check all services/API layer implementations
+- [ ] Review auth/user store
+- [ ] Check TypeScript compilation
+- [ ] Run build and fix errors
+- [ ] Verify API services are complete (users, auth, chat, timeline, profile)
+- [ ] Check error handling across pages
+- [ ] Verify state management consistency
+- [ ] Fix all reaction/comment/bookmark/post features
+- [ ] Ensure dark mode / theme consistency
+- [ ] Check mobile responsiveness
+- [ ] Add missing loading/error/empty states
+- [ ] Verify empty state UI on all feeds
+- [ ] Check post creation flow
+- [ ] Verify profile editing (avatar, cover, bio)
+- [ ] Check search functionality
+- [ ] Verify notification flows
+- [ ] Ensure follow/unfollow works with state updates
+- [ ] Add optimistic updates where appropriate
+- [ ] Final build verification
+- [ ] Deployment configuration check

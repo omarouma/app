@@ -1,7 +1,7 @@
 import { memo, useRef } from 'react';
 import { motion } from 'framer-motion';
 import type { LucideIcon } from 'lucide-react';
-import { Camera, File, ImageIcon, MapPin, Phone, User, BarChart3 } from 'lucide-react';
+import { Camera, File, ImageIcon, MapPin, Phone, User, BarChart3, Video } from 'lucide-react';
 import { attachmentOptions } from '@/lib/chatConstants';
 
 interface AttachmentPanelProps {
@@ -33,6 +33,7 @@ export const AttachmentPanel = memo(function AttachmentPanel(props: AttachmentPa
           const IconComponent: LucideIcon | null = {
             image: ImageIcon,
             camera: Camera,
+            video: Video,
             phone: Phone,
             user: User,
             map: MapPin,
@@ -46,6 +47,7 @@ export const AttachmentPanel = memo(function AttachmentPanel(props: AttachmentPa
                 onClick={() => {
                   if (item.label === 'Photos') photoInputRef.current?.click();
                   else if (item.label === 'Camera') cameraInputRef.current?.click();
+                  else if (item.label === 'Video') videoInputRef.current?.click();
                   else if (item.label === 'Location') onLocationShare();
                   else if (item.label === 'File') fileInputRef.current?.click();
                   else if (item.label === 'Audio') onStartRecording();

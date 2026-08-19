@@ -60,7 +60,7 @@ export function useCallConnectionManager() {
                 }, MAX_CONNECTION_TIME_MS);
             }
         }
-    }, [currentCall?.id, currentCall?.status, isConnected, currentUser?.id, endCall]);
+    }, [currentCall, currentCall?.id, currentCall?.status, currentUser, currentUser?.id, isConnected, endCall]);
 
     // Cleanup
     useEffect(() => {

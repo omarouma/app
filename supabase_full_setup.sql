@@ -7,6 +7,14 @@
 --
 -- Order matters — run top to bottom.
 -- Safe to re-run (all statements are idempotent).
+--
+-- SECURITY NOTICE:
+--   The RLS policies in this file have been SUPERSEDED by:
+--     supabase/migrations/20260819_security_hardening.sql
+--   Run this file only for initial schema creation (tables, indexes,
+--   triggers, realtime publication), then apply the security hardening
+--   migration to enforce wallet RLS, user column protection, group
+--   admin authorization, and other security fixes.
 -- ============================================================
 
 -- ─── EXTENSIONS ───────────────────────────────────────────────
@@ -1064,27 +1072,13 @@ CREATE TRIGGER on_call_created
   FOR EACH ROW EXECUTE FUNCTION notify_on_call();
 
 -- ─── Missed-call trigger ───────────────────────────────────────
--- When a call transitions away from 'calling' without being answered, mark it
--- as 'missed' server-side so the call shows up in both parties' history as a
--- missed call even if the callee never opened the app.
-CREATE OR REPLACE FUNCTION mark_missed_call()
-RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER AS $$
-BEGIN
-  -- Fire ~45s after a call is created if it's still 'calling' (never answered).
-  PERFORM pg_sleep(45);
-  UPDATE call_history
-    SET status = 'missed', ended_at = COALESCE(ended_at, now())
-    WHERE id = OLD.id AND status = 'calling';
-  RETURN OLD;
-END;
-$$;
-
-DROP TRIGGER IF EXISTS on_call_missed ON call_history;
-CREATE TRIGGER on_call_missed
-  AFTER INSERT ON call_history
-  FOR EACH ROW
-  WHEN (NEW.status = 'calling')
-  EXECUTE PROCEDURE mark_missed_call();
+-- REMOVED: The old mark_missed_call() used `OLD.id` in an AFTER INSERT
+-- trigger, where OLD is NULL. This caused the UPDATE to target NULL and
+-- the trigger to fail, blocking the INSERT transaction for 45 seconds
+-- (pg_sleep) and preventing incoming calls from being delivered.
+-- The client (useCallStore.subscribeCalls) already marks calls missed
+-- after 45s, so this server trigger is redundant AND harmful.
+-- See supabase/migrations/20260819_security_hardening.sql.
 
 -- ============================================================
 -- 32. AUTO-UPDATE TRIGGERS

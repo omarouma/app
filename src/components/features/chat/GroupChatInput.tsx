@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-    Mic, Send, Smile, Plus, Camera, ImageIcon, MapPin, FileIcon, Phone, User, X
+    Mic, Send, Smile, Plus, Camera, ImageIcon, MapPin, FileIcon, Phone, User, X, Video
 } from 'lucide-react';
 import type { Message } from '@/types';
 import { EmojiPicker } from './EmojiPicker';
@@ -28,6 +28,7 @@ interface GroupChatInputProps {
 const attachmentOptions = [
     { icon: <ImageIcon size={28} strokeWidth={1.5} />, label: 'Photos', color: 'bg-[#4CAF50]', action: 'photo' },
     { icon: <Camera size={28} strokeWidth={1.5} />, label: 'Camera', color: 'bg-[#2196F3]', action: 'camera' },
+    { icon: <Video size={28} strokeWidth={1.5} />, label: 'Video', color: 'bg-[#9C27B0]', action: 'video' },
     { icon: <Phone size={28} strokeWidth={1.5} />, label: 'Audio', color: 'bg-[#00C300]', action: 'audio' },
     { icon: <User size={28} strokeWidth={1.5} />, label: 'Contact', color: 'bg-[#FF9800]', action: 'contact' },
     { icon: <MapPin size={28} strokeWidth={1.5} />, label: 'Location', color: 'bg-[#E91E63]', action: 'location' },
@@ -101,7 +102,7 @@ export function GroupChatInput({
                     )}
                 </AnimatePresence>
 
-                <button type="button" onClick={() => setShowAttachments(!showAttachments)} className="p-2 active:bg-gray-100 rounded-full text-[#111111]">
+                <button type="button" onClick={() => setShowAttachments(!showAttachments)} className="p-2.5 min-w-11 min-h-11 active:bg-gray-100 rounded-full text-[#111111]" aria-label="Toggle attachments">
                     <Plus size={24} strokeWidth={1.5} className={`transition-transform duration-300 ${showAttachments ? 'rotate-45' : ''}`} />
                 </button>
 
@@ -113,7 +114,7 @@ export function GroupChatInput({
                         placeholder="Type a message..."
                         className="w-full bg-[#F5F5F5] rounded-xl pl-4 pr-10 py-2.5 text-sm text-[#111111] focus:outline-none focus:ring-2 focus:ring-[#00C300] placeholder:text-[#8D8D8D]"
                     />
-                    <button type="button" onClick={() => setShowEmojiPicker(p => !p)} className={`absolute right-3 top-1/2 -translate-y-1/2 transition-colors ${showEmojiPicker ? 'text-[#00C300]' : 'text-[#8D8D8D]'}`}>
+                    <button type="button" onClick={() => setShowEmojiPicker(p => !p)} className={`absolute right-2 top-1/2 -translate-y-1/2 min-w-10 min-h-10 flex items-center justify-center transition-colors ${showEmojiPicker ? 'text-[#00C300]' : 'text-[#8D8D8D]'}`} aria-label="Open emoji picker">
                         <Smile size={20} />
                     </button>
                 </div>
@@ -133,7 +134,7 @@ export function GroupChatInput({
                         </button>
                     </div>
                 ) : (
-                    <button type="button" onMouseDown={startRecording} onMouseUp={handleVoiceSend} className="w-10 h-10 flex items-center justify-center bg-[#00C300] rounded-full text-white">
+                    <button type="button" onClick={startRecording} className="w-10 h-10 flex items-center justify-center bg-[#00C300] rounded-full text-white" aria-label="Start voice recording">
                         <Mic size={20} />
                     </button>
                 )}

@@ -11,6 +11,7 @@ export const ImageMessage = memo(function ImageMessage(props: ImageMessageProps)
   const { msg, onSetLightbox } = props;
   const [failed, setFailed] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  const [retryKey, setRetryKey] = useState(0);
   const [imgUrl, setImgUrl] = useState(() => sanitizeMediaUrl(msg.mediaUrl) ?? '');
 
   const handleRetry = useCallback(() => {
@@ -19,6 +20,7 @@ export const ImageMessage = memo(function ImageMessage(props: ImageMessageProps)
     setImgUrl(refreshed);
     setFailed(false);
     setLoaded(false);
+    setRetryKey((key) => key + 1);
   }, [msg.mediaUrl]);
 
   const safeUrl = sanitizeMediaUrl(imgUrl);
@@ -40,7 +42,7 @@ export const ImageMessage = memo(function ImageMessage(props: ImageMessageProps)
   }
 
   return (
-    <div className="relative intro max-w-full">
+    <div className="relative intro max-w-full group">
       {/* Loading skeleton overlay */}
       {!loaded && (
         <div className="rounded-2xl mb-1 h-40 bg-[#F5F5F5] animate-pulse flex items-center justify-center">
@@ -48,6 +50,7 @@ export const ImageMessage = memo(function ImageMessage(props: ImageMessageProps)
         </div>
       )}
       <img
+        key={retryKey}
         src={safeUrl}
         onClick={() => onSetLightbox(safeUrl)}
         onError={() => setFailed(true)}

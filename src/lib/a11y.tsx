@@ -8,6 +8,7 @@ import React from 'react';
 /**
  * Button accessibility properties
  */
+// eslint-disable-next-line react-refresh/only-export-components
 export const a11y = {
   /**
    * Properties for standard buttons
@@ -321,6 +322,7 @@ export const SkipToMainContent = () => (
 /**
  * Utility to announce messages to screen readers without visual changes
  */
+// eslint-disable-next-line react-refresh/only-export-components
 export const useAriaLiveAnnouncement = () => {
   const [announcement, setAnnouncement] = React.useState('');
 

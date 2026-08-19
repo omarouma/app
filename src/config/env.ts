@@ -55,6 +55,8 @@ const envSchema = z.object({
   // --- ZEGO Cloud (Audio/Video Calling) ---
   // App ID is public and safe for the client web app.
   VITE_ZEGO_APP_ID: z.string().optional(),
+  // ZEGO signaling server URL — required for the SDK to connect to the right region.
+  VITE_ZEGO_SERVER_URL: z.string().url("ZEGO server URL must be a valid websocket or HTTP URL.").optional(),
   // ZEGO Server Secret — used ONLY for test/demo token generation.
   // For production, generate tokens server-side instead.
   VITE_ZEGO_SERVER_SECRET: z.string().optional(),

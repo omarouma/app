@@ -208,6 +208,23 @@ export const VoiceWaveform = memo(function VoiceWaveform({
         onTouchMove={onWaveTouchMove}
         onTouchEnd={onWaveTouchEnd}
         role="slider"
+        tabIndex={0}
+        onKeyDown={(e) => {
+          if (!duration) return;
+          if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') {
+            e.preventDefault();
+            seekToPercent(Math.max(0, (currentTime - 5) / duration * e.currentTarget.clientWidth), e.currentTarget);
+          } else if (e.key === 'ArrowRight' || e.key === 'ArrowUp') {
+            e.preventDefault();
+            seekToPercent(Math.min(e.currentTarget.clientWidth, (currentTime + 5) / duration * e.currentTarget.clientWidth), e.currentTarget);
+          } else if (e.key === 'Home') {
+            e.preventDefault();
+            seekToPercent(0, e.currentTarget);
+          } else if (e.key === 'End') {
+            e.preventDefault();
+            seekToPercent(e.currentTarget.clientWidth, e.currentTarget);
+          }
+        }}
         aria-label="Seek voice message"
         aria-valuemin={0}
         aria-valuemax={Math.round(duration)}

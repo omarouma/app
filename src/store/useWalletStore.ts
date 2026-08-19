@@ -1,16 +1,14 @@
 import { create } from 'zustand';
-import { v4 as uuidv4 } from 'uuid';
 import {
   isFirestoreAvailable,
   COLLECTIONS,
   getDocById,
   setDocById,
-  updateDocById,
   addDocToCollection,
   addDocToSubcollection,
   subscribeToDoc,
   serverTimestamp,
-  runDbTransaction,
+  getDb,
 } from '@/lib/firestore';
 import type { WalletData, WalletTransaction } from '@/types';
 
@@ -107,6 +105,22 @@ const writeStoredValue = (key: string, value: string) => {
   }
 };
 const isValidPositiveAmount = (amount: number) => Number.isFinite(amount) && amount > 0;
+
+// SECURITY: All wallet mutations MUST go through server-side RPC functions.
+// The client never writes wallet balances directly — RLS on the wallets table
+// only permits SELECT. This prevents users from setting their own balance.
+async function callWalletRpc<T>(fn: string, args: Record<string, unknown>): Promise<T> {
+  const db = getDb();
+  if (!db) throw new Error('Database not available');
+  const { data, error } = await db.rpc(fn, args);
+  if (error) throw error;
+  return data as T;
+}
+
+function normalizeCurrency(c: CurrencyCode): string {
+  if (c === 'GAGA') return 'coins';
+  return c.toLowerCase();
+}
 
 // PBKDF2 PIN hashing using Web Crypto API
 async function hashPin(pin: string): Promise<string> {
@@ -223,35 +237,20 @@ export const useWalletStore = create<WalletStore>((set, get) => ({
             lastError: null,
           });
         } else {
-          // No wallet yet — create one with welcome bonus
-          const welcomeTx: WalletTransaction = {
-            id: `tx_${uuidv4()}_welcome`,
-            type: 'earn',
-            amount: 50,
-            currency: 'coins',
-            description: 'Welcome bonus - 50 Gaga Coins',
-            timestamp: new Date().toISOString(),
-            status: 'completed',
-          };
+          // No wallet yet — create one with welcome bonus via server-side RPC.
+          // Direct INSERT on wallets is blocked by RLS (SELECT-only).
           try {
-            await setDocById(COLLECTIONS.WALLETS, userId, {
-              coins: 50,
-              bdtBalance: 0,
-              usdBalance: 0,
-              transactions: [welcomeTx],
-              totalEarned: 50,
-              dailyStreak: 0,
-              lastInterestClaim: null,
-              createdAt: serverTimestamp(),
+            await callWalletRpc<boolean>('wallet_earn_coins', {
+              p_amount: 50,
+              p_description: 'Welcome bonus - 50 Gaga Coins',
             });
+            set({ lastError: null });
           } catch {
             set({ lastError: 'Failed to initialize wallet.' });
           }
-          set({
-            wallet: { coins: 50, bdtBalance: 0, usdBalance: 0, transactions: [welcomeTx] },
-            loading: false,
-            lastError: null,
-          });
+          // The realtime subscription will push the created wallet on next event;
+          // optimistically show a zeroed wallet to avoid a flash.
+          set({ wallet: { coins: 0, bdtBalance: 0, usdBalance: 0, transactions: [] }, loading: false });
         }
 
         // Load saved PIN hash
@@ -275,31 +274,11 @@ export const useWalletStore = create<WalletStore>((set, get) => ({
       return;
     }
     try {
-      const existing = await getDocById(COLLECTIONS.WALLETS, userId);
-      const tx: WalletTransaction = {
-        id: `tx_${uuidv4()}`,
-        type: 'earn',
-        amount,
-        currency: 'coins',
-        description,
-        timestamp: new Date().toISOString(),
-        status: 'completed',
-      };
-      if (existing) {
-        await updateDocById(COLLECTIONS.WALLETS, userId, {
-          coins: (existing.coins || 0) + amount,
-          totalEarned: (existing.totalEarned || 0) + amount,
-          transactions: [...(existing.transactions || []), tx],
-        });
-      } else {
-        await setDocById(COLLECTIONS.WALLETS, userId, {
-          coins: amount,
-          bdtBalance: 0,
-          usdBalance: 0,
-          transactions: [tx],
-          totalEarned: amount,
-        });
-      }
+      // SECURITY: Route through server-side RPC — client cannot write balances directly.
+      await callWalletRpc<boolean>('wallet_earn_coins', {
+        p_amount: amount,
+        p_description: description || 'Earned coins',
+      });
       set({ lastError: null });
     } catch {
       set({ lastError: 'Failed to earn coins.' });
@@ -316,33 +295,12 @@ export const useWalletStore = create<WalletStore>((set, get) => ({
       return;
     }
     try {
-      const existing = await getDocById(COLLECTIONS.WALLETS, userId);
-      const tx: WalletTransaction = {
-        id: `tx_${uuidv4()}_dep`,
-        type: 'deposit',
-        amount,
-        currency: (currency === 'GAGA' ? 'coins' : currency) as 'coins' | 'USD' | 'BDT' | 'RMB' | 'INR',
-        description: `Deposit ${formatCurrency(amount, currency)} via ${method}`,
-        timestamp: new Date().toISOString(),
-        status: 'completed',
-      };
-
-      if (existing) {
-        const update: Record<string, unknown> = {
-          transactions: [...(existing.transactions || []), tx],
-        };
-        if (currency === 'GAGA') update.coins = (existing.coins || 0) + amount;
-        else if (currency === 'USD') update.usdBalance = (existing.usdBalance || existing.bdtBalance || 0) + amount;
-        await updateDocById(COLLECTIONS.WALLETS, userId, update);
-      } else {
-        const insert: Record<string, unknown> = {
-          coins: currency === 'GAGA' ? amount : 0,
-          bdtBalance: 0,
-          usdBalance: currency === 'USD' ? amount : 0,
-          transactions: [tx],
-        };
-        await setDocById(COLLECTIONS.WALLETS, userId, insert);
-      }
+      // SECURITY: Route through server-side RPC — client cannot write balances directly.
+      await callWalletRpc<boolean>('wallet_deposit', {
+        p_amount: amount,
+        p_currency: normalizeCurrency(currency),
+        p_method: method || 'manual',
+      });
       set({ lastError: null });
     } catch {
       set({ lastError: 'Deposit failed.' });
@@ -359,35 +317,13 @@ export const useWalletStore = create<WalletStore>((set, get) => ({
       return false;
     }
     try {
-      const existing = await getDocById(COLLECTIONS.WALLETS, userId);
-      if (!existing) {
-        set({ lastError: 'Wallet not found.' });
-        return false;
-      }
-
-      const balanceKey = currency === 'GAGA' ? 'coins' : 'usdBalance';
-      const current = (existing[balanceKey] as number) || 0;
-      if (current < amount) {
-        set({ lastError: 'Insufficient balance.' });
-        return false;
-      }
-
-      const tx: WalletTransaction = {
-        id: `tx_${uuidv4()}_wd`,
-        type: 'withdraw',
-        amount,
-        currency: (currency === 'GAGA' ? 'coins' : currency) as 'coins' | 'USD' | 'BDT' | 'RMB' | 'INR',
-        description: `Withdraw ${formatCurrency(amount, currency)} to ${method} (${account})`,
-        timestamp: new Date().toISOString(),
-        status: 'pending',
-      };
-
-      const update: Record<string, unknown> = {
-        transactions: [...(existing.transactions || []), tx],
-      };
-      update[balanceKey] = current - amount;
-
-      await updateDocById(COLLECTIONS.WALLETS, userId, update);
+      // SECURITY: Route through server-side RPC — client cannot write balances directly.
+      await callWalletRpc<boolean>('wallet_withdraw', {
+        p_amount: amount,
+        p_currency: normalizeCurrency(currency),
+        p_method: method || 'manual',
+        p_account: account || '',
+      });
       set({ lastError: null });
       return true;
     } catch {
@@ -397,44 +333,29 @@ export const useWalletStore = create<WalletStore>((set, get) => ({
   },
 
   convert: async (userId, amount, from, to) => {
+    void userId; // user is resolved server-side via auth.uid()
     if (!isFirestoreAvailable()) {
       console.warn('[WalletStore.convert] Firestore unavailable');
       return false;
     }
+    if (!isValidPositiveAmount(amount)) {
+      set({ lastError: 'Invalid conversion amount.' });
+      return false;
+    }
     try {
-      const existing = await getDocById(COLLECTIONS.WALLETS, userId);
-      if (!existing) {
-        set({ lastError: 'Wallet not found.' });
+      // SECURITY: Route through server-side RPC — client cannot write balances directly.
+      void convertCurrency; // rate is passed to the server
+      const ok = await callWalletRpc<boolean>('wallet_convert', {
+        p_amount: amount,
+        p_from_currency: normalizeCurrency(from),
+        p_to_currency: normalizeCurrency(to),
+        p_rate: EXCHANGE_RATES[`${normalizeCurrency(from)}_${normalizeCurrency(to)}`] ??
+               EXCHANGE_RATES[`${from}_${to}`] ?? 0,
+      });
+      if (!ok) {
+        set({ lastError: 'Currency conversion failed.' });
         return false;
       }
-
-      const fromKey = from === 'GAGA' ? 'coins' : 'usdBalance';
-      const toKey = to === 'GAGA' ? 'coins' : 'usdBalance';
-      const currentFrom = (existing[fromKey] as number) || 0;
-      if (currentFrom < amount) {
-        set({ lastError: 'Insufficient balance for conversion.' });
-        return false;
-      }
-
-      const converted = convertCurrency(amount, from, to);
-
-      const tx: WalletTransaction = {
-        id: `tx_${uuidv4()}_conv`,
-        type: 'convert',
-        amount,
-        currency: from === 'GAGA' ? 'coins' : from,
-        description: `Converted ${formatCurrency(amount, from)} to ${formatCurrency(converted, to)}`,
-        timestamp: new Date().toISOString(),
-        status: 'completed',
-      };
-
-      const update: Record<string, unknown> = {
-        transactions: [...(existing.transactions || []), tx],
-      };
-      update[fromKey] = currentFrom - amount;
-      update[toKey] = ((existing[toKey] as number) || 0) + converted;
-
-      await updateDocById(COLLECTIONS.WALLETS, userId, update);
       set({ lastError: null });
       return true;
     } catch {
@@ -443,8 +364,9 @@ export const useWalletStore = create<WalletStore>((set, get) => ({
     }
   },
 
-  // P2P transfer via atomic transaction
+  // P2P transfer via atomics server-side RPC
   sendFromChat: async (fromUserId, fromUserName, chatId, toUserId, amount, currency, note = '') => {
+    void fromUserName; // used in the chat message inserted below
     if (!isFirestoreAvailable()) {
       console.warn('[WalletStore.sendFromChat] Firestore unavailable');
       return false;
@@ -454,20 +376,18 @@ export const useWalletStore = create<WalletStore>((set, get) => ({
       return false;
     }
     try {
-      let transferOk = false;
-      await runDbTransaction(async () => {
-        const senderWallet = await getDocById(COLLECTIONS.WALLETS, fromUserId);
-        const balanceKey = currency === 'GAGA' ? 'coins' : 'usdBalance';
-        const senderBalance = (senderWallet?.[balanceKey] as number) || 0;
-        if (senderBalance < amount) throw new Error('Insufficient balance.');
-        const receiverWallet = await getDocById(COLLECTIONS.WALLETS, toUserId);
-        const tx: WalletTransaction = { id: `tx_${uuidv4()}_send`, type: 'send', amount, currency: (currency === 'GAGA' ? 'coins' : currency) as 'coins' | 'BDT' | 'USD' | 'RMB' | 'INR', description: `Sent ${formatCurrency(amount, currency)}${note ? ': ' + note : ''}`, timestamp: new Date().toISOString(), status: 'completed' };
-        const receiverTx: WalletTransaction = { id: `tx_${uuidv4()}_recv`, type: 'receive', amount, currency: (currency === 'GAGA' ? 'coins' : currency) as 'coins' | 'BDT' | 'USD' | 'RMB' | 'INR', description: `Received ${formatCurrency(amount, currency)} from ${fromUserName}${note ? ': ' + note : ''}`, timestamp: new Date().toISOString(), status: 'completed' };
-        await updateDocById(COLLECTIONS.WALLETS, fromUserId, { [balanceKey]: senderBalance - amount, transactions: [...(senderWallet?.transactions || []), tx] });
-        await updateDocById(COLLECTIONS.WALLETS, toUserId, { [balanceKey]: ((receiverWallet?.[balanceKey] as number) || 0) + amount, transactions: [...(receiverWallet?.transactions || []), receiverTx] });
-        transferOk = true;
+      // SECURITY: Route through server-side RPC — the server debits the sender
+      // and credits the receiver atomically. The client never writes balances.
+      const ok = await callWalletRpc<boolean>('wallet_transfer', {
+        p_to_user_id: toUserId,
+        p_amount: amount,
+        p_currency: normalizeCurrency(currency),
+        p_note: note || '',
       });
-      if (!transferOk) return false;
+      if (!ok) {
+        set({ lastError: 'Transfer failed.' });
+        return false;
+      }
 
       // Insert transfer message (best-effort)
       try {
@@ -501,49 +421,24 @@ export const useWalletStore = create<WalletStore>((set, get) => ({
 
   // Standalone P2P transfer (no chat required)
   sendP2P: async (fromUserId, toUserId, toUserName, amount, currency, note = '') => {
+    void toUserName; // reserved for the notification body
     if (!isFirestoreAvailable()) {
       console.warn('[WalletStore.sendP2P] Firestore unavailable');
       return false;
     }
     try {
-      let transferOk = false;
-      await runDbTransaction(async () => {
-        const senderWallet = await getDocById(COLLECTIONS.WALLETS, fromUserId);
-        const receiverWallet = await getDocById(COLLECTIONS.WALLETS, toUserId);
-        const balanceKey = currency === 'GAGA' ? 'coins' : 'usdBalance';
-        const senderBalance = (senderWallet?.[balanceKey] as number) || 0;
-        if (senderBalance < amount) throw new Error('Insufficient balance.');
-
-        const tx: WalletTransaction = {
-          id: `tx_${uuidv4()}_send`,
-          type: 'send',
-          amount,
-          currency: (currency === 'GAGA' ? 'coins' : currency) as 'coins' | 'BDT' | 'USD' | 'RMB' | 'INR',
-          description: `Sent ${formatCurrency(amount, currency)} to ${toUserName}${note ? ': ' + note : ''}`,
-          timestamp: new Date().toISOString(),
-          status: 'completed',
-        };
-        const receiverTx: WalletTransaction = {
-          id: `tx_${uuidv4()}_recv`,
-          type: 'receive',
-          amount,
-          currency: (currency === 'GAGA' ? 'coins' : currency) as 'coins' | 'BDT' | 'USD' | 'RMB' | 'INR',
-          description: `Received ${formatCurrency(amount, currency)}${note ? ': ' + note : ''}`,
-          timestamp: new Date().toISOString(),
-          status: 'completed',
-        };
-
-        await updateDocById(COLLECTIONS.WALLETS, fromUserId, {
-          [balanceKey]: senderBalance - amount,
-          transactions: [...(senderWallet?.transactions || []), tx],
-        });
-        await updateDocById(COLLECTIONS.WALLETS, toUserId, {
-          [balanceKey]: ((receiverWallet?.[balanceKey] as number) || 0) + amount,
-          transactions: [...(receiverWallet?.transactions || []), receiverTx],
-        });
-        transferOk = true;
+      // SECURITY: Route through server-side RPC — the server debits the sender
+      // and credits the receiver atomically. The client never writes balances.
+      const ok = await callWalletRpc<boolean>('wallet_transfer', {
+        p_to_user_id: toUserId,
+        p_amount: amount,
+        p_currency: normalizeCurrency(currency),
+        p_note: note || '',
       });
-      if (!transferOk) return false;
+      if (!ok) {
+        set({ lastError: 'Transfer failed.' });
+        return false;
+      }
       // Create a direct chat for the transfer message (best-effort)
       try {
         const participants = [fromUserId, toUserId].sort();
@@ -655,7 +550,9 @@ export const useWalletStore = create<WalletStore>((set, get) => ({
     }
   },
 
-  // Split a bill with multiple friends
+  // Split a bill with multiple friends — sends a notification + chat message
+  // to each participant. Balances are NOT changed here; settlement happens
+  // via P2P transfer (wallet_transfer RPC).
   splitBill: async (fromUserId, toUserIds, totalAmount, currency, description) => {
     if (!isFirestoreAvailable()) {
       console.warn('[WalletStore.splitBill] Firestore unavailable');
@@ -731,47 +628,17 @@ export const useWalletStore = create<WalletStore>((set, get) => ({
   },
 
   claimDailyInterest: async (userId) => {
+    void userId; // user is resolved server-side via auth.uid()
     if (!isFirestoreAvailable()) {
       console.warn('[WalletStore.claimDailyInterest] Firestore unavailable');
       return 0;
     }
     try {
-      const wallet = await getDocById(COLLECTIONS.WALLETS, userId);
-      if (!wallet) return 0;
-
-      const lastClaim = wallet.lastInterestClaim ? new Date(wallet.lastInterestClaim) : null;
-      const now = new Date();
-      if (lastClaim && (now.getTime() - lastClaim.getTime()) < 20 * 60 * 60 * 1000) {
-        return 0; // Must wait ~20 hours between claims
-      }
-
-      const coins = wallet.coins || 0;
-      const tier = getStakingTier(coins);
-      if (tier.apy === 0) return 0;
-
-      // Daily interest = (balance * APY) / 365
-      const dailyInterest = Math.round((coins * (tier.apy / 100) / 365) * 100) / 100;
-      if (dailyInterest <= 0) return 0;
-
-      const tx: WalletTransaction = {
-        id: `tx_${uuidv4()}_interest`,
-        type: 'earn',
-        amount: dailyInterest,
-        currency: 'coins',
-        description: `Daily staking reward (${tier.label} tier - ${tier.apy}% APY)`,
-        timestamp: new Date().toISOString(),
-        status: 'completed',
-      };
-
-      await updateDocById(COLLECTIONS.WALLETS, userId, {
-        coins: coins + dailyInterest,
-        transactions: [...(wallet.transactions || []), tx],
-        lastInterestClaim: now.toISOString(),
-        totalEarned: (wallet.totalEarned || 0) + dailyInterest,
-      });
-
+      // SECURITY: Route through server-side RPC — the server enforces the
+      // 20-hour cooldown and computes interest from the authoritative balance.
+      const interest = await callWalletRpc<number>('wallet_claim_daily_interest', {});
       set({ lastError: null });
-      return dailyInterest;
+      return Number.isFinite(interest) ? interest : 0;
     } catch {
       set({ lastError: 'Failed to claim daily interest.' });
       return 0;

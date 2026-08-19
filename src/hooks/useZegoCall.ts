@@ -1,9 +1,5 @@
 import { useCallback, useRef, useState, useEffect } from 'react';
-import {
-    ZegoUIKitPrebuilt,
-    type ZegoCloudRoomConfig,
-    type ZegoUser,
-} from '@zegocloud/zego-uikit-prebuilt';
+import type { ZegoCloudRoomConfig, ZegoUser } from '@zegocloud/zego-uikit-prebuilt';
 import {
     ZEGO_APP_ID,
     ZEGO_SERVER_SECRET,
@@ -51,9 +47,24 @@ export interface ZegoCallController {
  * NOTE: The prebuilt UI renders into `containerRef` —
  *       the parent must mount a <div ref={containerRef}> for the room.
  */
+/** Minimal structural type for the object returned by `ZegoUIKitPrebuilt.create(...)`. */
+export interface ZegoUIKitInstance {
+    destroy: () => void;
+    joinRoom: (config: ZegoCloudRoomConfig) => void;
+    express?: {
+        muteMicrophone?: (mute?: boolean) => void;
+        unmuteMicrophone?: () => void;
+        muteCamera?: (mute?: boolean) => void;
+        unmuteCamera?: () => void;
+        useFrontCamera?: (front?: boolean) => void;
+        isCameraFront?: () => boolean;
+    };
+    localStream?: MediaStream;
+}
+
 export function useZegoCall(): ZegoCallController {
     const containerRef = useRef<HTMLDivElement | null>(null);
-    const instanceRef = useRef<ZegoUIKitPrebuilt | null>(null);
+    const instanceRef = useRef<ZegoUIKitInstance | null>(null);
     const onRoomEndedRef = useRef<(() => void) | null>(null);
     const isLeavingRef = useRef(false);
 
@@ -192,11 +203,11 @@ export function useZegoCall(): ZegoCallController {
         try {
             const { ZegoUIKitPrebuilt } = await getZegoUIKit();
 
-            // Prefer the server-issued token (production-secure). If the token
-            // server is not configured, fall back to the test-token generator
-            // using the client-side secret (dev / existing deployment).
+            // Prefer the server-issued token. The client-side test secret is
+            // allowed only during local development and must never be used by
+            // a production build when the token endpoint is unavailable.
             let kitToken = await fetchServerToken(roomID, userID);
-            if (!kitToken && ZEGO_SERVER_SECRET) {
+            if (!kitToken && import.meta.env.DEV && ZEGO_SERVER_SECRET) {
                 kitToken = ZegoUIKitPrebuilt.generateKitTokenForTest(
                     ZEGO_APP_ID,
                     ZEGO_SERVER_SECRET,

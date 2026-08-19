@@ -7,3 +7,6 @@ process.env.VITE_FIREBASE_PROJECT_ID = 'test-project';
 process.env.VITE_FIREBASE_STORAGE_BUCKET = 'test.appspot.com';
 process.env.VITE_FIREBASE_MESSAGING_SENDER_ID = '123456789';
 process.env.VITE_FIREBASE_APP_ID = '1:123456789:web:abc123';
+process.env.VITE_ZEGO_APP_ID = '123456';
+process.env.VITE_ZEGO_SERVER_URL = 'wss://test.zegocloud.com/ws';
+process.env.VITE_ZEGO_SERVER_SECRET = 'test-zego-secret';

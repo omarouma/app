@@ -25,6 +25,12 @@ export const ZEGO_APP_ID: number = readEnvNumber('VITE_ZEGO_APP_ID', 0);
 // For production we prefer a server-issued token. Missing config is treated as
 // disabled until the environment is explicitly configured.
 export const ZEGO_SERVER_SECRET: string = readEnvString('VITE_ZEGO_SERVER_SECRET', '');
+
+// ZEGO signaling server URL — REQUIRED for the SDK to connect to the correct
+// region. Without it the SDK falls back to the default global server, which
+// does not match this project's region and calls fail to connect.
+export const ZEGO_SERVER_URL: string = readEnvString('VITE_ZEGO_SERVER_URL', '');
+
 export const ZEGO_TOKEN_SERVER_URL: string = readEnvString('VITE_ZEGO_TOKEN_SERVER_URL', '');
 
 /**
@@ -59,6 +65,9 @@ export function buildZegoRoomID(callId: string): string {
  */
 let _zegoModule: Promise<typeof import('@zegocloud/zego-uikit-prebuilt')> | null = null;
 
+/** The resolved runtime module type of the ZEGO UI Kit (used for type-only access). */
+export type ZegoUIKitModule = Awaited<ReturnType<typeof getZegoUIKit>>;
+
 export function getZegoUIKit(): Promise<typeof import('@zegocloud/zego-uikit-prebuilt')> {
     if (!_zegoModule) {
         _zegoModule = import('@zegocloud/zego-uikit-prebuilt');
@@ -71,7 +80,7 @@ export function getZegoUIKit(): Promise<typeof import('@zegocloud/zego-uikit-pre
  * Matches the exact configuration provided in ZEGOCLOUD/WEB_UIKITS.html.
  */
 export function getZegoCallConfig(): Record<string, unknown> {
-    return {
+    const config: Record<string, unknown> = {
         turnOnMicrophoneWhenJoining: true,
         turnOnCameraWhenJoining: true,
         showMyCameraToggleButton: true,
@@ -90,4 +99,13 @@ export function getZegoCallConfig(): Record<string, unknown> {
             },
         },
     };
+
+    // Critical: point the SDK at the project's regional signaling server.
+    // Without this the SDK uses the default global server, which does not
+    // match this project's region and calls fail to connect.
+    if (ZEGO_SERVER_URL) {
+        config.serverUrl = ZEGO_SERVER_URL;
+    }
+
+    return config;
 }

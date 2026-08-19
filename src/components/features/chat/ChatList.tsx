@@ -36,11 +36,12 @@ export const ChatList = memo(({
   };
 
   useEffect(() => {
+    const timers = longPressTimers.current;
     return () => {
-      for (const t of longPressTimers.current.values()) {
+      for (const t of timers.values()) {
         clearTimeout(t);
       }
-      longPressTimers.current.clear();
+      timers.clear();
     };
   }, []);
 

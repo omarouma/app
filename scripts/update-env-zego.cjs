@@ -3,6 +3,12 @@ const fs = require('fs');
 const envPath = '.env';
 const content = fs.readFileSync(envPath, 'utf8');
 
+// SECURITY: Never hardcode the ZEGO server secret. Use a placeholder.
+const ZEGO_APP_ID = process.env.VITE_ZEGO_APP_ID || 'YOUR_ZEGO_APP_ID';
+// The server secret is intentionally not committed. Set it in the Supabase
+// Edge Function secrets instead (supabase functions secrets set ZEGO_SERVER_SECRET).
+const ZEGO_SERVER_SECRET = process.env.ZEGO_SERVER_SECRET || '';
+
 const idx = content.indexOf('Agora RTC');
 if (idx >= 0) {
     // Find the start of the Agora section (previous newline)
@@ -13,11 +19,12 @@ if (idx >= 0) {
         '',
         '# --- ZEGO Cloud (Audio/Video Calling) ---',
         '# App ID -- public, safe for the client (VITE_ prefixed).',
-        'VITE_ZEGO_APP_ID=1895317974',
+        `VITE_ZEGO_APP_ID=${ZEGO_APP_ID}`,
         '',
-        '# Server Secret -- used ONLY for test/demo token generation.',
-        '# For production, generate tokens server-side instead.',
-        'VITE_ZEGO_SERVER_SECRET=82ce0ff8718e321aaa004817b35e2770',
+        '# Server Secret is intentionally not stored in .env.',
+        '# Set ZEGO_SERVER_SECRET in Supabase Secret Manager for the',
+        '# zego-token Edge Function (server-side token generation).',
+        '# VITE_ZEGO_SERVER_SECRET=    -- DO NOT commit a server secret',
         '',
         '# Optional: serverless endpoint for ZEGO tokens (for future production hardening).',
         '# VITE_ZEGO_TOKEN_SERVER_URL=https://your-project-ref.supabase.co/functions/v1/zego-token',
@@ -35,10 +42,9 @@ if (idx >= 0) {
         const zeSection = [
             '# --- ZEGO Cloud (Audio/Video Calling) ---',
             '# App ID -- public, safe for the client (VITE_ prefixed).',
-            'VITE_ZEGO_APP_ID=1895317974',
-            '# Server Secret --- used ONLY for test/demo token generation.',
-            '# For production, generate tokens server-side instead.',
-            'VITE_ZEGO_SERVER_SECRET=82ce0ff8718e321aaa004817b35e2770',
+            `VITE_ZEGO_APP_ID=${ZEGO_APP_ID}`,
+            '# Server Secret is intentionally not stored in .env.',
+            '# Set ZEGO_SERVER_SECRET in Supabase Secret Manager.',
             '',
         ].join('\n');
         fs.writeFileSync(envPath, content.trimEnd() + '\n\n' + zeSection + '\n');

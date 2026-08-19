@@ -33,7 +33,7 @@ function mapPost(d: Record<string, unknown>): TimelinePost {
     id: d.id as string,
     userId: (d.userId as string) || (d.user_id as string) || '',
     content: (d.content as string) || '',
-    images: (d.images as string[]) || [],
+    images: Array.isArray(d.images) ? (d.images as string[]) : Array.isArray(d.mediaUrls) ? (d.mediaUrls as string[]) : [],
     likes: (d.likes as string[]) || [],
     comments: (d.comments as PostComment[]) || [],
     shares: (d.shares as string[]) || [],
@@ -41,6 +41,8 @@ function mapPost(d: Record<string, unknown>): TimelinePost {
     visibility: (d.visibility as TimelinePost['visibility']) || 'public',
     userName: (d.userName as string) || (d.user_name as string) || 'User',
     userAvatar: (d.userAvatar as string) || (d.user_avatar as string) || '',
+    videoUrl: (d.videoUrl as string) || (d.video_url as string) || undefined,
+    mediaType: (d.mediaType as TimelinePost['mediaType']) || (d.videoUrl || d.video_url ? 'video' : 'text'),
   };
 }
 
@@ -125,7 +127,7 @@ export default function DesktopTimelineView() {
     try {
       const { uploadMediaBlob } = await import('@/lib/storage');
       const rawUrls = await Promise.all(
-        files.map(file => uploadMediaBlob({ kind: 'posts', file, mimeType: file.type }))
+        files.map(file => uploadMediaBlob({ kind: file.type.startsWith('video/') ? 'reels' : 'posts', file, mimeType: file.type }))
       );
       const urls = rawUrls.filter((u): u is string => u !== null);
       setImages(prev => [...prev, ...urls]);
@@ -176,7 +178,11 @@ export default function DesktopTimelineView() {
                   <div className="flex gap-2 mt-2 flex-wrap">
                     {images.map((img, i) => (
                       <div key={i} className="relative">
-                        <img src={img} className="w-16 h-16 rounded-lg object-cover" alt={`Upload ${i + 1}`} />
+                        {/\.(mp4|webm|mov|m4v|ogg|ogv)(\?|#|$)/i.test(img) || img.includes('/video/') ? (
+                          <video src={img} className="w-16 h-16 rounded-lg object-cover bg-black" muted playsInline preload="metadata" />
+                        ) : (
+                          <img src={img} className="w-16 h-16 rounded-lg object-cover" alt={`Upload ${i + 1}`} />
+                        )}
                         <button
                           type="button"
                           onClick={() => setImages(prev => prev.filter((_, idx) => idx !== i))}
@@ -194,8 +200,8 @@ export default function DesktopTimelineView() {
                     <button
                       type="button"
                       onClick={() => fileInputRef.current?.click()}
-                      className="p-2 rounded-full hover:bg-white text-[#00C300] transition-colors"
-                      aria-label="Add image"
+                      className="p-2.5 min-w-11 min-h-11 rounded-full hover:bg-white text-[#00C300] transition-colors"
+                      aria-label="Add photos or videos"
                     >
                       <Image size={18} />
                     </button>
@@ -221,17 +227,17 @@ export default function DesktopTimelineView() {
                   <input
                     ref={fileInputRef}
                     type="file"
-                    accept="image/*"
+                    accept="image/*,video/*"
                     multiple
                     className="hidden"
                     onChange={handleImageUpload}
-                    aria-label="Upload images"
+                    aria-label="Upload photos or videos"
                   />
                   <button
                     type="button"
                     onClick={handlePost}
                     disabled={(!content.trim() && images.length === 0) || posting}
-                    className="bg-[#00C300] hover:bg-[#00A300] disabled:opacity-50 text-white rounded-full px-6 py-2 text-sm font-bold transition-colors flex items-center gap-2"
+                    className="min-h-11 bg-[#00C300] hover:bg-[#00A300] disabled:opacity-50 text-white rounded-full px-6 py-2 text-sm font-bold transition-colors flex items-center gap-2"
                   >
                     {posting && <Loader size={14} className="animate-spin" />}
                     Post

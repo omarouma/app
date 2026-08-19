@@ -393,6 +393,36 @@ function AppContent() {
   const didOnboardingRedirectRef = useRef(false);
   const navigate = useNavigate();
 
+  useEffect(() => {
+    const publicSeo: Record<string, { title: string; description: string }> = {
+      '/': {
+        title: 'GaGa Chat - Free Global Messaging, HD Voice & Video Calls',
+        description: 'GaGa Chat is a free global messaging app with secure chat, HD voice and video calls, group chat, live streaming, reels, and more.',
+      },
+      '/about': { title: 'About GaGa Chat - Global Messaging and Community', description: 'Learn about GaGa Chat, a global messaging and community platform for secure conversations, calls, and social sharing.' },
+      '/blog': { title: 'GaGa Chat Blog - Messaging, Community, and Safety', description: 'Read the latest GaGa Chat news, product updates, messaging tips, and community guidance.' },
+      '/careers': { title: 'Careers at GaGa Chat', description: 'Explore opportunities to help build a faster, safer, and more connected global communication platform.' },
+      '/privacy': { title: 'Privacy Policy - GaGa Chat', description: 'Read the GaGa Chat privacy policy and learn how account and service data is handled.' },
+      '/terms': { title: 'Terms of Service - GaGa Chat', description: 'Review the terms that apply when using GaGa Chat services.' },
+      '/cookies': { title: 'Cookie Policy - GaGa Chat', description: 'Learn how GaGa Chat uses cookies and related browser technologies.' },
+      '/community-guidelines': { title: 'Community Guidelines - GaGa Chat', description: 'Learn how to keep GaGa Chat welcoming, safe, and respectful for everyone.' },
+    };
+    const path = location.pathname.replace(/\/$/, '') || '/';
+    const seo = publicSeo[path];
+    const robots = document.querySelector<HTMLMetaElement>('meta[name="robots"]');
+    const canonical = document.querySelector<HTMLLinkElement>('link[rel="canonical"]');
+    if (seo) {
+      document.title = seo.title;
+      if (robots) robots.content = 'index, follow, max-image-preview:large';
+      if (canonical) canonical.href = `https://gagachat.app${path === '/' ? '/' : path}`;
+      const description = document.querySelector<HTMLMetaElement>('meta[name="description"]');
+      if (description) description.content = seo.description;
+    } else {
+      if (robots) robots.content = 'noindex, nofollow, noarchive';
+      if (canonical) canonical.removeAttribute('href');
+    }
+  }, [location.pathname]);
+
   const onboardingComplete = isAuthenticated
     ? safeGetBooleanStorageItem('gaga-onboarding-complete', false)
     : false;
@@ -411,7 +441,8 @@ function AppContent() {
   useMessageNotifications();       // NEW: WeChat-style message sounds + background notifications
 
   useEffect(() => {
-    const publicPaths = ['/privacy', '/terms', '/help'];
+    // These public pages must be visible even when onboarding is incomplete
+    const publicPaths = ['/privacy', '/terms', '/help', '/cookies', '/community-guidelines', '/about', '/blog', '/careers'];
     const isPublicPath = publicPaths.some((p) => location.pathname.startsWith(p));
     if (!isAuthenticated) return;
     if (onboardingComplete) return;
@@ -491,7 +522,9 @@ function AppContent() {
           <Route path="/careers" element={<CareersPage />} />
           <Route path="/privacy" element={isMobile ? <PrivacyPage /> : <PrivacyView />} />
           <Route path="/terms" element={isMobile ? <TermsPage /> : <TermsView />} />
-          <Route path="/onboarding" element={<OnboardingPage />} />
+          <Route path="/onboarding" element={
+            <ProtectedRoute element={<OnboardingPage />} isAuthenticated={isAuthenticated} />
+          } />
 
           {/* Mobile routes */}
           {isMobile && (

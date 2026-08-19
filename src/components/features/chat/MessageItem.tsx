@@ -75,7 +75,7 @@ export const MessageItem = memo(function MessageItem(props: MessageItemProps) {
     displayUser, otherUserName, userId, currentUserId, msgIdMap,
     translatedText, isTranslating,
     onContextMenu, onTouchStart, onTouchMove, onTouchEnd, onMouseDown, onMouseUp,
-    onMouseLeave, onClick, onReact, onEditInputChange,
+    onMouseLeave, onClick, onDoubleClick, onReact, onEditInputChange,
     onEditSave, onEditCancel, onSetReplyingTo, onSetLightbox, onVotePoll, onNavigate, onRetry, chatId,
   } = props;
 
@@ -101,13 +101,15 @@ export const MessageItem = memo(function MessageItem(props: MessageItemProps) {
     if (!r) return null;
     const senderIsMe = r.senderId === currentUserId;
     const senderIsSystem = r.senderId === 'system';
-    const senderName = senderIsMe ? 'You' : senderIsSystem ? 'System' : (otherUserName || displayUser.name || 'Chat');
+    const fallbackName = otherUserName ?? displayUser?.name ?? 'Chat';
+    const senderName = senderIsMe ? 'You' : senderIsSystem ? 'System' : fallbackName;
+    const previewText = typeof r.content === 'string' ? r.content : '';
     return {
       message: r,
-      preview: r.content.substring(0, 60) + (r.content.length > 60 ? '...' : ''),
+      preview: previewText.length > 60 ? `${previewText.slice(0, 60)}...` : previewText,
       senderName,
     };
-  }, [msg.replyTo, msgIdMap, currentUserId, otherUserName, displayUser.name]);
+  }, [msg.replyTo, msgIdMap, currentUserId, otherUserName, displayUser?.name]);
 
   const renderMessageContent = () => {
     const componentProps = {
@@ -169,6 +171,7 @@ export const MessageItem = memo(function MessageItem(props: MessageItemProps) {
           onMouseUp={onMouseUp}
           onMouseLeave={onMouseLeave}
           onClick={() => onClick(msg)}
+          onDoubleClick={() => onDoubleClick(msg)}
         >
           {avatarEl}
           <div
