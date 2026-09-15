@@ -24,12 +24,12 @@ fail=0
       fail=1
       continue
     fi
-    if [[ "$route" == health ]] && jq -e '.ok == true' <<<"$response" >/dev/null 2>&1; then
+    if [[ "$route" == health ]] && jq -e '.ok == true and .database == "rds-mysql" and .realtime == "redis"' <<<"$response" >/dev/null 2>&1; then
       echo 'health: PASS'
-    elif [[ "$route" == ready ]] && jq -e '.ready == true' <<<"$response" >/dev/null 2>&1; then
+    elif [[ "$route" == ready ]] && jq -e '.ready == true and .media == "oss"' <<<"$response" >/dev/null 2>&1; then
       echo 'ready: PASS'
     else
-      printf '%s: FAIL (response did not report ready state)\n' "$route"
+      printf '%s: FAIL (response did not report production RDS, Redis and OSS readiness)\n' "$route"
       fail=1
     fi
   done
