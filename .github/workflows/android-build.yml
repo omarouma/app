@@ -31,7 +31,8 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-      - run: "$ANDROID_HOME/cmdline-tools/16.0/bin/sdkmanager" 'platforms;android-36' 'build-tools;35.0.0'
+      - run: |
+          "$ANDROID_HOME/cmdline-tools/16.0/bin/sdkmanager" 'platforms;android-36' 'build-tools;35.0.0'
       - uses: gradle/actions/setup-gradle@v4
       - run: node --test test/*.js
       - run: ./gradlew --no-daemon clean lintQa assembleQa bundleQa
@@ -66,7 +67,8 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-      - run: "$ANDROID_HOME/cmdline-tools/16.0/bin/sdkmanager" 'platforms;android-36' 'build-tools;35.0.0'
+      - run: |
+          "$ANDROID_HOME/cmdline-tools/16.0/bin/sdkmanager" 'platforms;android-36' 'build-tools;35.0.0'
       - uses: gradle/actions/setup-gradle@v4
       - name: Restore upload key outside repository
         env:
