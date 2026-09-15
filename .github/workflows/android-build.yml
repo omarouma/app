@@ -32,7 +32,7 @@ jobs:
         with:
           packages: 'platforms;android-36 build-tools;35.0.0 platform-tools'
       - uses: gradle/actions/setup-gradle@v4
-      - run: node --test test/*.js
+      - run: node --test test/*.cjs
       - run: ./gradlew --no-daemon clean lintQa assembleQa bundleQa
       - run: bash ci/collect-artifacts.sh qa
       - name: Verify QA bundle metadata
