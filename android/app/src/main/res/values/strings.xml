@@ -28,6 +28,10 @@
     <string name="err_bad_credentials">Wrong phone or password</string>
     <string name="err_already_registered">That phone number is already registered</string>
     <string name="err_network">Network error — check your connection</string>
+    <string name="err_server_dns">Cannot find the GaGa Chat server. Check server DNS.</string>
+    <string name="err_server_unreachable">GaGa Chat server is unreachable. Try again later.</string>
+    <string name="err_server_tls">Secure connection to GaGa Chat server failed. Check its certificate.</string>
+    <string name="err_request_failed">Request failed (HTTP %1$d). Try again later.</string>
     <string name="data_load_failed">Could not load data: %1$s</string>
     <string name="retry">Retry</string>
     <string name="err_upload_failed">Upload failed — try again</string>
