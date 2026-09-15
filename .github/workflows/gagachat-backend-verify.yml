@@ -1,0 +1,22 @@
+name: GaGaChat Alibaba endpoint check
+on:
+  push:
+    branches: [gagachat-native-3.1.17]
+    paths: [android/ci/verify-backend.sh, .github/workflows/gagachat-backend-verify.yml]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify_public_api:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify public DNS, HTTPS and readiness
+        run: bash android/ci/verify-backend.sh backend-verification.txt
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gagachat-backend-verification
+          path: backend-verification.txt
+          if-no-files-found: error
