@@ -66,6 +66,7 @@
         <activity android:name=".ui.IncomingCallActivity" android:exported="false" android:excludeFromRecents="true" android:launchMode="singleTop" android:showForAllUsers="true" android:showWhenLocked="true" android:turnScreenOn="true" />
         <activity android:name=".ui.SettingsActivity" android:exported="false" android:parentActivityName=".ui.MainActivity" />
         <activity android:name=".ui.NotificationSettingsActivity" android:exported="false" android:parentActivityName=".ui.SettingsActivity" />
+        <activity android:name=".ui.ConnectionStatusActivity" android:exported="false" android:parentActivityName=".ui.SettingsActivity" />
         <activity android:name=".ui.StorageActivity" android:exported="false" android:parentActivityName=".ui.SettingsActivity" />
         <activity android:name=".ui.SafetyActivity" android:exported="false" android:parentActivityName=".ui.SettingsActivity" />
         <activity android:name=".ui.CreateGroupActivity" android:exported="false" android:parentActivityName=".ui.MainActivity" />

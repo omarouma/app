@@ -27,6 +27,8 @@ import app.gagachat.mobile.realtime.CurrentChat
 import app.gagachat.mobile.realtime.GaGaService
 import app.gagachat.mobile.realtime.NotifManagerCompat
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.io.File
 import java.io.FileOutputStream
@@ -58,6 +60,7 @@ class ChatActivity : AppCompatActivity() {
 
     private val messages = mutableListOf<Message>()
     private var sending = false
+    private var attachmentSending = false
     private var typingReset: Runnable? = null
 
     private val pickImage = registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
@@ -402,24 +405,39 @@ class ChatActivity : AppCompatActivity() {
         renderMessages()
     }
 
-    private fun sendAttachment(uri: Uri, kind: String) {
+    private fun sendAttachment(uri: Uri, kind: String, clientId: String = UUID.randomUUID().toString()) {
+        if (attachmentSending) return
+        attachmentSending = true
+        statusView.text = getString(R.string.uploading)
         lifecycleScope.launch {
+            var file: File? = null
             try {
-                val file = copyToCache(uri)
-                val mime=contentResolver.getType(uri) ?: if(kind=="image") "image/jpeg" else "application/pdf"
-                val res = Api.uploadFile(file, mime, kind) { }
-                val url = res.optString("url")
-                if (url.isNotBlank()) {
-                    Api.post("/chats/$chatId/messages", JSONObject()
-                        .put("attachment_url", url)
-                        .put("attachment_type", kind)
-                        .put("client_message_id", UUID.randomUUID().toString()))
-                    loadMessages()
-                } else {
-                    toast(getString(R.string.err_upload_failed))
+                file = withContext(Dispatchers.IO) { copyToCache(uri) }
+                val mime = contentResolver.getType(uri) ?: if (kind == "image") "image/jpeg" else "application/octet-stream"
+                val res = Api.uploadFile(file, mime, kind) { pct ->
+                    runOnUiThread { statusView.text = getString(R.string.upload_progress, pct) }
                 }
+                val url = res.optString("url").takeIf { it.isNotBlank() }
+                    ?: throw IllegalStateException("upload missing URL")
+                Api.post("/chats/$chatId/messages", JSONObject()
+                    .put("attachment_url", url)
+                    .put("attachment_type", kind)
+                    .put("client_message_id", clientId))
+                statusView.text = ""
+                loadMessages()
             } catch (e: Exception) {
-                toast(getString(R.string.err_upload_failed))
+                statusView.text = getString(R.string.err_upload_failed)
+                val message = if (e is Api.ApiError && e.status == 400)
+                    getString(R.string.attachment_unsupported) else getString(R.string.err_upload_failed)
+                androidx.appcompat.app.AlertDialog.Builder(this@ChatActivity)
+                    .setTitle(R.string.err_upload_failed)
+                    .setMessage(message)
+                    .setNegativeButton(R.string.cancel, null)
+                    .setPositiveButton(R.string.retry) { _, _ -> sendAttachment(uri, kind, clientId) }
+                    .show()
+            } finally {
+                withContext(Dispatchers.IO) { file?.delete() }
+                attachmentSending = false
             }
         }
     }
@@ -432,9 +450,12 @@ class ChatActivity : AppCompatActivity() {
 
     private fun copyToCache(uri: Uri): File {
         val f = File(cacheDir, "attach_${System.currentTimeMillis()}.img")
-        contentResolver.openInputStream(uri)?.use { ins ->
+        val stream = contentResolver.openInputStream(uri)
+            ?: throw java.io.IOException("attachment unavailable")
+        stream.use { ins ->
             FileOutputStream(f).use { outs -> ins.copyTo(outs) }
         }
+        if (f.length() == 0L) { f.delete(); throw java.io.IOException("empty attachment") }
         return f
     }
 

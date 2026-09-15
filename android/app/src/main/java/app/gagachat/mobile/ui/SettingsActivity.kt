@@ -59,6 +59,10 @@ class SettingsActivity : AppCompatActivity() {
         content.addView(space(this, 20))
 
         content.addView(sectionLabel(getString(R.string.notification_settings)))
+        content.addView(button(this, getString(R.string.connection_title), filled = false) {
+            startActivity(android.content.Intent(this, ConnectionStatusActivity::class.java))
+        })
+        content.addView(space(this, 8))
         content.addView(button(this, getString(R.string.notification_settings), filled = false) {
             startActivity(android.content.Intent(this, NotificationSettingsActivity::class.java))
         })

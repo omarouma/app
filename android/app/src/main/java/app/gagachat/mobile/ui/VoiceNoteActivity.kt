@@ -30,6 +30,7 @@ class VoiceNoteActivity : AppCompatActivity() {
     private lateinit var discardBtn: View
     private var recording = false
     private var sending = false
+    private var noteClientId: String = UUID.randomUUID().toString()
 
     private val permission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         if (granted) startRecording() else toast(getString(R.string.err_permission))
@@ -74,6 +75,7 @@ class VoiceNoteActivity : AppCompatActivity() {
         player?.release()
         player = null
         file?.delete()
+        noteClientId = UUID.randomUUID().toString()
         val output = File(cacheDir, "voice_${System.currentTimeMillis()}.m4a")
         try {
             val r = createRecorder()
@@ -137,13 +139,15 @@ class VoiceNoteActivity : AppCompatActivity() {
         updateButtons()
         lifecycleScope.launch {
             try {
-                val ticket = Api.uploadFile(audio, "audio/mp4", "audio")
+                val ticket = Api.uploadFile(audio, "audio/mp4", "audio") { pct ->
+                    runOnUiThread { status.text = getString(R.string.upload_progress, pct) }
+                }
                 val url = ticket.optString("url").takeIf { it.isNotBlank() }
                     ?: throw IllegalStateException("upload missing URL")
                 Api.post("/chats/$chatId/messages", JSONObject()
                     .put("attachment_url", url)
                     .put("attachment_type", "audio")
-                    .put("client_message_id", UUID.randomUUID().toString()))
+                    .put("client_message_id", noteClientId))
                 audio.delete()
                 file = null
                 setResult(RESULT_OK)

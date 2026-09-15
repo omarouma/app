@@ -76,6 +76,15 @@
     <string name="search_loaded_hint">Showing loaded messages matching “%1$s”</string>
     <string name="search_loaded_empty">No matching loaded messages</string>
     <string name="clear_search">Clear</string>
+    <string name="connection_title">Check connection</string>
+    <string name="connection_hint">Check whether GaGa Chat services can be reached from this device.</string>
+    <string name="connection_checking">Checking GaGa Chat server…</string>
+    <string name="connection_ready">GaGa Chat server is available. Try your request again.</string>
+    <string name="connection_starting">GaGa Chat server responds but is not ready yet. Try later.</string>
+    <string name="connection_server_unhealthy">GaGa Chat server is responding but reports a problem.</string>
+    <string name="connection_http_error">GaGa Chat server returned HTTP %1$d.</string>
+    <string name="upload_progress">Uploading %1$d%%</string>
+    <string name="attachment_unsupported">This file type or size is not supported.</string>
     <string name="tab_contacts">Contacts</string>
     <string name="tab_wallet">Wallet</string>
     <string name="tab_me">Me</string>

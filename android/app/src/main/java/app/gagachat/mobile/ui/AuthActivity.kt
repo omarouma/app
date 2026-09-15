@@ -189,6 +189,9 @@ class AuthActivity : AppCompatActivity() {
 
         serverNote = Ui.subtitle(ctx, "")
         content.addView(serverNote)
+        content.addView(Ui.button(ctx, getString(R.string.connection_title), filled = false) {
+            startActivity(Intent(this, ConnectionStatusActivity::class.java))
+        })
 
         progress = com.google.android.material.progressindicator.CircularProgressIndicator(ctx).apply {
             isIndeterminate = true
