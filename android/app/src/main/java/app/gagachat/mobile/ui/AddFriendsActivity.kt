@@ -44,6 +44,7 @@ class AddFriendsActivity : AppCompatActivity() {
     private lateinit var content: LinearLayout
     private var qrBox: LinearLayout? = null
     private lateinit var requestsBox: LinearLayout
+    private lateinit var usernameField: android.widget.EditText
     private var myUsername = ""
     private var progressView: android.view.View? = null
 
@@ -69,6 +70,9 @@ class AddFriendsActivity : AppCompatActivity() {
         content.addView(space(this, 8))
         val row = Ui.horizontal(this).apply { gravity = Gravity.CENTER_VERTICAL }
         val field = input(this, getString(R.string.username_hint))
+        usernameField = field
+        intent.getStringExtra("username")?.takeIf { it.matches(Regex("^[a-z0-9_]{3,24}$")) }
+            ?.let { field.setText(it) }
         field.layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
         row.addView(field)
         val addBtn = button(this, getString(R.string.add)) {
@@ -135,11 +139,18 @@ class AddFriendsActivity : AppCompatActivity() {
             if (bmp != null) {
                 val iv = android.widget.ImageView(this@AddFriendsActivity)
                 iv.setImageBitmap(bmp)
-                box.post { box.addView(iv, LinearLayout.LayoutParams(sizePx, sizePx)) }
+                box.addView(iv, LinearLayout.LayoutParams(sizePx, sizePx))
                 val cap = text(this@AddFriendsActivity, "@$myUsername", 13f, color = Ui.secondaryColor(this@AddFriendsActivity))
                 cap.gravity = Gravity.CENTER
                 cap.setPadding(0, dp(this@AddFriendsActivity, 10), 0, 0)
                 box.addView(cap)
+                box.addView(button(this@AddFriendsActivity, getString(R.string.share_profile_link), filled = false) {
+                    startActivity(android.content.Intent.createChooser(
+                        android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                            type = "text/plain"
+                            putExtra(android.content.Intent.EXTRA_TEXT, payload)
+                        }, getString(R.string.share_profile_link)))
+                })
             } else {
                 toast(getString(R.string.err_network))
             }

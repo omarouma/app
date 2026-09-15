@@ -435,6 +435,10 @@ class MainActivity : AppCompatActivity() {
             startActivity(Intent(this, ProfileActivity::class.java))
         })
         body.addView(Ui.space(ctx, 8))
+        body.addView(Ui.button(ctx, getString(R.string.my_qr_title), filled = false) {
+            startActivity(Intent(this, AddFriendsActivity::class.java))
+        })
+        body.addView(Ui.space(ctx, 8))
         body.addView(Ui.button(ctx, getString(R.string.settings), filled = false) {
             startActivity(Intent(this, SettingsActivity::class.java))
         })
@@ -467,6 +471,13 @@ class MainActivity : AppCompatActivity() {
 
     private fun handleDeepLink(intent: Intent) {
         val data = intent.data ?: return
+        if (data.scheme == "gaga" && data.host == "u") {
+            val username = data.pathSegments.firstOrNull()?.lowercase() ?: return
+            if (username.matches(Regex("^[a-z0-9_]{3,24}$"))) {
+                startActivity(Intent(this, AddFriendsActivity::class.java).putExtra("username", username))
+            }
+            return
+        }
         if (data.scheme == "gaga" && data.host == "chat") {
             val chatId = data.pathSegments.firstOrNull() ?: return
             startActivity(Intent(this, ChatActivity::class.java)

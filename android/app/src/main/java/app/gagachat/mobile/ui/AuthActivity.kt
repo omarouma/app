@@ -381,7 +381,7 @@ class AuthActivity : AppCompatActivity() {
 
     private fun toast(s: String) = Toast.makeText(this, s, Toast.LENGTH_SHORT).show()
     private fun startMain() {
-        startActivity(Intent(this, MainActivity::class.java))
+        startActivity(Intent(this, MainActivity::class.java).apply { data = this@AuthActivity.intent.data })
         finish()
     }
 }

@@ -53,6 +53,8 @@ class ChatActivity : AppCompatActivity() {
     private lateinit var input: EditText
     private lateinit var typingView: TextView
     private lateinit var statusView: TextView
+    private lateinit var searchHint: TextView
+    private var searchQuery: String = ""
 
     private val messages = mutableListOf<Message>()
     private var sending = false
@@ -153,7 +155,13 @@ class ChatActivity : AppCompatActivity() {
             header.addView(iconBtn("📹") { startCall(true) })
         }
         if(chatType=="group") header.addView(iconBtn("⚙") { startActivity(Intent(this,GroupActivity::class.java).putExtra("chat_id",chatId)) })
+        header.addView(iconBtn("⌕") { searchLoadedMessages() })
         root.addView(header)
+
+        searchHint = Ui.subtitle(ctx, "").apply {
+            setPadding(Ui.dp(ctx, 16), 0, Ui.dp(ctx, 16), Ui.dp(ctx, 4))
+        }
+        root.addView(searchHint)
 
         scroller = ScrollView(ctx)
         list = Ui.vertical(ctx, 12)
@@ -230,8 +238,31 @@ class ChatActivity : AppCompatActivity() {
 
     private fun renderMessages() {
         list.removeAllViews()
-        messages.forEach { renderMessage(it) }
-        scrollToBottom()
+        val visible = if (searchQuery.isBlank()) messages else messages.filter {
+            (it.text ?: "").contains(searchQuery, ignoreCase = true)
+        }
+        visible.forEach { renderMessage(it) }
+        if (visible.isEmpty() && searchQuery.isNotBlank())
+            list.addView(Ui.subtitle(this, getString(R.string.search_loaded_empty)))
+        searchHint.text = if (searchQuery.isBlank()) "" else getString(R.string.search_loaded_hint, searchQuery)
+        if (searchQuery.isBlank()) scrollToBottom() else scroller.post { scroller.scrollTo(0, 0) }
+    }
+
+    private fun searchLoadedMessages() {
+        val field = Ui.input(this, getString(R.string.search_loaded_title)).apply { setText(searchQuery) }
+        val wrap = android.widget.FrameLayout(this).apply {
+            val p = Ui.dp(this@ChatActivity, 20)
+            setPadding(p, p, p, p)
+            addView(field)
+        }
+        androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle(R.string.search_loaded_title)
+            .setView(wrap)
+            .setNegativeButton(R.string.clear_search) { _, _ -> searchQuery = ""; renderMessages() }
+            .setPositiveButton(R.string.search_loaded_title) { _, _ ->
+                searchQuery = field.text.toString().trim()
+                renderMessages()
+            }.show()
     }
 
     private fun renderMessage(m: Message) {

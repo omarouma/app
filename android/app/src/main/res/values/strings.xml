@@ -70,6 +70,12 @@
     <string name="voice_note_discard">Discard</string>
     <string name="voice_note_error">Could not record audio. Try again.</string>
     <string name="no_attachment_app">No app on this device can open this attachment.</string>
+    <string name="my_qr_title">My profile QR</string>
+    <string name="share_profile_link">Share profile link</string>
+    <string name="search_loaded_title">Search chat</string>
+    <string name="search_loaded_hint">Showing loaded messages matching “%1$s”</string>
+    <string name="search_loaded_empty">No matching loaded messages</string>
+    <string name="clear_search">Clear</string>
     <string name="tab_contacts">Contacts</string>
     <string name="tab_wallet">Wallet</string>
     <string name="tab_me">Me</string>
