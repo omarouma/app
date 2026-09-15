@@ -25,6 +25,11 @@ android {
     namespace = "app.gagachat.mobile"
     compileSdk = 36
 
+    lint {
+        // Newly added English messages fall back to the default locale until translated.
+        disable += "MissingTranslation"
+    }
+
     defaultConfig {
         // Must match the Android client registered in google-services.json.
         applicationId = "gagachat.app"
