@@ -1,0 +1,130 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- C-01: domain fixed at build time; no cleartext to production -->
+
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CAMERA" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.VIBRATE" />
+    <uses-permission android:name="android.permission.USE_BIOMETRIC" />
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
+
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
+    <uses-feature android:name="android.hardware.microphone" android:required="false" />
+
+    <application
+        android:name=".GaGaApp"
+        android:allowBackup="false"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:label="@string/app_name"
+        android:localeConfig="@xml/locales_config"
+        android:networkSecurityConfig="@xml/network_security_config"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.GaGaChat">
+
+        <activity
+            android:name=".ui.AuthActivity"
+            android:exported="true"
+            android:launchMode="singleTask"
+            android:theme="@style/Theme.GaGaChat.Starting"
+            android:windowSoftInputMode="adjustResize">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            <!-- C-07/M-10: App Links -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="gagachat.app" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="gaga" />
+            </intent-filter>
+        </activity>
+
+        <activity android:name=".ui.MainActivity" android:exported="false" android:launchMode="singleTask" android:windowSoftInputMode="adjustResize" />
+        <activity android:name=".ui.ChatActivity" android:exported="false" android:parentActivityName=".ui.MainActivity" />
+        <activity android:name=".ui.CallActivity" android:exported="false" android:screenOrientation="unspecified" android:supportsPictureInPicture="false" />
+        <activity android:name=".ui.IncomingCallActivity" android:exported="false" android:excludeFromRecents="true" android:launchMode="singleTop" android:showForAllUsers="true" android:showWhenLocked="true" android:turnScreenOn="true" />
+        <activity android:name=".ui.SettingsActivity" android:exported="false" android:parentActivityName=".ui.MainActivity" />
+        <activity android:name=".ui.SafetyActivity" android:exported="false" android:parentActivityName=".ui.SettingsActivity" />
+        <activity android:name=".ui.CreateGroupActivity" android:exported="false" android:parentActivityName=".ui.MainActivity" />
+        <activity android:name=".ui.GroupActivity" android:exported="false" android:parentActivityName=".ui.ChatActivity" />
+        <activity android:name=".ui.SearchActivity" android:exported="false" android:parentActivityName=".ui.MainActivity" />
+        <activity android:name=".ui.CallHistoryActivity" android:exported="false" android:parentActivityName=".ui.MainActivity" />
+        <activity android:name=".ui.WalletActivity" android:exported="false" android:parentActivityName=".ui.MainActivity" />
+        <activity android:name=".ui.ProfileActivity" android:exported="false" android:parentActivityName=".ui.MainActivity" />
+        <activity android:name=".ui.AddFriendsActivity" android:exported="false" android:parentActivityName=".ui.MainActivity" />
+        <activity android:name=".ui.ImageViewActivity" android:exported="false" android:parentActivityName=".ui.ChatActivity" />
+
+        <!-- QR scanner (zxing-embedded) -->
+        <activity
+            android:name="com.journeyapps.barcodescanner.CaptureActivity"
+            android:exported="false"
+            tools:node="merge"
+            android:screenOrientation="fullSensor"
+            tools:replace="android:screenOrientation" />
+
+        <!-- C-02: foreground service owning the WebSocket -->
+        <service
+            android:name=".realtime.GaGaService"
+            android:exported="false"
+            android:foregroundServiceType="dataSync|microphone|camera" />
+        <service
+            android:name=".firebase.GaGaFirebaseMessagingService"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+        </service>
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_icon"
+            android:resource="@drawable/ic_stat_gaga" />
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_color"
+            android:resource="@color/gaga_primary" />
+        <!-- m-05: boot reconnection -->
+        <receiver android:name=".realtime.BootReceiver" android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
+
+        <!-- M-04: per-app language support (appcompat 1.7 storage service) -->
+        <service
+            android:name="androidx.appcompat.app.AppLocalesMetadataHolderService"
+            android:exported="false"
+            android:enabled="false">
+            <meta-data
+                android:name="autoStoreLocales"
+                android:value="true" />
+        </service>
+
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
+    </application>
+</manifest>

@@ -1,0 +1,93 @@
+name: GaGaChat Android
+on:
+  push:
+    branches: [gagachat-native-3.1.17]
+    paths: [android/**, .github/workflows/android-build.yml]
+  workflow_dispatch:
+    inputs:
+      signed_release:
+        description: 'Build signed production APK and AAB (requires signing secrets)'
+        required: true
+        type: boolean
+        default: false
+permissions:
+  contents: read
+jobs:
+  qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    defaults:
+      run:
+        working-directory: android
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - run: sdkmanager 'platforms;android-36' 'build-tools;35.0.0'
+      - uses: gradle/actions/setup-gradle@v4
+      - run: node --test test/*.js
+      - run: ./gradlew --no-daemon clean lintQa assembleQa bundleQa
+      - run: bash ci/collect-artifacts.sh qa
+      - name: Verify QA bundle metadata
+        run: |
+          test -f app/build/outputs/bundle/qa/app-qa.aab
+          unzip -t app/build/outputs/bundle/qa/app-qa.aab >/dev/null
+          cp app/build/outputs/bundle/qa/app-qa.aab dist/qa/GaGaChat-v3.1.17-qa.aab
+          (cd dist/qa && sha256sum *apk *aab > SHA256SUMS.txt)
+      - uses: actions/upload-artifact@v4
+        with:
+          name: gagachat-3.1.17-qa
+          path: android/dist/qa/
+          if-no-files-found: error
+  signed_release:
+    if: github.event_name == 'workflow_dispatch' && inputs.signed_release
+    needs: qa
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    defaults:
+      run:
+        working-directory: android
+    env:
+      GAGA_SIGNING_STORE_PASSWORD: ${{ secrets.GAGA_SIGNING_STORE_PASSWORD }}
+      GAGA_SIGNING_KEY_ALIAS: ${{ secrets.GAGA_SIGNING_KEY_ALIAS }}
+      GAGA_SIGNING_KEY_PASSWORD: ${{ secrets.GAGA_SIGNING_KEY_PASSWORD }}
+      GAGA_REQUIRE_RELEASE_SIGNING: 'true'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - run: sdkmanager 'platforms;android-36' 'build-tools;35.0.0'
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Restore upload key outside repository
+        env:
+          GAGA_SIGNING_STORE_BASE64: ${{ secrets.GAGA_SIGNING_STORE_BASE64 }}
+        run: |
+          test -n "$GAGA_SIGNING_STORE_BASE64"
+          test -n "$GAGA_SIGNING_STORE_PASSWORD"
+          test -n "$GAGA_SIGNING_KEY_ALIAS"
+          test -n "$GAGA_SIGNING_KEY_PASSWORD"
+          umask 077
+          printf '%s' "$GAGA_SIGNING_STORE_BASE64" | base64 -d > "$RUNNER_TEMP/gagachat-upload.jks"
+          echo "GAGA_SIGNING_STORE_FILE=$RUNNER_TEMP/gagachat-upload.jks" >> "$GITHUB_ENV"
+      - run: ./gradlew --no-daemon clean lintRelease assembleRelease bundleRelease
+      - run: bash ci/collect-artifacts.sh release
+      - name: Check AAB and checksum
+        run: |
+          unzip -t dist/release/GaGaChat-v3.1.17-release.aab >/dev/null
+          (cd dist/release && sha256sum -c SHA256SUMS.txt)
+      - uses: actions/upload-artifact@v4
+        with:
+          name: gagachat-3.1.17-signed-release
+          path: android/dist/release/
+          if-no-files-found: error
+      - if: always()
+        run: rm -f "$RUNNER_TEMP/gagachat-upload.jks"

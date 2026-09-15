@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Brand -->
+    <!-- GaGa green messenger accent: familiar social-messenger affordance,
+         intentionally not using any third-party logo or artwork. -->
+    <color name="gaga_primary">#13B94D</color>
+    <color name="gaga_primary_dark">#087F35</color>
+    <color name="gaga_primary_container">#D9F8E4</color>
+    <color name="gaga_on_primary_container">#073D20</color>
+    <color name="gaga_surface">#FBFDFC</color>
+    <color name="gaga_surface_dark">#101713</color>
+
+    <!-- Chat bubble palette (kept in sync with ChatActivity hex values) -->
+    <color name="gaga_out_bubble">#D9FDD3</color>
+    <color name="gaga_in_bubble">#F2F3F5</color>
+    <color name="gaga_call_red">#C62828</color>
+    <color name="gaga_call_green">#2E7D32</color>
+</resources>
