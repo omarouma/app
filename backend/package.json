@@ -1,0 +1,26 @@
+{
+  "name": "gagachat-backend",
+  "version": "3.9.0",
+  "description": "GaGaChat Alibaba production backend — RDS, Redis, OSS, WebSocket, calls and Firebase push",
+  "main": "server.js",
+  "private": true,
+  "scripts": {
+    "start": "node server.js",
+    "test": "node test/config.js && node test/cloud-adapters.js && node test/mysql-contract.js && node test/production-contract.js && node --test test/release-regression.js && node test/smoke.js",
+    "test:release-regression": "node --test test/release-regression.js",
+    "cloud:check": "node cloud/readiness.js",
+    "cloud:migrate": "node cloud/migrate-sqlite-to-rds.js",
+    "deploy:verify": "node cloud/verify-public-endpoint.js"
+  },
+  "engines": { "node": ">=20 <23" },
+  "dependencies": {
+    "ali-oss": "^6.23.0",
+    "better-sqlite3": "^11.3.0",
+    "express": "^5.1.0",
+    "firebase-admin": "^13.0.2",
+    "ioredis": "^5.4.1",
+    "mysql2": "^3.11.5",
+    "multer": "^2.0.2",
+    "ws": "^8.18.0"
+  }
+}
