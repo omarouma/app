@@ -30,6 +30,10 @@ import app.gagachat.mobile.firebase.PushTokenRegistrar
 import app.gagachat.mobile.realtime.GaGaService
 import kotlinx.coroutines.launch
 import org.json.JSONObject
+import java.net.ConnectException
+import java.net.SocketTimeoutException
+import java.net.UnknownHostException
+import javax.net.ssl.SSLException
 
 /**
  * FIX C-08/M-09: phone-first auth with 24-country picker (default +880),
@@ -244,7 +248,12 @@ class AuthActivity : AppCompatActivity() {
     private fun fullPhone(): String {
         val entered = phoneField.text.toString().trim()
         val digits = entered.filter { it in '0'..'9' }
-        return if (entered.startsWith("+")) "+$digits" else countryCode + digits
+        if (entered.startsWith("+")) return "+$digits"
+        // Bangladesh mobile numbers are normally entered as 01XXXXXXXXX.
+        // E.164 uses +8801XXXXXXXXX, without the domestic trunk zero.
+        val national = if (countryCode == "+880" && digits.startsWith("0"))
+            digits.drop(1) else digits
+        return countryCode + national
     }
 
     private fun submit() {
@@ -349,8 +358,13 @@ class AuthActivity : AppCompatActivity() {
             "rate_limited" -> getString(R.string.err_auth_rate_limited)
             "otp_provider_not_configured", "service_unavailable", "registration_disabled" ->
                 getString(R.string.err_service_unavailable)
-            else -> if (e.status >= 500) getString(R.string.err_service_unavailable) else getString(R.string.err_network)
+            else -> if (e.status >= 500 || e.status == 404) getString(R.string.err_service_unavailable)
+                else getString(R.string.err_request_failed, e.status)
         }
+        e is UnknownHostException -> getString(R.string.err_server_dns)
+        e is SocketTimeoutException || e is ConnectException -> getString(R.string.err_server_unreachable)
+        e is SSLException -> getString(R.string.err_server_tls)
+        e is IllegalStateException && e.message == "no_token" -> getString(R.string.err_service_unavailable)
         else -> getString(R.string.err_network)
     }
 
