@@ -171,10 +171,12 @@ class GaGaService : Service() {
     }
 
     private fun showMessageNotification(d: JSONObject) {
+        if (!AppPrefs.messageNotifications(this)) return
         val chatId = d.optString("chat_id")
         val title = d.optString("sender_name", getString(R.string.app_name))
-        val text = d.optString("text", "")
-            .ifBlank { getString(R.string.notif_attachment) }
+        val text = if (AppPrefs.messagePreviews(this))
+            d.optString("text", "").ifBlank { getString(R.string.notif_attachment) }
+            else getString(R.string.notif_hidden_preview)
         val pi = PendingIntent.getActivity(
             this, chatId.hashCode(),
             Intent(this, app.gagachat.mobile.ui.ChatActivity::class.java)

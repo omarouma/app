@@ -170,6 +170,9 @@ class ChatActivity : AppCompatActivity() {
         }
         composer.addView(iconBtn("📷") { pickImage.launch("image/*") })
         composer.addView(iconBtn("📎") { pickFile.launch("*/*") })
+        composer.addView(iconBtn("🎙") {
+            startActivity(Intent(this, VoiceNoteActivity::class.java).putExtra("chat_id", chatId))
+        })
         input = Ui.input(ctx, getString(R.string.message_hint),
             InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_CAP_SENTENCES)
         input.layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)

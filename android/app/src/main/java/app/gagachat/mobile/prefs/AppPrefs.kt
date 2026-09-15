@@ -50,6 +50,14 @@ object AppPrefs {
     fun biometricEnabled(ctx: Context): Boolean = prefs(ctx).getBoolean("biometric", false)
     fun setBiometric(ctx: Context, on: Boolean) = prefs(ctx).edit().putBoolean("biometric", on).apply()
 
+    // Local notification controls. Calls still ring to avoid silently missing them.
+    fun messageNotifications(ctx: Context): Boolean = prefs(ctx).getBoolean("message_notifications", true)
+    fun setMessageNotifications(ctx: Context, on: Boolean) =
+        prefs(ctx).edit().putBoolean("message_notifications", on).apply()
+    fun messagePreviews(ctx: Context): Boolean = prefs(ctx).getBoolean("message_previews", false)
+    fun setMessagePreviews(ctx: Context, on: Boolean) =
+        prefs(ctx).edit().putBoolean("message_previews", on).apply()
+
     // ---------- stable notification ids (m-05) ----------
     fun nextNotifId(ctx: Context): Int {
         val p = ctx.getSharedPreferences(FILE_NOTIF, Context.MODE_PRIVATE)

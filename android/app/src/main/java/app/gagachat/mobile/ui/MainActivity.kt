@@ -37,11 +37,13 @@ class MainActivity : AppCompatActivity() {
     private lateinit var tabPages: List<LinearLayout>
     private lateinit var tabChatsBtn: TextView
     private lateinit var tabContactsBtn: TextView
+    private lateinit var tabCallsBtn: TextView
     private lateinit var tabWalletBtn: TextView
     private lateinit var tabMeBtn: TextView
 
     private lateinit var chatList: LinearLayout
     private lateinit var contactList: LinearLayout
+    private lateinit var callsBody: LinearLayout
     private lateinit var tabScroll: ScrollView
     private var walletBody: LinearLayout? = null
     private var meBody: LinearLayout? = null
@@ -54,6 +56,8 @@ class MainActivity : AppCompatActivity() {
     // Keep network failures visible instead of silently rendering a blank tab.
     private var chatsLoadError: String? = null
     private var contactsLoadError: String? = null
+    private var callsLoadError: String? = null
+    private var recentCalls: List<JSONObject> = emptyList()
 
     private val mainListener: (JSONObject) -> Unit = { j ->
         when (j.optString("type")) {
@@ -126,9 +130,10 @@ class MainActivity : AppCompatActivity() {
         val frame = FrameLayout(ctx)
         chatList = Ui.vertical(ctx, 8)
         contactList = Ui.vertical(ctx, 8)
+        callsBody = Ui.vertical(ctx, 16)
         walletBody = Ui.vertical(ctx, 16)
         meBody = Ui.vertical(ctx, 16)
-        tabPages = listOf(chatList, contactList, walletBody!!, meBody!!)
+        tabPages = listOf(chatList, callsBody, contactList, walletBody!!, meBody!!)
         tabScroll = ScrollView(ctx).apply { isFillViewport = true }
         frame.addView(tabScroll)
         root.addView(frame, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
@@ -137,23 +142,23 @@ class MainActivity : AppCompatActivity() {
             gravity = Gravity.CENTER
             setPadding(0, Ui.dp(ctx, 8), 0, Ui.dp(ctx, 8))
         }
-        fun tabBtn(labelRes: Int): TextView = Ui.text(ctx, getString(labelRes), 13f, bold = true).apply {
-            val pad = Ui.dp(ctx, 14)
+        fun tabBtn(labelRes: Int): TextView = Ui.text(ctx, getString(labelRes), 11f, bold = true).apply {
+            val pad = Ui.dp(ctx, 6)
             setPadding(pad, Ui.dp(ctx, 8), pad, Ui.dp(ctx, 8))
         }
         tabChatsBtn = tabBtn(R.string.tab_chats)
+        tabCallsBtn = tabBtn(R.string.tab_calls)
         tabContactsBtn = tabBtn(R.string.tab_contacts)
         tabWalletBtn = tabBtn(R.string.tab_wallet)
         tabMeBtn = tabBtn(R.string.tab_me)
-        tabLabels = listOf(tabChatsBtn, tabContactsBtn, tabWalletBtn, tabMeBtn)
+        tabLabels = listOf(tabChatsBtn, tabCallsBtn, tabContactsBtn, tabWalletBtn, tabMeBtn)
         tabChatsBtn.setOnClickListener { selectTab(0) }
-        tabContactsBtn.setOnClickListener { selectTab(1) }
-        tabWalletBtn.setOnClickListener { selectTab(2) }
-        tabMeBtn.setOnClickListener { selectTab(3) }
-        tabRow.addView(tabChatsBtn)
-        tabRow.addView(tabContactsBtn)
-        tabRow.addView(tabWalletBtn)
-        tabRow.addView(tabMeBtn)
+        tabCallsBtn.setOnClickListener { selectTab(1) }
+        tabContactsBtn.setOnClickListener { selectTab(2) }
+        tabWalletBtn.setOnClickListener { selectTab(3) }
+        tabMeBtn.setOnClickListener { selectTab(4) }
+        for (tab in tabLabels) tabRow.addView(tab,
+            LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
         root.addView(tabRow)
 
         setContentView(root)
@@ -181,6 +186,7 @@ class MainActivity : AppCompatActivity() {
     private suspend fun loadData() {
         refreshChats()
         refreshContacts()
+        refreshCalls()
         loadMe()
         loadWallet()
     }
@@ -212,6 +218,44 @@ class MainActivity : AppCompatActivity() {
         }.onFailure { e ->
             contactsLoadError = e.message ?: getString(R.string.err_network)
             refreshContactsUi()
+        }
+    }
+
+    private suspend fun refreshCalls() {
+        runCatching {
+            val arr = Api.getArray("/calls/history")
+            recentCalls = (0 until arr.length()).map { arr.getJSONObject(it) }
+            callsLoadError = null
+        }.onFailure { e -> callsLoadError = e.message ?: getString(R.string.err_network) }
+        refreshCallsUi()
+    }
+
+    private fun refreshCallsUi() {
+        callsBody.removeAllViews()
+        callsBody.addView(Ui.title(this, getString(R.string.tab_calls)))
+        callsBody.addView(Ui.subtitle(this, getString(R.string.calls_subtitle)))
+        callsBody.addView(Ui.space(this, 8))
+        callsBody.addView(Ui.button(this, getString(R.string.call_history), filled = false) {
+            startActivity(Intent(this, CallHistoryActivity::class.java))
+        })
+        callsBody.addView(Ui.button(this, getString(R.string.add_friends), filled = false) {
+            startActivity(Intent(this, AddFriendsActivity::class.java))
+        })
+        val error = callsLoadError
+        if (error != null) {
+            callsBody.addView(errorPanel(error))
+            return
+        }
+        if (recentCalls.isEmpty()) {
+            callsBody.addView(emptyHint(getString(R.string.no_call_history)))
+            return
+        }
+        recentCalls.take(20).forEach { call ->
+            val type = if (call.optBoolean("video")) getString(R.string.video_call) else getString(R.string.audio_call)
+            val name = call.optString("peer_name").ifBlank { getString(R.string.tab_calls) }
+            callsBody.addView(Ui.text(this, "$name · $type", 16f, bold = true))
+            callsBody.addView(Ui.subtitle(this, call.optString("status")))
+            callsBody.addView(Ui.space(this, 12))
         }
     }
 

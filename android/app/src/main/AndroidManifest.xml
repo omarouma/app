@@ -61,9 +61,12 @@
 
         <activity android:name=".ui.MainActivity" android:exported="false" android:launchMode="singleTask" android:windowSoftInputMode="adjustResize" />
         <activity android:name=".ui.ChatActivity" android:exported="false" android:parentActivityName=".ui.MainActivity" />
+        <activity android:name=".ui.VoiceNoteActivity" android:exported="false" android:parentActivityName=".ui.ChatActivity" />
         <activity android:name=".ui.CallActivity" android:exported="false" android:screenOrientation="unspecified" android:supportsPictureInPicture="false" />
         <activity android:name=".ui.IncomingCallActivity" android:exported="false" android:excludeFromRecents="true" android:launchMode="singleTop" android:showForAllUsers="true" android:showWhenLocked="true" android:turnScreenOn="true" />
         <activity android:name=".ui.SettingsActivity" android:exported="false" android:parentActivityName=".ui.MainActivity" />
+        <activity android:name=".ui.NotificationSettingsActivity" android:exported="false" android:parentActivityName=".ui.SettingsActivity" />
+        <activity android:name=".ui.StorageActivity" android:exported="false" android:parentActivityName=".ui.SettingsActivity" />
         <activity android:name=".ui.SafetyActivity" android:exported="false" android:parentActivityName=".ui.SettingsActivity" />
         <activity android:name=".ui.CreateGroupActivity" android:exported="false" android:parentActivityName=".ui.MainActivity" />
         <activity android:name=".ui.GroupActivity" android:exported="false" android:parentActivityName=".ui.ChatActivity" />

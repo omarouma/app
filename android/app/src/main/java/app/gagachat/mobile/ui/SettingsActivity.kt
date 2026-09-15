@@ -58,6 +58,16 @@ class SettingsActivity : AppCompatActivity() {
         content.addView(Ui.subtitle(this, getString(R.string.settings_subtitle)))
         content.addView(space(this, 20))
 
+        content.addView(sectionLabel(getString(R.string.notification_settings)))
+        content.addView(button(this, getString(R.string.notification_settings), filled = false) {
+            startActivity(android.content.Intent(this, NotificationSettingsActivity::class.java))
+        })
+        content.addView(space(this, 8))
+        content.addView(button(this, getString(R.string.storage_title), filled = false) {
+            startActivity(android.content.Intent(this, StorageActivity::class.java))
+        })
+        content.addView(space(this, 20))
+
         // ---------------- Appearance: theme ----------------
         content.addView(sectionLabel(getString(R.string.settings_appearance)))
         val themeRow = row()

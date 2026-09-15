@@ -37,10 +37,13 @@ class GaGaFirebaseMessagingService : FirebaseMessagingService() {
             return
         }
         if (message.data["sender_id"] == me) return
+        if (!AppPrefs.messageNotifications(this)) return
         val chatId = message.data["chat_id"]
         if (chatId != null && CurrentChat.id == chatId && AppPrefs.isAppInForeground()) return
         val title = message.notification?.title ?: message.data["title"] ?: getString(R.string.app_name)
-        val body = message.notification?.body ?: message.data["body"] ?: return
+        val body = if (AppPrefs.messagePreviews(this))
+            message.notification?.body ?: message.data["body"] ?: getString(R.string.notif_attachment)
+            else getString(R.string.notif_hidden_preview)
         val target = if (chatId.isNullOrBlank()) Intent(this, MainActivity::class.java) else
             Intent(this, ChatActivity::class.java).putExtra("chat_id", chatId).putExtra("title", title)
         val openApp = PendingIntent.getActivity(
