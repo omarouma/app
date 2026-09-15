@@ -12,6 +12,7 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.progressindicator.CircularProgressIndicator
+import com.google.android.material.card.MaterialCardView
 import kotlin.math.roundToInt
 
 /**
@@ -57,6 +58,20 @@ object Ui {
         val tv = TypedValue()
         ctx.theme.resolveAttribute(com.google.android.material.R.attr.colorOnPrimary, tv, true)
         return tv.data
+    }
+
+    fun surfaceColor(ctx: Context): Int {
+        val tv = TypedValue()
+        ctx.theme.resolveAttribute(com.google.android.material.R.attr.colorSurface, tv, true)
+        return tv.data
+    }
+
+    /** Reusable touch surface for Home lists, using the active light/dark theme. */
+    fun card(ctx: Context, content: View): MaterialCardView = MaterialCardView(ctx).apply {
+        radius = dp(ctx, 18).toFloat()
+        cardElevation = dp(ctx, 1).toFloat()
+        setCardBackgroundColor(surfaceColor(ctx))
+        addView(content)
     }
 
     fun input(ctx: Context, hint: String, inputType: Int = android.text.InputType.TYPE_CLASS_TEXT): EditText =

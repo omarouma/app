@@ -9,7 +9,7 @@ import java.io.File
 
 /** Clears temporary media copies only; messages and the encrypted outbox are preserved. */
 class StorageActivity : AppCompatActivity() {
-    private val temporaryPrefixes = listOf("attach_", "avatar_", "gaga_img_")
+    private val temporaryPrefixes = listOf("attach_", "avatar_", "gaga_img_", "view_")
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)

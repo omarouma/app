@@ -256,7 +256,8 @@ class ChatActivity : AppCompatActivity() {
         if(m.attachmentUrl!=null) {
             val label=if(m.attachmentType=="audio") getString(R.string.audio_attachment) else getString(R.string.file_attachment)
             val row=Ui.bubble(this,if(m.mine) 0xFFD6F5C8.toInt() else 0xFFEFF1F3.toInt(),m.mine)
-            row.text="📎 $label  ${timeOf(m.createdAt)}";row.setOnClickListener{startActivity(Intent(Intent.ACTION_VIEW,Uri.parse(if(m.attachmentUrl.startsWith("http"))m.attachmentUrl else Api.baseUrl+m.attachmentUrl)))}
+            row.text="📎 $label  ${timeOf(m.createdAt)}"
+            row.setOnClickListener { openPrivateAttachment(m) }
             if(m.mine) row.setOnLongClickListener{confirmDelete(m);true};list.addView(row);return
         }
         val outColor = 0xFFD6F5C8.toInt()
@@ -266,6 +267,28 @@ class ChatActivity : AppCompatActivity() {
         bubble.setTextColor(if (m.mine) 0xFF1B4620.toInt() else 0xFF202124.toInt())
         if(m.mine) bubble.setOnLongClickListener { confirmDelete(m);true }
         list.addView(bubble)
+    }
+
+    private fun openPrivateAttachment(message: Message) {
+        val attachment = message.attachmentUrl ?: return
+        val url = if (attachment.startsWith("https://")) attachment else Api.baseUrl + attachment
+        val audio = message.attachmentType == "audio"
+        val mime = if (audio) "audio/mp4" else "application/octet-stream"
+        val extension = if (audio) "m4a" else "bin"
+        val target = File(cacheDir, "view_${message.id.hashCode()}.$extension")
+        lifecycleScope.launch {
+            if (!Api.downloadToFile(url, target)) {
+                toast(getString(R.string.err_upload_failed))
+                return@launch
+            }
+            val uri = androidx.core.content.FileProvider.getUriForFile(
+                this@ChatActivity, "$packageName.fileprovider", target)
+            val open = Intent(Intent.ACTION_VIEW).setDataAndType(uri, mime)
+                .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            try { startActivity(open) } catch (_: android.content.ActivityNotFoundException) {
+                toast(getString(R.string.no_attachment_app))
+            }
+        }
     }
 
     private fun appendMessage(m: Message) {

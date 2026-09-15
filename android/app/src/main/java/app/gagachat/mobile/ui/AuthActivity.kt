@@ -137,6 +137,9 @@ class AuthActivity : AppCompatActivity() {
             ctx, getString(R.string.password_hint),
             InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
         )
+        // Some vendor keyboards render TYPE_TEXT_VARIATION_PASSWORD as plain text
+        // unless a transformation method is applied explicitly.
+        passwordField.transformationMethod = android.text.method.PasswordTransformationMethod.getInstance()
         content.addView(nameField)
         content.addView(usernameField)
         content.addView(passwordField)

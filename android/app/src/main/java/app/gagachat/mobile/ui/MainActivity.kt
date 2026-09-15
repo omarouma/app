@@ -128,8 +128,8 @@ class MainActivity : AppCompatActivity() {
         root.addView(header)
 
         val frame = FrameLayout(ctx)
-        chatList = Ui.vertical(ctx, 8)
-        contactList = Ui.vertical(ctx, 8)
+        chatList = Ui.vertical(ctx, 12)
+        contactList = Ui.vertical(ctx, 12)
         callsBody = Ui.vertical(ctx, 16)
         walletBody = Ui.vertical(ctx, 16)
         meBody = Ui.vertical(ctx, 16)
@@ -253,9 +253,12 @@ class MainActivity : AppCompatActivity() {
         recentCalls.take(20).forEach { call ->
             val type = if (call.optBoolean("video")) getString(R.string.video_call) else getString(R.string.audio_call)
             val name = call.optString("peer_name").ifBlank { getString(R.string.tab_calls) }
-            callsBody.addView(Ui.text(this, "$name · $type", 16f, bold = true))
-            callsBody.addView(Ui.subtitle(this, call.optString("status")))
-            callsBody.addView(Ui.space(this, 12))
+            val row = Ui.vertical(this, 12).apply {
+                addView(Ui.text(this@MainActivity, "$name · $type", 16f, bold = true))
+                addView(Ui.subtitle(this@MainActivity, call.optString("status")))
+            }
+            callsBody.addView(Ui.card(this, row))
+            callsBody.addView(Ui.space(this, 8))
         }
     }
 
@@ -326,8 +329,8 @@ class MainActivity : AppCompatActivity() {
                     .putExtra("type",c.type)
                     .putExtra("peer_id",c.peerId))
             }
-            chatList.addView(row)
-            chatList.addView(divider())
+            chatList.addView(Ui.card(ctx, row))
+            chatList.addView(Ui.space(ctx, 8))
         }
     }
 
@@ -360,7 +363,8 @@ class MainActivity : AppCompatActivity() {
             mid.layoutParams = lpMid
             row.addView(mid)
             row.setOnClickListener { openDm(c.id, c.displayName) }
-            contactList.addView(row)
+            contactList.addView(Ui.card(ctx, row))
+            contactList.addView(Ui.space(ctx, 8))
         }
     }
 

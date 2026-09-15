@@ -7,7 +7,7 @@ The Guide describes a production platform. A compiled UI does not establish that
 | Onboarding | Splash, AuthActivity phone login/registration and language in Settings | Partial: OTP, recovery, policy consent and device binding depend on backend and finalized policy |
 | Home | MainActivity chats, calls, contacts, wallet placeholder, profile | Implemented; remote content needs device/backend verification |
 | Chat | ChatActivity text, attachment, typing, read, delete, call entry | Partial: reply, forward, reactions, mentions, pin and full search still need contract and UI |
-| Media | ChatActivity image/file upload and ImageViewActivity | Partial: retry, upload progress and detailed video preview need work |
+| Media | ChatActivity image/file upload and authenticated audio/file download, ImageViewActivity | Partial: retry, upload progress and detailed video preview need work |
 | Voice Notes | VoiceNoteActivity records, previews, sends, discards audio | Implemented in client; upload/playback requires backend and device testing |
 | Groups | CreateGroupActivity and GroupActivity | Partial: managed roles/permissions must be verified end-to-end |
 | Calls | Home Calls tab, CallHistoryActivity, CallActivity, IncomingCallActivity | Partial: TURN/mobile-network recovery needs real device and server verification |
