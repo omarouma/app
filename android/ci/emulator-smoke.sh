@@ -8,6 +8,11 @@ adb wait-for-device
 adb logcat -c
 trap 'adb logcat -d -v threadtime > "$report/logcat.txt"; adb shell dumpsys activity activities > "$report/activities.txt"' EXIT
 adb install -r "$apk"
+# Lifecycle smoke runs with notifications granted. Permission UX needs separate tests.
+sdk="$(adb shell getprop ro.build.version.sdk | tr -d '\r')"
+if (( sdk >= 33 )); then
+  adb shell pm grant gagachat.app android.permission.POST_NOTIFICATIONS
+fi
 launch() {
   adb shell am start -W -n gagachat.app/app.gagachat.mobile.ui.AuthActivity > "$report/launch-$1.txt"
   for attempt in {1..20}; do
