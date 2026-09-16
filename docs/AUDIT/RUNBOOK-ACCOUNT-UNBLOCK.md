@@ -10,9 +10,10 @@ directory.
 Verified via OpenAPI (aliyun CLI + signed RPC calls) against account
 `5343286431932414`, region `ap-southeast-1` (Singapore):
 
-- Present and correct: VPC `vpc-t4nadiodeur9l3vklrotn` (172.31.0.0/16), vSwitches
-  `vsw-t4n575fv12uyro6hpkvy1` (zone c) and `vsw-8psapdqlt2e2gu7pekpcd` (zone a),
-  security group `sg-t4nedsa1inni1zmjudf8` with all 9 production rules (SSH 22,
+- Present and correct: VPC `vpc-t4nadiodeur9l3vklrotn` (`gagachat-vpc`,
+  192.168.0.0/16), vSwitch `vsw-t4n575fv12uyro6hpkvy1` (`gagachat-vsw`, zone
+  `ap-southeast-1a`), security group `sg-t4nedsa1inni1zmjudf8` (`gagachat-sg-vpc`)
+  with all 9 production rules (SSH 22,
   HTTP 80, HTTPS 443, TURN TCP 3478/5349/8080, TURN UDP 3478/5349/49152-65535),
   IPv6 gateway, RAM user `gagachat-ops` (exists, policies attached).
 - Zero instances: no ECS, no RDS, no Redis/Tair, no OSS buckets.

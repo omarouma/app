@@ -22,11 +22,11 @@
 ### 3. Alibaba Cloud deploy system (live-validated)
 - `deploy/aliyunprovision.sh` — idempotent provisioning check (read-only) +
   `--apply` SG-rule mode. Ran live against the real account: verified VPC
-  `vpc-8psjb3ut04ylanmy6g7gx` (172.31.0.0/16), vSwitch zone-c
-  `vsw-8psdvlzrki4sjn34v4wlk`, security group `sg-8ps6zz4o3wufmc0bhhjs` with all
+  `vpc-t4nadiodeur9l3vklrotn` (192.168.0.0/16), vSwitch zone-a
+  `vsw-t4n575fv12uyro6hpkvy1`, security group `sg-t4nedsa1inni1zmjudf8` with all
   9 production rules present, 0 running instances; prints the exact
-  `RunInstances` launch plan (image `ubuntu_24_04_x64_20G_alibase_20260828.vhd`,
-  type `ecs.e-c1m1.large`, zone ap-southeast-3c).
+  `RunInstances` launch plan (image `aliyun_3_x64_20G_pro_alibase_20260827.vhd`,
+  type `ecs.e-c1m1.large`, zone ap-southeast-1a).
 - `deploy/ecs-deploy.sh` — one-shot host bootstrap: Ubuntu 24.04 gate,
   Docker/Node 20/coturn install, runtime-env validation (14 secrets),
   docker-compose production stack, `/api/ready` + `/api/health` release gates,
