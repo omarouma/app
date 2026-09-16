@@ -58,7 +58,8 @@ data class Message(
     val attachmentUrl: String?,
     val attachmentType: String?,   // image | video | file | audio
     val createdAt: Long,
-    val mine: Boolean
+    val mine: Boolean,
+    val clientMessageId: String? = null
 ) {
     companion object {
         fun fromJson(j: JSONObject, myId: String) = Message(
@@ -70,7 +71,8 @@ data class Message(
             attachmentUrl = j.optString("attachment_url").takeIf { it.isNotBlank() },
             attachmentType = j.optString("attachment_type").takeIf { it.isNotBlank() },
             createdAt = j.optLong("created_at", System.currentTimeMillis()),
-            mine = j.optString("sender_id") == myId
+            mine = j.optString("sender_id") == myId,
+            clientMessageId = j.optString("client_message_id").takeIf { it.isNotBlank() && it != "null" }
         )
     }
 }
