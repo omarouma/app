@@ -129,9 +129,12 @@ class MySqlDB {
     FROM chats c JOIN chat_members cm ON cm.chat_id=c.id AND cm.user_id=?
     LEFT JOIN chat_members pm ON pm.chat_id=c.id AND pm.user_id<>? AND c.type='dm' LEFT JOIN users peer ON peer.id=pm.user_id
     ORDER BY COALESCE(last_message_at,c.created_at) DESC`,[user,user,user]); return rows; }
-  async messages(chat,before,limit) { const [rows]=await this.pool.execute(`SELECT m.*,u.display_name sender_name,u.avatar_url sender_avatar
-    FROM messages m JOIN users u ON u.id=m.sender_id WHERE m.chat_id=? AND m.created_at<? ORDER BY m.created_at DESC LIMIT ?`,
-    [chat,before,Number(limit)]); return rows.reverse(); }
+  async messages(chat,before,limit,beforeId=null) { const cursor=beforeId
+    ? '(m.created_at < ? OR (m.created_at = ? AND m.id < ?))' : 'm.created_at < ?';
+    const args=beforeId?[chat,before,before,beforeId,Number(limit)]:[chat,before,Number(limit)];
+    const [rows]=await this.pool.execute(`SELECT m.*,u.display_name sender_name,u.avatar_url sender_avatar
+    FROM messages m JOIN users u ON u.id=m.sender_id WHERE m.chat_id=? AND ${cursor} ORDER BY m.created_at DESC,m.id DESC LIMIT ?`,
+    args); return rows.reverse(); }
   async insertMessage(chat,sender,text,url,type,clientId) { if(clientId){const existing=first(await this.pool.execute(
     'SELECT * FROM messages WHERE chat_id=? AND sender_id=? AND client_message_id=?',[chat,sender,clientId]));
     if(existing)return {message:existing,inserted:false};} const row={id:newId(),chat_id:chat,sender_id:sender,text,
