@@ -232,6 +232,7 @@ class ChatActivity : AppCompatActivity() {
             oldestServerTimestamp = oldest?.createdAt
             oldestServerId = oldest?.id
         }.onFailure { toast(getString(R.string.err_network)) }
+        messages.filter { it.mine }.forEach { reconcilePendingMessage(it) }
         // Preserve visible pending messages after a server refresh or process restart.
         for (item in SessionStore.pendingTexts(chatId)) {
             val id = item.optString("client_id")
@@ -379,7 +380,18 @@ class ChatActivity : AppCompatActivity() {
         }
     }
 
+    private fun reconcilePendingMessage(m: Message) {
+        val clientId = m.clientMessageId ?: return
+        if (!m.mine || m.chatId != chatId || m.id == clientId) return
+        runCatching { SessionStore.removePendingText(clientId) }
+            .onFailure { toast(getString(R.string.err_network)) }
+    }
+
     private fun appendMessage(m: Message) {
+        reconcilePendingMessage(m)
+        val replaced = m.mine && m.clientMessageId != null &&
+            messages.removeAll { it.id == m.clientMessageId && it.id != m.id }
+        if (replaced) renderMessages()
         if (messages.any { it.id == m.id }) return
         messages.add(m)
         renderMessage(m)
