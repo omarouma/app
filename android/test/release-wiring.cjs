@@ -11,6 +11,14 @@ const chat = source('ui/ChatActivity.kt');
 const outbox = source('realtime/MessageOutboxWorker.kt');
 const session = source('prefs/SessionStore.kt');
 
+test('STATIC: HTTP timeout does not recreate a pending bubble after WebSocket acknowledgement', () => {
+  const send = chat.split('private fun sendText()')[1].split('private suspend fun flushOutbox()')[0];
+  const failure = send.split('catch (e: Exception)')[1];
+  assert.match(failure, /it.mine && it.chatId == chatId && it.clientMessageId == clientId/);
+  assert.match(failure, /if \(acknowledged != null\) \{[\s\S]*?reconcilePendingMessage\(acknowledged\)[\s\S]*?return@launch/);
+  assert.ok(failure.indexOf('return@launch') < failure.indexOf('appendMessage(Message(clientId'));
+});
+
 test('STATIC: server acknowledgements reconcile only own messages in the current chat', () => {
   assert.match(source('model/Models.kt'), /client_message_id/);
   assert.match(chat, /if \(!m.mine \|\| m.chatId != chatId \|\| m.id == clientId\) return/);
