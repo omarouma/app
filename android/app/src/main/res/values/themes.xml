@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+      GaGaChat theme. The entire app UI is built programmatically (ui/Ui.kt),
+      resolving Material3 color attributes at runtime, so this theme only has
+      to supply a Material3 DayNight base plus the brand primary color.
+    -->
+    <!-- LINE-inspired messenger layout tokens with GaGa-owned branding. -->
+    <style name="Theme.GaGaChat" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="colorPrimary">@color/gaga_primary</item>
+        <item name="colorOnPrimary">@android:color/white</item>
+        <item name="colorPrimaryContainer">@color/gaga_primary_container</item>
+        <item name="colorOnPrimaryContainer">@color/gaga_on_primary_container</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar">true</item>
+    </style>
+
+    <style name="Theme.GaGaChat.Starting" parent="Theme.GaGaChat">
+        <item name="android:windowBackground">@drawable/splash_background</item>
+    </style>
+</resources>

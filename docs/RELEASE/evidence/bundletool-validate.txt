@@ -1,0 +1,24 @@
+== bundletool validate --bundle app-release.aab (bundletool 1.17.0) ==
+App Bundle information
+------------
+Feature modules:
+	Feature module: base
+		File: dex/classes.dex
+		File: lib/arm64-v8a/libjingle_peerconnection_so.so
+validate exit=0
+(PASS — feature module 'base' with dex/classes.dex, lib for 4 ABIs, res, manifest — no errors; full listing suppressed)
+
+== build-apks --mode=universal (Play pipeline simulation, release keystore) ==
+build-apks exit=0
+-rw-r--r-- 1 root root 47116997 Sep 16 04:28 /workspace/aab-derived-universal.apks
+
+== extract + verify derived universal.apk ==
+Verifies
+Verified using v1 scheme (JAR signing): false
+Verified using v2 scheme (APK Signature Scheme v2): true
+Verified using v3 scheme (APK Signature Scheme v3): true
+Verified using v3.1 scheme (APK Signature Scheme v3.1): false
+Verified using v4 scheme (APK Signature Scheme v4): false
+Verified for SourceStamp: false
+Number of signers: 1
+apksigner exit=0
