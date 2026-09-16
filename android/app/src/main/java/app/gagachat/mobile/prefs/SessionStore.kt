@@ -63,6 +63,16 @@ object SessionStore {
 
     fun isLoggedIn(): Boolean = !token.isNullOrBlank()
 
+    /** Drafts are encrypted with the session and removed on logout. */
+    @Synchronized fun draft(chatId: String): String =
+        prefs(GaGaApp.ctx()).getString("draft_$chatId", "") ?: ""
+
+    @Synchronized fun saveDraft(chatId: String, text: String) {
+        val editor = prefs(GaGaApp.ctx()).edit()
+        if (text.isEmpty()) editor.remove("draft_$chatId") else editor.putString("draft_$chatId", text)
+        check(editor.commit()) { "Could not persist message draft" }
+    }
+
     /** Encrypted, crash-safe text outbox. Server-side client_message_id makes retries idempotent. */
     @Synchronized fun enqueueText(chatId:String, text:String, clientId:String) {
         val all=runCatching { JSONArray(prefs(GaGaApp.ctx()).getString("message_outbox","[]")) }.getOrDefault(JSONArray())
