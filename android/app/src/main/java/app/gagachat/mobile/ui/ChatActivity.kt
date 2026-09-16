@@ -448,6 +448,16 @@ class ChatActivity : AppCompatActivity() {
                 appendMessage(Message.fromJson(msg, myId))
             } catch (e: Exception) {
                 if (e is kotlinx.coroutines.CancellationException) throw e
+                // WebSocket acknowledgement may arrive before the HTTP request times out.
+                val acknowledged = messages.firstOrNull {
+                    it.mine && it.chatId == chatId && it.clientMessageId == clientId
+                }
+                if (acknowledged != null) {
+                    reconcilePendingMessage(acknowledged)
+                    statusView.text = if (SessionStore.pendingTexts(chatId).isEmpty()) ""
+                        else getString(R.string.message_queued)
+                    return@launch
+                }
                 if(e is Api.ApiError && e.status in 400..499 && e.status != 408 && e.status != 429) {
                     toast(e.message ?: getString(R.string.err_network))
                 } else {
