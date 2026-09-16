@@ -376,7 +376,13 @@ class ChatActivity : AppCompatActivity() {
                 if(e is Api.ApiError) {
                     toast(e.message ?: getString(R.string.err_network)); input.setText(text)
                 } else {
-                    SessionStore.enqueueText(chatId,text,clientId)
+                    try {
+                        SessionStore.enqueueText(chatId,text,clientId)
+                    } catch (_: IllegalStateException) {
+                        input.setText(text)
+                        toast(getString(R.string.err_network))
+                        return@launch
+                    }
                     app.gagachat.mobile.realtime.MessageOutboxWorker.schedule(this@ChatActivity)
                     appendMessage(Message(clientId,chatId,myId,"",text,null,null,System.currentTimeMillis(),true))
                     statusView.text=getString(R.string.message_queued)
