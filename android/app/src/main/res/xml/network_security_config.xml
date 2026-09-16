@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Audit fix C-01: no cleartext traffic anywhere by default.
+  HTTPS only. The Settings "server" override must therefore point to an
+  https:// endpoint (a tunnel such as ngrok works for local testing).
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false" />
+</network-security-config>

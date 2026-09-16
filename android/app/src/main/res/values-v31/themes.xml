@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.GaGaChat.Starting" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/gaga_surface</item>
+        <item name="windowSplashScreenAnimatedIcon">@mipmap/ic_launcher</item>
+        <item name="windowSplashScreenIconBackgroundColor">@color/gaga_surface</item>
+        <item name="postSplashScreenTheme">@style/Theme.GaGaChat</item>
+    </style>
+</resources>
