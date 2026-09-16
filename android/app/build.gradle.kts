@@ -42,6 +42,15 @@ android {
         // Production endpoint — final build bakes the Alibaba Cloud URL here.
         // AppPrefs.apiBase() allows a runtime override (Settings → Server).
         buildConfigField("String", "API_BASE", "\"https://api.gagachat.app/api\"")
+        // Comma-separated list of additional endpoints tried in order when the
+        // primary host fails to resolve (UnknownHostException) or refuses the
+        // connection. This makes the client resilient to a missing/incorrect
+        // DNS record for the primary host.
+        buildConfigField(
+            "String",
+            "FALLBACK_API_BASES",
+            "\"https://eco-carry-alliance-contribute.trycloudflare.com/api\""
+        )
         buildConfigField("boolean", "ALLOW_SERVER_OVERRIDE", "false")
         buildConfigField("boolean", "WALLET_ENABLED", "false")
         buildConfigField("boolean", "OTP_ENABLED", "false")
@@ -71,7 +80,12 @@ android {
             }
         }
         debug {
-            buildConfigField("String", "API_BASE", "\"https://api.gagachat.app/api\"")
+            buildConfigField("String", "API_BASE", "\"https://eco-carry-alliance-contribute.trycloudflare.com/api\"")
+            buildConfigField(
+                "String",
+                "FALLBACK_API_BASES",
+                "\"https://api.gagachat.app/api\""
+            )
             buildConfigField("boolean", "ALLOW_SERVER_OVERRIDE", "true")
             buildConfigField("boolean", "SELF_REGISTRATION_ENABLED", "true")
         }

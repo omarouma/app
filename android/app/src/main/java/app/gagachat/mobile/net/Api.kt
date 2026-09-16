@@ -38,6 +38,31 @@ object Api {
 
     class ApiError(val status: Int, message: String, val body: String? = null) : IOException(message)
 
+    /**
+     * DNS-resilience: additional endpoints tried, in order, when the primary
+     * host cannot be resolved (UnknownHostException) or refuses the connection.
+     * This keeps the app usable even if the primary DNS record is missing or
+     * stale, without requiring a rebuild.
+     */
+    private val fallbackBases: List<String> by lazy {
+        BuildConfig.FALLBACK_API_BASES
+            .split(',')
+            .map { it.trim().trimEnd('/') }
+            .filter { it.isNotBlank() }
+    }
+
+    /** Ordered, de-duplicated list of endpoints to attempt for a request. */
+    private fun candidateBases(): List<String> =
+        (listOf(baseUrl.trimEnd('/')) + fallbackBases).distinct().filter { it.isNotBlank() }
+
+    /** True for transport-level failures where trying another endpoint helps. */
+    private fun isEndpointFailure(e: IOException): Boolean =
+        e is java.net.UnknownHostException ||
+            e is java.net.ConnectException ||
+            e is java.net.NoRouteToHostException ||
+            e is java.net.SocketTimeoutException ||
+            e.cause is java.net.UnknownHostException
+
     private val client: OkHttpClient by lazy {
         OkHttpClient.Builder()
             .connectTimeout(15, TimeUnit.SECONDS)
@@ -87,9 +112,13 @@ object Api {
     }
 
     private fun isApiUrl(url: HttpUrl): Boolean {
-        val base = baseUrl.toHttpUrlOrNull() ?: return false
-        return url.scheme == base.scheme && url.host == base.host && url.port == base.port &&
-            url.encodedPath.startsWith(base.encodedPath.trimEnd('/') + "/")
+        // Accept any configured endpoint (primary or fallback) so the app JWT is
+        // attached regardless of which one the request actually used.
+        return candidateBases().any { base ->
+            val u = base.toHttpUrlOrNull() ?: return@any false
+            url.scheme == u.scheme && url.host == u.host && url.port == u.port &&
+                url.encodedPath.startsWith(u.encodedPath.trimEnd('/') + "/")
+        }
     }
 
     private fun isPublicAuth(url: HttpUrl): Boolean =
@@ -127,60 +156,96 @@ object Api {
         val current = SessionStore.token ?: return false
         if (failedToken != null && current != failedToken) return true
         val rt = SessionStore.refreshToken ?: return false
-        val url = "${baseUrl.trimEnd('/')}/auth/refresh"
         val body = JSONObject().put("refresh_token", rt).toString()
             .toRequestBody("application/json".toMediaType())
-        val req = Request.Builder().url(url)
-            .post(body)
-            .header("User-Agent", UA)
-            .build()
-        return try {
-            refreshClient.newCall(req).execute().use { res ->
-                if (res.isSuccessful) {
-                    val j = JSONObject(res.body?.string() ?: "{}")
-                    val t = j.optString("token")
-                    if (t.isNotBlank()) {
-                        synchronized(SessionStore) {
-                        if (SessionStore.refreshToken != rt) return false // logged out/replaced while refreshing
-                        SessionStore.save(
-                            GaGaApp.ctx(), t,
-                            j.optString("refresh_token").takeIf { it.isNotBlank() } ?: rt,
-                            j.optJSONObject("user")?.toString() ?: SessionStore.me
-                        )
-                        }
-                        true
+        for (base in candidateBases()) {
+            val url = "${base.trimEnd('/')}/auth/refresh"
+            val req = Request.Builder().url(url)
+                .post(body)
+                .header("User-Agent", UA)
+                .build()
+            try {
+                val ok = refreshClient.newCall(req).execute().use { res ->
+                    if (res.isSuccessful) {
+                        val j = JSONObject(res.body?.string() ?: "{}")
+                        val t = j.optString("token")
+                        if (t.isNotBlank()) {
+                            synchronized(SessionStore) {
+                            if (SessionStore.refreshToken != rt) return false // logged out/replaced while refreshing
+                            SessionStore.save(
+                                GaGaApp.ctx(), t,
+                                j.optString("refresh_token").takeIf { it.isNotBlank() } ?: rt,
+                                j.optJSONObject("user")?.toString() ?: SessionStore.me
+                            )
+                            }
+                            if (base != baseUrl.trimEnd('/')) baseUrl = base
+                            true
+                        } else false
                     } else false
-                } else false
+                }
+                if (ok) return true
+                // Reachable but rejected (e.g. 401) — no point trying other hosts.
+                return false
+            } catch (e: Exception) {
+                if (isEndpointFailure(e as? IOException ?: IOException(e)) && base != candidateBases().last()) {
+                    Log.w(TAG, "refresh endpoint $base unreachable; trying next")
+                    continue
+                }
+                Log.w(TAG, "refresh failed: ${e.message}")
+                return false
             }
-        } catch (e: Exception) {
-            Log.w(TAG, "refresh failed: ${e.message}")
-            false
         }
+        return false
     }
 
     private suspend fun requestJson(method: String, path: String, body: JSONObject? = null): JSONObject = withContext(Dispatchers.IO) {
-        val url = baseUrl.trimEnd('/') + path
-        val b: Request.Builder = Request.Builder().url(url)
-        when (method) {
-            "GET" -> b.get()
-            "DELETE" -> if (body == null) b.delete() else b.delete(body.toString().toRequestBody("application/json".toMediaType()))
-            "POST", "PUT" -> {
-                val media = "application/json; charset=utf-8".toMediaType()
-                val requestBody = (body?.toString() ?: "{}").toRequestBody(media)
-                if (method == "PUT") b.put(requestBody) else b.post(requestBody)
+        val bases = candidateBases()
+        var lastEndpointError: IOException? = null
+        for ((index, base) in bases.withIndex()) {
+            val url = base.trimEnd('/') + path
+            val b: Request.Builder = Request.Builder().url(url)
+            when (method) {
+                "GET" -> b.get()
+                "DELETE" -> if (body == null) b.delete() else b.delete(body.toString().toRequestBody("application/json".toMediaType()))
+                "POST", "PUT" -> {
+                    val media = "application/json; charset=utf-8".toMediaType()
+                    val requestBody = (body?.toString() ?: "{}").toRequestBody(media)
+                    if (method == "PUT") b.put(requestBody) else b.post(requestBody)
+                }
+                else -> throw IllegalArgumentException("Unsupported HTTP method: $method")
             }
-            else -> throw IllegalArgumentException("Unsupported HTTP method: $method")
-        }
-        client.newCall(b.build()).execute().use { res ->
-            val txt = res.body?.string() ?: ""
-            if (!res.isSuccessful) {
-                val serverError = runCatching { JSONObject(txt).optString("error") }
-                    .getOrNull()?.takeIf { it.isNotBlank() }
-                throw ApiError(res.code, serverError ?: "HTTP ${res.code}", txt)
+            try {
+                val result = client.newCall(b.build()).execute().use { res ->
+                    val txt = res.body?.string() ?: ""
+                    if (!res.isSuccessful) {
+                        val serverError = runCatching { JSONObject(txt).optString("error") }
+                            .getOrNull()?.takeIf { it.isNotBlank() }
+                        throw ApiError(res.code, serverError ?: "HTTP ${res.code}", txt)
+                    }
+                    if (txt.isBlank()) JSONObject()
+                    else runCatching { JSONObject(txt) }.getOrElse { JSONObject().put("raw", txt) }
+                }
+                // Success: remember the endpoint that worked so subsequent
+                // requests (and the WebSocket) use it directly.
+                if (base != baseUrl.trimEnd('/')) {
+                    Log.i(TAG, "failover: switched endpoint to $base")
+                    baseUrl = base
+                }
+                return@withContext result
+            } catch (e: ApiError) {
+                // Server answered (e.g. 4xx/5xx) — the endpoint is reachable, so
+                // do not fail over; surface the real error.
+                throw e
+            } catch (e: IOException) {
+                if (isEndpointFailure(e) && index < bases.size - 1) {
+                    Log.w(TAG, "endpoint $base unreachable (${e.javaClass.simpleName}); trying next")
+                    lastEndpointError = e
+                    continue
+                }
+                throw e
             }
-            if (txt.isBlank()) JSONObject()
-            else runCatching { JSONObject(txt) }.getOrElse { JSONObject().put("raw", txt) }
         }
+        throw lastEndpointError ?: IOException("no_api_endpoint_available")
     }
 
     suspend fun get(path: String): JSONObject = requestJson("GET", path)
