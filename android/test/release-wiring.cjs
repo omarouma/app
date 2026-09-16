@@ -11,6 +11,13 @@ const chat = source('ui/ChatActivity.kt');
 const outbox = source('realtime/MessageOutboxWorker.kt');
 const session = source('prefs/SessionStore.kt');
 
+test('STATIC: server acknowledgements reconcile only own messages in the current chat', () => {
+  assert.match(source('model/Models.kt'), /client_message_id/);
+  assert.match(chat, /if \(!m.mine \|\| m.chatId != chatId \|\| m.id == clientId\) return/);
+  assert.match(chat, /SessionStore.removePendingText\(clientId\)/);
+  assert.match(chat, /messages.removeAll \{ it.id == m.clientMessageId && it.id != m.id \}/);
+});
+
 test('STATIC: push registration retries through durable network-constrained work', () => {
   const push = source('firebase/PushRegistrationWorker.kt');
   assert.match(push, /NetworkType.CONNECTED/);
