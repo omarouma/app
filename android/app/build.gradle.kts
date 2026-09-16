@@ -91,10 +91,18 @@ android {
 
     splits {
         abi {
-            isEnable = true
-            reset()
-            include("arm64-v8a", "armeabi-v7a")
-            isUniversalApk = true
+            // Standalone APK builds use ABI splits. AAB builds must not: Play
+            // generates device APKs, and multiple split variants break the
+            // Android Gradle Plugin's release bundle preparation.
+            val isBundleTask = gradle.startParameter.taskNames.any {
+                it.contains("bundle", ignoreCase = true)
+            }
+            isEnable = !isBundleTask
+            if (!isBundleTask) {
+                reset()
+                include("arm64-v8a", "armeabi-v7a")
+                isUniversalApk = true
+            }
         }
     }
 
