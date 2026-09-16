@@ -68,7 +68,9 @@ object SessionStore {
         val all=runCatching { JSONArray(prefs(GaGaApp.ctx()).getString("message_outbox","[]")) }.getOrDefault(JSONArray())
         if((0 until all.length()).any { all.optJSONObject(it)?.optString("client_id")==clientId }) return
         all.put(JSONObject().put("chat_id",chatId).put("text",text).put("client_id",clientId).put("created_at",System.currentTimeMillis()))
-        prefs(GaGaApp.ctx()).edit().putString("message_outbox",all.toString()).apply()
+        check(prefs(GaGaApp.ctx()).edit().putString("message_outbox",all.toString()).commit()) {
+            "Could not queue message for retry"
+        }
     }
 
     @Synchronized fun pendingTexts():List<JSONObject> {
@@ -84,6 +86,8 @@ object SessionStore {
     @Synchronized fun removePendingText(clientId:String) {
         val all=runCatching { JSONArray(prefs(GaGaApp.ctx()).getString("message_outbox","[]")) }.getOrDefault(JSONArray())
         val kept=JSONArray(); for(i in 0 until all.length()) all.optJSONObject(i)?.let { if(it.optString("client_id")!=clientId) kept.put(it) }
-        prefs(GaGaApp.ctx()).edit().putString("message_outbox",kept.toString()).apply()
+        check(prefs(GaGaApp.ctx()).edit().putString("message_outbox",kept.toString()).commit()) {
+            "Could not confirm message delivery in outbox"
+        }
     }
 }
