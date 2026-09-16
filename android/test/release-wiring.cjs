@@ -9,6 +9,16 @@ const main = source('ui/MainActivity.kt');
 const service = source('realtime/GaGaService.kt');
 const chat = source('ui/ChatActivity.kt');
 const outbox = source('realtime/MessageOutboxWorker.kt');
+const session = source('prefs/SessionStore.kt');
+
+test('STATIC: drafts survive screen exit and pending rows survive server refresh', () => {
+  assert.match(chat, /input.setText\(SessionStore.draft\(chatId\)\)/);
+  assert.match(chat, /SessionStore.saveDraft\(chatId, input.text.toString\(\)\)/);
+  assert.match(session, /check\(editor.commit\(\)\)/);
+  const history = chat.split('private suspend fun loadMessages()')[1].split('private suspend fun resolvePeer()')[0];
+  assert.match(history, /SessionStore.pendingTexts\(chatId\)/);
+  assert.match(history, /messages.none \{ it.id == id \}/);
+});
 
 test('STATIC: rejected outbox messages remain durable rather than being discarded', () => {
   const workerError = outbox.split('catch (e: Api.ApiError)')[1].split('catch (_: Exception)')[0];
