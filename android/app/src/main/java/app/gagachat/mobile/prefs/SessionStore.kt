@@ -78,7 +78,11 @@ object SessionStore {
         val all=runCatching { JSONArray(prefs(GaGaApp.ctx()).getString("message_outbox","[]")) }.getOrDefault(JSONArray())
         if((0 until all.length()).any { all.optJSONObject(it)?.optString("client_id")==clientId }) return
         all.put(JSONObject().put("chat_id",chatId).put("text",text).put("client_id",clientId).put("created_at",System.currentTimeMillis()))
-        check(prefs(GaGaApp.ctx()).edit().putString("message_outbox",all.toString()).commit()) {
+        // Queue and composer draft transition share one durable write.
+        check(prefs(GaGaApp.ctx()).edit()
+            .putString("message_outbox",all.toString())
+            .remove("draft_$chatId")
+            .commit()) {
             "Could not queue message for retry"
         }
     }
