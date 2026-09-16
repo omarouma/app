@@ -11,6 +11,11 @@ const chat = source('ui/ChatActivity.kt');
 const outbox = source('realtime/MessageOutboxWorker.kt');
 const session = source('prefs/SessionStore.kt');
 
+test('STATIC: enqueue and draft removal use the same durable editor transaction', () => {
+  const enqueue = session.split('fun enqueueText(')[1].split('fun pendingTexts()')[0];
+  assert.match(enqueue, /putString\("message_outbox",all.toString\(\)\)\s*\.remove\("draft_\$chatId"\)\s*\.commit\(\)/);
+});
+
 test('STATIC: outgoing text is durable before composer clear and network send', () => {
   const send = chat.split('private fun sendText()')[1].split('private suspend fun flushOutbox()')[0];
   const persist = send.indexOf('SessionStore.enqueueText');
