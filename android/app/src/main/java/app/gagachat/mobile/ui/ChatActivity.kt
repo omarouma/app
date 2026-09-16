@@ -375,31 +375,34 @@ class ChatActivity : AppCompatActivity() {
     private fun sendText() {
         val text = input.text.toString().trim()
         if (text.isEmpty() || sending) return
+        val clientId=UUID.randomUUID().toString()
+        // Persist before clearing the composer or starting an interruptible network request.
+        try {
+            SessionStore.enqueueText(chatId,text,clientId)
+            SessionStore.saveDraft(chatId, "")
+        } catch (_: IllegalStateException) {
+            toast(getString(R.string.err_network))
+            return
+        }
         sending = true
         input.setText("")
-        val clientId=UUID.randomUUID().toString()
         lifecycleScope.launch {
             try {
                 val res = Api.post("/chats/$chatId/messages", JSONObject()
                     .put("text", text)
                     .put("client_message_id", clientId))
                 val msg = res.optJSONObject("message") ?: res
+                SessionStore.removePendingText(clientId)
                 appendMessage(Message.fromJson(msg, myId))
             } catch (e: Exception) {
-                if(e is Api.ApiError) {
-                    toast(e.message ?: getString(R.string.err_network)); input.setText(text)
+                if (e is kotlinx.coroutines.CancellationException) throw e
+                if(e is Api.ApiError && e.status in 400..499 && e.status != 408 && e.status != 429) {
+                    toast(e.message ?: getString(R.string.err_network))
                 } else {
-                    try {
-                        SessionStore.enqueueText(chatId,text,clientId)
-                    } catch (_: IllegalStateException) {
-                        input.setText(text)
-                        toast(getString(R.string.err_network))
-                        return@launch
-                    }
                     app.gagachat.mobile.realtime.MessageOutboxWorker.schedule(this@ChatActivity)
-                    appendMessage(Message(clientId,chatId,myId,"",text,null,null,System.currentTimeMillis(),true))
-                    statusView.text=getString(R.string.message_queued)
                 }
+                appendMessage(Message(clientId,chatId,myId,"",text,null,null,System.currentTimeMillis(),true))
+                statusView.text=getString(R.string.message_queued)
             } finally {
                 sending = false
             }
