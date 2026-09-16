@@ -91,10 +91,20 @@ android {
 
     splits {
         abi {
-            isEnable = true
-            reset()
-            include("arm64-v8a", "armeabi-v7a")
-            isUniversalApk = true
+            // ABI splits apply only to assemble* (standalone APK) builds for
+            // direct distribution. They are disabled for bundle* (AAB) builds:
+            // Play Store generates optimized per-device APKs from the AAB, and
+            // multiple split outputs break :app:buildReleasePreBundle with
+            // "Sequence contains more than one matching element".
+            val isBundleTask = gradle.startParameter.taskNames.any {
+                it.contains("bundle", ignoreCase = true)
+            }
+            isEnable = !isBundleTask
+            if (!isBundleTask) {
+                reset()
+                include("arm64-v8a", "armeabi-v7a")
+                isUniversalApk = true
+            }
         }
     }
 
