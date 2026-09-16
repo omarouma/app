@@ -19,6 +19,7 @@ import { MessageCircle, Phone, Users, Flame, Settings } from 'lucide-react';
 import { Toaster } from '@/components/ui/sonner';
 import { CallProvider } from '@/context/CallContext';
 import { VoicePlayerProvider } from '@/context/VoicePlayerContext';
+import NetworkStatus from '@/components/NetworkStatus';
 import CallOverlay from '@/components/calling/CallOverlay';
 import PWAPrompt from '@/components/PWAPrompt';
 import Logo from '@/components/Logo';
@@ -637,6 +638,7 @@ function AppContent() {
 
       {showBottomNav && <BottomNav />}
       <ScrollToTop />
+      <NetworkStatus />
       <CallOverlay />
       <PWAPrompt />
       <Toaster position="top-center" />

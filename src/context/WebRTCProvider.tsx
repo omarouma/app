@@ -2,11 +2,6 @@ import { useEffect, useMemo } from 'react';
 import { useWebRTCManager } from '@/hooks/useWebRTCManager';
 
 export interface WebRTCState {
-    // ZEGO prebuilt container ref — the CallOverlay mounts a <div> with this
-    // ref so the ZEGO UI Kit can render its full call UI into it.
-    containerRef: React.RefObject<HTMLDivElement | null>;
-    // True only after ZEGO successfully joined — CallOverlay swaps to ZEGO UI.
-    isZegoActive: boolean;
     isConnected: boolean;
     localStream: MediaStream | null;
     remoteStream: MediaStream | null;
@@ -33,14 +28,11 @@ interface WebRTCProviderProps {
 
 /**
  * Lazy-loaded WebRTC provider that only mounts when a call is active.
- * This defers the ZEGO Cloud SDK bundle until it's actually needed.
  */
 export function WebRTCProvider({ onStateChange }: WebRTCProviderProps): null {
     const webrtc = useWebRTCManager();
 
     const nextState = useMemo<WebRTCState>(() => ({
-        containerRef: webrtc.containerRef,
-        isZegoActive: webrtc.isZegoActive,
         isConnected: webrtc.isConnected,
         localStream: webrtc.localStream,
         remoteStream: webrtc.remoteStream,

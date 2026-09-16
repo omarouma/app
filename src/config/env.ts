@@ -52,21 +52,8 @@ const envSchema = z.object({
   VITE_TURN_SERVER_USERNAME: z.string().optional(),
   VITE_TURN_SERVER_CREDENTIAL: z.string().optional(),
 
-  // --- ZEGO Cloud (Audio/Video Calling) ---
-  // App ID is public and safe for the client web app.
-  VITE_ZEGO_APP_ID: z.string().optional(),
-  // ZEGO signaling server URL — required for the SDK to connect to the right region.
-  VITE_ZEGO_SERVER_URL: z.string().url("ZEGO server URL must be a valid websocket or HTTP URL.").optional(),
-  // ZEGO Server Secret — used ONLY for test/demo token generation.
-  // For production, generate tokens server-side instead.
-  VITE_ZEGO_SERVER_SECRET: z.string().optional(),
-  // Optional: a serverless endpoint that returns a ZEGO token.
-  VITE_ZEGO_TOKEN_SERVER_URL: z
-    .string()
-    .refine((v) => v.startsWith('/') || /^https?:\/\//i.test(v), {
-      message: 'Must be an absolute http(s) URL or a root-relative path (e.g. /api/zego-token).',
-    })
-    .optional(),
+  // Alibaba self-hosted calling gateway (public HTTPS origin).
+  VITE_CALLING_API_URL: z.string().url().optional(),
 
   // --- Vite/Node Specific ---
   MODE: z.enum(['development', 'production', 'test']),

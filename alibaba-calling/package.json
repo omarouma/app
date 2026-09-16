@@ -1,0 +1,1 @@
+{"name":"gaga-self-hosted-calling","private":true,"type":"module","scripts":{"start":"node server.mjs","test":"node --test"},"dependencies":{"ws":"^8.18.0"}}

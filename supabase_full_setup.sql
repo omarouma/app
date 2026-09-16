@@ -685,7 +685,7 @@ CREATE TABLE IF NOT EXISTS call_history (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   caller_id TEXT NOT NULL,
   callee_id TEXT NOT NULL,
-  type TEXT DEFAULT 'audio',
+  type TEXT DEFAULT 'voice',
   status TEXT DEFAULT 'missed',
   duration INTEGER DEFAULT 0,
   signaling JSONB,

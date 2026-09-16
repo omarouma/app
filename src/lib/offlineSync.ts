@@ -21,6 +21,7 @@ import {
   isOnline,
 } from '@/lib/offlineQueue';
 import { safeGetStorageItem, safeRemoveStorageItem } from '@/lib/safeStorage';
+import { useAuthStore } from '@/store/useAuthStore';
 import { useChatStore } from '@/store/useChatStore';
 import { useGroupStore } from '@/store/useGroupStore';
 
@@ -65,16 +66,19 @@ function migrateLegacyQueue(): void {
 async function deliverQueued(msgId: string): Promise<boolean> {
   const msg = getQueue().find((m) => m.id === msgId);
   if (!msg) return true; // already gone
+  if (!isOnline() || useAuthStore.getState().user?.id !== msg.senderId) return false;
   updateQueueStatus(msg.id, 'sending');
   try {
     if (msg.type === 'group') {
       await useGroupStore
         .getState()
-        .sendGroupMessage(msg.chatId, msg.senderId, msg.content, msg.messageType ?? 'text', msg.mediaUrl, msg.replyTo);
+        .sendGroupMessage(msg.chatId, msg.senderId, msg.content, msg.messageType ?? 'text', msg.mediaUrl, msg.replyTo, msg.id);
+      if (!isOnline()) throw new Error('Offline during delivery');
     } else {
-      await useChatStore
+      const result = await useChatStore
         .getState()
-        .sendMessage(msg.chatId, msg.senderId, msg.content, msg.messageType ?? 'text', msg.mediaUrl, msg.replyTo);
+        .sendMessage(msg.chatId, msg.senderId, msg.content, msg.messageType ?? 'text', msg.mediaUrl, msg.replyTo, msg.id);
+      if (!result.success || !isOnline()) throw new Error('Message was not acknowledged');
     }
     removeFromQueue(msg.id);
     return true;

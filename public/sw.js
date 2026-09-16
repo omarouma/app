@@ -2,7 +2,7 @@
 // SW_VERSION is auto-stamped from package.json via vite.config.ts __APP_VERSION__.
 // Bump package.json version on every deploy — clients will reload automatically.
 const SW_VERSION = (typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '2.3.0');
-const CACHE_NAME = `gagachat-v${SW_VERSION}`;
+const CACHE_NAME = `gagachat-public-v2-${SW_VERSION}`;
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
@@ -48,6 +48,8 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
   const url = new URL(event.request.url);
+  // Only public same-origin assets belong in Cache Storage.
+  if (url.origin !== self.location.origin || event.request.headers.has('Authorization')) return;
 
   // Never cache API, auth, realtime, third-party, or AdSense requests
   if (
@@ -85,7 +87,7 @@ self.addEventListener('fetch', (event) => {
           }
           return response;
         });
-      }).catch(() => caches.match('/index.html'))
+      }).catch(() => new Response('Asset unavailable offline', { status: 503 }))
     );
     return;
   }
@@ -115,25 +117,9 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Network-first for other same-origin requests
-  event.respondWith(
-    fetch(event.request)
-      .then((response) => {
-        if (response.status === 200 && url.origin === self.location.origin) {
-          const clone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
-        }
-        return response;
-      })
-      .catch(async () => {
-        const cached = await caches.match(event.request);
-        if (cached) return cached;
-        const index = await caches.match('/index.html');
-        if (index) return index;
-        // Always return a valid Response — never undefined
-        return new Response('Offline', { status: 503, headers: { 'Content-Type': 'text/plain' } });
-      })
-  );
+  // All remaining requests pass straight through. Do not persist API or
+  // account-specific responses merely because they share the app's origin.
+
 });
 
 self.addEventListener('message', (event) => {

@@ -82,7 +82,7 @@ export default function CallsPage() {
   const handleInitiateCall = (type: 'voice' | 'video', userId: string) => {
     // firestore.ts is a router to the Supabase backend — this check reflects
     // real backend connectivity (Supabase), not Firestore specifically.
-    if (!isFirestoreAvailable()) {
+    if (!navigator.onLine || !isFirestoreAvailable()) {
       toast.error('You appear to be offline. Cannot place calls at the moment.');
       return;
     }
@@ -120,7 +120,7 @@ export default function CallsPage() {
           <div className="min-w-0">
             <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">Calls</h1>
             <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
-              {history.length} total · {history.filter(c => c.status === 'missed').length} missed
+              {history.length} total · {callsWithDetails.filter(c => c.status === 'missed' && c.direction === 'incoming').length} missed
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -151,6 +151,7 @@ export default function CallsPage() {
             <input
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
+              aria-label="Search call history by name"
               placeholder="Search by name..."
               className="input-surface w-full pl-10 pr-4 py-2.5"
             />

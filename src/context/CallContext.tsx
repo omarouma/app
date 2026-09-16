@@ -1,22 +1,18 @@
-import React, { useEffect, useRef, useState, useCallback, Suspense, lazy, startTransition } from 'react';
+import React, { useEffect, useRef, useState, useCallback, Suspense, lazy } from 'react';
 import { useCallStore } from '@/store/useCallStore';
 import { useAuthStore } from '@/store/useAuthStore';
 import { CallContextBase } from '@/context/CallContextBase';
 import type { CallContextValue } from '@/context/CallContextBase';
-import type { CallRecord } from '@/types';
 import type { WebRTCState } from '@/context/WebRTCProvider';
 import { CallConnectionMonitor } from '@/components/calling/CallConnectionMonitor';
 
 const isClient = typeof window !== 'undefined';
 
 // Lazy-load the WebRTC manager component only when a call is active.
-// This defers the ZEGO Cloud SDK bundle until it's actually needed.
 const WebRTCProviderLazy = lazy(() => import('@/context/WebRTCProvider'));
 
 // Default values when WebRTC is not initialized (no active call)
 const DEFAULT_WEBRTC_STATE: WebRTCState = {
-  containerRef: { current: null } as React.RefObject<HTMLDivElement | null>,
-  isZegoActive: false,
   isConnected: false,
   localStream: null,
   remoteStream: null,
@@ -48,25 +44,13 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
     setWebrtcState(state);
   }, []);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const callTypeRef = useRef<CallRecord['type']>('voice');
-  const wasConnectedRef = useRef(webrtcState.isConnected);
-
-  useEffect(() => {
-    if (currentCall?.type) {
-      callTypeRef.current = currentCall.type;
-    }
-  }, [currentCall?.type]);
-
-  // Reset the duration when a new call connects
-  useEffect(() => {
-    // Only reset when connection state changes from false to true
-    if (webrtcState.isConnected && !wasConnectedRef.current) {
-      startTransition(() => {
-        setCallDuration(0);
-      });
-    }
-    wasConnectedRef.current = webrtcState.isConnected;
-  }, [webrtcState.isConnected]);
+  // Reset the duration when a new call begins. Adjusting state during render is
+  // the React-recommended alternative to a synchronous setState inside an effect.
+  const [trackedCallId, setTrackedCallId] = useState<string | null>(null);
+  if ((currentCall?.id ?? null) !== trackedCallId) {
+    setTrackedCallId(currentCall?.id ?? null);
+    setCallDuration(0);
+  }
 
   // Tick the duration only while connected and not held
   useEffect(() => {
@@ -102,11 +86,6 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
   } : null;
 
   const value: CallContextValue = {
-    // ZEGO prebuilt container ref — CallOverlay mounts this <div> so ZEGO renders inside.
-    containerRef: webrtcState.containerRef,
-    // Only true once ZEGO has joined the room — lets CallOverlay swap from the
-    // legacy ring UI to ZEGO's full-screen UI. Prevents black screen.
-    isZegoActive: webrtcState.isZegoActive,
     activeCall,
     isCallActive: !!currentCall && currentCall.status !== 'ended' && currentCall.status !== 'rejected',
     localStream: webrtcState.localStream,

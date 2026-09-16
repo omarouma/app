@@ -24,30 +24,30 @@ const bubbleImages = [
 
 // ─── Topic Circles ───
 const topicCircles = [
-  { label: 'Food', icon: Utensils, color: '#FF9800', count: '50K+' },
-  { label: 'Travel', icon: Plane, color: '#00BCD4', count: '32K+' },
-  { label: 'Fitness', icon: Dumbbell, color: '#00C300', count: '28K+' },
-  { label: 'Fashion', icon: Shirt, color: '#FF4081', count: '45K+' },
-  { label: 'Home', icon: Home, color: '#8B5CF6', count: '18K+' },
-  { label: 'Parenting', icon: Baby, color: '#FF5252', count: '22K+' },
-  { label: 'Auto', icon: Car, color: '#2196F3', count: '15K+' },
-  { label: 'Pets', icon: Dog, color: '#FF9800', count: '38K+' },
-  { label: 'Garden', icon: Flower2, color: '#4CAF50', count: '12K+' },
-  { label: 'DIY', icon: Wrench, color: '#607D8B', count: '20K+' },
-  { label: 'Art', icon: PaletteIcon, color: '#8B5CF6', count: '25K+' },
-  { label: 'Gaming', icon: GamepadIcon, color: '#FF5252', count: '55K+' },
-  { label: 'Beauty', icon: Sparkles, color: '#FF4081', count: '42K+' },
-  { label: 'Tech', icon: Zap, color: '#00BCD4', count: '30K+' },
-  { label: 'Music', icon: Music, color: '#FF9800', count: '35K+' },
-  { label: 'Dance', icon: Flame, color: '#FF4081', count: '24K+' },
+  { label: 'Food', icon: Utensils, color: '#FF9800' },
+  { label: 'Travel', icon: Plane, color: '#00BCD4' },
+  { label: 'Fitness', icon: Dumbbell, color: '#00C300' },
+  { label: 'Fashion', icon: Shirt, color: '#FF4081' },
+  { label: 'Home', icon: Home, color: '#8B5CF6' },
+  { label: 'Parenting', icon: Baby, color: '#FF5252' },
+  { label: 'Auto', icon: Car, color: '#2196F3' },
+  { label: 'Pets', icon: Dog, color: '#FF9800' },
+  { label: 'Garden', icon: Flower2, color: '#4CAF50' },
+  { label: 'DIY', icon: Wrench, color: '#607D8B' },
+  { label: 'Art', icon: PaletteIcon, color: '#8B5CF6' },
+  { label: 'Gaming', icon: GamepadIcon, color: '#FF5252' },
+  { label: 'Beauty', icon: Sparkles, color: '#FF4081' },
+  { label: 'Tech', icon: Zap, color: '#00BCD4' },
+  { label: 'Music', icon: Music, color: '#FF9800' },
+  { label: 'Dance', icon: Flame, color: '#FF4081' },
 ];
 
-// ─── Creator Stats ───
+// ─── Creator Value Props ───
 const creatorStats = [
-  { value: '50K+', label: 'Active Creators', icon: Users },
-{ value: '৳2M+', label: 'Creator Earnings', icon: Wallet },
-  { value: '1B+', label: 'Monthly Views', icon: Eye },
-  { value: '99%', label: 'Satisfaction', icon: Heart },
+  { value: '16+', label: 'Creator Categories', icon: Users },
+  { value: 'Multi', label: 'Currency Payouts', icon: Wallet },
+  { value: 'HD', label: 'Video & Reels', icon: Eye },
+  { value: 'Live', label: 'Streaming Tools', icon: Heart },
 ];
 
 // ─── Animated Bubble Component ───
@@ -362,7 +362,6 @@ export default function CreatorCenterPage() {
                   </div>
                   <div className="text-center">
                     <p className="text-[#111111] text-xs font-medium">{topic.label}</p>
-                    <p className="text-[#8D8D8D] text-[10px]">{topic.count} creators</p>
                   </div>
                 </motion.button>
               ))}

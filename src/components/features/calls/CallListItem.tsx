@@ -51,7 +51,7 @@ const CallListItemComponent = ({ call, userName, userAvatar, currentUserId, onCa
 
   const avatarSrc = sanitizeMediaUrl(userAvatar);
   const duration = formatDuration(call.duration);
-  const targetUserId = otherUserId || currentUserId;
+  const targetUserId = !isGroup && otherUserId && otherUserId !== currentUserId ? otherUserId : undefined;
 
   return (
     <div className="flex items-center gap-3 px-4 py-3 hover:bg-[#F5F5F5] active:bg-[#EBEBEB] transition-colors">

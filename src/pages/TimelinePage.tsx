@@ -20,8 +20,6 @@ import TimelineCard from '@/components/features/timeline/TimelineCard';
 import EmptyState from '@/components/EmptyState';
 import LoadingSkeleton from '@/components/LoadingSkeleton';
 import { FeedAd } from '@/components/GoogleAd';
-import { AdBannerCarousel } from '@/components/AdBanner';
-import { MOCK_ADS } from '@/lib/mockAds';
 import RequestTipModal from '@/components/RequestTipModal';
 import FeedReelsViewer from '@/components/features/feed/FeedReelsViewer';
 import YouTubeFeed from '@/components/features/feed/YouTubeFeed';
@@ -918,7 +916,7 @@ export default function TimelinePage() {
 
             {/* In-App Promotions Carousel (fallback when no Google Ad slots configured) */}
             <div className="shrink-0 px-4 py-3 border-b border-[#1a1a1a]">
-              <AdBannerCarousel ads={MOCK_ADS} interval={6000} />
+              
             </div>
 
             {/* Quick composer hint */}

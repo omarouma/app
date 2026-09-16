@@ -21,14 +21,17 @@ const QUEUE_KEY = 'gaga-message-queue';
 export function getQueue(): QueuedMessage[] {
   try {
     const raw = safeGetStorageItem(QUEUE_KEY);
-    return raw ? JSON.parse(raw) : [];
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed.filter(m => m && typeof m.id === 'string' && typeof m.senderId === 'string') : [];
   } catch {
     return [];
   }
 }
 
 export function saveQueue(queue: QueuedMessage[]) {
-  safeSetStorageItem(QUEUE_KEY, JSON.stringify(queue));
+  if (!safeSetStorageItem(QUEUE_KEY, JSON.stringify(queue))) {
+    throw new Error('Unable to persist offline messages. Please free device storage and retry.');
+  }
 }
 
 export function addToQueue(msg: Omit<QueuedMessage, 'id' | 'timestamp' | 'syncStatus'> & { id?: string; timestamp?: number; syncStatus?: SyncStatus }): QueuedMessage {
@@ -45,7 +48,9 @@ export function addToQueue(msg: Omit<QueuedMessage, 'id' | 'timestamp' | 'syncSt
     mediaUrl: msg.mediaUrl,
     replyTo: msg.replyTo,
   };
-  queue.push(queued);
+  const existing = queue.findIndex(m => m.id === queued.id);
+  if (existing >= 0) queue[existing] = queued;
+  else queue.push(queued);
   saveQueue(queue);
   return queued;
 }
@@ -59,6 +64,7 @@ export function updateQueueStatus(id: string, status: SyncStatus) {
 }
 
 export function enqueueOfflineMessage(msg: {
+  id?: string;
   type: 'direct' | 'group';
   chatId: string;
   senderId: string;

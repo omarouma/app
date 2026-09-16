@@ -30,3 +30,14 @@ if (replaced !== src) {
 } else {
   console.log('  · postbuild-sw-stamp: no __APP_VERSION__ sentinel found — skip');
 }
+
+// A portable hosting folder must not depend on provider-specific map exclusions.
+const { readdirSync, rmSync } = await import('node:fs');
+function removeSourceMaps(dir) {
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const file = resolve(dir, entry.name);
+    if (entry.isDirectory()) removeSourceMaps(file);
+    else if (entry.name.endsWith('.map')) rmSync(file);
+  }
+}
+removeSourceMaps(resolve(ROOT, 'dist'));

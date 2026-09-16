@@ -1,37 +1,31 @@
-import fs from 'fs';
-import path from 'path';
+import fs from 'node:fs';
+import path from 'node:path';
+import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 
-const dist = 'dist';
-const assetsDir = path.join(dist, 'assets');
-
-if (!fs.existsSync(path.join(dist, 'index.html'))) {
-  console.log('BUILD INCOMPLETE: dist/index.html missing');
-  process.exit(1);
-}
-
-const html = fs.readFileSync(path.join(dist, 'index.html'), 'utf8');
-const initialScripts = html.match(/assets\/index-[^"']+\.js/g) || [];
-const files = fs.readdirSync(assetsDir).filter((f) => f.endsWith('.js'));
-const zegoFiles = files.filter((f) => f.startsWith('zego'));
-
-console.log('Initial scripts in index.html:', JSON.stringify(initialScripts));
-console.log('ZEGO separate chunks:', JSON.stringify(zegoFiles));
-
-for (const f of [...initialScripts, ...zegoFiles]) {
-  const name = f.replace('assets/', '');
-  const full = path.join(assetsDir, name);
-  if (fs.existsSync(full)) {
-    const size = fs.statSync(full).size;
-    console.log(`  ${name}: ${(size / 1024).toFixed(1)} KB`);
+const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+const html = fs.readFileSync('dist/index.html', 'utf8');
+const files = [];
+function walk(dir) {
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    const file = path.join(dir, entry.name);
+    if (entry.isDirectory()) walk(file); else files.push(file);
   }
 }
-
-const mtime = fs.statSync(path.join(dist, 'index.html')).mtime;
-console.log('dist/index.html mtime:', mtime.toISOString());
-
-if (!initialScripts.length) {
-  console.log('BUILD INCOMPLETE: no initial script found');
-  process.exit(1);
-} else {
-  console.log('BUILD OK');
-}
+walk('dist');
+const references = [...html.matchAll(/(?:src|href)="(\/assets\/[^"?#]+)"/g)].map(m => m[1]);
+assert(references.some(file => file.endsWith('.js')), 'Missing app entry script');
+for (const reference of references) assert(fs.existsSync(path.join('dist', reference)), `Missing asset: ${reference}`);
+const scripts = files.filter(file => file.endsWith('.js'));
+const bundle = scripts.map(file => fs.readFileSync(file, 'utf8')).join('\n');
+assert(bundle.includes('https://fcjgbbmfqdkucfpqjxae.supabase.co'), 'Build must preserve the live Supabase project');
+assert(bundle.includes('https://calls.gagachat.app'), 'Missing calling gateway');
+assert(!/ZegoUIKitPrebuilt|zego-uikit|zegocloud\.com/i.test(bundle), 'Paid calling SDK remains in the build');
+assert(!/TURN_SHARED_SECRET|SUPABASE_SERVICE_ROLE_KEY|sb_secret_[A-Za-z0-9]/.test(bundle), 'Possible server secret in public build');
+assert(!files.some(file => /(^|\/)\.env|\.map$/.test(file)), 'Private env or source maps in hosting output');
+const sw = fs.readFileSync('dist/sw.js', 'utf8');
+assert(!sw.includes('__APP_VERSION__') && sw.includes(pkg.version), 'Service worker version is not stamped');
+assert(JSON.parse(fs.readFileSync('dist/manifest.json')).version === pkg.version, 'Manifest version mismatch');
+const hashes = files.sort().map(file => ({ path: file.replace(/^dist\//, ''), bytes: fs.statSync(file).size, sha256: createHash('sha256').update(fs.readFileSync(file)).digest('hex') }));
+fs.writeFileSync('RELEASE-MANIFEST.json', JSON.stringify({ version: pkg.version, firebaseProject: 'oumagachat', supabaseProject: 'fcjgbbmfqdkucfpqjxae', checkedAt: new Date().toISOString(), files: hashes }, null, 2)+'\n');
+console.log(`Release ${pkg.version} verified: ${files.length} hosting files; live public configuration; no paid calling SDK or source maps.`);

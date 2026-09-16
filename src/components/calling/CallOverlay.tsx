@@ -3,8 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Phone, PhoneOff, Mic, MicOff, Video, VideoOff,
-  Volume2, VolumeX, RotateCw, MessageSquare, Pause, Play, Maximize2, Minimize2,
-  UserPlus, UserRound, X,
+  Volume2, RotateCw, MessageSquare, Pause, Play, Maximize2, Minimize2,
+  UserPlus, UserRound, X, Keyboard,
 } from 'lucide-react';
 import { useCallStore } from '@/store/useCallStore';
 import { useAuthStore } from '@/store/useAuthStore';
@@ -29,9 +29,10 @@ export default function CallOverlay() {
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const ringtoneRef = useRef<{ stop: () => void } | null>(null);
 
-  const [isSpeakerOn, setIsSpeakerOn] = useState(true);
+  const [isAccepting, setIsAccepting] = useState(false);
   const [otherUser, setOtherUser] = useState<{ id: string; name: string; avatar?: string } | null>(null);
   const [showAddParticipant, setShowAddParticipant] = useState(false);
+  const [showKeypad, setShowKeypad] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
 
   const friends = useFriendStore((s) => s.friends);
@@ -39,9 +40,9 @@ export default function CallOverlay() {
   const [recentContacts, setRecentContacts] = useState<{ id: string; name: string; avatar?: string }[]>([]);
 
   const {
-    containerRef: zegocontainerRef, isZegoActive, isConnected, localStream, remoteStream, remoteParticipants, isMuted, isVideoOn, isHeld, quality,
+    isConnected, localStream, remoteStream, remoteParticipants, isMuted, isVideoOn, isHeld, quality,
     callDuration, configuredError, mediaError,
-    endCall, acceptCall, rejectCall, toggleMute, toggleVideo, flipCamera, toggleHold,
+    endCall, acceptCall, rejectCall, toggleMute, toggleVideo, flipCamera, toggleHold, sendDTMF,
   } = useCallContext();
 
   // Load recent contacts for the "Add participant" panel when opened.
@@ -71,10 +72,6 @@ export default function CallOverlay() {
 
   const isGroup = isGroupCall(activeCall);
 
-  // ZEGO's prebuilt UI is only shown once ZEGO has ACTUALLY joined the room
-  // (isZegoActive from context). Before that we show the legacy ring UI
-  // (avatar, name, accept/decline/calling…) so the callee's screen is never
-  // black while the ZEGO SDK loads or when it hasn't joined yet.
   const otherUserId = activeCall
     ? getOtherParticipantId(activeCall, currentUser?.id) || null
     : null;
@@ -89,7 +86,7 @@ export default function CallOverlay() {
     if (remoteStream && remoteVideoRef.current) {
       remoteVideoRef.current.srcObject = remoteStream;
     }
-  }, [remoteStream]);
+  }, [remoteStream, isMinimized]);
 
   useEffect(() => {
     if (!otherUserId) {
@@ -109,12 +106,6 @@ export default function CallOverlay() {
     }).catch(() => setOtherUser({ id: otherUserId, name: 'User' }));
   }, [otherUserId]);
 
-  useEffect(() => {
-    const el = remoteVideoRef.current;
-    if (el && 'setSinkId' in el && typeof el.setSinkId === 'function') {
-      el.setSinkId(isSpeakerOn ? 'default' : '').catch(() => { });
-    }
-  }, [isSpeakerOn, remoteStream]);
 
   const isRingingRef = useRef(false);
 
@@ -157,10 +148,16 @@ export default function CallOverlay() {
   }, [currentCall, incomingCall]);
 
   const handleAccept = useCallback(async () => {
-    ringtoneRef.current?.stop();
-    ringtoneRef.current = null;
-    await acceptCall();
-  }, [acceptCall]);
+    if (isAccepting) return;
+    setIsAccepting(true);
+    try {
+      await acceptCall();
+      ringtoneRef.current?.stop();
+      ringtoneRef.current = null;
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Unable to accept the call. Please try again.');
+    } finally { setIsAccepting(false); }
+  }, [acceptCall, isAccepting]);
 
   const handleReject = useCallback(() => {
     ringtoneRef.current?.stop();
@@ -192,9 +189,10 @@ export default function CallOverlay() {
         exit={{ scale: 0.6, opacity: 0 }}
         className="fixed bottom-24 right-4 z-[70] flex flex-col items-center gap-2"
       >
+        <RemoteCallAudio stream={remoteStream} />
         <div className="relative w-20 h-20 rounded-full overflow-hidden shadow-xl border-2 border-[#00C300] bg-[#1a1a2e]">
           {isVideo && remoteStream ? (
-            <video ref={remoteVideoRef} autoPlay playsInline className="w-full h-full object-cover" />
+            <video ref={remoteVideoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
           ) : (
             <img src={avatarSrc} className="w-full h-full object-cover" alt="User avatar" />
           )}
@@ -232,21 +230,9 @@ export default function CallOverlay() {
         exit={{ opacity: 0 }}
         className="fixed inset-0 z-[70] flex flex-col overflow-hidden"
       >
-        {/* ZEGO prebuilt UI container — full 1:1 call UI (video, controls, chat).
-            IMPORTANT: This container MUST be mounted for as long as ANY call is
-            active — NOT conditional on `isZegoActive`. The ZEGO SDK's `join()`
-            requires the container ref to exist BEFORE it can set `isJoined`,
-            and `isZegoActive === isJoined`. Gating the container on
-            `isZegoActive` creates a chicken-and-egg deadlock where the
-            container never mounts and every call is killed by the 3s bailout. */}
-        {activeCall && !isGroup && (
-          <div
-            ref={zegocontainerRef}
-            className="absolute inset-0 bg-black"
-          />
-        )}
-        {/* Hide the legacy call UI when ZEGO's prebuilt UI is active */}
-        {!isZegoActive && (
+        <RemoteCallAudio stream={remoteStream} />
+        {(
+
           <>
             {/* Background / video grid */}
             {isVideo && !isIncoming && isGroup && remoteParticipants.length > 0 ? (
@@ -257,7 +243,7 @@ export default function CallOverlay() {
                 {remoteParticipants.length === 1 && <div className="hidden" />}
               </div>
             ) : isVideo && !isIncoming ? (
-              <video ref={remoteVideoRef} autoPlay playsInline className="absolute inset-0 w-full h-full object-cover" />
+              <video ref={remoteVideoRef} autoPlay playsInline muted className="absolute inset-0 w-full h-full object-cover" />
             ) : (
               <div className="absolute inset-0 bg-gradient-to-b from-[#1a1a2e] via-[#16213e] to-[#0f3460]" />
             )}
@@ -301,7 +287,7 @@ export default function CallOverlay() {
                       On hold
                     </span>
                   )}
-                  {quality !== 'good' && isConnected && (
+                  {quality !== 'good' && currentCall?.status === 'connected' && (
                     <span className={`shrink-0 text-[11px] font-medium px-2.5 py-1 rounded-full ${quality === 'reconnecting'
                       ? 'bg-amber-500/20 text-amber-300'
                       : 'bg-orange-500/20 text-orange-300'
@@ -424,12 +410,14 @@ export default function CallOverlay() {
                       <motion.button
                         whileTap={{ scale: 0.92 }}
                         onClick={handleAccept}
+                        disabled={isAccepting}
+                        aria-busy={isAccepting}
                         className="w-16 h-16 rounded-full bg-[#00C300] flex items-center justify-center shadow-lg shadow-green-900/40"
                         aria-label="Accept call"
                       >
                         <Phone size={28} className="text-white" />
                       </motion.button>
-                      <span className="text-white/50 text-xs">Accept</span>
+                      <span className="text-white/50 text-xs">{isAccepting ? 'Connecting…' : 'Accept'}</span>
                     </div>
                   </div>
                 ) : showAddParticipant ? (
@@ -518,6 +506,40 @@ export default function CallOverlay() {
                       )}
                     </div>
                   </motion.div>
+                ) : showKeypad ? (
+                  /* DTMF keypad — sends in-band tones over the active call */
+                  <motion.div
+                    initial={{ y: 40, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    exit={{ y: 40, opacity: 0 }}
+                    className="flex flex-col gap-3"
+                  >
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-white font-semibold text-sm">Keypad</h3>
+                      <button
+                        type="button"
+                        onClick={() => setShowKeypad(false)}
+                        className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-white/70 active:bg-white/20"
+                        aria-label="Close keypad"
+                      >
+                        <X size={16} />
+                      </button>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2 max-w-[240px] mx-auto w-full">
+                      {['1', '2', '3', '4', '5', '6', '7', '8', '9', '*', '0', '#'].map((key) => (
+                        <motion.button
+                          key={key}
+                          type="button"
+                          whileTap={{ scale: 0.9 }}
+                          onClick={() => { void sendDTMF(key); }}
+                          className="h-12 rounded-2xl bg-white/10 text-white text-lg font-semibold active:bg-white/20"
+                          aria-label={`Send ${key}`}
+                        >
+                          {key}
+                        </motion.button>
+                      ))}
+                    </div>
+                  </motion.div>
                 ) : (
                   /* Active call controls */
                   <div className="flex flex-col gap-5">
@@ -530,10 +552,10 @@ export default function CallOverlay() {
                         icon={isMuted ? <MicOff size={22} /> : <Mic size={22} />}
                       />
                       <ControlButton
-                        active={!isSpeakerOn}
-                        onClick={() => setIsSpeakerOn((v: boolean) => !v)}
-                        label={isSpeakerOn ? 'Speaker' : 'Earpiece'}
-                        icon={isSpeakerOn ? <Volume2 size={22} /> : <VolumeX size={22} />}
+                        active={false}
+                        onClick={() => toast.info('Choose your audio output in your browser or device settings.')}
+                        label="Audio output"
+                        icon={<Volume2 size={22} />}
                       />
                       <ControlButton
                         active={isHeld}
@@ -542,8 +564,15 @@ export default function CallOverlay() {
                         icon={isHeld ? <Play size={22} /> : <Pause size={22} />}
                       />
                       <ControlButton
+                        active={showKeypad}
+                        onClick={() => setShowKeypad((v) => !v)}
+                        label="Keypad"
+                        icon={<Keyboard size={22} />}
+                      />
+                      <ControlButton
                         active={showAddParticipant}
-                        onClick={() => setShowAddParticipant(true)}
+                        onClick={() => toast.info('Group calling is not enabled yet.')}
+                        
                         label="Add"
                         icon={<UserPlus size={22} />}
                       />
@@ -617,4 +646,24 @@ function GroupRemoteVideo({ stream }: { stream: MediaStream }) {
       <video ref={ref} autoPlay playsInline className="w-full h-full object-cover" />
     </div>
   );
+}
+
+
+function RemoteCallAudio({ stream }: { stream: MediaStream | null }) {
+  const ref = useRef<HTMLAudioElement>(null);
+  const [blocked, setBlocked] = useState(false);
+  const play = useCallback(() => {
+    const audio = ref.current;
+    if (audio && stream) void audio.play().then(() => setBlocked(false)).catch(() => setBlocked(true));
+  }, [stream]);
+  useEffect(() => {
+    const audio = ref.current;
+    if (audio) audio.srcObject = stream;
+    play();
+    return () => { if (audio) audio.srcObject = null; };
+  }, [stream, play]);
+  return <>
+    <audio ref={ref} autoPlay />
+    {blocked && <button type="button" onClick={play} className="absolute top-5 left-1/2 -translate-x-1/2 z-50 rounded-full bg-white text-black px-4 py-2 text-sm">Tap to hear call audio</button>}
+  </>;
 }

@@ -109,10 +109,7 @@ export default defineConfig(({ mode }) => {
     build: {
       outDir: 'dist',
       sourcemap: 'hidden', // Use 'hidden' for production to keep source maps private
-      // ZEGO's prebuilt UI SDK is distributed as one async ~5 MB vendor file.
-      // Keep the warning threshold above that known artifact while preserving
-      // useful warnings for unexpectedly larger application chunks.
-      chunkSizeWarningLimit: 5500,
+      chunkSizeWarningLimit: 1000,
       minify: 'esbuild',
       target: 'es2020',
       reportCompressedSize: true,
@@ -145,12 +142,6 @@ export default defineConfig(({ mode }) => {
             ) return 'vendor-firebase-core';
             if (id.includes('firebase') || id.includes('@firebase')) return 'vendor-firebase';
             if (id.includes('@supabase')) return 'vendor-supabase';
-
-            // RTC (async-loaded during calls only). The prebuilt ZEGO package is a
-            // single distributable file, so isolate it from the initial app bundle
-            // rather than pretending it can be safely split internally.
-            if (id.includes('@zegocloud/zego-uikit-prebuilt') || id.includes('zego-ui')) return 'vendor-zego-ui';
-            if (id.includes('@zegocloud') || id.includes('/zego-') || id.includes('zego')) return 'vendor-zego-core';
 
             // UI & animation (loaded early but splittable)
             if (id.includes('framer-motion') || id.includes('motion-dom') || id.includes('motion-utils')) return 'vendor-framer';

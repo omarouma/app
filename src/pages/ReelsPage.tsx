@@ -9,7 +9,7 @@ import {
 import { useAuthStore } from '@/store/useAuthStore';
 import { useFriendStore } from '@/store/useFriendStore';
 import { useReelStore } from '@/store/useReelStore';
-import { REEL_CATEGORIES, generateDemoReels } from '@/lib/demoReels';
+import { REEL_CATEGORIES } from '@/lib/demoReels';
 import { isExternalReel, isYouTubeReel } from '@/lib/videoApis';
 import YouTubePlayer from '@/components/YouTubePlayer';
 import { hasAnyVideoKey } from '@/config/videoApis';
@@ -190,14 +190,8 @@ export default function ReelsPage() {
     return () => window.removeEventListener('keydown', handler);
   }, [activeIndex, displayReels.length]);
 
-  // Show demo reels when no real reels and not loading (memoized — avoids ref access during render)
-  const demoReels = useMemo(() => generateDemoReels(12), []);
-  const effectiveReels = useMemo(
-    () => !loading && !searchMode && displayReels.length === 0 && !searchingExternal
-      ? demoReels
-      : displayReels,
-    [loading, searchMode, displayReels, searchingExternal, demoReels]
-  );
+  // An empty production feed remains empty until real content is available.
+  const effectiveReels = displayReels;
 
   // Infinite scroll + active index tracking
   const handleScroll = useCallback(() => {
