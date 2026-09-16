@@ -438,7 +438,10 @@ app.get('/chats/:id/messages', auth, async (req, res) => {
   if (!chat) return fail(res, 404, 'no_chat');
   if (!await db.isMember(chat.id, req.userId)) return fail(res, 403, 'not_member');
   const before = Number(req.query.before || 0) || now();
-  send(res, 200, { data: await db.messages(chat.id, before, 50) });
+  const beforeId = req.query.before_id;
+  if (beforeId !== undefined && (typeof beforeId !== 'string' || !beforeId.length || beforeId.length > 128))
+    return send(res, 400, { error: 'Invalid message cursor' });
+  send(res, 200, { data: await db.messages(chat.id, before, 50, beforeId || null) });
 });
 
 app.post('/chats/:id/messages', auth, async (req, res) => {
