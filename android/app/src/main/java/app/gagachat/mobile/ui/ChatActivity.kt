@@ -61,6 +61,8 @@ class ChatActivity : AppCompatActivity() {
     private val messages = mutableListOf<Message>()
     private var sending = false
     private var attachmentSending = false
+    private var olderLoading = false
+    private var oldestServerTimestamp: Long? = null
     private var typingReset: Runnable? = null
 
     private val pickImage = registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
@@ -169,6 +171,11 @@ class ChatActivity : AppCompatActivity() {
             setPadding(Ui.dp(ctx, 16), 0, Ui.dp(ctx, 16), Ui.dp(ctx, 4))
         }
         root.addView(searchHint)
+        root.addView(Ui.text(ctx, getString(R.string.load_older_messages), 14f).apply {
+            gravity = Gravity.CENTER
+            val p = Ui.dp(ctx, 10); setPadding(p, p, p, p)
+            setOnClickListener { lifecycleScope.launch { loadOlderMessages() } }
+        })
 
         scroller = ScrollView(ctx)
         list = Ui.vertical(ctx, 12)
@@ -220,6 +227,7 @@ class ChatActivity : AppCompatActivity() {
             val arr = Api.getArray("/chats/$chatId/messages")
             messages.clear()
             for (i in 0 until arr.length()) messages.add(Message.fromJson(arr.getJSONObject(i), myId))
+            oldestServerTimestamp = messages.minOfOrNull { it.createdAt }
         }.onFailure { toast(getString(R.string.err_network)) }
         // Preserve visible pending messages after a server refresh or process restart.
         for (item in SessionStore.pendingTexts(chatId)) {
@@ -230,6 +238,28 @@ class ChatActivity : AppCompatActivity() {
             }
         }
         renderMessages()
+    }
+
+    private suspend fun loadOlderMessages() {
+        val before = oldestServerTimestamp ?: return
+        if (olderLoading) return
+        olderLoading = true
+        try {
+            val arr = Api.getArray("/chats/$chatId/messages?before=$before")
+            if (arr.length() == 0) {
+                toast(getString(R.string.no_older_messages))
+                return
+            }
+            val older = (0 until arr.length()).map { Message.fromJson(arr.getJSONObject(it), myId) }
+            oldestServerTimestamp = older.minOf { it.createdAt }
+            val ids = messages.map { it.id }.toSet()
+            messages.addAll(0, older.filter { it.id !in ids })
+            renderMessages()
+            scroller.post { scroller.scrollTo(0, 0) }
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (_: Exception) { toast(getString(R.string.err_network)) }
+        finally { olderLoading = false }
     }
 
     private suspend fun resolvePeer() {
