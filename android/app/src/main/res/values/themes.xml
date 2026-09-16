@@ -7,13 +7,17 @@
     -->
     <!-- LINE-inspired messenger layout tokens with GaGa-owned branding. -->
     <style name="Theme.GaGaChat" parent="Theme.Material3.DayNight.NoActionBar">
-        <item name="colorPrimary">@color/gaga_primary</item>
+        <item name="colorPrimary">@color/line_green</item>
         <item name="colorOnPrimary">@android:color/white</item>
         <item name="colorPrimaryContainer">@color/gaga_primary_container</item>
         <item name="colorOnPrimaryContainer">@color/gaga_on_primary_container</item>
+        <item name="colorSurface">@color/line_bg</item>
+        <item name="colorOnSurface">@color/line_text</item>
+        <item name="colorOnSurfaceVariant">@color/line_text_secondary</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
         <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowBackground">@color/line_bg</item>
     </style>
 
     <style name="Theme.GaGaChat.Starting" parent="Theme.GaGaChat">

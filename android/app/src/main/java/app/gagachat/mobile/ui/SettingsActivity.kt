@@ -2,6 +2,7 @@ package app.gagachat.mobile.ui
 
 import android.os.Bundle
 import android.view.Gravity
+import android.view.View
 import android.view.ViewGroup
 import android.widget.ArrayAdapter
 import android.widget.LinearLayout
@@ -20,26 +21,25 @@ import app.gagachat.mobile.net.Api
 import app.gagachat.mobile.prefs.AppPrefs
 import app.gagachat.mobile.prefs.SessionStore
 import app.gagachat.mobile.realtime.GaGaService
-import app.gagachat.mobile.ui.Ui.button
 import app.gagachat.mobile.ui.Ui.dp
 import app.gagachat.mobile.ui.Ui.input
 import app.gagachat.mobile.ui.Ui.space
 import app.gagachat.mobile.ui.Ui.text
-import app.gagachat.mobile.ui.Ui.title
 import app.gagachat.mobile.ui.Ui.vertical
 import kotlinx.coroutines.launch
 import org.json.JSONObject
 
 /**
- * Settings screen: appearance (theme, language), security (biometric unlock),
- * advanced (server override), account (logout).
+ * Settings screen, restyled to the LINE design language: a top app bar, then
+ * grouped white list rows with leading icons, trailing chevrons / values and
+ * green toggle switches.
  */
 class SettingsActivity : AppCompatActivity() {
 
     private lateinit var content: LinearLayout
-    private var themeLabelView: TextView? = null
-    private var langLabelView: TextView? = null
-    private var bioBtn: android.widget.Button? = null
+    private var themeValueView: TextView? = null
+    private var langValueView: TextView? = null
+    private var bioSwitch: com.google.android.material.materialswitch.MaterialSwitch? = null
     private var serverField: android.widget.EditText? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -48,103 +48,111 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     private fun buildUi() {
+        val root = vertical(this, 0)
+        root.setBackgroundColor(Ui.lineBg(this))
+
+        // ---- top app bar ----
+        root.addView(Ui.topBar(this, getString(R.string.settings), onBack = { finish() }))
+
         val scroll = ScrollView(this)
         content = vertical(this, 0)
-        content.setPadding(dp(this, 20), dp(this, 24), dp(this, 20), dp(this, 32))
+        content.setPadding(0, 0, 0, dp(this, 32))
         scroll.addView(content)
-        setContentView(scroll)
+        root.addView(scroll, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
+        setContentView(root)
 
-        content.addView(title(this, getString(R.string.settings)))
-        content.addView(Ui.subtitle(this, getString(R.string.settings_subtitle)))
-        content.addView(space(this, 20))
-
-        content.addView(sectionLabel(getString(R.string.notification_settings)))
-        content.addView(button(this, getString(R.string.connection_title), filled = false) {
+        // ================= Notifications & general =================
+        content.addView(Ui.sectionHeader(this, getString(R.string.notification_settings)))
+        val g1 = Ui.listGroup(this)
+        g1.addView(Ui.listRow(this, getString(R.string.connection_title),
+            iconRes = R.drawable.ic_globe, chevron = true) {
             startActivity(android.content.Intent(this, ConnectionStatusActivity::class.java))
         })
-        content.addView(space(this, 8))
-        content.addView(button(this, getString(R.string.notification_settings), filled = false) {
+        g1.addView(Ui.divider(this, 54))
+        g1.addView(Ui.listRow(this, getString(R.string.notification_settings),
+            iconRes = R.drawable.ic_bell, chevron = true) {
             startActivity(android.content.Intent(this, NotificationSettingsActivity::class.java))
         })
-        content.addView(space(this, 8))
-        content.addView(button(this, getString(R.string.storage_title), filled = false) {
+        g1.addView(Ui.divider(this, 54))
+        g1.addView(Ui.listRow(this, getString(R.string.storage_title),
+            iconRes = R.drawable.ic_cloud, chevron = true) {
             startActivity(android.content.Intent(this, StorageActivity::class.java))
         })
-        content.addView(space(this, 20))
+        content.addView(g1)
 
-        // ---------------- Appearance: theme ----------------
-        content.addView(sectionLabel(getString(R.string.settings_appearance)))
-        val themeRow = row()
-        themeLabelView = text(this, themeLabel(AppPrefs.theme(this)), 15f)
-        themeRow.addView(themeLabelView, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-        themeRow.addView(button(this, getString(R.string.change), filled = false) { cycleTheme() })
-        content.addView(themeRow)
-        content.addView(space(this, 12))
+        // ================= Appearance =================
+        content.addView(Ui.sectionHeader(this, getString(R.string.settings_appearance)))
+        val g2 = Ui.listGroup(this)
+        themeValueView = text(this, themeLabel(AppPrefs.theme(this)), 14f, color = Ui.lineTextSecondary(this))
+        g2.addView(Ui.listRow(this, getString(R.string.settings_theme),
+            iconRes = R.drawable.ic_theme, trailing = themeValueView, chevron = true) { cycleTheme() })
+        g2.addView(Ui.divider(this, 54))
+        langValueView = text(this, langLabel(AppPrefs.locale(this)), 14f, color = Ui.lineTextSecondary(this))
+        g2.addView(Ui.listRow(this, getString(R.string.settings_language),
+            iconRes = R.drawable.ic_globe, trailing = langValueView, chevron = true) { pickLanguage() })
+        content.addView(g2)
 
-        // ---------------- Appearance: language ----------------
-        val langRow = row()
-        langLabelView = text(this, langLabel(AppPrefs.locale(this)), 15f)
-        langRow.addView(langLabelView, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-        langRow.addView(button(this, getString(R.string.change), filled = false) { pickLanguage() })
-        content.addView(langRow)
-        content.addView(space(this, 24))
+        // ================= Security =================
+        content.addView(Ui.sectionHeader(this, getString(R.string.settings_security)))
+        val g3 = Ui.listGroup(this)
+        g3.addView(Ui.toggleRow(this, getString(R.string.settings_biometric),
+            subtitle = getString(R.string.biometric_title),
+            iconRes = R.drawable.ic_lock,
+            checked = AppPrefs.biometricEnabled(this)) { toggleBiometric() })
+        content.addView(g3)
 
-        // ---------------- Security: biometric ----------------
-        content.addView(sectionLabel(getString(R.string.settings_security)))
-        val bioRow = row()
-        bioRow.addView(text(this, getString(R.string.settings_biometric), 15f),
-            LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-        bioBtn = button(this, if (AppPrefs.biometricEnabled(this)) getString(R.string.on) else getString(R.string.off), filled = false) { toggleBiometric() }
-        bioRow.addView(bioBtn)
-        content.addView(bioRow)
-        content.addView(space(this, 24))
-
-        // Server switching is a debug-only diagnostic. Release builds are
-        // permanently pinned to BuildConfig.API_BASE.
+        // ================= Advanced (debug only) =================
         if (BuildConfig.ALLOW_SERVER_OVERRIDE) {
-            content.addView(sectionLabel(getString(R.string.settings_advanced)))
+            content.addView(Ui.sectionHeader(this, getString(R.string.settings_advanced)))
+            val g4 = Ui.listGroup(this)
+            val wrap = vertical(this, 0)
+            wrap.setPadding(dp(this, 16), dp(this, 12), dp(this, 16), dp(this, 14))
+            wrap.addView(text(this, getString(R.string.server_hint), 16f, color = Ui.lineText(this)))
             serverField = input(this, getString(R.string.server_hint))
             serverField!!.setSingleLine(true)
             serverField!!.setText(AppPrefs.apiBase(this))
-            content.addView(serverField)
-            val serverNote = text(this, getString(R.string.server_note), 12f, color = Ui.secondaryColor(this))
-            serverNote.setPadding(0, dp(this, 6), 0, 0)
-            content.addView(serverNote)
-            val applyBtn = button(this, getString(R.string.apply)) { applyServer() }
-            val applyLp = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT)
-            applyLp.topMargin = dp(this, 10)
-            content.addView(applyBtn, applyLp)
-            content.addView(space(this, 24))
+            val flp = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+            flp.topMargin = dp(this, 8)
+            wrap.addView(serverField, flp)
+            val note = text(this, getString(R.string.server_note), 12f, color = Ui.lineTextSecondary(this))
+            note.setPadding(0, dp(this, 6), 0, 0)
+            wrap.addView(note)
+            val applyBtn = Ui.greenButton(this, getString(R.string.apply)) { applyServer() }
+            val alp = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+            alp.topMargin = dp(this, 10)
+            wrap.addView(applyBtn, alp)
+            g4.addView(wrap)
+            content.addView(g4)
         }
 
-        // ---------------- Privacy, safety and account rights ----------------
-        content.addView(sectionLabel(getString(R.string.safety_title)))
-        content.addView(button(this, getString(R.string.safety_title), filled = false) {
+        // ================= Privacy & safety =================
+        content.addView(Ui.sectionHeader(this, getString(R.string.safety_title)))
+        val g5 = Ui.listGroup(this)
+        g5.addView(Ui.listRow(this, getString(R.string.safety_title),
+            iconRes = R.drawable.ic_shield, chevron = true) {
             startActivity(android.content.Intent(this, SafetyActivity::class.java))
         })
-        content.addView(space(this, 12))
+        content.addView(g5)
 
-        // ---------------- Account: export, delete, logout ----------------
-        content.addView(sectionLabel(getString(R.string.settings_account)))
-        content.addView(button(this, getString(R.string.export_data), filled = false) { exportData() })
-        content.addView(space(this, 8))
-        content.addView(button(this, getString(R.string.delete_account), filled = false) { confirmDeleteAccount() })
-        content.addView(space(this, 8))
-        val logoutBtn = button(this, getString(R.string.logout), filled = true) { doLogout() }
-        content.addView(logoutBtn)
-    }
+        // ================= Account =================
+        content.addView(Ui.sectionHeader(this, getString(R.string.settings_account)))
+        val g6 = Ui.listGroup(this)
+        g6.addView(Ui.listRow(this, getString(R.string.export_data),
+            iconRes = R.drawable.ic_save, chevron = true) { exportData() })
+        g6.addView(Ui.divider(this, 54))
+        g6.addView(Ui.listRow(this, getString(R.string.delete_account),
+            iconRes = R.drawable.ic_close, chevron = true) { confirmDeleteAccount() })
+        content.addView(g6)
 
-    // ---------------- rows ----------------
-
-    private fun row(): LinearLayout = Ui.horizontal(this).apply {
-        gravity = Gravity.CENTER_VERTICAL
-        setPadding(0, dp(this@SettingsActivity, 8), 0, dp(this@SettingsActivity, 10))
-    }
-
-    private fun sectionLabel(s: String): TextView {
-        val t = text(this, s.uppercase(), 12f, bold = true, color = Ui.primaryColor(this))
-        t.setPadding(0, 0, dp(this, 8), 0)
-        return t
+        // ---- logout button ----
+        val logoutBtn = Ui.greenButton(this, getString(R.string.logout)) { doLogout() }
+        val llp = LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+        llp.leftMargin = dp(this, 16); llp.rightMargin = dp(this, 16); llp.topMargin = dp(this, 24)
+        content.addView(logoutBtn, llp)
     }
 
     // ---------------- theme ----------------
@@ -167,7 +175,7 @@ class SettingsActivity : AppCompatActivity() {
             AppPrefs.THEME_DARK -> AppCompatDelegate.MODE_NIGHT_YES
             else -> AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM
         })
-        themeLabelView?.text = themeLabel(next)
+        themeValueView?.text = themeLabel(next)
         toast(getString(R.string.applied))
     }
 
@@ -205,10 +213,9 @@ class SettingsActivity : AppCompatActivity() {
                 androidx.core.os.LocaleListCompat.forLanguageTags(tag)
             else androidx.core.os.LocaleListCompat.getEmptyLocaleList()
             AppCompatDelegate.setApplicationLocales(locales)
-            langLabelView?.text = langLabel(tag)
+            langValueView?.text = langLabel(tag)
             toast(getString(R.string.applied))
         }
-        // Present as a bottom-sheet style dialog using the spinner in a popup
         val wrap = android.widget.FrameLayout(this)
         val pad = dp(this, 20)
         wrap.setPadding(pad, pad, pad, pad)
@@ -230,23 +237,25 @@ class SettingsActivity : AppCompatActivity() {
         val bm = BiometricManager.from(this)
         if (AppPrefs.biometricEnabled(this)) {
             AppPrefs.setBiometric(this, false)
-            bioBtn?.text = getString(R.string.off)
+            bioSwitch?.isChecked = false
             toast(getString(R.string.applied))
             return
         }
         if (bm.canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_WEAK) !=
             BiometricManager.BIOMETRIC_SUCCESS) {
             toast(getString(R.string.biometric_unavailable))
+            bioSwitch?.isChecked = false
             return
         }
         val prompt = BiometricPrompt(this, ContextCompat.getMainExecutor(this),
             object : BiometricPrompt.AuthenticationCallback() {
                 override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
                     AppPrefs.setBiometric(this@SettingsActivity, true)
-                    bioBtn?.text = getString(R.string.on)
+                    bioSwitch?.isChecked = true
                     toast(getString(R.string.applied))
                 }
                 override fun onAuthenticationError(code: Int, msg: CharSequence) {
+                    bioSwitch?.isChecked = false
                     toast(msg.toString())
                 }
             })
@@ -280,35 +289,38 @@ class SettingsActivity : AppCompatActivity() {
     private fun exportData() {
         lifecycleScope.launch {
             try {
-                val data=Api.get("/users/me/export").toString(2)
+                val data = Api.get("/users/me/export").toString(2)
                 startActivity(android.content.Intent.createChooser(
                     android.content.Intent(android.content.Intent.ACTION_SEND).apply {
-                        type="application/json"
-                        putExtra(android.content.Intent.EXTRA_SUBJECT,getString(R.string.data_export_subject))
-                        putExtra(android.content.Intent.EXTRA_TEXT,data)
+                        type = "application/json"
+                        putExtra(android.content.Intent.EXTRA_SUBJECT, getString(R.string.data_export_subject))
+                        putExtra(android.content.Intent.EXTRA_TEXT, data)
                     }, getString(R.string.export_data)))
-            } catch(e:Exception) { toast(e.message ?: getString(R.string.err_network)) }
+            } catch (e: Exception) { toast(e.message ?: getString(R.string.err_network)) }
         }
     }
 
     private fun confirmDeleteAccount() {
-        val password=input(this,getString(R.string.password_confirm),android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD)
-        val wrap=android.widget.FrameLayout(this).apply { val p=dp(this@SettingsActivity,20);setPadding(p,p,p,p);addView(password) }
+        val password = input(this, getString(R.string.password_confirm),
+            android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD)
+        val wrap = android.widget.FrameLayout(this).apply {
+            val p = dp(this@SettingsActivity, 20); setPadding(p, p, p, p); addView(password)
+        }
         androidx.appcompat.app.AlertDialog.Builder(this)
             .setTitle(R.string.delete_account_title).setMessage(R.string.delete_account_body).setView(wrap)
-            .setNegativeButton(R.string.cancel,null)
-            .setPositiveButton(R.string.delete_account) { _,_ -> deleteAccount(password.text.toString()) }.show()
+            .setNegativeButton(R.string.cancel, null)
+            .setPositiveButton(R.string.delete_account) { _, _ -> deleteAccount(password.text.toString()) }.show()
     }
 
-    private fun deleteAccount(password:String) {
+    private fun deleteAccount(password: String) {
         lifecycleScope.launch {
             try {
-                Api.post("/users/me/delete",JSONObject().put("password",password))
-                GaGaService.stop(this@SettingsActivity);SessionStore.clear();AppPrefs.setSession(this@SettingsActivity,false)
-                startActivity(android.content.Intent(this@SettingsActivity,AuthActivity::class.java)
+                Api.post("/users/me/delete", JSONObject().put("password", password))
+                GaGaService.stop(this@SettingsActivity); SessionStore.clear(); AppPrefs.setSession(this@SettingsActivity, false)
+                startActivity(android.content.Intent(this@SettingsActivity, AuthActivity::class.java)
                     .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_ACTIVITY_CLEAR_TASK))
                 finishAffinity()
-            } catch(e:Exception) { toast(e.message ?: getString(R.string.err_network)) }
+            } catch (e: Exception) { toast(e.message ?: getString(R.string.err_network)) }
         }
     }
 

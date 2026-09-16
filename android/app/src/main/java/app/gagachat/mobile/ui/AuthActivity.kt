@@ -3,13 +3,17 @@ package app.gagachat.mobile.ui
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.Color
 import android.os.Build
 import android.os.Bundle
 import android.text.InputType
+import android.view.Gravity
 import android.view.View
+import android.view.ViewGroup
 import android.widget.ArrayAdapter
 import android.widget.AutoCompleteTextView
 import android.widget.EditText
+import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ScrollView
@@ -36,10 +40,9 @@ import java.net.UnknownHostException
 import javax.net.ssl.SSLException
 
 /**
- * FIX C-08/M-09: phone-first auth with 24-country picker (default +880),
- * password login, register (phone+name+username+password), OTP verify path.
- * Handles https://gagachat.app and gaga:// deep links (C-07/M-10).
- * POST_NOTIFICATIONS runtime request (targetSdk 35).
+ * Phone-first auth, restyled to the LINE design language: a bright green
+ * splash-style header carrying the logo, then a white sheet with pill inputs
+ * and a single green primary action button.
  */
 class AuthActivity : AppCompatActivity() {
 
@@ -47,7 +50,7 @@ class AuthActivity : AppCompatActivity() {
     private var countryCode = "+880"
     private var pendingPhone: String? = null
 
-    private lateinit var root: ScrollView
+    private lateinit var root: LinearLayout
     private lateinit var content: LinearLayout
     private lateinit var logo: ImageView
     private lateinit var tagline: TextView
@@ -100,30 +103,47 @@ class AuthActivity : AppCompatActivity() {
 
     private fun buildUi() {
         val ctx = this
-        content = Ui.vertical(ctx, 24)
+        root = Ui.vertical(ctx, 0)
+        root.setBackgroundColor(Ui.lineBg(ctx))
 
+        // ---- green splash-style header ----
+        val header = FrameLayout(ctx)
+        header.setBackgroundColor(Ui.lineGreen(ctx))
+        val headerInner = Ui.vertical(ctx, 0).apply {
+            gravity = Gravity.CENTER_HORIZONTAL
+            setPadding(Ui.dp(ctx, 24), Ui.dp(ctx, 48), Ui.dp(ctx, 24), Ui.dp(ctx, 40))
+        }
         logo = ImageView(ctx).apply {
             setImageResource(R.drawable.gaga_logo_master)
             contentDescription = getString(R.string.app_name)
             scaleType = ImageView.ScaleType.FIT_CENTER
-            layoutParams = LinearLayout.LayoutParams(Ui.dp(ctx, 128), Ui.dp(ctx, 128)).apply {
-                gravity = android.view.Gravity.CENTER_HORIZONTAL
-                bottomMargin = Ui.dp(ctx, 12)
-            }
         }
-        tagline = Ui.subtitle(ctx, getString(R.string.auth_tagline)).apply {
-            gravity = android.view.Gravity.CENTER
+        headerInner.addView(logo, LinearLayout.LayoutParams(Ui.dp(ctx, 104), Ui.dp(ctx, 104)))
+        tagline = Ui.text(ctx, getString(R.string.auth_tagline), 14f, color = Color.WHITE).apply {
+            gravity = Gravity.CENTER
+            setPadding(0, Ui.dp(ctx, 12), 0, 0)
         }
-        content.addView(logo)
-        content.addView(tagline)
-        content.addView(Ui.space(ctx, 24))
+        headerInner.addView(tagline)
+        header.addView(headerInner, FrameLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+        root.addView(header, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+
+        // ---- white sheet ----
+        val scroll = ScrollView(ctx)
+        content = Ui.vertical(ctx, 0)
+        content.setPadding(Ui.dp(ctx, 24), Ui.dp(ctx, 24), Ui.dp(ctx, 24), Ui.dp(ctx, 32))
+        scroll.addView(content)
+        root.addView(scroll, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
+        setContentView(root)
 
         countryField = Ui.spinner(ctx).apply {
             setAdapter(ArrayAdapter(ctx, android.R.layout.simple_list_item_1, countries.map { it.first }))
             setText(countries[0].first, false)
             setOnItemClickListener { _, _, pos, _ -> countryCode = countries[pos].second }
         }
-        content.addView(Ui.subtitle(ctx, getString(R.string.country)))
+        content.addView(fieldLabel(getString(R.string.country)))
         content.addView(countryField)
         content.addView(Ui.space(ctx, 12))
 
@@ -137,11 +157,11 @@ class AuthActivity : AppCompatActivity() {
             ctx, getString(R.string.password_hint),
             InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
         )
-        // Some vendor keyboards render TYPE_TEXT_VARIATION_PASSWORD as plain text
-        // unless a transformation method is applied explicitly.
         passwordField.transformationMethod = android.text.method.PasswordTransformationMethod.getInstance()
         content.addView(nameField)
+        content.addView(Ui.space(ctx, 12))
         content.addView(usernameField)
+        content.addView(Ui.space(ctx, 12))
         content.addView(passwordField)
         content.addView(Ui.space(ctx, 8))
 
@@ -150,20 +170,22 @@ class AuthActivity : AppCompatActivity() {
         content.addView(otpHint)
         content.addView(otpField)
 
-        serverNote = Ui.subtitle(ctx, "").apply { isVisible = false }
+        serverNote = Ui.text(ctx, "", 13f, color = Ui.lineBadgeRed(ctx)).apply { isVisible = false }
         content.addView(serverNote)
-        actionBtn = Ui.text(ctx, "", 16f, bold = true, color = Ui.onPrimaryColor(ctx)).apply {
-            background = Ui.pillBackground(Ui.primaryColor(ctx), 28f)
+        content.addView(Ui.space(ctx, 8))
+
+        actionBtn = Ui.text(ctx, "", 16f, bold = true, color = Color.WHITE).apply {
+            background = Ui.pillBackground(Ui.lineGreen(ctx), 28f)
             val pad = Ui.dp(ctx, 16)
-            setPadding(pad, Ui.dp(ctx, 14), pad, Ui.dp(ctx, 14))
-            gravity = android.view.Gravity.CENTER
+            setPadding(pad, Ui.dp(ctx, 15), pad, Ui.dp(ctx, 15))
+            gravity = Gravity.CENTER
             setOnClickListener { submit() }
         }
         content.addView(actionBtn)
-        content.addView(Ui.space(ctx, 12))
+        content.addView(Ui.space(ctx, 14))
 
-        modeBtn = Ui.text(ctx, "", 14f, color = Ui.secondaryColor(ctx)).apply {
-            gravity = android.view.Gravity.CENTER
+        modeBtn = Ui.text(ctx, "", 14f, color = Ui.lineGreen(ctx)).apply {
+            gravity = Gravity.CENTER
             setOnClickListener {
                 mode = when (mode) {
                     "login" -> "register"
@@ -175,8 +197,9 @@ class AuthActivity : AppCompatActivity() {
         }
         content.addView(modeBtn)
 
-        otpBtn = Ui.text(ctx, "", 13f, color = Ui.secondaryColor(ctx)).apply {
-            gravity = android.view.Gravity.CENTER
+        otpBtn = Ui.text(ctx, "", 13f, color = Ui.lineTextSecondary(ctx)).apply {
+            gravity = Gravity.CENTER
+            setPadding(0, Ui.dp(ctx, 10), 0, 0)
             setOnClickListener {
                 if (mode != "verify") {
                     requestOtp()
@@ -199,15 +222,18 @@ class AuthActivity : AppCompatActivity() {
         }
         val wrap = LinearLayout(ctx).apply {
             orientation = LinearLayout.VERTICAL
-            gravity = android.view.Gravity.CENTER
+            gravity = Gravity.CENTER
             addView(progress)
         }
         content.addView(wrap)
 
-        root = ScrollView(ctx).apply { addView(content) }
-        setContentView(root)
         renderMode()
     }
+
+    private fun fieldLabel(s: String): TextView =
+        Ui.text(this, s, 12f, bold = true, color = Ui.lineTextSecondary(this)).apply {
+            setPadding(0, 0, 0, Ui.dp(this@AuthActivity, 6))
+        }
 
     private fun renderMode() {
         if (mode == "register" && !BuildConfig.SELF_REGISTRATION_ENABLED) mode = "login"
@@ -255,8 +281,6 @@ class AuthActivity : AppCompatActivity() {
         val entered = phoneField.text.toString().trim()
         val digits = entered.filter { it in '0'..'9' }
         if (entered.startsWith("+")) return "+$digits"
-        // Bangladesh mobile numbers are normally entered as 01XXXXXXXXX.
-        // E.164 uses +8801XXXXXXXXX, without the domestic trunk zero.
         val national = if (countryCode == "+880" && digits.startsWith("0"))
             digits.drop(1) else digits
         return countryCode + national

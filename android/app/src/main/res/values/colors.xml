@@ -15,4 +15,42 @@
     <color name="gaga_in_bubble">#F2F3F5</color>
     <color name="gaga_call_red">#C62828</color>
     <color name="gaga_call_green">#2E7D32</color>
+
+    <!-- ============================================================
+         LINE-style design tokens (light theme)
+         ============================================================ -->
+    <!-- Bright brand green used for splash, active nav, toggles, badges -->
+    <color name="line_green">#06C755</color>
+    <color name="line_green_dark">#05A847</color>
+    <color name="line_green_pale">#E8F8EE</color>
+
+    <!-- Surfaces -->
+    <color name="line_bg">#FFFFFF</color>
+    <color name="line_bg_grouped">#F7F7F7</color>
+    <color name="line_divider">#E5E5E5</color>
+    <color name="line_divider_soft">#EFEFEF</color>
+
+    <!-- Text -->
+    <color name="line_text">#1A1A1A</color>
+    <color name="line_text_secondary">#8C8C8C</color>
+    <color name="line_text_tertiary">#B3B3B3</color>
+    <color name="line_link">#1E88E5</color>
+
+    <!-- Accents -->
+    <color name="line_badge_red">#FF3B30</color>
+    <color name="line_coin_yellow">#FFC400</color>
+    <color name="line_coin_yellow_dark">#E6A800</color>
+    <color name="line_icon_gray">#4D4D4D</color>
+
+    <!-- Profile banner gradient (teal -> green, LINE profile header) -->
+    <color name="line_banner_top">#2BC4B0</color>
+    <color name="line_banner_mid">#22B8A6</color>
+    <color name="line_banner_bottom">#1AAE9C</color>
+
+    <!-- Dark theme variants -->
+    <color name="line_bg_dark">#121212</color>
+    <color name="line_bg_grouped_dark">#1C1C1C</color>
+    <color name="line_divider_dark">#2A2A2A</color>
+    <color name="line_text_dark">#EDEDED</color>
+    <color name="line_text_secondary_dark">#9E9E9E</color>
 </resources>

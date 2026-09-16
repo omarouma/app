@@ -6,7 +6,6 @@ import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
 import android.widget.FrameLayout
-import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
@@ -28,36 +27,39 @@ import kotlinx.coroutines.launch
 import org.json.JSONObject
 
 /**
- * FIX M-01/M-05: single-activity container with 4 tabs — Chats, Contacts, Wallet, Me.
+ * LINE-style single-activity shell.
+ *
+ * Bottom navigation: Home · Chats · Calls · Me.
+ *  - Home  : profile header, search bar w/ QR, Services row, Groups/Friends
+ *  - Chats : search bar + conversation rows (avatar, preview, time, badge)
+ *  - Calls : recent voice/video call rows
+ *  - Me    : profile list rows (edit profile, QR, wallet, settings)
+ *
  * Live updates via CallBus "main" channel. No layout XML (Ui toolkit).
  */
 class MainActivity : AppCompatActivity() {
 
-    private lateinit var tabLabels: List<TextView>
-    private lateinit var tabPages: List<LinearLayout>
-    private lateinit var tabChatsBtn: TextView
-    private lateinit var tabContactsBtn: TextView
-    private lateinit var tabCallsBtn: TextView
-    private lateinit var tabWalletBtn: TextView
-    private lateinit var tabMeBtn: TextView
-
-    private lateinit var chatList: LinearLayout
-    private lateinit var contactList: LinearLayout
-    private lateinit var callsBody: LinearLayout
+    private lateinit var navItems: List<LinearLayout>
+    private lateinit var pages: List<LinearLayout>
     private lateinit var tabScroll: ScrollView
-    private var walletBody: LinearLayout? = null
-    private var meBody: LinearLayout? = null
+
+    private lateinit var homeBody: LinearLayout
+    private lateinit var chatList: LinearLayout
+    private lateinit var callsBody: LinearLayout
+    private lateinit var meBody: LinearLayout
+
+    private var homeHeader: LinearLayout? = null
+    private var chatsSearch: LinearLayout? = null
 
     private val chats = mutableListOf<Chat>()
     private val contacts = mutableListOf<Contact>()
     private var wallet: WalletInfo? = null
-    private var walletHistory: List<JSONObject> = emptyList()
     private var me: Me? = null
-    // Keep network failures visible instead of silently rendering a blank tab.
     private var chatsLoadError: String? = null
     private var contactsLoadError: String? = null
     private var callsLoadError: String? = null
     private var recentCalls: List<JSONObject> = emptyList()
+    private var currentTab = 0
 
     private val mainListener: (JSONObject) -> Unit = { j ->
         when (j.optString("type")) {
@@ -108,77 +110,70 @@ class MainActivity : AppCompatActivity() {
         val ctx = this
         val root = LinearLayout(ctx).apply { orientation = LinearLayout.VERTICAL }
 
-        val header = Ui.horizontal(ctx).apply {
-            gravity = Gravity.CENTER_VERTICAL
-            setPadding(Ui.dp(ctx, 16), Ui.dp(ctx, 12), Ui.dp(ctx, 16), Ui.dp(ctx, 12))
-            addView(ImageView(ctx).apply {
-                setImageResource(R.drawable.gaga_logo_master)
-                contentDescription = getString(R.string.app_name)
-                scaleType = ImageView.ScaleType.FIT_CENTER
-            }, LinearLayout.LayoutParams(Ui.dp(ctx, 48), Ui.dp(ctx, 48)).apply {
-                marginEnd = Ui.dp(ctx, 12)
-            })
-            addView(Ui.vertical(ctx).apply {
-                addView(Ui.title(ctx, getString(R.string.app_name)))
-                addView(Ui.subtitle(ctx, getString(R.string.main_subtitle)))
-            }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-            addView(Ui.text(ctx,"⌕",28f,true).apply{setPadding(Ui.dp(ctx,10),0,Ui.dp(ctx,10),0);setOnClickListener{startActivity(Intent(this@MainActivity,SearchActivity::class.java))}})
-            addView(Ui.text(ctx,"☎",24f,true).apply{setPadding(Ui.dp(ctx,10),0,0,0);setOnClickListener{startActivity(Intent(this@MainActivity,CallHistoryActivity::class.java))}})
-        }
-        root.addView(header)
-
         val frame = FrameLayout(ctx)
-        chatList = Ui.vertical(ctx, 12)
-        contactList = Ui.vertical(ctx, 12)
-        callsBody = Ui.vertical(ctx, 16)
-        walletBody = Ui.vertical(ctx, 16)
-        meBody = Ui.vertical(ctx, 16)
-        tabPages = listOf(chatList, callsBody, contactList, walletBody!!, meBody!!)
+        homeBody = Ui.vertical(ctx, 0)
+        chatList = Ui.vertical(ctx, 0)
+        callsBody = Ui.vertical(ctx, 0)
+        meBody = Ui.vertical(ctx, 0)
+        pages = listOf(homeBody, chatList, callsBody, meBody)
         tabScroll = ScrollView(ctx).apply { isFillViewport = true }
         frame.addView(tabScroll)
         root.addView(frame, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
 
-        val tabRow = Ui.horizontal(ctx).apply {
+        // ---- LINE bottom navigation bar ----
+        val navBar = Ui.horizontal(ctx).apply {
             gravity = Gravity.CENTER
-            setPadding(0, Ui.dp(ctx, 8), 0, Ui.dp(ctx, 8))
+            setBackgroundColor(Ui.lineBg(ctx))
+            setPadding(0, Ui.dp(ctx, 2), 0, Ui.dp(ctx, 2))
         }
-        fun tabBtn(labelRes: Int): TextView = Ui.text(ctx, getString(labelRes), 11f, bold = true).apply {
-            val pad = Ui.dp(ctx, 6)
-            setPadding(pad, Ui.dp(ctx, 8), pad, Ui.dp(ctx, 8))
-        }
-        tabChatsBtn = tabBtn(R.string.tab_chats)
-        tabCallsBtn = tabBtn(R.string.tab_calls)
-        tabContactsBtn = tabBtn(R.string.tab_contacts)
-        tabWalletBtn = tabBtn(R.string.tab_wallet)
-        tabMeBtn = tabBtn(R.string.tab_me)
-        tabLabels = listOf(tabChatsBtn, tabCallsBtn, tabContactsBtn, tabWalletBtn, tabMeBtn)
-        tabChatsBtn.setOnClickListener { selectTab(0) }
-        tabCallsBtn.setOnClickListener { selectTab(1) }
-        tabContactsBtn.setOnClickListener { selectTab(2) }
-        tabWalletBtn.setOnClickListener { selectTab(3) }
-        tabMeBtn.setOnClickListener { selectTab(4) }
-        for (tab in tabLabels) tabRow.addView(tab,
+        navBar.addView(Ui.divider(ctx), LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, 1))
+        val navRow = Ui.horizontal(ctx).apply { gravity = Gravity.CENTER }
+        val home = Ui.bottomNavItem(ctx, R.drawable.ic_nav_home, getString(R.string.tab_home), true)
+        val chat = Ui.bottomNavItem(ctx, R.drawable.ic_nav_chat, getString(R.string.tab_chats), false)
+        val call = Ui.bottomNavItem(ctx, R.drawable.ic_nav_call, getString(R.string.tab_calls), false)
+        val meItem = Ui.bottomNavItem(ctx, R.drawable.ic_nav_me, getString(R.string.tab_me), false)
+        navItems = listOf(home, chat, call, meItem)
+        home.setOnClickListener { selectTab(0) }
+        chat.setOnClickListener { selectTab(1) }
+        call.setOnClickListener { selectTab(2) }
+        meItem.setOnClickListener { selectTab(3) }
+        for (item in navItems) navRow.addView(item,
             LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-        root.addView(tabRow)
+        navBar.addView(navRow)
+        root.addView(navBar)
 
         setContentView(root)
         selectTab(0)
     }
 
     private fun selectTab(idx: Int) {
-        val page = tabPages.getOrNull(idx) ?: return
-        // No page has a parent on first launch; the selected page is detached
-        // on each switch. Always address the container itself.
+        val page = pages.getOrNull(idx) ?: return
+        currentTab = idx
         if (tabScroll.getChildAt(0) !== page) {
             tabScroll.removeAllViews()
             tabScroll.addView(page)
             tabScroll.scrollTo(0, 0)
         }
         page.isVisible = true
-        tabLabels.forEachIndexed { i, t ->
-            t.background = if (i == idx) Ui.pillBackground(Ui.primaryColor(this), 20f) else null
-            t.setTextColor(if (i == idx) Ui.onPrimaryColor(this) else Ui.secondaryColor(this))
+        // Rebuild nav items so the active tint + badge refresh.
+        val navRow = (navItems[0].parent as? LinearLayout) ?: return
+        navRow.removeAllViews()
+        val unread = chats.sumOf { it.unread }
+        val labels = listOf(
+            Triple(R.drawable.ic_nav_home, getString(R.string.tab_home), 0),
+            Triple(R.drawable.ic_nav_chat, getString(R.string.tab_chats), unread),
+            Triple(R.drawable.ic_nav_call, getString(R.string.tab_calls), 0),
+            Triple(R.drawable.ic_nav_me, getString(R.string.tab_me), 0)
+        )
+        val rebuilt = mutableListOf<LinearLayout>()
+        labels.forEachIndexed { i, (iconRes, label, badge) ->
+            val item = Ui.bottomNavItem(this, iconRes, label, i == idx, badge)
+            item.setOnClickListener { selectTab(i) }
+            navRow.addView(item, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+            rebuilt.add(item)
         }
+        navItems = rebuilt
     }
 
     // ---------------- data ----------------
@@ -200,6 +195,7 @@ class MainActivity : AppCompatActivity() {
             chats.addAll(list)
             chatsLoadError = null
             refreshChatsUi()
+            refreshHomeUi()
         }.onFailure { e ->
             chatsLoadError = e.message ?: getString(R.string.err_network)
             refreshChatsUi()
@@ -214,10 +210,10 @@ class MainActivity : AppCompatActivity() {
             contacts.clear()
             contacts.addAll(list)
             contactsLoadError = null
-            refreshContactsUi()
+            refreshHomeUi()
         }.onFailure { e ->
             contactsLoadError = e.message ?: getString(R.string.err_network)
-            refreshContactsUi()
+            refreshHomeUi()
         }
     }
 
@@ -230,17 +226,246 @@ class MainActivity : AppCompatActivity() {
         refreshCallsUi()
     }
 
-    private fun refreshCallsUi() {
-        callsBody.removeAllViews()
-        callsBody.addView(Ui.title(this, getString(R.string.tab_calls)))
-        callsBody.addView(Ui.subtitle(this, getString(R.string.calls_subtitle)))
-        callsBody.addView(Ui.space(this, 8))
-        callsBody.addView(Ui.button(this, getString(R.string.call_history), filled = false) {
-            startActivity(Intent(this, CallHistoryActivity::class.java))
+    private suspend fun loadMe() {
+        runCatching {
+            me = Me.fromJson(Api.get("/users/me"))
+            refreshHomeUi()
+            refreshMeUi()
+        }
+    }
+
+    private suspend fun loadWallet() {
+        if (!BuildConfig.WALLET_ENABLED) {
+            wallet = null
+            refreshMeUi()
+            return
+        }
+        runCatching {
+            wallet = WalletInfo.fromJson(Api.get("/wallet"))
+            refreshMeUi()
+        }
+    }
+
+    // ---------------- HOME ----------------
+
+    private fun refreshHomeUi() {
+        val ctx = this
+        homeBody.removeAllViews()
+
+        // ---- profile header ----
+        val header = Ui.horizontal(ctx).apply {
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(Ui.dp(ctx, 16), Ui.dp(ctx, 14), Ui.dp(ctx, 16), Ui.dp(ctx, 10))
+        }
+        val m = me
+        val avatar = AvatarView(ctx)
+        avatar.bind(m?.displayName ?: "?", m?.avatarUrl, 52)
+        header.addView(avatar)
+        val nameCol = Ui.vertical(ctx).apply { setPadding(Ui.dp(ctx, 12), 0, 0, 0) }
+        nameCol.addView(Ui.text(ctx, m?.displayName ?: getString(R.string.tab_me), 18f, bold = true,
+            color = Ui.lineText(ctx)))
+        nameCol.addView(Ui.text(ctx,
+            m?.bio?.takeIf { it.isNotBlank() } ?: getString(R.string.status_message_hint),
+            13f, color = Ui.lineTextSecondary(ctx)))
+        header.addView(nameCol, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        header.addView(Ui.icon(ctx, R.drawable.ic_bookmark, 22, Ui.lineText(ctx)).apply {
+            setPadding(Ui.dp(ctx, 8), Ui.dp(ctx, 8), Ui.dp(ctx, 8), Ui.dp(ctx, 8))
         })
-        callsBody.addView(Ui.button(this, getString(R.string.add_friends), filled = false) {
+        header.addView(Ui.icon(ctx, R.drawable.ic_bell, 22, Ui.lineText(ctx)).apply {
+            setPadding(Ui.dp(ctx, 8), Ui.dp(ctx, 8), Ui.dp(ctx, 8), Ui.dp(ctx, 8))
+            setOnClickListener { startActivity(Intent(this@MainActivity, NotificationSettingsActivity::class.java)) }
+        })
+        header.addView(Ui.icon(ctx, R.drawable.ic_person_add, 22, Ui.lineText(ctx)).apply {
+            setPadding(Ui.dp(ctx, 8), Ui.dp(ctx, 8), Ui.dp(ctx, 8), Ui.dp(ctx, 8))
+            setOnClickListener { startActivity(Intent(this@MainActivity, AddFriendsActivity::class.java)) }
+        })
+        header.addView(Ui.icon(ctx, R.drawable.ic_settings, 22, Ui.lineText(ctx)).apply {
+            setPadding(Ui.dp(ctx, 8), Ui.dp(ctx, 8), Ui.dp(ctx, 8), Ui.dp(ctx, 8))
+            setOnClickListener { startActivity(Intent(this@MainActivity, SettingsActivity::class.java)) }
+        })
+        homeBody.addView(header)
+
+        // ---- search bar with QR ----
+        val searchWrap = Ui.horizontal(ctx).apply {
+            setPadding(Ui.dp(ctx, 16), Ui.dp(ctx, 4), Ui.dp(ctx, 16), Ui.dp(ctx, 12))
+        }
+        searchWrap.addView(Ui.searchBar(ctx, getString(R.string.search),
+            onQr = { startActivity(Intent(this, AddFriendsActivity::class.java)) },
+            onSearch = { startActivity(Intent(this, SearchActivity::class.java)) }),
+            LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+        homeBody.addView(searchWrap)
+
+        // ---- Services row ----
+        homeBody.addView(servicesRow())
+
+        // ---- Groups ----
+        homeBody.addView(Ui.sectionHeader(ctx, getString(R.string.groups)))
+        val groupCount = chats.count { it.type == "group" }
+        homeBody.addView(Ui.listRow(ctx, getString(R.string.groups),
+            subtitle = if (groupCount > 0) getString(R.string.n_items, groupCount) else null,
+            iconRes = R.drawable.ic_group, iconCircleBg = Ui.lineGreen(ctx),
+            chevron = true) { startActivity(Intent(this, CreateGroupActivity::class.java)) })
+        homeBody.addView(Ui.divider(ctx, 16))
+
+        // ---- Friends ----
+        homeBody.addView(Ui.sectionHeader(ctx, getString(R.string.friends)))
+        homeBody.addView(Ui.listRow(ctx, getString(R.string.official_accounts),
+            subtitle = getString(R.string.n_items, contacts.size),
+            iconRes = R.drawable.ic_shield, iconCircleBg = Ui.lineGreen(ctx),
+            chevron = true) { startActivity(Intent(this, AddFriendsActivity::class.java)) })
+        homeBody.addView(Ui.divider(ctx, 16))
+        homeBody.addView(Ui.listRow(ctx, getString(R.string.ready_to_add_friends),
+            subtitle = getString(R.string.add_friends_by_qr),
+            iconRes = R.drawable.ic_person_add, iconCircleBg = Ui.lineGreen(ctx),
+            chevron = true) { startActivity(Intent(this, AddFriendsActivity::class.java)) })
+
+        // ---- Add friends CTA ----
+        val cta = Ui.vertical(ctx).apply {
+            gravity = Gravity.CENTER
+            setPadding(Ui.dp(ctx, 24), Ui.dp(ctx, 24), Ui.dp(ctx, 24), Ui.dp(ctx, 24))
+        }
+        cta.addView(Ui.text(ctx, getString(R.string.try_inviting), 16f, bold = true, color = Ui.lineText(ctx)))
+        cta.addView(Ui.text(ctx, getString(R.string.try_inviting_body), 13f,
+            color = Ui.lineTextSecondary(ctx)).apply {
+            gravity = Gravity.CENTER
+            setPadding(0, Ui.dp(ctx, 6), 0, Ui.dp(ctx, 14))
+        })
+        cta.addView(Ui.greenButton(ctx, getString(R.string.add_friends)) {
             startActivity(Intent(this, AddFriendsActivity::class.java))
         })
+        homeBody.addView(cta)
+        homeBody.addView(Ui.space(ctx, 24))
+    }
+
+    private fun servicesRow(): LinearLayout {
+        val ctx = this
+        val wrap = Ui.vertical(ctx)
+        val head = Ui.horizontal(ctx).apply {
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(Ui.dp(ctx, 16), Ui.dp(ctx, 6), Ui.dp(ctx, 16), Ui.dp(ctx, 6))
+        }
+        head.addView(Ui.text(ctx, getString(R.string.services), 15f, bold = true, color = Ui.lineText(ctx)),
+            LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        head.addView(Ui.text(ctx, getString(R.string.see_all), 13f, color = Ui.lineTextSecondary(ctx)))
+        wrap.addView(head)
+        val row = Ui.horizontal(ctx).apply {
+            setPadding(Ui.dp(ctx, 8), Ui.dp(ctx, 6), Ui.dp(ctx, 8), Ui.dp(ctx, 10))
+        }
+        fun service(iconRes: Int, label: String, onClick: () -> Unit): LinearLayout {
+            val col = Ui.vertical(ctx).apply {
+                gravity = Gravity.CENTER
+                setOnClickListener { onClick() }
+            }
+            col.addView(Ui.iconCircle(ctx, iconRes, Ui.lineGreen(ctx), 52))
+            col.addView(Ui.text(ctx, label, 12f, color = Ui.lineText(ctx)).apply {
+                setPadding(0, Ui.dp(ctx, 6), 0, 0)
+            })
+            return col
+        }
+        row.addView(service(R.drawable.ic_sticker, getString(R.string.stickers)) {
+            startActivity(Intent(this, AddFriendsActivity::class.java))
+        }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        row.addView(service(R.drawable.ic_theme, getString(R.string.themes)) {
+            startActivity(Intent(this, SettingsActivity::class.java))
+        }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        row.addView(service(R.drawable.ic_shield, getString(R.string.official_accounts)) {
+            startActivity(Intent(this, AddFriendsActivity::class.java))
+        }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        wrap.addView(row)
+        wrap.addView(Ui.divider(ctx))
+        return wrap
+    }
+
+    // ---------------- CHATS ----------------
+
+    private fun refreshChatsUi() {
+        val ctx = this
+        chatList.removeAllViews()
+
+        val head = Ui.horizontal(ctx).apply {
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(Ui.dp(ctx, 16), Ui.dp(ctx, 12), Ui.dp(ctx, 16), Ui.dp(ctx, 8))
+        }
+        head.addView(Ui.text(ctx, getString(R.string.tab_chats), 20f, bold = true, color = Ui.lineText(ctx)),
+            LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        head.addView(Ui.icon(ctx, R.drawable.ic_camera, 22, Ui.lineText(ctx)).apply {
+            setPadding(Ui.dp(ctx, 8), Ui.dp(ctx, 8), Ui.dp(ctx, 8), Ui.dp(ctx, 8))
+        })
+        head.addView(Ui.icon(ctx, R.drawable.ic_plus, 22, Ui.lineText(ctx)).apply {
+            setPadding(Ui.dp(ctx, 8), Ui.dp(ctx, 8), Ui.dp(ctx, 8), Ui.dp(ctx, 8))
+            setOnClickListener { startActivity(Intent(this@MainActivity, CreateGroupActivity::class.java)) }
+        })
+        chatList.addView(head)
+
+        val searchWrap = Ui.horizontal(ctx).apply {
+            setPadding(Ui.dp(ctx, 16), 0, Ui.dp(ctx, 16), Ui.dp(ctx, 10))
+        }
+        searchWrap.addView(Ui.searchBar(ctx, getString(R.string.search),
+            onSearch = { startActivity(Intent(this, SearchActivity::class.java)) }),
+            LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+        chatList.addView(searchWrap)
+
+        if (chats.isEmpty()) {
+            chatList.addView(chatsLoadError?.let { errorPanel(it) }
+                ?: emptyHint(getString(R.string.no_chats_hint)))
+            return
+        }
+        chats.sortedByDescending { it.lastMessageAt ?: 0 }.forEach { c ->
+            val row = Ui.horizontal(ctx).apply {
+                setPadding(Ui.dp(ctx, 16), Ui.dp(ctx, 12), Ui.dp(ctx, 16), Ui.dp(ctx, 12))
+                gravity = Gravity.CENTER_VERTICAL
+            }
+            val avatar = AvatarView(ctx)
+            avatar.bind(c.title, c.avatarUrl, 48)
+            row.addView(avatar)
+            val mid = Ui.vertical(ctx)
+            mid.addView(Ui.text(ctx, c.title, 16f, bold = true, color = Ui.lineText(ctx)))
+            mid.addView(Ui.text(ctx, c.lastMessage ?: getString(R.string.chat_tap_to_open), 13f,
+                color = Ui.lineTextSecondary(ctx)).apply { maxLines = 1 })
+            val lpMid = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+            lpMid.leftMargin = Ui.dp(ctx, 12)
+            mid.layoutParams = lpMid
+            row.addView(mid)
+            val right = Ui.vertical(ctx).apply { gravity = Gravity.END }
+            val ts = c.lastMessageAt ?: 0
+            if (ts > 0) right.addView(Ui.text(ctx, shortTime(ts), 11f, color = Ui.lineTextTertiary(ctx)))
+            if (c.unread > 0) {
+                right.addView(Ui.badge(ctx, c.unread, Ui.lineGreen(ctx)).apply {
+                    setPadding(Ui.dp(ctx, 6), Ui.dp(ctx, 2), Ui.dp(ctx, 6), Ui.dp(ctx, 2))
+                })
+            }
+            row.addView(right)
+            row.setOnClickListener {
+                app.gagachat.mobile.realtime.NotifManagerCompat.cancelForChat(c.id)
+                startActivity(Intent(this, ChatActivity::class.java)
+                    .putExtra("chat_id", c.id)
+                    .putExtra("title", c.title)
+                    .putExtra("type", c.type)
+                    .putExtra("peer_id", c.peerId))
+            }
+            chatList.addView(row)
+            chatList.addView(Ui.divider(ctx, 76))
+        }
+    }
+
+    // ---------------- CALLS ----------------
+
+    private fun refreshCallsUi() {
+        val ctx = this
+        callsBody.removeAllViews()
+        val head = Ui.horizontal(ctx).apply {
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(Ui.dp(ctx, 16), Ui.dp(ctx, 12), Ui.dp(ctx, 16), Ui.dp(ctx, 8))
+        }
+        head.addView(Ui.text(ctx, getString(R.string.tab_calls), 20f, bold = true, color = Ui.lineText(ctx)),
+            LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        head.addView(Ui.icon(ctx, R.drawable.ic_person_add, 22, Ui.lineText(ctx)).apply {
+            setPadding(Ui.dp(ctx, 8), Ui.dp(ctx, 8), Ui.dp(ctx, 8), Ui.dp(ctx, 8))
+            setOnClickListener { startActivity(Intent(this@MainActivity, AddFriendsActivity::class.java)) }
+        })
+        callsBody.addView(head)
+        callsBody.addView(Ui.divider(ctx))
+
         val error = callsLoadError
         if (error != null) {
             callsBody.addView(errorPanel(error))
@@ -250,202 +475,83 @@ class MainActivity : AppCompatActivity() {
             callsBody.addView(emptyHint(getString(R.string.no_call_history)))
             return
         }
-        recentCalls.take(20).forEach { call ->
-            val type = if (call.optBoolean("video")) getString(R.string.video_call) else getString(R.string.audio_call)
+        recentCalls.take(30).forEach { call ->
+            val video = call.optBoolean("video")
             val name = call.optString("peer_name").ifBlank { getString(R.string.tab_calls) }
-            val row = Ui.vertical(this, 12).apply {
-                addView(Ui.text(this@MainActivity, "$name · $type", 16f, bold = true))
-                addView(Ui.subtitle(this@MainActivity, call.optString("status")))
+            val status = call.optString("status")
+            val row = Ui.listRow(ctx, name,
+                subtitle = (if (video) getString(R.string.video_call) else getString(R.string.audio_call)) +
+                    if (status.isNotBlank()) " · $status" else "",
+                iconRes = if (video) R.drawable.ic_camera else R.drawable.ic_nav_call,
+                iconCircleBg = Ui.lineGreen(ctx),
+                chevron = true) {
+                startActivity(Intent(this, CallHistoryActivity::class.java))
             }
-            callsBody.addView(Ui.card(this, row))
-            callsBody.addView(Ui.space(this, 8))
+            callsBody.addView(row)
+            callsBody.addView(Ui.divider(ctx, 68))
         }
     }
 
-    private suspend fun loadMe() {
-        runCatching {
-            me = Me.fromJson(Api.get("/users/me"))
-            refreshMeUi()
-        }
-    }
-
-    private suspend fun loadWallet() {
-        if (!BuildConfig.WALLET_ENABLED) {
-            wallet = null
-            walletHistory = emptyList()
-            refreshWalletUi()
-            return
-        }
-        runCatching {
-            val res = Api.get("/wallet")
-            wallet = WalletInfo.fromJson(res)
-            val hist = res.optJSONArray("history") ?: org.json.JSONArray()
-            walletHistory = (0 until hist.length()).map { hist.getJSONObject(it) }
-            refreshWalletUi()
-        }
-    }
-
-    // ---------------- list rendering ----------------
-
-    private fun refreshChatsUi() {
-        val ctx = this
-        chatList.removeAllViews()
-        chatList.addView(Ui.button(ctx,getString(R.string.create_group),filled=false){startActivity(Intent(this,CreateGroupActivity::class.java))})
-        chatList.addView(Ui.space(ctx,8))
-        if (chats.isEmpty()) {
-            chatList.addView(chatsLoadError?.let { errorPanel(it) }
-                ?: emptyHint(getString(R.string.no_chats_hint)))
-            return
-        }
-        chats.sortedByDescending { it.lastMessageAt ?: 0 }.forEach { c ->
-            val row = Ui.horizontal(ctx).apply {
-                setPadding(Ui.dp(ctx, 8), Ui.dp(ctx, 10), Ui.dp(ctx, 8), Ui.dp(ctx, 10))
-                gravity = Gravity.CENTER_VERTICAL
-            }
-            val avatar = AvatarView(ctx)
-            avatar.bind(c.title, c.avatarUrl, 44)
-            row.addView(avatar)
-            val mid = Ui.vertical(ctx)
-            mid.addView(Ui.text(ctx, c.title, 16f, bold = true))
-            mid.addView(Ui.subtitle(ctx, c.lastMessage ?: getString(R.string.chat_tap_to_open)))
-            val lpMid = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
-            lpMid.leftMargin = Ui.dp(ctx, 12)
-            mid.layoutParams = lpMid
-            row.addView(mid)
-            if (c.unread > 0) {
-                val badge = Ui.text(ctx, c.unread.coerceAtMost(99).toString(), 12f, bold = true,
-                    color = Ui.onPrimaryColor(this)).apply {
-                    background = Ui.pillBackground(Ui.primaryColor(ctx), 12f)
-                    val p = Ui.dp(ctx, 7)
-                    setPadding(p, Ui.dp(ctx, 2), p, Ui.dp(ctx, 2))
-                }
-                row.addView(badge)
-            }
-            row.setOnClickListener {
-                NotifManagerCompatForChat(c.id)
-                startActivity(Intent(this, ChatActivity::class.java)
-                    .putExtra("chat_id", c.id)
-                    .putExtra("title", c.title)
-                    .putExtra("type",c.type)
-                    .putExtra("peer_id",c.peerId))
-            }
-            chatList.addView(Ui.card(ctx, row))
-            chatList.addView(Ui.space(ctx, 8))
-        }
-    }
-
-    private fun refreshContactsUi() {
-        val ctx = this
-        contactList.removeAllViews()
-        contactList.addView(Ui.text(ctx, getString(R.string.tab_contacts), 18f, bold = true))
-        contactList.addView(Ui.button(ctx, getString(R.string.add_friends)) {
-            startActivity(Intent(this, AddFriendsActivity::class.java))
-        })
-        contactList.addView(Ui.space(ctx, 8))
-        if (contacts.isEmpty()) {
-            contactList.addView(contactsLoadError?.let { errorPanel(it) }
-                ?: emptyHint(getString(R.string.no_contacts_hint)))
-            return
-        }
-        contacts.forEach { c ->
-            val row = Ui.horizontal(ctx).apply {
-                setPadding(Ui.dp(ctx, 8), Ui.dp(ctx, 10), Ui.dp(ctx, 8), Ui.dp(ctx, 10))
-                gravity = Gravity.CENTER_VERTICAL
-            }
-            val avatar = AvatarView(ctx)
-            avatar.bind(c.displayName, c.avatarUrl, 40)
-            row.addView(avatar)
-            val mid = Ui.vertical(ctx)
-            mid.addView(Ui.text(ctx, c.displayName, 15f, bold = true))
-            mid.addView(Ui.subtitle(ctx, (if (c.online) "● " else "") + "@" + c.username))
-            val lpMid = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
-            lpMid.leftMargin = Ui.dp(ctx, 12)
-            mid.layoutParams = lpMid
-            row.addView(mid)
-            row.setOnClickListener { openDm(c.id, c.displayName) }
-            contactList.addView(Ui.card(ctx, row))
-            contactList.addView(Ui.space(ctx, 8))
-        }
-    }
-
-    private fun refreshWalletUi() {
-        val ctx = this
-        val body = walletBody ?: return
-        body.removeAllViews()
-        if (!BuildConfig.WALLET_ENABLED) {
-            body.addView(Ui.title(ctx, getString(R.string.wallet_coming_soon_title)))
-            body.addView(Ui.space(ctx, 14))
-            body.addView(Ui.subtitle(ctx, getString(R.string.wallet_coming_soon_body)))
-            return
-        }
-        body.addView(Ui.title(ctx, getString(R.string.tab_wallet)))
-        val w = wallet
-        if (w != null) {
-            val balance = Ui.text(ctx, "${w.symbol} %.2f".format(w.balance), 30f, bold = true,
-                color = Ui.primaryColor(ctx))
-            body.addView(balance)
-            body.addView(Ui.subtitle(ctx, getString(R.string.wallet_rate, w.rateUsd)))
-            body.addView(Ui.space(ctx, 12))
-            body.addView(Ui.button(ctx, getString(R.string.wallet_open)) {
-                startActivity(Intent(this, WalletActivity::class.java))
-            })
-        }
-        body.addView(Ui.space(ctx, 12))
-        body.addView(Ui.text(ctx, getString(R.string.wallet_recent), 15f, bold = true))
-        walletHistory.take(20).forEach { tx ->
-            val kind = tx.optString("kind")
-            val amount = tx.optDouble("amount")
-            val line = Ui.horizontal(ctx).apply {
-                gravity = Gravity.CENTER_VERTICAL
-                setPadding(0, Ui.dp(ctx, 6), 0, Ui.dp(ctx, 6))
-            }
-            line.addView(Ui.text(ctx, kind, 14f))
-            val amt = Ui.text(ctx, "%+.2f".format(amount), 14f, bold = true,
-                color = if (amount >= 0) 0xFF2E7D32.toInt() else 0xFFC62828.toInt())
-            val lpAmt = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
-            lpAmt.gravity = Gravity.END
-            amt.layoutParams = lpAmt
-            line.addView(amt)
-            body.addView(line)
-        }
-    }
+    // ---------------- ME ----------------
 
     private fun refreshMeUi() {
         val ctx = this
-        val body = meBody ?: return
-        body.removeAllViews()
+        meBody.removeAllViews()
         val m = me
-        body.addView(Ui.title(ctx, m?.displayName ?: getString(R.string.tab_me)))
-        if (m != null) {
-            val avatar = AvatarView(ctx)
-            avatar.bind(m.displayName, m.avatarUrl, 64)
-            val wrap = Ui.horizontal(ctx).apply { gravity = Gravity.CENTER_VERTICAL }
-            wrap.addView(avatar)
-            val t = Ui.vertical(ctx)
-            t.addView(Ui.text(ctx, "@" + m.username, 15f))
-            if (!m.bio.isNullOrBlank()) t.addView(Ui.subtitle(ctx, m.bio))
-            val lpT = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
-            lpT.leftMargin = Ui.dp(ctx, 12)
-            t.layoutParams = lpT
-            wrap.addView(t)
-            body.addView(wrap)
+
+        // teal gradient banner with avatar + name
+        val banner = Ui.vertical(ctx).apply {
+            gravity = Gravity.CENTER
+            setPadding(0, Ui.dp(ctx, 28), 0, Ui.dp(ctx, 24))
+            background = GradientBanner.banner(ctx)
         }
-        body.addView(Ui.space(ctx, 16))
-        body.addView(Ui.button(ctx, getString(R.string.edit_profile)) {
+        val avatar = AvatarView(ctx)
+        avatar.bind(m?.displayName ?: "?", m?.avatarUrl, 84)
+        banner.addView(avatar, LinearLayout.LayoutParams(Ui.dp(ctx, 84), Ui.dp(ctx, 84)))
+        banner.addView(Ui.text(ctx, m?.displayName ?: getString(R.string.tab_me), 20f, bold = true,
+            color = android.graphics.Color.WHITE).apply {
+            setPadding(0, Ui.dp(ctx, 12), 0, 0)
+        })
+        banner.addView(Ui.text(ctx, "@" + (m?.username ?: ""), 13f,
+            color = 0xCCFFFFFF.toInt()))
+        meBody.addView(banner)
+
+        meBody.addView(Ui.space(ctx, 8))
+        meBody.addView(Ui.listRow(ctx, getString(R.string.edit_profile),
+            subtitle = getString(R.string.profile_subtitle),
+            iconRes = R.drawable.ic_edit, iconCircleBg = Ui.lineGreen(ctx), chevron = true) {
             startActivity(Intent(this, ProfileActivity::class.java))
         })
-        body.addView(Ui.space(ctx, 8))
-        body.addView(Ui.button(ctx, getString(R.string.my_qr_title), filled = false) {
+        meBody.addView(Ui.divider(ctx, 68))
+        meBody.addView(Ui.listRow(ctx, getString(R.string.my_qr_title),
+            iconRes = R.drawable.ic_qr, iconCircleBg = Ui.lineGreen(ctx), chevron = true) {
             startActivity(Intent(this, AddFriendsActivity::class.java))
         })
-        body.addView(Ui.space(ctx, 8))
-        body.addView(Ui.button(ctx, getString(R.string.settings), filled = false) {
+        meBody.addView(Ui.divider(ctx, 68))
+        meBody.addView(Ui.listRow(ctx, getString(R.string.add_friends),
+            iconRes = R.drawable.ic_person_add, iconCircleBg = Ui.lineGreen(ctx), chevron = true) {
+            startActivity(Intent(this, AddFriendsActivity::class.java))
+        })
+        meBody.addView(Ui.divider(ctx, 68))
+        meBody.addView(Ui.listRow(ctx, getString(R.string.tab_wallet),
+            subtitle = if (BuildConfig.WALLET_ENABLED) getString(R.string.wallet_subtitle)
+                else getString(R.string.wallet_coming_soon_title),
+            iconRes = R.drawable.ic_coin, iconCircleBg = Ui.lineCoinYellow(ctx), chevron = true) {
+            startActivity(Intent(this, WalletActivity::class.java))
+        })
+        meBody.addView(Ui.divider(ctx, 68))
+        meBody.addView(Ui.listRow(ctx, getString(R.string.settings),
+            subtitle = getString(R.string.settings_subtitle),
+            iconRes = R.drawable.ic_settings, iconCircleBg = Ui.lineGreen(ctx), chevron = true) {
             startActivity(Intent(this, SettingsActivity::class.java))
         })
-        body.addView(Ui.space(ctx, 8))
-        body.addView(Ui.button(ctx, getString(R.string.add_friends), filled = false) {
-            startActivity(Intent(this, AddFriendsActivity::class.java))
+        meBody.addView(Ui.divider(ctx, 68))
+        meBody.addView(Ui.listRow(ctx, getString(R.string.safety_title),
+            subtitle = getString(R.string.safety_subtitle),
+            iconRes = R.drawable.ic_shield, iconCircleBg = Ui.lineGreen(ctx), chevron = true) {
+            startActivity(Intent(this, SafetyActivity::class.java))
         })
+        meBody.addView(Ui.space(ctx, 24))
     }
 
     // ---------------- helpers ----------------
@@ -462,11 +568,6 @@ class MainActivity : AppCompatActivity() {
                 }
             }.onFailure { toast(getString(R.string.err_network)) }
         }
-    }
-
-    private fun NotifManagerCompatForChat(chatId: String) {
-        // notification for this chat is cancelled when ChatActivity opens it
-        app.gagachat.mobile.realtime.NotifManagerCompat.cancelForChat(chatId)
     }
 
     private fun handleDeepLink(intent: Intent) {
@@ -486,10 +587,23 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun shortTime(tsSeconds: Long): String {
+        val now = System.currentTimeMillis() / 1000
+        val diff = (now - tsSeconds).coerceAtLeast(0)
+        return when {
+            diff < 86400 -> java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault())
+                .format(java.util.Date(tsSeconds * 1000))
+            diff < 86400 * 7 -> java.text.SimpleDateFormat("EEE", java.util.Locale.getDefault())
+                .format(java.util.Date(tsSeconds * 1000))
+            else -> java.text.SimpleDateFormat("M/d", java.util.Locale.getDefault())
+                .format(java.util.Date(tsSeconds * 1000))
+        }
+    }
+
     private fun emptyHint(s: String): TextView =
-        Ui.subtitle(this, s).apply {
+        Ui.text(this, s, 14f, color = Ui.lineTextSecondary(this)).apply {
             gravity = Gravity.CENTER
-            val pad = Ui.dp(this@MainActivity, 24)
+            val pad = Ui.dp(this@MainActivity, 32)
             setPadding(pad, pad, pad, pad)
         }
 
@@ -503,12 +617,6 @@ class MainActivity : AppCompatActivity() {
             addView(Ui.button(this@MainActivity, getString(R.string.retry)) {
                 lifecycleScope.launch { loadData() }
             })
-        }
-
-    private fun divider(): View =
-        View(this).apply {
-            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 1)
-            setBackgroundColor(Ui.secondaryColor(this@MainActivity))
         }
 
     private fun toast(s: String) =

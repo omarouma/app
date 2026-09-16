@@ -1,9 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- LINE-style splash: solid brand-green field with the GaGa mark centered. -->
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-    <item android:drawable="@color/gaga_surface" />
+    <item android:drawable="@color/line_green" />
     <item
-        android:width="144dp"
-        android:height="144dp"
+        android:width="132dp"
+        android:height="132dp"
         android:gravity="center">
         <bitmap
             android:gravity="fill"
