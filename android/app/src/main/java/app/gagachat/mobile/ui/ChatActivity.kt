@@ -63,6 +63,7 @@ class ChatActivity : AppCompatActivity() {
     private var attachmentSending = false
     private var olderLoading = false
     private var oldestServerTimestamp: Long? = null
+    private var oldestServerId: String? = null
     private var typingReset: Runnable? = null
 
     private val pickImage = registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
@@ -227,7 +228,9 @@ class ChatActivity : AppCompatActivity() {
             val arr = Api.getArray("/chats/$chatId/messages")
             messages.clear()
             for (i in 0 until arr.length()) messages.add(Message.fromJson(arr.getJSONObject(i), myId))
-            oldestServerTimestamp = messages.minOfOrNull { it.createdAt }
+            val oldest = messages.minWithOrNull(compareBy<Message> { it.createdAt }.thenBy { it.id })
+            oldestServerTimestamp = oldest?.createdAt
+            oldestServerId = oldest?.id
         }.onFailure { toast(getString(R.string.err_network)) }
         // Preserve visible pending messages after a server refresh or process restart.
         for (item in SessionStore.pendingTexts(chatId)) {
@@ -245,13 +248,16 @@ class ChatActivity : AppCompatActivity() {
         if (olderLoading) return
         olderLoading = true
         try {
-            val arr = Api.getArray("/chats/$chatId/messages?before=$before")
+            val cursorId = oldestServerId ?: return
+            val arr = Api.getArray("/chats/$chatId/messages?before=$before&before_id=${Uri.encode(cursorId)}")
             if (arr.length() == 0) {
                 toast(getString(R.string.no_older_messages))
                 return
             }
             val older = (0 until arr.length()).map { Message.fromJson(arr.getJSONObject(it), myId) }
-            oldestServerTimestamp = older.minOf { it.createdAt }
+            val oldest = older.minWith(compareBy<Message> { it.createdAt }.thenBy { it.id })
+            oldestServerTimestamp = oldest.createdAt
+            oldestServerId = oldest.id
             val ids = messages.map { it.id }.toSet()
             messages.addAll(0, older.filter { it.id !in ids })
             renderMessages()
