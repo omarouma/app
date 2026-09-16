@@ -7,6 +7,20 @@ const path = require('node:path');
 const source = name => fs.readFileSync(path.join(__dirname, '../app/src/main/java/app/gagachat/mobile', name), 'utf8');
 const main = source('ui/MainActivity.kt');
 const service = source('realtime/GaGaService.kt');
+const chat = source('ui/ChatActivity.kt');
+const outbox = source('realtime/MessageOutboxWorker.kt');
+
+test('STATIC: rejected outbox messages remain durable rather than being discarded', () => {
+  const workerError = outbox.split('catch (e: Api.ApiError)')[1].split('catch (_: Exception)')[0];
+  assert.doesNotMatch(workerError, /removePendingText/);
+  assert.match(workerError, /e.status != 408 && e.status != 429/);
+  assert.match(workerError, /Result.failure\(\)/);
+  assert.match(workerError, /Result.retry\(\)/);
+  const flushError = chat.split('private suspend fun flushOutbox()')[1]
+    .split('catch(e:Exception)')[1].split('statusView.text=')[0];
+  assert.doesNotMatch(flushError, /removePendingText/);
+  assert.match(flushError, /MessageOutboxWorker.schedule/);
+});
 
 test('STATIC: tab selection uses the owned ScrollView, not a detached page parent', () => {
   assert.doesNotMatch(main, /tabPages\[0\]\.parent/);
