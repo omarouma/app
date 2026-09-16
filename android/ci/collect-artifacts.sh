@@ -15,7 +15,11 @@ test "${#apks[@]}" -gt 0
 
 for apk in "${apks[@]}"; do
   "$build_tools/apksigner" verify --verbose "$apk"
-  "$build_tools/aapt2" dump badging "$apk" | grep -q "package: name='gagachat.app' versionCode='30117'"
+  # Capture badging first: piping straight into `grep -q` makes aapt2 die with
+  # SIGPIPE (exit 141) once grep exits early, which `set -o pipefail` turns into
+  # a spurious failure.
+  badging="$("$build_tools/aapt2" dump badging "$apk")"
+  grep -q "package: name='gagachat.app' versionCode='30117'" <<<"$badging"
   cp "$apk" "$destination/$(basename "$apk")"
 done
 
