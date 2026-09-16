@@ -215,6 +215,8 @@
     <string name="password_confirm">Password</string>
     <string name="data_export_subject">GaGa Chat data export</string>
     <string name="message_queued">Waiting for connection</string>
+    <string name="load_older_messages" translatable="false">Load older messages</string>
+    <string name="no_older_messages" translatable="false">No older messages</string>
     <string name="message_pending" translatable="false">Pending — delivery not confirmed</string>
     <string name="pending_message_help" translatable="false">Retry queued messages, or remove this message from the local queue. Removing it cannot undo a delivery already in progress.</string>
     <string name="remove_local_queue" translatable="false">Remove locally</string>
