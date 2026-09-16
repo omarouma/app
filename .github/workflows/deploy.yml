@@ -1,4 +1,4 @@
-name: Deploy to Firebase Hosting + Functions
+name: Deploy to Firebase Hosting
 
 on:
   push:
@@ -7,7 +7,7 @@ on:
 
 jobs:
   build-and-deploy:
-    name: Build & Deploy (Hosting + Functions)
+    name: Build & Deploy (Hosting)
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -21,17 +21,24 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
-          cache-dependency-path: |
-            package-lock.json
-            functions/package-lock.json
+          cache-dependency-path: package-lock.json
 
       - name: Install frontend dependencies
         run: npm ci
 
       - name: Lint frontend
         run: npm run lint
+
+      - name: Typecheck
+        run: npx tsc -b
+
+      - name: Run tests
+        run: npm test
+
+      - name: Verify calling gateway syntax
+        run: npm run check:calling
 
       - name: Build production bundle
         run: npm run build
@@ -62,11 +69,10 @@ jobs:
           VITE_YOUTUBE_API_KEY: ${{ secrets.VITE_YOUTUBE_API_KEY }}
           VITE_YOUTUBE_REGION: ${{ secrets.VITE_YOUTUBE_REGION }}
           VITE_PEXELS_API_KEY: ${{ secrets.VITE_PEXELS_API_KEY }}
-          # ZEGO App ID is public client configuration. Keep the token secret
-          # server-side in Firebase Secret Manager; never add it here.
-          VITE_ZEGO_APP_ID: ${{ secrets.VITE_ZEGO_APP_ID || '1895317974' }}
-          VITE_ZEGO_TOKEN_SERVER_URL: https://alzwgikndwbecuqmlrca.supabase.co/functions/v1/zego-token
-          VITE_ZEGO_SERVER_URL: ${{ secrets.VITE_ZEGO_SERVER_URL }}
+          # Self-hosted calling service (Alibaba ECS + coturn). The signaling
+          # gateway URL is public client configuration; TURN credentials are
+          # minted server-side and never shipped in the bundle.
+          VITE_CALLING_API_URL: ${{ secrets.VITE_CALLING_API_URL || 'https://calls.gagachat.app' }}
 
       - name: Deploy Hosting to Firebase
         uses: FirebaseExtended/action-hosting-deploy@v0
