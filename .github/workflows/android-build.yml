@@ -68,6 +68,14 @@ jobs:
       GAGA_REQUIRE_RELEASE_SIGNING: 'true'
     steps:
       - uses: actions/checkout@v4
+      - name: Require reachable production Alibaba API
+        run: bash ci/verify-backend.sh backend-verification.txt
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gagachat-release-backend-verification
+          path: android/backend-verification.txt
+          if-no-files-found: ignore
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
