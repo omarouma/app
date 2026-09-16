@@ -1,10 +1,10 @@
-# GaGa Chat backend — cloud deploy targets (Alibaba ap-southeast-3)
+# GaGa Chat backend — cloud deploy targets (Alibaba ap-southeast-1)
 # Usage: make <target>. See deploy/RUNBOOK-ACCOUNT-UNBLOCK.md for the full path.
 
 SHELL := /bin/bash
 .DEFAULT_GOAL := help
 
-REGION := ap-southeast-3
+REGION := ap-southeast-1
 
 .PHONY: help provision provision-apply verify backend-test cloud-check cloud-migrate
 .PHONY: deploy-verify deploy-live image-build image-push live-gate dns-check hint

@@ -8,11 +8,13 @@ directory.
 ## Current account state (verified live 2026-09)
 
 Verified via OpenAPI (aliyun CLI + signed RPC calls) against account
-`5343286431932414`, region `ap-southeast-3` (Kuala Lumpur):
+`5343286431932414`, region `ap-southeast-1` (Singapore):
 
-- Present and correct: VPC `vpc-8psjb3ut04ylanmy6g7gx` (172.31.0.0/16), vSwitches
-  `vsw-8psdvlzrki4sjn34v4wlk` (zone c) and `vsw-8psapdqlt2e2gu7pekpcd` (zone a),
-  security group `sg-8ps6zz4o3wufmc0bhhjs` with all 9 production rules (SSH 22,
+- Present and correct: VPC `vpc-t4nadiodeur9l3vklrotn` (`gagachat-vpc`,
+  192.168.0.0/16), vSwitch `vsw-t4n575fv12uyro6hpkvy1` (`gagachat-vsw`, zone
+  `ap-southeast-1a`), security groups `sg-t4nedsa1inni1zmjudf8`
+  (`gagachat-sg-vpc`), `sg-t4n8l4ys0wuasmvcqk9l` (`gagachat-sg`) and
+  `sg-t4nf7fdomo8l1dp16bu2` (`gagachat-sg-sg`) with all 9 production rules (SSH 22,
   HTTP 80, HTTPS 443, TURN TCP 3478/5349/8080, TURN UDP 3478/5349/49152-65535),
   IPv6 gateway, RAM user `gagachat-ops` (exists, policies attached).
 - Zero instances: no ECS, no RDS, no Redis/Tair, no OSS buckets.
@@ -44,7 +46,7 @@ one-time identity/payment verification in the console.
    activated for billing.
 5. Wait 5–15 minutes; risk-control decisions refresh automatically.
 6. Verify the block is lifted (run from this directory):
-   `aliyun ecs DescribeAvailableResources --RegionId ap-southeast-3 --DestinationResource InstanceType --ZoneId ap-southeast-3c --InstanceChargeType PostPaid`
+   `aliyun ecs DescribeAvailableResources --RegionId ap-southeast-1 --DestinationResource InstanceType --ZoneId ap-southeast-1a --InstanceChargeType PostPaid`
    and attempt the paid call from `aliyunprovision.sh` output.
 
 If the console shows the account as verified and calls still fail, open a
@@ -58,7 +60,7 @@ days.
 The APK/build pipeline received a ROOT AccessKey. Rotate it after unblock:
 
 1. Console → RAM → Users → `gagachat-ops` → Create AccessKey.
-2. Update local config: `aliyun configure set --access-key-id <new> --access-key-secret <new> --region ap-southeast-3`
+2. Update local config: `aliyun configure set --access-key-id <new> --access-key-secret <new> --region ap-southeast-1`
 3. Re-run `./aliyunprovision.sh` — it now reports `identity: ...:gagachat-ops`
    and no longer prints the ROOT warning.
 4. Console → RAM → Users → root key `LTAI5tFBJh...` → Disable/Delete.
@@ -81,7 +83,7 @@ of each type):
   instance, database `gagachat`, user per `.env.example` (`RDS_*`).
 - Tair/Redis (same VPC, private, TLS): `REDIS_URL` =
   `rediss://:<password>@<host>:6379/0`.
-- OSS bucket, private-read: `gagachat-media-ap-southeast-3` → `OSS_*`.
+- OSS bucket, private-read: `gagachat-media-ap-southeast-1` → `OSS_*`.
 - ACR repository: `gagachat-api` → build & push the image (Step 4).
 
 The backend auto-applies the RDS schema at startup (`MySqlDB.connect` +
@@ -94,8 +96,8 @@ required — `cloud/rds-schema.sql` is only needed for the optional
 From the `backend/` directory:
 
 ```
-docker build -t registry.ap-southeast-3.aliyuncs.com/<ns>/gagachat-api:3.9.0 .
-docker push registry.ap-southeast-3.aliyuncs.com/<ns>/gagachat-api:3.9.0
+docker build -t registry.ap-southeast-1.aliyuncs.com/<ns>/gagachat-api:3.9.0 .
+docker push registry.ap-southeast-1.aliyuncs.com/<ns>/gagachat-api:3.9.0
 # pin by digest for production:
 docker inspect --format='{{index .RepoDigests 0}}' <ns>/gagachat-api:3.9.0
 # put the @sha256:... digest into /etc/gagachat/runtime.env as GAGA_API_IMAGE

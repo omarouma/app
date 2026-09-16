@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
 # aliyunprovision.sh - Idempotent Alibaba Cloud provisioning for GaGa Chat.
 #
-# Verifies the network prerequisites in ap-southeast-3 (Kuala Lumpur) and
+# Verifies the network prerequisites in ap-southeast-1 (Singapore) and
 # prints the ECS launch plan for the API instance. Read-only by default;
 # pass --apply to also add missing security-group rules.
 #
 # Resource IDs below were confirmed live via OpenAPI inventory (2026-09):
-#   VPC     vpc-8psjb3ut04ylanmy6g7gx  (172.31.0.0/16, IPv6 enabled)
-#   vSwitch vsw-8psdvlzrki4sjn34v4wlk (gagachat-vsw-c, zone ap-southeast-3c)
-#   SG      sg-8ps6zz4o3wufmc0bhhjs  (gagachat-sg, production rules present)
-#   Image   ubuntu_24_04_x64_20G_alibase_20260828.vhd (x86_64, Ubuntu 24.04)
+#   VPC     vpc-t4nadiodeur9l3vklrotn (gagachat-vpc, 192.168.0.0/16)
+#   vSwitch vsw-t4n575fv12uyro6hpkvy1 (gagachat-vsw, zone ap-southeast-1a)
+#   SG      sg-t4nedsa1inni1zmjudf8  (gagachat-sg-vpc, production rules present)
+#   Image   aliyun_3_x64_20G_pro_alibase_20260827.vhd (x86_64, Alibaba Cloud Linux 3 Pro)
 # The paid provisioning calls (RunInstances, EIP Allocate) are executed by the
 # operator AFTER account risk-control is lifted - see RUNBOOK-ACCOUNT-UNBLOCK.md.
 #
@@ -23,13 +23,13 @@ DRY_RUN=1
 [[ "${1:-}" == "--apply" ]] && DRY_RUN=0
 
 # ---- Project constants (discovered via OpenAPI inventory 2026-09) ----
-REGION="ap-southeast-3"
-VPC_ID="vpc-8psjb3ut04ylanmy6g7gx"
-VSWITCH_ID="vsw-8psdvlzrki4sjn34v4wlk"
-VSWITCH_ZONE="ap-southeast-3c"
-SG_ID="sg-8ps6zz4o3wufmc0bhhjs"
-IMAGE_ID="ubuntu_24_04_x64_20G_alibase_20260828.vhd"
-INSTANCE_TYPE="ecs.e-c1m1.large"   # 2 vCPU / 2 GiB economy; zone-c available
+REGION="ap-southeast-1"
+VPC_ID="vpc-t4nadiodeur9l3vklrotn"
+VSWITCH_ID="vsw-t4n575fv12uyro6hpkvy1"
+VSWITCH_ZONE="ap-southeast-1a"
+SG_ID="sg-t4nedsa1inni1zmjudf8"
+IMAGE_ID="aliyun_3_x64_20G_pro_alibase_20260827.vhd"
+INSTANCE_TYPE="ecs.e-c1m1.large"   # 2 vCPU / 2 GiB economy; zone-a available
 INSTANCE_NAME="gagachat-api-01"
 
 log()  { printf '%s %s\n' "$(date -u +%H:%M:%S)" "$*"; }
@@ -78,8 +78,9 @@ for i in "${!IpProtocol[@]}"; do
     log "  sg rule MISSING: $proto ${pmin}-${pmax} (rerun with --apply to add)"
   else
     log "  sg rule adding: $proto ${pmin}-${pmax}"
-    cli ecs AuthorizeSecurityGroup --SecurityGroupId "$SG_ID" --IpProtocol "$proto" \
-      --PortRange "${pmin}/${pmax}" --SourceCidrIp "0.0.0.0/0" --Direction ingress >/dev/null
+    cli ecs AuthorizeSecurityGroup --SecurityGroupId "$SG_ID" \
+      --IpProtocol "$proto" --PortRange "${pmin}/${pmax}" \
+      --SourceCidrIp "0.0.0.0/0" --Policy Accept >/dev/null
   fi
 done
 RULE_COUNT=$(cli ecs DescribeSecurityGroupAttribute --SecurityGroupId "$SG_ID" --Direction ingress \

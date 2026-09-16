@@ -8,7 +8,7 @@
 #
 # Pre-flight expectations (see RUNBOOK-ACCOUNT-UNBLOCK.md + aliyunprovision.sh):
 #   * RDS MySQL 8, Tair/Redis and OSS bucket already created (private, same region)
-#   * ACR image built and pushed:  registry.ap-southeast-3.aliyuncs.com/<ns>/gagachat-api@sha256:<digest>
+#   * ACR image built and pushed:  registry.ap-southeast-1.aliyuncs.com/<ns>/gagachat-api@sha256:<digest>
 #   * /etc/gagachat/runtime.env present (chmod 600) with the 14 runtime secrets
 #     (mirror of backend/.env.example: RDS_*, REDIS_URL, OSS_*, PUBLIC_BASE,
 #      JWT_SECRET, TURN_*, FIREBASE_SERVICE_ACCOUNT_JSON, FIREBASE_PROJECT_ID)
@@ -24,7 +24,7 @@ GAGA_ROOT=/opt/gagachat
 RUNTIME_ENV=/etc/gagachat/runtime.env
 COMPOSE_FILE="$GAGA_ROOT/deploy/docker-compose.production.yml"
 PUBLIC_BASE="${PUBLIC_BASE:-https://api.gagachat.app/api}"
-ACR_DOMAIN="registry.ap-southeast-3.aliyuncs.com"
+ACR_DOMAIN="registry.ap-southeast-1.aliyuncs.com"
 
 log()  { printf '[%s] %s\n' "$(date -u +%H:%M:%S)" "$*"; }
 die()  { printf '[%s] ERROR: %s\n' "$(date -u +%H:%M:%S)" "$*" >&2; exit 1; }

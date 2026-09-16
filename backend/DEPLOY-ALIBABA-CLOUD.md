@@ -2,14 +2,17 @@
 
 The Android app calls `https://api.gagachat.app/api`. Do not route that domain to this service until every check below passes.
 
-## Malaysia VPC inventory checked September 2026
+## Singapore VPC inventory checked September 2026
 
-The supplied `ap-southeast-3` VPC export lists `gagachat-vpc` with private
-IPv4 CIDR `172.31.0.0/16`, allocated IPv6 CIDR `240b:400e:84:b00::/56`,
-two vSwitches, and **zero cloud instances**. Console screenshots show an IPv6
-gateway but do not identify a public application server or ALB. These VPC
-addresses are network allocations, not an API destination; do not put the
-private CIDR, VPC ID, IPv6 CIDR, or RAM login domain into Android or public DNS.
+The supplied `ap-southeast-1` (Singapore) VPC export lists `gagachat-vpc`
+(`vpc-t4nadiodeur9l3vklrotn`) with private IPv4 CIDR `192.168.0.0/16`, one
+vSwitch `gagachat-vsw` (`vsw-t4n575fv12uyro6hpkvy1`, zone `ap-southeast-1a`,
+`192.168.0.0/24`), and three security groups (`gagachat-sg`,
+`gagachat-sg-vpc`, `gagachat-sg-sg`) — but **zero cloud instances**. Console
+screenshots confirm the VPC/vSwitch/SG scaffolding with no ECS, RDS, Redis,
+EIP or SLB. These VPC addresses are network allocations, not an API
+destination; do not put the private CIDR, VPC ID, or RAM login domain into
+Android or public DNS.
 
 First inspect ECS > Instances and ALB/SLB in the intended Alibaba region. If
 there is no running API workload, provision and deploy it in that VPC, attach
