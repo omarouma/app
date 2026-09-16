@@ -379,7 +379,6 @@ class ChatActivity : AppCompatActivity() {
         // Persist before clearing the composer or starting an interruptible network request.
         try {
             SessionStore.enqueueText(chatId,text,clientId)
-            SessionStore.saveDraft(chatId, "")
         } catch (_: IllegalStateException) {
             toast(getString(R.string.err_network))
             return
