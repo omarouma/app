@@ -11,6 +11,16 @@ const chat = source('ui/ChatActivity.kt');
 const outbox = source('realtime/MessageOutboxWorker.kt');
 const session = source('prefs/SessionStore.kt');
 
+test('STATIC: push registration retries through durable network-constrained work', () => {
+  const push = source('firebase/PushRegistrationWorker.kt');
+  assert.match(push, /NetworkType.CONNECTED/);
+  assert.match(push, /BackoffPolicy.EXPONENTIAL/);
+  assert.match(push, /Result.retry\(\)/);
+  assert.match(push, /FirebaseMessaging.getInstance\(\).token/);
+  assert.doesNotMatch(push, /setInputData/);
+  assert.match(source('firebase/PushTokenRegistrar.kt'), /PushRegistrationWorker.schedule/);
+});
+
 test('STATIC: pending messages expose local retry controls rather than server deletion', () => {
   assert.match(chat, /if \(pending\) managePendingMessage\(m\) else confirmDelete\(m\)/);
   const controls = chat.split('private fun managePendingMessage(')[1].split('private fun confirmDelete(')[0];
