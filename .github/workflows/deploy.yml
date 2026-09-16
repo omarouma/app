@@ -68,6 +68,27 @@ jobs:
           VITE_ZEGO_TOKEN_SERVER_URL: https://alzwgikndwbecuqmlrca.supabase.co/functions/v1/zego-token
           VITE_ZEGO_SERVER_URL: ${{ secrets.VITE_ZEGO_SERVER_URL }}
 
+      # ── Cloud Functions (ZEGO token minting, push, etc.) ──────────────────
+      - name: Install Functions dependencies
+        run: npm --prefix functions ci
+
+      - name: Build Functions
+        run: npm --prefix functions run build
+
+      - name: Materialize Firebase service account
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          if [ -z "$FIREBASE_SERVICE_ACCOUNT" ]; then
+            echo "::error::FIREBASE_SERVICE_ACCOUNT secret is not set. Cannot deploy Functions."
+            exit 1
+          fi
+          printf '%s' "$FIREBASE_SERVICE_ACCOUNT" > "$RUNNER_TEMP/firebase-sa.json"
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/firebase-sa.json" >> "$GITHUB_ENV"
+
+      - name: Deploy Functions to Firebase
+        run: npx --yes firebase-tools@latest deploy --only functions --project oumagachat --non-interactive
+
       - name: Deploy Hosting to Firebase
         uses: FirebaseExtended/action-hosting-deploy@v0
         with:
@@ -76,3 +97,7 @@ jobs:
           channelId: live
           projectId: oumagachat
           firebaseToolsVersion: latest
+
+      - name: Cleanup service account file
+        if: always()
+        run: rm -f "$RUNNER_TEMP/firebase-sa.json"
