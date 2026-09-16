@@ -192,12 +192,7 @@
       "**/*.map"
     ],
     "public": "android/hosting",
-    "rewrites": [
-      {
-        "source": "**",
-        "destination": "/index.html"
-      }
-    ],
+    "rewrites": [],
     "trailingSlash": false
   }
 }
