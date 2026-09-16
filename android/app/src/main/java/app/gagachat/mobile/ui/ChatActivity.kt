@@ -121,6 +121,10 @@ class ChatActivity : AppCompatActivity() {
     }
 
     override fun onPause() {
+        if (::input.isInitialized) {
+            runCatching { SessionStore.saveDraft(chatId, input.text.toString()) }
+                .onFailure { toast(getString(R.string.err_network)) }
+        }
         super.onPause()
         CurrentChat.id = null
     }
@@ -187,6 +191,7 @@ class ChatActivity : AppCompatActivity() {
         input = Ui.input(ctx, getString(R.string.message_hint),
             InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_CAP_SENTENCES)
         input.layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+        input.setText(SessionStore.draft(chatId))
         input.addTextChangedListener(object : android.text.TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
             override fun onTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
@@ -215,8 +220,16 @@ class ChatActivity : AppCompatActivity() {
             val arr = Api.getArray("/chats/$chatId/messages")
             messages.clear()
             for (i in 0 until arr.length()) messages.add(Message.fromJson(arr.getJSONObject(i), myId))
-            renderMessages()
         }.onFailure { toast(getString(R.string.err_network)) }
+        // Preserve visible pending messages after a server refresh or process restart.
+        for (item in SessionStore.pendingTexts(chatId)) {
+            val id = item.optString("client_id")
+            if (id.isNotBlank() && messages.none { it.id == id }) {
+                messages.add(Message(id, chatId, myId, "", item.optString("text"), null, null,
+                    item.optLong("created_at"), true))
+            }
+        }
+        renderMessages()
     }
 
     private suspend fun resolvePeer() {
