@@ -310,9 +310,14 @@ class ChatActivity : AppCompatActivity() {
         val outColor = 0xFFD6F5C8.toInt()
         val inColor = 0xFFEFF1F3.toInt()
         val bubble = Ui.bubble(this, if (m.mine) outColor else inColor, m.mine)
-        bubble.text = (m.text ?: "") + "  " + timeOf(m.createdAt)
+        val pending = SessionStore.pendingTexts(chatId).any { it.optString("client_id") == m.id }
+        bubble.text = (m.text ?: "") + "  " + timeOf(m.createdAt) +
+            if (pending) "\n" + getString(R.string.message_pending) else ""
         bubble.setTextColor(if (m.mine) 0xFF1B4620.toInt() else 0xFF202124.toInt())
-        if(m.mine) bubble.setOnLongClickListener { confirmDelete(m);true }
+        if(m.mine) bubble.setOnLongClickListener {
+            if (pending) managePendingMessage(m) else confirmDelete(m)
+            true
+        }
         list.addView(bubble)
     }
 
@@ -467,6 +472,26 @@ class ChatActivity : AppCompatActivity() {
                 attachmentSending = false
             }
         }
+    }
+
+    private fun managePendingMessage(message: Message) {
+        androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle(R.string.message_pending)
+            .setMessage(R.string.pending_message_help)
+            .setNegativeButton(R.string.cancel, null)
+            .setPositiveButton(R.string.retry) { _, _ ->
+                lifecycleScope.launch { flushOutbox() }
+            }
+            .setNeutralButton(R.string.remove_local_queue) { _, _ ->
+                if (sending) return@setNeutralButton
+                try {
+                    SessionStore.removePendingText(message.id)
+                    messages.removeAll { it.id == message.id }
+                    statusView.text = if (SessionStore.pendingTexts(chatId).isEmpty()) ""
+                        else getString(R.string.message_queued)
+                    renderMessages()
+                } catch (_: IllegalStateException) { toast(getString(R.string.err_network)) }
+            }.show()
     }
 
     private fun confirmDelete(message:Message) {
