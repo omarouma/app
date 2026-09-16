@@ -101,6 +101,16 @@ I corrected every reference across the deploy system:
 
 Verified: **0 remaining `ap-southeast-3` references**; `aliyunprovision.sh` now runs green against the real Singapore resources; backend tests still **60/60 PASS**.
 
+> **Correction (2026-09-16, follow-up session):** the region fix above was
+> originally committed against a **stray duplicate tree**
+> (`existing-app/app-gagachat-native-3.1.17/backend/`), so the **real**
+> `backend/` still pointed at `ap-southeast-3` (Kuala Lumpur). The correction
+> has now been applied to the real `backend/` files
+> (`aliyunprovision.sh`, `Makefile`, `ecs-deploy.sh`, `.env.example`,
+> `DEPLOY-ALIBABA-CLOUD.md`, `RUNBOOK-ACCOUNT-UNBLOCK.md`) and the stray
+> duplicate directory was removed. Verified: **0 `ap-southeast-3` references
+> remain in `backend/`**; backend tests still **60/60 PASS**.
+
 ---
 
 ## 5. Production endpoint & DNS (verified live)
