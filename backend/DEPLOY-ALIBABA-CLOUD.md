@@ -2,14 +2,15 @@
 
 The Android app calls `https://api.gagachat.app/api`. Do not route that domain to this service until every check below passes.
 
-## Malaysia VPC inventory checked September 2026
+## Singapore VPC inventory checked September 2026
 
-The supplied `ap-southeast-3` VPC export lists `gagachat-vpc` with private
-IPv4 CIDR `172.31.0.0/16`, allocated IPv6 CIDR `240b:400e:84:b00::/56`,
-two vSwitches, and **zero cloud instances**. Console screenshots show an IPv6
-gateway but do not identify a public application server or ALB. These VPC
-addresses are network allocations, not an API destination; do not put the
-private CIDR, VPC ID, IPv6 CIDR, or RAM login domain into Android or public DNS.
+The supplied `ap-southeast-1` export identifies the intended production
+network as `gagachat-vpc` (`192.168.0.0/16`) with one vSwitch
+(`192.168.0.0/24`, Singapore zone A) and **zero cloud instances**. The default
+Singapore VPC (`172.16.0.0/12`) also has zero instances. Console screenshots
+show security groups and monitoring workspaces, but no ECS, RDS, Redis, EIP,
+ALB or SLB serving the application. These private CIDRs and resource IDs are
+not API destinations and must not be placed in Android or public DNS.
 
 First inspect ECS > Instances and ALB/SLB in the intended Alibaba region. If
 there is no running API workload, provision and deploy it in that VPC, attach
@@ -17,6 +18,12 @@ a public HTTPS ingress, and obtain its actual public IP or load-balancer DNS
 name. Only then set the `api.gagachat.app` DNS record, confirm a valid TLS
 certificate, and run the public endpoint checks below. A DNS record alone
 cannot make an empty VPC serve the API. Keep RDS, Redis, and OSS private.
+
+The supplied security-group screenshot shows multiple inbound rules sourced
+from `0.0.0.0/0`. Before attaching an instance, restrict TCP 22 to a known
+administrator IP (or use Alibaba Cloud Workbench), keep the container/API port
+8080 private behind the proxy/load balancer, and expose only required public
+web/TURN ports. Never expose RDS 3306 or Redis 6379 to the Internet.
 
 1. Create private-network RDS MySQL 8, Tair/Redis with TLS, and a private OSS bucket in the same region as ECS/ACK.
 2. Apply `cloud/rds-schema.sql`; allow inbound database/cache traffic only from the application security group.
