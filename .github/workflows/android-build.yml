@@ -39,7 +39,8 @@ jobs:
             exit 1
           fi
       - run: node --test test/*.cjs
-      - run: ./gradlew --no-daemon clean lintQa assembleQa bundleQa
+      - run: ./gradlew --no-daemon clean lintQa assembleQa
+      - run: ./gradlew --no-daemon bundleQa
       - run: bash ci/verify-apk-backends.sh app/build/outputs/apk/qa/app-universal-qa.apk
       - if: failure()
         uses: actions/upload-artifact@v4
@@ -101,7 +102,8 @@ jobs:
           umask 077
           printf '%s' "$GAGA_SIGNING_STORE_BASE64" | base64 -d > "$RUNNER_TEMP/gagachat-upload.jks"
           echo "GAGA_SIGNING_STORE_FILE=$RUNNER_TEMP/gagachat-upload.jks" >> "$GITHUB_ENV"
-      - run: ./gradlew --no-daemon clean lintRelease assembleRelease bundleRelease
+      - run: ./gradlew --no-daemon clean lintRelease assembleRelease
+      - run: ./gradlew --no-daemon bundleRelease
       - run: bash ci/collect-artifacts.sh release
       - name: Check AAB and checksum
         run: |
