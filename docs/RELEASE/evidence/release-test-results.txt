@@ -1,0 +1,55 @@
+== Android release-wiring (node test/release-wiring.cjs) ==
+  ---
+  duration_ms: 0.13683
+  ...
+1..6
+# tests 6
+# suites 0
+# pass 6
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 11.715557
+
+== Backend npm test (summary) ==
+  PASS accepted contact visible
+  PASS DM creation works
+  PASS array phone rejected
+  PASS invalid username is rejected instead of silently altered
+  PASS object password rejected
+  PASS concurrent registration returns one account and one conflict
+  PASS username login supported with same credentials
+  PASS pending upload cannot be read by owner
+  PASS forged reference cannot grant access to private media
+  PASS media URLs must match canonical ID exactly
+  PASS cannot publish another user private media as avatar
+  PASS owner can share private media with chat
+  PASS recipient gains access only through authorized message
+  PASS outsider cannot read shared media
+  PASS MySQL media predicate grants chat member
+  PASS MySQL media predicate rejects outsider
+  PASS message created with client id
+  PASS duplicate message request is idempotent
+  PASS idempotent retry stored once
+  PASS non-member cannot mark chat read
+  PASS message relayed by WebSocket
+  PASS authorized typing relayed
+  PASS call creation authorized
+  PASS callee receives ring event
+  PASS participant call signal relayed
+  PASS non-participant cannot end call
+  PASS participant can end call
+  PASS ephemeral TURN credentials returned
+  PASS no welcome money is minted
+  PASS explicit non-production demo top-up works
+  PASS atomic demo transfer works
+  PASS receiver demo balance updated
+  PASS allowed staging upload accepted
+  PASS staging upload served through /api prefix
+  PASS unsafe upload type rejected
+  PASS WebSocket URL token fallback disabled
+  PASS logout succeeds
+  PASS logout revokes server-side session
+  PASS logout closes the active socket with auth-expired code
+===== SMOKE RESULT: 60 passed, 0 failed =====

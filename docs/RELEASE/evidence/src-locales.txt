@@ -1,0 +1,13 @@
+/workspace/existing-app/app-gagachat-native-3.1.17/android/app/src/main/res/values
+ar
+bn
+de
+es
+fr
+hi
+id
+pt
+ru
+tr
+ur
+zh
