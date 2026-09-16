@@ -11,6 +11,14 @@ const chat = source('ui/ChatActivity.kt');
 const outbox = source('realtime/MessageOutboxWorker.kt');
 const session = source('prefs/SessionStore.kt');
 
+test('STATIC: pending messages expose local retry controls rather than server deletion', () => {
+  assert.match(chat, /if \(pending\) managePendingMessage\(m\) else confirmDelete\(m\)/);
+  const controls = chat.split('private fun managePendingMessage(')[1].split('private fun confirmDelete(')[0];
+  assert.match(controls, /flushOutbox\(\)/);
+  assert.match(controls, /SessionStore.removePendingText\(message.id\)/);
+  assert.doesNotMatch(controls, /Api.delete/);
+});
+
 test('STATIC: enqueue and draft removal use the same durable editor transaction', () => {
   const enqueue = session.split('fun enqueueText(')[1].split('fun pendingTexts()')[0];
   assert.match(enqueue, /putString\("message_outbox",all.toString\(\)\)\s*\.remove\("draft_\$chatId"\)\s*\.commit\(\)/);
