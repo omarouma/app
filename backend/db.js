@@ -401,12 +401,14 @@ class DB {
       unread: r.unread, verified: false
     }));
   }
-  messages(chatId, before, limit) {
+  messages(chatId, before, limit, beforeId = null) {
+    const cursor = beforeId ? '(m.created_at < ? OR (m.created_at = ? AND m.id < ?))' : 'm.created_at <= ?';
+    const args = beforeId ? [chatId, before, before, beforeId, limit] : [chatId, before, limit];
     const rows = this.db.prepare(`
       SELECT m.*, u.display_name AS sender_name
       FROM messages m JOIN users u ON u.id = m.sender_id
-      WHERE m.chat_id = ? AND m.created_at <= ?
-      ORDER BY m.created_at DESC LIMIT ?`).all(chatId, before, limit);
+      WHERE m.chat_id = ? AND ${cursor}
+      ORDER BY m.created_at DESC, m.id DESC LIMIT ?`).all(...args);
     return rows.reverse().map(r => ({
       id: r.id, chat_id: r.chat_id, sender_id: r.sender_id,
       sender_name: r.sender_name, text: r.text,
