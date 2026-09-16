@@ -26,10 +26,9 @@ class MessageOutboxWorker(ctx: Context, params: WorkerParameters) : CoroutineWor
                     .put("client_message_id", clientId))
                 SessionStore.removePendingText(clientId)
             } catch (e: Api.ApiError) {
-                // Auth/conflict/validation errors need user/server intervention; don't retry forever.
+                // Keep rejected messages on disk for user/server intervention; never silently discard them.
                 if (e.status in 400..499 && e.status != 408 && e.status != 429) {
-                    SessionStore.removePendingText(clientId)
-                    continue
+                    return@withContext Result.failure()
                 }
                 return@withContext Result.retry()
             } catch (_: Exception) {
