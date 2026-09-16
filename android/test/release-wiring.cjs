@@ -11,6 +11,15 @@ const chat = source('ui/ChatActivity.kt');
 const outbox = source('realtime/MessageOutboxWorker.kt');
 const session = source('prefs/SessionStore.kt');
 
+test('STATIC: outgoing text is durable before composer clear and network send', () => {
+  const send = chat.split('private fun sendText()')[1].split('private suspend fun flushOutbox()')[0];
+  const persist = send.indexOf('SessionStore.enqueueText');
+  assert.ok(persist >= 0 && persist < send.indexOf('input.setText("")'));
+  assert.ok(persist < send.indexOf('Api.post'));
+  assert.match(send, /SessionStore.removePendingText\(clientId\)/);
+  assert.match(send, /CancellationException\) throw e/);
+});
+
 test('STATIC: drafts survive screen exit and pending rows survive server refresh', () => {
   assert.match(chat, /input.setText\(SessionStore.draft\(chatId\)\)/);
   assert.match(chat, /SessionStore.saveDraft\(chatId, input.text.toString\(\)\)/);
