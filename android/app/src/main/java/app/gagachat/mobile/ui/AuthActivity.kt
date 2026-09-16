@@ -150,6 +150,8 @@ class AuthActivity : AppCompatActivity() {
         content.addView(otpHint)
         content.addView(otpField)
 
+        serverNote = Ui.subtitle(ctx, "").apply { isVisible = false }
+        content.addView(serverNote)
         actionBtn = Ui.text(ctx, "", 16f, bold = true, color = Ui.onPrimaryColor(ctx)).apply {
             background = Ui.pillBackground(Ui.primaryColor(ctx), 28f)
             val pad = Ui.dp(ctx, 16)
@@ -187,8 +189,6 @@ class AuthActivity : AppCompatActivity() {
         content.addView(otpBtn)
         content.addView(Ui.space(ctx, 24))
 
-        serverNote = Ui.subtitle(ctx, "")
-        content.addView(serverNote)
         content.addView(Ui.button(ctx, getString(R.string.connection_title), filled = false) {
             startActivity(Intent(this, ConnectionStatusActivity::class.java))
         })
@@ -310,6 +310,7 @@ class AuthActivity : AppCompatActivity() {
         val phone = fullPhone()
         if (phone.length < 8) return toast(getString(R.string.err_invalid_phone))
         otpBtn.isEnabled = false
+        serverNote.isVisible = false
         progress.visibility = View.VISIBLE
         lifecycleScope.launch {
             try {
@@ -318,7 +319,8 @@ class AuthActivity : AppCompatActivity() {
                 mode = "verify"
                 renderMode()
             } catch (e: Exception) {
-                toast(friendlyError(e))
+                serverNote.text = friendlyError(e)
+                serverNote.isVisible = true
             } finally {
                 otpBtn.isEnabled = true
                 progress.visibility = View.GONE
@@ -328,6 +330,7 @@ class AuthActivity : AppCompatActivity() {
 
     private fun apiCall(block: suspend () -> JSONObject) {
         actionBtn.isEnabled = false
+        serverNote.isVisible = false
         progress.visibility = View.VISIBLE
         lifecycleScope.launch {
             try {
@@ -345,7 +348,8 @@ class AuthActivity : AppCompatActivity() {
                 toast(getString(R.string.welcome))
                 startMain()
             } catch (e: Exception) {
-                toast(friendlyError(e))
+                serverNote.text = friendlyError(e)
+                serverNote.isVisible = true
             } finally {
                 actionBtn.isEnabled = true
                 progress.visibility = View.GONE
