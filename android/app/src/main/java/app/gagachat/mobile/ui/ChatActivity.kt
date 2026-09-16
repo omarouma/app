@@ -404,7 +404,13 @@ class ChatActivity : AppCompatActivity() {
                 val optimistic=messages.indexOfFirst { it.id==id }; if(optimistic>=0) messages.removeAt(optimistic)
                 appendMessage(Message.fromJson(res.optJSONObject("message")?:res,myId))
             } catch(e:Exception) {
-                if(e is Api.ApiError && e.status in 400..499) SessionStore.removePendingText(id) else break
+                // A failed request is not a delivery acknowledgement. Retain the queued message.
+                if(e is Api.ApiError && e.status in 400..499 && e.status != 408 && e.status != 429) {
+                    toast(e.message ?: getString(R.string.err_network))
+                } else {
+                    app.gagachat.mobile.realtime.MessageOutboxWorker.schedule(this@ChatActivity)
+                }
+                break
             }
         }
         statusView.text=if(SessionStore.pendingTexts(chatId).isEmpty()) "" else getString(R.string.message_queued)
