@@ -14,7 +14,7 @@ function clearCachesAndReload() {
   const reload = () => { (window as Window & typeof globalThis).location.reload(); };
   if ('caches' in window) {
     caches.keys()
-      .then((keys) => Promise.all(keys.map((k) => caches.delete(k))))
+      .then((keys) => Promise.all(keys.filter(k => k.startsWith('gagachat-')).map(k => caches.delete(k))))
       .then(reload)
       .catch(reload);
   } else {
@@ -38,10 +38,6 @@ export default class ErrorBoundary extends Component<Props, State> {
   state: State = { hasError: false };
 
   static getDerivedStateFromError(error: Error): Partial<State> {
-    // Don't crash the UI for known non-fatal Supabase realtime errors
-    if (NON_FATAL_PATTERNS.some((p) => error.message.includes(p))) {
-      return {};
-    }
     return { hasError: true, error };
   }
 
@@ -62,7 +58,14 @@ export default class ErrorBoundary extends Component<Props, State> {
     console.error('ErrorBoundary:', safe);
     safeTrackError(safe);
     if (CHUNK_ERROR_PATTERNS.some((p) => error.message.includes(p))) {
-      clearCachesAndReload();
+      // One automatic recovery per session/path prevents offline reload loops.
+      try {
+        const key = `gaga-chunk-recovery:${window.location.pathname}`;
+        if (!window.sessionStorage.getItem(key)) {
+          window.sessionStorage.setItem(key, '1');
+          clearCachesAndReload();
+        }
+      } catch { /* Leave the visible recovery button when storage is unavailable. */ }
     }
   }
 
@@ -76,7 +79,7 @@ export default class ErrorBoundary extends Component<Props, State> {
             </div>
             <h1 className="text-2xl font-bold text-[#111111] mb-2">Something went wrong</h1>
             <p className="text-[#8D8D8D] text-sm mb-6">We're sorry for the inconvenience. Please try refreshing the page.</p>
-            {this.state.error && (
+            {import.meta.env.DEV && this.state.error && (
               <p className="text-[#FF3B30]/70 text-xs mb-6 p-3 bg-[#FF3B30]/10 rounded-lg">
                 {String(this.state.error.message).replace(/[<>"'&]/g, (c) => ({ '<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;','&':'&amp;' }[c] ?? c))}
               </p>

@@ -1,9 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { addDocToSubcollectionMock, updateDocByIdMock, isFirestoreAvailableMock } = vi.hoisted(() => ({
+const { addDocToSubcollectionMock, updateDocByIdMock, isFirestoreAvailableMock, isOnlineMock } = vi.hoisted(() => ({
     addDocToSubcollectionMock: vi.fn(),
     updateDocByIdMock: vi.fn(),
     isFirestoreAvailableMock: vi.fn(() => true),
+    isOnlineMock: vi.fn(() => true),
 }));
 
 vi.mock('@/lib/firestore', () => ({
@@ -33,7 +34,7 @@ vi.mock('@/hooks/useMessageRateLimiter', () => ({
 }));
 
 vi.mock('@/lib/offlineQueue', () => ({
-    isOnline: () => true,
+    isOnline: isOnlineMock,
 }));
 
 vi.mock('@/lib/sanitize', () => ({
@@ -118,6 +119,7 @@ describe('chatApi.sendContactCard', () => {
     beforeEach(() => {
         vi.clearAllMocks();
         addDocToSubcollectionMock.mockResolvedValue('server-doc-id');
+        updateDocByIdMock.mockResolvedValue(undefined);
     });
 
     it('uses the contact_card message type expected by the UI', async () => {
@@ -146,6 +148,7 @@ describe('chatApi.sendMessage', () => {
     beforeEach(() => {
         vi.clearAllMocks();
         addDocToSubcollectionMock.mockResolvedValue('server-doc-id');
+        updateDocByIdMock.mockResolvedValue(undefined);
         useChatStore.setState({ messages: {}, pendingMessageIds: [] });
     });
 
@@ -324,5 +327,37 @@ describe('chatApi.markAsRead', () => {
             'chat-1',
             expect.objectContaining({ unreadCount: 0 }),
         );
+    });
+});
+
+
+describe('message persistence guarantees', () => {
+    beforeEach(() => {
+        vi.clearAllMocks(); isOnlineMock.mockReturnValue(true);
+        isFirestoreAvailableMock.mockReturnValue(true);
+        addDocToSubcollectionMock.mockResolvedValue('stable-id');
+        updateDocByIdMock.mockResolvedValue(undefined);
+    });
+    it('does not claim server success while offline', async () => {
+        isOnlineMock.mockReturnValue(false);
+        const result = await chatApi.sendMessage({ chatId: 'chat-1', senderId: 'user-1', content: 'hello' });
+        expect(result.success).toBe(false);
+        expect(addDocToSubcollectionMock).not.toHaveBeenCalled();
+    });
+    it('keeps the same database ID across repeated send attempts', async () => {
+        const params = { chatId: 'chat-1', senderId: 'user-1', content: 'hello', clientMessageId: 'stable-id' };
+        await chatApi.sendMessage(params); await chatApi.sendMessage(params);
+        for (const call of addDocToSubcollectionMock.mock.calls) {
+            expect(call[3]).toMatchObject({ id: 'stable-id', localId: 'stable-id' });
+        }
+    });
+    it('reports success after persistence even if chat preview update fails', async () => {
+        updateDocByIdMock.mockRejectedValue(new Error('Preview unavailable'));
+        const result = await chatApi.sendMessage({ chatId: 'chat-1', senderId: 'user-1', content: 'hello' });
+        expect(result.success).toBe(true);
+    });
+    it('retains attachment and reply metadata on manual retry', async () => {
+        await chatApi.retryFailedMessage('chat-1', 'stable-id', 'photo', 'user-1', { type: 'image', mediaUrl: 'https://example.com/photo.jpg', replyTo: 'original' });
+        expect(addDocToSubcollectionMock.mock.calls[0][3]).toMatchObject({ id: 'stable-id', type: 'image', mediaUrl: 'https://example.com/photo.jpg', replyTo: 'original' });
     });
 });

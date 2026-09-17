@@ -531,14 +531,11 @@ export default function WalletPage() {
             >
               Redeem
             </button>
-            <div className="mt-4 space-y-2">
-              <p className="text-[#8D8D8D] text-xs">Available codes:</p>
-              {Object.entries(PROMO_CODES).map(([code, data]) => (
-                <div key={code} className="flex items-center justify-between bg-[#F5F5F5] rounded-lg px-3 py-2">
-                  <span className="text-[#111111] text-xs font-bold">{code}</span>
-                  <span className="text-[#00C300] text-xs font-medium">+{data.coins} GAGA</span>
-                </div>
-              ))}
+            <div className="mt-4 rounded-lg bg-[#FFF8E1] border border-[#FFE082] px-3 py-2">
+              <p className="text-[#8D6E00] text-xs leading-relaxed">
+                Promo code redemption is temporarily unavailable while server-side
+                verification is being finalized. Codes will be honored once it is enabled.
+              </p>
             </div>
           </div>
         </DialogContent>

@@ -117,24 +117,11 @@ export default function AnalyticsPage() {
     { label: 'Revenue', value: `$${data.revenue.toFixed(2)}`, icon: Crown, color: '#8b5cf6' },
   ];
 
-  const audienceData = [
-    { label: '18-24', value: 35 },
-    { label: '25-34', value: 42 },
-    { label: '35-44', value: 18 },
-    { label: '45-54', value: 5 },
-  ];
-
-  const deviceData = [
-    { label: 'Mobile', value: 78 },
-    { label: 'Desktop', value: 15 },
-    { label: 'Tablet', value: 7 },
-  ];
-
-  const genderData = [
-    { label: 'Male', value: 52 },
-    { label: 'Female', value: 45 },
-    { label: 'Other', value: 3 },
-  ];
+  // Real growth data from the backend; never a fabricated placeholder series.
+  const growthData = (data.growthChart || []).map((point) => ({
+    label: point.date,
+    value: point.followers,
+  }));
 
   return (
     <div className="min-h-[100dvh] bg-white">
@@ -192,26 +179,26 @@ export default function AnalyticsPage() {
             ))}
           </div>
 
-          {/* Growth Chart */}
+          {/* Growth Chart — real follower history from the backend */}
           {isPremium && (
-            <SimpleBarChart
-              data={[
-                { label: 'Week 1', value: 78 },
-                { label: 'Week 2', value: 92 },
-                { label: 'Week 3', value: 85 },
-                { label: 'Week 4', value: 110 },
-              ]}
-              label="Follower Growth (Weekly)"
-            />
+            growthData.length > 0 ? (
+              <SimpleBarChart data={growthData} label="Follower Growth" />
+            ) : (
+              <div className="bg-white border border-gray-100 rounded-xl p-4 text-center">
+                <BarChart3 size={28} className="mx-auto text-gray-200 mb-2" />
+                <p className="text-gray-400 text-sm">No growth data yet</p>
+                <p className="text-gray-300 text-xs mt-1">Follower history will appear as your audience grows.</p>
+              </div>
+            )
           )}
 
-          {/* Audience Demographics */}
+          {/* Audience Demographics — only rendered when the backend supplies them */}
           {isPremium && (
-            <>
-              <SimpleBarChart data={audienceData} label="Age Distribution" />
-              <SimpleBarChart data={deviceData} label="Device Breakdown" />
-              <SimpleBarChart data={genderData} label="Gender Distribution" />
-            </>
+            <div className="bg-white border border-gray-100 rounded-xl p-4 text-center">
+              <Users size={28} className="mx-auto text-gray-200 mb-2" />
+              <p className="text-gray-400 text-sm">Audience demographics</p>
+              <p className="text-gray-300 text-xs mt-1">Age, device and gender breakdowns appear once enough audience data is collected.</p>
+            </div>
           )}
 
           {/* Top Posts */}

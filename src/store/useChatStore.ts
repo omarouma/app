@@ -61,7 +61,7 @@ interface ChatStore {
   addMessage: (message: Message) => void;
   subscribeChats: (userId: string) => () => void;
   subscribeMessages: (chatId: string, limit?: number) => () => void;
-  sendMessage: (chatId: string, senderId: string, content: string, type?: string, mediaUrl?: string, replyTo?: Message | string) => Promise<{ success: boolean; id: string }>;
+  sendMessage: (chatId: string, senderId: string, content: string, type?: string, mediaUrl?: string, replyTo?: Message | string, clientMessageId?: string) => Promise<{ success: boolean; id: string }>;
   retryFailedMessage: (chatId: string, localId: string) => Promise<{ success: boolean; id: string }>;
   editMessage: (chatId: string, messageId: string, content: string) => Promise<void>;
   deleteMessage: (chatId: string, messageId: string) => Promise<void>;
@@ -239,7 +239,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     );
   },
 
-  sendMessage: async (chatId, senderId, content, type = 'text', mediaUrl, replyTo) => {
+  sendMessage: async (chatId, senderId, content, type = 'text', mediaUrl, replyTo, clientMessageId) => {
     if (!isFirestoreAvailable()) { return { success: false, id: '' }; }
 
     const cleanedContent = sanitizeText(content ?? '').trim();
@@ -253,7 +253,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     if (rateErr) { toast.warning(rateErr); return { success: false, id: '' }; }
 
     // Generate UUID locally - guaranteed unique + deterministic for sorting
-    const tempId = uuidv4();
+    const tempId = clientMessageId || uuidv4();
     const now = Date.now();
 
     const replyToId: string | undefined = typeof replyTo === 'string' ? replyTo : replyTo?.id;
@@ -265,7 +265,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       type: type as MessageType,
       mediaUrl,
       timestamp: new Date(now),
-      deliveryStatus: 'sending',
+      deliveryStatus: isOnline() ? 'sending' : 'pending',
       replyTo: replyToId,
       localId: tempId, // Track the client-generated ID
       retryCount: 0,
@@ -282,6 +282,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     // Offline handling
     if (!isOnline()) {
       enqueueOfflineMessage({
+        id: tempId,
         chatId,
         senderId,
         content,
@@ -297,6 +298,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       // Send to database via chatApi with retry for transient errors
       const result = await withRetry(
         () => chatApi.sendMessage({
+          clientMessageId: tempId,
           chatId,
           senderId,
           content: cleanedContent,
@@ -387,7 +389,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       });
 
       const result = await withRetry(
-        () => chatApi.retryFailedMessage(chatId, localId, failedMsg.content, failedMsg.senderId),
+        () => chatApi.retryFailedMessage(chatId, localId, failedMsg.content, failedMsg.senderId, { type: failedMsg.type, mediaUrl: failedMsg.mediaUrl, replyTo: failedMsg.replyTo }),
         2,
         500,
         { component: 'useChatStore', action: 'retryFailedMessage', userId: failedMsg.senderId },

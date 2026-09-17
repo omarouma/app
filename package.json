@@ -1,6 +1,6 @@
 {
   "name": "gaga-chat",
-  "version": "1.0.0",
+  "version": "1.0.2",
   "description": "GaGa Chat - Real-time messaging and calling platform with complete notification and background support",
   "author": "OMAR FARUK (OumaGa)",
   "license": "MIT",
@@ -9,7 +9,6 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "build:functions": "cd functions && npm run build",
     "postbuild": "node scripts/postbuild-sw-stamp.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -17,11 +16,14 @@
     "lint:fix": "eslint . --fix",
     "deploy": "npm run build && firebase deploy --only hosting",
     "deploy:full": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\" && npm run build && firebase deploy --only hosting",
-    "deploy:rules": "echo 'No Firestore/Storage rules to deploy — app data is managed via Supabase RLS.'",
+    "deploy:rules": "echo 'No Firestore/Storage rules to deploy \u2014 app data is managed via Supabase RLS.'",
     "deploy:hosting": "npm run build && firebase deploy --only hosting",
     "deploy:ci": "npm ci && npm run build && firebase deploy --only hosting --non-interactive",
     "preview:prod": "vite preview --port 4173",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "check:calling": "node --check alibaba-calling/server.mjs",
+    "verify:release": "node scripts/verify-build-output.mjs",
+    "deploy:prepared": "npm run verify:release && firebase deploy --only hosting --project oumagachat"
   },
   "dependencies": {
     "@dataconnect/generated": "file:src/dataconnect-generated",
@@ -56,7 +58,6 @@
     "@supabase/supabase-js": "^2.110.2",
     "@types/dompurify": "^3.0.5",
     "@types/qrcode": "^1.5.6",
-    "@zegocloud/zego-uikit-prebuilt": "^2.18.1",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",

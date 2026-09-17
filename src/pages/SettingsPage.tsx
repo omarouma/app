@@ -623,7 +623,7 @@ export default function SettingsPage() {
                     <Logo size={32} />
                     <div className="min-w-0">
                       <p className="text-sm font-semibold text-foreground">GaGa Chat</p>
-                      <p className="text-xs text-muted-foreground">Version 2.0.0</p>
+                      <p className="text-xs text-muted-foreground">Version {__APP_VERSION__}</p>
                     </div>
                   </div>
                   {settingItem('Terms of Service', FileText, undefined, () => navigate('/terms'))}

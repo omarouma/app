@@ -3,12 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Phone, PhoneOff, Mic, MicOff, Video, VideoOff,
-  Volume2, VolumeX, RotateCw, MessageSquare, Pause, Play, Maximize2, Minimize2,
-  UserPlus, UserRound, X,
+  Volume2, RotateCw, MessageSquare, Pause, Play, Maximize2, Minimize2,
+  UserRound, X, Keyboard,
 } from 'lucide-react';
 import { useCallStore } from '@/store/useCallStore';
 import { useAuthStore } from '@/store/useAuthStore';
-import { useFriendStore } from '@/store/useFriendStore';
 import { useCallContext } from '@/context/CallContextBase';
 import { stopAllSounds, playIncomingCall, playOutgoingCall, vibrateIncomingCall } from '@/lib/sounds';
 import { sanitizeMediaUrl, getDefaultAvatar } from '@/lib/utils';
@@ -22,46 +21,59 @@ function formatDuration(s: number) {
 
 export default function CallOverlay() {
   const navigate = useNavigate();
-  const { currentCall, incomingCall, inviteToCall } = useCallStore();
+  const { currentCall, incomingCall } = useCallStore();
   const currentUser = useAuthStore((s) => s.user);
 
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const ringtoneRef = useRef<{ stop: () => void } | null>(null);
 
-  const [isSpeakerOn, setIsSpeakerOn] = useState(true);
+  const [isAccepting, setIsAccepting] = useState(false);
   const [otherUser, setOtherUser] = useState<{ id: string; name: string; avatar?: string } | null>(null);
-  const [showAddParticipant, setShowAddParticipant] = useState(false);
+  const [showKeypad, setShowKeypad] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
-
-  const friends = useFriendStore((s) => s.friends);
-  const getRecentContacts = useFriendStore((s) => s.getRecentContacts);
-  const [recentContacts, setRecentContacts] = useState<{ id: string; name: string; avatar?: string }[]>([]);
+  // Output device selection. `setSinkId` is Chromium-only, so the control is
+  // hidden entirely where it is unsupported rather than showing a dead button.
+  const [audioOutputs, setAudioOutputs] = useState<MediaDeviceInfo[]>([]);
+  const [sinkId, setSinkId] = useState<string>('');
+  const [showAudioOutputs, setShowAudioOutputs] = useState(false);
+  const audioRef = useRef<HTMLAudioElement>(null);
 
   const {
-    containerRef: zegocontainerRef, isZegoActive, isConnected, localStream, remoteStream, remoteParticipants, isMuted, isVideoOn, isHeld, quality,
+    isConnected, localStream, remoteStream, remoteParticipants, isMuted, isVideoOn, isHeld, quality,
     callDuration, configuredError, mediaError,
-    endCall, acceptCall, rejectCall, toggleMute, toggleVideo, flipCamera, toggleHold,
+    endCall, acceptCall, rejectCall, toggleMute, toggleVideo, flipCamera, toggleHold, sendDTMF,
   } = useCallContext();
 
-  // Load recent contacts for the "Add participant" panel when opened.
+  // Enumerate audio outputs when the panel opens. Labels are only populated
+  // after a media permission grant, which a call always has.
   useEffect(() => {
-    if (!showAddParticipant || !currentUser?.id) return;
+    if (!showAudioOutputs) return;
+    if (typeof navigator === 'undefined' || !navigator.mediaDevices?.enumerateDevices) return;
     let cancelled = false;
-    getRecentContacts(currentUser.id)
-      .then((users) => {
+    navigator.mediaDevices.enumerateDevices()
+      .then((devices) => {
         if (cancelled) return;
-        setRecentContacts(
-          (users || []).map((u) => ({
-            id: u.id,
-            name: (u as unknown as { name?: string; displayName?: string }).name || (u as unknown as { displayName?: string }).displayName || 'User',
-            avatar: u.avatar || undefined,
-          }))
-        );
+        setAudioOutputs(devices.filter((d) => d.kind === 'audiooutput'));
       })
-      .catch(() => { if (!cancelled) setRecentContacts([]); });
+      .catch(() => { if (!cancelled) setAudioOutputs([]); });
     return () => { cancelled = true; };
-  }, [showAddParticipant, currentUser?.id, getRecentContacts]);
+  }, [showAudioOutputs]);
+
+  const supportsSinkId = typeof HTMLMediaElement !== 'undefined'
+    && 'setSinkId' in HTMLMediaElement.prototype;
+
+  const chooseAudioOutput = useCallback(async (deviceId: string) => {
+    const audio = audioRef.current as (HTMLAudioElement & { setSinkId?: (id: string) => Promise<void> }) | null;
+    if (!audio?.setSinkId) return;
+    try {
+      await audio.setSinkId(deviceId);
+      setSinkId(deviceId);
+      setShowAudioOutputs(false);
+    } catch {
+      toast.error('Could not switch audio output on this device.');
+    }
+  }, []);
 
 
 
@@ -71,10 +83,6 @@ export default function CallOverlay() {
 
   const isGroup = isGroupCall(activeCall);
 
-  // ZEGO's prebuilt UI is only shown once ZEGO has ACTUALLY joined the room
-  // (isZegoActive from context). Before that we show the legacy ring UI
-  // (avatar, name, accept/decline/calling…) so the callee's screen is never
-  // black while the ZEGO SDK loads or when it hasn't joined yet.
   const otherUserId = activeCall
     ? getOtherParticipantId(activeCall, currentUser?.id) || null
     : null;
@@ -89,7 +97,7 @@ export default function CallOverlay() {
     if (remoteStream && remoteVideoRef.current) {
       remoteVideoRef.current.srcObject = remoteStream;
     }
-  }, [remoteStream]);
+  }, [remoteStream, isMinimized]);
 
   useEffect(() => {
     if (!otherUserId) {
@@ -109,12 +117,6 @@ export default function CallOverlay() {
     }).catch(() => setOtherUser({ id: otherUserId, name: 'User' }));
   }, [otherUserId]);
 
-  useEffect(() => {
-    const el = remoteVideoRef.current;
-    if (el && 'setSinkId' in el && typeof el.setSinkId === 'function') {
-      el.setSinkId(isSpeakerOn ? 'default' : '').catch(() => { });
-    }
-  }, [isSpeakerOn, remoteStream]);
 
   const isRingingRef = useRef(false);
 
@@ -157,10 +159,16 @@ export default function CallOverlay() {
   }, [currentCall, incomingCall]);
 
   const handleAccept = useCallback(async () => {
-    ringtoneRef.current?.stop();
-    ringtoneRef.current = null;
-    await acceptCall();
-  }, [acceptCall]);
+    if (isAccepting) return;
+    setIsAccepting(true);
+    try {
+      await acceptCall();
+      ringtoneRef.current?.stop();
+      ringtoneRef.current = null;
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Unable to accept the call. Please try again.');
+    } finally { setIsAccepting(false); }
+  }, [acceptCall, isAccepting]);
 
   const handleReject = useCallback(() => {
     ringtoneRef.current?.stop();
@@ -192,9 +200,10 @@ export default function CallOverlay() {
         exit={{ scale: 0.6, opacity: 0 }}
         className="fixed bottom-24 right-4 z-[70] flex flex-col items-center gap-2"
       >
+        <RemoteCallAudio stream={remoteStream} audioRef={audioRef} />
         <div className="relative w-20 h-20 rounded-full overflow-hidden shadow-xl border-2 border-[#00C300] bg-[#1a1a2e]">
           {isVideo && remoteStream ? (
-            <video ref={remoteVideoRef} autoPlay playsInline className="w-full h-full object-cover" />
+            <video ref={remoteVideoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
           ) : (
             <img src={avatarSrc} className="w-full h-full object-cover" alt="User avatar" />
           )}
@@ -232,21 +241,9 @@ export default function CallOverlay() {
         exit={{ opacity: 0 }}
         className="fixed inset-0 z-[70] flex flex-col overflow-hidden"
       >
-        {/* ZEGO prebuilt UI container — full 1:1 call UI (video, controls, chat).
-            IMPORTANT: This container MUST be mounted for as long as ANY call is
-            active — NOT conditional on `isZegoActive`. The ZEGO SDK's `join()`
-            requires the container ref to exist BEFORE it can set `isJoined`,
-            and `isZegoActive === isJoined`. Gating the container on
-            `isZegoActive` creates a chicken-and-egg deadlock where the
-            container never mounts and every call is killed by the 3s bailout. */}
-        {activeCall && !isGroup && (
-          <div
-            ref={zegocontainerRef}
-            className="absolute inset-0 bg-black"
-          />
-        )}
-        {/* Hide the legacy call UI when ZEGO's prebuilt UI is active */}
-        {!isZegoActive && (
+        <RemoteCallAudio stream={remoteStream} audioRef={audioRef} />
+        {(
+
           <>
             {/* Background / video grid */}
             {isVideo && !isIncoming && isGroup && remoteParticipants.length > 0 ? (
@@ -257,7 +254,7 @@ export default function CallOverlay() {
                 {remoteParticipants.length === 1 && <div className="hidden" />}
               </div>
             ) : isVideo && !isIncoming ? (
-              <video ref={remoteVideoRef} autoPlay playsInline className="absolute inset-0 w-full h-full object-cover" />
+              <video ref={remoteVideoRef} autoPlay playsInline muted className="absolute inset-0 w-full h-full object-cover" />
             ) : (
               <div className="absolute inset-0 bg-gradient-to-b from-[#1a1a2e] via-[#16213e] to-[#0f3460]" />
             )}
@@ -301,7 +298,7 @@ export default function CallOverlay() {
                       On hold
                     </span>
                   )}
-                  {quality !== 'good' && isConnected && (
+                  {quality !== 'good' && currentCall?.status === 'connected' && (
                     <span className={`shrink-0 text-[11px] font-medium px-2.5 py-1 rounded-full ${quality === 'reconnecting'
                       ? 'bg-amber-500/20 text-amber-300'
                       : 'bg-orange-500/20 text-orange-300'
@@ -424,16 +421,18 @@ export default function CallOverlay() {
                       <motion.button
                         whileTap={{ scale: 0.92 }}
                         onClick={handleAccept}
+                        disabled={isAccepting}
+                        aria-busy={isAccepting}
                         className="w-16 h-16 rounded-full bg-[#00C300] flex items-center justify-center shadow-lg shadow-green-900/40"
                         aria-label="Accept call"
                       >
                         <Phone size={28} className="text-white" />
                       </motion.button>
-                      <span className="text-white/50 text-xs">Accept</span>
+                      <span className="text-white/50 text-xs">{isAccepting ? 'Connecting…' : 'Accept'}</span>
                     </div>
                   </div>
-                ) : showAddParticipant ? (
-                  /* Add participant slide-up panel */
+                ) : showAudioOutputs ? (
+                  /* Output device picker — applies via HTMLMediaElement.setSinkId */
                   <motion.div
                     initial={{ y: 40, opacity: 0 }}
                     animate={{ y: 0, opacity: 1 }}
@@ -441,81 +440,77 @@ export default function CallOverlay() {
                     className="flex flex-col gap-3 max-h-[40vh]"
                   >
                     <div className="flex items-center justify-between">
-                      <h3 className="text-white font-semibold text-sm">Add participant</h3>
+                      <h3 className="text-white font-semibold text-sm">Audio output</h3>
                       <button
                         type="button"
-                        onClick={() => setShowAddParticipant(false)}
+                        onClick={() => setShowAudioOutputs(false)}
                         className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-white/70 active:bg-white/20"
-                        aria-label="Close add participant"
+                        aria-label="Close audio output"
                       >
                         <X size={16} />
                       </button>
                     </div>
                     <div className="overflow-y-auto flex flex-col gap-1 rounded-2xl bg-black/20 border border-white/10 p-2">
-                      {friends.length > 0 ? (
-                        friends
-                          .filter((f) => f.id !== currentUser?.id && f.id !== otherUserId)
-                          .map((f) => {
-                            const fAvatar = sanitizeMediaUrl(f.avatar)
-                              ? sanitizeMediaUrl(f.avatar)!
-                              : getDefaultAvatar(f.id ?? f.name ?? 'U');
-                            return (
-                              <button
-                                key={f.id}
-                                type="button"
-                                onClick={() => {
-                                  setShowAddParticipant(false);
-                                  if (currentCall?.id && currentUser?.id) {
-                                    inviteToCall(currentCall.id, currentUser.id, f.id);
-                                    toast.success(`${f.name} added to the call`);
-                                  }
-                                }}
-                                className="flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-white/10 active:bg-white/15 transition-colors text-left"
-                              >
-                                <img src={fAvatar} className="w-10 h-10 rounded-full object-cover" alt={f.name} />
-                                <div className="min-w-0 flex-1">
-                                  <p className="text-white text-sm font-medium truncate">{f.name}</p>
-                                  <p className="text-white/40 text-xs">Friend</p>
-                                </div>
-                                <UserPlus size={18} className="text-white/50 shrink-0" />
-                              </button>
-                            );
-                          })
-                      ) : recentContacts.length > 0 ? (
-                        recentContacts
-                          .filter((c) => c.id !== currentUser?.id && c.id !== otherUserId)
-                          .map((c) => {
-                            const cAvatar = sanitizeMediaUrl(c.avatar)
-                              ? sanitizeMediaUrl(c.avatar)!
-                              : getDefaultAvatar(c.id ?? c.name ?? 'U');
-                            return (
-                              <button
-                                key={c.id}
-                                type="button"
-                                onClick={() => {
-                                  setShowAddParticipant(false);
-                                  toast.info(`Calling ${c.name}`);
-                                  navigate('/call', {
-                                    state: { userId: c.id, mode: isVideo ? 'video' : 'voice', isOutgoing: true },
-                                  });
-                                }}
-                                className="flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-white/10 active:bg-white/15 transition-colors text-left"
-                              >
-                                <img src={cAvatar} className="w-10 h-10 rounded-full object-cover" alt={c.name} />
-                                <div className="min-w-0 flex-1">
-                                  <p className="text-white text-sm font-medium truncate">{c.name}</p>
-                                  <p className="text-white/40 text-xs">Recent</p>
-                                </div>
-                                <UserPlus size={18} className="text-white/50 shrink-0" />
-                              </button>
-                            );
-                          })
+                      {audioOutputs.length > 0 ? (
+                        audioOutputs.map((device, index) => {
+                          const selected = sinkId
+                            ? sinkId === device.deviceId
+                            : device.deviceId === 'default' || index === 0;
+                          return (
+                            <button
+                              key={device.deviceId || `output-${index}`}
+                              type="button"
+                              onClick={() => { void chooseAudioOutput(device.deviceId); }}
+                              className={`flex items-center gap-3 px-3 py-2 rounded-xl transition-colors text-left ${selected ? 'bg-white/15' : 'hover:bg-white/10 active:bg-white/15'}`}
+                            >
+                              <Volume2 size={18} className="text-white/60 shrink-0" />
+                              <span className="text-white text-sm font-medium truncate flex-1">
+                                {device.label || `Speaker ${index + 1}`}
+                              </span>
+                              {selected && <span className="text-[#00C300] text-xs shrink-0">Active</span>}
+                            </button>
+                          );
+                        })
                       ) : (
                         <div className="text-center py-6">
-                          <UserRound size={28} className="mx-auto text-white/30 mb-2" />
-                          <p className="text-white/50 text-sm">No contacts available</p>
+                          <Volume2 size={28} className="mx-auto text-white/30 mb-2" />
+                          <p className="text-white/50 text-sm">No output devices found</p>
                         </div>
                       )}
+                    </div>
+                  </motion.div>
+                ) : showKeypad ? (
+                  /* DTMF keypad — sends in-band tones over the active call */
+                  <motion.div
+                    initial={{ y: 40, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    exit={{ y: 40, opacity: 0 }}
+                    className="flex flex-col gap-3"
+                  >
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-white font-semibold text-sm">Keypad</h3>
+                      <button
+                        type="button"
+                        onClick={() => setShowKeypad(false)}
+                        className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-white/70 active:bg-white/20"
+                        aria-label="Close keypad"
+                      >
+                        <X size={16} />
+                      </button>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2 max-w-[240px] mx-auto w-full">
+                      {['1', '2', '3', '4', '5', '6', '7', '8', '9', '*', '0', '#'].map((key) => (
+                        <motion.button
+                          key={key}
+                          type="button"
+                          whileTap={{ scale: 0.9 }}
+                          onClick={() => { void sendDTMF(key); }}
+                          className="h-12 rounded-2xl bg-white/10 text-white text-lg font-semibold active:bg-white/20"
+                          aria-label={`Send ${key}`}
+                        >
+                          {key}
+                        </motion.button>
+                      ))}
                     </div>
                   </motion.div>
                 ) : (
@@ -529,12 +524,14 @@ export default function CallOverlay() {
                         label={isMuted ? 'Unmute' : 'Mute'}
                         icon={isMuted ? <MicOff size={22} /> : <Mic size={22} />}
                       />
-                      <ControlButton
-                        active={!isSpeakerOn}
-                        onClick={() => setIsSpeakerOn((v: boolean) => !v)}
-                        label={isSpeakerOn ? 'Speaker' : 'Earpiece'}
-                        icon={isSpeakerOn ? <Volume2 size={22} /> : <VolumeX size={22} />}
-                      />
+                      {supportsSinkId && (
+                        <ControlButton
+                          active={showAudioOutputs}
+                          onClick={() => setShowAudioOutputs((v) => !v)}
+                          label="Audio output"
+                          icon={<Volume2 size={22} />}
+                        />
+                      )}
                       <ControlButton
                         active={isHeld}
                         onClick={toggleHold}
@@ -542,10 +539,10 @@ export default function CallOverlay() {
                         icon={isHeld ? <Play size={22} /> : <Pause size={22} />}
                       />
                       <ControlButton
-                        active={showAddParticipant}
-                        onClick={() => setShowAddParticipant(true)}
-                        label="Add"
-                        icon={<UserPlus size={22} />}
+                        active={showKeypad}
+                        onClick={() => setShowKeypad((v) => !v)}
+                        label="Keypad"
+                        icon={<Keyboard size={22} />}
                       />
                       {isVideo && (
                         <ControlButton
@@ -617,4 +614,42 @@ function GroupRemoteVideo({ stream }: { stream: MediaStream }) {
       <video ref={ref} autoPlay playsInline className="w-full h-full object-cover" />
     </div>
   );
+}
+
+
+function RemoteCallAudio({
+  stream,
+  audioRef,
+}: {
+  stream: MediaStream | null;
+  audioRef?: React.RefObject<HTMLAudioElement | null>;
+}) {
+  const localRef = useRef<HTMLAudioElement>(null);
+  // The parent owns the ref when it needs to call setSinkId on this element.
+  const ref = audioRef ?? localRef;
+  const [blocked, setBlocked] = useState(false);
+
+  useEffect(() => {
+    const audio = ref.current;
+    if (!audio) return;
+    audio.srcObject = stream;
+    if (stream) {
+      void audio.play().then(() => setBlocked(false)).catch(() => setBlocked(true));
+    }
+    return () => { audio.srcObject = null; };
+  }, [stream, ref]);
+
+  // Autoplay can be blocked until the user interacts with the page; this is the
+  // gesture that unblocks it.
+  const handleTapToPlay = () => {
+    const audio = ref.current;
+    if (audio && stream) {
+      void audio.play().then(() => setBlocked(false)).catch(() => setBlocked(true));
+    }
+  };
+
+  return <>
+    <audio ref={ref} autoPlay />
+    {blocked && <button type="button" onClick={handleTapToPlay} className="absolute top-5 left-1/2 -translate-x-1/2 z-50 rounded-full bg-white text-black px-4 py-2 text-sm">Tap to hear call audio</button>}
+  </>;
 }

@@ -1,3 +1,4 @@
+import { v4 as uuidv4 } from 'uuid';
 
 import { create } from 'zustand';
 import { toast } from 'sonner';
@@ -43,7 +44,7 @@ interface GroupStore {
   promoteAdmin: (groupId: string, userId: string) => Promise<void>;
   leaveGroup: (groupId: string, userId: string) => Promise<void>;
   updateGroup: (groupId: string, data: Partial<GroupData>) => Promise<void>;
-  sendGroupMessage: (groupId: string, senderId: string, content: string, type?: string, mediaUrl?: string, replyTo?: string) => Promise<void>;
+  sendGroupMessage: (groupId: string, senderId: string, content: string, type?: string, mediaUrl?: string, replyTo?: string, clientMessageId?: string) => Promise<void>;
   subscribeGroupMessages: (groupId: string) => () => void;
   deleteGroupMessage: (groupId: string, messageId: string) => Promise<void>;
   deleteGroupMessageForEveryone: (groupId: string, messageId: string) => Promise<void>;
@@ -209,9 +210,9 @@ export const useGroupStore = create<GroupStore>((set) => ({
     }
   },
 
-  sendGroupMessage: async (groupId, senderId, content, type = 'text', mediaUrl, replyTo) => {
-    if (!isFirestoreAvailable()) return;
-    const localId = `pending_g_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+  sendGroupMessage: async (groupId, senderId, content, type = 'text', mediaUrl, replyTo, clientMessageId) => {
+    if (!isFirestoreAvailable()) throw new Error('Database unavailable');
+    const localId = clientMessageId || uuidv4();
 
     const optimisticMsg: Message = {
       id: localId,
@@ -236,7 +237,7 @@ export const useGroupStore = create<GroupStore>((set) => ({
     // If offline, push to queue and keep optimistic pending state
     if (!isOnline()) {
       enqueueOfflineMessage({
-        type: 'group', chatId: groupId, senderId, content,
+        id: localId, type: 'group', chatId: groupId, senderId, content,
         messageType: type, mediaUrl, replyTo: typeof replyTo === 'string' ? replyTo : replyTo,
       });
       return;
@@ -248,7 +249,7 @@ export const useGroupStore = create<GroupStore>((set) => ({
       if (attempt > 0) await new Promise((r) => setTimeout(r, 500 * 2 ** (attempt - 1)));
       try {
         const msgData: Record<string, unknown> = {
-          chatId: groupId, senderId, content, type,
+          id: localId, localId, chatId: groupId, senderId, content, type,
           timestamp: serverTimestamp(),
           read: false,
         };
@@ -269,7 +270,7 @@ export const useGroupStore = create<GroupStore>((set) => ({
           lastMessage: safeContent,
           updatedAt: serverTimestamp(),
           unreadCount: increment(1),
-        });
+        }).catch(() => { /* Message already persisted; do not resend for preview failure. */ });
 sent = true;
         break;
       } catch {
@@ -286,14 +287,14 @@ sent = true;
         }));
         if (isLast) {
           enqueueOfflineMessage({
-            type: 'group', chatId: groupId, senderId, content,
+            id: localId, type: 'group', chatId: groupId, senderId, content,
             messageType: type, mediaUrl, replyTo: typeof replyTo === 'string' ? replyTo : replyTo,
           });
           toast.error('Group message queued. Will send automatically when online.');
         }
       }
     }
-    if (!sent) return;
+    if (!sent) throw new Error('Group message could not be persisted');
   },
 
   deleteGroupMessage: async (_groupId, messageId) => {

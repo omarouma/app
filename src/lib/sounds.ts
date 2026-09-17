@@ -246,11 +246,16 @@ export function isSoundEnabled(): boolean {
   return globalEnabled;
 }
 
-export function stopAllSounds() {
+/** Stops the currently playing ringtone, if any. Safe to call repeatedly. */
+function stopActiveRingtone() {
   if (activeRingtone) {
-    activeRingtone.stop();
+    try { activeRingtone.stop(); } catch { /* already stopped */ }
     activeRingtone = null;
   }
+}
+
+export function stopAllSounds() {
+  stopActiveRingtone();
   const ctx = getCtx();
   if (ctx) {
     const gain = ctx.createGain();
@@ -521,6 +526,11 @@ function playOutgoingCallSynth(): { stop: () => void } {
  */
 export function playIncomingCall(): { stop: () => void } {
   if (!globalEnabled || !areCallSoundsEnabled() || isQuietHours()) return { stop: () => { } };
+  // Only one ringtone may play at a time. Multiple callers (the global
+  // incoming-call hook and the CallOverlay) can request the ringtone for the
+  // same call; without this guard the previous looping controller is
+  // overwritten and its audio keeps playing forever.
+  stopActiveRingtone();
   const ctrl = playCustomRingtone({
     loop: true,
     volume: 0.9,

@@ -131,7 +131,7 @@ export default function MorePage() {
     {
       title: 'About',
       items: [
-        { icon: Info, label: 'About GaGa Chat', subtitle: 'Version 2.0.0', action: () => setShowAbout(true), color: 'text-[#8D8D8D]', bg: 'bg-[#F5F5F5]' },
+        { icon: Info, label: 'About GaGa Chat', subtitle: `Version ${__APP_VERSION__}`, action: () => setShowAbout(true), color: 'text-[#8D8D8D]', bg: 'bg-[#F5F5F5]' },
         { icon: HelpCircle, label: 'Help Center', subtitle: 'FAQs and support', action: () => navigate('/help'), color: 'text-[#2196F3]', bg: 'bg-[#2196F3]/10' },
         { icon: Info, label: 'Privacy Policy', subtitle: 'How we protect your data', to: '/privacy', color: 'text-[#8B5CF6]', bg: 'bg-[#8B5CF6]/10' },
         { icon: Info, label: 'Terms of Service', subtitle: 'User agreement', to: '/terms', color: 'text-[#8B5CF6]', bg: 'bg-[#8B5CF6]/10' },
@@ -232,7 +232,7 @@ onClick={() => {
               <Logo size={48} />
             </div>
             <h3 className="text-xl font-bold text-[#111111] mb-1">GaGa Chat</h3>
-            <p className="text-[#8D8D8D] text-sm mb-4">Version 2.0.0</p>
+            <p className="text-[#8D8D8D] text-sm mb-4">Version {__APP_VERSION__}</p>
             <div className="space-y-2 text-sm text-[#8D8D8D]">
               <p>Free messaging & video calls</p>
               <p>End-to-end encryption for your privacy</p>

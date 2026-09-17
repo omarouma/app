@@ -51,6 +51,7 @@ export interface SendMessageParams {
     type?: string;
     mediaUrl?: string;
     replyTo?: Message | string;
+    clientMessageId?: string;
 }
 
 export interface SendMessageResult {
@@ -581,17 +582,18 @@ export const chatApi = {
         }
 
         const { chatId, senderId, content, type = 'text', mediaUrl, replyTo } = validation.data;
-        const tempId = uuidv4();
+        const tempId = params.clientMessageId || uuidv4();
         const replyToId: string | undefined = typeof replyTo === 'string' ? replyTo : replyTo?.id;
 
         // Offline support - enqueue message
         if (!isOnline()) {
             // Message will be sent when back online
-            return { success: true, id: tempId };
+            return { success: false, id: tempId, error: 'Offline: message has not reached the server.' };
         }
 
         try {
             const newDocId = await addDocToSubcollection(COLLECTIONS.CHATS, chatId, COLLECTIONS.MESSAGES, {
+                id: tempId,
                 chatId,
                 senderId,
                 content: sanitizeText(content),
@@ -604,12 +606,12 @@ export const chatApi = {
                 retryCount: 0,
             });
 
-            // Update chat metadata
+            // The durable message is authoritative; preview failure must not trigger a resend.
             await updateDocById(COLLECTIONS.CHATS, chatId, {
                 lastMessage: content,
                 lastMessageSenderId: senderId,
                 updatedAt: serverTimestamp(),
-            });
+            }).catch(error => logStoreError('chatApi.messagePreview', error, { chatId }));
 
             return { success: true, id: newDocId };
         } catch (error) {
@@ -621,30 +623,8 @@ export const chatApi = {
     /**
      * Retry a failed message with exponential backoff
      */
-    async retryFailedMessage(chatId: string, localId: string, content: string, senderId: string): Promise<SendMessageResult> {
-        if (!isFirestoreAvailable()) {
-            return { success: false, id: '', error: 'Firestore unavailable' };
-        }
-
-        try {
-            // Exponential backoff: 1s, 2s, 4s (configurable)
-            const delayMs = 1000;
-            await new Promise(r => setTimeout(r, delayMs));
-
-            const newDocId = await addDocToSubcollection(COLLECTIONS.CHATS, chatId, COLLECTIONS.MESSAGES, {
-                chatId,
-                senderId,
-                content: sanitizeText(content),
-                timestamp: serverTimestamp(),
-                localId,
-                deliveryStatus: 'sent',
-            });
-
-            return { success: true, id: newDocId };
-        } catch (error) {
-            logStoreError('chatApi.retryFailedMessage', error, { chatId, localId });
-            return { success: false, id: localId, error: String(error) };
-        }
+    async retryFailedMessage(chatId: string, localId: string, content: string, senderId: string, details: Pick<SendMessageParams, 'type' | 'mediaUrl' | 'replyTo'> = {}): Promise<SendMessageResult> {
+        return chatApi.sendMessage({ chatId, senderId, content, clientMessageId: localId, ...details });
     },
 
     /**

@@ -608,9 +608,22 @@ export async function addDocToSubcollection(
   if (!supabase) throw new Error('Supabase not available');
   const fk = fkColumn(parentTable, subTable);
   const payload = { ...toSnake(data), [fk]: parentId };
-  const result = await insertWithFallback(subTable, payload);
+  const result = subTable === COLLECTIONS.MESSAGES
+    ? await supabase.from(subTable).insert(payload).select('id').single()
+    : await insertWithFallback(subTable, payload);
+  if (result.error?.code === '23505' && subTable === COLLECTIONS.MESSAGES && payload.id) {
+    // A retry after a lost response may hit the primary key. Never overwrite an
+    // existing message; verify the immutable payload belongs to this request.
+    const { data: existing, error } = await supabase.from(subTable)
+      .select('*').eq('id', payload.id).eq(fk, parentId).single();
+    const fields = ['sender_id', 'content', 'type', 'media_url', 'reply_to'];
+    if (!error && existing && fields.every(key => (existing[key] ?? null) === (payload[key] ?? null))) {
+      return existing.id;
+    }
+  }
   if (result.error) throw result.error;
-  return result.data?.id ?? '';
+  if (!result.data?.id) throw new Error('Database did not acknowledge the message');
+  return result.data.id;
 }
 
 export async function updateSubcollectionDoc(
@@ -649,6 +662,7 @@ export async function deleteSubcollectionDoc(
 export async function queryCollection<T = any>(
   table: string,
   constraints: QueryConstraint[],
+  throwOnError = false,
 ): Promise<(T & { id: string })[]> {
   const supabase = getDb();
   if (!supabase) return [];
@@ -656,6 +670,7 @@ export async function queryCollection<T = any>(
   const { data, error } = await q;
   if (error) {
     console.error(`[queryCollection] ${table}:`, error.message);
+    if (throwOnError) throw error;
     return [];
   }
   return mapRows<T>(data);
@@ -688,25 +703,18 @@ export function subscribeToDoc(
   const supabase = getDb();
   if (!supabase) return () => { };
 
-  // Initial fetch
-  supabase.from(table).select('*').eq('id', id).single().then(({ data }) => {
-    if (data) onData({ ...toCamel(data), id: data.id });
-  }, () => { });
-
+  let disposed = false;
+  const refetch = async () => {
+    const { data, error } = await supabase.from(table).select('*').eq('id', id).maybeSingle();
+    if (!disposed && !error) onData(data ? { ...toCamel(data), id: data.id } : null);
+  };
+  void refetch();
   const channel = supabase
-    .channel(`${table}:id=${id}`)
-    .on(
-      'postgres_changes',
-      { event: '*', schema: 'public', table, filter: `id=eq.${id}` },
-      ({ new: row }) => {
-        if (row && typeof row === 'object' && 'id' in row) {
-          onData({ ...toCamel(row as Record<string, any>), id: (row as any).id });
-        }
-      },
-    )
-    .subscribe();
-
-  return () => { supabase.removeChannel(channel); };
+    .channel(`${table}:id=${id}:${++channelSeq}`)
+    .on('postgres_changes', { event: '*', schema: 'public', table, filter: `id=eq.${id}` },
+      () => { void refetch(); })
+    .subscribe(status => { if (status === 'SUBSCRIBED') void refetch(); });
+  return () => { disposed = true; void supabase.removeChannel(channel); };
 }
 
 export function subscribeToCollection<T = any>(
@@ -792,6 +800,7 @@ export function subscribeToCollection<T = any>(
   const hasStartAfter = constraints.some((c) => c._type === 'startAfter');
   let current: (T & { id: string })[] = [];
   let initialFetchDone = false;
+  let disposed = false;
   let bufferedEvents: any[] = [];
 
   const applyChangeToState = (payload: any) => {
@@ -839,7 +848,10 @@ export function subscribeToCollection<T = any>(
   const refetch = async () => {
     if (refetching) return refetching;
     refetching = (async () => {
-      const data = await queryCollection<T>(table, constraints).catch(() => []);
+      let data: (T & { id: string })[];
+      try { data = await queryCollection<T>(table, constraints, true); }
+      catch { return; } // Preserve the last successful snapshot on network failure.
+      if (disposed) return;
       current = data;
       onData(current);
       const wasFirst = !initialFetchDone;
@@ -859,6 +871,7 @@ export function subscribeToCollection<T = any>(
   };
 
   const handleChange = (payload: any) => {
+    if (disposed) return;
     if (hasStartAfter) {
       debouncedRefetch();
       return;
@@ -893,24 +906,19 @@ export function subscribeToCollection<T = any>(
     ? `${table}:${filter}:${++channelSeq}`
     : `${table}:all:${Date.now()}:${++channelSeq}`;
   const filterConfig = filter ? { filter } : {};
-  let wasSubscribed = false;
   const channel = supabase
     .channel(channelId, { config: { broadcast: { self: false } } })
     .on('postgres_changes', { event: '*', schema: 'public', table, ...filterConfig }, handleChange)
     .subscribe((status) => {
-      // After a reconnect (channel transitions from any non-SUBSCRIBED state back to
-      // SUBSCRIBED), force a full refetch to pick up any changes that were missed
-      // while the socket was down. Supabase does not replay events for us.
-      if (status === 'SUBSCRIBED' && wasSubscribed && initialFetchDone) {
-        void refetch();
-      } else if (status === 'SUBSCRIBED') {
-        wasSubscribed = true;
-      } else if (status === 'CLOSED' || status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-        wasSubscribed = false;
+      // Refetch on every successful subscription, including the first one.
+      // This closes the fetch/subscribe gap and catches changes missed offline.
+      if (status === 'SUBSCRIBED' && !disposed) {
+        void refetch().then(() => { if (!disposed) debouncedRefetch(); });
       }
     });
 
   return () => {
+    disposed = true;
     if (debounceTimer) clearTimeout(debounceTimer);
     bufferedEvents = [];
     void supabase.removeChannel(channel);

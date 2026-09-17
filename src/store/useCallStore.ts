@@ -1,3 +1,6 @@
+import env from '@/config/env';
+import { v4 as uuidv4 } from 'uuid';
+import { verifyCallingAvailability } from '@/lib/callingAvailability';
 import { create } from 'zustand';
 import {
   COLLECTIONS,
@@ -11,6 +14,9 @@ import {
 import type { CallRecord } from '@/types';
 import { where, orderBy, limit } from '@/lib/firestore';
 import { subscribeDeduped } from '@/lib/subscriptionManager';
+import { prepareCallStream, releasePreparedStream } from '@/lib/callMedia';
+
+let startingCall = false;
 
 interface CallStore {
   currentCall: CallRecord | null;
@@ -75,16 +81,21 @@ function formatMediaPermissionError(type: 'voice' | 'video' | 'group_voice' | 'g
   return 'Unable to access your microphone or camera. Please check your device permissions and try again.';
 }
 
-async function verifyCallMediaAccess(type: 'voice' | 'video' | 'group_voice' | 'group_video') {
-  if (typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia) return;
+async function verifyCallMediaAccess(
+  type: 'voice' | 'video' | 'group_voice' | 'group_video',
+  callId: string,
+) {
+  if (typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
+    if (import.meta.env.MODE === 'test') return;
+    throw new Error('Calling is not supported in this browser. Use an updated browser over HTTPS.');
+  }
 
   const video = type === 'video' || type === 'group_video';
   try {
-    const stream = await navigator.mediaDevices.getUserMedia({
-      audio: true,
-      video,
-    });
-    stream.getTracks().forEach((track) => track.stop());
+    // Retain the stream so the WebRTC engine reuses these exact tracks instead
+    // of calling getUserMedia a second time (which fails on some mobile
+    // browsers and flashes the camera indicator twice).
+    await prepareCallStream(callId, video);
   } catch (error) {
     throw new Error(formatMediaPermissionError(type, error));
   }
@@ -181,24 +192,7 @@ export const useCallStore = create<CallStore>((set, get) => ({
 
   inviteToCall: async (currentCallId, currentUserId, invitedUserId) => {
     if (!isFirestoreAvailable() || !currentCallId || !currentUserId || !invitedUserId) return;
-    const { currentCall, participants } = get();
-    if (currentCallId !== currentCall?.id) return;
-    if (participants.includes(invitedUserId)) return;
-    try {
-      const next = Array.from(new Set([...participants, invitedUserId]));
-      set({ participants: next });
-      const data = await getDocById(COLLECTIONS.CALL_HISTORY, currentCallId);
-      const existing = (data as Record<string, unknown>)?.participantIds as string[] | undefined;
-      const merged = Array.from(new Set([
-        ...(existing || []),
-        currentUserId,
-        ...(currentCall?.participantIds || []),
-        invitedUserId,
-      ]));
-      await updateDocById(COLLECTIONS.CALL_HISTORY, currentCallId, { participantIds: merged });
-    } catch {
-      // ignore
-    }
+    throw new Error('Group calling is not enabled yet.');
   },
 
   subscribeToCallHistory: (userId: string) => {
@@ -244,27 +238,20 @@ export const useCallStore = create<CallStore>((set, get) => ({
   },
 
   clearCallHistory: async (userId: string) => {
-    if (!isFirestoreAvailable() || !userId) {
-      set({ history: [] });
-      return;
-    }
+    if (!isFirestoreAvailable() || !userId) throw new Error('Sign in and reconnect to clear call history.');
     const { history } = get();
-    try {
-      const { deleteDocById } = await import('@/lib/firestore');
-      await Promise.allSettled(history.map((c) => deleteDocById(COLLECTIONS.CALL_HISTORY, c.id)));
-    } catch { /* ignore individual failures */ }
-    set({ history: [] });
+    const { deleteDocById } = await import('@/lib/firestore');
+    const results = await Promise.allSettled(history.map(c => deleteDocById(COLLECTIONS.CALL_HISTORY, c.id)));
+    const deletedIds = new Set(history.filter((_, index) => results[index].status === 'fulfilled').map(c => c.id));
+    set({ history: get().history.filter(c => !deletedIds.has(c.id)) });
+    if (results.some(result => result.status === 'rejected')) throw new Error('Some calls could not be deleted. Please retry.');
   },
 
   deleteCall: async (callId: string) => {
-    if (!isFirestoreAvailable() || !callId) return;
-    try {
-      const { deleteDocById } = await import('@/lib/firestore');
-      await deleteDocById(COLLECTIONS.CALL_HISTORY, callId);
-      set({ history: get().history.filter((c) => c.id !== callId) });
-    } catch {
-      // ignore
-    }
+    if (!isFirestoreAvailable() || !callId) throw new Error('Reconnect to delete this call.');
+    const { deleteDocById } = await import('@/lib/firestore');
+    await deleteDocById(COLLECTIONS.CALL_HISTORY, callId);
+    set({ history: get().history.filter(c => c.id !== callId) });
   },
 
   startCall: async (userId, currentUserId, type) => {
@@ -272,27 +259,39 @@ export const useCallStore = create<CallStore>((set, get) => ({
       throw new Error('Database unavailable. Cannot start call.');
     }
     if (!currentUserId) throw new Error('You must be logged in to make a call');
+    if (!env.VITE_CALLING_API_URL) throw new Error('Calling service is not configured yet.');
+    if (type.startsWith('group_')) throw new Error('Group calling is not enabled in this release.');
     if (userId === currentUserId) throw new Error('You cannot start a call with yourself.');
     if (get().currentCall) return get().currentCall!.id;
 
+    if (startingCall) throw new Error('A call is already being started.');
+    startingCall = true;
+    try {
+    await verifyCallingAvailability();
+    const invitationId = uuidv4();
+    await verifyCallMediaAccess(type, invitationId);
+    const createdAt = serverTimestamp();
     const MAX_RETRIES = 2;
     let lastError: Error | null = null;
 
     for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
       try {
-        await verifyCallMediaAccess(type);
-      } catch (error) {
-        throw error instanceof Error ? error : new Error('Unable to access your microphone or camera.');
-      }
-
-      try {
-        const callId = await addDocToCollection(COLLECTIONS.CALL_HISTORY, {
+        let callId: string;
+        try {
+          callId = await addDocToCollection(COLLECTIONS.CALL_HISTORY, {
+          id: invitationId,
           callerId: currentUserId,
           calleeId: userId,
           type,
           status: 'calling',
-          createdAt: serverTimestamp(),
-        });
+          createdAt,
+          });
+        } catch (error) {
+          // A lost insert acknowledgement must not create a second invitation.
+          const existing = await getDocById(COLLECTIONS.CALL_HISTORY, invitationId);
+          if (!existing || existing.callerId !== currentUserId || existing.calleeId !== userId || existing.type !== type || existing.status !== 'calling') throw error;
+          callId = invitationId;
+        }
 
         const call: CallRecord = {
           id: callId,
@@ -330,6 +329,8 @@ export const useCallStore = create<CallStore>((set, get) => ({
 
         // Only retry on transient errors
         if (!isTransientCallError(lastError) || attempt === MAX_RETRIES) {
+          // The invitation never became a call — drop the media we acquired.
+          releasePreparedStream(invitationId);
           set({
             lastCallError: {
               message: lastError.message || 'Failed to start the call.',
@@ -346,10 +347,12 @@ export const useCallStore = create<CallStore>((set, get) => ({
     }
 
     throw lastError || new Error('Failed to start the call after retries.');
+    } finally { startingCall = false; }
   },
 
   endCall: async () => {
     if (!isFirestoreAvailable()) {
+      releasePreparedStream();
       set({ currentCall: null, incomingCall: null, connectedAt: null, callTimeoutId: null });
       return;
     }
@@ -361,6 +364,10 @@ export const useCallStore = create<CallStore>((set, get) => ({
       clearTimeout(callTimeoutId);
       set({ callTimeoutId: null });
     }
+
+    // Release any media that was acquired for the permission check but never
+    // handed to the WebRTC engine (e.g. the call ended while still ringing).
+    releasePreparedStream(currentCall?.id);
 
     if (currentCall) {
       try {
@@ -394,23 +401,16 @@ export const useCallStore = create<CallStore>((set, get) => ({
     // Only accept calls in 'calling' state — don't accept already-connected or rejected calls
     if (incomingCall.status !== 'calling') return;
 
-    // Verify the callee's camera/microphone BEFORE marking the call connected.
-    // ZEGO's UI kit will hang on "Joining…" forever if permissions are missing.
-    try {
-      await verifyCallMediaAccess(incomingCall.type);
-    } catch (error) {
-      // Still mark connected — the ZEGO UI will surface the permission error
-      // so the user can retry, rather than silently hanging on "Joining…".
-      console.warn('[Call] Media permission check failed on accept:', error);
+    // Do not announce a connected call before the microphone/camera is usable.
+    await verifyCallingAvailability();
+    await verifyCallMediaAccess(incomingCall.type, incomingCall.id);
+    if (get().incomingCall?.id !== incomingCall.id) {
+      // The caller hung up while we were acquiring media — drop the prepared
+      // stream so the camera/mic indicator does not stay on.
+      releasePreparedStream(incomingCall.id);
+      throw new Error('This call is no longer available.');
     }
-
-    try {
-      await updateDocById(COLLECTIONS.CALL_HISTORY, incomingCall.id, { status: 'connected' });
-    } catch (error) {
-      // Log error but don't crash the UI
-      console.error('Failed to accept call:', error);
-      return;
-    }
+    await updateDocById(COLLECTIONS.CALL_HISTORY, incomingCall.id, { status: 'connected' });
 
     const now = new Date();
     set({
@@ -422,11 +422,15 @@ export const useCallStore = create<CallStore>((set, get) => ({
 
   rejectCall: async () => {
     if (!isFirestoreAvailable()) {
+      releasePreparedStream();
       set({ incomingCall: null, connectedAt: null });
       return;
     }
     const { incomingCall } = get();
     if (incomingCall) {
+      // Drop the stream acquired for the permission check — the call never
+      // connected, so nothing else will release it.
+      releasePreparedStream(incomingCall.id);
       try {
         await updateDocById(COLLECTIONS.CALL_HISTORY, incomingCall.id, {
           status: 'rejected',

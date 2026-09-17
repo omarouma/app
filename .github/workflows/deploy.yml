@@ -1,4 +1,4 @@
-name: Deploy to Firebase Hosting + Functions
+name: Deploy to Firebase Hosting
 
 on:
   push:
@@ -7,7 +7,7 @@ on:
 
 jobs:
   build-and-deploy:
-    name: Build & Deploy (Hosting + Functions)
+    name: Build & Deploy (Hosting)
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -21,11 +21,9 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
-          cache-dependency-path: |
-            package-lock.json
-            functions/package-lock.json
+          cache-dependency-path: package-lock.json
 
       - name: Install frontend dependencies
         run: npm ci
@@ -33,40 +31,21 @@ jobs:
       - name: Lint frontend
         run: npm run lint
 
+      - name: Typecheck
+        run: npx tsc -b
+
+      - name: Run tests
+        run: npm test
+
+      - name: Verify calling gateway syntax
+        run: npm run check:calling
+
       - name: Build production bundle
+        # Public browser configuration is committed in .env.production (no server
+        # secrets). Do not inject empty secret values here: an unset GitHub
+        # secret expands to an empty string and would override the committed
+        # values, tripping the vite env-guard.
         run: npm run build
-        env:
-          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
-          VITE_FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY }}
-          VITE_FIREBASE_AUTH_DOMAIN: ${{ secrets.VITE_FIREBASE_AUTH_DOMAIN }}
-          VITE_FIREBASE_DATABASE_URL: ${{ secrets.VITE_FIREBASE_DATABASE_URL }}
-          VITE_FIREBASE_PROJECT_ID: ${{ secrets.VITE_FIREBASE_PROJECT_ID }}
-          VITE_FIREBASE_STORAGE_BUCKET: ${{ secrets.VITE_FIREBASE_STORAGE_BUCKET }}
-          VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.VITE_FIREBASE_MESSAGING_SENDER_ID }}
-          VITE_FIREBASE_APP_ID: ${{ secrets.VITE_FIREBASE_APP_ID }}
-          VITE_FIREBASE_MEASUREMENT_ID: ${{ secrets.VITE_FIREBASE_MEASUREMENT_ID }}
-          VITE_GA_MEASUREMENT_ID: ${{ secrets.VITE_GA_MEASUREMENT_ID }}
-          VITE_ADSENSE_FEED_SLOT: ${{ secrets.VITE_ADSENSE_FEED_SLOT }}
-          VITE_ADSENSE_BANNER_SLOT: ${{ secrets.VITE_ADSENSE_BANNER_SLOT }}
-          VITE_ADSENSE_SIDEBAR_SLOT: ${{ secrets.VITE_ADSENSE_SIDEBAR_SLOT }}
-          VITE_CLOUDINARY_CLOUD_NAME: ${{ secrets.VITE_CLOUDINARY_CLOUD_NAME }}
-          VITE_CLOUDINARY_UPLOAD_PRESET: ${{ secrets.VITE_CLOUDINARY_UPLOAD_PRESET }}
-          VITE_VAPID_PUBLIC_KEY: ${{ secrets.VITE_VAPID_PUBLIC_KEY }}
-          VITE_SENTRY_DSN: ${{ secrets.VITE_SENTRY_DSN }}
-          VITE_TURN_SERVER_URL: ${{ secrets.VITE_TURN_SERVER_URL }}
-          VITE_TURN_SERVER_USERNAME: ${{ secrets.VITE_TURN_SERVER_USERNAME }}
-          VITE_TURN_SERVER_CREDENTIAL: ${{ secrets.VITE_TURN_SERVER_CREDENTIAL }}
-          VITE_AGORA_APP_ID: ${{ secrets.VITE_AGORA_APP_ID }}
-          VITE_AGORA_TOKEN_SERVER_URL: ${{ secrets.VITE_AGORA_TOKEN_SERVER_URL }}
-          VITE_YOUTUBE_API_KEY: ${{ secrets.VITE_YOUTUBE_API_KEY }}
-          VITE_YOUTUBE_REGION: ${{ secrets.VITE_YOUTUBE_REGION }}
-          VITE_PEXELS_API_KEY: ${{ secrets.VITE_PEXELS_API_KEY }}
-          # ZEGO App ID is public client configuration. Keep the token secret
-          # server-side in Firebase Secret Manager; never add it here.
-          VITE_ZEGO_APP_ID: ${{ secrets.VITE_ZEGO_APP_ID || '1895317974' }}
-          VITE_ZEGO_TOKEN_SERVER_URL: https://alzwgikndwbecuqmlrca.supabase.co/functions/v1/zego-token
-          VITE_ZEGO_SERVER_URL: ${{ secrets.VITE_ZEGO_SERVER_URL }}
 
       - name: Deploy Hosting to Firebase
         uses: FirebaseExtended/action-hosting-deploy@v0
