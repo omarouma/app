@@ -19,6 +19,14 @@ for (const reference of references) assert(fs.existsSync(path.join('dist', refer
 const scripts = files.filter(file => file.endsWith('.js'));
 const bundle = scripts.map(file => fs.readFileSync(file, 'utf8')).join('\n');
 assert(bundle.includes('https://fcjgbbmfqdkucfpqjxae.supabase.co'), 'Build must preserve the live Supabase project');
+// The preconnect/dns-prefetch hints in index.html are hand-written, so they can
+// drift from VITE_SUPABASE_URL. A stale ref wastes the hint and leaks a dead
+// hostname into the shipped HTML.
+const supabaseRefs = [...html.matchAll(/https:\/\/([a-z0-9]+)\.supabase\.co/g)].map(m => m[1]);
+for (const ref of supabaseRefs) {
+  assert(ref === 'fcjgbbmfqdkucfpqjxae', `index.html preconnects to stale Supabase project: ${ref}`);
+}
+assert(supabaseRefs.length > 0, 'index.html is missing the Supabase preconnect hint');
 assert(bundle.includes('https://calls.gagachat.app'), 'Missing calling gateway');
 assert(!/ZegoUIKitPrebuilt|zego-uikit|zegocloud\.com/i.test(bundle), 'Paid calling SDK remains in the build');
 assert(!/TURN_SHARED_SECRET|SUPABASE_SERVICE_ROLE_KEY|sb_secret_[A-Za-z0-9]/.test(bundle), 'Possible server secret in public build');
