@@ -1154,6 +1154,31 @@ BEGIN
 END $$;
 
 -- ============================================================
+-- 29. REALTIME REPLICA IDENTITY
+-- ============================================================
+-- Default replica identity only carries the primary key in the `old` record of
+-- UPDATE/DELETE WAL events. FULL makes the whole previous row available, which
+-- lets the client evaluate `where` constraints against the old row and makes
+-- DELETE events self-describing. Low-write tables, so the extra WAL is cheap.
+DO $$
+DECLARE
+  tbl TEXT;
+  tables TEXT[] := ARRAY[
+    'call_history','call_signaling','messages','chats','notifications',
+    'friend_requests','friendships','typing','presence'
+  ];
+BEGIN
+  FOREACH tbl IN ARRAY tables LOOP
+    IF EXISTS (
+      SELECT 1 FROM information_schema.tables
+      WHERE table_schema = 'public' AND table_name = tbl
+    ) THEN
+      EXECUTE format('ALTER TABLE public.%I REPLICA IDENTITY FULL', tbl);
+    END IF;
+  END LOOP;
+END $$;
+
+-- ============================================================
 -- DONE
 -- ============================================================
 -- Single master file — replaces supabase_migration.sql,

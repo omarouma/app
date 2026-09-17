@@ -36,7 +36,20 @@ export function useIncomingCallNotifications() {
 
     const ringtoneRef = useRef<{ stop: () => void } | null>(null);
     const vibrateTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+    // Bounded: only the most recent call IDs are remembered. An unbounded Set
+    // would grow for the lifetime of the session.
     const notificationSentRef = useRef<Set<string>>(new Set());
+    const rememberNotified = useCallback((callId: string) => {
+        const seen = notificationSentRef.current;
+        seen.add(callId);
+        if (seen.size > 20) {
+            // Drop the oldest entries (Set preserves insertion order).
+            for (const id of seen) {
+                if (seen.size <= 10) break;
+                seen.delete(id);
+            }
+        }
+    }, []);
     const callerInfoCacheRef = useRef<Map<string, { name: string; avatar?: string }>>(new Map());
     const lastIncomingRef = useRef<{ id: string; name: string; type: string } | null>(null);
 
@@ -68,6 +81,7 @@ export function useIncomingCallNotifications() {
             const friend = friends.find(f => f.id === callerId);
             if (friend) {
                 const info = { name: friend.name || 'User', avatar: friend.avatar };
+                if (callerInfoCacheRef.current.size > 100) callerInfoCacheRef.current.clear();
                 callerInfoCacheRef.current.set(callerId, info);
                 return info;
             }
@@ -78,11 +92,13 @@ export function useIncomingCallNotifications() {
                 name: (userData?.name as string) || (userData?.displayName as string) || 'User',
                 avatar: (userData?.avatar as string),
             };
+            if (callerInfoCacheRef.current.size > 100) callerInfoCacheRef.current.clear();
             callerInfoCacheRef.current.set(callerId, info);
             return info;
         } catch {
             // Fallback to ID
             const info = { name: callerId };
+            if (callerInfoCacheRef.current.size > 100) callerInfoCacheRef.current.clear();
             callerInfoCacheRef.current.set(callerId, info);
             return info;
         }
@@ -118,7 +134,7 @@ export function useIncomingCallNotifications() {
         if (notificationSentRef.current.has(incomingCall.id)) {
             return;
         }
-        notificationSentRef.current.add(incomingCall.id);
+        rememberNotified(incomingCall.id);
 
         // Ensure audio context is initialized before playing sounds
         resumeAudio().catch(() => {
@@ -168,7 +184,7 @@ export function useIncomingCallNotifications() {
             }
         })();
 
-    }, [incomingCall, getCallerInfo, stopRinging]);
+    }, [incomingCall, getCallerInfo, stopRinging, rememberNotified]);
 
     // Cleanup on unmount
     useEffect(() => {

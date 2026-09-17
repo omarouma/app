@@ -4,11 +4,10 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Phone, PhoneOff, Mic, MicOff, Video, VideoOff,
   Volume2, RotateCw, MessageSquare, Pause, Play, Maximize2, Minimize2,
-  UserPlus, UserRound, X, Keyboard,
+  UserRound, X, Keyboard,
 } from 'lucide-react';
 import { useCallStore } from '@/store/useCallStore';
 import { useAuthStore } from '@/store/useAuthStore';
-import { useFriendStore } from '@/store/useFriendStore';
 import { useCallContext } from '@/context/CallContextBase';
 import { stopAllSounds, playIncomingCall, playOutgoingCall, vibrateIncomingCall } from '@/lib/sounds';
 import { sanitizeMediaUrl, getDefaultAvatar } from '@/lib/utils';
@@ -22,7 +21,7 @@ function formatDuration(s: number) {
 
 export default function CallOverlay() {
   const navigate = useNavigate();
-  const { currentCall, incomingCall, inviteToCall } = useCallStore();
+  const { currentCall, incomingCall } = useCallStore();
   const currentUser = useAuthStore((s) => s.user);
 
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
@@ -31,13 +30,14 @@ export default function CallOverlay() {
 
   const [isAccepting, setIsAccepting] = useState(false);
   const [otherUser, setOtherUser] = useState<{ id: string; name: string; avatar?: string } | null>(null);
-  const [showAddParticipant, setShowAddParticipant] = useState(false);
   const [showKeypad, setShowKeypad] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
-
-  const friends = useFriendStore((s) => s.friends);
-  const getRecentContacts = useFriendStore((s) => s.getRecentContacts);
-  const [recentContacts, setRecentContacts] = useState<{ id: string; name: string; avatar?: string }[]>([]);
+  // Output device selection. `setSinkId` is Chromium-only, so the control is
+  // hidden entirely where it is unsupported rather than showing a dead button.
+  const [audioOutputs, setAudioOutputs] = useState<MediaDeviceInfo[]>([]);
+  const [sinkId, setSinkId] = useState<string>('');
+  const [showAudioOutputs, setShowAudioOutputs] = useState(false);
+  const audioRef = useRef<HTMLAudioElement>(null);
 
   const {
     isConnected, localStream, remoteStream, remoteParticipants, isMuted, isVideoOn, isHeld, quality,
@@ -45,24 +45,35 @@ export default function CallOverlay() {
     endCall, acceptCall, rejectCall, toggleMute, toggleVideo, flipCamera, toggleHold, sendDTMF,
   } = useCallContext();
 
-  // Load recent contacts for the "Add participant" panel when opened.
+  // Enumerate audio outputs when the panel opens. Labels are only populated
+  // after a media permission grant, which a call always has.
   useEffect(() => {
-    if (!showAddParticipant || !currentUser?.id) return;
+    if (!showAudioOutputs) return;
+    if (typeof navigator === 'undefined' || !navigator.mediaDevices?.enumerateDevices) return;
     let cancelled = false;
-    getRecentContacts(currentUser.id)
-      .then((users) => {
+    navigator.mediaDevices.enumerateDevices()
+      .then((devices) => {
         if (cancelled) return;
-        setRecentContacts(
-          (users || []).map((u) => ({
-            id: u.id,
-            name: (u as unknown as { name?: string; displayName?: string }).name || (u as unknown as { displayName?: string }).displayName || 'User',
-            avatar: u.avatar || undefined,
-          }))
-        );
+        setAudioOutputs(devices.filter((d) => d.kind === 'audiooutput'));
       })
-      .catch(() => { if (!cancelled) setRecentContacts([]); });
+      .catch(() => { if (!cancelled) setAudioOutputs([]); });
     return () => { cancelled = true; };
-  }, [showAddParticipant, currentUser?.id, getRecentContacts]);
+  }, [showAudioOutputs]);
+
+  const supportsSinkId = typeof HTMLMediaElement !== 'undefined'
+    && 'setSinkId' in HTMLMediaElement.prototype;
+
+  const chooseAudioOutput = useCallback(async (deviceId: string) => {
+    const audio = audioRef.current as (HTMLAudioElement & { setSinkId?: (id: string) => Promise<void> }) | null;
+    if (!audio?.setSinkId) return;
+    try {
+      await audio.setSinkId(deviceId);
+      setSinkId(deviceId);
+      setShowAudioOutputs(false);
+    } catch {
+      toast.error('Could not switch audio output on this device.');
+    }
+  }, []);
 
 
 
@@ -189,7 +200,7 @@ export default function CallOverlay() {
         exit={{ scale: 0.6, opacity: 0 }}
         className="fixed bottom-24 right-4 z-[70] flex flex-col items-center gap-2"
       >
-        <RemoteCallAudio stream={remoteStream} />
+        <RemoteCallAudio stream={remoteStream} audioRef={audioRef} />
         <div className="relative w-20 h-20 rounded-full overflow-hidden shadow-xl border-2 border-[#00C300] bg-[#1a1a2e]">
           {isVideo && remoteStream ? (
             <video ref={remoteVideoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
@@ -230,7 +241,7 @@ export default function CallOverlay() {
         exit={{ opacity: 0 }}
         className="fixed inset-0 z-[70] flex flex-col overflow-hidden"
       >
-        <RemoteCallAudio stream={remoteStream} />
+        <RemoteCallAudio stream={remoteStream} audioRef={audioRef} />
         {(
 
           <>
@@ -420,8 +431,8 @@ export default function CallOverlay() {
                       <span className="text-white/50 text-xs">{isAccepting ? 'Connecting…' : 'Accept'}</span>
                     </div>
                   </div>
-                ) : showAddParticipant ? (
-                  /* Add participant slide-up panel */
+                ) : showAudioOutputs ? (
+                  /* Output device picker — applies via HTMLMediaElement.setSinkId */
                   <motion.div
                     initial={{ y: 40, opacity: 0 }}
                     animate={{ y: 0, opacity: 1 }}
@@ -429,79 +440,41 @@ export default function CallOverlay() {
                     className="flex flex-col gap-3 max-h-[40vh]"
                   >
                     <div className="flex items-center justify-between">
-                      <h3 className="text-white font-semibold text-sm">Add participant</h3>
+                      <h3 className="text-white font-semibold text-sm">Audio output</h3>
                       <button
                         type="button"
-                        onClick={() => setShowAddParticipant(false)}
+                        onClick={() => setShowAudioOutputs(false)}
                         className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-white/70 active:bg-white/20"
-                        aria-label="Close add participant"
+                        aria-label="Close audio output"
                       >
                         <X size={16} />
                       </button>
                     </div>
                     <div className="overflow-y-auto flex flex-col gap-1 rounded-2xl bg-black/20 border border-white/10 p-2">
-                      {friends.length > 0 ? (
-                        friends
-                          .filter((f) => f.id !== currentUser?.id && f.id !== otherUserId)
-                          .map((f) => {
-                            const fAvatar = sanitizeMediaUrl(f.avatar)
-                              ? sanitizeMediaUrl(f.avatar)!
-                              : getDefaultAvatar(f.id ?? f.name ?? 'U');
-                            return (
-                              <button
-                                key={f.id}
-                                type="button"
-                                onClick={() => {
-                                  setShowAddParticipant(false);
-                                  if (currentCall?.id && currentUser?.id) {
-                                    inviteToCall(currentCall.id, currentUser.id, f.id);
-                                    toast.success(`${f.name} added to the call`);
-                                  }
-                                }}
-                                className="flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-white/10 active:bg-white/15 transition-colors text-left"
-                              >
-                                <img src={fAvatar} className="w-10 h-10 rounded-full object-cover" alt={f.name} />
-                                <div className="min-w-0 flex-1">
-                                  <p className="text-white text-sm font-medium truncate">{f.name}</p>
-                                  <p className="text-white/40 text-xs">Friend</p>
-                                </div>
-                                <UserPlus size={18} className="text-white/50 shrink-0" />
-                              </button>
-                            );
-                          })
-                      ) : recentContacts.length > 0 ? (
-                        recentContacts
-                          .filter((c) => c.id !== currentUser?.id && c.id !== otherUserId)
-                          .map((c) => {
-                            const cAvatar = sanitizeMediaUrl(c.avatar)
-                              ? sanitizeMediaUrl(c.avatar)!
-                              : getDefaultAvatar(c.id ?? c.name ?? 'U');
-                            return (
-                              <button
-                                key={c.id}
-                                type="button"
-                                onClick={() => {
-                                  setShowAddParticipant(false);
-                                  toast.info(`Calling ${c.name}`);
-                                  navigate('/call', {
-                                    state: { userId: c.id, mode: isVideo ? 'video' : 'voice', isOutgoing: true },
-                                  });
-                                }}
-                                className="flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-white/10 active:bg-white/15 transition-colors text-left"
-                              >
-                                <img src={cAvatar} className="w-10 h-10 rounded-full object-cover" alt={c.name} />
-                                <div className="min-w-0 flex-1">
-                                  <p className="text-white text-sm font-medium truncate">{c.name}</p>
-                                  <p className="text-white/40 text-xs">Recent</p>
-                                </div>
-                                <UserPlus size={18} className="text-white/50 shrink-0" />
-                              </button>
-                            );
-                          })
+                      {audioOutputs.length > 0 ? (
+                        audioOutputs.map((device, index) => {
+                          const selected = sinkId
+                            ? sinkId === device.deviceId
+                            : device.deviceId === 'default' || index === 0;
+                          return (
+                            <button
+                              key={device.deviceId || `output-${index}`}
+                              type="button"
+                              onClick={() => { void chooseAudioOutput(device.deviceId); }}
+                              className={`flex items-center gap-3 px-3 py-2 rounded-xl transition-colors text-left ${selected ? 'bg-white/15' : 'hover:bg-white/10 active:bg-white/15'}`}
+                            >
+                              <Volume2 size={18} className="text-white/60 shrink-0" />
+                              <span className="text-white text-sm font-medium truncate flex-1">
+                                {device.label || `Speaker ${index + 1}`}
+                              </span>
+                              {selected && <span className="text-[#00C300] text-xs shrink-0">Active</span>}
+                            </button>
+                          );
+                        })
                       ) : (
                         <div className="text-center py-6">
-                          <UserRound size={28} className="mx-auto text-white/30 mb-2" />
-                          <p className="text-white/50 text-sm">No contacts available</p>
+                          <Volume2 size={28} className="mx-auto text-white/30 mb-2" />
+                          <p className="text-white/50 text-sm">No output devices found</p>
                         </div>
                       )}
                     </div>
@@ -551,12 +524,14 @@ export default function CallOverlay() {
                         label={isMuted ? 'Unmute' : 'Mute'}
                         icon={isMuted ? <MicOff size={22} /> : <Mic size={22} />}
                       />
-                      <ControlButton
-                        active={false}
-                        onClick={() => toast.info('Choose your audio output in your browser or device settings.')}
-                        label="Audio output"
-                        icon={<Volume2 size={22} />}
-                      />
+                      {supportsSinkId && (
+                        <ControlButton
+                          active={showAudioOutputs}
+                          onClick={() => setShowAudioOutputs((v) => !v)}
+                          label="Audio output"
+                          icon={<Volume2 size={22} />}
+                        />
+                      )}
                       <ControlButton
                         active={isHeld}
                         onClick={toggleHold}
@@ -568,13 +543,6 @@ export default function CallOverlay() {
                         onClick={() => setShowKeypad((v) => !v)}
                         label="Keypad"
                         icon={<Keyboard size={22} />}
-                      />
-                      <ControlButton
-                        active={showAddParticipant}
-                        onClick={() => toast.info('Group calling is not enabled yet.')}
-                        
-                        label="Add"
-                        icon={<UserPlus size={22} />}
                       />
                       {isVideo && (
                         <ControlButton
@@ -649,21 +617,39 @@ function GroupRemoteVideo({ stream }: { stream: MediaStream }) {
 }
 
 
-function RemoteCallAudio({ stream }: { stream: MediaStream | null }) {
-  const ref = useRef<HTMLAudioElement>(null);
+function RemoteCallAudio({
+  stream,
+  audioRef,
+}: {
+  stream: MediaStream | null;
+  audioRef?: React.RefObject<HTMLAudioElement | null>;
+}) {
+  const localRef = useRef<HTMLAudioElement>(null);
+  // The parent owns the ref when it needs to call setSinkId on this element.
+  const ref = audioRef ?? localRef;
   const [blocked, setBlocked] = useState(false);
-  const play = useCallback(() => {
-    const audio = ref.current;
-    if (audio && stream) void audio.play().then(() => setBlocked(false)).catch(() => setBlocked(true));
-  }, [stream]);
+
   useEffect(() => {
     const audio = ref.current;
-    if (audio) audio.srcObject = stream;
-    play();
-    return () => { if (audio) audio.srcObject = null; };
-  }, [stream, play]);
+    if (!audio) return;
+    audio.srcObject = stream;
+    if (stream) {
+      void audio.play().then(() => setBlocked(false)).catch(() => setBlocked(true));
+    }
+    return () => { audio.srcObject = null; };
+  }, [stream, ref]);
+
+  // Autoplay can be blocked until the user interacts with the page; this is the
+  // gesture that unblocks it.
+  const handleTapToPlay = () => {
+    const audio = ref.current;
+    if (audio && stream) {
+      void audio.play().then(() => setBlocked(false)).catch(() => setBlocked(true));
+    }
+  };
+
   return <>
     <audio ref={ref} autoPlay />
-    {blocked && <button type="button" onClick={play} className="absolute top-5 left-1/2 -translate-x-1/2 z-50 rounded-full bg-white text-black px-4 py-2 text-sm">Tap to hear call audio</button>}
+    {blocked && <button type="button" onClick={handleTapToPlay} className="absolute top-5 left-1/2 -translate-x-1/2 z-50 rounded-full bg-white text-black px-4 py-2 text-sm">Tap to hear call audio</button>}
   </>;
 }

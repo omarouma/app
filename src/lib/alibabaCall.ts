@@ -1,5 +1,6 @@
 import { getSupabase } from './supabase';
 import env from '@/config/env';
+import { callMediaConstraints, takePreparedStream } from './callMedia';
 
 export type CallQuality = 'good' | 'poor' | 'reconnecting';
 export interface PeerCallCallbacks {
@@ -40,9 +41,13 @@ export class AlibabaCall {
   }
   private async fetchIce(token: string): Promise<RTCIceServer[]> {
     const url = new URL('/ice', this.base!); url.searchParams.set('call', this.callId);
-    const timeout = setTimeout(() => this.controller.abort(), 10000);
+    // A fresh controller per request: reusing one controller means the first
+    // timeout aborts every later request (including credential renewal), which
+    // permanently breaks ICE refresh on long calls.
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10000);
     try {
-      const response = await fetch(url, { headers: { Authorization: `Bearer ${token}` }, signal: this.controller.signal, cache: 'no-store' });
+      const response = await fetch(url, { headers: { Authorization: `Bearer ${token}` }, signal: controller.signal, cache: 'no-store' });
       if (!response.ok) throw new Error('Calling service is unavailable or access was denied.');
       const { iceServers } = await response.json() as { iceServers: RTCIceServer[] };
       if (!Array.isArray(iceServers) || !iceServers.some(server => [server.urls].flat().some(url => /^turns?:/.test(url)))) throw new Error('Calling relay is not configured.');
@@ -58,7 +63,11 @@ export class AlibabaCall {
     const token = await this.sessionToken();
     const iceServers = await this.fetchIce(token);
     if (this.closed) return;
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true }, video: video ? { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 360 }, frameRate: { ideal: 20, max: 30 } } : false });
+    // Reuse the stream the store already acquired for the permission check.
+    // Acquiring twice in quick succession throws NotReadableError on some
+    // mobile browsers and flashes the camera indicator twice.
+    const stream = takePreparedStream(callId, video)
+      ?? await navigator.mediaDevices.getUserMedia(callMediaConstraints(video));
     if (this.closed) { stream.getTracks().forEach(track => track.stop()); return; }
     this.stream = stream; this.callbacks.local(stream);
     const pc = new RTCPeerConnection({ iceServers }); this.pc = pc;

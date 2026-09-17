@@ -4,6 +4,26 @@ This package implements one-to-one browser audio/video calling using native WebR
 
 The web client uses `VITE_CALLING_API_URL=https://calls.gagachat.app`. Configure that origin and include it in the hosting CSP if using another domain.
 
+## Start here
+
+| File | Purpose |
+|---|---|
+| **`ALIBABA-CLOUD-SETUP.md`** | **Full setup runbook** — architecture, provisioning, security group, DNS, verification, operations, troubleshooting |
+| `provision-ecs.sh` | One-command ECS provisioning (Node 22 + coturn + Caddy + systemd + firewall). Idempotent; supports `--dry-run` |
+| `verify-remote.sh` | Verify a deployed gateway from outside the VPC (TLS, `/healthz`, `/ice`, WSS upgrade, TURN) |
+| `scripts/local-smoke.mjs` | 13 end-to-end checks against a real local gateway (`npm run smoke`) |
+| `server.test.mjs` | 3 unit/integration tests (`npm test`) |
+
+Quick start:
+
+```bash
+cd alibaba-calling
+npm test && npm run smoke          # prove the gateway works locally
+./provision-ecs.sh --dry-run ...   # preview the ECS install
+./provision-ecs.sh ...             # apply it
+./verify-remote.sh https://calls.gagachat.app turn.gagachat.app
+```
+
 ## Current identity/data boundary
 
 Authentication, call invitations and call history still use the app's existing Supabase backend. The Alibaba gateway verifies that session and call membership using the user's database permissions before issuing TURN credentials or relaying signaling. No service-role key is required. A complete Alibaba identity/data migration is separate work; do not remove Supabase until the app and gateway have the replacement API contracts.
