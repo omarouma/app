@@ -19,6 +19,7 @@ import { useCallContext } from '@/context/CallContextBase';
 import { ChatHeader } from './ChatHeader';
 import { MessageItem } from './MessageItem';
 import { MessageSearch } from './MessageSearch';
+import { MediaGallery } from './MediaGallery';
 import { InputBar } from './InputBar';
 import TransferModal from '@/components/TransferModal';
 import { Virtuoso } from 'react-virtuoso';
@@ -108,6 +109,7 @@ export default function ChatRoom({ chatId, userId, onBack }: {
     setReportDetails,
     processingAction,
     lastSeen,
+    lightboxImage,
     setLightboxImage,
     editingMessageId,
     setEditingMessageId,
@@ -330,6 +332,26 @@ export default function ChatRoom({ chatId, userId, onBack }: {
     for (const m of msgs) map.set(m.id, m);
     return map;
   }, [msgs]);
+
+  // All image/video messages in this chat, used by the full-screen media
+  // lightbox. Tapping any image opens the gallery at that item so the user
+  // can swipe through every shared photo/video (previously the lightbox
+  // state was set but never rendered, so tapping an image did nothing).
+  const galleryItems = useMemo(
+    () =>
+      msgs
+        .filter((m) => (m.type === 'image' || m.type === 'video') && sanitizeMediaUrl(m.mediaUrl))
+        .map((m) => ({
+          id: m.id,
+          url: sanitizeMediaUrl(m.mediaUrl) as string,
+          type: (m.type === 'video' ? 'video' : 'image') as 'image' | 'video',
+        })),
+    [msgs],
+  );
+
+  const lightboxIndex = lightboxImage
+    ? Math.max(0, galleryItems.findIndex((item) => item.url === lightboxImage))
+    : 0;
 
   const resolvedDisplayUser =
     displayUser && typeof displayUser === 'object' && 'id' in displayUser && !('then' in displayUser)
@@ -1044,6 +1066,15 @@ export default function ChatRoom({ chatId, userId, onBack }: {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Full-screen media lightbox (images + videos) */}
+      {lightboxImage && galleryItems.length > 0 && (
+        <MediaGallery
+          images={galleryItems}
+          initialIndex={lightboxIndex}
+          onClose={() => setLightboxImage(null)}
+        />
+      )}
     </div>
   );
 }
