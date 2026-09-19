@@ -144,3 +144,68 @@ html.dark [class*="border-gray-200"] {
 html.dark [class*="placeholder-gray-400"]::placeholder {
   color: hsl(var(--muted-foreground)) !important;
 }
+
+/* ── Legacy muted-gray text overrides ─────────────────────────────────────
+   The app uses several hardcoded muted grays for secondary text. On the
+   dark background these are too dim / low-contrast, so map them onto the
+   theme's muted-foreground token for consistent legibility.
+   ───────────────────────────────────────────────────────────────────────── */
+html.dark [class*="text-[#8D8D8D]"],
+html.dark [class*="text-[#ADADAD]"],
+html.dark [class*="text-[#ABABAB]"],
+html.dark [class*="text-[#C7C7CC]"],
+html.dark [class*="text-[#CCCCCC]"],
+html.dark [class*="text-[#888]"],
+html.dark [class*="text-[#888888]"],
+html.dark [class*="text-[#666]"],
+html.dark [class*="text-[#666666]"] {
+  color: hsl(var(--muted-foreground)) !important;
+}
+
+/* ── Legacy destructive (red) overrides ─────────────────────────────────── */
+html.dark [class*="text-[#FF3B30]"],
+html.dark [class*="text-[#FF5252]"],
+html.dark [class*="text-[#FF6B6B]"] {
+  color: hsl(var(--destructive)) !important;
+}
+
+html.dark [class*="bg-[#FF3B30]"]:not([class*="bg-[#FF3B30]/"]),
+html.dark [class*="bg-[#FF5252]"] {
+  background-color: hsl(var(--destructive)) !important;
+}
+
+html.dark [class*="bg-[#FF3B30]/10"],
+html.dark [class*="bg-[#FF3B30]/5"] {
+  background-color: hsl(var(--destructive) / 0.12) !important;
+}
+
+html.dark [class*="border-[#FF3B30]"] {
+  border-color: hsl(var(--destructive)) !important;
+}
+
+/* ── Legacy brand-green tint overrides ──────────────────────────────────── */
+html.dark [class*="bg-[#00C300]/10"],
+html.dark [class*="bg-[#00C300]/5"] {
+  background-color: hsl(var(--primary) / 0.14) !important;
+}
+
+html.dark [class*="bg-[#E8F5E9]"] {
+  background-color: hsl(var(--primary) / 0.14) !important;
+}
+
+/* ── Legacy neutral surface overrides ───────────────────────────────────── */
+html.dark [class*="bg-[#E8E8E8]"],
+html.dark [class*="bg-[#E4E6EB]"] {
+  background-color: hsl(var(--muted)) !important;
+}
+
+html.dark [class*="border-[#E8E8E8]"],
+html.dark [class*="border-[#D0D0D0]"] {
+  border-color: hsl(var(--border)) !important;
+}
+
+/* ── Legacy placeholder color overrides ─────────────────────────────────── */
+html.dark [class*="placeholder-[#ADADAD]"]::placeholder,
+html.dark [class*="placeholder-[#8D8D8D]"]::placeholder {
+  color: hsl(var(--muted-foreground)) !important;
+}
