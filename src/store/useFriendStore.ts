@@ -3,18 +3,16 @@ import {
   isFirestoreAvailable,
   COLLECTIONS,
   getDocById,
-  setDocById,
   updateDocById,
   deleteDocById,
   addDocToCollection,
   queryCollection,
   subscribeToCollection,
   serverTimestamp,
-  arrayUnion,
-  arrayRemove,
 } from '@/lib/firestore';
 import type { User, FriendRequest, FriendStatus, SentRequest, BlockedUserRecord, SuggestedUser } from '@/types';
 import { where, orderBy, limit } from '@/lib/firestore';
+import { getDb } from '@/lib/supabaseDb';
 import { fetchUserProfile } from '@/lib/supabaseAuth';
 import { toast } from 'sonner';
 
@@ -420,19 +418,15 @@ loading: {
       const req = await getDocById(COLLECTIONS.FRIEND_REQUESTS, requestId);
       if (!req) return;
 
-      await updateDocById(COLLECTIONS.FRIEND_REQUESTS, requestId, { status: 'accepted' });
-
-      // Create bidirectional friendship docs
-      await setDocById(COLLECTIONS.FRIENDSHIPS, `${req.fromUserId}_${req.toUserId}`, {
-        userId: req.fromUserId,
-        friendId: req.toUserId,
-        createdAt: serverTimestamp(),
-      });
-      await setDocById(COLLECTIONS.FRIENDSHIPS, `${req.toUserId}_${req.fromUserId}`, {
-        userId: req.toUserId,
-        friendId: req.fromUserId,
-        createdAt: serverTimestamp(),
-      });
+      // SECURITY / CORRECTNESS: accept the request atomically server-side.
+      // The RPC flips the request to 'accepted' and inserts BOTH friendship
+      // rows in a single transaction, verifying the caller is the recipient.
+      // Doing this client-side previously required writing a friendship row
+      // where the caller is not `user_id`, which RLS rejects.
+      const db = getDb();
+      if (!db) throw new Error('Backend unavailable');
+      const { error } = await db.rpc('accept_friend_request', { p_request_id: requestId });
+      if (error) throw error;
 
       // Create direct chat (dynamic import to avoid circular dependency)
       const { useChatStore } = await import('./useChatStore');
@@ -830,14 +824,18 @@ loading: {
     }
     if (!currentUserId || !userId || currentUserId === userId) return;
     try {
-      // Add to current user's following
-      await updateDocById(COLLECTIONS.USERS, currentUserId, {
-        following: arrayUnion(userId),
-      });
-      // Add to target user's followers
-      await updateDocById(COLLECTIONS.USERS, userId, {
-        followers: arrayUnion(currentUserId),
-      });
+      // SECURITY: follow writes to BOTH the caller's `following` and the
+      // target's `followers`. The cross-user write is blocked by RLS
+      // (`users_update_own`), so it must go through a SECURITY DEFINER RPC.
+      const db = getDb();
+      if (!db) throw new Error('Backend unavailable');
+      const { data, error } = await db.rpc('follow_user', { p_target: userId });
+      if (error) throw error;
+      const res = data as { ok?: boolean; reason?: string } | null;
+      if (res && res.ok === false) {
+        if (res.reason === 'target_not_found') throw new Error('User not found');
+        throw new Error('Could not follow this user');
+      }
       toast.success('Following');
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : 'Failed to follow');
@@ -851,12 +849,10 @@ loading: {
     }
     if (!currentUserId || !userId) return;
     try {
-      await updateDocById(COLLECTIONS.USERS, currentUserId, {
-        following: arrayRemove(userId),
-      });
-      await updateDocById(COLLECTIONS.USERS, userId, {
-        followers: arrayRemove(currentUserId),
-      });
+      const db = getDb();
+      if (!db) throw new Error('Backend unavailable');
+      const { error } = await db.rpc('unfollow_user', { p_target: userId });
+      if (error) throw error;
       toast.success('Unfollowed');
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : 'Failed to unfollow');

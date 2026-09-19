@@ -179,6 +179,19 @@ export const useChatStore = create<ChatStore>((set, get) => ({
           // this was only cleared inside fetchChats(), which is never invoked,
           // so the chat list rendered a permanent loading skeleton.
           set({ chats: activeChats, archivedChats, totalUnread, loadingChats: false });
+
+          // Per-user unread counts. chats.unread_count is a single shared column
+          // and is never incremented on the client insert path, so we resolve
+          // the real per-user counts from the server and patch them in.
+          void chatApi.fetchUnreadCounts(userId).then((unreadMap) => {
+            if (!unreadMap || Object.keys(unreadMap).length === 0) return;
+            const patch = (list: Chat[]) =>
+              list.map(c => (unreadMap[c.id] !== undefined ? { ...c, unreadCount: unreadMap[c.id] } : c));
+            const nextActive = patch(get().chats);
+            const nextArchived = patch(get().archivedChats);
+            const nextTotal = nextActive.reduce((sum, chat) => sum + (chat.unreadCount || 0), 0);
+            set({ chats: nextActive, archivedChats: nextArchived, totalUnread: nextTotal });
+          });
         },
       ),
     );
