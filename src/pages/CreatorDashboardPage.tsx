@@ -14,6 +14,7 @@ import { useEnhancedTimelineStore } from '@/store/useEnhancedTimelineStore';
 import { usePremiumStore } from '@/store/usePremiumStore';
 import { useReelStore } from '@/store/useReelStore';
 import { queryCollection, COLLECTIONS, where, orderBy, isFirestoreAvailable } from '@/lib/firestore';
+import { formatDateBySettings, getActiveRegionSettings } from '@/lib/regionUtils';
 import type { TimelinePost, CreatorAnalytics, Reel } from '@/types';
 import {
   Line, AreaChart, Area, XAxis, YAxis, CartesianGrid,
@@ -67,7 +68,7 @@ function formatNumber(n: number): string {
 
 function formatDateLabel(dateStr: string): string {
   const d = new Date(dateStr);
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  return formatDateBySettings(d, getActiveRegionSettings(), { month: 'short', day: 'numeric' });
 }
 
 function mapPostFromDoc(d: Record<string, unknown>): TimelinePost {

@@ -11,6 +11,7 @@ import { toast } from 'sonner';
 import EmptyState from '@/components/EmptyState';
 import LoadingSkeleton from '@/components/LoadingSkeleton';
 import { getDefaultAvatar } from '@/lib/utils';
+import { formatDateBySettings, getActiveRegionSettings } from '@/lib/regionUtils';
 import type { EventData } from '@/types';
 
 type EventTab = 'upcoming' | 'my-events' | 'past' | 'nearby';
@@ -188,7 +189,7 @@ export default function EventsPage() {
 
   const formatDate = (date: Date | string) => {
     const d = new Date(date);
-    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+    return formatDateBySettings(d, getActiveRegionSettings(), { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
   };
 
   return (

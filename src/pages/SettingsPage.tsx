@@ -10,7 +10,8 @@ import {
   Mail, MoonStar, Eraser,
   FileText, Crown,
   Clock, Bug, LifeBuoy, FileQuestion, ArrowLeft,
-  KeyRound, HardDrive, ShieldCheck, RefreshCw
+  KeyRound, HardDrive, ShieldCheck, RefreshCw,
+  CalendarDays, Hash, Timer, MapPin
 } from 'lucide-react';
 import { useAppPermissions, type PermissionType, type PermissionStatus } from '@/hooks/useAppPermissions';
 import { useAuthStore } from '@/store/useAuthStore';
@@ -20,6 +21,13 @@ import { useWalletStore } from '@/store/useWalletStore';
 import { useFriendStore } from '@/store/useFriendStore';
 import { useTranslation } from '@/hooks/useTranslation';
 import type { LangCode } from '@/lib/i18n';
+import {
+  REGIONS,
+  resolveRegion,
+  getFormatPreview,
+  getWeekdayNames,
+  getTimezoneLabel,
+} from '@/lib/regionUtils';
 import type { ThemeSettings } from '@/types';
 import Logo from '@/components/Logo';
 import { previewSound, type SoundProfile, isVibrationSupported } from '@/lib/sounds';
@@ -185,7 +193,7 @@ export default function SettingsPage() {
     { id: 'notifications', label: 'Notifications', icon: Bell, desc: 'Sounds, alerts, previews' },
     { id: 'privacy', label: 'Privacy', icon: Shield, desc: 'Last seen, read receipts, blocked' },
     { id: 'storage', label: 'Storage', icon: Database, desc: 'Cache, downloads, media' },
-    { id: 'language', label: 'Language', icon: Globe, desc: 'App language and region' },
+    { id: 'language', label: 'Language & Region', icon: Globe, desc: 'App language, region, date & time format' },
     { id: 'help', label: 'Help', icon: HelpCircle, desc: 'FAQ, support, report' },
     { id: 'about', label: 'About', icon: Info, desc: 'Version, terms, credits' },
   ];
@@ -461,25 +469,204 @@ export default function SettingsPage() {
               )}
 
               {section === 'language' && (
-                <div className="card-surface p-3 sm:p-4">
-                  {languages.map(l => (
-                    <button
-                      key={l.code}
-                      type="button"
-                      onClick={() => handleLanguageChange(l.code)}
-                      className={`w-full flex items-center gap-3 sm:gap-4 px-3 py-3 rounded-xl transition-colors text-left mb-1 press-card ${tempLang === l.code ? 'bg-primary/5' : ''
-                        }`}
-                    >
-                      <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${tempLang === l.code ? 'border-primary' : 'border-muted-foreground/30'
-                        }`}>
-                        {tempLang === l.code && <div className="w-2.5 h-2.5 rounded-full bg-primary" />}
+                <div className="space-y-3 sm:space-y-4">
+                  {/* ── Language ─────────────────────────────────────── */}
+                  <div className="card-surface p-3 sm:p-4">
+                    <div className="flex items-center gap-2 px-1 pb-2">
+                      <Globe size={16} className="text-primary" />
+                      <h3 className="text-sm font-semibold text-foreground">App Language</h3>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                      {languages.map(l => (
+                        <button
+                          key={l.code}
+                          type="button"
+                          onClick={() => handleLanguageChange(l.code)}
+                          className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors text-left press-card border ${tempLang === l.code
+                            ? 'bg-primary/5 border-primary/40'
+                            : 'border-transparent hover:bg-accent'
+                            }`}
+                        >
+                          <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${tempLang === l.code ? 'border-primary' : 'border-muted-foreground/30'
+                            }`}>
+                            {tempLang === l.code && <div className="w-2.5 h-2.5 rounded-full bg-primary" />}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className={`text-sm font-medium truncate ${tempLang === l.code ? 'text-primary' : 'text-foreground'}`}>{l.label}</p>
+                          </div>
+                          <p className="text-xs text-muted-foreground shrink-0">{l.native}</p>
+                        </button>
+                      ))}
+                    </div>
+                    {tempLang === 'ar' && (
+                      <p className="text-xs text-muted-foreground px-1 pt-2 flex items-center gap-1.5">
+                        <Info size={12} /> Arabic switches the app to right-to-left layout.
+                      </p>
+                    )}
+                  </div>
+
+                  {/* ── Region ───────────────────────────────────────── */}
+                  <div className="card-surface p-3 sm:p-4">
+                    <div className="flex items-center gap-2 px-1 pb-2">
+                      <MapPin size={16} className="text-primary" />
+                      <h3 className="text-sm font-semibold text-foreground">Region</h3>
+                    </div>
+                    <p className="text-xs text-muted-foreground px-1 pb-2">
+                      Sets the default date, time and number conventions. Currently using{' '}
+                      <span className="font-medium text-foreground">
+                        {resolveRegion({ region: settings.region, language: tempLang }).label}
+                      </span>
+                      {settings.region === 'auto' && ' (auto)'}.
+                    </p>
+                    <div className="relative">
+                      <select
+                        value={settings.region || 'auto'}
+                        onChange={(e) => handleUpdate('region', e.target.value)}
+                        className="w-full appearance-none rounded-xl border border-border bg-card px-3 py-2.5 pr-9 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                      >
+                        {REGIONS.map(r => (
+                          <option key={r.code} value={r.code}>
+                            {r.flag}  {r.label}
+                          </option>
+                        ))}
+                      </select>
+                      <ChevronRight size={16} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 rotate-90 text-muted-foreground" />
+                    </div>
+                  </div>
+
+                  {/* ── Time & date format ───────────────────────────── */}
+                  <div className="card-surface p-3 sm:p-4 space-y-3">
+                    <div className="flex items-center gap-2 px-1">
+                      <Clock size={16} className="text-primary" />
+                      <h3 className="text-sm font-semibold text-foreground">Time & Date Format</h3>
+                    </div>
+
+                    {/* 24-hour toggle */}
+                    <div className="flex items-center justify-between gap-3 px-1">
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-foreground">24-hour clock</p>
+                        <p className="text-xs text-muted-foreground">Show times as 14:30 instead of 2:30 PM</p>
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <p className={`text-sm font-medium ${tempLang === l.code ? 'text-primary' : 'text-foreground'}`}>{l.label}</p>
+                      <button
+                        type="button"
+                        onClick={() => handleUpdate('timeFormat', settings.timeFormat === '24h' ? '12h' : '24h')}
+                        className={`w-11 h-6 rounded-full transition-colors relative shrink-0 ${settings.timeFormat === '24h' ? 'bg-primary' : 'bg-muted'}`}
+                        aria-pressed={settings.timeFormat === '24h'}
+                      >
+                        <div className={`w-5 h-5 rounded-full bg-card absolute top-0.5 shadow-sm transition-all ${settings.timeFormat === '24h' ? 'left-5' : 'left-0.5'}`} />
+                      </button>
+                    </div>
+
+                    {/* Date ordering */}
+                    <div className="px-1">
+                      <p className="text-sm font-medium text-foreground mb-1.5">Date format</p>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+                        {([
+                          { code: 'auto', label: 'Auto' },
+                          { code: 'MDY', label: 'MM/DD/YYYY' },
+                          { code: 'DMY', label: 'DD/MM/YYYY' },
+                          { code: 'YMD', label: 'YYYY/MM/DD' },
+                        ] as const).map(opt => (
+                          <button
+                            key={opt.code}
+                            type="button"
+                            onClick={() => handleUpdate('dateFormat', opt.code)}
+                            className={`px-2 py-2 rounded-lg text-xs font-medium transition-colors press-card border ${settings.dateFormat === opt.code
+                              ? 'bg-primary/10 border-primary/40 text-primary'
+                              : 'border-border text-foreground hover:bg-accent'
+                              }`}
+                          >
+                            {opt.label}
+                          </button>
+                        ))}
                       </div>
-                      <p className="text-sm text-muted-foreground shrink-0">{l.native}</p>
-                    </button>
-                  ))}
+                    </div>
+
+                    {/* First day of week */}
+                    <div className="px-1">
+                      <p className="text-sm font-medium text-foreground mb-1.5">First day of week</p>
+                      <div className="grid grid-cols-3 gap-1.5">
+                        {([
+                          { code: 0 as const, label: 'Sunday' },
+                          { code: 1 as const, label: 'Monday' },
+                          { code: 6 as const, label: 'Saturday' },
+                        ]).map(opt => (
+                          <button
+                            key={opt.code}
+                            type="button"
+                            onClick={() => handleUpdate('firstDayOfWeek', opt.code)}
+                            className={`px-2 py-2 rounded-lg text-xs font-medium transition-colors press-card border ${settings.firstDayOfWeek === opt.code
+                              ? 'bg-primary/10 border-primary/40 text-primary'
+                              : 'border-border text-foreground hover:bg-accent'
+                              }`}
+                          >
+                            {opt.label}
+                          </button>
+                        ))}
+                      </div>
+                      <p className="text-[11px] text-muted-foreground mt-1.5">
+                        Week starts: {getWeekdayNames({ region: settings.region, language: tempLang, firstDayOfWeek: settings.firstDayOfWeek }).join(' · ')}
+                      </p>
+                    </div>
+
+                    {/* Live preview */}
+                    <div className="rounded-xl bg-accent/60 px-3 py-2.5 flex items-center gap-2">
+                      <Timer size={14} className="text-primary shrink-0" />
+                      <p className="text-xs text-foreground">
+                        Preview: <span className="font-medium">{getFormatPreview({ region: settings.region, language: tempLang, timeFormat: settings.timeFormat, dateFormat: settings.dateFormat })}</span>
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* ── Numbers & timezone ───────────────────────────── */}
+                  <div className="card-surface p-3 sm:p-4 space-y-3">
+                    <div className="flex items-center gap-2 px-1">
+                      <Hash size={16} className="text-primary" />
+                      <h3 className="text-sm font-semibold text-foreground">Numbers & Timezone</h3>
+                    </div>
+
+                    <div className="px-1">
+                      <p className="text-sm font-medium text-foreground mb-1.5">Number grouping</p>
+                      <div className="grid grid-cols-3 gap-1.5">
+                        {([
+                          { code: 'auto', label: 'Auto' },
+                          { code: 'western', label: '1,234,567' },
+                          { code: 'indian', label: '12,34,567' },
+                        ] as const).map(opt => (
+                          <button
+                            key={opt.code}
+                            type="button"
+                            onClick={() => handleUpdate('numberFormat', opt.code)}
+                            className={`px-2 py-2 rounded-lg text-xs font-medium transition-colors press-card border ${settings.numberFormat === opt.code
+                              ? 'bg-primary/10 border-primary/40 text-primary'
+                              : 'border-border text-foreground hover:bg-accent'
+                              }`}
+                          >
+                            {opt.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between gap-3 px-1">
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-foreground">Show timezone</p>
+                        <p className="text-xs text-muted-foreground">Append {getTimezoneLabel()} to full timestamps</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleUpdate('showTimezone', !settings.showTimezone)}
+                        className={`w-11 h-6 rounded-full transition-colors relative shrink-0 ${settings.showTimezone ? 'bg-primary' : 'bg-muted'}`}
+                        aria-pressed={settings.showTimezone}
+                      >
+                        <div className={`w-5 h-5 rounded-full bg-card absolute top-0.5 shadow-sm transition-all ${settings.showTimezone ? 'left-5' : 'left-0.5'}`} />
+                      </button>
+                    </div>
+                  </div>
+
+                  <p className="text-[11px] text-muted-foreground px-1 flex items-center gap-1.5">
+                    <CalendarDays size={12} /> These preferences apply across chats, calls, wallet and notifications.
+                  </p>
                 </div>
               )}
 

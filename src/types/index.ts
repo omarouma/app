@@ -355,6 +355,19 @@ export interface ThemeSettings {
   fontSize: 'small' | 'medium' | 'large';
   language: 'en' | 'bn' | 'es' | 'fr' | 'ar' | 'zh';
   accentColor: string;
+  // ── Region & formatting ──────────────────────────────────────────────
+  /** ISO 3166-1 alpha-2 country code, or 'auto' to follow the device. */
+  region: string;
+  /** 12-hour (AM/PM) or 24-hour clock. */
+  timeFormat: '12h' | '24h';
+  /** Date ordering: auto (region default), MDY, DMY or YMD. */
+  dateFormat: 'auto' | 'MDY' | 'DMY' | 'YMD';
+  /** First day of the week: 0 = Sunday, 1 = Monday, 6 = Saturday. */
+  firstDayOfWeek: 0 | 1 | 6;
+  /** Number grouping: auto (region default), western (1,234,567) or indian (12,34,567). */
+  numberFormat: 'auto' | 'western' | 'indian';
+  /** Show the timezone label (e.g. GMT+6) next to times. */
+  showTimezone: boolean;
   notifications: {
     pushEnabled: boolean;
     messageSound: boolean;

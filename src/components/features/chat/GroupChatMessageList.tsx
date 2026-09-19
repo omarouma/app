@@ -1,5 +1,6 @@
 import { useRef, useEffect } from 'react';
 import { getDefaultAvatar, sanitizeMediaUrl } from '@/lib/utils';
+import { formatTime as formatTimeUtil, formatDateSeparator as formatDateSeparatorUtil } from '@/lib/timeUtils';
 import type { Message, User, Chat } from '@/types';
 
 interface GroupChatMessageListProps {
@@ -22,16 +23,11 @@ function toDate(d: unknown): Date {
 }
 
 function formatTime(date: unknown): string {
-    return toDate(date).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+    return formatTimeUtil(toDate(date));
 }
 
 function formatDateSeparator(date: unknown) {
-    const now = new Date();
-    const d = toDate(date);
-    if (d.toDateString() === now.toDateString()) return 'Today';
-    const yesterday = new Date(now); yesterday.setDate(yesterday.getDate() - 1);
-    if (d.toDateString() === yesterday.toDateString()) return 'Yesterday';
-    return d.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
+    return formatDateSeparatorUtil(toDate(date));
 }
 
 export function GroupChatMessageList({

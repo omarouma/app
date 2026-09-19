@@ -16,6 +16,7 @@ import { useForegroundNotifications } from '@/hooks/useForegroundNotifications';
 import { useIncomingCallNotifications } from '@/hooks/useIncomingCallNotifications';
 import { useMessageNotifications } from '@/hooks/useMessageNotifications';
 import { useTrackPresence } from '@/hooks/usePresence';
+import { useRegionSettingsSync } from '@/hooks/useRegionSettings';
 import { MessageCircle, Phone, Users, Flame, Settings } from 'lucide-react';
 import { Toaster } from '@/components/ui/sonner';
 import { CallProvider } from '@/context/CallContext';
@@ -483,6 +484,9 @@ function AppContent() {
   const { user } = useAuthStore();
   const didOnboardingRedirectRef = useRef(false);
   const navigate = useNavigate();
+
+  // Keep language + region formatting in sync with the persisted settings.
+  useRegionSettingsSync();
 
   useEffect(() => {
     const publicSeo: Record<string, { title: string; description: string }> = {
