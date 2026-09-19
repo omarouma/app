@@ -22,6 +22,7 @@ import { CallProvider } from '@/context/CallContext';
 import { VoicePlayerProvider } from '@/context/VoicePlayerContext';
 import CallOverlay from '@/components/calling/CallOverlay';
 import PWAPrompt from '@/components/PWAPrompt';
+import NetworkStatusBanner from '@/components/NetworkStatusBanner';
 import Logo from '@/components/Logo';
 import { toast } from 'sonner';
 import { getDefaultAvatar, sanitizeMediaUrl } from '@/lib/utils';
@@ -652,6 +653,7 @@ function AppContent() {
 
       {showBottomNav && <BottomNav />}
       <ScrollToTop />
+      <NetworkStatusBanner />
       <CallOverlay />
       <PWAPrompt />
       <Toaster position="top-center" />

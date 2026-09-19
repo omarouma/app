@@ -1,5 +1,6 @@
-import { ArrowLeft, BadgeCheck, Globe, Shield, Sparkles } from 'lucide-react';
+import { ArrowLeft, BadgeCheck, Globe, Shield, Sparkles, Mail, LifeBuoy, Bug } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { CONTACT, mailto } from '@/lib/contact';
 
 export default function AboutPage() {
     const navigate = useNavigate();
@@ -63,6 +64,39 @@ export default function AboutPage() {
                         <li>• Privacy-first controls that help people feel safe sharing, connecting, and creating online.</li>
                         <li>• A unified experience combining chat, social discovery, live experiences, and commerce.</li>
                     </ul>
+                </section>
+
+                <section className="bg-white border border-[#EBEBEB] rounded-3xl p-6 md:p-8">
+                    <h3 className="text-xl font-bold text-[#111111] mb-4">Get in touch</h3>
+                    <div className="grid sm:grid-cols-3 gap-4">
+                        <a href={mailto('admin', 'GaGa Chat Enquiry')} className="flex items-start gap-3 p-4 rounded-2xl bg-[#F5F5F5] hover:bg-[#EBEBEB] transition-colors">
+                            <div className="w-9 h-9 rounded-full bg-[#00C300]/10 flex items-center justify-center shrink-0">
+                                <Mail size={16} className="text-[#00C300]" />
+                            </div>
+                            <div className="min-w-0">
+                                <p className="text-sm font-semibold text-[#111111]">General &amp; Support</p>
+                                <p className="text-xs text-[#8D8D8D] break-all">{CONTACT.admin}</p>
+                            </div>
+                        </a>
+                        <a href={mailto('support', 'GaGa Chat Support Request')} className="flex items-start gap-3 p-4 rounded-2xl bg-[#F5F5F5] hover:bg-[#EBEBEB] transition-colors">
+                            <div className="w-9 h-9 rounded-full bg-[#00C300]/10 flex items-center justify-center shrink-0">
+                                <LifeBuoy size={16} className="text-[#00C300]" />
+                            </div>
+                            <div className="min-w-0">
+                                <p className="text-sm font-semibold text-[#111111]">Help Center</p>
+                                <p className="text-xs text-[#8D8D8D] break-all">{CONTACT.support}</p>
+                            </div>
+                        </a>
+                        <a href={mailto('abuse', 'Report a Problem')} className="flex items-start gap-3 p-4 rounded-2xl bg-[#F5F5F5] hover:bg-[#EBEBEB] transition-colors">
+                            <div className="w-9 h-9 rounded-full bg-[#00C300]/10 flex items-center justify-center shrink-0">
+                                <Bug size={16} className="text-[#00C300]" />
+                            </div>
+                            <div className="min-w-0">
+                                <p className="text-sm font-semibold text-[#111111]">Report a Problem</p>
+                                <p className="text-xs text-[#8D8D8D] break-all">{CONTACT.abuse}</p>
+                            </div>
+                        </a>
+                    </div>
                 </section>
             </div>
         </div>

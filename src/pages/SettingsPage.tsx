@@ -24,6 +24,7 @@ import type { ThemeSettings } from '@/types';
 import Logo from '@/components/Logo';
 import { previewSound, type SoundProfile, isVibrationSupported } from '@/lib/sounds';
 import { deleteAccount } from '@/lib/supabaseAuth';
+import { mailto } from '@/lib/contact';
 import { toast } from 'sonner';
 
 const accentColors = [
@@ -612,8 +613,9 @@ export default function SettingsPage() {
               {section === 'help' && (
                 <div className="card-surface p-3 sm:p-4 space-y-1">
                   {settingItem('FAQ', FileQuestion, undefined, () => navigate('/help'))}
-                  {settingItem('Contact Support', LifeBuoy, undefined, () => navigate('/help'))}
-                  {settingItem('Report a Bug', Bug, undefined, () => navigate('/help'))}
+                  {settingItem('Contact Support', LifeBuoy, undefined, () => { window.location.href = mailto('admin', 'GaGa Chat Support Request'); })}
+                  {settingItem('Report a Bug', Bug, undefined, () => { window.location.href = mailto('abuse', 'Bug Report'); })}
+                  {settingItem('Privacy Requests', Shield, undefined, () => { window.location.href = mailto('privacy', 'Privacy Request'); })}
                 </div>
               )}
 

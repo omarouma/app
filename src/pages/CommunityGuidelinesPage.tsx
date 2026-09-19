@@ -36,7 +36,7 @@ export default function CommunityGuidelinesPage() {
             { title: '7. Marketplace Safety', text: 'Be honest in marketplace listings. Do not sell prohibited items (weapons, drugs, counterfeit goods, etc.). Meet in safe public places for local transactions. Report fraudulent listings immediately.' },
             { title: '8. Reporting Violations', text: 'If you see content that violates these guidelines, please report it using the built-in reporting tools. Our moderation team reviews reports and takes appropriate action. False reports may result in account penalties.' },
             { title: '9. Enforcement', text: 'Violations are handled on a case-by-case basis. Minor violations may result in warnings or content removal. Serious or repeated violations may result in temporary or permanent account suspension. We cooperate with law enforcement on serious legal matters.' },
-            { title: '10. Appeals', text: 'If you believe your content was removed or your account was suspended in error, you may appeal by contacting support@gagachat.app with details about your case. We review all appeals within 7 business days.' },
+            { title: '10. Appeals', text: 'If you believe your content was removed or your account was suspended in error, you may appeal by contacting admin@gagachat.app or support@gagachat.app with details about your case. We review all appeals within 7 business days.' },
           ].map((section) => (
             <div key={section.title} className="pb-4 border-b border-[#EBEBEB] last:border-0 last:pb-0">
               <h3 className="text-[#111111] font-medium text-sm mb-1">{section.title}</h3>

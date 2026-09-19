@@ -3,8 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   ArrowLeft, MessageCircle, Phone, Wallet, Shield,
-  HelpCircle, ChevronDown, Mail, Crown
+  HelpCircle, ChevronDown, Mail, Crown, Bug, LifeBuoy, Globe
 } from 'lucide-react';
+import { CONTACT, mailto } from '@/lib/contact';
 
 const FAQS = [
   {
@@ -132,7 +133,7 @@ export default function HelpCenterPage() {
         <div className="p-4">
           <p className="text-[#8D8D8D] text-sm mb-6">
             Find answers to common questions below. If you need more help, contact us at{' '}
-            <a href="mailto:support@gagachat.app" className="text-[#00C300] underline">support@gagachat.app</a>
+            <a href={mailto('admin')} className="text-[#00C300] underline">{CONTACT.admin}</a>
           </p>
 
           {FAQS.map((category, ci) => (
@@ -181,15 +182,41 @@ export default function HelpCenterPage() {
 
           {/* Contact section */}
           <div className="bg-[#F5F5F5] rounded-xl p-4 mt-4">
-            <h3 className="text-sm font-bold text-[#111111] mb-2">Still need help?</h3>
-            <div className="space-y-2">
+            <h3 className="text-sm font-bold text-[#111111] mb-3">Still need help?</h3>
+            <div className="space-y-2.5">
               <a
-                href="mailto:support@gagachat.app"
+                href={mailto('admin', 'GaGa Chat Support Request')}
+                className="flex items-center gap-2 text-sm text-[#00C300] hover:underline font-medium"
+              >
+                <Mail size={14} /> {CONTACT.admin}
+              </a>
+              <a
+                href={mailto('support', 'GaGa Chat Support Request')}
                 className="flex items-center gap-2 text-sm text-[#00C300] hover:underline"
               >
-                <Mail size={14} /> support@gagachat.app
+                <LifeBuoy size={14} /> {CONTACT.support}
               </a>
-              <p className="text-xs text-[#8D8D8D]">
+              <a
+                href={mailto('abuse', 'Report a Problem')}
+                className="flex items-center gap-2 text-sm text-[#00C300] hover:underline"
+              >
+                <Bug size={14} /> {CONTACT.abuse}
+              </a>
+              <a
+                href={mailto('privacy', 'Privacy Request')}
+                className="flex items-center gap-2 text-sm text-[#00C300] hover:underline"
+              >
+                <Shield size={14} /> {CONTACT.privacy}
+              </a>
+              <a
+                href="https://gagachat.app"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 text-sm text-[#00C300] hover:underline"
+              >
+                <Globe size={14} /> gagachat.app
+              </a>
+              <p className="text-xs text-[#8D8D8D] pt-1">
                 We typically respond within 24 hours.
               </p>
             </div>

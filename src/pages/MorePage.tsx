@@ -7,9 +7,10 @@ import {
   ChevronRight, Gift, Coins, Info, QrCode,
   Clock, BarChart3, Hash, Bookmark, Play,
   UserPlus, Calendar, Crown, ShoppingBag, Star, Ban, Search, Users,
-  Radio, Trophy, Sparkles, Mic,
+  Radio, Trophy, Sparkles, Mic, Mail,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/useAuthStore';
+import { CONTACT, mailto } from '@/lib/contact';
 import { useAuth } from '@/context/AuthContext';
 import { useWalletStore, formatCurrency } from '@/store/useWalletStore';
 import { useUserSettings } from '@/store/useSettingsStore';
@@ -131,8 +132,9 @@ export default function MorePage() {
     {
       title: 'About',
       items: [
-        { icon: Info, label: 'About GaGa Chat', subtitle: 'Version 2.0.0', action: () => setShowAbout(true), color: 'text-[#8D8D8D]', bg: 'bg-[#F5F5F5]' },
+        { icon: Info, label: 'About GaGa Chat', subtitle: `Version ${typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '1.0.0'}`, action: () => setShowAbout(true), color: 'text-[#8D8D8D]', bg: 'bg-[#F5F5F5]' },
         { icon: HelpCircle, label: 'Help Center', subtitle: 'FAQs and support', action: () => navigate('/help'), color: 'text-[#2196F3]', bg: 'bg-[#2196F3]/10' },
+        { icon: Mail, label: 'Contact Support', subtitle: CONTACT.admin, action: () => { window.location.href = mailto('admin', 'GaGa Chat Support Request'); }, color: 'text-[#00C300]', bg: 'bg-[#00C300]/10' },
         { icon: Info, label: 'Privacy Policy', subtitle: 'How we protect your data', to: '/privacy', color: 'text-[#8B5CF6]', bg: 'bg-[#8B5CF6]/10' },
         { icon: Info, label: 'Terms of Service', subtitle: 'User agreement', to: '/terms', color: 'text-[#8B5CF6]', bg: 'bg-[#8B5CF6]/10' },
       ],
@@ -208,7 +210,7 @@ onClick={() => {
           >
             <LogOut size={18} /> Log Out
           </motion.button>
-          <p className="text-center text-[#C7C7CC] text-[10px] mt-2">GaGa Chat v2.0.0 &bull; Built with care</p>
+          <p className="text-center text-[#C7C7CC] text-[10px] mt-2">GaGa Chat v{typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '1.0.0'} &bull; Built with care</p>
         </div>
 </div>
 
@@ -232,7 +234,7 @@ onClick={() => {
               <Logo size={48} />
             </div>
             <h3 className="text-xl font-bold text-[#111111] mb-1">GaGa Chat</h3>
-            <p className="text-[#8D8D8D] text-sm mb-4">Version 2.0.0</p>
+            <p className="text-[#8D8D8D] text-sm mb-4">Version {typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '1.0.0'}</p>
             <div className="space-y-2 text-sm text-[#8D8D8D]">
               <p>Free messaging & video calls</p>
               <p>End-to-end encryption for your privacy</p>

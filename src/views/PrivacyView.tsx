@@ -83,7 +83,7 @@ export default function PrivacyView() {
                 <li><strong>Objection:</strong> Object to certain types of data processing</li>
               </ul>
               <p className="mt-2">
-                To exercise these rights, contact us at <strong>privacy@gagachat.app</strong> or use the in-app "Export Data" and "Delete Account" features.
+                To exercise these rights, contact us at <strong>admin@gagachat.app</strong> or <strong>privacy@gagachat.app</strong>, or use the in-app "Export Data" and "Delete Account" features.
               </p>
             </section>
 
@@ -121,7 +121,8 @@ export default function PrivacyView() {
                 If you have questions about this Privacy Policy or your data rights, please contact us:
               </p>
               <div className="bg-[#F5F5F5] rounded-xl p-4 text-[#111111]">
-                <p><strong>Email:</strong> privacy@gagachat.app</p>
+                <p><strong>Email:</strong> admin@gagachat.app</p>
+                <p><strong>Privacy:</strong> privacy@gagachat.app</p>
                 <p><strong>Address:</strong> GaGa Chat Global HQ</p>
                 <p><strong>Support:</strong> Available 24/7 via in-app chat</p>
               </div>

@@ -109,7 +109,8 @@ export default function TermsView() {
             <section>
               <h2 className="text-[#111111] font-semibold text-base mb-3">12. Contact</h2>
               <div className="bg-[#F5F5F5] rounded-xl p-4 text-[#111111]">
-                <p><strong>Email:</strong> legal@gagachat.app</p>
+                <p><strong>Email:</strong> admin@gagachat.app</p>
+                <p><strong>Legal:</strong> legal@gagachat.app</p>
                 <p><strong>Address:</strong> GaGa Chat Global HQ</p>
                 <p><strong>Support:</strong> Available 24/7 via in-app chat</p>
               </div>
