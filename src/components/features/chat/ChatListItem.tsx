@@ -85,7 +85,7 @@ export const ChatListItem = memo(function ChatListItem({
             avatar ? (
               <img src={avatarSrc} className="w-full h-full object-cover" alt={name} />
             ) : (
-              <div className="w-full h-full bg-indigo-100 flex items-center justify-center">
+              <div className="w-full h-full bg-indigo-500/15 flex items-center justify-center">
                 <Users size={22} className="text-indigo-500" />
               </div>
             )
@@ -109,7 +109,7 @@ export const ChatListItem = memo(function ChatListItem({
               <button
                 type="button"
                 onClick={handleAddFriend}
-                className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[11px] font-semibold bg-[#00C300] text-white hover:bg-[#00A300] active:opacity-80 transition-colors"
+                className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[11px] font-semibold bg-primary text-primary-foreground hover:bg-primary/90 active:opacity-80 transition-colors"
                 aria-label="Add friend"
               >
                 <UserPlus size={12} />
@@ -117,7 +117,7 @@ export const ChatListItem = memo(function ChatListItem({
               </button>
             )}
             {hasIncoming && (
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[#FF9800]/15 text-[#FF9800]">
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-500/15 text-amber-500">
                 Pending
               </span>
             )}
@@ -134,11 +134,11 @@ export const ChatListItem = memo(function ChatListItem({
           </div>
         </div>
         <div className="flex items-center justify-between gap-2 mt-0.5">
-          <p className={`text-xs truncate ${typingName ? 'text-[#00C300] font-medium' : 'text-muted-foreground'}`}>
+          <p className={`text-xs truncate ${typingName ? 'text-primary font-medium' : 'text-muted-foreground'}`}>
             {lastMsgPreview}
           </p>
           {(chat.unreadCount ?? 0) > 0 && (
-            <span className="shrink-0 min-w-[18px] h-[18px] bg-[#00C300] text-white text-[10px] font-bold rounded-full flex items-center justify-center px-1">
+            <span className="shrink-0 min-w-[18px] h-[18px] bg-primary text-primary-foreground text-[10px] font-bold rounded-full flex items-center justify-center px-1">
               {chat.unreadCount! > 99 ? '99+' : chat.unreadCount}
             </span>
           )}

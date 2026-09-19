@@ -56,20 +56,20 @@ export default function DesktopChatView() {
   const activeUserId = activeChat?.participants.find(p => p !== user?.id) ?? '';
 
   return (
-    <div className="h-full flex bg-white">
+    <div className="h-full flex bg-card">
       {/* Chat List Sidebar */}
-      <div className="w-80 border-r border-[#EBEBEB] flex flex-col bg-white">
-        <div className="shrink-0 p-4 border-b border-[#EBEBEB]">
-          <h2 className="text-[#111111] font-bold text-xl mb-4 flex items-center gap-2">
-            <MessageSquare size={20} className="text-[#00C300]" /> Messages
+      <div className="w-80 border-r border-border flex flex-col bg-card">
+        <div className="shrink-0 p-4 border-b border-border">
+          <h2 className="text-foreground font-bold text-xl mb-4 flex items-center gap-2">
+            <MessageSquare size={20} className="text-primary" /> Messages
           </h2>
           <div className="relative">
-            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8D8D8D]" />
+            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
             <input
               value={search}
               onChange={e => setSearch(e.target.value)}
               placeholder="Search chats..."
-              className="w-full bg-[#F5F5F5] border-none rounded-xl pl-10 pr-4 py-2.5 text-[#111111] text-sm focus:outline-none focus:ring-2 focus:ring-[#00C300] placeholder:text-[#8D8D8D]"
+              className="w-full bg-secondary border-none rounded-xl pl-10 pr-4 py-2.5 text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-[#00C300] placeholder:text-muted-foreground"
             />
           </div>
         </div>
@@ -78,11 +78,11 @@ export default function DesktopChatView() {
           {loadingChats ? (
             <div className="p-4 space-y-3">
               {[1, 2, 3].map(i => (
-                <div key={i} className="h-16 bg-[#F5F5F5] rounded-xl animate-pulse" />
+                <div key={i} className="h-16 bg-secondary rounded-xl animate-pulse" />
               ))}
             </div>
           ) : filteredChats.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-48 text-[#8D8D8D]">
+            <div className="flex flex-col items-center justify-center h-48 text-muted-foreground">
               <Inbox size={32} className="mb-2" />
               <p className="text-sm">No chats yet</p>
             </div>
@@ -107,10 +107,10 @@ export default function DesktopChatView() {
                     if (otherId) navigate(`/chat/${otherId}`);
                   }}
                   className={`w-full flex items-center gap-3 p-3 text-left transition-colors ${
-                    isActive ? 'bg-[#00C300]/5' : 'hover:bg-[#F5F5F5]'
+                    isActive ? 'bg-primary/5' : 'hover:bg-secondary'
                   }`}
                 >
-                  <div className="w-12 h-12 rounded-2xl bg-[#F5F5F5] flex items-center justify-center shrink-0 overflow-hidden">
+                  <div className="w-12 h-12 rounded-2xl bg-secondary flex items-center justify-center shrink-0 overflow-hidden">
                     {sanitizeMediaUrl(avatar) ? (
                       <img src={sanitizeMediaUrl(avatar)} className="w-full h-full object-cover" alt="User avatar" />
                     ) : (
@@ -119,14 +119,14 @@ export default function DesktopChatView() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between">
-                      <p className="text-[#111111] text-sm font-medium truncate">{name}</p>
-                      <span className="text-[#8D8D8D] text-[10px] shrink-0">{formatTime(chat.updatedAt)}</span>
+                      <p className="text-foreground text-sm font-medium truncate">{name}</p>
+                      <span className="text-muted-foreground text-[10px] shrink-0">{formatTime(chat.updatedAt)}</span>
                     </div>
-                    <p className="text-[#8D8D8D] text-xs truncate">{lastMsg}</p>
+                    <p className="text-muted-foreground text-xs truncate">{lastMsg}</p>
                   </div>
                   {(chat.unreadCount || 0) > 0 && (
-                    <span className="w-5 h-5 rounded-full bg-[#00C300] flex items-center justify-center shrink-0">
-                      <span className="text-white text-[10px] font-bold">{chat.unreadCount}</span>
+                    <span className="w-5 h-5 rounded-full bg-primary flex items-center justify-center shrink-0">
+                      <span className="text-primary-foreground text-[10px] font-bold">{chat.unreadCount}</span>
                     </span>
                   )}
                 </motion.button>
@@ -137,13 +137,13 @@ export default function DesktopChatView() {
       </div>
 
       {/* Chat Area */}
-      <div className="flex-1 bg-white">
+      <div className="flex-1 bg-card">
         {routeChatId && activeChat && activeUserId ? (
           <ChatRoom chatId={routeChatId} userId={activeUserId} />
         ) : (
-          <div className="h-full flex flex-col items-center justify-center bg-[#F5F5F5]">
-            <MessageSquare size={48} className="mb-4 text-[#C7C7CC]" />
-            <p className="text-lg text-[#8D8D8D]">Select a chat to start messaging</p>
+          <div className="h-full flex flex-col items-center justify-center bg-secondary">
+            <MessageSquare size={48} className="mb-4 text-muted-foreground" />
+            <p className="text-lg text-muted-foreground">Select a chat to start messaging</p>
           </div>
         )}
       </div>

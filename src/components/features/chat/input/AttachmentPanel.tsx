@@ -26,7 +26,7 @@ export const AttachmentPanel = memo(function AttachmentPanel(props: AttachmentPa
       initial={{ height: 0 }}
       animate={{ height: 220 }}
       exit={{ height: 0 }}
-      className="shrink-0 bg-[#F5F5F5] border-t border-gray-200 overflow-hidden z-10"
+      className="shrink-0 bg-secondary border-t border-gray-200 overflow-hidden z-10"
     >
       <div className="grid grid-cols-3 sm:grid-cols-4 gap-y-5 px-6 pt-5 pb-8">
         {attachmentOptions.map((item, i) => {
@@ -54,11 +54,11 @@ export const AttachmentPanel = memo(function AttachmentPanel(props: AttachmentPa
                   else if (item.label === 'Contact') onContactShare();
                   else if (item.label === 'Poll') onPollOpen();
                 }}
-                className={`w-14 h-14 ${item.color} rounded-full flex items-center justify-center text-white shadow-sm cursor-pointer`}
+                className={`w-14 h-14 ${item.color} rounded-full flex items-center justify-center text-primary-foreground shadow-sm cursor-pointer`}
               >
                 {IconComponent ? <IconComponent size={28} strokeWidth={1.5} /> : null}
               </button>
-              <span className="text-[11px] text-[#111111]">{item.label}</span>
+              <span className="text-[11px] text-foreground">{item.label}</span>
             </div>
           );
         })}
