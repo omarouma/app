@@ -81,8 +81,17 @@ if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
   setTimeout(scheduleFirebaseInit, 800);
 }
 
-// Lock app orientation to portrait on supported mobile browsers/devices.
+// Portrait lock is applied ONLY to phones (small screens). Tablets and desktop
+// must remain free to use landscape so the app is installable and usable on
+// every form factor. We gate on a phone-sized viewport (<= 640px) rather than
+// the mere presence of a touch screen, so large tablets are never locked.
+const PHONE_MAX_WIDTH = 640;
+const isPhoneViewport = () =>
+  typeof window !== 'undefined' && window.matchMedia(`(max-width: ${PHONE_MAX_WIDTH}px)`).matches;
+
+// Lock app orientation to portrait on supported phone browsers/devices only.
 async function lockPortraitOrientation() {
+  if (!isPhoneViewport()) return;
   try {
     const orientation = (screen as Screen & { orientation?: { lock?: (orientation: 'portrait' | 'portrait-primary' | 'portrait-secondary') => Promise<void> } }).orientation;
     if (orientation && typeof orientation.lock === 'function') {
@@ -93,9 +102,19 @@ async function lockPortraitOrientation() {
   }
 }
 
-// Best-effort portrait enforcement for devices that do not allow a full lock.
+// Best-effort portrait enforcement for phones that do not allow a full lock.
+// On tablets/desktop this is a no-op so landscape layouts keep working.
 const enforcePortraitLayout = () => {
   const root = document.documentElement;
+  if (!isPhoneViewport()) {
+    // Ensure any previously-applied phone-only overrides are cleared when the
+    // viewport grows (e.g. rotating a tablet or resizing a desktop window).
+    root.style.removeProperty('overflow-x');
+    root.style.removeProperty('overflow-y');
+    root.style.removeProperty('width');
+    root.style.removeProperty('height');
+    return;
+  }
   const isLandscape = window.matchMedia('(orientation: landscape)').matches;
   root.style.setProperty('overflow-x', 'hidden');
   root.style.setProperty('overflow-y', isLandscape ? 'hidden' : 'auto');

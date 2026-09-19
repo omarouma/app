@@ -1,7 +1,7 @@
-/* global __APP_VERSION__ */
-// SW_VERSION is auto-stamped from package.json via vite.config.ts __APP_VERSION__.
-// Bump package.json version on every deploy — clients will reload automatically.
-const SW_VERSION = (typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '2.3.0');
+// SW_VERSION is auto-stamped from package.json by the vite build
+// (see injectSwVersion in vite.config.ts). Bump package.json version on every
+// deploy — clients detect the change and reload automatically.
+const SW_VERSION = __SW_VERSION__;
 const CACHE_NAME = `gagachat-v${SW_VERSION}`;
 const ASSETS_TO_CACHE = [
   '/',

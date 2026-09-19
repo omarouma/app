@@ -1,15 +1,21 @@
 {
-    "name": "GaGa Chat v1.0.0",
+    "id": "/",
+    "name": "GaGa Chat",
     "short_name": "GaGaChat",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "author": "OMAR FARUK (OumaGa)",
     "creator": "OMAR FARUK",
     "description": "A global free messaging app. Voice & video calls, instant messaging, and Gaga Coins. একটি বিশ্বব্যাপী ফ্রি মেসেজিং অ্যাপ।",
     "start_url": "/",
     "display": "standalone",
+    "display_override": [
+        "window-controls-overlay",
+        "standalone",
+        "minimal-ui"
+    ],
     "background_color": "#ffffff",
     "theme_color": "#00C300",
-    "orientation": "portrait",
+    "orientation": "any",
     "scope": "/",
     "categories": [
         "social",
@@ -17,6 +23,8 @@
     ],
     "lang": "en",
     "dir": "ltr",
+    "prefer_related_applications": false,
+    "related_applications": [],
     "icons": [
         {
             "src": "/icons/icon-72x72.png",
@@ -81,18 +89,18 @@
     ],
     "screenshots": [
         {
-            "src": "/icons/icon-512x512.png",
-            "sizes": "512x512",
+            "src": "/screenshots/desktop-wide.png",
+            "sizes": "1280x720",
             "type": "image/png",
             "form_factor": "wide",
-            "label": "GaGa Chat Desktop View"
+            "label": "GaGa Chat on desktop"
         },
         {
-            "src": "/icons/icon-192x192.png",
-            "sizes": "192x192",
+            "src": "/screenshots/mobile-narrow.png",
+            "sizes": "720x1280",
             "type": "image/png",
             "form_factor": "narrow",
-            "label": "GaGa Chat Mobile View"
+            "label": "GaGa Chat on mobile"
         }
     ],
     "shortcuts": [
@@ -181,8 +189,6 @@
             ]
         }
     ],
-    "related_applications": [],
-    "prefer_related_applications": false,
     "share_target": {
         "action": "/share",
         "method": "POST",

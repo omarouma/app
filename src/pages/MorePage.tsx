@@ -7,12 +7,13 @@ import {
   ChevronRight, Gift, Coins, Info, QrCode,
   Clock, BarChart3, Hash, Bookmark, Play,
   UserPlus, Calendar, Crown, ShoppingBag, Star, Ban, Search, Users,
-  Radio, Trophy, Sparkles, Mic,
+  Radio, Trophy, Sparkles, Mic, Download,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useAuth } from '@/context/AuthContext';
 import { useWalletStore, formatCurrency } from '@/store/useWalletStore';
 import { useUserSettings } from '@/store/useSettingsStore';
+import { usePwaInstall } from '@/hooks/usePwaInstall';
 import Logo from '@/components/Logo';
 import { toast } from 'sonner';
 
@@ -30,7 +31,30 @@ export default function MorePage() {
   const { logout } = useAuth();
   const { wallet, subscribeWallet } = useWalletStore();
   const [showAbout, setShowAbout] = useState(false);
+  const { canInstall, installed, triggerInstall, isIOS } = usePwaInstall();
   useUserSettings();
+
+  const handleInstall = async () => {
+    if (installed) {
+      toast.success('GaGa Chat is already installed on this device');
+      return;
+    }
+    if (isIOS) {
+      toast.info('To install on iPhone/iPad', {
+        description: 'Tap the Share button, then "Add to Home Screen".',
+        duration: 8000,
+      });
+      return;
+    }
+    if (!canInstall) {
+      toast.info('Install from your browser menu', {
+        description: 'Open the browser menu and choose "Install app" or "Add to Home screen".',
+        duration: 8000,
+      });
+      return;
+    }
+    await triggerInstall();
+  };
 
   // Subscribe to real-time wallet updates so the balance shows correctly
   useEffect(() => {
@@ -125,6 +149,16 @@ export default function MorePage() {
           to: '/settings',
           color: 'text-[#111111]',
           bg: 'bg-[#F5F5F5]',
+        },
+        {
+          icon: Download,
+          label: installed ? 'App Installed' : 'Install GaGa Chat',
+          subtitle: installed
+            ? 'GaGa Chat is installed on this device'
+            : 'Add to your home screen for the full app experience',
+          action: handleInstall,
+          color: 'text-[#00C300]',
+          bg: 'bg-[#00C300]/10',
         },
       ],
     },

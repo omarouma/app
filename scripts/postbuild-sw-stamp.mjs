@@ -22,11 +22,11 @@ const version = String(pkg.version || '0.0.0');
 
 let src = readFileSync(swPath, 'utf8');
 const quoted = JSON.stringify(version);
-const replaced = src.replace(/__APP_VERSION__/g, quoted);
+const replaced = src.replace(/__SW_VERSION__/g, quoted);
 
 if (replaced !== src) {
   writeFileSync(swPath, replaced, 'utf8');
   console.log(`  ✓ postbuild-sw-stamp: stamped dist/sw.js with v${version}`);
 } else {
-  console.log('  · postbuild-sw-stamp: no __APP_VERSION__ sentinel found — skip');
+  console.log('  · postbuild-sw-stamp: no __SW_VERSION__ sentinel found — skip');
 }

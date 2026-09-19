@@ -25,7 +25,7 @@ function injectSwVersion(version: string): Plugin {
       try {
         const src = readFileSync(swPath, 'utf8');
         const quoted = JSON.stringify(version);
-        const replaced = src.replace(/__APP_VERSION__/g, quoted);
+        const replaced = src.replace(/__SW_VERSION__/g, quoted);
         if (replaced !== src) {
           writeFileSync(swPath, replaced, 'utf8');
 

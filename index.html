@@ -7,8 +7,8 @@
   <!-- Performance: early connection hints for required third-party origins.
        These let the browser warm up DNS/TLS while the HTML is still parsing,
        cutting hundreds of ms off first API/analytics calls on mobile. -->
-  <link rel="preconnect" href="https://alzwgikndwbecuqmlrca.supabase.co" crossorigin />
-  <link rel="dns-prefetch" href="https://alzwgikndwbecuqmlrca.supabase.co" />
+  <link rel="preconnect" href="https://fcjgbbmfqdkucfpqjxae.supabase.co" crossorigin />
+  <link rel="dns-prefetch" href="https://fcjgbbmfqdkucfpqjxae.supabase.co" />
   <link rel="preconnect" href="https://www.googletagmanager.com" />
   <link rel="dns-prefetch" href="https://www.googletagmanager.com" />
   <link rel="preconnect" href="https://pagead2.googlesyndication.com" />
@@ -40,12 +40,8 @@
   <!-- End Google Analytics 4 -->
   <meta name="viewport"
     content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content" />
-  <meta name="orientation" content="portrait" />
-  <meta name="screen-orientation" content="portrait" />
-  <meta name="x5-orientation" content="portrait" />
   <meta name="x5-fullscreen" content="true" />
   <meta name="x5-page-mode" content="app" />
-  <meta name="apple-mobile-web-app-orientation" content="portrait" />
   <meta name="theme-color" content="#00C300" />
   <meta name="background-color" content="#ffffff" />
   <meta name="description"
@@ -233,10 +229,13 @@
     </script>
   <!-- End JSON-LD Structured Data -->
   <script>
-    // Lock screen orientation to portrait mode on supported devices.
-    // Fail silently on unsupported browsers or desktop environments.
+    // Lock screen orientation to portrait ONLY on phones (<= 640px wide).
+    // Tablets and desktop must stay free to use landscape so the app is
+    // installable and usable on every form factor. Fail silently elsewhere.
     document.addEventListener('DOMContentLoaded', () => {
+      const isPhone = () => window.matchMedia('(max-width: 640px)').matches;
       const tryLockPortrait = async () => {
+        if (!isPhone()) return;
         try {
           const orientation = screen && screen.orientation;
           if (orientation && typeof orientation.lock === 'function') {

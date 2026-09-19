@@ -128,7 +128,8 @@
     pointer-events: none;
   }
 
-  @media (orientation: landscape) and (max-width: 900px) {
+  /* Phone-only landscape lock. Tablets (>= 768px) and desktop keep landscape. */
+  @media (orientation: landscape) and (max-width: 767px) {
 
     html,
     body,
@@ -456,7 +457,9 @@
    - Tablets (iPad/Android): allow normal layout since they can use desktop
    ========================================================================== */
 
-@media (max-width: 1024px) {
+/* Phone-only column cap. The app switches to its desktop layout at 768px, so
+   tablets (768-1024px) must NOT be constrained to a phone-width column. */
+@media (max-width: 767px) {
   #root {
     max-width: 520px;
     margin-left: auto;
