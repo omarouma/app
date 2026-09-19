@@ -9,10 +9,15 @@ const ZEGO_SERVER_SECRET = Deno.env.get('ZEGO_SERVER_SECRET') ?? '';
 
 const allowedOrigins = new Set([
   'https://gagachat.app',
+  'https://www.gagachat.app',
   'https://oumagachat.web.app',
   'https://oumagachat.firebaseapp.com',
   'http://localhost:3000',
   'http://localhost:5173',
+  // Native Capacitor Android/iOS WebView origins
+  'https://localhost',
+  'http://localhost',
+  'capacitor://localhost',
 ]);
 
 function corsHeaders(req: Request): Record<string, string> {

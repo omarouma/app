@@ -5,19 +5,26 @@ interface LogoProps {
   fallback?: boolean;
   /** Render the icon alongside the "GaGa Chat" wordmark (used in headers/navbars). */
   withWordmark?: boolean;
+  /** Wordmark text color class (defaults to theme foreground). */
+  wordmarkClassName?: string;
 }
 
 /**
-* Brand logo for GaGa Chat.
+ * Brand logo for GaGa Chat.
  *
  * Uses the crisp, scalable `public/logo.svg` (512x512, gradient rounded square
- * with a white chat-bubble "G" monogram) so it renders cleanly at any size — no
- * distortion or cropping like the legacy raster `logo.png` (which was 179x182
- * and non-square).
+ * with a white chat-bubble "G" monogram) so it renders cleanly at any size —
+ * no distortion or cropping like a raster asset.
  *
  * If the SVG is unavailable, it gracefully falls back to the raster PNG.
  */
-export default function Logo({ size = 40, className = '', fallback = false, withWordmark = false }: LogoProps) {
+export default function Logo({
+  size = 40,
+  className = '',
+  fallback = false,
+  withWordmark = false,
+  wordmarkClassName = 'text-foreground',
+}: LogoProps) {
   const mark = (
     <img
       src="/logo.svg"
@@ -57,7 +64,9 @@ export default function Logo({ size = 40, className = '', fallback = false, with
     return (
       <span className={`inline-flex items-center gap-2 ${className}`}>
         {mark}
-        <span className="text-lg font-bold tracking-tight text-[#111111]">GaGa Chat</span>
+        <span className={`text-lg font-bold tracking-tight ${wordmarkClassName}`}>
+          GaGa<span className="text-primary"> Chat</span>
+        </span>
       </span>
     );
   }
