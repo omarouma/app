@@ -26,10 +26,17 @@ const VAPID_PRIVATE_KEY = Deno.env.get('VAPID_PRIVATE_KEY') ?? '';
 const VAPID_SUBJECT = Deno.env.get('VAPID_SUBJECT') ?? 'mailto:admin@gagachat.app';
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? '';
 const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
+const WEBHOOK_SECRET = Deno.env.get('WEBHOOK_SECRET') ?? '';
 
 function isAuthorizedWebhook(req: Request): boolean {
-  const header = req.headers.get('Authorization') ?? '';
-  return SERVICE_ROLE_KEY.length > 0 && header === `Bearer ${SERVICE_ROLE_KEY}`;
+  // Primary: the shared webhook secret sent by the database trigger in the
+  // `x-webhook-secret` header. Fallback: a service-role bearer token (used by
+  // manual invocations / other internal callers).
+  const secretHeader = req.headers.get('x-webhook-secret') ?? '';
+  if (WEBHOOK_SECRET.length > 0 && secretHeader === WEBHOOK_SECRET) return true;
+
+  const authHeader = req.headers.get('Authorization') ?? '';
+  return SERVICE_ROLE_KEY.length > 0 && authHeader === `Bearer ${SERVICE_ROLE_KEY}`;
 }
 
 if (VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY) {
