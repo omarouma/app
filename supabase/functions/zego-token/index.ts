@@ -122,5 +122,29 @@ Deno.serve(async (req: Request) => {
   const now = Math.floor(Date.now() / 1000);
   const expireAt = now + 24 * 60 * 60;
   const token = await signZegoToken({ app_id: ZEGO_APP_ID, user_id: user, ctime: now, expire: expireAt, room_id: room }, ZEGO_SERVER_SECRET);
-  return json(req, { token, appID: ZEGO_APP_ID, roomID: room, userID: user, expireAt });
+
+  // The ZEGO UIKit prebuilt SDK's `create(kitToken)` expects a KIT TOKEN, not a
+  // bare JWT. Its parser (`Ke`) does:
+  //   e.split('#').length > 1 ? JSON.parse(atob(e.split('#')[1])) : <error>
+  // and reads { appID, userID, userName, roomID } from that JSON, using
+  // `e.split('#')[0]` as the raw auth token. Returning only the JWT makes the
+  // SDK log "kitToken error" and every call fails to join. We therefore return
+  // the full kit token: `<jwt>#<base64(JSON.stringify({userID,roomID,userName,appID}))>`.
+  const userName = (url.searchParams.get('name') ?? '').trim().slice(0, 256);
+  const kitInfo = {
+    userID: user,
+    roomID: room,
+    userName: encodeURIComponent(userName),
+    appID: ZEGO_APP_ID,
+  };
+  const kitToken = `${token}#${btoa(JSON.stringify(kitInfo))}`;
+
+  return json(req, {
+    token,
+    kitToken,
+    appID: ZEGO_APP_ID,
+    roomID: room,
+    userID: user,
+    expireAt,
+  });
 });

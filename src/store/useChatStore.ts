@@ -151,7 +151,12 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   },
 
   subscribeChats: (userId) => {
-    if (!isFirestoreAvailable() || !userId) return () => { };
+    if (!isFirestoreAvailable() || !userId) {
+      // Never leave the UI stuck on the loading skeleton when we cannot
+      // subscribe (e.g. signed out or backend unavailable).
+      set({ loadingChats: false });
+      return () => { };
+    }
     return subscribeDeduped(
       `chats_${userId}`,
       () => subscribeToCollection<Chat>(
@@ -162,7 +167,12 @@ export const useChatStore = create<ChatStore>((set, get) => ({
           const archivedChats = chats.filter(c => c.archived);
           const activeChats = chats.filter(c => !c.archived);
           const totalUnread = activeChats.reduce((sum, chat) => sum + (chat.unreadCount || 0), 0);
-          set({ chats: activeChats, archivedChats, totalUnread });
+          // IMPORTANT: clear the loading flag here. `loadingChats` starts as
+          // `true` and `fetchChats()` is never invoked in the app (the chat list
+          // is driven entirely by this realtime subscription). Without clearing
+          // it, ChatsPage renders the loading skeleton forever and the user's
+          // chat list is never visible.
+          set({ chats: activeChats, archivedChats, totalUnread, loadingChats: false });
         },
       )
     );

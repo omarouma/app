@@ -131,6 +131,7 @@ export function useZegoCall(): ZegoCallController {
     const fetchServerToken = useCallback(async (
         roomID: string,
         userID: string,
+        userName: string,
     ): Promise<string | null> => {
         const tokenServerUrl = getZegoTokenServerUrl() || env.VITE_ZEGO_TOKEN_SERVER_URL;
         if (!tokenServerUrl) return null;
@@ -152,6 +153,7 @@ export function useZegoCall(): ZegoCallController {
             );
             url.searchParams.set('room', roomID);
             url.searchParams.set('user', userID);
+            url.searchParams.set('name', userName);
 
             const response = await fetch(url.toString(), {
                 headers: { Authorization: `Bearer ${accessToken}` },
@@ -160,12 +162,16 @@ export function useZegoCall(): ZegoCallController {
                 console.warn(`[ZEGO] Token server responded ${response.status}.`);
                 return null;
             }
-            const data = (await response.json()) as { token?: string };
-            if (!data.token) {
-                console.warn('[ZEGO] Token server response missing `token`.');
+            const data = (await response.json()) as { token?: string; kitToken?: string };
+            // Prefer the full kit token (`<jwt>#<base64(JSON)>`) because the
+            // ZEGO prebuilt UI Kit's `create()` parser requires that exact
+            // format. Fall back to the bare JWT for older deployments.
+            const kitToken = data.kitToken || data.token;
+            if (!kitToken) {
+                console.warn('[ZEGO] Token server response missing `kitToken`/`token`.');
                 return null;
             }
-            return data.token;
+            return kitToken;
         } catch (err) {
             console.warn('[ZEGO] Token server fetch failed.', err);
             return null;
@@ -207,7 +213,7 @@ export function useZegoCall(): ZegoCallController {
             // Prefer the server-issued token. The client-side test secret is
             // allowed only during local development and must never be used by
             // a production build when the token endpoint is unavailable.
-            let kitToken = await fetchServerToken(roomID, userID);
+            let kitToken = await fetchServerToken(roomID, userID, userName);
             if (!kitToken && import.meta.env.DEV && ZEGO_SERVER_SECRET) {
                 kitToken = ZegoUIKitPrebuilt.generateKitTokenForTest(
                     ZEGO_APP_ID,

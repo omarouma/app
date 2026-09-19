@@ -49,3 +49,7 @@ backend-*.log
 firebase-debug.log
 lint-output.log"deployed_index.html"  
 "supabase/.temp/"  
+
+# Firebase service account (contains private key — never commit)
+.firebase-sa.json
+*-sa.json

@@ -119,12 +119,17 @@ export function getZegoCallConfig(): Record<string, unknown> {
         },
     };
 
-    // Critical: point the SDK at the project's regional signaling server.
-    // Without this the SDK uses the default global server, which does not
-    // match this project's region and calls fail to connect.
-    if (ZEGO_SERVER_URL) {
-        config.serverUrl = ZEGO_SERVER_URL;
-    }
+    // NOTE: `ZegoCloudRoomConfig.serverUrl` is NOT the signaling server. In the
+    // ZEGO UIKit prebuilt SDK it is forwarded to `zegoService.setLogServer()`
+    // (telemetry only). The SDK hardcodes its signaling endpoint as
+    // `wss://webliveroom<appID>-api.zegocloud.com/ws` and auto-discovers the
+    // nearest access hub from `accesshub-wss.{zegocloud.com,coolzcloud.com}`.
+    // Pointing `serverUrl` at a `webliveroom…/ws` URL therefore misdirects the
+    // log reporter and does not change call connectivity, so we intentionally
+    // do NOT set it. Regional routing is handled by the SDK's access-hub
+    // discovery, which requires the coolzcloud/coolfcloud domains to be allowed
+    // by the Content-Security-Policy (see firebase.json).
+    void ZEGO_SERVER_URL;
 
     return config;
 }
