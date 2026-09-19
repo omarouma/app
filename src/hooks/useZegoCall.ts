@@ -154,7 +154,12 @@ export function useZegoCall(): ZegoCallController {
             url.searchParams.set('user', userID);
 
             const response = await fetch(url.toString(), {
-                headers: { Authorization: `Bearer ${accessToken}` },
+                method: 'POST',
+                headers: {
+                    Authorization: `Bearer ${accessToken}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ room: roomID, user: userID }),
             });
             if (!response.ok) {
                 console.warn(`[ZEGO] Token server responded ${response.status}.`);
