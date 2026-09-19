@@ -7,19 +7,16 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const root = document.documentElement;
     const isDark = settings.theme === 'dark' || settings.theme === 'midnight' || settings.theme === 'oled';
-    
+
     if (isDark) {
       root.classList.add('dark');
     } else {
       root.classList.remove('dark');
     }
 
-    // Apply OLED-specific optimizations
-    if (settings.theme === 'oled') {
-      root.style.setProperty('--background', '0 0% 0%');
-    } else {
-      root.style.removeProperty('--background');
-    }
+    // Apply theme-specific palette classes (midnight = deep blue, oled = true black)
+    root.classList.toggle('theme-midnight', settings.theme === 'midnight');
+    root.classList.toggle('theme-oled', settings.theme === 'oled');
   }, [settings.theme]);
 
   // Listen for system color scheme changes (only when theme is set to 'light' or 'dark' auto)

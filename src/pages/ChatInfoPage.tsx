@@ -18,7 +18,9 @@ import type { Message, User } from '@/types';
 
 export default function ChatInfoPage() {
   const _params = useParams();
-  const chatId = (_params as { chatId?: string }).chatId;
+  // Supports both /chat-info/:chatId (direct chats) and /group-info/:groupId (groups).
+  const chatId = (_params as { chatId?: string; groupId?: string }).chatId
+    ?? (_params as { groupId?: string }).groupId;
   const navigate = useNavigate();
   const { user: currentUser } = useAuthStore();
   const { chats, archiveChat, unarchiveChat, getSharedMedia, setDisappearingMessages, lockChat, unlockChat } = useChatStore();

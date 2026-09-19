@@ -557,7 +557,7 @@ const followerCount = useMemo(() => user?.followers?.length || 0, [user]);
               <Wallet size={16} style={{ color: '#FF9800' }} />
               Earnings Overview
             </h2>
-            <button onClick={() => goTo('/wallet')} className="text-xs flex items-center gap-1 hover:underline" style={{ color: '#00C300' }}>
+            <button type="button" onClick={() => goTo('/wallet')} className="text-xs flex items-center gap-1 hover:underline" style={{ color: '#00C300' }}>
               View Wallet <ArrowRight size={12} />
             </button>
           </div>
@@ -742,7 +742,7 @@ const followerCount = useMemo(() => user?.followers?.length || 0, [user]);
               <span className="text-[10px]" style={{ color: '#666' }}>
                 {topPosts.length} posts
               </span>
-              <button onClick={() => goTo('/timeline')} className="text-xs flex items-center gap-1 hover:underline" style={{ color: '#00C300' }}>
+              <button type="button" onClick={() => goTo('/timeline')} className="text-xs flex items-center gap-1 hover:underline" style={{ color: '#00C300' }}>
                 View All <ArrowRight size={12} />
               </button>
             </div>
@@ -786,7 +786,7 @@ const followerCount = useMemo(() => user?.followers?.length || 0, [user]);
                 <Play size={16} style={{ color: '#FF4081' }} />
                 Reels Performance
               </h2>
-              <button onClick={() => goTo('/reels')} className="text-xs flex items-center gap-1 hover:underline" style={{ color: '#00C300' }}>
+              <button type="button" onClick={() => goTo('/reels')} className="text-xs flex items-center gap-1 hover:underline" style={{ color: '#00C300' }}>
                 View All <ArrowRight size={12} />
               </button>
             </div>

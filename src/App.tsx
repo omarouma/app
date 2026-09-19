@@ -232,11 +232,77 @@ const MOBILE_PROTECTED_ROUTE_PATHS: string[] = [
   '/events', '/marketplace', '/bookmarks', '/hashtags', '/analytics', '/search',
   '/broadcast-lists', '/create-reel', '/creators', '/voice-rooms', '/voice-room/:roomId',
   '/challenges', '/ai-chat', '/live-streams', '/live/:streamId', '/creator-dashboard',
-  '/post/:postId',
+  '/post/:postId', '/privacy-settings', '/group-info/:groupId',
 ];
 
-function getMobileRouteElement(path: string) {
-  switch (path) {
+// ── Centralized per-route document titles (SEO + browser tab UX) ──
+// Applied once in AppContent so every page gets a meaningful <title> without
+// each page needing to import useDocumentTitle individually.
+const ROUTE_TITLES: Array<[string, string]> = [
+  ['/chats', 'Chats'],
+  ['/chat/', 'Chat'],
+  ['/group/', 'Group Chat'],
+  ['/create-group', 'New Group'],
+  ['/calls', 'Calls'],
+  ['/call', 'Call'],
+  ['/contacts', 'People'],
+  ['/timeline', 'Feed'],
+  ['/profile', 'Profile'],
+  ['/settings', 'Settings'],
+  ['/notifications', 'Notifications'],
+  ['/qr-scanner', 'QR Code'],
+  ['/wallet', 'Wallet'],
+  ['/rewards', 'Gaga Rewards'],
+  ['/add-friends', 'Add Friends'],
+  ['/sent-requests', 'Sent Requests'],
+  ['/blocked-users', 'Blocked Users'],
+  ['/chat-info/', 'Chat Info'],
+  ['/group-info/', 'Group Info'],
+  ['/saved-messages', 'Saved Messages'],
+  ['/premium', 'Premium'],
+  ['/reels', 'Reels'],
+  ['/create-reel', 'Create Reel'],
+  ['/more', 'More'],
+  ['/share', 'Share'],
+  ['/events', 'Events'],
+  ['/marketplace', 'Marketplace'],
+  ['/bookmarks', 'Bookmarks'],
+  ['/hashtags', 'Hashtags'],
+  ['/analytics', 'Analytics'],
+  ['/search', 'Search'],
+  ['/post/', 'Post'],
+  ['/help', 'Help Center'],
+  ['/broadcast-lists', 'Broadcast Lists'],
+  ['/creators', 'Creator Center'],
+  ['/creator-dashboard', 'Creator Dashboard'],
+  ['/voice-rooms', 'Voice Rooms'],
+  ['/voice-room/', 'Voice Room'],
+  ['/challenges', 'Daily Challenges'],
+  ['/ai-chat', 'GaGa AI'],
+  ['/live-streams', 'Live Streams'],
+  ['/live/', 'Live'],
+  ['/privacy-settings', 'Privacy'],
+  ['/privacy', 'Privacy Policy'],
+  ['/terms', 'Terms of Service'],
+  ['/cookies', 'Cookie Policy'],
+  ['/community-guidelines', 'Community Guidelines'],
+  ['/about', 'About'],
+  ['/blog', 'Blog'],
+  ['/careers', 'Careers'],
+  ['/admin', 'Admin'],
+  ['/onboarding', 'Welcome'],
+  ['/auth', 'Sign In'],
+];
+
+function useRouteDocumentTitle(pathname: string) {
+  useEffect(() => {
+    const match = ROUTE_TITLES.find(([prefix]) => pathname === prefix || pathname.startsWith(prefix));
+    const page = match ? match[1] : 'GaGa Chat';
+    document.title = `${page} | GaGa Chat`;
+  }, [pathname]);
+}
+
+function getMobileRouteElement(path: string) {  switch (path) {
     case '/chats': return <ErrorBoundary key="chats"><ChatsPage /></ErrorBoundary>;
     case '/chat/:userId': return <ErrorBoundary key="chat"><ChatRoomPage /></ErrorBoundary>;
     case '/group/:groupId': return <ErrorBoundary key="group"><GroupChatPage /></ErrorBoundary>;
@@ -258,6 +324,7 @@ function getMobileRouteElement(path: string) {
     case '/sent-requests': return <ErrorBoundary key="sent-requests"><SentRequestsPage /></ErrorBoundary>;
     case '/blocked-users': return <ErrorBoundary key="blocked-users"><BlockedUsersPage /></ErrorBoundary>;
     case '/chat-info/:chatId': return <ErrorBoundary key="chat-info"><ChatInfoPage /></ErrorBoundary>;
+    case '/group-info/:groupId': return <ErrorBoundary key="group-info"><ChatInfoPage /></ErrorBoundary>;
     case '/saved-messages': return <ErrorBoundary key="saved-messages"><SavedMessagesPage /></ErrorBoundary>;
     case '/premium': return <ErrorBoundary key="premium"><PremiumPage /></ErrorBoundary>;
     case '/reels': return <ErrorBoundary key="reels"><ReelsPage /></ErrorBoundary>;
@@ -459,6 +526,7 @@ function AppContent() {
   usePageTracking();
   useEngagementTracking();
   useGATracking();
+  useRouteDocumentTitle(location.pathname);
   usePushNotifications();
   useForegroundNotifications();
   useIncomingCallNotifications();  // NEW: Handle incoming call notifications & sounds
@@ -616,6 +684,8 @@ function AppContent() {
                         <Route path="share" element={<ShareTargetPage />} />
                         <Route path="settings" element={<SettingsPage />} />
                         <Route path="chat-info/:chatId" element={<ChatInfoPage />} />
+                        <Route path="group-info/:groupId" element={<ChatInfoPage />} />
+                        <Route path="privacy-settings" element={<PrivacyPage />} />
                         <Route path="saved-messages" element={<SavedMessagesPage />} />
                         <Route path="premium" element={<PremiumPage />} />
                         <Route path="events" element={<EventsPage />} />
