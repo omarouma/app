@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
+import { isNative } from '@/lib/nativePlatform';
 
 export type PermissionType =
     | 'camera'
@@ -99,12 +100,35 @@ async function requestLocation(): Promise<PermissionStatus> {
 /* ─── Contacts (Chrome/Edge contact picker) ────────────── */
 
 async function checkContacts(): Promise<PermissionStatus> {
+    if (isNative()) {
+        try {
+            const { Contacts } = await import('@capacitor-community/contacts');
+            const perm = await Contacts.checkPermissions();
+            const state = perm?.contacts;
+            if (state === 'granted' || state === 'limited') return 'granted';
+            if (state === 'denied') return 'denied';
+            return 'prompt';
+        } catch {
+            return 'prompt';
+        }
+    }
     if (typeof navigator === 'undefined') return 'unsupported';
     const nav = navigator as unknown as { contacts?: { select?: unknown } };
     return nav.contacts?.select ? 'prompt' : 'unsupported';
 }
 
 async function requestContacts(): Promise<PermissionStatus> {
+    if (isNative()) {
+        try {
+            const { Contacts } = await import('@capacitor-community/contacts');
+            const perm = await Contacts.requestPermissions();
+            const state = perm?.contacts;
+            if (state === 'granted' || state === 'limited') return 'granted';
+            return 'denied';
+        } catch {
+            return 'denied';
+        }
+    }
     if (typeof navigator === 'undefined') return 'unsupported';
     const nav = navigator as unknown as {
         contacts?: { select: (props: string[], opts?: { multiple?: boolean }) => Promise<unknown> };
@@ -205,6 +229,7 @@ export const APP_PERMISSIONS: AppPermission[] = [
         description: 'Sync phone contacts to find friends',
         requiresUserGesture: true,
         isSupported: () => {
+            if (isNative()) return true;
             if (typeof navigator === 'undefined') return false;
             return !!(navigator as unknown as { contacts?: { select?: unknown } }).contacts?.select;
         },

@@ -45,6 +45,10 @@ export default function MorePage() {
     navigate('/auth');
   };
 
+  const handleContactSupport = () => {
+    window.location.assign(mailto('admin', 'GaGa Chat Support Request'));
+  };
+
   const sections: Array<{ title: string; items: NavItem[] }> = [
     {
       title: 'New & Exciting',
@@ -134,7 +138,7 @@ export default function MorePage() {
       items: [
         { icon: Info, label: 'About GaGa Chat', subtitle: `Version ${typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '1.0.0'}`, action: () => setShowAbout(true), color: 'text-[#8D8D8D]', bg: 'bg-[#F5F5F5]' },
         { icon: HelpCircle, label: 'Help Center', subtitle: 'FAQs and support', action: () => navigate('/help'), color: 'text-[#2196F3]', bg: 'bg-[#2196F3]/10' },
-        { icon: Mail, label: 'Contact Support', subtitle: CONTACT.admin, action: () => { window.location.href = mailto('admin', 'GaGa Chat Support Request'); }, color: 'text-[#00C300]', bg: 'bg-[#00C300]/10' },
+        { icon: Mail, label: 'Contact Support', subtitle: CONTACT.admin, action: handleContactSupport, color: 'text-[#00C300]', bg: 'bg-[#00C300]/10' },
         { icon: Info, label: 'Privacy Policy', subtitle: 'How we protect your data', to: '/privacy', color: 'text-[#8B5CF6]', bg: 'bg-[#8B5CF6]/10' },
         { icon: Info, label: 'Terms of Service', subtitle: 'User agreement', to: '/terms', color: 'text-[#8B5CF6]', bg: 'bg-[#8B5CF6]/10' },
       ],
