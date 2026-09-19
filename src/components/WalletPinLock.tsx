@@ -66,7 +66,7 @@ export default function WalletPinLock({ onUnlock, onClose, mode = 'verify', onSe
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      className="fixed inset-0 z-[80] bg-white flex flex-col items-center justify-center"
+      className="fixed inset-0 z-[80] bg-card flex flex-col items-center justify-center"
     >
       <div className="w-full max-w-sm px-8">
         {/* Logo & Title */}
@@ -74,13 +74,13 @@ export default function WalletPinLock({ onUnlock, onClose, mode = 'verify', onSe
           <div className="mx-auto mb-4">
             <Logo size={56} />
           </div>
-          <div className="w-12 h-12 rounded-full bg-[#00C300]/10 flex items-center justify-center mx-auto mb-3">
-            <Lock size={24} className="text-[#00C300]" />
+          <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-3">
+            <Lock size={24} className="text-primary" />
           </div>
-          <h2 className="text-xl font-bold text-[#111111]">
+          <h2 className="text-xl font-bold text-foreground">
             {mode === 'set' ? (step === 'enter' ? 'Set Wallet PIN' : 'Confirm PIN') : 'Wallet Locked'}
           </h2>
-          <p className="text-[#8D8D8D] text-sm mt-1">
+          <p className="text-muted-foreground text-sm mt-1">
             {mode === 'set' 
               ? (step === 'enter' ? 'Create a 6-digit PIN to secure your wallet' : 'Re-enter your PIN to confirm')
               : 'Enter your 6-digit PIN to unlock'
@@ -97,8 +97,8 @@ export default function WalletPinLock({ onUnlock, onClose, mode = 'verify', onSe
                 key={i}
                 className={`w-4 h-4 rounded-full transition-all duration-200 ${
                   i < current.length
-                    ? 'bg-[#00C300] scale-110'
-                    : 'bg-[#EBEBEB]'
+                    ? 'bg-primary scale-110'
+                    : 'bg-secondary'
                 }`}
               />
             );
@@ -106,11 +106,11 @@ export default function WalletPinLock({ onUnlock, onClose, mode = 'verify', onSe
         </div>
 
         {error && (
-          <p className="text-center text-[#FF3B30] text-sm mb-4">{error}</p>
+          <p className="text-center text-destructive text-sm mb-4">{error}</p>
         )}
 
         {/* Security Badge */}
-        <div className="flex items-center justify-center gap-1 text-[#8D8D8D] text-xs mb-6">
+        <div className="flex items-center justify-center gap-1 text-muted-foreground text-xs mb-6">
           <Shield size={12} />
           <span>{verifying ? 'Verifying...' : 'Bank-grade encryption'}</span>
         </div>
@@ -125,8 +125,8 @@ export default function WalletPinLock({ onUnlock, onClose, mode = 'verify', onSe
                 key === ''
                   ? 'invisible'
                   : key === 'del'
-                  ? 'bg-[#F5F5F5] text-[#FF3B30] text-sm font-medium'
-                  : 'bg-[#F5F5F5] text-[#111111] hover:bg-[#EBEBEB]'
+                  ? 'bg-secondary text-destructive text-sm font-medium'
+                  : 'bg-secondary text-foreground hover:bg-secondary'
               } disabled:opacity-50`}
             >
               {key === 'del' ? 'DELETE' : key}
@@ -136,7 +136,7 @@ export default function WalletPinLock({ onUnlock, onClose, mode = 'verify', onSe
 
         {onClose && (
           <button type="button" onClick={onClose}
-            className="w-full mt-6 py-3 text-[#8D8D8D] text-sm font-medium flex items-center justify-center gap-2 hover:text-[#111111] transition-colors"
+            className="w-full mt-6 py-3 text-muted-foreground text-sm font-medium flex items-center justify-center gap-2 hover:text-foreground transition-colors"
           >
             <X size={16} /> Cancel
           </button>

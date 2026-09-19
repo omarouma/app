@@ -151,14 +151,14 @@ function CameraQRScanner({ onScan, onClose }: { onScan: (data: string) => void; 
         {/* Overlay */}
         <div className="absolute inset-0 pointer-events-none">
           {/* Corner brackets */}
-          <div className="absolute top-8 left-8 w-12 h-12 border-t-4 border-l-4 border-[#00C300] rounded-tl-2xl" />
-          <div className="absolute top-8 right-8 w-12 h-12 border-t-4 border-r-4 border-[#00C300] rounded-tr-2xl" />
-          <div className="absolute bottom-8 left-8 w-12 h-12 border-b-4 border-l-4 border-[#00C300] rounded-bl-2xl" />
-          <div className="absolute bottom-8 right-8 w-12 h-12 border-b-4 border-r-4 border-[#00C300] rounded-br-2xl" />
+          <div className="absolute top-8 left-8 w-12 h-12 border-t-4 border-l-4 border-primary rounded-tl-2xl" />
+          <div className="absolute top-8 right-8 w-12 h-12 border-t-4 border-r-4 border-primary rounded-tr-2xl" />
+          <div className="absolute bottom-8 left-8 w-12 h-12 border-b-4 border-l-4 border-primary rounded-bl-2xl" />
+          <div className="absolute bottom-8 right-8 w-12 h-12 border-b-4 border-r-4 border-primary rounded-br-2xl" />
           {/* Scanning laser line */}
           {scanning && !error && (
             <motion.div
-              className="absolute left-8 right-8 h-0.5 bg-[#00C300] shadow-[0_0_10px_#00C300]"
+              className="absolute left-8 right-8 h-0.5 bg-primary shadow-[0_0_10px_#00C300]"
               animate={{ top: ['15%', '85%', '15%'] }}
               transition={{ duration: 2.5, repeat: Infinity, ease: 'linear' }}
             />
@@ -174,9 +174,9 @@ function CameraQRScanner({ onScan, onClose }: { onScan: (data: string) => void; 
 
       {/* Error message */}
       {error && (
-        <div className="mt-4 mx-auto max-w-[340px] bg-[#FF3B30]/10 border border-[#FF3B30]/30 rounded-xl p-3 flex items-start gap-2">
-          <AlertTriangle size={16} className="text-[#FF3B30] shrink-0 mt-0.5" />
-          <p className="text-[#FF3B30] text-xs">{error}</p>
+        <div className="mt-4 mx-auto max-w-[340px] bg-destructive/10 border border-destructive/30 rounded-xl p-3 flex items-start gap-2">
+          <AlertTriangle size={16} className="text-destructive shrink-0 mt-0.5" />
+          <p className="text-destructive text-xs">{error}</p>
         </div>
       )}
 
@@ -475,7 +475,7 @@ export default function QRScannerPage() {
             <button type="button" key={t}
               onClick={() => { setTab(t); setShowCamera(false); }}
               className={`px-4 py-1.5 rounded-full text-xs font-medium transition-colors ${
-                tab === t ? 'bg-[#00C300] text-white' : 'text-white/60'
+                tab === t ? 'bg-primary text-white' : 'text-white/60'
               }`}
             >
               {t === 'myqr' ? 'My QR' : 'Scan'}
@@ -504,7 +504,7 @@ export default function QRScannerPage() {
                 <button type="button" key={type}
                   onClick={() => setQrType(type)}
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${
-                    qrType === type ? 'bg-[#00C300] text-white' : 'bg-white/10 text-white/60'
+                    qrType === type ? 'bg-primary text-white' : 'bg-white/10 text-white/60'
                   }`}
                 >
                   <Icon size={12} /> {label}
@@ -513,10 +513,10 @@ export default function QRScannerPage() {
             </div>
 
             {/* QR Card */}
-            <div className="bg-white rounded-3xl p-6 text-[#111111]">
+            <div className="bg-card rounded-3xl p-6 text-foreground">
               {/* Profile Header */}
               <div className="flex items-center gap-3 mb-6">
-                <div className="w-14 h-14 rounded-full bg-[#F5F5F5] flex items-center justify-center overflow-hidden">
+                <div className="w-14 h-14 rounded-full bg-secondary flex items-center justify-center overflow-hidden">
                   {sanitizeMediaUrl(user?.avatar) ? (
                     <img src={sanitizeMediaUrl(user?.avatar)} className="w-full h-full object-cover" alt="User avatar" />
                   ) : (
@@ -525,7 +525,7 @@ export default function QRScannerPage() {
                 </div>
                 <div>
                   <h2 className="font-bold text-lg">{user?.name || 'My Profile'}</h2>
-                  <p className="text-[#8D8D8D] text-xs">
+                  <p className="text-muted-foreground text-xs">
                     {qrType === 'profile' && 'Scan to add friend'}
                     {qrType === 'transfer' && 'Scan to send money'}
                     {qrType === 'group' && 'Scan to join group'}
@@ -540,7 +540,7 @@ export default function QRScannerPage() {
                   <select
                     value={selectedGroup || ''}
                     onChange={e => setSelectedGroup(e.target.value || null)}
-                    className="w-full bg-[#F5F5F5] rounded-xl px-3 py-2 text-sm focus:outline-none"
+                    className="w-full bg-secondary rounded-xl px-3 py-2 text-sm focus:outline-none"
                   >
                     <option value="">Select a group</option>
                     {groups.map(g => (
@@ -551,49 +551,49 @@ export default function QRScannerPage() {
               )}
 
               {/* QR Code */}
-              <div className="w-56 h-56 mx-auto bg-[#F5F5F5] rounded-2xl flex items-center justify-center mb-6 relative overflow-hidden p-3">
+              <div className="w-56 h-56 mx-auto bg-secondary rounded-2xl flex items-center justify-center mb-6 relative overflow-hidden p-3">
                 <div className="w-full h-full">
                   <QRCodeSVG data={getQrData()} size={200} />
                 </div>
                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                  <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center border-2 border-[#00C300] shadow-lg">
+                  <div className="w-10 h-10 bg-card rounded-lg flex items-center justify-center border-2 border-primary shadow-lg">
                     <Logo size={28} />
                   </div>
                 </div>
               </div>
 
               {/* Wallet ID */}
-              <div className="flex items-center justify-between bg-[#F5F5F5] rounded-xl px-4 py-3 mb-4">
+              <div className="flex items-center justify-between bg-secondary rounded-xl px-4 py-3 mb-4">
                 <div>
-                  <p className="text-[#8D8D8D] text-[10px]">Wallet ID</p>
-                  <p className="text-[#111111] font-mono text-sm font-bold">{walletId}</p>
+                  <p className="text-muted-foreground text-[10px]">Wallet ID</p>
+                  <p className="text-foreground font-mono text-sm font-bold">{walletId}</p>
                 </div>
-                <button type="button" onClick={handleCopyWallet} className="p-2 text-[#00C300]">
+                <button type="button" onClick={handleCopyWallet} className="p-2 text-primary">
                   {copiedWallet ? <Check size={18} /> : <Copy size={18} />}
                 </button>
               </div>
 
               {/* Balance Preview */}
-              <div className="flex justify-between text-center bg-[#F5F5F5] rounded-xl p-3 mb-4">
+              <div className="flex justify-between text-center bg-secondary rounded-xl p-3 mb-4">
                 <div>
-                  <p className="text-[#00C300] font-bold">{(wallet?.coins || 0).toLocaleString()}</p>
-                  <p className="text-[#8D8D8D] text-[10px]">GAGA</p>
+                  <p className="text-primary font-bold">{(wallet?.coins || 0).toLocaleString()}</p>
+                  <p className="text-muted-foreground text-[10px]">GAGA</p>
                 </div>
                 <div>
                   <p className="text-[#2196F3] font-bold">${(wallet?.usdBalance || wallet?.bdtBalance || 0).toFixed(2)}</p>
-                  <p className="text-[#8D8D8D] text-[10px]">USD</p>
+                  <p className="text-muted-foreground text-[10px]">USD</p>
                 </div>
               </div>
 
               {/* Actions */}
               <div className="flex gap-2">
                 <button type="button" onClick={handleShare}
-                  className="flex-1 flex items-center justify-center gap-2 py-3 bg-[#00C300] text-white rounded-xl text-sm font-bold active:bg-[#00A300] transition-colors"
+                  className="flex-1 flex items-center justify-center gap-2 py-3 bg-primary text-white rounded-xl text-sm font-bold active:bg-[#00A300] transition-colors"
                 >
                   <Share2 size={16} /> Share
                 </button>
                 <button type="button" onClick={handleCopyProfile}
-                  className="flex-1 flex items-center justify-center gap-2 py-3 bg-[#F5F5F5] text-[#111111] rounded-xl text-sm font-bold active:bg-[#EBEBEB] transition-colors"
+                  className="flex-1 flex items-center justify-center gap-2 py-3 bg-secondary text-foreground rounded-xl text-sm font-bold active:bg-secondary transition-colors"
                 >
                   <Copy size={16} /> {copiedProfile ? 'Copied!' : 'Copy Link'}
                 </button>
@@ -609,7 +609,7 @@ export default function QRScannerPage() {
                 { icon: ScanLine, text: 'View your profile or join group' },
               ].map((tip, i) => (
                 <div key={i} className="flex items-center gap-3 px-4 py-2 bg-white/5 rounded-xl">
-                  <tip.icon size={16} className="text-[#00C300]" />
+                  <tip.icon size={16} className="text-primary" />
                   <span className="text-white/80 text-sm">{tip.text}</span>
                 </div>
               ))}
@@ -634,15 +634,15 @@ export default function QRScannerPage() {
               <div className="text-center">
                 {/* Start Camera Button */}
                 <div className="w-64 h-64 mx-auto mb-6 relative">
-                  <div className="absolute inset-0 border-2 border-[#00C300]/40 rounded-3xl" />
-                  <div className="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-[#00C300] rounded-tl-2xl" />
-                  <div className="absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 border-[#00C300] rounded-tr-2xl" />
-                  <div className="absolute bottom-0 left-0 w-8 h-8 border-b-4 border-l-4 border-[#00C300] rounded-bl-2xl" />
-                  <div className="absolute bottom-0 right-0 w-8 h-8 border-b-4 border-r-4 border-[#00C300] rounded-br-2xl" />
+                  <div className="absolute inset-0 border-2 border-primary/40 rounded-3xl" />
+                  <div className="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-primary rounded-tl-2xl" />
+                  <div className="absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 border-primary rounded-tr-2xl" />
+                  <div className="absolute bottom-0 left-0 w-8 h-8 border-b-4 border-l-4 border-primary rounded-bl-2xl" />
+                  <div className="absolute bottom-0 right-0 w-8 h-8 border-b-4 border-r-4 border-primary rounded-br-2xl" />
                   <div className="absolute inset-0 flex flex-col items-center justify-center">
                     <Camera size={40} className="text-white/40 mb-3" />
                     <button type="button" onClick={() => setShowCamera(true)}
-                      className="px-6 py-3 bg-[#00C300] text-white rounded-full text-sm font-bold flex items-center gap-2 hover:bg-[#00A300] transition-colors"
+                      className="px-6 py-3 bg-primary text-white rounded-full text-sm font-bold flex items-center gap-2 hover:bg-[#00A300] transition-colors"
                     >
                       <Camera size={16} /> Open Camera
                     </button>
@@ -663,11 +663,11 @@ export default function QRScannerPage() {
                   value={scanInput}
                   onChange={e => setScanInput(e.target.value)}
                   placeholder='{"type":"profile","userId":"..."} or paste any QR text'
-                  className="w-full bg-white/10 rounded-xl px-4 py-3 text-white text-sm placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-[#00C300] resize-none h-20"
+                  className="w-full bg-white/10 rounded-xl px-4 py-3 text-white text-sm placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-primary resize-none h-20"
                 />
                 <button type="button" onClick={() => scanInput && parseQRData(scanInput)}
                   disabled={!scanInput || scanning}
-                  className="w-full mt-3 bg-[#00C300] text-white rounded-xl py-3 text-sm font-bold disabled:opacity-30 active:bg-[#00A300] transition-colors flex items-center justify-center gap-2"
+                  className="w-full mt-3 bg-primary text-white rounded-xl py-3 text-sm font-bold disabled:opacity-30 active:bg-[#00A300] transition-colors flex items-center justify-center gap-2"
                 >
                   {scanning ? <Loader size={16} className="animate-spin" /> : <ScanLine size={16} />}
                   {scanning ? 'Processing...' : 'Process QR Data'}
@@ -680,39 +680,39 @@ export default function QRScannerPage() {
 
       {/* Add Friend Dialog */}
       <Dialog open={showAddFriend} onOpenChange={setShowAddFriend}>
-        <DialogContent className="bg-white border-[#EBEBEB] text-[#111111] sm:max-w-sm">
-          <DialogHeader><DialogTitle className="text-[#111111]">Add Friend</DialogTitle></DialogHeader>
+        <DialogContent className="bg-card border-border text-foreground sm:max-w-sm">
+          <DialogHeader><DialogTitle className="text-foreground">Add Friend</DialogTitle></DialogHeader>
           <div className="pt-4 text-center">
             {friendAdded ? (
               <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} className="py-8">
-                <div className="w-16 h-16 rounded-full bg-[#00C300]/10 flex items-center justify-center mx-auto mb-3">
-                  <Check size={32} className="text-[#00C300]" />
+                <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-3">
+                  <Check size={32} className="text-primary" />
                 </div>
-                <p className="text-[#00C300] font-bold text-lg">Friend Added!</p>
-                <p className="text-[#8D8D8D] text-sm">Redirecting to chat...</p>
+                <p className="text-primary font-bold text-lg">Friend Added!</p>
+                <p className="text-muted-foreground text-sm">Redirecting to chat...</p>
               </motion.div>
             ) : (
               <>
-                <div className="w-16 h-16 rounded-full bg-[#F5F5F5] flex items-center justify-center mx-auto mb-3 overflow-hidden">
+                <div className="w-16 h-16 rounded-full bg-secondary flex items-center justify-center mx-auto mb-3 overflow-hidden">
                   {sanitizeMediaUrl(scannedUser?.avatar) ? (
                     <img src={sanitizeMediaUrl(scannedUser?.avatar)} className="w-full h-full object-cover" alt="User avatar" />
                   ) : (
                     <img src={getDefaultAvatar(scannedUser?.id || scannedUser?.name || 'friend')} className="w-full h-full object-cover" alt="User avatar" />
                   )}
                 </div>
-                <p className="text-[#111111] font-bold text-lg">{scannedUser?.name || 'New Friend'}</p>
+                <p className="text-foreground font-bold text-lg">{scannedUser?.name || 'New Friend'}</p>
                 {scannedUser?.statusMessage && (
-                  <p className="text-[#8D8D8D] text-sm mt-1">{scannedUser.statusMessage}</p>
+                  <p className="text-muted-foreground text-sm mt-1">{scannedUser.statusMessage}</p>
                 )}
                 {scannedUser?.bio && (
-                  <p className="text-[#8D8D8D] text-xs mt-1 line-clamp-2">{scannedUser.bio}</p>
+                  <p className="text-muted-foreground text-xs mt-1 line-clamp-2">{scannedUser.bio}</p>
                 )}
-                <p className="text-[#8D8D8D] text-sm mt-2">Add this person to your friends?</p>
+                <p className="text-muted-foreground text-sm mt-2">Add this person to your friends?</p>
                 <div className="flex gap-2 mt-4">
-                  <button type="button" onClick={() => setShowAddFriend(false)} className="flex-1 py-3 bg-[#F5F5F5] text-[#111111] rounded-xl text-sm font-bold">
+                  <button type="button" onClick={() => setShowAddFriend(false)} className="flex-1 py-3 bg-secondary text-foreground rounded-xl text-sm font-bold">
                     Cancel
                   </button>
-                  <button type="button" onClick={handleAddFriend} className="flex-1 py-3 bg-[#00C300] text-white rounded-xl text-sm font-bold active:bg-[#00A300]">
+                  <button type="button" onClick={handleAddFriend} className="flex-1 py-3 bg-primary text-white rounded-xl text-sm font-bold active:bg-[#00A300]">
                     Add Friend
                   </button>
                 </div>
@@ -724,11 +724,11 @@ export default function QRScannerPage() {
 
       {/* Transfer Dialog */}
       <Dialog open={showTransfer} onOpenChange={setShowTransfer}>
-        <DialogContent className="bg-white border-[#EBEBEB] text-[#111111] sm:max-w-sm">
-          <DialogHeader><DialogTitle className="text-[#111111]">Send Money</DialogTitle></DialogHeader>
+        <DialogContent className="bg-card border-border text-foreground sm:max-w-sm">
+          <DialogHeader><DialogTitle className="text-foreground">Send Money</DialogTitle></DialogHeader>
           <div className="pt-4 space-y-4">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-[#F5F5F5] flex items-center justify-center overflow-hidden">
+              <div className="w-10 h-10 rounded-full bg-secondary flex items-center justify-center overflow-hidden">
                 {sanitizeMediaUrl(scannedUser?.avatar) ? (
                   <img src={sanitizeMediaUrl(scannedUser?.avatar)} className="w-full h-full object-cover" alt="User avatar" />
                 ) : (
@@ -736,34 +736,34 @@ export default function QRScannerPage() {
                 )}
               </div>
               <div>
-                <p className="text-[#111111] text-sm font-medium">{scannedUser?.name || 'Recipient'}</p>
-                <p className="text-[#8D8D8D] text-[10px] font-mono">{scannedData?.walletId || scannedData?.userId?.slice(0, 12)}...</p>
+                <p className="text-foreground text-sm font-medium">{scannedUser?.name || 'Recipient'}</p>
+                <p className="text-muted-foreground text-[10px] font-mono">{scannedData?.walletId || scannedData?.userId?.slice(0, 12)}...</p>
               </div>
             </div>
             <div>
-              <label className="text-[#8D8D8D] text-xs mb-1 block">Amount</label>
+              <label className="text-muted-foreground text-xs mb-1 block">Amount</label>
               <input
                 type="number"
                 value={transferAmount}
                 onChange={e => setTransferAmount(e.target.value)}
                 placeholder="0.00"
-                className="w-full bg-[#F5F5F5] rounded-xl px-4 py-3 text-[#111111] text-lg font-bold focus:outline-none focus:ring-2 focus:ring-[#00C300]"
+                className="w-full bg-secondary rounded-xl px-4 py-3 text-foreground text-lg font-bold focus:outline-none focus:ring-2 focus:ring-primary"
               />
             </div>
             <div>
-              <label className="text-[#8D8D8D] text-xs mb-1 block">Note (optional)</label>
+              <label className="text-muted-foreground text-xs mb-1 block">Note (optional)</label>
               <input
                 value={transferNote}
                 onChange={e => setTransferNote(e.target.value)}
                 placeholder="What's this for?"
-                className="w-full bg-[#F5F5F5] rounded-xl px-4 py-2.5 text-[#111111] text-sm focus:outline-none focus:ring-2 focus:ring-[#00C300]"
+                className="w-full bg-secondary rounded-xl px-4 py-2.5 text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
               />
             </div>
             <div className="flex gap-2">
-              <button type="button" onClick={() => setShowTransfer(false)} className="flex-1 py-3 bg-[#F5F5F5] text-[#111111] rounded-xl text-sm font-bold">
+              <button type="button" onClick={() => setShowTransfer(false)} className="flex-1 py-3 bg-secondary text-foreground rounded-xl text-sm font-bold">
                 Cancel
               </button>
-              <button type="button" onClick={handleTransfer} className="flex-1 py-3 bg-[#00C300] text-white rounded-xl text-sm font-bold active:bg-[#00A300]">
+              <button type="button" onClick={handleTransfer} className="flex-1 py-3 bg-primary text-white rounded-xl text-sm font-bold active:bg-[#00A300]">
                 Send
               </button>
             </div>

@@ -185,12 +185,12 @@ const LiveStreamPage = lazy(() => import('@/pages/LiveStreamPage'));
 const CreatorDashboardPage = lazy(() => import('@/pages/CreatorDashboardPage'));
 
 const PageLoader = () => (
-  <div className="h-screen w-screen bg-white flex items-center justify-center">
+  <div className="h-screen w-screen bg-card flex items-center justify-center">
     <div className="text-center animate-pulse">
       <div className="mx-auto mb-4">
         <Logo size={72} />
       </div>
-      <p className="text-[#8D8D8D] text-sm">Loading...</p>
+      <p className="text-muted-foreground text-sm">Loading...</p>
     </div>
   </div>
 );
@@ -288,7 +288,7 @@ const DesktopNav = memo(function DesktopNav() {
   const avatarSrc = (user?.avatar ? sanitizeMediaUrl(user.avatar) : null) ?? getDefaultAvatar(user?.id || user?.name || 'U');
 
   return (
-    <div className="w-[72px] border-r border-[#EBEBEB] flex flex-col items-center py-4 gap-1 bg-white shrink-0">
+    <div className="w-[72px] border-r border-border flex flex-col items-center py-4 gap-1 bg-card shrink-0">
       <div className="mb-6 mt-1 cursor-pointer" onClick={() => navigate('/chat')}>
         <Logo size={42} />
       </div>
@@ -298,8 +298,8 @@ const DesktopNav = memo(function DesktopNav() {
           <button type="button" key={item.to}
             onClick={() => navigate(item.to)}
             className={`w-12 h-12 rounded-xl flex items-center justify-center transition-colors mb-1 ${isActive
-              ? 'bg-[#00C300]/10 text-[#00C300]'
-              : 'text-[#8D8D8D] hover:text-[#111111] hover:bg-[#F5F5F5]'
+              ? 'bg-primary/10 text-primary'
+              : 'text-muted-foreground hover:text-foreground hover:bg-secondary'
               }`}
             title={item.label}
             aria-label={item.label}
@@ -313,7 +313,7 @@ const DesktopNav = memo(function DesktopNav() {
         <button
           type="button"
           onClick={() => navigate('/profile')}
-          className="w-10 h-10 rounded-full bg-[#F5F5F5] flex items-center justify-center overflow-hidden hover:ring-2 hover:ring-[#00C300] transition-all"
+          className="w-10 h-10 rounded-full bg-secondary flex items-center justify-center overflow-hidden hover:ring-2 hover:ring-primary transition-all"
           aria-label="Go to profile"
         >
           <img src={avatarSrc} className="w-full h-full object-cover" alt="User avatar" />
@@ -518,7 +518,7 @@ function AppContent() {
     location.pathname !== '/';
 
   return (
-    <div className="w-full max-w-[100vw] bg-white" style={{ minHeight: '100dvh' }}>
+    <div className="w-full max-w-[100vw] bg-card" style={{ minHeight: '100dvh' }}>
       <Suspense fallback={<PageLoader />}>
         <Routes location={location}>
           {/* Public routes */}
@@ -574,7 +574,7 @@ function AppContent() {
                 ) : (
                   <div className="h-screen flex overflow-hidden">
                     <DesktopNav />
-                    <div className="flex-1 overflow-hidden bg-white">
+                    <div className="flex-1 overflow-hidden bg-card">
                       <Routes>
                         <Route path="chat" element={<DesktopChatView />} />
                         <Route path="chats" element={<DesktopChatView />} />

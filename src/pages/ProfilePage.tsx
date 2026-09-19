@@ -13,6 +13,7 @@ import { buildGagaChatWebUrl, getDefaultAvatar, sanitizeMediaUrl } from '@/lib/u
 import { isFirestoreAvailable, COLLECTIONS, updateDocById, subscribeToDoc } from '@/lib/firestore';
 import { copyToClipboard, nativeShare } from '@/lib/share';
 import { usePageTitle } from '@/hooks/useDocumentTitle';
+import PageHeader from '@/components/layout/PageHeader';
 import { toast } from 'sonner';
 import type { User, FriendStatus } from '@/types';
 
@@ -312,41 +313,32 @@ export default function ProfilePage() {
   return (
     <div className="min-h-screen-safe bg-secondary">
       {/* Header */}
-      <div className="sticky top-0 z-20 bg-background/95 backdrop-blur-sm border-b border-border px-4 flex items-center justify-between" style={{ paddingTop: 'max(12px, env(safe-area-inset-top, 0px))', paddingBottom: '12px' }}>
-        <button
-          type="button"
-          onClick={() => navigate(-1)}
-          className="w-11 h-11 flex items-center justify-center rounded-full hover:bg-secondary transition-colors"
-          aria-label="Go back"
-        >
-          <ArrowLeft size={22} className="text-foreground" />
-        </button>
-        <h1 className="text-[17px] font-bold text-foreground">
-          {isOwnProfile ? 'My Profile' : displayUser.name}
-        </h1>
-        <div className="flex items-center gap-1">
-          {isOwnProfile && (
+      <PageHeader
+        showBack
+        title={isOwnProfile ? 'My Profile' : displayUser.name}
+        actions={
+          isOwnProfile ? (
             <>
               <button
                 type="button"
                 onClick={() => navigate('/more')}
-                className="w-11 h-11 flex items-center justify-center rounded-full hover:bg-secondary transition-colors"
+                className="icon-btn w-10 h-10 text-muted-foreground"
                 aria-label="More options"
               >
-                <MoreHorizontal size={20} className="text-muted-foreground" />
+                <MoreHorizontal size={20} />
               </button>
               <button
                 type="button"
                 onClick={() => navigate('/settings')}
-                className="w-11 h-11 flex items-center justify-center rounded-full hover:bg-secondary transition-colors"
+                className="icon-btn w-10 h-10 text-muted-foreground"
                 aria-label="Open settings"
               >
-                <Settings size={20} className="text-muted-foreground" />
+                <Settings size={20} />
               </button>
             </>
-          )}
-        </div>
-      </div>
+          ) : undefined
+        }
+      />
 
       <div className="max-w-2xl mx-auto px-4 py-4 space-y-3 pb-16">
         {/* Avatar + Name card */}

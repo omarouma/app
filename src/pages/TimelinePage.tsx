@@ -699,21 +699,21 @@ export default function TimelinePage() {
   }
 
   return (
-    <div className={`h-full flex flex-col ${isDarkFeed ? 'bg-[#0d0d0d]' : 'bg-[#F5F5F5]'}`}>
+    <div className={`h-full flex flex-col ${isDarkFeed ? 'bg-[#0d0d0d]' : 'bg-secondary'}`}>
       {/* Header with Tabs */}
-      <div className={`shrink-0 px-4 pb-3 border-b ${isDarkFeed ? 'border-[#1a1a1a]' : 'border-[#EBEBEB]'} ${isDarkFeed ? 'bg-[#0d0d0d]' : 'bg-white'}`} style={{ paddingTop: 'max(12px, env(safe-area-inset-top, 0px))' }}>
+      <div className={`shrink-0 px-4 pb-3 border-b ${isDarkFeed ? 'border-[#1a1a1a]' : 'border-border'} ${isDarkFeed ? 'bg-[#0d0d0d]' : 'bg-card'}`} style={{ paddingTop: 'max(12px, env(safe-area-inset-top, 0px))' }}>
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
-            <h1 className={`text-lg font-bold ${isDarkFeed ? 'text-white' : 'text-[#111111]'}`}>GaGa Feed</h1>
-            <button type="button" onClick={handleRefresh} className={`p-1.5 rounded-lg ${isDarkFeed ? 'hover:bg-[#1a1a1a] text-[#8D8D8D]' : 'hover:bg-[#F5F5F5] text-[#8D8D8D]'}`}>
+            <h1 className={`text-lg font-bold ${isDarkFeed ? 'text-white' : 'text-foreground'}`}>GaGa Feed</h1>
+            <button type="button" onClick={handleRefresh} className={`p-1.5 rounded-lg ${isDarkFeed ? 'hover:bg-[#1a1a1a] text-muted-foreground' : 'hover:bg-secondary text-muted-foreground'}`}>
               <RefreshCw size={16} className={refreshing ? 'animate-spin' : ''} />
             </button>
           </div>
           <div className="flex items-center gap-2">
-            <button type="button" onClick={() => setShowPostSearch(!showPostSearch)} className={`p-2 rounded-lg ${isDarkFeed ? 'hover:bg-[#1a1a1a] text-[#8D8D8D]' : 'hover:bg-[#F5F5F5] text-[#111111]'}`}>
+            <button type="button" onClick={() => setShowPostSearch(!showPostSearch)} className={`p-2 rounded-lg ${isDarkFeed ? 'hover:bg-[#1a1a1a] text-muted-foreground' : 'hover:bg-secondary text-foreground'}`}>
               <Search size={18} />
             </button>
-            <button type="button" onClick={() => { setShowComposer(true); setEditingPost(null); setContent(''); setImages([]); setVisibility('public'); }} className="p-2 rounded-lg bg-[#00C300] text-black hover:bg-[#00A300]/90">
+            <button type="button" onClick={() => { setShowComposer(true); setEditingPost(null); setContent(''); setImages([]); setVisibility('public'); }} className="p-2 rounded-lg bg-primary text-black hover:bg-[#00A300]/90">
               <Plus size={18} />
             </button>
           </div>
@@ -741,14 +741,14 @@ export default function TimelinePage() {
                   }
                 }}
                 className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium transition-all ${isActive && t.key !== 'reels'
-                  ? 'bg-[#00C300] text-black'
+                  ? 'bg-primary text-black'
                   : t.key === 'reels'
                     ? 'bg-[#FF4081]/20 text-[#FF4081] hover:bg-[#FF4081]/30'
                     : t.key === 'videos'
                       ? 'bg-red-600/20 text-red-500 hover:bg-red-600/30'
                       : isDarkFeed
-                        ? 'bg-[#1a1a1a] text-[#8D8D8D] hover:text-white'
-                        : 'bg-[#F5F5F5] text-[#111111] hover:bg-[#EBEBEB]'
+                        ? 'bg-[#1a1a1a] text-muted-foreground hover:text-white'
+                        : 'bg-secondary text-foreground hover:bg-secondary'
                   }`}
               >
                 <Icon size={16} />
@@ -763,15 +763,15 @@ export default function TimelinePage() {
       <AnimatePresence>
         {showPostSearch && (
           <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
-            <div className={`px-4 py-2 border-b ${isDarkFeed ? 'border-[#1a1a1a] bg-[#0d0d0d]' : 'border-[#EBEBEB] bg-white'}`}>
+            <div className={`px-4 py-2 border-b ${isDarkFeed ? 'border-[#1a1a1a] bg-[#0d0d0d]' : 'border-border bg-card'}`}>
               <div className="relative">
-                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8D8D8D]" />
+                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                 <input
                   type="text"
                   placeholder="Search posts..."
                   value={postSearch}
                   onChange={e => setPostSearch(e.target.value)}
-                  className={`w-full pl-10 pr-4 py-2 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#00C300] ${isDarkFeed ? 'bg-[#1a1a1a] text-white placeholder:text-[#8D8D8D]' : 'bg-[#F5F5F5] text-[#111111]'}`}
+                  className={`w-full pl-10 pr-4 py-2 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary ${isDarkFeed ? 'bg-[#1a1a1a] text-white placeholder:text-muted-foreground' : 'bg-secondary text-foreground'}`}
                 />
               </div>
             </div>
@@ -781,11 +781,11 @@ export default function TimelinePage() {
 
       {/* Feed filter (only in feed tab) */}
       {feedTab === 'feed' && (
-        <div className={`shrink-0 flex gap-1 px-4 py-2 overflow-x-auto border-b ${isDarkFeed ? 'border-[#1a1a1a]' : 'border-[#EBEBEB]'}`}>
+        <div className={`shrink-0 flex gap-1 px-4 py-2 overflow-x-auto border-b ${isDarkFeed ? 'border-[#1a1a1a]' : 'border-border'}`}>
           {(['all', 'public', 'friends', 'mine'] as const).map(f => (
             <button type="button" key={f}
               onClick={() => setFeedFilter(f)}
-              className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap ${feedFilter === f ? 'bg-[#00C300] text-black' : isDarkFeed ? 'bg-[#1a1a1a] text-[#8D8D8D] hover:text-white' : 'bg-[#F5F5F5] text-[#111111] hover:bg-[#EBEBEB]'
+              className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap ${feedFilter === f ? 'bg-primary text-black' : isDarkFeed ? 'bg-[#1a1a1a] text-muted-foreground hover:text-white' : 'bg-secondary text-foreground hover:bg-secondary'
                 }`}
             >
               {f === 'all' ? 'All' : f === 'public' ? 'Public' : f === 'friends' ? 'Friends' : 'My Posts'}
@@ -804,11 +804,11 @@ export default function TimelinePage() {
               <button
                 type="button"
                 onClick={() => storyFileInputRef.current?.click()}
-                className="w-20 h-20 rounded-full border-2 border-dashed border-[#00C300] flex items-center justify-center bg-[#1a1a1a]"
+                className="w-20 h-20 rounded-full border-2 border-dashed border-primary flex items-center justify-center bg-[#1a1a1a]"
               >
-                <Camera size={28} className="text-[#00C300]" />
+                <Camera size={28} className="text-primary" />
               </button>
-              <span className="text-[#8D8D8D] text-xs">Add Story</span>
+              <span className="text-muted-foreground text-xs">Add Story</span>
               <input type="file" ref={storyFileInputRef} accept="image/*,video/*" className="hidden" onChange={handleStoryUpload} />
             </div>
 
@@ -831,7 +831,7 @@ export default function TimelinePage() {
                     )}
                     <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
                     <div className="absolute top-2 left-2">
-                      <div className={`w-8 h-8 rounded-full p-0.5 ${story.isMine ? 'bg-[#00C300]' : 'bg-gradient-to-tr from-[#00C300] to-[#00FF00]'}`}>
+                      <div className={`w-8 h-8 rounded-full p-0.5 ${story.isMine ? 'bg-primary' : 'bg-gradient-to-tr from-primary to-[#00FF00]'}`}>
                         <img src={story.avatar || getDefaultAvatar(story.user_id)} alt="" className="w-full h-full rounded-full object-cover bg-[#1a1a1a]" />
                       </div>
                     </div>
@@ -853,17 +853,17 @@ export default function TimelinePage() {
               <div className="flex gap-3 overflow-x-auto pb-2">
                 {/* Add story */}
                 <button type="button" onClick={() => storyFileInputRef.current?.click()} className="shrink-0 flex flex-col items-center gap-1">
-                  <div className="w-16 h-16 rounded-full border-2 border-dashed border-[#00C300] flex items-center justify-center bg-[#1a1a1a]">
-                    <Camera size={20} className="text-[#00C300]" />
+                  <div className="w-16 h-16 rounded-full border-2 border-dashed border-primary flex items-center justify-center bg-[#1a1a1a]">
+                    <Camera size={20} className="text-primary" />
                   </div>
-                  <span className="text-[10px] text-[#8D8D8D]">Add Story</span>
+                  <span className="text-[10px] text-muted-foreground">Add Story</span>
                 </button>
                 {stories.map(story => (
                   <button type="button" key={story.id} onClick={() => setViewingStory(story)} className="shrink-0 flex flex-col items-center gap-1">
-                    <div className={`w-16 h-16 rounded-full p-0.5 ${story.isMine ? 'bg-[#00C300]' : 'bg-gradient-to-tr from-[#00C300] to-[#00FF00]'}`}>
+                    <div className={`w-16 h-16 rounded-full p-0.5 ${story.isMine ? 'bg-primary' : 'bg-gradient-to-tr from-primary to-[#00FF00]'}`}>
                       <img src={story.avatar || getDefaultAvatar(story.user_id)} alt={story.name} className="w-full h-full rounded-full object-cover bg-[#1a1a1a]" />
                     </div>
-                    <span className="text-[10px] text-[#8D8D8D] truncate max-w-[64px]">{story.name}</span>
+                    <span className="text-[10px] text-muted-foreground truncate max-w-[64px]">{story.name}</span>
                   </button>
                 ))}
               </div>
@@ -924,10 +924,10 @@ export default function TimelinePage() {
                   <button
                     type="button"
                     onClick={() => setShowReelsViewer(true)}
-                    className="shrink-0 w-28 h-40 rounded-xl border border-dashed border-[#8D8D8D] flex flex-col items-center justify-center gap-2 hover:border-[#00C300] transition-colors"
+                    className="shrink-0 w-28 h-40 rounded-xl border border-dashed border-muted-foreground flex flex-col items-center justify-center gap-2 hover:border-primary transition-colors"
                   >
-                    <Play size={24} className="text-[#8D8D8D]" />
-                    <span className="text-[#8D8D8D] text-xs">Watch all</span>
+                    <Play size={24} className="text-muted-foreground" />
+                    <span className="text-muted-foreground text-xs">Watch all</span>
                   </button>
                 </div>
               </div>
@@ -937,8 +937,8 @@ export default function TimelinePage() {
             {trendingTopics.length > 0 && showTrending && !postSearch && (
               <div className="shrink-0 px-4 py-2 border-b border-[#1a1a1a]">
                 <div className="flex items-center gap-2 mb-2">
-                  <TrendingUp size={14} className="text-[#00C300]" />
-                  <h2 className="text-xs font-semibold text-[#8D8D8D] uppercase tracking-wider">Trending</h2>
+                  <TrendingUp size={14} className="text-primary" />
+                  <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Trending</h2>
                 </div>
                 <div className="flex gap-2 overflow-x-auto pb-1">
                   {trendingTopics.map(tag => (
@@ -946,7 +946,7 @@ export default function TimelinePage() {
                       type="button"
                       key={tag}
                       onClick={() => { setPostSearch(tag); setShowPostSearch(true); }}
-                      className="shrink-0 px-3 py-1.5 rounded-full bg-[#1a1a1a] text-[#00C300] text-xs font-medium hover:bg-[#00C300]/10 transition-colors flex items-center gap-1"
+                      className="shrink-0 px-3 py-1.5 rounded-full bg-[#1a1a1a] text-primary text-xs font-medium hover:bg-primary/10 transition-colors flex items-center gap-1"
                     >
                       <Hash size={10} /> {tag.replace('#', '')}
                     </button>
@@ -969,10 +969,10 @@ export default function TimelinePage() {
                   className="w-full flex items-center gap-3 bg-[#1a1a1a] rounded-xl px-4 py-3 hover:bg-[#222] transition-colors"
                 >
                   <img src={user.avatar || getDefaultAvatar(user.id)} alt="User avatar" className="w-9 h-9 rounded-full object-cover shrink-0" />
-                  <span className="text-[#8D8D8D] text-sm flex-1 text-left">What's on your mind?</span>
+                  <span className="text-muted-foreground text-sm flex-1 text-left">What's on your mind?</span>
                   <div className="flex items-center gap-2">
-                    <Image size={18} className="text-[#8D8D8D]" />
-                    <Plus size={18} className="text-[#8D8D8D]" />
+                    <Image size={18} className="text-muted-foreground" />
+                    <Plus size={18} className="text-muted-foreground" />
                   </div>
                 </button>
               </div>
@@ -986,14 +986,14 @@ export default function TimelinePage() {
               <div className="shrink-0 px-4 py-4 border-b border-[#1a1a1a]">
                 <div className="flex items-center justify-between mb-3">
                   <h2 className="text-sm font-semibold text-white">Suggested for you</h2>
-                  <button type="button" onClick={() => navigate('/add-friends')} className="text-xs text-[#00C300]">See all</button>
+                  <button type="button" onClick={() => navigate('/add-friends')} className="text-xs text-primary">See all</button>
                 </div>
                 <div className="flex gap-3 overflow-x-auto pb-2">
                   {suggestedUsers.map(su => (
                     <div key={su.id} className="shrink-0 w-32 bg-[#1a1a1a] rounded-xl p-3 flex flex-col items-center gap-2">
                       <img src={su.avatar || getDefaultAvatar(su.id)} alt="User avatar" className="w-12 h-12 rounded-full object-cover" />
                       <p className="text-white text-xs font-medium truncate w-full text-center">{su.name}</p>
-                      <p className="text-[#8D8D8D] text-[10px] truncate w-full text-center">@{su.username || 'user'}</p>
+                      <p className="text-muted-foreground text-[10px] truncate w-full text-center">@{su.username || 'user'}</p>
                         <button
                           type="button"
                           onClick={async () => {
@@ -1002,7 +1002,7 @@ export default function TimelinePage() {
                             // Remove from suggested after following
                             setSuggestedUsers(prev => prev.filter(u => u.id !== su.id));
                           }}
-                          className="w-full py-1.5 rounded-full bg-[#00C300] text-black text-xs font-medium hover:bg-[#00C300]/90"
+                          className="w-full py-1.5 rounded-full bg-primary text-black text-xs font-medium hover:bg-primary/90"
                         >
                           Follow
                         </button>
@@ -1046,7 +1046,7 @@ export default function TimelinePage() {
                 <button
                   type="button"
                   onClick={handleLoadMore}
-                  className="px-6 py-2 rounded-full bg-[#1a1a1a] text-[#8D8D8D] text-sm font-medium hover:bg-[#222] transition-colors"
+                  className="px-6 py-2 rounded-full bg-[#1a1a1a] text-muted-foreground text-sm font-medium hover:bg-[#222] transition-colors"
                 >
                   Load more posts
                 </button>
@@ -1054,7 +1054,7 @@ export default function TimelinePage() {
             )}
             {loadingMore && (
               <div className="flex justify-center py-4">
-                <Loader size={18} className="animate-spin text-[#00C300]" />
+                <Loader size={18} className="animate-spin text-primary" />
               </div>
             )}
 
@@ -1062,9 +1062,9 @@ export default function TimelinePage() {
             {!loading && filteredPosts.length > 0 && !hasMore && (
               <div className="flex flex-col items-center py-6 gap-2">
                 <div className="w-8 h-8 rounded-full bg-[#1a1a1a] flex items-center justify-center">
-                  <Sparkles size={14} className="text-[#8D8D8D]" />
+                  <Sparkles size={14} className="text-muted-foreground" />
                 </div>
-                <p className="text-[#8D8D8D] text-xs">You're all caught up!</p>
+                <p className="text-muted-foreground text-xs">You're all caught up!</p>
               </div>
             )}
           </>
@@ -1092,7 +1092,7 @@ export default function TimelinePage() {
                 return (
                   <div key={story.id} className="flex-1 h-1 bg-white/30 rounded-full overflow-hidden">
                     <motion.div
-                      className="h-full bg-white rounded-full"
+                      className="h-full bg-card rounded-full"
                       initial={{ width: isPast ? '100%' : '0%' }}
                       animate={{ width: isActive ? '100%' : isPast ? '100%' : '0%' }}
                       transition={isActive ? { duration: STORY_DURATION / 1000, ease: 'linear' } : { duration: 0.3 }}
@@ -1156,7 +1156,7 @@ export default function TimelinePage() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
             onClick={handleScrollToTop}
-            className="fixed top-20 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2 px-4 py-2 bg-[#00C300] text-black rounded-full shadow-lg font-medium text-sm hover:bg-[#00A300] transition-colors"
+            className="fixed top-20 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2 px-4 py-2 bg-primary text-black rounded-full shadow-lg font-medium text-sm hover:bg-[#00A300] transition-colors"
           >
             <RefreshCw size={14} className="animate-spin" />
             {newPostsCount} new post{newPostsCount > 1 ? 's' : ''}
@@ -1201,7 +1201,7 @@ export default function TimelinePage() {
                     aria-label="Share on WhatsApp"
                   >
                     <span className="w-9 h-9 rounded-full bg-[#25D366] flex items-center justify-center text-white"><MessageCircleIcon size={18} /></span>
-                    <span className="text-[10px] text-[#8D8D8D]">WhatsApp</span>
+                    <span className="text-[10px] text-muted-foreground">WhatsApp</span>
                   </button>
                   <button type="button"
                     onClick={() => window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(`${window.location.origin}/post/${sharePost.id}`)}`, '_blank', 'noopener,noreferrer')}
@@ -1209,7 +1209,7 @@ export default function TimelinePage() {
                     aria-label="Share on Facebook"
                   >
                     <span className="w-9 h-9 rounded-full bg-[#1877F2] flex items-center justify-center text-white"><Facebook size={18} /></span>
-                    <span className="text-[10px] text-[#8D8D8D]">Facebook</span>
+                    <span className="text-[10px] text-muted-foreground">Facebook</span>
                   </button>
                   <button type="button"
                     onClick={() => window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(`${sharePost.content?.slice(0, 120) || 'Check out this post on GaGa Chat'} ${window.location.origin}/post/${sharePost.id}`)}`, '_blank', 'noopener,noreferrer')}
@@ -1217,7 +1217,7 @@ export default function TimelinePage() {
                     aria-label="Share on X (Twitter)"
                   >
                     <span className="w-9 h-9 rounded-full bg-[#1DA1F2] flex items-center justify-center text-white"><Twitter size={18} /></span>
-                    <span className="text-[10px] text-[#8D8D8D]">X / Twitter</span>
+                    <span className="text-[10px] text-muted-foreground">X / Twitter</span>
                   </button>
                   <button type="button"
                     onClick={() => window.open(`https://t.me/share/url?url=${encodeURIComponent(`${window.location.origin}/post/${sharePost.id}`)}&text=${encodeURIComponent(sharePost.content?.slice(0, 120) || 'Check out this post on GaGa Chat')}`, '_blank', 'noopener,noreferrer')}
@@ -1225,7 +1225,7 @@ export default function TimelinePage() {
                     aria-label="Share on Telegram"
                   >
                     <span className="w-9 h-9 rounded-full bg-[#0088cc] flex items-center justify-center text-white"><Send size={18} /></span>
-                    <span className="text-[10px] text-[#8D8D8D]">Telegram</span>
+                    <span className="text-[10px] text-muted-foreground">Telegram</span>
                   </button>
                 </div>
                 <button type="button" onClick={async () => {
@@ -1292,7 +1292,7 @@ export default function TimelinePage() {
             >
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-white font-semibold">{editingPost ? 'Edit Post' : 'New Post'}</h3>
-                <button type="button" onClick={() => { setShowComposer(false); setEditingPost(null); }} className="text-[#8D8D8D]"><X size={20} /></button>
+                <button type="button" onClick={() => { setShowComposer(false); setEditingPost(null); }} className="text-muted-foreground"><X size={20} /></button>
               </div>
 
               {/* User preview */}
@@ -1307,7 +1307,7 @@ export default function TimelinePage() {
                           type="button"
                           key={opt.key}
                           onClick={() => setVisibility(opt.key)}
-                          className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] ${visibility === opt.key ? 'bg-[#00C300] text-black' : 'bg-[#2a2a2a] text-[#8D8D8D]'
+                          className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] ${visibility === opt.key ? 'bg-primary text-black' : 'bg-[#2a2a2a] text-muted-foreground'
                             }`}
                         >
                           <opt.icon size={8} /> {opt.label}
@@ -1322,7 +1322,7 @@ export default function TimelinePage() {
                 value={content}
                 onChange={e => setContent(e.target.value)}
                 placeholder="What's on your mind?"
-                className="w-full bg-[#2a2a2a] text-white rounded-xl p-3 min-h-[100px] resize-none focus:outline-none focus:ring-2 focus:ring-[#00C300]"
+                className="w-full bg-[#2a2a2a] text-white rounded-xl p-3 min-h-[100px] resize-none focus:outline-none focus:ring-2 focus:ring-primary"
               />
               {/* Images */}
               {images.length > 0 && (
@@ -1344,14 +1344,14 @@ export default function TimelinePage() {
                 <div className="mt-3 bg-[#2a2a2a] rounded-xl p-3 space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="text-white text-sm font-medium flex items-center gap-2"><Vote size={14} /> Poll</span>
-                    <button type="button" onClick={() => { setShowPollComposer(false); setPollQuestion(''); setPollOptions(['', '']); }} className="text-[#8D8D8D] hover:text-white"><X size={14} /></button>
+                    <button type="button" onClick={() => { setShowPollComposer(false); setPollQuestion(''); setPollOptions(['', '']); }} className="text-muted-foreground hover:text-white"><X size={14} /></button>
                   </div>
                   <input
                     type="text"
                     value={pollQuestion}
                     onChange={e => setPollQuestion(e.target.value)}
                     placeholder="Ask a question..."
-                    className="w-full bg-[#1a1a1a] text-white rounded-lg px-3 py-2 text-sm placeholder:text-[#8D8D8D] focus:outline-none focus:ring-2 focus:ring-[#00C300]"
+                    className="w-full bg-[#1a1a1a] text-white rounded-lg px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
                   />
                   {pollOptions.map((opt, i) => (
                     <div key={i} className="flex gap-2">
@@ -1364,31 +1364,31 @@ export default function TimelinePage() {
                           setPollOptions(next);
                         }}
                         placeholder={`Option ${i + 1}`}
-                        className="flex-1 bg-[#1a1a1a] text-white rounded-lg px-3 py-2 text-sm placeholder:text-[#8D8D8D] focus:outline-none focus:ring-2 focus:ring-[#00C300]"
+                        className="flex-1 bg-[#1a1a1a] text-white rounded-lg px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
                       />
                       {pollOptions.length > 2 && (
-                        <button type="button" onClick={() => setPollOptions(prev => prev.filter((_, idx) => idx !== i))} className="text-[#FF3B30] px-2"><X size={14} /></button>
+                        <button type="button" onClick={() => setPollOptions(prev => prev.filter((_, idx) => idx !== i))} className="text-destructive px-2"><X size={14} /></button>
                       )}
                     </div>
                   ))}
                   {pollOptions.length < 4 && (
-                    <button type="button" onClick={() => setPollOptions(prev => [...prev, ''])} className="text-xs text-[#00C300] font-medium">+ Add option</button>
+                    <button type="button" onClick={() => setPollOptions(prev => [...prev, ''])} className="text-xs text-primary font-medium">+ Add option</button>
                   )}
                 </div>
               )}
               {/* Actions */}
               <div className="flex items-center justify-between mt-4">
                 <div className="flex items-center gap-1">
-                  <button type="button" onClick={() => fileInputRef.current?.click()} className="p-2.5 min-w-11 min-h-11 rounded-lg hover:bg-[#2a2a2a] text-[#8D8D8D]" title="Add photos or videos" aria-label="Add photos or videos">
+                  <button type="button" onClick={() => fileInputRef.current?.click()} className="p-2.5 min-w-11 min-h-11 rounded-lg hover:bg-[#2a2a2a] text-muted-foreground" title="Add photos or videos" aria-label="Add photos or videos">
                     <Image size={20} />
                   </button>
-                  <button type="button" onClick={() => setShowPollComposer(!showPollComposer)} className={`p-2.5 min-w-11 min-h-11 rounded-lg hover:bg-[#2a2a2a] ${showPollComposer ? 'text-[#00C300]' : 'text-[#8D8D8D]'}`} title="Add poll" aria-label="Add poll">
+                  <button type="button" onClick={() => setShowPollComposer(!showPollComposer)} className={`p-2.5 min-w-11 min-h-11 rounded-lg hover:bg-[#2a2a2a] ${showPollComposer ? 'text-primary' : 'text-muted-foreground'}`} title="Add poll" aria-label="Add poll">
                     <Vote size={20} />
                   </button>
                 </div>
                 <button type="button" onClick={editingPost ? handleEditPost : handlePost}
                   disabled={uploading || (!content.trim() && images.length === 0 && !(showPollComposer && pollQuestion.trim() && pollOptions.filter(o => o.trim()).length >= 2))}
-                  className="min-h-11 px-6 py-2 rounded-xl bg-[#00C300] text-black font-medium disabled:opacity-50 inline-flex items-center justify-center gap-2"
+                  className="min-h-11 px-6 py-2 rounded-xl bg-primary text-black font-medium disabled:opacity-50 inline-flex items-center justify-center gap-2"
                 >
                   {uploading ? <><Loader size={18} className="animate-spin" /> Uploading…</> : editingPost ? 'Update' : 'Post'}
                 </button>
@@ -1416,15 +1416,15 @@ export default function TimelinePage() {
               className="bg-[#1a1a1a] rounded-t-2xl sm:rounded-2xl p-6 w-full max-w-sm"
               onClick={e => e.stopPropagation()}
             >
-              <h3 className="text-white font-semibold mb-1 flex items-center gap-2"><Flag size={18} className="text-[#FF3B30]" /> Report Post</h3>
-              <p className="text-[#8D8D8D] text-xs mb-4">Help us keep GaGa Chat safe by reporting inappropriate content.</p>
+              <h3 className="text-white font-semibold mb-1 flex items-center gap-2"><Flag size={18} className="text-destructive" /> Report Post</h3>
+              <p className="text-muted-foreground text-xs mb-4">Help us keep GaGa Chat safe by reporting inappropriate content.</p>
               <div className="space-y-2 mb-4">
                 {['Spam', 'Harassment or bullying', 'Violence or harmful content', 'Misinformation', 'Other'].map(reason => (
                   <button
                     type="button"
                     key={reason}
                     onClick={() => setReportReason(reason)}
-                    className={`w-full text-left px-3 py-2.5 rounded-xl text-sm transition-colors ${reportReason === reason ? 'bg-[#FF3B30]/20 text-white' : 'bg-[#2a2a2a] text-[#8D8D8D] hover:bg-[#333]'
+                    className={`w-full text-left px-3 py-2.5 rounded-xl text-sm transition-colors ${reportReason === reason ? 'bg-destructive/20 text-white' : 'bg-[#2a2a2a] text-muted-foreground hover:bg-[#333]'
                       }`}
                   >
                     {reason}
@@ -1433,7 +1433,7 @@ export default function TimelinePage() {
               </div>
               <div className="flex gap-3">
                 <button type="button" onClick={() => setShowReportModal(false)} className="flex-1 py-3 bg-[#2a2a2a] text-white rounded-xl text-sm font-bold">Cancel</button>
-                <button type="button" onClick={submitReport} disabled={!reportReason} className="flex-1 py-3 bg-[#FF3B30] text-white rounded-xl text-sm font-bold disabled:opacity-50">Report</button>
+                <button type="button" onClick={submitReport} disabled={!reportReason} className="flex-1 py-3 bg-destructive text-white rounded-xl text-sm font-bold disabled:opacity-50">Report</button>
               </div>
             </motion.div>
           </motion.div>

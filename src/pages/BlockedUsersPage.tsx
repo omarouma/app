@@ -36,14 +36,14 @@ export default function BlockedUsersPage() {
   };
 
   return (
-    <div className="min-h-[100dvh] bg-[#F5F5F5] flex flex-col">
+    <div className="min-h-[100dvh] bg-secondary flex flex-col">
       {/* Header */}
-      <div className="bg-white border-b border-[#EBEBEB] flex items-center gap-3 p-4 sticky top-0 z-10">
-        <button type="button" onClick={() => navigate(-1)} className="p-2 -ml-2 active:bg-gray-100 rounded-full text-[#111111]">
+      <div className="bg-card border-b border-border flex items-center gap-3 p-4 sticky top-0 z-10">
+        <button type="button" onClick={() => navigate(-1)} className="p-2 -ml-2 active:bg-gray-100 rounded-full text-foreground">
           <ArrowLeft size={22} />
         </button>
-        <h1 className="text-lg font-bold text-[#111111]">Blocked Users</h1>
-        <span className="ml-auto text-xs text-[#8D8D8D] font-medium">{blockedUsers.length} blocked</span>
+        <h1 className="text-lg font-bold text-foreground">Blocked Users</h1>
+        <span className="ml-auto text-xs text-muted-foreground font-medium">{blockedUsers.length} blocked</span>
       </div>
 
       <div className="flex-1 p-4 space-y-3">
@@ -77,9 +77,9 @@ export default function BlockedUsersPage() {
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: i * 0.05 }}
-                className="bg-white border border-[#EBEBEB] rounded-xl p-4 flex items-center gap-3"
+                className="bg-card border border-border rounded-xl p-4 flex items-center gap-3"
               >
-                <div className="w-12 h-12 rounded-full bg-[#F5F5F5] flex items-center justify-center overflow-hidden shrink-0">
+                <div className="w-12 h-12 rounded-full bg-secondary flex items-center justify-center overflow-hidden shrink-0">
                   {sanitizeMediaUrl(record.blockedUser?.avatar) ? (
                     <img src={sanitizeMediaUrl(record.blockedUser?.avatar)} className="w-full h-full object-cover" alt="User avatar" />
                   ) : (
@@ -87,14 +87,14 @@ export default function BlockedUsersPage() {
                   )}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-[#111111] text-sm font-medium">{record.blockedUser?.name || 'User'}</p>
-                  <p className="text-[#8D8D8D] text-xs">@{record.blockedUser?.username || record.blockedId.slice(0, 8)}</p>
+                  <p className="text-foreground text-sm font-medium">{record.blockedUser?.name || 'User'}</p>
+                  <p className="text-muted-foreground text-xs">@{record.blockedUser?.username || record.blockedId.slice(0, 8)}</p>
                   {record.reason && (
-                    <p className="text-[#8D8D8D] text-[11px] mt-0.5 truncate">Reason: {record.reason}</p>
+                    <p className="text-muted-foreground text-[11px] mt-0.5 truncate">Reason: {record.reason}</p>
                   )}
                 </div>
                 <button type="button" onClick={() => handleUnblock(record.blockedId)}
-                  className="flex items-center gap-1 px-3 py-1.5 bg-[#00C300]/10 text-[#00C300] text-xs rounded-full font-medium active:bg-[#00C300]/20 transition-colors"
+                  className="flex items-center gap-1 px-3 py-1.5 bg-primary/10 text-primary text-xs rounded-full font-medium active:bg-primary/20 transition-colors"
                 >
                   <UserPlus size={12} /> Unblock
                 </button>

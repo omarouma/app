@@ -273,9 +273,9 @@ export const AccessibleButton = React.forwardRef<
     ref
   ) => {
     const variantClasses = {
-      primary: 'bg-[#00C300] hover:bg-[#00A800] text-white',
+      primary: 'bg-primary hover:bg-[#00A800] text-white',
       secondary: 'bg-white/10 hover:bg-white/20 text-white',
-      danger: 'bg-[#FF3B30] hover:bg-[#E0321B] text-white',
+      danger: 'bg-destructive hover:bg-[#E0321B] text-white',
       ghost: 'bg-transparent hover:bg-gray-100 text-gray-900',
     };
 
@@ -286,7 +286,7 @@ export const AccessibleButton = React.forwardRef<
         {...props}
         className={`
           flex items-center justify-center gap-2 px-5 py-3 rounded-full text-sm font-semibold
-          focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#00C300]
+          focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary
           disabled:opacity-50 disabled:cursor-not-allowed
           transition-all duration-200
           ${variantClasses[variant]}
@@ -310,7 +310,7 @@ export const SkipToMainContent = () => (
   <a
     href="#main-content"
     className="
-      absolute -top-10 left-0 z-50 bg-[#00C300] text-white px-4 py-2
+      absolute -top-10 left-0 z-50 bg-primary text-white px-4 py-2
       focus:top-0 focus:outline-none focus:ring-2 focus:ring-offset-2
       rounded-br-lg font-semibold
     "

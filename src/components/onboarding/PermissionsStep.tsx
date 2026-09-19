@@ -46,8 +46,8 @@ export default function PermissionsStep() {
       icon: Bell,
       title: 'Notifications',
       description: 'Get alerts for new messages and incoming calls, even when the app is closed.',
-      color: 'text-[#00C300]',
-      bg: 'bg-[#00C300]/10',
+      color: 'text-primary',
+      bg: 'bg-primary/10',
       state: 'idle',
     },
     {
@@ -73,8 +73,8 @@ export default function PermissionsStep() {
       icon: MapPin,
       title: 'Location',
       description: 'Share your live location with friends in chats when you choose to.',
-      color: 'text-[#FF3B30]',
-      bg: 'bg-[#FF3B30]/10',
+      color: 'text-destructive',
+      bg: 'bg-destructive/10',
       state: 'idle',
     },
     {
@@ -205,8 +205,8 @@ export default function PermissionsStep() {
   return (
     <div className="w-full max-w-md mx-auto">
       <div className="text-center mb-5">
-        <h2 className="text-2xl font-bold text-[#111111] mb-2">App Permissions</h2>
-        <p className="text-[#8D8D8D] text-sm leading-relaxed">
+        <h2 className="text-2xl font-bold text-foreground mb-2">App Permissions</h2>
+        <p className="text-muted-foreground text-sm leading-relaxed">
           GaGa Chat works best with these permissions. You can change them anytime in your browser settings.
         </p>
       </div>
@@ -220,18 +220,18 @@ export default function PermissionsStep() {
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: idx * 0.06, duration: 0.25 }}
-              className="flex items-center gap-3 p-3.5 rounded-2xl border border-[#EBEBEB] bg-white"
+              className="flex items-center gap-3 p-3.5 rounded-2xl border border-border bg-card"
             >
               <div className={`w-11 h-11 rounded-xl ${item.bg} flex items-center justify-center shrink-0`}>
                 <Icon size={22} className={item.color} />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-[#111111] text-sm font-semibold">{item.title}</p>
-                <p className="text-[#8D8D8D] text-xs leading-snug mt-0.5">{item.description}</p>
+                <p className="text-foreground text-sm font-semibold">{item.title}</p>
+                <p className="text-muted-foreground text-xs leading-snug mt-0.5">{item.description}</p>
               </div>
               <div className="shrink-0">
                 {item.state === 'granted' && (
-                  <span className="inline-flex items-center gap-1 text-[#00C300] text-xs font-semibold">
+                  <span className="inline-flex items-center gap-1 text-primary text-xs font-semibold">
                     <Check size={14} /> Allowed
                   </span>
                 )}
@@ -250,7 +250,7 @@ export default function PermissionsStep() {
                     type="button"
                     onClick={() => handleAllow(item.id)}
                     disabled={item.state === 'requesting'}
-                    className="px-3.5 py-1.5 rounded-full bg-[#00C300] text-white text-xs font-bold hover:bg-[#00A300] transition-colors disabled:opacity-50"
+                    className="px-3.5 py-1.5 rounded-full bg-primary text-white text-xs font-bold hover:bg-[#00A300] transition-colors disabled:opacity-50"
                   >
                     {item.state === 'requesting' ? 'Asking…' : 'Allow'}
                   </button>

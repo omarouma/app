@@ -36,54 +36,53 @@ const BottomNav = memo(function BottomNav() {
   if (isTablet) {
     return (
       <nav
-        className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 rounded-2xl nav-surface border shadow-float"
+        className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 rounded-[22px] nav-surface border shadow-float"
         style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
         aria-label="Main navigation"
       >
-        <div className="flex items-center gap-1 px-3 py-2">
+        <div className="flex items-center gap-0.5 px-2.5 py-2">
           {tabs.map(({ to, label, icon: Icon, badge, highlight }) => (
             <NavLink
               key={to}
               to={to}
               aria-label={label}
               end={to === '/chats'}
-              className="flex flex-col items-center gap-0.5 tap-scale min-h-[48px] justify-center px-3"
+              className="relative flex flex-col items-center gap-0.5 tap-scale min-h-[52px] justify-center px-3.5 rounded-2xl"
             >
               {({ isActive }) => (
                 <>
+                  {isActive && (
+                    <span className="absolute inset-x-1.5 inset-y-0.5 rounded-2xl bg-primary/10 -z-10" />
+                  )}
                   <div className="relative flex flex-col items-center">
-                    {isActive && !highlight && (
-                      <span className="absolute -top-1.5 left-1/2 -translate-x-1/2 w-5 h-1 bg-primary rounded-full" />
-                    )}
                     {highlight ? (
-                      <div className={`w-11 h-11 rounded-full flex items-center justify-center shadow-md transition-all ${
-                        isActive ? 'scale-105' : ''
-                      }`}
-                           style={{ backgroundColor: isActive ? '#FF4081' : 'rgba(255, 64, 129, 0.85)' }}>
-                        <Icon size={21} className="text-white" strokeWidth={2.5} />
+                      <div className={`w-11 h-11 rounded-full flex items-center justify-center shadow-sm transition-all duration-200 ${
+                        isActive ? 'scale-105 bg-primary' : 'bg-primary/90'
+                      }`}>
+                        <Icon size={21} className="text-primary-foreground" strokeWidth={2.5} />
                       </div>
                     ) : (
                       <Icon
                         size={24}
-                        className={`transition-colors ${isActive ? 'text-foreground' : 'text-muted-foreground'}`}
-                        strokeWidth={isActive ? 2.5 : 1.5}
+                        className={`transition-colors duration-200 ${isActive ? 'text-primary' : 'text-muted-foreground'}`}
+                        strokeWidth={isActive ? 2.5 : 1.75}
                       />
                     )}
                     {badge > 0 && (
                       <span
-                        className="absolute -top-1 -right-2.5 text-white text-[10px] font-bold rounded-full min-w-[16px] h-4 flex items-center justify-center px-0.5 badge-pulse"
+                        className="absolute -top-1 -right-2.5 text-white text-[10px] font-bold rounded-full min-w-[17px] h-[17px] flex items-center justify-center px-1 badge-pulse"
                         style={{
                           backgroundColor: 'hsl(var(--destructive))',
                           border: `2px solid hsl(var(--card))`,
                         }}
-                        aria-label={`${badge} unread notifications`}
+                        aria-label={`${badge} unread`}
                         role="status"
                       >
                         {badge > 99 ? '99+' : badge}
                       </span>
                     )}
                   </div>
-                  <span className={`text-[11px] transition-colors ${isActive ? 'font-semibold text-foreground' : 'text-muted-foreground'}`}>
+                  <span className={`text-[11px] transition-colors duration-200 ${isActive ? 'font-semibold text-primary' : 'text-muted-foreground'}`}>
                     {label}
                   </span>
                 </>
@@ -102,51 +101,49 @@ const BottomNav = memo(function BottomNav() {
       aria-label="Main navigation"
     >
       <div className="flex justify-around items-center"
-           style={{ height: isSmallPhone ? '54px' : '58px' }}>
+           style={{ height: isSmallPhone ? '56px' : '60px' }}>
         {tabs.map(({ to, label, icon: Icon, badge, highlight }) => (
           <NavLink
             key={to}
             to={to}
             aria-label={label}
             end={to === '/chats'}
-            className="flex flex-col items-center gap-0.5 flex-1 min-w-0 py-1 tap-scale min-h-[44px] justify-center"
+            className="relative flex flex-col items-center gap-0.5 flex-1 min-w-0 py-1 tap-scale min-h-[48px] justify-center"
           >
             {({ isActive }) => (
               <>
+                {isActive && (
+                  <span className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-[3px] rounded-full bg-primary" />
+                )}
                 <div className="relative flex flex-col items-center">
-                  {isActive && !highlight && (
-                    <span className="absolute -top-1.5 left-1/2 -translate-x-1/2 w-5 h-1 rounded-full"
-                          style={{ backgroundColor: 'hsl(var(--primary))' }} />
-                  )}
                   {highlight ? (
-                    <div className={`${isSmallPhone ? 'w-10 h-10' : 'w-11 h-11'} rounded-full flex items-center justify-center shadow-md transition-transform ${
-                      isActive ? 'scale-105' : ''
-                    }`}
-                         style={{ backgroundColor: isActive ? '#FF4081' : 'rgba(255, 64, 129, 0.85)' }}>
-                      <Icon size={isSmallPhone ? 19 : 21} className="text-white" strokeWidth={2.5} />
+                    <div className={`${isSmallPhone ? 'w-10 h-10' : 'w-11 h-11'} rounded-full flex items-center justify-center shadow-sm transition-all duration-200 ${
+                      isActive ? 'scale-105 bg-primary' : 'bg-primary/90'
+                    }`}>
+                      <Icon size={isSmallPhone ? 19 : 21} className="text-primary-foreground" strokeWidth={2.5} />
                     </div>
                   ) : (
                     <Icon
-                      size={isSmallPhone ? 22 : 25}
-                      className={`transition-colors ${isActive ? 'text-foreground' : 'text-muted-foreground'}`}
-                      strokeWidth={isActive ? 2.5 : 1.5}
+                      size={isSmallPhone ? 22 : 24}
+                      className={`transition-colors duration-200 ${isActive ? 'text-primary' : 'text-muted-foreground'}`}
+                      strokeWidth={isActive ? 2.5 : 1.75}
                     />
                   )}
                   {badge > 0 && (
                     <span
-                      className="absolute -top-1 -right-2.5 text-white text-[10px] font-bold rounded-full min-w-[16px] h-4 flex items-center justify-center px-0.5 badge-pulse"
+                      className="absolute -top-1 -right-2.5 text-white text-[10px] font-bold rounded-full min-w-[17px] h-[17px] flex items-center justify-center px-1 badge-pulse"
                       style={{
                         backgroundColor: 'hsl(var(--destructive))',
                         border: `2px solid hsl(var(--card))`,
                       }}
-                      aria-label={`${badge} unread notifications`}
+                      aria-label={`${badge} unread`}
                       role="status"
                     >
                       {badge > 99 ? '99+' : badge}
                     </span>
                   )}
                 </div>
-                <span className={`${isSmallPhone ? 'text-[10px]' : 'text-[11px]'} transition-colors ${isActive ? 'font-semibold text-foreground' : 'text-muted-foreground'}`}>
+                <span className={`${isSmallPhone ? 'text-[10px]' : 'text-[11px]'} transition-colors duration-200 ${isActive ? 'font-semibold text-primary' : 'text-muted-foreground'}`}>
                   {label}
                 </span>
               </>

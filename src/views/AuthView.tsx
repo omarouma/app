@@ -133,7 +133,7 @@ function ErrorMsg({ msg }: { msg: string }) {
 function SuccessMsg({ msg }: { msg: string }) {
   return msg ? (
     <motion.p initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }}
-      className="flex items-center gap-2 text-[#00C300] text-xs bg-[#00C300]/5 border border-[#00C300]/20 px-3 py-2.5 rounded-xl">
+      className="flex items-center gap-2 text-primary text-xs bg-primary/5 border border-primary/20 px-3 py-2.5 rounded-xl">
       <Check size={13} className="shrink-0" /> {msg}
     </motion.p>
   ) : null;
@@ -150,7 +150,7 @@ function InputField({ icon: Icon, type = 'text', value, onChange, placeholder, r
       <input
         type={type} value={value} onChange={e => onChange(e.target.value)}
         placeholder={placeholder} autoComplete={autoComplete} autoFocus={autoFocus} name={name}
-        className="w-full bg-[#F7F7F7] border border-transparent focus:border-[#00C300]/40 rounded-2xl pl-11 pr-11 py-3.5 text-sm text-[#111] placeholder:text-[#C0C0C0] outline-none transition-all"
+        className="w-full bg-[#F7F7F7] border border-transparent focus:border-primary/40 rounded-2xl pl-11 pr-11 py-3.5 text-sm text-foreground placeholder:text-[#C0C0C0] outline-none transition-all"
       />
       {right && <div className="absolute right-3 top-1/2 -translate-y-1/2">{right}</div>}
     </div>
@@ -175,7 +175,7 @@ function PasswordField({ value, onChange, placeholder = 'Password', autoComplete
 function StrengthBar({ password }: { password: string }) {
   if (!password) return null;
   const s = passwordStrength(password);
-  const color = s <= 2 ? 'bg-red-400' : s <= 3 ? 'bg-orange-400' : 'bg-[#00C300]';
+  const color = s <= 2 ? 'bg-red-400' : s <= 3 ? 'bg-orange-400' : 'bg-primary';
   const label = s <= 2 ? 'Weak' : s <= 3 ? 'Fair' : s === 4 ? 'Good' : 'Strong';
   return (
     <div className="space-y-1 px-0.5">
@@ -191,14 +191,14 @@ function AgreeBox({ agreed, setAgreed, navigate }: { agreed: boolean; setAgreed:
   return (
     <label className="flex items-start gap-2.5 cursor-pointer">
       <input type="checkbox" checked={agreed} onChange={e => setAgreed(e.target.checked)} className="sr-only" />
-      <span className={`w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0 mt-0.5 transition-colors ${agreed ? 'bg-[#00C300] border-[#00C300]' : 'border-[#D0D0D0]'}`}>
+      <span className={`w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0 mt-0.5 transition-colors ${agreed ? 'bg-primary border-primary' : 'border-[#D0D0D0]'}`}>
         {agreed && <Check size={11} className="text-white" />}
       </span>
       <span className="text-[11px] text-[#888] leading-relaxed">
         I agree to the{' '}
-        <button type="button" onClick={() => navigate('/terms')} className="text-[#00C300] font-semibold hover:underline">Terms</button>
+        <button type="button" onClick={() => navigate('/terms')} className="text-primary font-semibold hover:underline">Terms</button>
         {' '}and{' '}
-        <button type="button" onClick={() => navigate('/privacy')} className="text-[#00C300] font-semibold hover:underline">Privacy Policy</button>
+        <button type="button" onClick={() => navigate('/privacy')} className="text-primary font-semibold hover:underline">Privacy Policy</button>
       </span>
     </label>
   );
@@ -207,7 +207,7 @@ function AgreeBox({ agreed, setAgreed, navigate }: { agreed: boolean; setAgreed:
 function PrimaryBtn({ loading, disabled, children }: { loading?: boolean; disabled?: boolean; children: React.ReactNode }) {
   return (
     <button type="submit"
-      className="w-full py-3.5 bg-gradient-to-r from-[#00C300] to-[#00A300] hover:from-[#00A300] hover:to-[#008800] text-white rounded-2xl text-sm font-bold transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-lg shadow-[#00C300]/25 active:scale-[0.98]"
+      className="w-full py-3.5 bg-gradient-to-r from-primary to-[#00A300] hover:from-[#00A300] hover:to-[#008800] text-white rounded-2xl text-sm font-bold transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-lg shadow-[#00C300]/25 active:scale-[0.98]"
       disabled={loading || disabled}>
       {loading ? <Loader size={17} className="animate-spin" /> : children}
     </button>
@@ -223,7 +223,7 @@ function Card({ children }: { children: React.ReactNode }) {
       transition={{ duration: 0.35, type: 'spring', bounce: 0.2 }}
       className="bg-white/85 backdrop-blur-2xl rounded-3xl shadow-2xl border border-white/60 p-7 w-full relative overflow-hidden"
     >
-      <div className="absolute top-0 right-0 w-28 h-28 bg-gradient-to-bl from-[#00C300]/8 to-transparent rounded-bl-full pointer-events-none" />
+      <div className="absolute top-0 right-0 w-28 h-28 bg-gradient-to-bl from-primary/8 to-transparent rounded-bl-full pointer-events-none" />
       {children}
     </motion.div>
   );
@@ -232,10 +232,10 @@ function Card({ children }: { children: React.ReactNode }) {
 function LogoHeader({ subtitle }: { subtitle: string }) {
   return (
     <div className="flex flex-col items-center mb-6">
-      <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#00C300] to-[#00A300] flex items-center justify-center shadow-lg shadow-[#00C300]/30 mb-3">
+      <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-primary to-[#00A300] flex items-center justify-center shadow-lg shadow-[#00C300]/30 mb-3">
         <Logo size={36} />
       </div>
-      <h1 className="font-extrabold text-[#111] text-base tracking-tight">GaGa Chat</h1>
+      <h1 className="font-extrabold text-foreground text-base tracking-tight">GaGa Chat</h1>
       <p className="text-[#ABABAB] text-[11px] mt-0.5">{subtitle}</p>
     </div>
   );
@@ -254,7 +254,7 @@ function TabSwitch({ tab, setTab }: { tab: InputTab; setTab: (t: InputTab) => vo
     <div className="flex bg-[#F2F2F2] rounded-2xl p-1 mb-5">
       {(['email', 'phone'] as InputTab[]).map(t => (
         <button key={t} type="button" onClick={() => setTab(t)}
-          className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-semibold transition-all ${tab === t ? 'bg-white shadow text-[#111]' : 'text-[#ABABAB]'}`}>
+          className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-semibold transition-all ${tab === t ? 'bg-card shadow text-foreground' : 'text-[#ABABAB]'}`}>
           {t === 'email' ? <Mail size={13} /> : <Phone size={13} />}
           {t === 'email' ? 'Email' : 'Phone'}
         </button>
@@ -429,7 +429,7 @@ export default function AuthView() {
       </div>
 
       <button type="button" onClick={() => navigate('/')}
-        className="absolute top-5 left-5 z-20 flex items-center gap-1.5 px-3.5 py-2 bg-white/70 backdrop-blur-sm rounded-full border border-white/50 text-[#555] text-xs font-medium hover:bg-white transition-all shadow-sm">
+        className="absolute top-5 left-5 z-20 flex items-center gap-1.5 px-3.5 py-2 bg-white/70 backdrop-blur-sm rounded-full border border-white/50 text-[#555] text-xs font-medium hover:bg-card transition-all shadow-sm">
         <Home size={14} /> Home
       </button>
 
@@ -443,17 +443,17 @@ export default function AuthView() {
 
               <div className="space-y-3">
                 <button type="button" onClick={() => { reset(); setTab('email'); go('login-email'); }}
-                  className="w-full flex items-center gap-3 px-4 py-3.5 bg-gradient-to-r from-[#00C300] to-[#00A300] text-white rounded-2xl text-sm font-bold shadow-lg shadow-[#00C300]/25 hover:from-[#00A300] hover:to-[#008800] transition-all active:scale-[0.98]">
+                  className="w-full flex items-center gap-3 px-4 py-3.5 bg-gradient-to-r from-primary to-[#00A300] text-white rounded-2xl text-sm font-bold shadow-lg shadow-[#00C300]/25 hover:from-[#00A300] hover:to-[#008800] transition-all active:scale-[0.98]">
                   <Mail size={18} /> Sign in with Email
                 </button>
 
                 <button type="button" onClick={() => { reset(); setTab('phone'); go('login-phone'); }}
-                  className="w-full flex items-center gap-3 px-4 py-3.5 bg-white border-2 border-[#E8E8E8] hover:border-[#00C300]/40 text-[#111] rounded-2xl text-sm font-bold transition-all active:scale-[0.98]">
-                  <Phone size={18} className="text-[#00C300]" /> Sign in with Phone
+                  className="w-full flex items-center gap-3 px-4 py-3.5 bg-card border-2 border-[#E8E8E8] hover:border-primary/40 text-foreground rounded-2xl text-sm font-bold transition-all active:scale-[0.98]">
+                  <Phone size={18} className="text-primary" /> Sign in with Phone
                 </button>
 
                 <button type="button" onClick={() => { reset(); go('magic'); }}
-                  className="w-full flex items-center gap-3 px-4 py-3.5 bg-white border-2 border-[#E8E8E8] hover:border-[#00C300]/40 text-[#111] rounded-2xl text-sm font-bold transition-all active:scale-[0.98]">
+                  className="w-full flex items-center gap-3 px-4 py-3.5 bg-card border-2 border-[#E8E8E8] hover:border-primary/40 text-foreground rounded-2xl text-sm font-bold transition-all active:scale-[0.98]">
                   <Sparkles size={18} className="text-[#FF9800]" /> Magic Link (no password)
                 </button>
               </div>
@@ -462,7 +462,7 @@ export default function AuthView() {
                 <p className="text-[#ABABAB] text-xs">
                   New here?{' '}
                   <button type="button" onClick={() => { reset(); setTab('email'); go('signup-email'); }}
-                    className="text-[#00C300] font-bold hover:underline">Create account</button>
+                    className="text-primary font-bold hover:underline">Create account</button>
                 </p>
               </div>
             </Card>
@@ -482,7 +482,7 @@ export default function AuthView() {
                 <PasswordField value={password} onChange={setPassword} autoComplete="current-password" />
                 {tab === 'email' && (
                   <div className="flex justify-end">
-                    <button type="button" onClick={() => go('forgot')} className="text-[10px] text-[#00C300] font-semibold hover:underline">
+                    <button type="button" onClick={() => go('forgot')} className="text-[10px] text-primary font-semibold hover:underline">
                       Forgot password?
                     </button>
                   </div>
@@ -491,7 +491,7 @@ export default function AuthView() {
                 <PrimaryBtn loading={loading}>Sign In</PrimaryBtn>
                 <p className="text-center text-[11px] text-[#ABABAB]">
                   No account?{' '}
-                  <button type="button" onClick={() => go('signup-email')} className="text-[#00C300] font-bold hover:underline">Sign up</button>
+                  <button type="button" onClick={() => go('signup-email')} className="text-primary font-bold hover:underline">Sign up</button>
                 </p>
               </form>
             </Card>
@@ -517,7 +517,7 @@ export default function AuthView() {
                 <PrimaryBtn loading={loading} disabled={!agreed}>Create Account</PrimaryBtn>
                 <p className="text-center text-[11px] text-[#ABABAB]">
                   Already have an account?{' '}
-                  <button type="button" onClick={() => go('login-email')} className="text-[#00C300] font-bold hover:underline">Sign in</button>
+                  <button type="button" onClick={() => go('login-email')} className="text-primary font-bold hover:underline">Sign in</button>
                 </p>
               </form>
             </Card>
@@ -564,26 +564,26 @@ export default function AuthView() {
             <Card key="verify">
               <BackBtn onClick={() => go('login-email')} />
               <div className="flex flex-col items-center text-center mb-5">
-                <div className="w-16 h-16 rounded-2xl bg-[#00C300]/10 flex items-center justify-center text-[#00C300] mb-3">
+                <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center text-primary mb-3">
                   <MailCheck size={34} />
                 </div>
-                <h2 className="font-extrabold text-[#111] text-lg tracking-tight">Verify your account</h2>
+                <h2 className="font-extrabold text-foreground text-lg tracking-tight">Verify your account</h2>
                 <p className="text-[#ABABAB] text-xs mt-1.5 max-w-[260px]">
                   We sent a verification link to{' '}
-                  <span className="text-[#111] font-semibold">{email || 'your email'}</span>. Open your
-                  <span className="font-semibold text-[#111]"> Gmail inbox</span> and tap the link to activate your account.
+                  <span className="text-foreground font-semibold">{email || 'your email'}</span>. Open your
+                  <span className="font-semibold text-foreground"> Gmail inbox</span> and tap the link to activate your account.
                 </p>
               </div>
 
               <div className="space-y-3">
                 <button type="button" onClick={() => { try { window.open('https://mail.google.com', '_blank'); } catch { /* ignore */ } }}
-                  className="w-full flex items-center justify-center gap-2 py-3.5 bg-gradient-to-r from-[#00C300] to-[#00A300] text-white rounded-2xl text-sm font-bold shadow-lg shadow-[#00C300]/25 hover:from-[#00A300] hover:to-[#008800] transition-all active:scale-[0.98]">
+                  className="w-full flex items-center justify-center gap-2 py-3.5 bg-gradient-to-r from-primary to-[#00A300] text-white rounded-2xl text-sm font-bold shadow-lg shadow-[#00C300]/25 hover:from-[#00A300] hover:to-[#008800] transition-all active:scale-[0.98]">
                   <Mail size={16} /> Open Gmail
                 </button>
 
                 <button type="button" onClick={() => { void handleResendVerify(); }}
-                  className="w-full flex items-center justify-center gap-2 py-3.5 bg-white border-2 border-[#E8E8E8] hover:border-[#00C300]/40 text-[#111] rounded-2xl text-sm font-bold transition-all active:scale-[0.98]">
-                  {loading ? <Loader size={16} className="animate-spin" /> : <Bell size={16} className="text-[#00C300]" />}
+                  className="w-full flex items-center justify-center gap-2 py-3.5 bg-card border-2 border-[#E8E8E8] hover:border-primary/40 text-foreground rounded-2xl text-sm font-bold transition-all active:scale-[0.98]">
+                  {loading ? <Loader size={16} className="animate-spin" /> : <Bell size={16} className="text-primary" />}
                   {loading ? 'Resending...' : 'Resend email, notification & sound'}
                 </button>
 
@@ -592,7 +592,7 @@ export default function AuthView() {
 
                 <p className="text-[11px] text-[#ABABAB] text-center">
                   Didn't get it? Check spam, or missing?{' '}
-                  <button type="button" onClick={() => go('login-email')} className="text-[#00C300] font-bold hover:underline">Sign in</button>
+                  <button type="button" onClick={() => go('login-email')} className="text-primary font-bold hover:underline">Sign in</button>
                 </p>
               </div>
             </Card>

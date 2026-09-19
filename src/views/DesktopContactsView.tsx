@@ -141,7 +141,7 @@ const handleUnblock = useCallback(async (blockedId: string) => {
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder="Search friends..."
-            className="w-full bg-secondary border-none rounded-xl pl-10 pr-4 py-2.5 text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-[#00C300] placeholder:text-muted-foreground"
+            className="w-full bg-secondary border-none rounded-xl pl-10 pr-4 py-2.5 text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
           />
         </div>
         <div className="flex gap-2 overflow-x-auto scrollbar-hide">

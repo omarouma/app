@@ -15,7 +15,7 @@ export const MoneyTransferMessage = memo(function MoneyTransferMessage(props: Mo
 
   if (!transferData) {
     return (
-      <div className={`rounded-2xl px-5 py-3 max-w-[80%] text-center border border-border bg-white`}>
+      <div className={`rounded-2xl px-5 py-3 max-w-[80%] text-center border border-border bg-card`}>
         <p className="text-muted-foreground text-xs font-medium mb-1">Transfer</p>
         <p className="text-muted-foreground text-sm">Transfer unavailable</p>
         <p className="text-muted-foreground text-[10px] mt-1">{formatTime(msg.timestamp)}</p>

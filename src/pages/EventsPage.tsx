@@ -203,12 +203,12 @@ export default function EventsPage() {
         </div>
         <div className="flex items-center gap-2">
           <button type="button" onClick={() => setShowSearch(!showSearch)}
-            className="p-2 rounded-lg hover:bg-[#1a1a1a] text-[#8D8D8D]"
+            className="p-2 rounded-lg hover:bg-[#1a1a1a] text-muted-foreground"
           >
             <Search size={18} />
           </button>
           <button type="button" onClick={() => setShowFilters(!showFilters)}
-            className="p-2 rounded-lg hover:bg-[#1a1a1a] text-[#8D8D8D]"
+            className="p-2 rounded-lg hover:bg-[#1a1a1a] text-muted-foreground"
           >
             <Filter size={18} />
           </button>
@@ -226,17 +226,17 @@ export default function EventsPage() {
           >
             <div className="px-4 py-2 border-b border-[#1a1a1a]">
               <div className="relative">
-                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8D8D8D]" />
+                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                 <input
                   type="text"
                   placeholder="Search events..."
                   value={searchQuery}
                   onChange={e => setSearchQuery(e.target.value)}
-                  className="w-full bg-[#1a1a1a] text-white pl-10 pr-4 py-2 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#00C300]"
+                  className="w-full bg-[#1a1a1a] text-white pl-10 pr-4 py-2 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                   autoFocus
                 />
                 {searchQuery && (
-                  <button type="button" onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8D8D8D]">
+                  <button type="button" onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">
                     <X size={14} />
                   </button>
                 )}
@@ -261,8 +261,8 @@ export default function EventsPage() {
                   onClick={() => setSelectedCategory(cat)}
                   className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap ${
                     selectedCategory === cat
-                      ? 'bg-[#00C300] text-black'
-                      : 'bg-[#1a1a1a] text-[#8D8D8D]'
+                      ? 'bg-primary text-black'
+                      : 'bg-[#1a1a1a] text-muted-foreground'
                   }`}
                 >
                   {cat}
@@ -279,7 +279,7 @@ export default function EventsPage() {
           <button type="button" key={t.key}
             onClick={() => setActiveTab(t.key)}
             className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap ${
-              activeTab === t.key ? 'bg-[#00C300] text-black' : 'bg-[#1a1a1a] text-[#8D8D8D]'
+              activeTab === t.key ? 'bg-primary text-black' : 'bg-[#1a1a1a] text-muted-foreground'
             }`}
           >
             {t.label}
@@ -315,12 +315,12 @@ export default function EventsPage() {
                   <img src={event.coverImage} alt={event.title} className="w-full h-full object-cover" />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-[#1a1a1a] to-[#2a2a2a]">
-                    <Calendar size={40} className="text-[#8D8D8D]" />
+                    <Calendar size={40} className="text-muted-foreground" />
                   </div>
                 )}
                 <div className="absolute top-3 left-3">
                   <span className={`px-2 py-1 rounded-lg text-xs font-medium ${
-                    isUpcoming ? 'bg-[#00C300] text-black' : 'bg-[#8D8D8D] text-white'
+                    isUpcoming ? 'bg-primary text-black' : 'bg-muted-foreground text-white'
                   }`}>
                     {isUpcoming ? 'Upcoming' : 'Past'}
                   </span>
@@ -339,38 +339,38 @@ export default function EventsPage() {
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex-1 min-w-0">
                     <h3 className="text-white font-semibold text-base leading-tight mb-1">{event.title}</h3>
-                    <p className="text-[#8D8D8D] text-sm line-clamp-2 mb-2">{event.description}</p>
+                    <p className="text-muted-foreground text-sm line-clamp-2 mb-2">{event.description}</p>
                   </div>
-                  <button type="button" className="text-[#8D8D8D] p-1">
+                  <button type="button" className="text-muted-foreground p-1">
                     <MoreVertical size={18} />
                   </button>
                 </div>
 
                 <div className="flex flex-col gap-1.5 mb-3">
-                  <div className="flex items-center gap-2 text-[#8D8D8D] text-xs">
-                    <Calendar size={14} className="text-[#00C300]" />
+                  <div className="flex items-center gap-2 text-muted-foreground text-xs">
+                    <Calendar size={14} className="text-primary" />
                     <span>{formatDate(event.startDate)}</span>
                     {event.endDate && (
                       <span> - {formatDate(event.endDate)}</span>
                     )}
                   </div>
-                  <div className="flex items-center gap-2 text-[#8D8D8D] text-xs">
-                    <MapPin size={14} className="text-[#00C300]" />
+                  <div className="flex items-center gap-2 text-muted-foreground text-xs">
+                    <MapPin size={14} className="text-primary" />
                     <span>{event.location}</span>
                     {event.isOnline && (
-                      <span className="text-[#00C300]">(Online)</span>
+                      <span className="text-primary">(Online)</span>
                     )}
                   </div>
-                  <div className="flex items-center gap-2 text-[#8D8D8D] text-xs">
-                    <Users size={14} className="text-[#00C300]" />
+                  <div className="flex items-center gap-2 text-muted-foreground text-xs">
+                    <Users size={14} className="text-primary" />
                     <span>{event.attendees.length} going</span>
                     {event.capacity && (
                       <span>• {event.capacity - event.attendees.length} spots left</span>
                     )}
                   </div>
                   {event.cost !== undefined && event.cost > 0 && (
-                    <div className="flex items-center gap-2 text-[#8D8D8D] text-xs">
-                      <DollarSign size={14} className="text-[#00C300]" />
+                    <div className="flex items-center gap-2 text-muted-foreground text-xs">
+                      <DollarSign size={14} className="text-primary" />
                       <span>{event.cost} {event.currency}</span>
                     </div>
                   )}
@@ -392,7 +392,7 @@ export default function EventsPage() {
                     <button type="button" onClick={() => handleRSVP(event, 'going')}
                       className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-medium transition-colors ${
                         rsvp === 'going'
-                          ? 'bg-[#00C300] text-black'
+                          ? 'bg-primary text-black'
                           : 'bg-[#2a2a2a] text-white hover:bg-[#333]'
                       }`}
                     >
@@ -420,7 +420,7 @@ export default function EventsPage() {
                 )}
 
                 {!isUpcoming && (
-                  <div className="text-[#8D8D8D] text-xs text-center py-2">
+                  <div className="text-muted-foreground text-xs text-center py-2">
                     Event has ended
                   </div>
                 )}
@@ -432,7 +432,7 @@ export default function EventsPage() {
 
       {/* Create Event FAB */}
       <button type="button" onClick={() => setShowCreateModal(true)}
-        className="fixed bottom-20 right-4 z-30 w-12 h-12 rounded-full bg-[#00C300] text-black flex items-center justify-center shadow-lg hover:bg-[#00C300]/90 transition-colors"
+        className="fixed bottom-20 right-4 z-30 w-12 h-12 rounded-full bg-primary text-black flex items-center justify-center shadow-lg hover:bg-primary/90 transition-colors"
       >
         <Plus size={22} />
       </button>
@@ -457,7 +457,7 @@ export default function EventsPage() {
             >
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-bold text-white">Create Event</h2>
-                <button type="button" onClick={() => setShowCreateModal(false)} className="text-[#8D8D8D] p-1">
+                <button type="button" onClick={() => setShowCreateModal(false)} className="text-muted-foreground p-1">
                   <X size={20} />
                 </button>
               </div>
@@ -466,41 +466,41 @@ export default function EventsPage() {
                 <input
                   type="text" placeholder="Event title *"
                   value={createTitle} onChange={e => setCreateTitle(e.target.value)}
-                  className="w-full bg-[#0d0d0d] text-white px-4 py-3 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#00C300]"
+                  className="w-full bg-[#0d0d0d] text-white px-4 py-3 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                 />
                 <textarea
                   placeholder="Description"
                   value={createDesc} onChange={e => setCreateDesc(e.target.value)}
                   rows={3}
-                  className="w-full bg-[#0d0d0d] text-white px-4 py-3 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#00C300] resize-none"
+                  className="w-full bg-[#0d0d0d] text-white px-4 py-3 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary resize-none"
                 />
                 <input
                   type="text" placeholder="Location *"
                   value={createLocation} onChange={e => setCreateLocation(e.target.value)}
-                  className="w-full bg-[#0d0d0d] text-white px-4 py-3 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#00C300]"
+                  className="w-full bg-[#0d0d0d] text-white px-4 py-3 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                 />
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="text-[#8D8D8D] text-xs mb-1 block">Start *</label>
+                    <label className="text-muted-foreground text-xs mb-1 block">Start *</label>
                     <input
                       type="datetime-local"
                       value={createStart} onChange={e => setCreateStart(e.target.value)}
-                      className="w-full bg-[#0d0d0d] text-white px-3 py-2 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#00C300]"
+                      className="w-full bg-[#0d0d0d] text-white px-3 py-2 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                     />
                   </div>
                   <div>
-                    <label className="text-[#8D8D8D] text-xs mb-1 block">End *</label>
+                    <label className="text-muted-foreground text-xs mb-1 block">End *</label>
                     <input
                       type="datetime-local"
                       value={createEnd} onChange={e => setCreateEnd(e.target.value)}
-                      className="w-full bg-[#0d0d0d] text-white px-3 py-2 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#00C300]"
+                      className="w-full bg-[#0d0d0d] text-white px-3 py-2 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                     />
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <select
                     value={createCategory} onChange={e => setCreateCategory(e.target.value)}
-                    className="w-full bg-[#0d0d0d] text-white px-3 py-2 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#00C300]"
+                    className="w-full bg-[#0d0d0d] text-white px-3 py-2 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                   >
                     {categories.filter(c => c !== 'All').map(c => (
                       <option key={c} value={c}>{c}</option>
@@ -508,7 +508,7 @@ export default function EventsPage() {
                   </select>
                   <select
                     value={createPrivacy} onChange={e => setCreatePrivacy(e.target.value as 'public' | 'friends' | 'private')}
-                    className="w-full bg-[#0d0d0d] text-white px-3 py-2 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#00C300]"
+                    className="w-full bg-[#0d0d0d] text-white px-3 py-2 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                   >
                     <option value="public">Public</option>
                     <option value="friends">Friends</option>
@@ -519,12 +519,12 @@ export default function EventsPage() {
                   <input
                     type="number" placeholder="Capacity (optional)"
                     value={createCapacity} onChange={e => setCreateCapacity(e.target.value)}
-                    className="w-full bg-[#0d0d0d] text-white px-4 py-3 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#00C300]"
+                    className="w-full bg-[#0d0d0d] text-white px-4 py-3 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                   />
                   <input
                     type="number" placeholder="Cost (optional)"
                     value={createCost} onChange={e => setCreateCost(e.target.value)}
-                    className="w-full bg-[#0d0d0d] text-white px-4 py-3 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#00C300]"
+                    className="w-full bg-[#0d0d0d] text-white px-4 py-3 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                   />
                 </div>
                 <label className="flex items-center gap-2 text-white text-sm cursor-pointer">
@@ -537,7 +537,7 @@ export default function EventsPage() {
                 <button
                   type="button" onClick={handleCreateEvent}
                   disabled={creating || !createTitle.trim() || !createLocation.trim() || !createStart || !createEnd}
-                  className="w-full py-3 rounded-xl bg-[#00C300] text-black font-semibold text-sm hover:bg-[#00C300]/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  className="w-full py-3 rounded-xl bg-primary text-black font-semibold text-sm hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
                   {creating ? 'Creating...' : 'Create Event'}
                 </button>

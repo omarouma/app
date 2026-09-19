@@ -233,7 +233,7 @@ export default function TimelineCard({
       <>
         <span>
           {display.split(/(\s+)/).map((word, i) => {
-            if (word.startsWith('#')) return <span key={i} className="text-[#00C300] cursor-pointer hover:underline">{word}</span>;
+            if (word.startsWith('#')) return <span key={i} className="text-primary cursor-pointer hover:underline">{word}</span>;
             if (word.startsWith('@')) return <span key={i} className="text-[#2196F3] cursor-pointer hover:underline">{word}</span>;
             return word;
           })}
@@ -435,7 +435,7 @@ export default function TimelineCard({
         {showHeartAnim && (
           <motion.div initial={{ opacity: 0, scale: 0 }} animate={{ opacity: 1, scale: 1.5 }} exit={{ opacity: 0, scale: 2 }}
             className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
-            <Heart size={80} className="text-[#FF3B30] fill-current drop-shadow-2xl" />
+            <Heart size={80} className="text-destructive fill-current drop-shadow-2xl" />
           </motion.div>
         )}
       </AnimatePresence>

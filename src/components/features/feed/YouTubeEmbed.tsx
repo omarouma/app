@@ -141,7 +141,7 @@ export function YouTubeLinkPreview({ videoId, title, channelTitle, viewCount, pu
     <>
       <div
         ref={containerRef}
-        className="rounded-xl overflow-hidden border border-[#EBEBEB] bg-[#F5F5F5] hover:shadow-md transition-shadow cursor-pointer group"
+        className="rounded-xl overflow-hidden border border-border bg-secondary hover:shadow-md transition-shadow cursor-pointer group"
         onClick={() => setPlaying(true)}
         role="button"
         tabIndex={0}
@@ -166,8 +166,8 @@ export function YouTubeLinkPreview({ videoId, title, channelTitle, viewCount, pu
           <div className="aspect-video bg-[#1a1a1a] animate-pulse" />
         )}
         <div className="p-3 space-y-1">
-          <p className="text-sm font-medium text-[#111111] line-clamp-2 leading-snug">{title || 'YouTube Video'}</p>
-          <div className="flex items-center gap-2 text-[10px] text-[#8D8D8D]">
+          <p className="text-sm font-medium text-foreground line-clamp-2 leading-snug">{title || 'YouTube Video'}</p>
+          <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
             <span>{channelTitle || 'YouTube'}</span>
             {viewCount && (
               <>
@@ -186,7 +186,7 @@ export function YouTubeLinkPreview({ videoId, title, channelTitle, viewCount, pu
           </div>
           <div className="flex items-center gap-1.5 pt-0.5">
             <div className="w-2 h-2 rounded-full bg-red-500" />
-            <span className="text-[10px] text-[#8D8D8D]">Tap to play</span>
+            <span className="text-[10px] text-muted-foreground">Tap to play</span>
           </div>
         </div>
       </div>

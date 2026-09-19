@@ -173,7 +173,7 @@ export default function YouTubeFeed() {
             </div>
             <div>
               <h2 className="text-sm font-semibold text-white">Videos</h2>
-              <p className="text-[10px] text-[#8D8D8D]">
+              <p className="text-[10px] text-muted-foreground">
                 {searchQuery ? `"${searchQuery}"` : activeCategory > 0 ? CATEGORIES[activeCategory].label : (videoSource === 'youtube' ? 'YouTube Trending' : 'Pexels Popular')}
               </p>
             </div>
@@ -181,16 +181,16 @@ export default function YouTubeFeed() {
           <div className="flex items-center gap-2">
             <div className="flex bg-[#1a1a1a] rounded-lg p-1">
               <button type="button" onClick={() => setVideoSource('youtube')}
-                className={`px-2 py-1 rounded-md text-xs font-medium transition-all ${videoSource === 'youtube' ? 'bg-red-600 text-white' : 'text-[#8D8D8D] hover:text-white'}`}>
+                className={`px-2 py-1 rounded-md text-xs font-medium transition-all ${videoSource === 'youtube' ? 'bg-red-600 text-white' : 'text-muted-foreground hover:text-white'}`}>
                 YouTube
               </button>
               <button type="button" onClick={() => setVideoSource('pexels')}
-                className={`px-2 py-1 rounded-md text-xs font-medium transition-all ${videoSource === 'pexels' ? 'bg-green-600 text-white' : 'text-[#8D8D8D] hover:text-white'}`}>
+                className={`px-2 py-1 rounded-md text-xs font-medium transition-all ${videoSource === 'pexels' ? 'bg-green-600 text-white' : 'text-muted-foreground hover:text-white'}`}>
                 Pexels
               </button>
             </div>
             <button type="button" onClick={handleRefresh}
-              className="p-2 rounded-lg hover:bg-[#1a1a1a] text-[#8D8D8D]" aria-label="Refresh">
+              className="p-2 rounded-lg hover:bg-[#1a1a1a] text-muted-foreground" aria-label="Refresh">
               <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
             </button>
           </div>
@@ -198,15 +198,15 @@ export default function YouTubeFeed() {
 
         {/* Search */}
         <form onSubmit={handleSearch} className="relative">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8D8D8D]" />
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <input ref={searchInputRef} type="text" value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search videos..."
-            className="w-full bg-[#1a1a1a] text-white pl-9 pr-9 py-2.5 rounded-xl text-sm placeholder:text-[#8D8D8D] focus:outline-none focus:ring-2 focus:ring-red-500/50"
+            className="w-full bg-[#1a1a1a] text-white pl-9 pr-9 py-2.5 rounded-xl text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-red-500/50"
           />
           {searchQuery && (
             <button type="button" onClick={() => { setSearchQuery(''); void loadVideos(); }}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8D8D8D] hover:text-white">
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-white">
               <X size={14} />
             </button>
           )}
@@ -220,8 +220,8 @@ export default function YouTubeFeed() {
               <button key={cat.label} type="button" onClick={() => handleCategorySelect(idx)}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all shrink-0 ${
                   activeCategory === idx && !searchQuery
-                    ? 'bg-[#00C300] text-black'
-                    : 'bg-[#1a1a1a] text-[#8D8D8D] hover:text-white'
+                    ? 'bg-primary text-black'
+                    : 'bg-[#1a1a1a] text-muted-foreground hover:text-white'
                 }`}>
                 <Icon size={12} />
                 {cat.label}
@@ -235,17 +235,17 @@ export default function YouTubeFeed() {
           {(['feed', 'history', 'queue'] as const).map(t => (
             <button key={t} type="button" onClick={() => setTab(t)}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
-                tab === t ? 'bg-white/10 text-white' : 'text-[#8D8D8D] hover:text-white'
+                tab === t ? 'bg-white/10 text-white' : 'text-muted-foreground hover:text-white'
               }`}>
               {t === 'feed' && <Play size={11} />}
               {t === 'history' && <Clock size={11} />}
               {t === 'queue' && <ListVideo size={11} />}
               {t.charAt(0).toUpperCase() + t.slice(1)}
               {t === 'queue' && queue.length > 0 && (
-                <span className="bg-[#00C300] text-black text-[9px] font-bold rounded-full w-4 h-4 flex items-center justify-center">{queue.length}</span>
+                <span className="bg-primary text-black text-[9px] font-bold rounded-full w-4 h-4 flex items-center justify-center">{queue.length}</span>
               )}
               {t === 'history' && history.length > 0 && (
-                <span className="text-[#8D8D8D] text-[9px]">{history.length}</span>
+                <span className="text-muted-foreground text-[9px]">{history.length}</span>
               )}
             </button>
           ))}
@@ -271,7 +271,7 @@ export default function YouTubeFeed() {
               </div>
             ) : error && videos.length === 0 ? (
               <EmptyState icon={TrendingUp} title="No videos found" description={error}
-                action={<button type="button" onClick={handleRefresh} className="px-4 py-2 bg-[#00C300] text-white rounded-full text-sm font-medium">Try again</button>}
+                action={<button type="button" onClick={handleRefresh} className="px-4 py-2 bg-primary text-white rounded-full text-sm font-medium">Try again</button>}
               />
             ) : videos.length === 0 ? (
               <EmptyState icon={Youtube} title="No videos yet" description="Search for content or select a category." />
@@ -279,11 +279,11 @@ export default function YouTubeFeed() {
               <>
                 <div className="flex items-center gap-2 mb-4">
                   <TrendingUp size={14} className="text-red-500" />
-                  <span className="text-xs font-medium text-[#8D8D8D] uppercase tracking-wider">
+                  <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
                     {searchQuery ? 'Search Results' : activeCategory > 0 ? CATEGORIES[activeCategory].label : 'Trending'}
                   </span>
-                  {loading && <Loader size={14} className="animate-spin text-[#8D8D8D]" />}
-                  <span className="text-[#8D8D8D] text-xs ml-auto">{videos.length} videos</span>
+                  {loading && <Loader size={14} className="animate-spin text-muted-foreground" />}
+                  <span className="text-muted-foreground text-xs ml-auto">{videos.length} videos</span>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {videos.map((video, index) => (
@@ -292,7 +292,7 @@ export default function YouTubeFeed() {
                       <YouTubeVideoCard video={video} index={index} onPlay={handlePlay} />
                       {/* Add to queue button */}
                       <button type="button" onClick={(e) => handleAddToQueue(video, e)}
-                        className="absolute top-2 left-2 opacity-0 group-hover:opacity-100 transition-opacity bg-black/70 text-white rounded-full p-1.5 hover:bg-[#00C300] hover:text-black"
+                        className="absolute top-2 left-2 opacity-0 group-hover:opacity-100 transition-opacity bg-black/70 text-white rounded-full p-1.5 hover:bg-primary hover:text-black"
                         title="Add to queue">
                         <ListVideo size={12} />
                       </button>
@@ -309,12 +309,12 @@ export default function YouTubeFeed() {
           <div className="p-4">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
-                <Clock size={14} className="text-[#8D8D8D]" />
-                <span className="text-xs font-medium text-[#8D8D8D] uppercase tracking-wider">Watch History</span>
+                <Clock size={14} className="text-muted-foreground" />
+                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Watch History</span>
               </div>
               {history.length > 0 && (
                 <button type="button" onClick={() => { clearHistory(); setHistory([]); }}
-                  className="flex items-center gap-1 text-xs text-[#FF3B30] hover:text-red-400 transition-colors">
+                  className="flex items-center gap-1 text-xs text-destructive hover:text-red-400 transition-colors">
                   <Trash2 size={12} /> Clear all
                 </button>
               )}
@@ -338,7 +338,7 @@ export default function YouTubeFeed() {
                     </div>
                     <div className="flex-1 min-w-0 py-2 pr-3">
                       <p className="text-white text-sm font-medium line-clamp-2 leading-snug">{item.title}</p>
-                      {item.channelTitle && <p className="text-[#8D8D8D] text-xs mt-1 truncate">{item.channelTitle}</p>}
+                      {item.channelTitle && <p className="text-muted-foreground text-xs mt-1 truncate">{item.channelTitle}</p>}
                       <p className="text-[#555] text-[10px] mt-1">
                         {new Date(item.watchedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                       </p>
@@ -356,12 +356,12 @@ export default function YouTubeFeed() {
           <div className="p-4">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
-                <ListVideo size={14} className="text-[#8D8D8D]" />
-                <span className="text-xs font-medium text-[#8D8D8D] uppercase tracking-wider">Up Next ({queue.length})</span>
+                <ListVideo size={14} className="text-muted-foreground" />
+                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Up Next ({queue.length})</span>
               </div>
               {queue.length > 0 && (
                 <button type="button" onClick={() => setQueue([])}
-                  className="flex items-center gap-1 text-xs text-[#FF3B30] hover:text-red-400 transition-colors">
+                  className="flex items-center gap-1 text-xs text-destructive hover:text-red-400 transition-colors">
                   <Trash2 size={12} /> Clear queue
                 </button>
               )}
@@ -387,17 +387,17 @@ export default function YouTubeFeed() {
                     </div>
                     <div className="flex-1 min-w-0 py-2">
                       <p className="text-white text-sm font-medium line-clamp-2 leading-snug">{video.title}</p>
-                      {isYouTubeVideo(video) && <p className="text-[#8D8D8D] text-xs mt-1 truncate">{video.channelTitle}</p>}
+                      {isYouTubeVideo(video) && <p className="text-muted-foreground text-xs mt-1 truncate">{video.channelTitle}</p>}
                     </div>
                     <button type="button" onClick={(e) => { e.stopPropagation(); handleRemoveFromQueue(video.id); }}
-                      className="text-[#555] hover:text-[#FF3B30] transition-colors self-center mr-3 shrink-0 p-1">
+                      className="text-[#555] hover:text-destructive transition-colors self-center mr-3 shrink-0 p-1">
                       <X size={14} />
                     </button>
                   </motion.div>
                 ))}
                 {queue.length > 0 && (
                   <button type="button" onClick={() => handlePlayFromQueue(queue[0], 0)}
-                    className="w-full py-3 bg-[#00C300] text-black rounded-xl text-sm font-bold flex items-center justify-center gap-2 mt-2">
+                    className="w-full py-3 bg-primary text-black rounded-xl text-sm font-bold flex items-center justify-center gap-2 mt-2">
                     <Play size={16} className="fill-black" /> Play All
                   </button>
                 )}
@@ -412,7 +412,7 @@ export default function YouTubeFeed() {
         {showQueueToast && (
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 20 }}
             className="fixed bottom-24 left-1/2 -translate-x-1/2 z-50 bg-[#1a1a1a] text-white text-xs font-medium px-4 py-2 rounded-full shadow-lg flex items-center gap-2 border border-[#333]">
-            <ListVideo size={12} className="text-[#00C300]" /> Added to queue
+            <ListVideo size={12} className="text-primary" /> Added to queue
           </motion.div>
         )}
       </AnimatePresence>

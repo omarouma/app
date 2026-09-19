@@ -15,13 +15,13 @@ export default function FeatureCard({ icon: Icon, title, description, delay }: F
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, margin: '-50px' }}
       transition={{ duration: 0.5, delay }}
-      className="bg-white border border-[#EBEBEB] hover:border-[#00C300]/30 rounded-2xl p-6 transition-all duration-300 group"
+      className="bg-card border border-border hover:border-primary/30 rounded-2xl p-6 transition-all duration-300 group"
     >
-      <div className="w-12 h-12 rounded-xl bg-[#00C300]/10 flex items-center justify-center mb-4 group-hover:bg-[#00C300]/20 transition-colors">
-        <Icon size={24} className="text-[#00C300]" />
+      <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center mb-4 group-hover:bg-primary/20 transition-colors">
+        <Icon size={24} className="text-primary" />
       </div>
-      <h3 className="text-[#111111] font-semibold text-base mb-2">{title}</h3>
-      <p className="text-[#8D8D8D] text-sm leading-relaxed">{description}</p>
+      <h3 className="text-foreground font-semibold text-base mb-2">{title}</h3>
+      <p className="text-muted-foreground text-sm leading-relaxed">{description}</p>
     </motion.div>
   );
 }

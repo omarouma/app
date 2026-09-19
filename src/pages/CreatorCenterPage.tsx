@@ -11,14 +11,14 @@ import { toast } from 'sonner';
 // ─── Floating Bubble Data ───
 const bubbleImages = [
   { size: 180, top: '8%', left: '2%', color: 'from-[#FF4081]/20 to-[#FF4081]/5', delay: 0, icon: Video },
-  { size: 140, top: '55%', left: '5%', color: 'from-[#00C300]/20 to-[#00C300]/5', delay: 1.2, icon: Music },
+  { size: 140, top: '55%', left: '5%', color: 'from-primary/20 to-primary/5', delay: 1.2, icon: Music },
   { size: 100, top: '20%', left: '35%', color: 'from-[#FF9800]/20 to-[#FF9800]/5', delay: 0.6, icon: Palette },
   { size: 200, top: '40%', left: '15%', color: 'from-[#8B5CF6]/20 to-[#8B5CF6]/5', delay: 2.1, icon: BookOpen },
   { size: 120, top: '75%', left: '25%', color: 'from-[#00BCD4]/20 to-[#00BCD4]/5', delay: 1.8, icon: Briefcase },
   { size: 160, top: '12%', left: '55%', color: 'from-[#FF5252]/20 to-[#FF5252]/5', delay: 0.9, icon: Gamepad2 },
   { size: 90, top: '65%', left: '45%', color: 'from-[#2196F3]/20 to-[#2196F3]/5', delay: 2.5, icon: Camera },
   { size: 130, top: '30%', left: '70%', color: 'from-[#FF4081]/20 to-[#FF4081]/5', delay: 1.5, icon: Globe },
-  { size: 110, top: '80%', left: '70%', color: 'from-[#00C300]/20 to-[#00C300]/5', delay: 0.3, icon: Star },
+  { size: 110, top: '80%', left: '70%', color: 'from-primary/20 to-primary/5', delay: 0.3, icon: Star },
   { size: 80, top: '5%', left: '80%', color: 'from-[#FF9800]/20 to-[#FF9800]/5', delay: 2.8, icon: Heart },
 ];
 
@@ -112,17 +112,17 @@ function CreatorLoginCard() {
       className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/50 p-8 w-full max-w-md relative overflow-hidden"
     >
       {/* Decorative corner */}
-      <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-bl from-[#00C300]/10 to-transparent rounded-bl-full" />
+      <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-bl from-primary/10 to-transparent rounded-bl-full" />
 
       <div className="relative z-10">
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-2">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#00C300] to-[#00A300] flex items-center justify-center">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-[#00A300] flex items-center justify-center">
               <Logo size={28} />
             </div>
             <div>
-              <h3 className="font-bold text-[#111111] text-sm">GaGa Creator</h3>
-              <p className="text-[#8D8D8D] text-[10px]">Creator Center Login</p>
+              <h3 className="font-bold text-foreground text-sm">GaGa Creator</h3>
+              <p className="text-muted-foreground text-[10px]">Creator Center Login</p>
             </div>
           </div>
         </div>
@@ -133,7 +133,7 @@ function CreatorLoginCard() {
             placeholder="Email address"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="w-full px-4 py-3 bg-[#F5F5F5] rounded-xl text-sm text-[#111111] placeholder:text-[#C7C7CC] outline-none focus:ring-2 focus:ring-[#00C300]/30 transition-all"
+            className="w-full px-4 py-3 bg-secondary rounded-xl text-sm text-foreground placeholder:text-muted-foreground outline-none focus:ring-2 focus:ring-primary/30 transition-all"
           />
         </div>
 
@@ -143,17 +143,17 @@ function CreatorLoginCard() {
             placeholder="Password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="w-full px-4 py-3 bg-[#F5F5F5] rounded-xl text-sm text-[#111111] placeholder:text-[#C7C7CC] outline-none focus:ring-2 focus:ring-[#00C300]/30 transition-all pr-10"
+            className="w-full px-4 py-3 bg-secondary rounded-xl text-sm text-foreground placeholder:text-muted-foreground outline-none focus:ring-2 focus:ring-primary/30 transition-all pr-10"
           />
           <button type="button" onClick={() => setShowPassword(!showPassword)}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8D8D8D]"
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground"
           >
             {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
           </button>
         </div>
 
         <button type="button" onClick={handleLogin}
-          className="w-full py-3.5 bg-[#00C300] hover:bg-[#00A300] text-white rounded-xl text-sm font-bold transition-colors mb-4 shadow-lg shadow-[#00C300]/20"
+          className="w-full py-3.5 bg-primary hover:bg-[#00A300] text-white rounded-xl text-sm font-bold transition-colors mb-4 shadow-lg shadow-[#00C300]/20"
         >
           Log In
         </button>
@@ -161,22 +161,22 @@ function CreatorLoginCard() {
         <div className="flex items-center gap-2 mb-4">
           <button type="button" onClick={() => setAgreed(!agreed)}
             className={`w-4 h-4 rounded border transition-colors flex items-center justify-center ${
-              agreed ? 'bg-[#00C300] border-[#00C300]' : 'border-[#C7C7CC]'
+              agreed ? 'bg-primary border-primary' : 'border-border'
             }`}
           >
             {agreed && <CheckCircle size={12} className="text-white" />}
           </button>
-          <span className="text-[#8D8D8D] text-xs">
+          <span className="text-muted-foreground text-xs">
             I agree to the{' '}
-            <button type="button" onClick={() => navigate('/terms')} className="text-[#00C300] hover:underline">User Agreement</button>
+            <button type="button" onClick={() => navigate('/terms')} className="text-primary hover:underline">User Agreement</button>
             {' '}and{' '}
-            <button type="button" onClick={() => navigate('/privacy')} className="text-[#00C300] hover:underline">Privacy Policy</button>
+            <button type="button" onClick={() => navigate('/privacy')} className="text-primary hover:underline">Privacy Policy</button>
           </span>
         </div>
 
         <div className="text-center">
           <button type="button" onClick={() => navigate('/auth')}
-            className="text-[#8D8D8D] text-xs hover:text-[#00C300] transition-colors"
+            className="text-muted-foreground text-xs hover:text-primary transition-colors"
           >
             New to GaGa? Sign up here
           </button>
@@ -222,24 +222,24 @@ export default function CreatorCenterPage() {
           className="px-6 sm:px-12 lg:px-20 py-6 flex items-center justify-between"
         >
           <button type="button" onClick={() => navigate('/')} className="flex items-center gap-2">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#00C300] to-[#00A300] flex items-center justify-center shadow-lg shadow-[#00C300]/20">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-[#00A300] flex items-center justify-center shadow-lg shadow-[#00C300]/20">
               <Logo size={28} />
             </div>
-            <span className="font-bold text-[#111111] text-lg hidden sm:block">GaGa Creator</span>
+            <span className="font-bold text-foreground text-lg hidden sm:block">GaGa Creator</span>
           </button>
           <div className="flex items-center gap-4">
             <button type="button" onClick={() => navigate('/analytics')}
-              className="text-[#8D8D8D] hover:text-[#111111] text-sm font-medium transition-colors hidden sm:block"
+              className="text-muted-foreground hover:text-foreground text-sm font-medium transition-colors hidden sm:block"
             >
               Analytics
             </button>
             <button type="button" onClick={() => navigate('/premium')}
-              className="text-[#8D8D8D] hover:text-[#111111] text-sm font-medium transition-colors hidden sm:block"
+              className="text-muted-foreground hover:text-foreground text-sm font-medium transition-colors hidden sm:block"
             >
               Premium
             </button>
             <button type="button" onClick={() => navigate(isLoggedIn ? '/timeline' : '/auth')}
-              className="bg-[#00C300] hover:bg-[#00A300] text-white rounded-full px-6 py-2 text-sm font-bold transition-colors shadow-lg shadow-[#00C300]/20"
+              className="bg-primary hover:bg-[#00A300] text-white rounded-full px-6 py-2 text-sm font-bold transition-colors shadow-lg shadow-[#00C300]/20"
             >
               {isLoggedIn ? 'Dashboard' : 'Get Started'}
             </button>
@@ -263,19 +263,19 @@ export default function CreatorCenterPage() {
                   transition={{ delay: 0.3 }}
                   className="inline-flex items-center gap-2 bg-white/60 backdrop-blur-sm border border-white/50 rounded-full px-4 py-1.5 mb-6 shadow-sm"
                 >
-                  <Crown size={14} className="text-[#00C300]" />
-                  <span className="text-[#00C300] text-sm font-medium">GaGa Chat Creator Center</span>
+                  <Crown size={14} className="text-primary" />
+                  <span className="text-primary text-sm font-medium">GaGa Chat Creator Center</span>
                 </motion.div>
 
-                <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-[#111111] leading-tight mb-4">
+                <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-foreground leading-tight mb-4">
                   Join us to<br />
-                  <span className="bg-gradient-to-r from-[#00C300] to-[#FF9800] bg-clip-text text-transparent">
+                  <span className="bg-gradient-to-r from-primary to-[#FF9800] bg-clip-text text-transparent">
                     unlock exclusive
                   </span><br />
                   features for creators.
                 </h1>
 
-                <p className="text-[#8D8D8D] text-base sm:text-lg max-w-md mb-8 leading-relaxed">
+                <p className="text-muted-foreground text-base sm:text-lg max-w-md mb-8 leading-relaxed">
                   Make creation, publishing, data analysis, and monetization more efficient. Turn your passion into income with the world&apos;s fastest growing creator platform.
                 </p>
 
@@ -290,8 +290,8 @@ export default function CreatorCenterPage() {
                     >
                       <stat.icon size={18} style={{ color: '#00C300' }} />
                       <div>
-                        <p className="font-bold text-[#111111] text-sm">{stat.value}</p>
-                        <p className="text-[#8D8D8D] text-[10px]">{stat.label}</p>
+                        <p className="font-bold text-foreground text-sm">{stat.value}</p>
+                        <p className="text-muted-foreground text-[10px]">{stat.label}</p>
                       </div>
                     </motion.div>
                   ))}
@@ -299,12 +299,12 @@ export default function CreatorCenterPage() {
 
                 <div className="flex flex-col sm:flex-row gap-3">
                   <button type="button" onClick={() => navigate(isLoggedIn ? '/timeline' : '/auth')}
-                    className="bg-[#00C300] hover:bg-[#00A300] text-white rounded-full px-8 py-4 text-sm font-bold transition-colors shadow-lg shadow-[#00C300]/20 flex items-center justify-center gap-2"
+                    className="bg-primary hover:bg-[#00A300] text-white rounded-full px-8 py-4 text-sm font-bold transition-colors shadow-lg shadow-[#00C300]/20 flex items-center justify-center gap-2"
                   >
                     Start Creating <ArrowRight size={18} />
                   </button>
                   <button type="button" onClick={() => navigate('/analytics')}
-                    className="bg-white/60 backdrop-blur-sm border border-white/50 hover:border-[#00C300]/30 text-[#111111] rounded-full px-8 py-4 text-sm font-bold transition-colors flex items-center justify-center gap-2"
+                    className="bg-white/60 backdrop-blur-sm border border-white/50 hover:border-primary/30 text-foreground rounded-full px-8 py-4 text-sm font-bold transition-colors flex items-center justify-center gap-2"
                   >
                     <BarChart3 size={18} /> View Analytics
                   </button>
@@ -328,10 +328,10 @@ export default function CreatorCenterPage() {
               viewport={{ once: true }}
               className="text-center mb-12"
             >
-              <h2 className="text-3xl sm:text-4xl font-bold text-[#111111] mb-3">
+              <h2 className="text-3xl sm:text-4xl font-bold text-foreground mb-3">
                 Discover Your Creative Path
               </h2>
-              <p className="text-[#8D8D8D] max-w-lg mx-auto">
+              <p className="text-muted-foreground max-w-lg mx-auto">
                 Choose from 16+ creator categories. Every passion has a home on GaGa Chat.
               </p>
             </motion.div>
@@ -361,8 +361,8 @@ export default function CreatorCenterPage() {
                     <topic.icon size={28} style={{ color: topic.color }} strokeWidth={1.5} />
                   </div>
                   <div className="text-center">
-                    <p className="text-[#111111] text-xs font-medium">{topic.label}</p>
-                    <p className="text-[#8D8D8D] text-[10px]">{topic.count} creators</p>
+                    <p className="text-foreground text-xs font-medium">{topic.label}</p>
+                    <p className="text-muted-foreground text-[10px]">{topic.count} creators</p>
                   </div>
                 </motion.button>
               ))}
@@ -379,10 +379,10 @@ export default function CreatorCenterPage() {
               viewport={{ once: true }}
               className="text-center mb-12"
             >
-              <h2 className="text-3xl sm:text-4xl font-bold text-[#111111] mb-3">
+              <h2 className="text-3xl sm:text-4xl font-bold text-foreground mb-3">
                 Everything You Need to Succeed
               </h2>
-              <p className="text-[#8D8D8D] max-w-lg mx-auto">
+              <p className="text-muted-foreground max-w-lg mx-auto">
                 Powerful tools designed to help you create, grow, and earn.
               </p>
             </motion.div>
@@ -414,9 +414,9 @@ export default function CreatorCenterPage() {
                   >
                     <f.icon size={20} style={{ color: f.color }} />
                   </div>
-                  <h3 className="font-bold text-[#111111] text-sm mb-1">{f.title}</h3>
-                  <p className="text-[#8D8D8D] text-xs">{f.desc}</p>
-                  <ArrowUpRight size={14} className="text-[#8D8D8D] mt-2 opacity-0 group-hover:opacity-100 transition-opacity" />
+                  <h3 className="font-bold text-foreground text-sm mb-1">{f.title}</h3>
+                  <p className="text-muted-foreground text-xs">{f.desc}</p>
+                  <ArrowUpRight size={14} className="text-muted-foreground mt-2 opacity-0 group-hover:opacity-100 transition-opacity" />
                 </motion.div>
               ))}
             </div>
@@ -432,10 +432,10 @@ export default function CreatorCenterPage() {
               viewport={{ once: true }}
               className="text-center mb-12"
             >
-              <h2 className="text-3xl sm:text-4xl font-bold text-[#111111] mb-3">
+              <h2 className="text-3xl sm:text-4xl font-bold text-foreground mb-3">
                 Four Steps to Start Earning
               </h2>
-              <p className="text-[#8D8D8D] max-w-lg mx-auto">
+              <p className="text-muted-foreground max-w-lg mx-auto">
                 From signup to your first income in minutes.
               </p>
             </motion.div>
@@ -455,14 +455,14 @@ export default function CreatorCenterPage() {
                   transition={{ delay: i * 0.1 }}
                   className="relative text-center"
                 >
-                  <div className="w-16 h-16 rounded-full bg-gradient-to-br from-[#00C300] to-[#00A300] text-white flex items-center justify-center text-2xl font-bold mx-auto mb-4 shadow-lg shadow-[#00C300]/20">
+                  <div className="w-16 h-16 rounded-full bg-gradient-to-br from-primary to-[#00A300] text-white flex items-center justify-center text-2xl font-bold mx-auto mb-4 shadow-lg shadow-[#00C300]/20">
                     {item.step}
                   </div>
                   {i < 3 && (
-                    <div className="hidden lg:block absolute top-8 left-[60%] w-[80%] h-0.5 bg-gradient-to-r from-[#00C300]/30 to-transparent" />
+                    <div className="hidden lg:block absolute top-8 left-[60%] w-[80%] h-0.5 bg-gradient-to-r from-primary/30 to-transparent" />
                   )}
-                  <h3 className="font-bold text-[#111111] mb-1">{item.title}</h3>
-                  <p className="text-[#8D8D8D] text-xs">{item.desc}</p>
+                  <h3 className="font-bold text-foreground mb-1">{item.title}</h3>
+                  <p className="text-muted-foreground text-xs">{item.desc}</p>
                 </motion.div>
               ))}
             </div>
@@ -478,8 +478,8 @@ export default function CreatorCenterPage() {
               viewport={{ once: true }}
               className="text-center mb-12"
             >
-              <h2 className="text-3xl sm:text-4xl font-bold text-[#111111] mb-3">Ways to Earn</h2>
-              <p className="text-[#8D8D8D] max-w-lg mx-auto">Multiple revenue streams for creators.</p>
+              <h2 className="text-3xl sm:text-4xl font-bold text-foreground mb-3">Ways to Earn</h2>
+              <p className="text-muted-foreground max-w-lg mx-auto">Multiple revenue streams for creators.</p>
             </motion.div>
 
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -503,8 +503,8 @@ export default function CreatorCenterPage() {
                     <item.icon size={20} style={{ color: item.color }} />
                   </div>
                   <div>
-                    <h3 className="font-bold text-[#111111] text-sm mb-1">{item.title}</h3>
-                    <p className="text-[#8D8D8D] text-xs">{item.desc}</p>
+                    <h3 className="font-bold text-foreground text-sm mb-1">{item.title}</h3>
+                    <p className="text-muted-foreground text-xs">{item.desc}</p>
                   </div>
                 </motion.div>
               ))}
@@ -521,30 +521,30 @@ export default function CreatorCenterPage() {
             className="max-w-3xl mx-auto text-center"
           >
             <div className="bg-white/60 backdrop-blur-xl border border-white/50 rounded-3xl p-10 sm:p-16 shadow-2xl">
-              <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#00C300] to-[#00A300] flex items-center justify-center mx-auto mb-6 shadow-lg shadow-[#00C300]/20">
+              <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary to-[#00A300] flex items-center justify-center mx-auto mb-6 shadow-lg shadow-[#00C300]/20">
                 <Sparkles size={32} className="text-white" />
               </div>
-              <h2 className="text-3xl sm:text-5xl font-bold text-[#111111] mb-4">
+              <h2 className="text-3xl sm:text-5xl font-bold text-foreground mb-4">
                 Ready to Create?
               </h2>
-              <p className="text-[#8D8D8D] mb-8 max-w-md mx-auto">
+              <p className="text-muted-foreground mb-8 max-w-md mx-auto">
                 Join thousands of creators on GaGa Chat. Free to join, forever.
               </p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
                 <button type="button" onClick={() => navigate(isLoggedIn ? '/timeline' : '/auth')}
-                  className="bg-[#00C300] hover:bg-[#00A300] text-white rounded-full px-10 py-4 text-lg font-bold transition-colors shadow-lg shadow-[#00C300]/20 flex items-center justify-center gap-2"
+                  className="bg-primary hover:bg-[#00A300] text-white rounded-full px-10 py-4 text-lg font-bold transition-colors shadow-lg shadow-[#00C300]/20 flex items-center justify-center gap-2"
                 >
                   Become a Creator <ArrowRight size={20} />
                 </button>
                 <button type="button" onClick={() => navigate('/analytics')}
-                  className="bg-white border-2 border-[#EBEBEB] hover:border-[#00C300] text-[#111111] rounded-full px-10 py-4 text-lg font-bold transition-colors flex items-center justify-center gap-2"
+                  className="bg-card border-2 border-border hover:border-primary text-foreground rounded-full px-10 py-4 text-lg font-bold transition-colors flex items-center justify-center gap-2"
                 >
                   <BarChart3 size={20} /> Explore
                 </button>
               </div>
-              <p className="text-[#8D8D8D] text-xs mt-6">
+              <p className="text-muted-foreground text-xs mt-6">
                 Already a creator?{' '}
-                <button type="button" onClick={() => navigate('/timeline')} className="text-[#00C300] font-medium hover:underline">
+                <button type="button" onClick={() => navigate('/timeline')} className="text-primary font-medium hover:underline">
                   Access your dashboard
                 </button>
               </p>
@@ -556,17 +556,17 @@ export default function CreatorCenterPage() {
         <footer className="px-6 sm:px-12 lg:px-20 py-8 border-t border-white/30">
           <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#00C300] to-[#00A300] flex items-center justify-center">
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-[#00A300] flex items-center justify-center">
                 <Logo size={22} />
               </div>
-              <span className="font-bold text-[#111111] text-sm">GaGa Chat Creator Center</span>
+              <span className="font-bold text-foreground text-sm">GaGa Chat Creator Center</span>
             </div>
             <div className="flex gap-6">
-              <button type="button" onClick={() => navigate('/privacy')} className="text-[#8D8D8D] text-xs hover:text-[#111111] transition-colors">Privacy</button>
-              <button type="button" onClick={() => navigate('/terms')} className="text-[#8D8D8D] text-xs hover:text-[#111111] transition-colors">Terms</button>
-              <button type="button" onClick={() => navigate('/help')} className="text-[#8D8D8D] text-xs hover:text-[#111111] transition-colors">Help</button>
+              <button type="button" onClick={() => navigate('/privacy')} className="text-muted-foreground text-xs hover:text-foreground transition-colors">Privacy</button>
+              <button type="button" onClick={() => navigate('/terms')} className="text-muted-foreground text-xs hover:text-foreground transition-colors">Terms</button>
+              <button type="button" onClick={() => navigate('/help')} className="text-muted-foreground text-xs hover:text-foreground transition-colors">Help</button>
             </div>
-            <p className="text-[#8D8D8D] text-xs">© 2026 GaGa Chat. All rights reserved.</p>
+            <p className="text-muted-foreground text-xs">© 2026 GaGa Chat. All rights reserved.</p>
           </div>
         </footer>
       </div>

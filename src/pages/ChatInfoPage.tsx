@@ -282,7 +282,7 @@ export default function ChatInfoPage() {
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search participants..."
               autoFocus
-              className="w-full bg-secondary rounded-xl px-4 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-[#00C300] placeholder:text-muted-foreground"
+              className="w-full bg-secondary rounded-xl px-4 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
             />
           </motion.div>
         )}
@@ -348,7 +348,7 @@ export default function ChatInfoPage() {
             </div>
             <span className="text-muted-foreground text-xs">{participants.length}</span>
           </div>
-          <div className="divide-y divide-[#EBEBEB]">
+          <div className="divide-y divide-border">
             {(showFullParticipants ? filteredParticipants : filteredParticipants.slice(0, 5)).map(p => (
               <button type="button" key={p.id}
                 onClick={() => {
@@ -486,7 +486,7 @@ export default function ChatInfoPage() {
           <div className="p-4 border-b border-border">
             <h3 className="text-foreground font-semibold text-sm">Chat Settings</h3>
           </div>
-          <div className="divide-y divide-[#EBEBEB]">
+          <div className="divide-y divide-border">
             <button type="button" onClick={() => setShowDisappearingPicker(true)} className="w-full flex items-center gap-3 p-4 hover:bg-secondary transition-colors text-left">
               <Clock size={18} className="text-amber-500" />
               <div className="flex-1">
@@ -665,7 +665,7 @@ export default function ChatInfoPage() {
                 value={lockPinInput}
                 onChange={(e) => setLockPinInput(e.target.value.replace(/\D/g, '').slice(0, 4))}
                 placeholder="Enter 4-digit PIN"
-                className="w-full bg-secondary rounded-xl px-4 py-3 text-center text-lg font-bold tracking-[0.5em] text-foreground focus:outline-none focus:ring-2 focus:ring-[#00C300] placeholder:text-muted-foreground placeholder:tracking-normal placeholder:text-sm mb-4"
+                className="w-full bg-secondary rounded-xl px-4 py-3 text-center text-lg font-bold tracking-[0.5em] text-foreground focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground placeholder:tracking-normal placeholder:text-sm mb-4"
               />
               <div className="flex gap-2">
                 <button type="button" onClick={() => setShowLockConfirm(false)}
@@ -717,7 +717,7 @@ export default function ChatInfoPage() {
                 value={unlockPinInput}
                 onChange={(e) => { setUnlockPinInput(e.target.value.replace(/\D/g, '').slice(0, 4)); setUnlockPinError(''); }}
                 placeholder="Enter 4-digit PIN"
-                className="w-full bg-secondary rounded-xl px-4 py-3 text-center text-lg font-bold tracking-[0.5em] text-foreground focus:outline-none focus:ring-2 focus:ring-[#00C300] placeholder:text-muted-foreground placeholder:tracking-normal placeholder:text-sm mb-2"
+                className="w-full bg-secondary rounded-xl px-4 py-3 text-center text-lg font-bold tracking-[0.5em] text-foreground focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground placeholder:tracking-normal placeholder:text-sm mb-2"
               />
               {unlockPinError && <p className="text-destructive text-xs mb-3">{unlockPinError}</p>}
               <div className="flex gap-2 mt-2">

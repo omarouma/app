@@ -47,9 +47,9 @@ export default function BookmarksPage() {
   };
 
   return (
-    <div className="min-h-[100dvh] bg-white">
+    <div className="min-h-[100dvh] bg-card">
       {/* Header */}
-      <div className="sticky top-0 bg-white border-b border-gray-100 z-10 px-4 py-3">
+      <div className="sticky top-0 bg-card border-b border-gray-100 z-10 px-4 py-3">
         <div className="flex items-center gap-3">
           <button type="button" onClick={() => navigate(-1)} className="p-2 hover:bg-gray-100 rounded-full">
             <X size={20} className="text-gray-500" />
@@ -67,7 +67,7 @@ export default function BookmarksPage() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search saved posts..."
-            className="w-full pl-9 pr-3 py-2.5 bg-gray-100 rounded-xl text-sm outline-none focus:ring-2 focus:ring-[#00C300]/20"
+            className="w-full pl-9 pr-3 py-2.5 bg-gray-100 rounded-xl text-sm outline-none focus:ring-2 focus:ring-primary/20"
           />
         </div>
       </div>
@@ -76,7 +76,7 @@ export default function BookmarksPage() {
       <div className="px-4 pb-3">
         <div className="flex items-center gap-2 overflow-x-auto pb-1">
           <button type="button" onClick={() => setActiveCollection(null)}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${activeCollection === null ? 'bg-[#00C300] text-white' : 'bg-gray-100 text-gray-600'}`}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${activeCollection === null ? 'bg-primary text-white' : 'bg-gray-100 text-gray-600'}`}
           >
             <Bookmark size={12} /> All ({savedPosts.length})
           </button>
@@ -88,7 +88,7 @@ export default function BookmarksPage() {
           {bookmarkCollections.map((c) => (
             <button type="button" key={c.id}
               onClick={() => setActiveCollection(c.id)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${activeCollection === c.id ? 'bg-[#00C300] text-white' : 'bg-gray-100 text-gray-600'}`}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${activeCollection === c.id ? 'bg-primary text-white' : 'bg-gray-100 text-gray-600'}`}
             >
               <Folder size={12} /> {c.name} ({c.count})
             </button>
@@ -102,7 +102,7 @@ export default function BookmarksPage() {
         {(['newest', 'oldest', 'most_liked'] as const).map((s) => (
           <button type="button" key={s}
             onClick={() => setSortBy(s)}
-            className={`text-xs px-2 py-1 rounded-full transition-colors ${sortBy === s ? 'bg-[#00C300]/10 text-[#00C300]' : 'text-gray-400 hover:text-gray-600'}`}
+            className={`text-xs px-2 py-1 rounded-full transition-colors ${sortBy === s ? 'bg-primary/10 text-primary' : 'text-gray-400 hover:text-gray-600'}`}
           >
             {s === 'most_liked' ? 'Most Liked' : s === 'newest' ? 'Newest' : 'Oldest'}
           </button>
@@ -128,7 +128,7 @@ export default function BookmarksPage() {
                 key={post.id}
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="bg-white border border-gray-100 rounded-xl p-3 cursor-pointer hover:shadow-sm transition-shadow"
+                className="bg-card border border-gray-100 rounded-xl p-3 cursor-pointer hover:shadow-sm transition-shadow"
                 onClick={() => navigate(`/timeline`)}
               >
                 <div className="flex items-start gap-3">
@@ -184,7 +184,7 @@ export default function BookmarksPage() {
               animate={{ scale: 1 }}
               exit={{ scale: 0.9 }}
               onClick={(e) => e.stopPropagation()}
-              className="bg-white rounded-2xl p-5 w-full max-w-sm"
+              className="bg-card rounded-2xl p-5 w-full max-w-sm"
             >
               <h3 className="font-bold text-gray-900 mb-3">New Collection</h3>
               <input
@@ -192,7 +192,7 @@ export default function BookmarksPage() {
                 value={newCollectionName}
                 onChange={(e) => setNewCollectionName(e.target.value)}
                 placeholder="Collection name..."
-                className="w-full px-3 py-2.5 bg-gray-100 rounded-xl text-sm outline-none focus:ring-2 focus:ring-[#00C300]/20 mb-4"
+                className="w-full px-3 py-2.5 bg-gray-100 rounded-xl text-sm outline-none focus:ring-2 focus:ring-primary/20 mb-4"
                 onKeyDown={(e) => { if (e.key === 'Enter') handleCreateCollection(); }}
                 autoFocus
               />
@@ -203,7 +203,7 @@ export default function BookmarksPage() {
                   Cancel
                 </button>
                 <button type="button" onClick={handleCreateCollection}
-                  className="flex-1 py-2.5 rounded-xl text-sm font-medium text-white bg-[#00C300]"
+                  className="flex-1 py-2.5 rounded-xl text-sm font-medium text-white bg-primary"
                 >
                   Create
                 </button>

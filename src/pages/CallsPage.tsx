@@ -9,6 +9,7 @@ import { useFriendStore } from '@/store/useFriendStore';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import LoadingSkeleton from '@/components/LoadingSkeleton';
 import EmptyState from '@/components/EmptyState';
+import PageHeader from '@/components/layout/PageHeader';
 import { toast } from 'sonner';
 
 import { isFirestoreAvailable } from '@/lib/firestore';
@@ -115,15 +116,12 @@ export default function CallsPage() {
 
   return (
     <div className="h-[100dvh] flex flex-col bg-secondary/40 page-enter">
-      <header className="page-header flex-col !items-stretch !gap-3">
-        <div className="flex items-center justify-between">
-          <div className="min-w-0">
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">Calls</h1>
-            <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
-              {history.length} total · {history.filter(c => c.status === 'missed').length} missed
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
+      <PageHeader
+        large
+        title="Calls"
+        subtitle={`${history.length} total · ${history.filter(c => c.status === 'missed').length} missed`}
+        actions={
+          <>
             {history.length > 0 && (
               <button
                 type="button"
@@ -142,9 +140,9 @@ export default function CallsPage() {
             >
               <Phone size={18} className="text-foreground" />
             </button>
-          </div>
-        </div>
-
+          </>
+        }
+      >
         <div className="max-w-md mx-auto sm:mx-0 w-full">
           <div className="relative">
             <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
@@ -174,7 +172,7 @@ export default function CallsPage() {
             ))}
           </div>
         </div>
-      </header>
+      </PageHeader>
 
       {/* Call List */}
       <div className="page-content max-w-3xl mx-auto w-full">

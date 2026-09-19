@@ -14,6 +14,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useWalletStore, formatCurrency } from '@/store/useWalletStore';
 import { useUserSettings } from '@/store/useSettingsStore';
 import Logo from '@/components/Logo';
+import PageHeader from '@/components/layout/PageHeader';
 import { toast } from 'sonner';
 
 type NavItem = {
@@ -48,8 +49,8 @@ export default function MorePage() {
     {
       title: 'New & Exciting',
       items: [
-        { icon: Radio, label: 'Voice Rooms', subtitle: 'Join live audio conversations', to: '/voice-rooms', color: 'text-[#00C300]', bg: 'bg-[#00C300]/10' },
-        { icon: Mic, label: 'Live Streams', subtitle: 'Go live or watch broadcasts', to: '/live-streams', color: 'text-[#FF3B30]', bg: 'bg-[#FF3B30]/10' },
+        { icon: Radio, label: 'Voice Rooms', subtitle: 'Join live audio conversations', to: '/voice-rooms', color: 'text-primary', bg: 'bg-primary/10' },
+        { icon: Mic, label: 'Live Streams', subtitle: 'Go live or watch broadcasts', to: '/live-streams', color: 'text-destructive', bg: 'bg-destructive/10' },
         { icon: Trophy, label: 'Daily Challenges', subtitle: 'Complete tasks, earn rewards & XP', to: '/challenges', color: 'text-[#FF4081]', bg: 'bg-[#FF4081]/10' },
         { icon: Sparkles, label: 'GaGa AI', subtitle: 'Your AI assistant for content & ideas', to: '/ai-chat', color: 'text-[#8B5CF6]', bg: 'bg-[#8B5CF6]/10' },
       ],
@@ -58,7 +59,7 @@ export default function MorePage() {
       title: 'Social & Discover',
       items: [
         { icon: Search, label: 'Search', subtitle: 'Find people, posts, and more', to: '/search', color: 'text-[#2196F3]', bg: 'bg-[#2196F3]/10' },
-        { icon: Clock, label: 'Timeline', subtitle: 'Your social feed', to: '/timeline', color: 'text-[#00C300]', bg: 'bg-[#00C300]/10' },
+        { icon: Clock, label: 'Timeline', subtitle: 'Your social feed', to: '/timeline', color: 'text-primary', bg: 'bg-primary/10' },
         { icon: Play, label: 'Reels', subtitle: 'Short videos', to: '/reels', color: 'text-[#FF4081]', bg: 'bg-[#FF4081]/10' },
         { icon: Calendar, label: 'Events', subtitle: 'Discover events near you', to: '/events', color: 'text-[#FF9800]', bg: 'bg-[#FF9800]/10' },
         { icon: ShoppingBag, label: 'Marketplace', subtitle: 'Buy & sell items', to: '/marketplace', color: 'text-[#4CAF50]', bg: 'bg-[#4CAF50]/10' },
@@ -81,8 +82,8 @@ export default function MorePage() {
           label: 'My Wallet',
           subtitle: `${(wallet?.coins || 0).toLocaleString()} GAGA · ${formatCurrency(wallet?.usdBalance || 0, 'USD')}`,
           to: '/wallet',
-          color: 'text-[#00C300]',
-          bg: 'bg-[#00C300]/10',
+          color: 'text-primary',
+          bg: 'bg-primary/10',
         },
         {
           icon: Gift,
@@ -106,12 +107,12 @@ export default function MorePage() {
       title: 'Account',
       items: [
         { icon: UserCircle, label: 'Profile', subtitle: 'Edit your profile', to: '/profile', color: 'text-[#2196F3]', bg: 'bg-[#2196F3]/10' },
-        { icon: QrCode, label: 'My QR Code', subtitle: 'Share and scan', to: '/qr-scanner', color: 'text-[#00C300]', bg: 'bg-[#00C300]/10' },
-        { icon: Bell, label: 'Notifications', subtitle: 'Notification preferences', to: '/notifications', color: 'text-[#FF3B30]', bg: 'bg-[#FF3B30]/10' },
+        { icon: QrCode, label: 'My QR Code', subtitle: 'Share and scan', to: '/qr-scanner', color: 'text-primary', bg: 'bg-primary/10' },
+        { icon: Bell, label: 'Notifications', subtitle: 'Notification preferences', to: '/notifications', color: 'text-destructive', bg: 'bg-destructive/10' },
         { icon: Shield, label: 'Security', subtitle: 'Privacy, login, and app lock', to: '/settings', color: 'text-[#8B5CF6]', bg: 'bg-[#8B5CF6]/10' },
         { icon: Bookmark, label: 'Saved Messages', subtitle: 'Your bookmarked messages', to: '/saved-messages', color: 'text-[#FFD700]', bg: 'bg-[#FFD700]/10' },
         { icon: UserPlus, label: 'Sent Requests', subtitle: 'Pending friend requests', to: '/sent-requests', color: 'text-[#00C3C3]', bg: 'bg-[#00C3C3]/10' },
-        { icon: Ban, label: 'Blocked Users', subtitle: 'Manage blocked accounts', to: '/blocked-users', color: 'text-[#FF3B30]', bg: 'bg-[#FF3B30]/10' },
+        { icon: Ban, label: 'Blocked Users', subtitle: 'Manage blocked accounts', to: '/blocked-users', color: 'text-destructive', bg: 'bg-destructive/10' },
         ...(user?.isAdmin ? [{ icon: Shield, label: 'Admin Dashboard', subtitle: 'Moderation & reports', to: '/admin', color: 'text-[#FF9800]', bg: 'bg-[#FF9800]/10' }] : []),
       ],
     },
@@ -123,15 +124,15 @@ export default function MorePage() {
           label: 'All Settings',
           subtitle: 'Theme, language, privacy, data & more',
           to: '/settings',
-          color: 'text-[#111111]',
-          bg: 'bg-[#F5F5F5]',
+          color: 'text-foreground',
+          bg: 'bg-secondary',
         },
       ],
     },
     {
       title: 'About',
       items: [
-        { icon: Info, label: 'About GaGa Chat', subtitle: 'Version 2.0.0', action: () => setShowAbout(true), color: 'text-[#8D8D8D]', bg: 'bg-[#F5F5F5]' },
+        { icon: Info, label: 'About GaGa Chat', subtitle: 'Version 2.0.0', action: () => setShowAbout(true), color: 'text-muted-foreground', bg: 'bg-secondary' },
         { icon: HelpCircle, label: 'Help Center', subtitle: 'FAQs and support', action: () => navigate('/help'), color: 'text-[#2196F3]', bg: 'bg-[#2196F3]/10' },
         { icon: Info, label: 'Privacy Policy', subtitle: 'How we protect your data', to: '/privacy', color: 'text-[#8B5CF6]', bg: 'bg-[#8B5CF6]/10' },
         { icon: Info, label: 'Terms of Service', subtitle: 'User agreement', to: '/terms', color: 'text-[#8B5CF6]', bg: 'bg-[#8B5CF6]/10' },
@@ -140,17 +141,17 @@ export default function MorePage() {
   ];
 
   return (
-    <div className="h-[100dvh] bg-white flex flex-col">
+    <div className="h-[100dvh] bg-background flex flex-col">
       {/* Profile Header */}
-      <div className="shrink-0 p-5">
-        <h1 className="text-2xl font-bold text-[#111111] mb-4">More</h1>
+      <PageHeader large title="More" />
+      <div className="shrink-0 px-5 pb-2">
         <motion.button
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           onClick={() => navigate('/profile')}
-          className="w-full flex items-center gap-4 p-4 bg-[#F5F5F5] rounded-2xl active:bg-[#EBEBEB] transition-colors text-left"
+          className="w-full flex items-center gap-4 p-4 bg-secondary rounded-2xl active:bg-accent transition-colors text-left"
         >
-          <div className="w-14 h-14 rounded-full bg-white flex items-center justify-center overflow-hidden shrink-0 border border-[#EBEBEB]">
+          <div className="w-14 h-14 rounded-full bg-card flex items-center justify-center overflow-hidden shrink-0 border border-border">
             {user?.avatar ? (
               <img src={user.avatar} className="w-full h-full object-cover" alt="User avatar" />
             ) : (
@@ -158,20 +159,20 @@ export default function MorePage() {
             )}
           </div>
           <div className="flex-1 min-w-0">
-            <h3 className="text-[#111111] text-base font-semibold truncate">{user?.name || 'User'}</h3>
-            <p className="text-[#8D8D8D] text-xs truncate">{user?.statusMessage || 'Tap to view profile'}</p>
+            <h3 className="text-foreground text-base font-semibold truncate">{user?.name || 'User'}</h3>
+            <p className="text-muted-foreground text-xs truncate">{user?.statusMessage || 'Tap to view profile'}</p>
           </div>
-          <ChevronRight size={20} className="text-[#C7C7CC] shrink-0" />
+          <ChevronRight size={20} className="text-muted-foreground shrink-0" />
         </motion.button>
       </div>
 
-      <div className="flex-1 overflow-y-auto scrollbar-hide pb-nav">
+      <div className="flex-1 overflow-y-auto scrollbar-hide pb-nav scroll-touch">
         {sections.map((section, si) => (
           <div key={si} className="px-5 mb-4">
-            <h2 className="text-[#8D8D8D] text-xs font-medium uppercase tracking-wider mb-2 px-1">
+            <h2 className="text-muted-foreground text-xs font-medium uppercase tracking-wider mb-2 px-1">
               {section.title}
             </h2>
-            <div className="bg-[#F5F5F5] rounded-2xl overflow-hidden">
+            <div className="bg-secondary rounded-2xl overflow-hidden">
               {section.items.map((item, ii) => (
                 <motion.button
                   key={ii}
@@ -182,16 +183,16 @@ onClick={() => {
                     if ('action' in item && item.action) item.action();
                     else if ('to' in item && item.to) navigate(item.to);
                   }}
-                  className="w-full flex items-center gap-3 px-4 py-3.5 hover:bg-[#EBEBEB] transition-colors text-left border-b border-white/50 last:border-b-0"
+                  className="w-full flex items-center gap-3 px-4 py-3.5 hover:bg-accent transition-colors text-left border-b border-border last:border-b-0"
                 >
                   <div className={`w-9 h-9 rounded-xl ${item.bg} flex items-center justify-center shrink-0`}>
                     <item.icon size={18} className={item.color} />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-[#111111] text-sm font-medium">{item.label}</p>
-                    <p className="text-[#8D8D8D] text-[11px]">{item.subtitle}</p>
+                    <p className="text-foreground text-sm font-medium">{item.label}</p>
+                    <p className="text-muted-foreground text-[11px]">{item.subtitle}</p>
                   </div>
-                  <ChevronRight size={18} className="text-[#C7C7CC] shrink-0" />
+                  <ChevronRight size={18} className="text-muted-foreground shrink-0" />
                 </motion.button>
               ))}
             </div>
@@ -204,11 +205,11 @@ onClick={() => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             onClick={handleLogout}
-            className="w-full flex items-center justify-center gap-2 px-4 py-3.5 bg-[#FF3B30]/10 text-[#FF3B30] rounded-2xl font-medium text-sm active:bg-[#FF3B30]/20 transition-colors"
+            className="w-full flex items-center justify-center gap-2 px-4 py-3.5 bg-destructive/10 text-destructive rounded-2xl font-medium text-sm active:bg-destructive/20 transition-colors"
           >
             <LogOut size={18} /> Log Out
           </motion.button>
-          <p className="text-center text-[#C7C7CC] text-[10px] mt-2">GaGa Chat v2.0.0 &bull; Built with care</p>
+          <p className="text-center text-muted-foreground text-[10px] mt-2">GaGa Chat v2.0.0 &bull; Built with care</p>
         </div>
 </div>
 
@@ -225,20 +226,20 @@ onClick={() => {
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.9, opacity: 0 }}
-            className="bg-white rounded-2xl p-6 max-w-sm w-full text-center"
+            className="bg-card rounded-2xl p-6 max-w-sm w-full text-center"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="w-16 h-16 rounded-2xl bg-[#00C300]/10 flex items-center justify-center mx-auto mb-4">
+            <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-4">
               <Logo size={48} />
             </div>
-            <h3 className="text-xl font-bold text-[#111111] mb-1">GaGa Chat</h3>
-            <p className="text-[#8D8D8D] text-sm mb-4">Version 2.0.0</p>
-            <div className="space-y-2 text-sm text-[#8D8D8D]">
+            <h3 className="text-xl font-bold text-foreground mb-1">GaGa Chat</h3>
+            <p className="text-muted-foreground text-sm mb-4">Version 2.0.0</p>
+            <div className="space-y-2 text-sm text-muted-foreground">
               <p>Free messaging & video calls</p>
               <p>End-to-end encryption for your privacy</p>
               <p>© 2026 GaGa Chat. All rights reserved.</p>
             </div>
-            <button type="button" onClick={() => setShowAbout(false)} className="w-full mt-6 py-3 bg-[#00C300] text-white rounded-xl text-sm font-bold">
+            <button type="button" onClick={() => setShowAbout(false)} className="w-full mt-6 py-3 bg-primary text-primary-foreground rounded-xl text-sm font-bold">
               Close
             </button>
           </motion.div>

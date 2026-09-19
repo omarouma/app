@@ -136,13 +136,13 @@ export default function RequestTipModal({
           animate={{ y: 0 }}
           exit={{ y: '100%' }}
           transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-          className="bg-white w-full sm:max-w-md sm:rounded-2xl rounded-t-2xl overflow-hidden max-h-[90vh] flex flex-col"
+          className="bg-card w-full sm:max-w-md sm:rounded-2xl rounded-t-2xl overflow-hidden max-h-[90vh] flex flex-col"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
-          <div className="flex items-center justify-between p-4 border-b border-[#EBEBEB] shrink-0">
+          <div className="flex items-center justify-between p-4 border-b border-border shrink-0">
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-full bg-[#F5F5F5] overflow-hidden flex items-center justify-center">
+              <div className="w-9 h-9 rounded-full bg-secondary overflow-hidden flex items-center justify-center">
                 {sanitizeMediaUrl(toUserAvatar) ? (
                   <img
                     src={sanitizeMediaUrl(toUserAvatar)}
@@ -150,18 +150,18 @@ export default function RequestTipModal({
                     alt="User avatar"
                   />
                 ) : (
-                  <User size={18} className="text-[#8D8D8D]" />
+                  <User size={18} className="text-muted-foreground" />
                 )}
               </div>
               <div>
-                <h3 className="text-sm font-bold text-[#111111]">Tip {toUserName}</h3>
-                <p className="text-xs text-[#8D8D8D]">Show your appreciation</p>
+                <h3 className="text-sm font-bold text-foreground">Tip {toUserName}</h3>
+                <p className="text-xs text-muted-foreground">Show your appreciation</p>
               </div>
             </div>
             <button type="button" onClick={onClose}
-              className="p-1.5 hover:bg-[#F5F5F5] rounded-full transition-colors"
+              className="p-1.5 hover:bg-secondary rounded-full transition-colors"
             >
-              <X size={20} className="text-[#8D8D8D]" />
+              <X size={20} className="text-muted-foreground" />
             </button>
           </div>
 
@@ -173,11 +173,11 @@ export default function RequestTipModal({
                   initial={{ opacity: 0, scale: 0.9 }}
                   animate={{ opacity: 1, scale: 1 }}
                   exit={{ opacity: 0, scale: 0.9 }}
-                  className="bg-[#00C300]/10 border border-[#00C300]/30 rounded-xl p-4 text-center"
+                  className="bg-primary/10 border border-primary/30 rounded-xl p-4 text-center"
                 >
-                  <Sparkles size={28} className="text-[#00C300] mx-auto mb-2" />
-                  <p className="text-[#111111] font-bold text-sm">Tip Sent!</p>
-                  <p className="text-[#8D8D8D] text-xs mt-1">
+                  <Sparkles size={28} className="text-primary mx-auto mb-2" />
+                  <p className="text-foreground font-bold text-sm">Tip Sent!</p>
+                  <p className="text-muted-foreground text-xs mt-1">
                     You sent {currencySymbols[currency]}{effectiveAmount} to {toUserName}
                   </p>
                 </motion.div>
@@ -188,7 +188,7 @@ export default function RequestTipModal({
               <>
                 {/* Currency Selector */}
                 <div>
-                  <label className="text-[#8D8D8D] text-xs mb-2 block">Currency</label>
+                  <label className="text-muted-foreground text-xs mb-2 block">Currency</label>
                   <div className="flex gap-2">
                     {([
                       { code: 'coins' as TipCurrency, icon: Coins, label: 'Gaga Coins' },
@@ -198,8 +198,8 @@ export default function RequestTipModal({
                         onClick={() => setCurrency(c.code)}
                         className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-medium transition-colors ${
                           currency === c.code
-                            ? 'bg-[#00C300] text-white'
-                            : 'bg-[#F5F5F5] text-[#8D8D8D]'
+                            ? 'bg-primary text-white'
+                            : 'bg-secondary text-muted-foreground'
                         }`}
                       >
                         <c.icon size={14} /> {c.label}
@@ -207,8 +207,8 @@ export default function RequestTipModal({
                     ))}
                   </div>
                   <div className="mt-2 flex items-center justify-between text-xs">
-                    <span className="text-[#8D8D8D]">Available</span>
-                    <span className="text-[#111111] font-medium">
+                    <span className="text-muted-foreground">Available</span>
+                    <span className="text-foreground font-medium">
                       {currency === 'coins'
                         ? `${wallet?.coins || 0} coins`
                         : `$${(wallet?.usdBalance || wallet?.bdtBalance || 0).toFixed(2)}`}
@@ -218,15 +218,15 @@ export default function RequestTipModal({
 
                 {/* Preset Amounts */}
                 <div>
-                  <label className="text-[#8D8D8D] text-xs mb-2 block">Quick Amount</label>
+                  <label className="text-muted-foreground text-xs mb-2 block">Quick Amount</label>
                   <div className="grid grid-cols-3 gap-2">
                     {TIP_PRESETS.map((preset) => (
                       <button type="button" key={preset}
                         onClick={() => handlePreset(preset)}
                         className={`py-2.5 rounded-xl text-sm font-bold transition-colors ${
                           amount === preset.toString() && !customAmount
-                            ? 'bg-[#00C300] text-white'
-                            : 'bg-[#F5F5F5] text-[#111111] hover:bg-[#EBEBEB]'
+                            ? 'bg-primary text-white'
+                            : 'bg-secondary text-foreground hover:bg-secondary'
                         }`}
                       >
                         {currencySymbols[currency]}{preset}
@@ -237,9 +237,9 @@ export default function RequestTipModal({
 
                 {/* Custom Amount */}
                 <div>
-                  <label className="text-[#8D8D8D] text-xs mb-1 block">Custom Amount</label>
+                  <label className="text-muted-foreground text-xs mb-1 block">Custom Amount</label>
                   <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8D8D8D] text-lg font-bold">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-lg font-bold">
                       {currencySymbols[currency]}
                     </span>
                     <input
@@ -247,24 +247,24 @@ export default function RequestTipModal({
                       value={customAmount}
                       onChange={(e) => handleCustomChange(e.target.value)}
                       placeholder="0"
-                      className="w-full bg-[#F5F5F5] rounded-xl pl-10 pr-4 py-3 text-[#111111] text-lg font-bold focus:outline-none focus:ring-2 focus:ring-[#00C300] placeholder:text-[#C7C7CC]"
+                      className="w-full bg-secondary rounded-xl pl-10 pr-4 py-3 text-foreground text-lg font-bold focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
                     />
                   </div>
                 </div>
 
                 {/* Message */}
                 <div>
-                  <label className="text-[#8D8D8D] text-xs mb-1 block">Message (optional)</label>
+                  <label className="text-muted-foreground text-xs mb-1 block">Message (optional)</label>
                   <div className="relative">
                     <MessageSquare
                       size={14}
-                      className="absolute left-3 top-3 text-[#8D8D8D]"
+                      className="absolute left-3 top-3 text-muted-foreground"
                     />
                     <input
                       value={message}
                       onChange={(e) => setMessage(e.target.value)}
                       placeholder="Great content! 🔥"
-                      className="w-full bg-[#F5F5F5] rounded-xl pl-9 pr-4 py-3 text-[#111111] text-sm focus:outline-none focus:ring-2 focus:ring-[#00C300] placeholder:text-[#C7C7CC]"
+                      className="w-full bg-secondary rounded-xl pl-9 pr-4 py-3 text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
                     />
                   </div>
                 </div>
@@ -272,7 +272,7 @@ export default function RequestTipModal({
                 {/* Send Button */}
                 <button type="button" onClick={handleSend}
                   disabled={sending || effectiveAmount <= 0 || balance < effectiveAmount}
-                  className="w-full bg-[#00C300] hover:bg-[#00A300] text-white rounded-xl py-3.5 font-bold text-sm transition-colors disabled:opacity-50 flex items-center justify-center gap-2 active:scale-[0.98]"
+                  className="w-full bg-primary hover:bg-[#00A300] text-white rounded-xl py-3.5 font-bold text-sm transition-colors disabled:opacity-50 flex items-center justify-center gap-2 active:scale-[0.98]"
                 >
                   {sending ? (
                     <Loader size={16} className="animate-spin" />
@@ -284,7 +284,7 @@ export default function RequestTipModal({
                 </button>
 
                 {balance < effectiveAmount && effectiveAmount > 0 && (
-                  <p className="text-[#FF3B30] text-xs text-center">
+                  <p className="text-destructive text-xs text-center">
                     Insufficient balance. You have {currencySymbols[currency]}
                     {balance.toFixed(2)}.
                   </p>

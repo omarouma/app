@@ -131,40 +131,40 @@ export default function ShareTargetPage() {
 
   if (loading) {
     return (
-      <div className="h-[100dvh] bg-white flex items-center justify-center">
+      <div className="h-[100dvh] bg-card flex items-center justify-center">
         <div className="text-center">
-          <Share size={40} className="mx-auto mb-3 text-[#00C300]" />
-          <p className="text-[#8D8D8D] text-sm">Loading shared content...</p>
+          <Share size={40} className="mx-auto mb-3 text-primary" />
+          <p className="text-muted-foreground text-sm">Loading shared content...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="h-[100dvh] bg-white flex flex-col">
+    <div className="h-[100dvh] bg-card flex flex-col">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-[#EBEBEB]">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-border">
         <div className="flex items-center gap-2">
-          <Share size={20} className="text-[#00C300]" />
-          <h1 className="text-lg font-semibold text-[#111111]">Share</h1>
+          <Share size={20} className="text-primary" />
+          <h1 className="text-lg font-semibold text-foreground">Share</h1>
         </div>
-        <button type="button" onClick={() => navigate(-1)} className="p-2 rounded-full hover:bg-[#F5F5F5]">
-          <X size={20} className="text-[#8D8D8D]" />
+        <button type="button" onClick={() => navigate(-1)} className="p-2 rounded-full hover:bg-secondary">
+          <X size={20} className="text-muted-foreground" />
         </button>
       </div>
 
       <div className="flex-1 overflow-y-auto p-4">
         {!hasContent ? (
           <div className="text-center py-12">
-            <Share size={48} className="mx-auto mb-4 text-[#8D8D8D]" />
-            <p className="text-[#8D8D8D] text-sm mb-4">No content shared</p>
-            <p className="text-xs text-[#8D8D8D] mb-6">
+            <Share size={48} className="mx-auto mb-4 text-muted-foreground" />
+            <p className="text-muted-foreground text-sm mb-4">No content shared</p>
+            <p className="text-xs text-muted-foreground mb-6">
               Share content from other apps to GaGa Chat to post it here.
             </p>
             <button
               type="button"
               onClick={() => navigate('/timeline')}
-              className="bg-[#00C300] text-black px-6 py-2.5 rounded-xl font-medium text-sm"
+              className="bg-primary text-black px-6 py-2.5 rounded-xl font-medium text-sm"
             >
               Go to Timeline
             </button>
@@ -175,25 +175,25 @@ export default function ShareTargetPage() {
             <motion.div
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
-              className="bg-[#F5F5F5] rounded-2xl p-4 mb-4"
+              className="bg-secondary rounded-2xl p-4 mb-4"
             >
               <div className="flex items-center gap-2 mb-3">
-                <Share size={16} className="text-[#00C300]" />
-                <span className="text-xs font-medium text-[#8D8D8D] uppercase tracking-wide">Shared Content</span>
+                <Share size={16} className="text-primary" />
+                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Shared Content</span>
               </div>
 
               {sharedData?.title && (
-                <p className="text-sm font-semibold text-[#111111] mb-1">{sharedData.title}</p>
+                <p className="text-sm font-semibold text-foreground mb-1">{sharedData.title}</p>
               )}
               {sharedData?.text && (
-                <p className="text-sm text-[#111111] mb-2 whitespace-pre-wrap">{sharedData.text}</p>
+                <p className="text-sm text-foreground mb-2 whitespace-pre-wrap">{sharedData.text}</p>
               )}
               {sharedData?.url && (
                 <a
                   href={sharedData.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-2 text-sm text-[#00C300] hover:underline break-all"
+                  className="flex items-center gap-2 text-sm text-primary hover:underline break-all"
                 >
                   <Link size={14} />
                   {sharedData.url}
@@ -202,10 +202,10 @@ export default function ShareTargetPage() {
               {sharedData?.files && sharedData.files.length > 0 && (
                 <div className="mt-2 flex flex-wrap gap-2">
                   {sharedData.files.map((file, i) => (
-                    <div key={i} className="flex items-center gap-1.5 bg-white rounded-lg px-2.5 py-1.5 text-xs">
-                      <Image size={14} className="text-[#00C300]" />
-                      <span className="text-[#111111] truncate max-w-[150px]">{file.name}</span>
-                      <span className="text-[#8D8D8D]">({Math.round(file.size / 1024)}KB)</span>
+                    <div key={i} className="flex items-center gap-1.5 bg-card rounded-lg px-2.5 py-1.5 text-xs">
+                      <Image size={14} className="text-primary" />
+                      <span className="text-foreground truncate max-w-[150px]">{file.name}</span>
+                      <span className="text-muted-foreground">({Math.round(file.size / 1024)}KB)</span>
                     </div>
                   ))}
                 </div>
@@ -214,19 +214,19 @@ export default function ShareTargetPage() {
 
             {/* Caption input */}
             <div className="mb-4">
-              <label className="text-xs font-medium text-[#8D8D8D] uppercase tracking-wide mb-2 block">Add a caption</label>
+              <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2 block">Add a caption</label>
               <textarea
                 value={caption}
                 onChange={(e) => setCaption(e.target.value)}
                 placeholder="Say something about this..."
-                className="w-full bg-[#F5F5F5] rounded-2xl p-4 text-sm text-[#111111] placeholder:text-[#8D8D8D] resize-none focus:outline-none focus:ring-2 focus:ring-[#00C300]/30"
+                className="w-full bg-secondary rounded-2xl p-4 text-sm text-foreground placeholder:text-muted-foreground resize-none focus:outline-none focus:ring-2 focus:ring-primary/30"
                 rows={3}
               />
             </div>
 
             {/* Add media */}
             <div className="mb-4">
-              <label className="text-xs font-medium text-[#8D8D8D] uppercase tracking-wide mb-2 block">Add media</label>
+              <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2 block">Add media</label>
               <input
                 type="file"
                 accept="image/*,video/*"
@@ -237,10 +237,10 @@ export default function ShareTargetPage() {
               />
               <label
                 htmlFor="share-media-input"
-                className="flex items-center gap-2 bg-[#F5F5F5] rounded-2xl p-4 cursor-pointer hover:bg-[#EBEBEB] transition-colors"
+                className="flex items-center gap-2 bg-secondary rounded-2xl p-4 cursor-pointer hover:bg-secondary transition-colors"
               >
-                <Image size={20} className="text-[#00C300]" />
-                <span className="text-sm text-[#111111]">Tap to add photos or videos</span>
+                <Image size={20} className="text-primary" />
+                <span className="text-sm text-foreground">Tap to add photos or videos</span>
               </label>
               {mediaFiles.length > 0 && (
                 <div className="mt-2 flex flex-wrap gap-2">
@@ -254,13 +254,13 @@ export default function ShareTargetPage() {
                         />
                       ) : (
                         <div className="w-20 h-20 bg-[#111111] rounded-xl flex items-center justify-center">
-                          <FileText size={20} className="text-[#00C300]" />
+                          <FileText size={20} className="text-primary" />
                         </div>
                       )}
                       <button
                         type="button"
                         onClick={() => setMediaFiles(prev => prev.filter((_, idx) => idx !== i))}
-                        className="absolute -top-1 -right-1 w-5 h-5 bg-[#FF3B30] rounded-full flex items-center justify-center"
+                        className="absolute -top-1 -right-1 w-5 h-5 bg-destructive rounded-full flex items-center justify-center"
                       >
                         <X size={10} className="text-white" />
                       </button>
@@ -275,7 +275,7 @@ export default function ShareTargetPage() {
               <button
                 type="button"
                 onClick={handlePostToTimeline}
-                className="w-full flex items-center gap-3 bg-[#00C300] text-black rounded-2xl p-4 hover:bg-[#00b300] transition-colors"
+                className="w-full flex items-center gap-3 bg-primary text-black rounded-2xl p-4 hover:bg-[#00b300] transition-colors"
               >
                 <TrendingUp size={20} />
                 <div className="text-left flex-1">
@@ -288,14 +288,14 @@ export default function ShareTargetPage() {
               <button
                 type="button"
                 onClick={() => setShowChatPicker(true)}
-                className="w-full flex items-center gap-3 bg-[#F5F5F5] rounded-2xl p-4 hover:bg-[#EBEBEB] transition-colors"
+                className="w-full flex items-center gap-3 bg-secondary rounded-2xl p-4 hover:bg-secondary transition-colors"
               >
-                <MessageCircle size={20} className="text-[#00C300]" />
+                <MessageCircle size={20} className="text-primary" />
                 <div className="text-left flex-1">
-                  <p className="text-sm font-semibold text-[#111111]">Send in Chat</p>
-                  <p className="text-xs text-[#8D8D8D]">Share with a specific conversation</p>
+                  <p className="text-sm font-semibold text-foreground">Send in Chat</p>
+                  <p className="text-xs text-muted-foreground">Share with a specific conversation</p>
                 </div>
-                <ChevronRight size={18} className="text-[#8D8D8D]" />
+                <ChevronRight size={18} className="text-muted-foreground" />
               </button>
             </div>
           </>
@@ -313,23 +313,23 @@ export default function ShareTargetPage() {
           <motion.div
             initial={{ y: '100%' }}
             animate={{ y: 0 }}
-            className="bg-white w-full rounded-t-3xl max-h-[70vh] overflow-y-auto"
+            className="bg-card w-full rounded-t-3xl max-h-[70vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="p-4 border-b border-[#EBEBEB] flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-[#111111]">Select Chat</h2>
+            <div className="p-4 border-b border-border flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-foreground">Select Chat</h2>
               <button type="button" onClick={() => setShowChatPicker(false)} className="p-2">
-                <X size={20} className="text-[#8D8D8D]" />
+                <X size={20} className="text-muted-foreground" />
               </button>
             </div>
             <div className="p-2">
               {chats.length === 0 ? (
                 <div className="text-center py-8">
-                  <p className="text-sm text-[#8D8D8D]">No chats yet</p>
+                  <p className="text-sm text-muted-foreground">No chats yet</p>
                   <button
                     type="button"
                     onClick={() => { setShowChatPicker(false); navigate('/contacts'); }}
-                    className="mt-3 text-sm text-[#00C300] font-medium"
+                    className="mt-3 text-sm text-primary font-medium"
                   >
                     Start a new chat
                   </button>
@@ -340,16 +340,16 @@ export default function ShareTargetPage() {
                     key={chat.id}
                     type="button"
                     onClick={() => handleShareInChat(chat.id)}
-                    className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-[#F5F5F5] text-left"
+                    className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-secondary text-left"
                   >
-                    <div className="w-10 h-10 rounded-full bg-[#00C300]/10 flex items-center justify-center shrink-0">
-                      <User size={18} className="text-[#00C300]" />
+                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                      <User size={18} className="text-primary" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-[#111111] truncate">{chat.name || 'Chat'}</p>
-                      <p className="text-xs text-[#8D8D8D] truncate">{typeof chat.lastMessage === 'string' ? chat.lastMessage : chat.lastMessage?.content || 'No messages'}</p>
+                      <p className="text-sm font-medium text-foreground truncate">{chat.name || 'Chat'}</p>
+                      <p className="text-xs text-muted-foreground truncate">{typeof chat.lastMessage === 'string' ? chat.lastMessage : chat.lastMessage?.content || 'No messages'}</p>
                     </div>
-                    <ChevronRight size={16} className="text-[#8D8D8D]" />
+                    <ChevronRight size={16} className="text-muted-foreground" />
                   </button>
                 ))
               )}

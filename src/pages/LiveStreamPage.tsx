@@ -369,10 +369,10 @@ export default function LiveStreamPage() {
           transition={{ repeat: Infinity, duration: 1.5 }}
           className="flex flex-col items-center gap-3"
         >
-          <div className="w-12 h-12 rounded-full bg-[#00C300]/20 flex items-center justify-center">
-            <Radio size={24} className="text-[#00C300]" />
+          <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center">
+            <Radio size={24} className="text-primary" />
           </div>
-          <p className="text-[#8D8D8D] text-sm">Loading stream...</p>
+          <p className="text-muted-foreground text-sm">Loading stream...</p>
         </motion.div>
       </div>
     );
@@ -383,13 +383,13 @@ export default function LiveStreamPage() {
       <div className="h-[100dvh] bg-[#0d0d0d] text-white flex items-center justify-center">
         <div className="text-center px-6">
           <div className="w-16 h-16 rounded-full bg-[#1a1a1a] flex items-center justify-center mx-auto mb-4">
-            <Video size={28} className="text-[#8D8D8D]" />
+            <Video size={28} className="text-muted-foreground" />
           </div>
-          <p className="text-[#8D8D8D] mb-2">Stream not found or has ended</p>
+          <p className="text-muted-foreground mb-2">Stream not found or has ended</p>
           <button
             type="button"
             onClick={() => navigate('/live-streams')}
-            className="px-5 py-2 bg-[#00C300] text-black rounded-full text-sm font-bold"
+            className="px-5 py-2 bg-primary text-black rounded-full text-sm font-bold"
           >
             Back to Streams
           </button>
@@ -425,13 +425,13 @@ export default function LiveStreamPage() {
                 animate={{ opacity: [0.5, 1, 0.5] }}
                 transition={{ repeat: Infinity, duration: 2 }}
               >
-                <Video size={48} className="text-[#8D8D8D] mx-auto mb-3" />
+                <Video size={48} className="text-muted-foreground mx-auto mb-3" />
               </motion.div>
-              <p className="text-[#8D8D8D] text-sm font-medium">
+              <p className="text-muted-foreground text-sm font-medium">
                 {rtc.isConnecting ? 'Connecting to stream…' : 'Live Stream'}
               </p>
               {rtc.isScreenSharing && (
-                <p className="text-[#00C300] text-xs mt-1 flex items-center justify-center gap-1">
+                <p className="text-primary text-xs mt-1 flex items-center justify-center gap-1">
                   <Monitor size={12} /> Screen Sharing
                 </p>
               )}
@@ -467,7 +467,7 @@ export default function LiveStreamPage() {
                 <div className="min-w-0">
                   <p className="text-sm font-bold truncate">{stream.title}</p>
                   <p className="text-[10px] text-white/70 flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 bg-[#FF3B30] rounded-full animate-pulse" />
+                    <span className="w-1.5 h-1.5 bg-destructive rounded-full animate-pulse" />
                     {stream.userName || 'Streamer'} • {formatDuration(duration)}
                   </p>
                 </div>
@@ -489,7 +489,7 @@ export default function LiveStreamPage() {
                     <button
                       type="button"
                       onClick={handleToggleScreenShare}
-                      className={`p-2 rounded-full backdrop-blur-sm ${rtc.isScreenSharing ? 'bg-[#00C300]/40 text-[#00C300]' : 'bg-black/40'}`}
+                      className={`p-2 rounded-full backdrop-blur-sm ${rtc.isScreenSharing ? 'bg-primary/40 text-primary' : 'bg-black/40'}`}
                       title="Toggle screen share"
                     >
                       <Monitor size={18} />
@@ -515,7 +515,7 @@ export default function LiveStreamPage() {
                 <button
                   type="button"
                   onClick={rtc.toggleMute}
-                  className={`w-12 h-12 rounded-full flex items-center justify-center backdrop-blur-sm ${rtc.isMuted ? 'bg-[#FF3B30]/70 text-white' : 'bg-black/40 text-white'
+                  className={`w-12 h-12 rounded-full flex items-center justify-center backdrop-blur-sm ${rtc.isMuted ? 'bg-destructive/70 text-white' : 'bg-black/40 text-white'
                     }`}
                   title={rtc.isMuted ? 'Unmute' : 'Mute'}
                 >
@@ -524,7 +524,7 @@ export default function LiveStreamPage() {
                 <button
                   type="button"
                   onClick={rtc.toggleCamera}
-                  className={`w-12 h-12 rounded-full flex items-center justify-center backdrop-blur-sm ${rtc.isCameraOff ? 'bg-[#FF3B30]/70 text-white' : 'bg-black/40 text-white'
+                  className={`w-12 h-12 rounded-full flex items-center justify-center backdrop-blur-sm ${rtc.isCameraOff ? 'bg-destructive/70 text-white' : 'bg-black/40 text-white'
                     }`}
                   title={rtc.isCameraOff ? 'Turn camera on' : 'Turn camera off'}
                 >
@@ -533,7 +533,7 @@ export default function LiveStreamPage() {
                 <button
                   type="button"
                   onClick={handleEndStream}
-                  className="px-5 py-2.5 bg-[#FF3B30] text-white rounded-full text-sm font-bold flex items-center gap-2 hover:bg-[#FF3B30]/90 transition-colors"
+                  className="px-5 py-2.5 bg-destructive text-white rounded-full text-sm font-bold flex items-center gap-2 hover:bg-destructive/90 transition-colors"
                 >
                   <PhoneOff size={16} /> End Stream
                 </button>
@@ -580,18 +580,18 @@ export default function LiveStreamPage() {
             {/* Chat header */}
             <div className="shrink-0 px-4 py-3 border-b border-[#2a2a2a] flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <MessageSquare size={16} className="text-[#00C300]" />
+                <MessageSquare size={16} className="text-primary" />
                 <h2 className="text-sm font-bold">Live Chat</h2>
-                <span className="text-[10px] text-[#8D8D8D] bg-[#1a1a1a] px-2 py-0.5 rounded-full">{comments.length}</span>
+                <span className="text-[10px] text-muted-foreground bg-[#1a1a1a] px-2 py-0.5 rounded-full">{comments.length}</span>
               </div>
               <button type="button" onClick={() => setShowChat(false)} className="md:hidden p-1">
-                <X size={18} className="text-[#8D8D8D]" />
+                <X size={18} className="text-muted-foreground" />
               </button>
             </div>
 
             {/* Viewer list */}
             <div className="shrink-0 px-4 py-2 border-b border-[#2a2a2a] flex items-center gap-2 overflow-x-auto scrollbar-hide">
-              <span className="text-[10px] text-[#8D8D8D] whitespace-nowrap">Viewers:</span>
+              <span className="text-[10px] text-muted-foreground whitespace-nowrap">Viewers:</span>
               {(stream.viewers || []).slice(0, 15).map((viewerId) => (
                 <img
                   key={viewerId}
@@ -601,7 +601,7 @@ export default function LiveStreamPage() {
                 />
               ))}
               {(stream.viewers || []).length > 15 && (
-                <span className="text-[10px] text-[#8D8D8D] shrink-0">+{(stream.viewers || []).length - 15}</span>
+                <span className="text-[10px] text-muted-foreground shrink-0">+{(stream.viewers || []).length - 15}</span>
               )}
             </div>
 
@@ -612,11 +612,11 @@ export default function LiveStreamPage() {
                   initial={{ opacity: 0, height: 0 }}
                   animate={{ opacity: 1, height: 'auto' }}
                   exit={{ opacity: 0, height: 0 }}
-                  className="shrink-0 mx-3 mt-2 p-2 bg-[#00C300]/10 border border-[#00C300]/30 rounded-lg flex items-start gap-2"
+                  className="shrink-0 mx-3 mt-2 p-2 bg-primary/10 border border-primary/30 rounded-lg flex items-start gap-2"
                 >
-                  <Pin size={12} className="text-[#00C300] shrink-0 mt-0.5" />
+                  <Pin size={12} className="text-primary shrink-0 mt-0.5" />
                   <div className="min-w-0">
-                    <p className="text-[10px] text-[#00C300] font-medium">{pinnedComment.userName || 'User'}</p>
+                    <p className="text-[10px] text-primary font-medium">{pinnedComment.userName || 'User'}</p>
                     <p className="text-xs text-white truncate">{pinnedComment.content}</p>
                   </div>
                 </motion.div>
@@ -626,7 +626,7 @@ export default function LiveStreamPage() {
             {/* Comments */}
             <div ref={chatRef} className="flex-1 overflow-y-auto p-4 space-y-3 scrollbar-hide">
               {comments.length === 0 ? (
-                <p className="text-center text-[#8D8D8D] text-xs py-8">No comments yet. Say hello!</p>
+                <p className="text-center text-muted-foreground text-xs py-8">No comments yet. Say hello!</p>
               ) : (
                 comments.map((comment) => (
                   <div key={comment.id} className="flex gap-2 group">
@@ -637,9 +637,9 @@ export default function LiveStreamPage() {
                     />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-1.5 mb-0.5">
-                        <span className="text-[10px] font-medium text-[#8D8D8D]">{comment.userName || 'User'}</span>
+                        <span className="text-[10px] font-medium text-muted-foreground">{comment.userName || 'User'}</span>
                         {comment.isModerator && (
-                          <span className="text-[8px] bg-[#00C300]/20 text-[#00C300] px-1 rounded">MOD</span>
+                          <span className="text-[8px] bg-primary/20 text-primary px-1 rounded">MOD</span>
                         )}
                         {isBroadcaster && (
                           <button
@@ -648,7 +648,7 @@ export default function LiveStreamPage() {
                             className="opacity-0 group-hover:opacity-100 transition-opacity"
                             title="Pin comment"
                           >
-                            <Pin size={10} className="text-[#8D8D8D]" />
+                            <Pin size={10} className="text-muted-foreground" />
                           </button>
                         )}
                       </div>
@@ -667,13 +667,13 @@ export default function LiveStreamPage() {
                 onChange={(e) => setChatInput(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleSendComment()}
                 placeholder="Say something..."
-                className="flex-1 bg-[#1a1a1a] rounded-full px-4 py-2 text-xs text-white placeholder:text-[#8D8D8D] outline-none focus:ring-2 focus:ring-[#00C300]/30"
+                className="flex-1 bg-[#1a1a1a] rounded-full px-4 py-2 text-xs text-white placeholder:text-muted-foreground outline-none focus:ring-2 focus:ring-primary/30"
               />
               <button
                 type="button"
                 onClick={handleSendComment}
                 disabled={!chatInput.trim()}
-                className="p-2 rounded-full bg-[#00C300] text-black disabled:opacity-50 hover:bg-[#00A300] transition-colors"
+                className="p-2 rounded-full bg-primary text-black disabled:opacity-50 hover:bg-[#00A300] transition-colors"
               >
                 <Send size={16} />
               </button>
@@ -695,12 +695,12 @@ export default function LiveStreamPage() {
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-sm font-bold">Send a Gift</h3>
               <div className="flex items-center gap-3">
-                <div className="text-xs text-[#8D8D8D] flex items-center gap-1">
+                <div className="text-xs text-muted-foreground flex items-center gap-1">
                   <Zap size={12} className="text-[#FFD700]" />
                   {wallet?.coins || 0} coins
                 </div>
                 <button type="button" onClick={() => setShowGiftPanel(false)}>
-                  <X size={18} className="text-[#8D8D8D]" />
+                  <X size={18} className="text-muted-foreground" />
                 </button>
               </div>
             </div>
@@ -749,7 +749,7 @@ export default function LiveStreamPage() {
                 onClick={handleCopyLink}
                 className="w-full py-3 bg-[#2a2a2a] rounded-xl text-sm text-white hover:bg-[#333] transition-colors flex items-center justify-center gap-2"
               >
-                {copied ? <Check size={16} className="text-[#00C300]" /> : <Copy size={16} />}
+                {copied ? <Check size={16} className="text-primary" /> : <Copy size={16} />}
                 {copied ? 'Copied!' : 'Copy Link'}
               </button>
             </motion.div>

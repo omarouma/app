@@ -13,6 +13,7 @@ import { useChatStore } from '@/store/useChatStore';
 import { usePhoneContacts } from '@/hooks/usePhoneContacts';
 import EmptyState from '@/components/EmptyState';
 import LoadingSkeleton from '@/components/LoadingSkeleton';
+import PageHeader from '@/components/layout/PageHeader';
 import { getDefaultAvatar, sanitizeMediaUrl, formatTime } from '@/lib/utils';
 import { toast } from 'sonner';
 import { copyToClipboard, nativeShare } from '@/lib/share';
@@ -215,29 +216,34 @@ export default function ContactsPage() {
   return (
     <div className="h-[100dvh] bg-card flex flex-col page-enter">
       {/* Header */}
-      <div className="shrink-0 px-5 pt-5 pb-3 flex justify-between items-center">
-        <h1 className="text-[26px] font-bold text-foreground tracking-tight">Contacts</h1>
-        <div className="flex items-center gap-2">
-          <button type="button" onClick={() => navigate('/qr-scanner?tab=scan')}
-            className="w-9 h-9 flex items-center justify-center bg-secondary text-foreground rounded-full active:bg-accent transition-colors tap-scale"
-            title="Scan QR"
-          >
-            <QrCode size={16} />
-          </button>
-          <button type="button" onClick={() => navigate('/add-friends', { state: { tab: 'nearby' } })}
-            className="w-9 h-9 flex items-center justify-center bg-secondary text-foreground rounded-full active:bg-accent transition-colors tap-scale"
-            title="Find Nearby"
-          >
-            <MapPin size={16} />
-          </button>
-          <button type="button" onClick={() => navigate('/add-friends')}
-            className="flex items-center gap-1.5 px-3.5 py-2 bg-primary text-primary-foreground text-xs font-bold rounded-full active:bg-primary/90 transition-colors tap-scale shadow-sm"
-          >
-            <UserPlus size={14} strokeWidth={2} />
-            Add
-          </button>
-        </div>
-      </div>
+      <PageHeader
+        large
+        title="Contacts"
+        actions={
+          <>
+            <button type="button" onClick={() => navigate('/qr-scanner?tab=scan')}
+              className="icon-btn w-9 h-9 bg-secondary text-foreground"
+              title="Scan QR"
+              aria-label="Scan QR code"
+            >
+              <QrCode size={16} />
+            </button>
+            <button type="button" onClick={() => navigate('/add-friends', { state: { tab: 'nearby' } })}
+              className="icon-btn w-9 h-9 bg-secondary text-foreground"
+              title="Find Nearby"
+              aria-label="Find nearby people"
+            >
+              <MapPin size={16} />
+            </button>
+            <button type="button" onClick={() => navigate('/add-friends')}
+              className="flex items-center gap-1.5 px-3.5 py-2 bg-primary text-primary-foreground text-xs font-bold rounded-full active:bg-primary/90 transition-colors tap-scale shadow-sm"
+            >
+              <UserPlus size={14} strokeWidth={2} />
+              Add
+            </button>
+          </>
+        }
+      />
 
       <div
         className="flex-1 overflow-y-auto scrollbar-hide px-4 pb-nav"

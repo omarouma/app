@@ -92,24 +92,24 @@ export default function SendToFriendModal({ open, onClose }: SendToFriendModalPr
           animate={{ y: 0 }}
           exit={{ y: '100%' }}
           transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-          className="bg-white w-full sm:max-w-md sm:rounded-2xl rounded-t-2xl overflow-hidden max-h-[90vh] flex flex-col"
+          className="bg-card w-full sm:max-w-md sm:rounded-2xl rounded-t-2xl overflow-hidden max-h-[90vh] flex flex-col"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
-          <div className="flex items-center justify-between p-4 border-b border-[#EBEBEB] shrink-0">
-            <h3 className="text-lg font-bold text-[#111111]">Send to Friend</h3>
+          <div className="flex items-center justify-between p-4 border-b border-border shrink-0">
+            <h3 className="text-lg font-bold text-foreground">Send to Friend</h3>
             <button type="button" onClick={onClose} className="p-1 hover:bg-gray-100 rounded-full">
-              <X size={20} className="text-[#8D8D8D]" />
+              <X size={20} className="text-muted-foreground" />
             </button>
           </div>
 
           <div className="p-4 space-y-4 overflow-y-auto flex-1">
             {/* Friend Selector */}
             <div>
-              <label className="text-[#8D8D8D] text-xs mb-2 block">Select Friend</label>
+              <label className="text-muted-foreground text-xs mb-2 block">Select Friend</label>
               {selectedFriend ? (
-                <div className="flex items-center gap-3 p-3 bg-[#00C300]/10 rounded-xl border border-[#00C300]/30">
-                  <div className="w-10 h-10 rounded-full bg-[#F5F5F5] overflow-hidden flex items-center justify-center">
+                <div className="flex items-center gap-3 p-3 bg-primary/10 rounded-xl border border-primary/30">
+                  <div className="w-10 h-10 rounded-full bg-secondary overflow-hidden flex items-center justify-center">
                     {sanitizeMediaUrl(selectedFriend.avatar) ? (
                       <img src={sanitizeMediaUrl(selectedFriend.avatar)} className="w-full h-full object-cover" alt="User avatar" />
                     ) : (
@@ -117,11 +117,11 @@ export default function SendToFriendModal({ open, onClose }: SendToFriendModalPr
                     )}
                   </div>
                   <div className="flex-1">
-                    <p className="text-[#111111] text-sm font-medium">{selectedFriend.name}</p>
-                    <p className="text-[#8D8D8D] text-xs">@{selectedFriend.username}</p>
+                    <p className="text-foreground text-sm font-medium">{selectedFriend.name}</p>
+                    <p className="text-muted-foreground text-xs">@{selectedFriend.username}</p>
                   </div>
                   <button type="button" onClick={() => setSelectedFriendId('')}
-                    className="text-[#8D8D8D] hover:text-[#FF3B30] text-xs"
+                    className="text-muted-foreground hover:text-destructive text-xs"
                   >
                     Change
                   </button>
@@ -129,24 +129,24 @@ export default function SendToFriendModal({ open, onClose }: SendToFriendModalPr
               ) : (
                 <>
                   <div className="relative mb-2">
-                    <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8D8D8D]" />
+                    <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                     <input
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
                       placeholder="Search friends..."
-                      className="w-full bg-[#F5F5F5] rounded-xl pl-9 pr-4 py-2.5 text-[#111111] text-sm focus:outline-none focus:ring-2 focus:ring-[#00C300] placeholder:text-[#8D8D8D]"
+                      className="w-full bg-secondary rounded-xl pl-9 pr-4 py-2.5 text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
                     />
                   </div>
                   <div className="max-h-40 overflow-y-auto space-y-1">
                     {filteredFriends.length === 0 ? (
-                      <p className="text-[#8D8D8D] text-xs text-center py-2">No friends found</p>
+                      <p className="text-muted-foreground text-xs text-center py-2">No friends found</p>
                     ) : (
                       filteredFriends.map((f) => (
                         <button type="button" key={f.id}
                           onClick={() => setSelectedFriendId(f.id)}
-                          className="w-full flex items-center gap-3 p-2.5 rounded-xl hover:bg-[#F5F5F5] transition-colors text-left"
+                          className="w-full flex items-center gap-3 p-2.5 rounded-xl hover:bg-secondary transition-colors text-left"
                         >
-                          <div className="w-9 h-9 rounded-full bg-[#F5F5F5] overflow-hidden flex items-center justify-center">
+                          <div className="w-9 h-9 rounded-full bg-secondary overflow-hidden flex items-center justify-center">
                             {sanitizeMediaUrl(f.avatar) ? (
                               <img src={sanitizeMediaUrl(f.avatar)} className="w-full h-full object-cover" alt="User avatar" />
                             ) : (
@@ -154,8 +154,8 @@ export default function SendToFriendModal({ open, onClose }: SendToFriendModalPr
                             )}
                           </div>
                           <div>
-                            <p className="text-[#111111] text-sm font-medium">{f.name}</p>
-                            <p className="text-[#8D8D8D] text-xs">@{f.username}</p>
+                            <p className="text-foreground text-sm font-medium">{f.name}</p>
+                            <p className="text-muted-foreground text-xs">@{f.username}</p>
                           </div>
                         </button>
                       ))
@@ -167,7 +167,7 @@ export default function SendToFriendModal({ open, onClose }: SendToFriendModalPr
 
             {/* Currency */}
             <div>
-              <label className="text-[#8D8D8D] text-xs mb-2 block">Currency</label>
+              <label className="text-muted-foreground text-xs mb-2 block">Currency</label>
               <div className="flex gap-2">
                 {([
                   { code: 'GAGA' as CurrencyCode, icon: Coins, label: 'GAGA' },
@@ -177,8 +177,8 @@ export default function SendToFriendModal({ open, onClose }: SendToFriendModalPr
                     onClick={() => setCurrency(c.code)}
                     className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-medium transition-colors ${
                       currency === c.code
-                        ? 'bg-[#00C300] text-white'
-                        : 'bg-[#F5F5F5] text-[#8D8D8D]'
+                        ? 'bg-primary text-white'
+                        : 'bg-secondary text-muted-foreground'
                     }`}
                   >
                     <c.icon size={14} /> {c.label}
@@ -188,18 +188,18 @@ export default function SendToFriendModal({ open, onClose }: SendToFriendModalPr
             </div>
 
             {/* Balance */}
-            <div className="bg-[#F5F5F5] rounded-xl p-3 flex items-center justify-between">
-              <span className="text-[#8D8D8D] text-sm">Available</span>
-              <span className="text-[#111111] font-bold">
+            <div className="bg-secondary rounded-xl p-3 flex items-center justify-between">
+              <span className="text-muted-foreground text-sm">Available</span>
+              <span className="text-foreground font-bold">
                 {currency === 'GAGA' ? `${balance} GAGA` : `$${balance.toFixed(2)}`}
               </span>
             </div>
 
             {/* Amount */}
             <div>
-              <label className="text-[#8D8D8D] text-xs mb-1 block">Amount</label>
+              <label className="text-muted-foreground text-xs mb-1 block">Amount</label>
               <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8D8D8D] text-lg font-bold">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-lg font-bold">
                   {currency === 'GAGA' ? 'G' : '$'}
                 </span>
                 <input
@@ -207,26 +207,26 @@ export default function SendToFriendModal({ open, onClose }: SendToFriendModalPr
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
                   placeholder="0"
-                  className="w-full bg-[#F5F5F5] rounded-xl pl-10 pr-4 py-3 text-[#111111] text-lg font-bold focus:outline-none focus:ring-2 focus:ring-[#00C300] placeholder:text-[#C7C7CC]"
+                  className="w-full bg-secondary rounded-xl pl-10 pr-4 py-3 text-foreground text-lg font-bold focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
                 />
               </div>
             </div>
 
             {/* Note */}
             <div>
-              <label className="text-[#8D8D8D] text-xs mb-1 block">Note (optional)</label>
+              <label className="text-muted-foreground text-xs mb-1 block">Note (optional)</label>
               <input
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
                 placeholder="What's this for?"
-                className="w-full bg-[#F5F5F5] rounded-xl px-4 py-3 text-[#111111] text-sm focus:outline-none focus:ring-2 focus:ring-[#00C300] placeholder:text-[#C7C7CC]"
+                className="w-full bg-secondary rounded-xl px-4 py-3 text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
               />
             </div>
 
             {/* Send Button */}
             <button type="button" onClick={handleSend}
               disabled={sending || !amount || !selectedFriendId}
-              className="w-full bg-[#00C300] hover:bg-[#00A300] text-white rounded-xl py-3.5 font-bold text-sm transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              className="w-full bg-primary hover:bg-[#00A300] text-white rounded-xl py-3.5 font-bold text-sm transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
             >
               {sending ? <Loader size={16} className="animate-spin" /> : <><Send size={16} /> Send</>}
             </button>

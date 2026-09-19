@@ -491,11 +491,11 @@ export default function AdminPage() {
         <div className="flex-1 flex items-center justify-center p-8">
           <div className="text-center">
             <h1 className="text-2xl font-bold text-white mb-2">Access Denied</h1>
-            <p className="text-[#8D8D8D] mb-4">This page is for administrators only.</p>
+            <p className="text-muted-foreground mb-4">This page is for administrators only.</p>
             <button
               type="button"
               onClick={() => navigate('/')}
-              className="px-6 py-2.5 rounded-xl bg-[#00C300] text-black font-semibold text-sm hover:bg-[#00C300]/90 transition-colors"
+              className="px-6 py-2.5 rounded-xl bg-primary text-black font-semibold text-sm hover:bg-primary/90 transition-colors"
             >
               Go Home
             </button>
@@ -516,16 +516,16 @@ export default function AdminPage() {
   const maxPostActivity = Math.max(...postActivity.map((d) => d.count), 1);
 
   return (
-    <div className="min-h-[100dvh] bg-[#F5F5F5]">
+    <div className="min-h-[100dvh] bg-secondary">
       {/* Header */}
-      <div className="sticky top-0 z-10 bg-white/90 backdrop-blur-md border-b border-[#EBEBEB]">
+      <div className="sticky top-0 z-10 bg-white/90 backdrop-blur-md border-b border-border">
         <div className="flex items-center gap-3 p-4">
-          <button type="button" onClick={() => navigate(-1)} className="text-[#111111] hover:text-[#8D8D8D] p-1 -ml-1">
+          <button type="button" onClick={() => navigate(-1)} className="text-foreground hover:text-muted-foreground p-1 -ml-1">
             <ArrowLeft size={22} />
           </button>
           <div>
-            <h1 className="text-lg font-bold text-[#111111]">Admin Dashboard</h1>
-            <p className="text-[#8D8D8D] text-xs">Moderation & Analytics</p>
+            <h1 className="text-lg font-bold text-foreground">Admin Dashboard</h1>
+            <p className="text-muted-foreground text-xs">Moderation & Analytics</p>
           </div>
           <div className="ml-auto flex gap-2">
             <button type="button" onClick={() => {
@@ -534,12 +534,12 @@ export default function AdminPage() {
                 if (activeTab === 'content') fetchContent();
                 if (activeTab === 'analytics') fetchAnalytics();
               }}
-              className="p-2 text-[#8D8D8D] hover:text-[#00C300] active:bg-[#F5F5F5] rounded-full transition-colors"
+              className="p-2 text-muted-foreground hover:text-primary active:bg-secondary rounded-full transition-colors"
             >
               <RefreshCw size={18} />
             </button>
-            <div className="w-9 h-9 rounded-full bg-[#00C300]/10 flex items-center justify-center">
-              <Shield size={18} className="text-[#00C300]" />
+            <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center">
+              <Shield size={18} className="text-primary" />
             </div>
           </div>
         </div>
@@ -553,7 +553,7 @@ export default function AdminPage() {
               <button type="button" key={t.key}
                 onClick={() => setActiveTab(t.key)}
                 className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium whitespace-nowrap transition-colors ${
-                  isActive ? 'bg-[#00C300] text-white' : 'bg-[#F5F5F5] text-[#8D8D8D] hover:text-[#111111]'
+                  isActive ? 'bg-primary text-white' : 'bg-secondary text-muted-foreground hover:text-foreground'
                 }`}
               >
                 <Icon size={14} />
@@ -579,12 +579,12 @@ export default function AdminPage() {
               {[
                 { label: 'Pending', value: reportStats.pending, color: 'text-[#FF9800]' },
                 { label: 'Reviewing', value: reportStats.reviewing, color: 'text-[#2196F3]' },
-                { label: 'Resolved', value: reportStats.resolved, color: 'text-[#00C300]' },
-                { label: 'Dismissed', value: reportStats.dismissed, color: 'text-[#8D8D8D]' },
+                { label: 'Resolved', value: reportStats.resolved, color: 'text-primary' },
+                { label: 'Dismissed', value: reportStats.dismissed, color: 'text-muted-foreground' },
               ].map((s) => (
-                <div key={s.label} className="bg-white rounded-xl border border-[#EBEBEB] p-3 text-center">
+                <div key={s.label} className="bg-card rounded-xl border border-border p-3 text-center">
                   <p className={`text-xl font-bold ${s.color}`}>{s.value}</p>
-                  <p className="text-[#8D8D8D] text-[10px] mt-0.5">{s.label}</p>
+                  <p className="text-muted-foreground text-[10px] mt-0.5">{s.label}</p>
                 </div>
               ))}
             </div>
@@ -593,15 +593,15 @@ export default function AdminPage() {
             <div className="px-4 pb-3">
               <div className="flex gap-2 mb-3">
                 <div className="relative flex-1">
-                  <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8D8D8D]" />
+                  <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                   <input
                     value={reportSearch}
                     onChange={(e) => setReportSearch(e.target.value)}
                     placeholder="Search reports..."
-                    className="w-full bg-white border border-[#EBEBEB] rounded-xl pl-9 pr-4 py-2.5 text-[#111111] text-sm focus:outline-none focus:ring-2 focus:ring-[#00C300] placeholder:text-[#8D8D8D]"
+                    className="w-full bg-card border border-border rounded-xl pl-9 pr-4 py-2.5 text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
                   />
                 </div>
-                <button type="button" className="p-2.5 bg-white border border-[#EBEBEB] rounded-xl text-[#8D8D8D]">
+                <button type="button" className="p-2.5 bg-card border border-border rounded-xl text-muted-foreground">
                   <Filter size={16} />
                 </button>
               </div>
@@ -610,7 +610,7 @@ export default function AdminPage() {
                   <button type="button" key={f}
                     onClick={() => setReportFilter(f)}
                     className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${
-                      reportFilter === f ? 'bg-[#00C300] text-white' : 'bg-white border border-[#EBEBEB] text-[#8D8D8D]'
+                      reportFilter === f ? 'bg-primary text-white' : 'bg-card border border-border text-muted-foreground'
                     }`}
                   >
                     {f.charAt(0).toUpperCase() + f.slice(1)}
@@ -623,13 +623,13 @@ export default function AdminPage() {
             <div className="px-4 pb-20 space-y-3">
               {reportsLoading ? (
                 <div className="flex justify-center py-12">
-                  <Loader size={24} className="text-[#00C300] animate-spin" />
+                  <Loader size={24} className="text-primary animate-spin" />
                 </div>
               ) : filteredReports.length === 0 ? (
                 <div className="text-center py-12">
-                  <Shield size={40} className="text-[#EBEBEB] mx-auto mb-3" />
-                  <p className="text-[#8D8D8D] text-sm font-medium">No reports found</p>
-                  <p className="text-[#C7C7CC] text-xs mt-1">All caught up!</p>
+                  <Shield size={40} className="text-border mx-auto mb-3" />
+                  <p className="text-muted-foreground text-sm font-medium">No reports found</p>
+                  <p className="text-muted-foreground text-xs mt-1">All caught up!</p>
                 </div>
               ) : (
                 filteredReports.map((report, i) => (
@@ -638,15 +638,15 @@ export default function AdminPage() {
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: i * 0.05 }}
-                    className="bg-white rounded-xl border border-[#EBEBEB] p-4"
+                    className="bg-card rounded-xl border border-border p-4"
                   >
                     <div className="flex items-start justify-between mb-3">
                       <div className="flex items-center gap-2">
                         <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
                           report.status === 'pending' ? 'bg-[#FF9800]/10 text-[#FF9800]' :
                           report.status === 'reviewing' ? 'bg-[#2196F3]/10 text-[#2196F3]' :
-                          report.status === 'resolved' ? 'bg-[#00C300]/10 text-[#00C300]' :
-                          'bg-[#8D8D8D]/10 text-[#8D8D8D]'
+                          report.status === 'resolved' ? 'bg-primary/10 text-primary' :
+                          'bg-muted-foreground/10 text-muted-foreground'
                         }`}>
                           {report.status === 'pending' ? <AlertTriangle size={14} /> :
                            report.status === 'reviewing' ? <Eye size={14} /> :
@@ -654,8 +654,8 @@ export default function AdminPage() {
                            <X size={14} />}
                         </div>
                         <div>
-                          <p className="text-[#111111] text-sm font-medium">{report.reason}</p>
-                          <p className="text-[#8D8D8D] text-[10px]">
+                          <p className="text-foreground text-sm font-medium">{report.reason}</p>
+                          <p className="text-muted-foreground text-[10px]">
                             {report.createdAt.toLocaleDateString()} · {report.status}
                           </p>
                         </div>
@@ -663,8 +663,8 @@ export default function AdminPage() {
                       <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
                         report.status === 'pending' ? 'bg-[#FF9800]/10 text-[#FF9800]' :
                         report.status === 'reviewing' ? 'bg-[#2196F3]/10 text-[#2196F3]' :
-                        report.status === 'resolved' ? 'bg-[#00C300]/10 text-[#00C300]' :
-                        'bg-[#8D8D8D]/10 text-[#8D8D8D]'
+                        report.status === 'resolved' ? 'bg-primary/10 text-primary' :
+                        'bg-muted-foreground/10 text-muted-foreground'
                       }`}>
                         {report.status}
                       </span>
@@ -672,23 +672,23 @@ export default function AdminPage() {
 
                     <div className="space-y-2 mb-3">
                       <div className="flex gap-2 text-xs">
-                        <span className="text-[#8D8D8D] w-16 shrink-0">Reporter</span>
-                        <code className="text-[#111111] bg-[#F5F5F5] px-2 py-0.5 rounded">{report.reporterId}</code>
+                        <span className="text-muted-foreground w-16 shrink-0">Reporter</span>
+                        <code className="text-foreground bg-secondary px-2 py-0.5 rounded">{report.reporterId}</code>
                       </div>
                       <div className="flex gap-2 text-xs">
-                        <span className="text-[#8D8D8D] w-16 shrink-0">Reported</span>
-                        <code className="text-[#111111] bg-[#F5F5F5] px-2 py-0.5 rounded">{report.reportedId}</code>
+                        <span className="text-muted-foreground w-16 shrink-0">Reported</span>
+                        <code className="text-foreground bg-secondary px-2 py-0.5 rounded">{report.reportedId}</code>
                       </div>
                       {report.details && (
                         <div className="flex gap-2 text-xs">
-                          <span className="text-[#8D8D8D] w-16 shrink-0">Details</span>
-                          <p className="text-[#111111] flex-1">{report.details}</p>
+                          <span className="text-muted-foreground w-16 shrink-0">Details</span>
+                          <p className="text-foreground flex-1">{report.details}</p>
                         </div>
                       )}
                       {report.actionTaken && (
                         <div className="flex gap-2 text-xs">
-                          <span className="text-[#8D8D8D] w-16 shrink-0">Action</span>
-                          <p className="text-[#00C300] flex-1">{report.actionTaken}</p>
+                          <span className="text-muted-foreground w-16 shrink-0">Action</span>
+                          <p className="text-primary flex-1">{report.actionTaken}</p>
                         </div>
                       )}
                     </div>
@@ -704,13 +704,13 @@ export default function AdminPage() {
                         </button>
                         <button type="button" onClick={() => updateReportStatus(report.id, 'resolved', 'User banned', report.reportedId)}
                           disabled={processingReportId === report.id}
-                          className="flex items-center gap-1 px-3 py-1.5 bg-[#FF3B30]/10 text-[#FF3B30] text-xs rounded-full font-medium active:bg-[#FF3B30]/20 transition-colors disabled:opacity-50"
+                          className="flex items-center gap-1 px-3 py-1.5 bg-destructive/10 text-destructive text-xs rounded-full font-medium active:bg-destructive/20 transition-colors disabled:opacity-50"
                         >
                           <Ban size={12} /> Ban
                         </button>
                         <button type="button" onClick={() => updateReportStatus(report.id, 'dismissed', 'No action taken')}
                           disabled={processingReportId === report.id}
-                          className="flex items-center gap-1 px-3 py-1.5 bg-[#F5F5F5] text-[#8D8D8D] text-xs rounded-full font-medium active:bg-[#EBEBEB] transition-colors disabled:opacity-50"
+                          className="flex items-center gap-1 px-3 py-1.5 bg-secondary text-muted-foreground text-xs rounded-full font-medium active:bg-secondary transition-colors disabled:opacity-50"
                         >
                           <X size={12} /> Dismiss
                         </button>
@@ -720,31 +720,31 @@ export default function AdminPage() {
                       <div className="flex gap-2 flex-wrap">
                         <button type="button" onClick={() => updateReportStatus(report.id, 'resolved', 'Action taken')}
                           disabled={processingReportId === report.id}
-                          className="flex items-center gap-1 px-3 py-1.5 bg-[#00C300]/10 text-[#00C300] text-xs rounded-full font-medium active:bg-[#00C300]/20 transition-colors disabled:opacity-50"
+                          className="flex items-center gap-1 px-3 py-1.5 bg-primary/10 text-primary text-xs rounded-full font-medium active:bg-primary/20 transition-colors disabled:opacity-50"
                         >
                           <Check size={12} /> Resolve
                         </button>
                         <button type="button" onClick={() => updateReportStatus(report.id, 'resolved', 'User banned', report.reportedId)}
                           disabled={processingReportId === report.id}
-                          className="flex items-center gap-1 px-3 py-1.5 bg-[#FF3B30]/10 text-[#FF3B30] text-xs rounded-full font-medium active:bg-[#FF3B30]/20 transition-colors disabled:opacity-50"
+                          className="flex items-center gap-1 px-3 py-1.5 bg-destructive/10 text-destructive text-xs rounded-full font-medium active:bg-destructive/20 transition-colors disabled:opacity-50"
                         >
                           <Ban size={12} /> Ban
                         </button>
                         <button type="button" onClick={() => updateReportStatus(report.id, 'dismissed', 'No action taken')}
                           disabled={processingReportId === report.id}
-                          className="flex items-center gap-1 px-3 py-1.5 bg-[#F5F5F5] text-[#8D8D8D] text-xs rounded-full font-medium active:bg-[#EBEBEB] transition-colors disabled:opacity-50"
+                          className="flex items-center gap-1 px-3 py-1.5 bg-secondary text-muted-foreground text-xs rounded-full font-medium active:bg-secondary transition-colors disabled:opacity-50"
                         >
                           <X size={12} /> Dismiss
                         </button>
                       </div>
                     )}
                     {report.status === 'resolved' && (
-                      <div className="flex items-center gap-1 text-xs text-[#00C300]">
+                      <div className="flex items-center gap-1 text-xs text-primary">
                         <UserCheck size={12} /> Resolved by {report.reviewedBy?.slice(0, 8) || 'admin'}...
                       </div>
                     )}
                     {report.status === 'dismissed' && (
-                      <div className="flex items-center gap-1 text-xs text-[#8D8D8D]">
+                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
                         <X size={12} /> Dismissed by {report.reviewedBy?.slice(0, 8) || 'admin'}...
                       </div>
                     )}
@@ -767,15 +767,15 @@ export default function AdminPage() {
             <div className="px-4 pt-4 pb-3">
               <div className="flex gap-2 mb-3">
                 <div className="relative flex-1">
-                  <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8D8D8D]" />
+                  <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                   <input
                     value={userSearch}
                     onChange={(e) => setUserSearch(e.target.value)}
                     placeholder="Search users..."
-                    className="w-full bg-white border border-[#EBEBEB] rounded-xl pl-9 pr-4 py-2.5 text-[#111111] text-sm focus:outline-none focus:ring-2 focus:ring-[#00C300] placeholder:text-[#8D8D8D]"
+                    className="w-full bg-card border border-border rounded-xl pl-9 pr-4 py-2.5 text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
                   />
                 </div>
-                <button type="button" className="p-2.5 bg-white border border-[#EBEBEB] rounded-xl text-[#8D8D8D]">
+                <button type="button" className="p-2.5 bg-card border border-border rounded-xl text-muted-foreground">
                   <Filter size={16} />
                 </button>
               </div>
@@ -784,7 +784,7 @@ export default function AdminPage() {
                   <button type="button" key={f}
                     onClick={() => setUserFilter(f)}
                     className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${
-                      userFilter === f ? 'bg-[#00C300] text-white' : 'bg-white border border-[#EBEBEB] text-[#8D8D8D]'
+                      userFilter === f ? 'bg-primary text-white' : 'bg-card border border-border text-muted-foreground'
                     }`}
                   >
                     {f.charAt(0).toUpperCase() + f.slice(1)}
@@ -796,13 +796,13 @@ export default function AdminPage() {
             <div className="px-4 pb-20 space-y-3">
               {usersLoading ? (
                 <div className="flex justify-center py-12">
-                  <Loader size={24} className="text-[#00C300] animate-spin" />
+                  <Loader size={24} className="text-primary animate-spin" />
                 </div>
               ) : filteredUsers.length === 0 ? (
                 <div className="text-center py-12">
-                  <Users size={40} className="text-[#EBEBEB] mx-auto mb-3" />
-                  <p className="text-[#8D8D8D] text-sm font-medium">No users found</p>
-                  <p className="text-[#C7C7CC] text-xs mt-1">Try a different search or filter.</p>
+                  <Users size={40} className="text-border mx-auto mb-3" />
+                  <p className="text-muted-foreground text-sm font-medium">No users found</p>
+                  <p className="text-muted-foreground text-xs mt-1">Try a different search or filter.</p>
                 </div>
               ) : (
                 filteredUsers.map((u, i) => {
@@ -813,45 +813,45 @@ export default function AdminPage() {
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: i * 0.03 }}
-                      className="bg-white rounded-xl border border-[#EBEBEB] p-4"
+                      className="bg-card rounded-xl border border-border p-4"
                     >
                       <div className="flex items-start gap-3">
-                        <div className="w-10 h-10 rounded-full bg-[#F5F5F5] flex items-center justify-center shrink-0 overflow-hidden">
+                        <div className="w-10 h-10 rounded-full bg-secondary flex items-center justify-center shrink-0 overflow-hidden">
                           {u.avatar ? (
                             <img src={u.avatar} alt="User avatar" className="w-full h-full object-cover" />
                           ) : (
-                            <Users size={18} className="text-[#8D8D8D]" />
+                            <Users size={18} className="text-muted-foreground" />
                           )}
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-0.5">
-                            <p className="text-[#111111] text-sm font-medium truncate">{u.name}</p>
-                            {u.verified && <Check size={12} className="text-[#00C300]" />}
+                            <p className="text-foreground text-sm font-medium truncate">{u.name}</p>
+                            {u.verified && <Check size={12} className="text-primary" />}
                             {u.isAdmin && <Crown size={12} className="text-[#FF9800]" />}
                           </div>
-                          <p className="text-[#8D8D8D] text-xs truncate">{u.email || u.phone || u.id.slice(0, 12)}</p>
+                          <p className="text-muted-foreground text-xs truncate">{u.email || u.phone || u.id.slice(0, 12)}</p>
                           <div className="flex items-center gap-3 mt-1.5">
                             <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
                               status === 'admin' ? 'bg-[#FF9800]/10 text-[#FF9800]' :
-                              status === 'verified' ? 'bg-[#00C300]/10 text-[#00C300]' :
+                              status === 'verified' ? 'bg-primary/10 text-primary' :
                               status === 'suspended' ? 'bg-[#FF9800]/10 text-[#FF9800]' :
-                              status === 'banned' ? 'bg-[#FF3B30]/10 text-[#FF3B30]' :
-                              'bg-[#F5F5F5] text-[#8D8D8D]'
+                              status === 'banned' ? 'bg-destructive/10 text-destructive' :
+                              'bg-secondary text-muted-foreground'
                             }`}>
                               {status}
                             </span>
-                            <span className="text-[#C7C7CC] text-[10px]">
+                            <span className="text-muted-foreground text-[10px]">
                               Joined {u.createdAt ? u.createdAt.toLocaleDateString() : 'Unknown'}
                             </span>
                           </div>
                         </div>
                         {processingUserId === u.id ? (
-                          <Loader size={16} className="text-[#00C300] animate-spin shrink-0" />
+                          <Loader size={16} className="text-primary animate-spin shrink-0" />
                         ) : (
                           <div className="flex flex-col gap-1.5 shrink-0">
                             {!u.verified && status !== 'banned' && status !== 'suspended' && (
                               <button type="button" onClick={() => updateUserStatus(u, { verified: true }, 'verified')}
-                                className="p-1.5 rounded-lg bg-[#00C300]/10 text-[#00C300] hover:bg-[#00C300]/20 transition-colors"
+                                className="p-1.5 rounded-lg bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
                                 title="Verify"
                               >
                                 <UserCheck size={14} />
@@ -867,7 +867,7 @@ export default function AdminPage() {
                             )}
                             {status !== 'banned' && !u.isAdmin && (
                               <button type="button" onClick={() => updateUserStatus(u, { status: 'banned' }, 'banned')}
-                                className="p-1.5 rounded-lg bg-[#FF3B30]/10 text-[#FF3B30] hover:bg-[#FF3B30]/20 transition-colors"
+                                className="p-1.5 rounded-lg bg-destructive/10 text-destructive hover:bg-destructive/20 transition-colors"
                                 title="Ban"
                               >
                                 <Ban size={14} />
@@ -875,7 +875,7 @@ export default function AdminPage() {
                             )}
                             {(status === 'suspended' || status === 'banned') && (
                               <button type="button" onClick={() => updateUserStatus(u, { status: 'active' }, 'reactivated')}
-                                className="p-1.5 rounded-lg bg-[#00C300]/10 text-[#00C300] hover:bg-[#00C300]/20 transition-colors"
+                                className="p-1.5 rounded-lg bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
                                 title="Reactivate"
                               >
                                 <UserPlus size={14} />
@@ -891,7 +891,7 @@ export default function AdminPage() {
                             )}
                             {u.isAdmin && (
                               <button type="button" onClick={() => updateUserStatus(u, { isAdmin: false }, 'removed admin')}
-                                className="p-1.5 rounded-lg bg-[#8D8D8D]/10 text-[#8D8D8D] hover:bg-[#8D8D8D]/20 transition-colors"
+                                className="p-1.5 rounded-lg bg-muted-foreground/10 text-muted-foreground hover:bg-muted-foreground/20 transition-colors"
                                 title="Remove Admin"
                               >
                                 <Shield size={14} />
@@ -920,27 +920,27 @@ export default function AdminPage() {
             <div className="px-4 pt-4 pb-3">
               <div className="flex gap-2 mb-3">
                 <div className="relative flex-1">
-                  <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8D8D8D]" />
+                  <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                   <input
                     value={contentSearch}
                     onChange={(e) => setContentSearch(e.target.value)}
                     placeholder="Search posts..."
-                    className="w-full bg-white border border-[#EBEBEB] rounded-xl pl-9 pr-4 py-2.5 text-[#111111] text-sm focus:outline-none focus:ring-2 focus:ring-[#00C300] placeholder:text-[#8D8D8D]"
+                    className="w-full bg-card border border-border rounded-xl pl-9 pr-4 py-2.5 text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
                   />
                 </div>
               </div>
             </div>
 
             <div className="px-4 pb-4">
-              <p className="text-[#111111] text-sm font-bold mb-2">Recent Posts</p>
+              <p className="text-foreground text-sm font-bold mb-2">Recent Posts</p>
               {contentLoading ? (
                 <div className="flex justify-center py-12">
-                  <Loader size={24} className="text-[#00C300] animate-spin" />
+                  <Loader size={24} className="text-primary animate-spin" />
                 </div>
               ) : filteredPosts.length === 0 ? (
                 <div className="text-center py-8">
-                  <FileText size={32} className="text-[#EBEBEB] mx-auto mb-2" />
-                  <p className="text-[#8D8D8D] text-sm font-medium">No posts found</p>
+                  <FileText size={32} className="text-border mx-auto mb-2" />
+                  <p className="text-muted-foreground text-sm font-medium">No posts found</p>
                 </div>
               ) : (
                 <div className="space-y-3">
@@ -950,24 +950,24 @@ export default function AdminPage() {
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: i * 0.03 }}
-                      className="bg-white rounded-xl border border-[#EBEBEB] p-4"
+                      className="bg-card rounded-xl border border-border p-4"
                     >
                       <div className="flex items-start gap-3 mb-3">
-                        <div className="w-9 h-9 rounded-full bg-[#F5F5F5] flex items-center justify-center shrink-0 overflow-hidden">
+                        <div className="w-9 h-9 rounded-full bg-secondary flex items-center justify-center shrink-0 overflow-hidden">
                           {post.userAvatar ? (
                             <img src={post.userAvatar} alt="User avatar" className="w-full h-full object-cover" />
                           ) : (
-                            <Users size={16} className="text-[#8D8D8D]" />
+                            <Users size={16} className="text-muted-foreground" />
                           )}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-[#111111] text-sm font-medium">{post.userName || 'Unknown'}</p>
-                          <p className="text-[#8D8D8D] text-[10px]">
+                          <p className="text-foreground text-sm font-medium">{post.userName || 'Unknown'}</p>
+                          <p className="text-muted-foreground text-[10px]">
                             {post.timestamp.toLocaleDateString()} · {post.visibility}
                           </p>
                         </div>
                         {processingPostId === post.id ? (
-                          <Loader size={16} className="text-[#00C300] animate-spin shrink-0" />
+                          <Loader size={16} className="text-primary animate-spin shrink-0" />
                         ) : (
                           <div className="flex gap-1.5 shrink-0">
                             <button type="button" onClick={() => hidePost(post)}
@@ -977,7 +977,7 @@ export default function AdminPage() {
                               <Eye size={14} />
                             </button>
                             <button type="button" onClick={() => deletePost(post.id)}
-                              className="p-1.5 rounded-lg bg-[#FF3B30]/10 text-[#FF3B30] hover:bg-[#FF3B30]/20 transition-colors"
+                              className="p-1.5 rounded-lg bg-destructive/10 text-destructive hover:bg-destructive/20 transition-colors"
                               title="Delete"
                             >
                               <Trash2 size={14} />
@@ -985,17 +985,17 @@ export default function AdminPage() {
                           </div>
                         )}
                       </div>
-                      <p className="text-[#111111] text-sm mb-3 line-clamp-3">{post.content}</p>
+                      <p className="text-foreground text-sm mb-3 line-clamp-3">{post.content}</p>
                       {post.images.length > 0 && (
                         <div className="grid grid-cols-3 gap-1 mb-3">
                           {post.images.slice(0, 3).map((img, idx) => (
-                            <div key={idx} className="aspect-square rounded-lg bg-[#F5F5F5] overflow-hidden">
+                            <div key={idx} className="aspect-square rounded-lg bg-secondary overflow-hidden">
                               <img src={img} alt="Cover image" className="w-full h-full object-cover" />
                             </div>
                           ))}
                         </div>
                       )}
-                      <div className="flex items-center gap-4 text-xs text-[#8D8D8D]">
+                      <div className="flex items-center gap-4 text-xs text-muted-foreground">
                         <span className="flex items-center gap-1">
                           <Heart size={12} /> {post.likes.length}
                         </span>
@@ -1014,15 +1014,15 @@ export default function AdminPage() {
 
             {/* Reported Comments */}
             <div className="px-4 pb-20">
-              <p className="text-[#111111] text-sm font-bold mb-2">Reported Comments</p>
+              <p className="text-foreground text-sm font-bold mb-2">Reported Comments</p>
               {contentLoading ? (
                 <div className="flex justify-center py-8">
-                  <Loader size={24} className="text-[#00C300] animate-spin" />
+                  <Loader size={24} className="text-primary animate-spin" />
                 </div>
               ) : reportedComments.length === 0 ? (
                 <div className="text-center py-8">
-                  <MessageCircle size={32} className="text-[#EBEBEB] mx-auto mb-2" />
-                  <p className="text-[#8D8D8D] text-sm font-medium">No reported comments</p>
+                  <MessageCircle size={32} className="text-border mx-auto mb-2" />
+                  <p className="text-muted-foreground text-sm font-medium">No reported comments</p>
                 </div>
               ) : (
                 <div className="space-y-3">
@@ -1032,31 +1032,31 @@ export default function AdminPage() {
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: i * 0.03 }}
-                      className="bg-white rounded-xl border border-[#EBEBEB] p-4"
+                      className="bg-card rounded-xl border border-border p-4"
                     >
                       <div className="flex items-start gap-2 mb-2">
-                        <div className="w-7 h-7 rounded-full bg-[#F5F5F5] flex items-center justify-center shrink-0">
-                          <Users size={12} className="text-[#8D8D8D]" />
+                        <div className="w-7 h-7 rounded-full bg-secondary flex items-center justify-center shrink-0">
+                          <Users size={12} className="text-muted-foreground" />
                         </div>
                         <div className="flex-1">
-                          <p className="text-[#111111] text-xs font-medium">{c.userId.slice(0, 16)}</p>
-                          <p className="text-[#8D8D8D] text-[10px]">{c.timestamp.toLocaleDateString()}</p>
+                          <p className="text-foreground text-xs font-medium">{c.userId.slice(0, 16)}</p>
+                          <p className="text-muted-foreground text-[10px]">{c.timestamp.toLocaleDateString()}</p>
                         </div>
-                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#FF3B30]/10 text-[#FF3B30] font-medium">
+                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-destructive/10 text-destructive font-medium">
                           {c.reports} reports
                         </span>
                       </div>
-                      <p className="text-[#111111] text-sm bg-[#F5F5F5] rounded-lg p-2 mb-2">{c.content}</p>
+                      <p className="text-foreground text-sm bg-secondary rounded-lg p-2 mb-2">{c.content}</p>
                       <div className="flex gap-2">
                         <button type="button" onClick={() => moderateComment(c, false)}
                           disabled={processingPostId === c.id}
-                          className="px-3 py-1.5 bg-[#F5F5F5] text-[#8D8D8D] text-xs rounded-full font-medium"
+                          className="px-3 py-1.5 bg-secondary text-muted-foreground text-xs rounded-full font-medium"
                         >
                           Dismiss
                         </button>
                         <button type="button" onClick={() => moderateComment(c, true)}
                           disabled={processingPostId === c.id}
-                          className="px-3 py-1.5 bg-[#FF3B30]/10 text-[#FF3B30] text-xs rounded-full font-medium"
+                          className="px-3 py-1.5 bg-destructive/10 text-destructive text-xs rounded-full font-medium"
                         >
                           Remove
                         </button>
@@ -1081,24 +1081,24 @@ export default function AdminPage() {
             <div className="px-4 pt-4 pb-20">
               {analyticsLoading ? (
                 <div className="flex justify-center py-12">
-                  <Loader size={24} className="text-[#00C300] animate-spin" />
+                  <Loader size={24} className="text-primary animate-spin" />
                 </div>
               ) : !stats ? (
                 <div className="text-center py-12">
-                  <BarChart3 size={40} className="text-[#EBEBEB] mx-auto mb-3" />
-                  <p className="text-[#8D8D8D] text-sm font-medium">No analytics data</p>
+                  <BarChart3 size={40} className="text-border mx-auto mb-3" />
+                  <p className="text-muted-foreground text-sm font-medium">No analytics data</p>
                 </div>
               ) : (
                 <>
                   {/* Stat Cards */}
                   <div className="grid grid-cols-2 gap-2 mb-4">
                     {[
-                      { label: 'Total Users', value: stats.totalUsers, icon: Users, color: 'text-[#00C300]' },
+                      { label: 'Total Users', value: stats.totalUsers, icon: Users, color: 'text-primary' },
                       { label: 'DAU Today', value: stats.dailyActiveUsers, icon: Activity, color: 'text-[#2196F3]' },
                       { label: 'Total Posts', value: stats.totalPosts, icon: FileText, color: 'text-[#FF9800]' },
-                      { label: 'Total Messages', value: stats.totalMessages, icon: MessageCircle, color: 'text-[#8D8D8D]' },
-                      { label: 'New Users Today', value: stats.newUsersToday, icon: TrendingUp, color: 'text-[#00C300]' },
-                      { label: 'Pending Reports', value: stats.pendingReports, icon: Flag, color: 'text-[#FF3B30]' },
+                      { label: 'Total Messages', value: stats.totalMessages, icon: MessageCircle, color: 'text-muted-foreground' },
+                      { label: 'New Users Today', value: stats.newUsersToday, icon: TrendingUp, color: 'text-primary' },
+                      { label: 'Pending Reports', value: stats.pendingReports, icon: Flag, color: 'text-destructive' },
                     ].map((s, i) => {
                       const Icon = s.icon;
                       return (
@@ -1107,13 +1107,13 @@ export default function AdminPage() {
                           initial={{ opacity: 0, scale: 0.95 }}
                           animate={{ opacity: 1, scale: 1 }}
                           transition={{ delay: i * 0.05 }}
-                          className="bg-white rounded-xl border border-[#EBEBEB] p-3"
+                          className="bg-card rounded-xl border border-border p-3"
                         >
                           <div className="flex items-center gap-2 mb-1">
-                            <div className={`w-7 h-7 rounded-lg bg-[#F5F5F5] flex items-center justify-center ${s.color}`}>
+                            <div className={`w-7 h-7 rounded-lg bg-secondary flex items-center justify-center ${s.color}`}>
                               <Icon size={14} />
                             </div>
-                            <p className="text-[#8D8D8D] text-[10px] font-medium">{s.label}</p>
+                            <p className="text-muted-foreground text-[10px] font-medium">{s.label}</p>
                           </div>
                           <p className={`text-xl font-bold ${s.color}`}>{s.value}</p>
                         </motion.div>
@@ -1122,22 +1122,22 @@ export default function AdminPage() {
                   </div>
 
                   {/* Engagement Rate */}
-                  <div className="bg-white rounded-xl border border-[#EBEBEB] p-4 mb-4">
+                  <div className="bg-card rounded-xl border border-border p-4 mb-4">
                     <div className="flex items-center gap-2 mb-2">
-                      <MousePointerClick size={14} className="text-[#00C300]" />
-                      <p className="text-[#111111] text-sm font-bold">Engagement Rate</p>
+                      <MousePointerClick size={14} className="text-primary" />
+                      <p className="text-foreground text-sm font-bold">Engagement Rate</p>
                     </div>
                     <div className="flex items-end gap-2">
-                      <p className="text-3xl font-bold text-[#111111]">
+                      <p className="text-3xl font-bold text-foreground">
                         {stats.totalUsers > 0
                           ? `${Math.round((stats.dailyActiveUsers / stats.totalUsers) * 100)}%`
                           : '0%'}
                       </p>
-                      <p className="text-[#8D8D8D] text-xs mb-1">DAU / Total Users</p>
+                      <p className="text-muted-foreground text-xs mb-1">DAU / Total Users</p>
                     </div>
-                    <div className="w-full h-2 bg-[#F5F5F5] rounded-full mt-3 overflow-hidden">
+                    <div className="w-full h-2 bg-secondary rounded-full mt-3 overflow-hidden">
                       <div
-                        className="h-full bg-[#00C300] rounded-full transition-all"
+                        className="h-full bg-primary rounded-full transition-all"
                         style={{
                           width: `${stats.totalUsers > 0 ? Math.min((stats.dailyActiveUsers / stats.totalUsers) * 100, 100) : 0}%`,
                         }}
@@ -1146,27 +1146,27 @@ export default function AdminPage() {
                   </div>
 
                   {/* User Growth Chart */}
-                  <div className="bg-white rounded-xl border border-[#EBEBEB] p-4 mb-4">
+                  <div className="bg-card rounded-xl border border-border p-4 mb-4">
                     <div className="flex items-center justify-between mb-3">
                       <div className="flex items-center gap-2">
-                        <TrendingUp size={14} className="text-[#00C300]" />
-                        <p className="text-[#111111] text-sm font-bold">User Growth</p>
+                        <TrendingUp size={14} className="text-primary" />
+                        <p className="text-foreground text-sm font-bold">User Growth</p>
                       </div>
-                      <span className="text-[#8D8D8D] text-[10px]">Last 7 days</span>
+                      <span className="text-muted-foreground text-[10px]">Last 7 days</span>
                     </div>
                     {userGrowth.length === 0 ? (
-                      <p className="text-[#8D8D8D] text-xs text-center py-4">No data</p>
+                      <p className="text-muted-foreground text-xs text-center py-4">No data</p>
                     ) : (
                       <div className="space-y-2">
                         {userGrowth.map((d) => (
                           <div key={d.day} className="flex items-center gap-2">
-                            <span className="text-[#8D8D8D] text-[10px] w-8 shrink-0">{d.day}</span>
-                            <div className="flex-1 h-6 bg-[#F5F5F5] rounded-md overflow-hidden relative">
+                            <span className="text-muted-foreground text-[10px] w-8 shrink-0">{d.day}</span>
+                            <div className="flex-1 h-6 bg-secondary rounded-md overflow-hidden relative">
                               <div
-                                className="h-full bg-[#00C300]/20 rounded-md transition-all"
+                                className="h-full bg-primary/20 rounded-md transition-all"
                                 style={{ width: `${Math.round((d.count / maxUserGrowth) * 100)}%` }}
                               />
-                              <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[#111111] text-[10px] font-medium">
+                              <span className="absolute left-2 top-1/2 -translate-y-1/2 text-foreground text-[10px] font-medium">
                                 {d.count}
                               </span>
                             </div>
@@ -1177,27 +1177,27 @@ export default function AdminPage() {
                   </div>
 
                   {/* Post Activity Chart */}
-                  <div className="bg-white rounded-xl border border-[#EBEBEB] p-4 mb-4">
+                  <div className="bg-card rounded-xl border border-border p-4 mb-4">
                     <div className="flex items-center justify-between mb-3">
                       <div className="flex items-center gap-2">
                         <FileText size={14} className="text-[#FF9800]" />
-                        <p className="text-[#111111] text-sm font-bold">Post Activity</p>
+                        <p className="text-foreground text-sm font-bold">Post Activity</p>
                       </div>
-                      <span className="text-[#8D8D8D] text-[10px]">Last 7 days</span>
+                      <span className="text-muted-foreground text-[10px]">Last 7 days</span>
                     </div>
                     {postActivity.length === 0 ? (
-                      <p className="text-[#8D8D8D] text-xs text-center py-4">No data</p>
+                      <p className="text-muted-foreground text-xs text-center py-4">No data</p>
                     ) : (
                       <div className="space-y-2">
                         {postActivity.map((d) => (
                           <div key={d.day} className="flex items-center gap-2">
-                            <span className="text-[#8D8D8D] text-[10px] w-8 shrink-0">{d.day}</span>
-                            <div className="flex-1 h-6 bg-[#F5F5F5] rounded-md overflow-hidden relative">
+                            <span className="text-muted-foreground text-[10px] w-8 shrink-0">{d.day}</span>
+                            <div className="flex-1 h-6 bg-secondary rounded-md overflow-hidden relative">
                               <div
                                 className="h-full bg-[#FF9800]/20 rounded-md transition-all"
                                 style={{ width: `${Math.round((d.count / maxPostActivity) * 100)}%` }}
                               />
-                              <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[#111111] text-[10px] font-medium">
+                              <span className="absolute left-2 top-1/2 -translate-y-1/2 text-foreground text-[10px] font-medium">
                                 {d.count}
                               </span>
                             </div>
@@ -1208,35 +1208,35 @@ export default function AdminPage() {
                   </div>
 
                   {/* Quick Links */}
-                  <div className="bg-white rounded-xl border border-[#EBEBEB] p-4">
-                    <p className="text-[#111111] text-sm font-bold mb-3">Quick Actions</p>
+                  <div className="bg-card rounded-xl border border-border p-4">
+                    <p className="text-foreground text-sm font-bold mb-3">Quick Actions</p>
                     <div className="space-y-2">
                       <button type="button" onClick={() => setActiveTab('reports')}
-                        className="w-full flex items-center justify-between p-3 rounded-lg bg-[#F5F5F5] hover:bg-[#EBEBEB] transition-colors"
+                        className="w-full flex items-center justify-between p-3 rounded-lg bg-secondary hover:bg-secondary transition-colors"
                       >
                         <div className="flex items-center gap-2">
-                          <Flag size={14} className="text-[#FF3B30]" />
-                          <span className="text-[#111111] text-sm">Review Pending Reports</span>
+                          <Flag size={14} className="text-destructive" />
+                          <span className="text-foreground text-sm">Review Pending Reports</span>
                         </div>
-                        <ChevronRight size={14} className="text-[#8D8D8D]" />
+                        <ChevronRight size={14} className="text-muted-foreground" />
                       </button>
                       <button type="button" onClick={() => setActiveTab('users')}
-                        className="w-full flex items-center justify-between p-3 rounded-lg bg-[#F5F5F5] hover:bg-[#EBEBEB] transition-colors"
+                        className="w-full flex items-center justify-between p-3 rounded-lg bg-secondary hover:bg-secondary transition-colors"
                       >
                         <div className="flex items-center gap-2">
-                          <Users size={14} className="text-[#00C300]" />
-                          <span className="text-[#111111] text-sm">Manage Users</span>
+                          <Users size={14} className="text-primary" />
+                          <span className="text-foreground text-sm">Manage Users</span>
                         </div>
-                        <ChevronRight size={14} className="text-[#8D8D8D]" />
+                        <ChevronRight size={14} className="text-muted-foreground" />
                       </button>
                       <button type="button" onClick={() => setActiveTab('content')}
-                        className="w-full flex items-center justify-between p-3 rounded-lg bg-[#F5F5F5] hover:bg-[#EBEBEB] transition-colors"
+                        className="w-full flex items-center justify-between p-3 rounded-lg bg-secondary hover:bg-secondary transition-colors"
                       >
                         <div className="flex items-center gap-2">
                           <FileText size={14} className="text-[#FF9800]" />
-                          <span className="text-[#111111] text-sm">Moderate Content</span>
+                          <span className="text-foreground text-sm">Moderate Content</span>
                         </div>
-                        <ChevronRight size={14} className="text-[#8D8D8D]" />
+                        <ChevronRight size={14} className="text-muted-foreground" />
                       </button>
                     </div>
                   </div>

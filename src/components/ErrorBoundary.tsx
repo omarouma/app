@@ -69,22 +69,22 @@ export default class ErrorBoundary extends Component<Props, State> {
   render() {
     if (this.state.hasError) {
       return (
-        <div className="min-h-screen bg-white flex items-center justify-center p-4">
+        <div className="min-h-screen bg-card flex items-center justify-center p-4">
           <div className="text-center max-w-md mx-auto">
-            <div className="w-20 h-20 rounded-full bg-[#FF3B30]/10 flex items-center justify-center mx-auto mb-6">
-              <AlertTriangle size={36} className="text-[#FF3B30]" />
+            <div className="w-20 h-20 rounded-full bg-destructive/10 flex items-center justify-center mx-auto mb-6">
+              <AlertTriangle size={36} className="text-destructive" />
             </div>
-            <h1 className="text-2xl font-bold text-[#111111] mb-2">Something went wrong</h1>
-            <p className="text-[#8D8D8D] text-sm mb-6">We're sorry for the inconvenience. Please try refreshing the page.</p>
+            <h1 className="text-2xl font-bold text-foreground mb-2">Something went wrong</h1>
+            <p className="text-muted-foreground text-sm mb-6">We're sorry for the inconvenience. Please try refreshing the page.</p>
             {this.state.error && (
-              <p className="text-[#FF3B30]/70 text-xs mb-6 p-3 bg-[#FF3B30]/10 rounded-lg">
+              <p className="text-destructive/70 text-xs mb-6 p-3 bg-destructive/10 rounded-lg">
                 {String(this.state.error.message).replace(/[<>"'&]/g, (c) => ({ '<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;','&':'&amp;' }[c] ?? c))}
               </p>
             )}
             <button
               type="button"
               onClick={() => window.location.reload()}
-              className="inline-flex items-center gap-2 px-6 py-3 bg-[#00C300] text-white rounded-full text-sm font-bold active:bg-[#00A300] transition-colors"
+              className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-white rounded-full text-sm font-bold active:bg-[#00A300] transition-colors"
             >
               <RefreshCw size={16} /> Refresh Page
             </button>

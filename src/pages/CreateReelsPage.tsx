@@ -450,7 +450,7 @@ export default function CreateReelsPage() {
             type="button"
             onClick={handlePost}
             disabled={uploading || !videoFile}
-            className="px-5 py-2 bg-[#00C300] text-black rounded-full text-sm font-bold disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#00A300] transition-colors"
+            className="px-5 py-2 bg-primary text-black rounded-full text-sm font-bold disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#00A300] transition-colors"
           >
             {uploading ? <Loader size={16} className="animate-spin" /> : 'Post'}
           </button>
@@ -465,15 +465,15 @@ export default function CreateReelsPage() {
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
-              className="bg-[#00C300]/10 border border-[#00C300]/20 rounded-xl p-4 flex items-center justify-between"
+              className="bg-primary/10 border border-primary/20 rounded-xl p-4 flex items-center justify-between"
             >
               <div className="flex items-center gap-2">
-                <Save size={16} className="text-[#00C300]" />
-                <span className="text-sm text-[#00C300]">You have an unsaved draft</span>
+                <Save size={16} className="text-primary" />
+                <span className="text-sm text-primary">You have an unsaved draft</span>
               </div>
               <div className="flex items-center gap-2">
-                <button type="button" onClick={handleLoadDraft} className="text-xs text-[#00C300] font-medium hover:underline">Load</button>
-                <button type="button" onClick={handleDiscardDraft} className="text-xs text-[#FF3B30] font-medium hover:underline">Discard</button>
+                <button type="button" onClick={handleLoadDraft} className="text-xs text-primary font-medium hover:underline">Load</button>
+                <button type="button" onClick={handleDiscardDraft} className="text-xs text-destructive font-medium hover:underline">Discard</button>
               </div>
             </motion.div>
           )}
@@ -502,17 +502,17 @@ export default function CreateReelsPage() {
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
-            className="w-full aspect-[9/16] max-h-[60vh] bg-[#1a1a1a] border-2 border-dashed border-[#2a2a2a] rounded-2xl flex flex-col items-center justify-center gap-4 hover:border-[#00C300]/50 hover:bg-[#1a1a1a]/80 transition-all group"
+            className="w-full aspect-[9/16] max-h-[60vh] bg-[#1a1a1a] border-2 border-dashed border-[#2a2a2a] rounded-2xl flex flex-col items-center justify-center gap-4 hover:border-primary/50 hover:bg-[#1a1a1a]/80 transition-all group"
           >
-            <div className="w-16 h-16 rounded-full bg-[#2a2a2a] group-hover:bg-[#00C300]/20 flex items-center justify-center transition-colors">
-              <Video size={28} className="text-[#8D8D8D] group-hover:text-[#00C300]" />
+            <div className="w-16 h-16 rounded-full bg-[#2a2a2a] group-hover:bg-primary/20 flex items-center justify-center transition-colors">
+              <Video size={28} className="text-muted-foreground group-hover:text-primary" />
             </div>
             <div className="text-center">
               <p className="text-white font-medium text-sm">Upload a video</p>
-              <p className="text-[#8D8D8D] text-xs mt-1">MP4, MOV, WEBM up to 50MB</p>
-              <p className="text-[#8D8D8D] text-xs">Up to 10 minutes</p>
+              <p className="text-muted-foreground text-xs mt-1">MP4, MOV, WEBM up to 50MB</p>
+              <p className="text-muted-foreground text-xs">Up to 10 minutes</p>
             </div>
-            <div className="flex items-center gap-2 text-[#00C300] text-xs font-medium">
+            <div className="flex items-center gap-2 text-primary text-xs font-medium">
               <Upload size={14} /> Select from device
             </div>
           </button>
@@ -574,7 +574,7 @@ export default function CreateReelsPage() {
                 onClick={handleSeek}
               >
                 <div
-                  className="h-full bg-[#00C300]"
+                  className="h-full bg-primary"
                   style={{ width: `${duration ? (currentTime / duration) * 100 : 0}%` }}
                 />
               </div>
@@ -616,7 +616,7 @@ export default function CreateReelsPage() {
             <button
               type="button"
               onClick={() => setShowFilters(!showFilters)}
-              className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-xs transition-colors ${showFilters ? 'bg-[#00C300] text-black' : 'bg-[#1a1a1a] text-white hover:bg-[#2a2a2a]'}`}
+              className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-xs transition-colors ${showFilters ? 'bg-primary text-black' : 'bg-[#1a1a1a] text-white hover:bg-[#2a2a2a]'}`}
             >
               <Wand2 size={12} /> Filters
             </button>
@@ -638,7 +638,7 @@ export default function CreateReelsPage() {
                     key={f.key}
                     type="button"
                     onClick={() => setActiveFilter(f.key)}
-                    className={`shrink-0 flex flex-col items-center gap-1 px-3 py-2 rounded-xl transition-colors ${activeFilter === f.key ? 'bg-[#00C300] text-black' : 'bg-[#1a1a1a] text-white hover:bg-[#2a2a2a]'}`}
+                    className={`shrink-0 flex flex-col items-center gap-1 px-3 py-2 rounded-xl transition-colors ${activeFilter === f.key ? 'bg-primary text-black' : 'bg-[#1a1a1a] text-white hover:bg-[#2a2a2a]'}`}
                   >
                     <div className="w-10 h-10 rounded-lg bg-[#333] overflow-hidden">
                       {videoPreviewUrl && (
@@ -662,19 +662,19 @@ export default function CreateReelsPage() {
         {videoPreviewUrl && (
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <label className="text-sm font-medium text-[#8D8D8D]">Cover Image</label>
+              <label className="text-sm font-medium text-muted-foreground">Cover Image</label>
               <div className="flex gap-2">
                 <button
                   type="button"
                   onClick={generateThumbnail}
-                  className="text-xs text-[#00C300] hover:underline"
+                  className="text-xs text-primary hover:underline"
                 >
                   Auto-generate
                 </button>
                 <button
                   type="button"
                   onClick={() => thumbnailInputRef.current?.click()}
-                  className="text-xs text-[#00C300] hover:underline"
+                  className="text-xs text-primary hover:underline"
                 >
                   Upload custom
                 </button>
@@ -695,9 +695,9 @@ export default function CreateReelsPage() {
               <button
                 type="button"
                 onClick={() => thumbnailInputRef.current?.click()}
-                className="w-24 h-36 rounded-xl border-2 border-dashed border-[#2a2a2a] flex items-center justify-center hover:border-[#00C300]/50 transition-colors"
+                className="w-24 h-36 rounded-xl border-2 border-dashed border-[#2a2a2a] flex items-center justify-center hover:border-primary/50 transition-colors"
               >
-                <ImageIcon size={20} className="text-[#8D8D8D]" />
+                <ImageIcon size={20} className="text-muted-foreground" />
               </button>
             )}
             <input
@@ -712,21 +712,21 @@ export default function CreateReelsPage() {
 
         {/* Caption */}
         <div className="space-y-2">
-          <label className="text-sm font-medium text-[#8D8D8D]">Caption <span className="text-[#8D8D8D]/50">(optional)</span></label>
+          <label className="text-sm font-medium text-muted-foreground">Caption <span className="text-muted-foreground/50">(optional)</span></label>
           <textarea
             value={caption}
             onChange={(e) => setCaption(e.target.value)}
             placeholder="Describe your reel..."
             rows={3}
-            className="w-full bg-[#1a1a1a] rounded-xl px-4 py-3 text-sm text-white placeholder:text-[#8D8D8D] outline-none focus:ring-2 focus:ring-[#00C300]/30 resize-none transition-all"
+            className="w-full bg-[#1a1a1a] rounded-xl px-4 py-3 text-sm text-white placeholder:text-muted-foreground outline-none focus:ring-2 focus:ring-primary/30 resize-none transition-all"
             maxLength={2000}
           />
-          <p className="text-[#8D8D8D] text-xs text-right">{caption.length}/2000</p>
+          <p className="text-muted-foreground text-xs text-right">{caption.length}/2000</p>
         </div>
 
         {/* Category */}
         <div className="space-y-2">
-          <label className="text-sm font-medium text-[#8D8D8D]">Category</label>
+          <label className="text-sm font-medium text-muted-foreground">Category</label>
           <div className="flex gap-2 overflow-x-auto scrollbar-hide">
             {REEL_CATEGORIES.map((cat) => (
               <button
@@ -734,8 +734,8 @@ export default function CreateReelsPage() {
                 type="button"
                 onClick={() => setCategory(cat)}
                 className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${category === cat
-                  ? 'bg-[#00C300] text-black'
-                  : 'bg-[#1a1a1a] text-[#8D8D8D] hover:text-white'
+                  ? 'bg-primary text-black'
+                  : 'bg-[#1a1a1a] text-muted-foreground hover:text-white'
                   }`}
               >
                 {cat}
@@ -746,7 +746,7 @@ export default function CreateReelsPage() {
 
         {/* Visibility */}
         <div className="space-y-2">
-          <label className="text-sm font-medium text-[#8D8D8D]">Who can see this?</label>
+          <label className="text-sm font-medium text-muted-foreground">Who can see this?</label>
           <div className="flex gap-2">
             {[
               { key: 'public' as const, label: 'Public', icon: Globe, desc: 'Anyone can see' },
@@ -761,8 +761,8 @@ export default function CreateReelsPage() {
                   type="button"
                   onClick={() => setVisibility(opt.key)}
                   className={`flex-1 flex flex-col items-center gap-1 px-3 py-2.5 rounded-xl transition-colors ${isActive
-                    ? 'bg-[#00C300]/10 text-[#00C300] border border-[#00C300]/30'
-                    : 'bg-[#1a1a1a] text-[#8D8D8D] border border-transparent'
+                    ? 'bg-primary/10 text-primary border border-primary/30'
+                    : 'bg-[#1a1a1a] text-muted-foreground border border-transparent'
                     }`}
                 >
                   <Icon size={16} />
@@ -776,23 +776,23 @@ export default function CreateReelsPage() {
 
         {/* Tags */}
         <div className="space-y-2">
-          <label className="text-sm font-medium text-[#8D8D8D]">Tags</label>
+          <label className="text-sm font-medium text-muted-foreground">Tags</label>
           <div className="flex gap-2">
             <div className="relative flex-1">
-              <Hash size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8D8D8D]" />
+              <Hash size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
               <input
                 type="text"
                 value={tagInput}
                 onChange={(e) => setTagInput(e.target.value)}
                 onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddTag(); } }}
                 placeholder="Add tags (press Enter)"
-                className="w-full bg-[#1a1a1a] rounded-xl pl-10 pr-4 py-3 text-sm text-white placeholder:text-[#8D8D8D] outline-none focus:ring-2 focus:ring-[#00C300]/30 transition-all"
+                className="w-full bg-[#1a1a1a] rounded-xl pl-10 pr-4 py-3 text-sm text-white placeholder:text-muted-foreground outline-none focus:ring-2 focus:ring-primary/30 transition-all"
               />
             </div>
             <button
               type="button"
               onClick={handleAddTag}
-              className="px-4 py-3 bg-[#2a2a2a] rounded-xl text-[#00C300] text-sm font-medium hover:bg-[#333] transition-colors"
+              className="px-4 py-3 bg-[#2a2a2a] rounded-xl text-primary text-sm font-medium hover:bg-[#333] transition-colors"
             >
               Add
             </button>
@@ -802,7 +802,7 @@ export default function CreateReelsPage() {
               {tags.map((tag) => (
                 <span
                   key={tag}
-                  className="inline-flex items-center gap-1 px-3 py-1.5 bg-[#00C300]/10 text-[#00C300] rounded-full text-xs font-medium"
+                  className="inline-flex items-center gap-1 px-3 py-1.5 bg-primary/10 text-primary rounded-full text-xs font-medium"
                 >
                   #{tag}
                   <button type="button" onClick={() => handleRemoveTag(tag)} className="hover:text-white">
@@ -816,15 +816,15 @@ export default function CreateReelsPage() {
 
         {/* Music */}
         <div className="space-y-2">
-          <label className="text-sm font-medium text-[#8D8D8D]">Music / Sound</label>
+          <label className="text-sm font-medium text-muted-foreground">Music / Sound</label>
           <div className="relative">
-            <Music size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8D8D8D]" />
+            <Music size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
             <input
               type="text"
               value={musicTitle}
               onChange={(e) => setMusicTitle(e.target.value)}
               placeholder="Add a music title or sound name..."
-              className="w-full bg-[#1a1a1a] rounded-xl pl-10 pr-4 py-3 text-sm text-white placeholder:text-[#8D8D8D] outline-none focus:ring-2 focus:ring-[#00C300]/30 transition-all"
+              className="w-full bg-[#1a1a1a] rounded-xl pl-10 pr-4 py-3 text-sm text-white placeholder:text-muted-foreground outline-none focus:ring-2 focus:ring-primary/30 transition-all"
             />
           </div>
         </div>
@@ -840,14 +840,14 @@ export default function CreateReelsPage() {
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <Sparkles size={16} className="text-[#00C300]" />
+                  <Sparkles size={16} className="text-primary" />
                   <span className="text-sm font-medium">{uploadStep}</span>
                 </div>
-                <span className="text-xs text-[#8D8D8D]">{uploadProgress}%</span>
+                <span className="text-xs text-muted-foreground">{uploadProgress}%</span>
               </div>
               <div className="h-2 bg-[#2a2a2a] rounded-full overflow-hidden">
                 <motion.div
-                  className="h-full bg-[#00C300] rounded-full"
+                  className="h-full bg-primary rounded-full"
                   initial={{ width: 0 }}
                   animate={{ width: `${uploadProgress}%` }}
                   transition={{ duration: 0.5 }}
@@ -859,8 +859,8 @@ export default function CreateReelsPage() {
 
         {/* Tips */}
         <div className="bg-[#1a1a1a] rounded-xl p-4 space-y-2">
-          <p className="text-xs font-medium text-[#8D8D8D]">Tips for great reels:</p>
-          <ul className="text-xs text-[#8D8D8D] space-y-1 list-disc list-inside">
+          <p className="text-xs font-medium text-muted-foreground">Tips for great reels:</p>
+          <ul className="text-xs text-muted-foreground space-y-1 list-disc list-inside">
             <li>Keep it engaging in the first 3 seconds</li>
             <li>Use trending sounds to boost discoverability</li>
             <li>Add captions for accessibility</li>
