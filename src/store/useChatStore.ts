@@ -151,8 +151,21 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   },
 
   subscribeChats: (userId) => {
-    if (!isFirestoreAvailable() || !userId) return () => { };
-    return subscribeDeduped(
+    if (!isFirestoreAvailable() || !userId) {
+      // No backend / no user: never leave the UI stuck on the loading skeleton.
+      set({ loadingChats: false });
+      return () => { };
+    }
+
+    // Safety net: if the realtime subscription never delivers an initial
+    // snapshot (network hiccup, RLS rejection, channel error), clear the
+    // loading flag after a short grace period so the chat list renders its
+    // empty state instead of an infinite skeleton.
+    const loadingTimeout = setTimeout(() => {
+      if (get().loadingChats) set({ loadingChats: false });
+    }, 8000);
+
+    const unsubscribe = subscribeDeduped(
       `chats_${userId}`,
       () => subscribeToCollection<Chat>(
         COLLECTIONS.CHATS,
@@ -162,10 +175,18 @@ export const useChatStore = create<ChatStore>((set, get) => ({
           const archivedChats = chats.filter(c => c.archived);
           const activeChats = chats.filter(c => !c.archived);
           const totalUnread = activeChats.reduce((sum, chat) => sum + (chat.unreadCount || 0), 0);
-          set({ chats: activeChats, archivedChats, totalUnread });
+          // CRITICAL: clear the loading flag on the first snapshot. Previously
+          // this was only cleared inside fetchChats(), which is never invoked,
+          // so the chat list rendered a permanent loading skeleton.
+          set({ chats: activeChats, archivedChats, totalUnread, loadingChats: false });
         },
-      )
+      ),
     );
+
+    return () => {
+      clearTimeout(loadingTimeout);
+      unsubscribe();
+    };
   },
 
   subscribeMessages: (chatId, limitCount = 50) => {
