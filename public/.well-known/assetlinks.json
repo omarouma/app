@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "gagachat.app",
+      "sha256_cert_fingerprints": [
+        "81:E6:A8:BA:23:E4:D9:84:F1:C7:DC:04:63:23:0D:F2:51:94:3C:4B:28:70:FA:54:85:4A:21:5E:30:B6:4C:5F"
+      ]
+    }
+  }
+]

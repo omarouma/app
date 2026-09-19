@@ -49,3 +49,11 @@ backend-*.log
 firebase-debug.log
 lint-output.log"deployed_index.html"  
 "supabase/.temp/"  
+
+# Android signing
+android/keystore/
+*.jks
+*.keystore
+
+# Vite bundle analysis artifact (regenerated on build)
+stats.html

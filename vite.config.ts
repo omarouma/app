@@ -108,7 +108,7 @@ export default defineConfig(({ mode }) => {
     },
     build: {
       outDir: 'dist',
-      sourcemap: 'hidden', // Use 'hidden' for production to keep source maps private
+      sourcemap: false, // Production: never ship source maps (keeps APK lean & source private)
       // ZEGO's prebuilt UI SDK is distributed as one async ~5 MB vendor file.
       // Keep the warning threshold above that known artifact while preserving
       // useful warnings for unexpectedly larger application chunks.

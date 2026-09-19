@@ -575,11 +575,11 @@ export default function SettingsPage() {
 
               {section === 'privacy' && (
                 <div className="card-surface p-3 sm:p-4 space-y-1">
-                  {settingItem('Last Seen', Clock, undefined, () => navigate('/privacy'))}
-                  {settingItem('Read Receipts', Mail, undefined, () => navigate('/privacy'))}
+                  {settingItem('Last Seen', Clock, undefined, () => navigate('/privacy-settings'))}
+                  {settingItem('Read Receipts', Mail, undefined, () => navigate('/privacy-settings'))}
                   {settingItem('Blocked Users', Users, <span className="text-sm text-muted-foreground">{blockedUsers.length}</span>, () => navigate('/blocked-users'))}
-                  {settingItem('Chat Lock', Lock, undefined, () => navigate('/privacy'))}
-                  {settingItem('Two-Step Verification', KeyRound, undefined, () => navigate('/privacy'))}
+                  {settingItem('Chat Lock', Lock, undefined, () => navigate('/privacy-settings'))}
+                  {settingItem('Two-Step Verification', KeyRound, undefined, () => navigate('/privacy-settings'))}
                 </div>
               )}
 
@@ -623,7 +623,7 @@ export default function SettingsPage() {
                     <Logo size={32} />
                     <div className="min-w-0">
                       <p className="text-sm font-semibold text-foreground">GaGa Chat</p>
-                      <p className="text-xs text-muted-foreground">Version 2.0.0</p>
+                      <p className="text-xs text-muted-foreground">Version {typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '1.0.0'}</p>
                     </div>
                   </div>
                   {settingItem('Terms of Service', FileText, undefined, () => navigate('/terms'))}

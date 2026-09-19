@@ -453,7 +453,7 @@ export default function ProfilePage() {
                       </button>
                       <button
                         type="button"
-                        onClick={() => navigate('/privacy')}
+                        onClick={() => navigate('/privacy-settings')}
                         className="flex items-center gap-1.5 px-5 py-2 bg-[#F5F5F5] text-[#111111] rounded-full text-sm font-medium hover:bg-[#EBEBEB] transition-colors"
                         aria-label="Privacy settings"
                       >

@@ -10,6 +10,7 @@ import { useChatStore } from '@/store/useChatStore';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { usePageTracking, useEngagementTracking } from '@/hooks/useFirebaseAnalytics';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
+import { configureNativeShell, initNativePush, setNativeNavigator, setNativeUser } from '@/lib/nativePlatform';
 import { useGATracking } from '@/hooks/useGATracking';
 import { useForegroundNotifications } from '@/hooks/useForegroundNotifications';
 import { useIncomingCallNotifications } from '@/hooks/useIncomingCallNotifications';
@@ -277,6 +278,7 @@ function getMobileRouteElement(path: string) {
     case '/ai-chat': return <ErrorBoundary key="ai-chat"><AIChatPage /></ErrorBoundary>;
     case '/live-streams': return <ErrorBoundary key="live-streams"><LiveStreamsPage /></ErrorBoundary>;
     case '/creator-dashboard': return <ErrorBoundary key="creator-dashboard"><CreatorDashboardPage /></ErrorBoundary>;
+    case '/privacy-settings': return <ErrorBoundary key="privacy-settings"><PrivacyPage /></ErrorBoundary>;
     default: return <NotFound />;
   }
 }
@@ -499,6 +501,19 @@ function AppContent() {
 
   useTrackPresence(user?.id);
 
+  // ── Native (Capacitor) shell: status bar, splash, back button, deep links ──
+  useEffect(() => {
+    void configureNativeShell();
+    setNativeNavigator((path) => navigate(path));
+    return () => setNativeNavigator(null);
+  }, [navigate]);
+
+  // ── Native push: register FCM token with Supabase once the user is known ──
+  useEffect(() => {
+    void setNativeUser(user?.id ?? null);
+    if (user?.id) void initNativePush(user.id);
+  }, [user?.id]);
+
   useEffect(() => { initAudioOnInteraction(); }, []);
 
   // Start the global offline-queue flusher (singleton, idempotent)
@@ -541,7 +556,7 @@ function AppContent() {
           <Route path="/about" element={<AboutPage />} />
           <Route path="/blog" element={<BlogPage />} />
           <Route path="/careers" element={<CareersPage />} />
-          <Route path="/privacy" element={isMobile ? <PrivacyPage /> : <PrivacyView />} />
+          <Route path="/privacy" element={<PrivacyView />} />
           <Route path="/terms" element={isMobile ? <TermsPage /> : <TermsView />} />
           <Route path="/help" element={<HelpCenterPage />} />
           <Route path="/onboarding" element={
