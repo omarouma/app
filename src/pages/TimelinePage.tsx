@@ -16,6 +16,7 @@ import {
   updateDocById, deleteDocById, subscribeToCollection, serverTimestamp, increment,
   where, orderBy, limit, startAfter, queryCollection, arrayUnion
 } from '@/lib/firestore';
+import { getDb } from '@/lib/supabaseDb';
 import TimelineCard from '@/components/features/timeline/TimelineCard';
 import EmptyState from '@/components/EmptyState';
 import LoadingSkeleton from '@/components/LoadingSkeleton';
@@ -196,7 +197,13 @@ export default function TimelinePage() {
 
     recordViewRef.current = async (postId: string) => {
       try {
-        await updateDocById(COLLECTIONS.POSTS, postId, { viewCount: increment(1) });
+        // Server-authoritative view increment (RLS-safe on any user's post).
+        const db = getDb();
+        if (db) {
+          await db.rpc('increment_post_view', { p_post_id: postId });
+        } else {
+          await updateDocById(COLLECTIONS.POSTS, postId, { viewCount: increment(1) });
+        }
       } catch { /* ignore view tracking errors */ }
     };
 
@@ -373,9 +380,20 @@ export default function TimelinePage() {
   const friendIds = useMemo(() => friends.map(f => f.id), [friends]);
   useEffect(() => {
     if (!isFirestoreAvailable() || !user?.id) return;
-    const allIds = [user.id, ...friendIds];
-    const unsub = subscribeToCollection(COLLECTIONS.STORIES, [where('userId', 'in', allIds), orderBy('timestamp', 'desc')], (data) => {
-      const list = (data || []).map((d: Record<string, unknown>) => ({
+    const allIds = [...new Set([user.id, ...friendIds])];
+    if (allIds.length === 0) return;
+
+    // Supabase's `in` filter accepts a bounded list; chunk the ids so users with
+    // many friends still see every friend's story (previously the whole list was
+    // passed at once, which silently dropped stories beyond the first batch).
+    const CHUNK = 10;
+    const chunks: string[][] = [];
+    for (let i = 0; i < allIds.length; i += CHUNK) {
+      chunks.push(allIds.slice(i, i + CHUNK));
+    }
+
+    const mapStories = (data: Array<Record<string, unknown>>) =>
+      (data || []).map((d: Record<string, unknown>) => ({
         id: d.id as string,
         user_id: d.userId as string,
         name: (d.userName as string) || (d.userId === user.id ? 'My Story' : 'Friend'),
@@ -385,9 +403,30 @@ export default function TimelinePage() {
         caption: '',
         isMine: d.userId === user.id,
       }));
-      setStories(list);
-    });
-    return () => unsub();
+
+    // One subscription per chunk; merge results so no friend's story is hidden.
+    const buckets = new Map<number, Array<Record<string, unknown>>>();
+    const emit = () => {
+      const merged = chunks.flatMap((_, idx) => buckets.get(idx) || []);
+      merged.sort((a, b) => {
+        const ta = new Date((a.timestamp as string) || 0).getTime();
+        const tb = new Date((b.timestamp as string) || 0).getTime();
+        return tb - ta;
+      });
+      setStories(mapStories(merged));
+    };
+
+    const unsubs = chunks.map((ids, idx) =>
+      subscribeToCollection(
+        COLLECTIONS.STORIES,
+        [where('userId', 'in', ids), orderBy('timestamp', 'desc')],
+        (data) => {
+          buckets.set(idx, (data || []) as Array<Record<string, unknown>>);
+          emit();
+        },
+      ),
+    );
+    return () => unsubs.forEach((u) => u());
   }, [user?.id, friendIds]);
 
   // Auto-advance stories

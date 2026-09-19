@@ -16,7 +16,8 @@ import { useGeolocation, getDistanceKm, formatDistance } from '@/hooks/useGeoloc
 import { copyToClipboard, nativeShare } from '@/lib/share';
 import { toast } from 'sonner';
 import type { User } from '@/types';
-import { where, limit, isFirestoreAvailable, updateDocById, queryCollection } from '@/lib/firestore';
+import { limit, isFirestoreAvailable, updateDocById, queryCollection } from '@/lib/firestore';
+import { getDb } from '@/lib/supabaseDb';
 
 type FriendStatus = 'not_friends' | 'request_sent' | 'request_received' | 'friends' | 'blocked' | 'self';
 
@@ -524,22 +525,33 @@ export default function AddFriendsPage() {
 
     try {
       if (isFirestoreAvailable() && (phoneSet.size > 0 || emails.length > 0)) {
-        // Firestore doesn't support OR or ilike queries; query by email and phone separately
+        // SECURITY: matching runs server-side (public.match_contacts) so phone
+        // and email stay out of the public_profiles view. Every contact is
+        // matched (no client-side truncation).
+        const db = getDb();
         const foundUsers: User[] = [];
-        const emailQueries = emails.slice(0, 10).map(async (e: string) => {
-          const data = await queryCollection('users', [where('email', '==', e), limit(1)]);
-          return (data as Record<string, unknown>[]).map(mapUser);
-        });
-        const phoneQueries = Array.from(phoneSet).slice(0, 10).map(async (p: string) => {
-          const data = await queryCollection('users', [
-            where('phone', '>=', p),
-            where('phone', '<=', p + '\uf8ff'),
-            limit(10),
-          ]);
-          return (data as Record<string, unknown>[]).map(mapUser);
-        });
-        const results = await Promise.all([...emailQueries, ...phoneQueries]);
-        results.forEach((arr: User[]) => foundUsers.push(...arr));
+        if (db) {
+          const emailList = Array.from(new Set(emails.map((e) => e.trim().toLowerCase()).filter(Boolean)));
+          const phoneList = Array.from(phoneSet);
+          const { data, error } = await db.rpc('match_contacts', {
+            p_emails: emailList,
+            p_phones: phoneList,
+          });
+          if (error) throw error;
+          for (const r of (data as Array<Record<string, unknown>>) || []) {
+            foundUsers.push({
+              id: r.id as string,
+              name: (r.name as string) || '',
+              displayName: (r.display_name as string) || undefined,
+              username: (r.username as string) || undefined,
+              avatar: (r.avatar as string) || undefined,
+              email: (r.email as string) || '',
+              phone: (r.phone as string) || '',
+              verified: (r.is_verified as boolean) || false,
+              isPremium: (r.is_premium as boolean) || false,
+            } as unknown as User);
+          }
+        }
         const friendIdSet = new Set(friends.map((f) => f.id));
         const matches = foundUsers.filter((u) => u.id !== currentUser.id && !friendIdSet.has(u.id));
         const uniqueMatches = Array.from(new Map(matches.map((u) => [u.id, u])).values());

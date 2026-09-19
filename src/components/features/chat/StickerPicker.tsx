@@ -109,15 +109,15 @@ export const StickerPicker = memo(function StickerPicker({ onSelect, onClose }: 
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: 10 }}
-      className="bg-[#F5F5F5] border-t border-[#EBEBEB]"
+      className="bg-secondary border-t border-border"
     >
       {/* Tab bar */}
-      <div className="flex border-b border-[#EBEBEB]">
+      <div className="flex border-b border-border">
         <button
           type="button"
           onClick={() => setActiveTab('stickers')}
           className={`flex-1 py-2.5 text-sm font-medium transition-colors ${
-            activeTab === 'stickers' ? 'text-[#00C300] border-b-2 border-[#00C300]' : 'text-[#8D8D8D]'
+            activeTab === 'stickers' ? 'text-primary border-b-2 border-primary' : 'text-muted-foreground'
           }`}
         >
           <Smile size={16} className="inline mr-1" /> Stickers
@@ -126,7 +126,7 @@ export const StickerPicker = memo(function StickerPicker({ onSelect, onClose }: 
           type="button"
           onClick={() => setActiveTab('gifs')}
           className={`flex-1 py-2.5 text-sm font-medium transition-colors ${
-            activeTab === 'gifs' ? 'text-[#00C300] border-b-2 border-[#00C300]' : 'text-[#8D8D8D]'
+            activeTab === 'gifs' ? 'text-primary border-b-2 border-primary' : 'text-muted-foreground'
           }`}
         >
           GIFs
@@ -137,7 +137,7 @@ export const StickerPicker = memo(function StickerPicker({ onSelect, onClose }: 
         {activeTab === 'stickers' ? (
           <>
             {/* Category tabs */}
-            <div className="flex gap-1 px-3 py-2 overflow-x-auto scrollbar-hide border-b border-[#EBEBEB]">
+            <div className="flex gap-1 px-3 py-2 overflow-x-auto scrollbar-hide border-b border-border">
               {CATEGORIES.map(cat => (
                 <button
                   type="button"
@@ -145,8 +145,8 @@ export const StickerPicker = memo(function StickerPicker({ onSelect, onClose }: 
                   onClick={() => setActiveCategory(cat.id)}
                   className={`shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
                     activeCategory === cat.id
-                      ? 'bg-[#00C300] text-white'
-                      : 'bg-white text-[#8D8D8D] hover:bg-[#EBEBEB]'
+                      ? 'bg-primary text-primary-foreground'
+                      : 'bg-card text-muted-foreground hover:bg-accent'
                   }`}
                 >
                   <span>{cat.icon}</span> {cat.label}
@@ -164,7 +164,7 @@ export const StickerPicker = memo(function StickerPicker({ onSelect, onClose }: 
                     onSelect({ type: 'emoji', content: sticker.emoji });
                     onClose();
                   }}
-                  className="w-12 h-12 flex items-center justify-center text-2xl bg-white rounded-xl hover:bg-[#EBEBEB] active:scale-90 transition-all"
+                  className="w-12 h-12 flex items-center justify-center text-2xl bg-card rounded-xl hover:bg-accent active:scale-90 transition-all"
                   title={sticker.id}
                 >
                   {sticker.emoji}
@@ -177,15 +177,15 @@ export const StickerPicker = memo(function StickerPicker({ onSelect, onClose }: 
             {/* GIF Search */}
             <div className="px-3 py-2">
               <div className="relative">
-                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8D8D8D]" />
+                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                 <input
                   value={gifQuery}
                   onChange={e => setGifQuery(e.target.value)}
                   placeholder="Search GIFs..."
-                  className="w-full bg-white rounded-xl pl-9 pr-3 py-2 text-sm text-[#111111] focus:outline-none focus:ring-2 focus:ring-[#00C300] placeholder:text-[#8D8D8D]"
+                  className="w-full bg-card rounded-xl pl-9 pr-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
                 />
                 {gifQuery && (
-                  <button type="button" onClick={() => setGifQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8D8D8D]">
+                  <button type="button" onClick={() => setGifQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">
                     <X size={14} />
                   </button>
                 )}
@@ -196,10 +196,10 @@ export const StickerPicker = memo(function StickerPicker({ onSelect, onClose }: 
             <div className="px-3 pb-3">
               {loadingGifs ? (
                 <div className="flex items-center justify-center py-8">
-                  <Loader size={20} className="animate-spin text-[#00C300]" />
+                  <Loader size={20} className="animate-spin text-primary" />
                 </div>
               ) : gifs.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-8 text-[#8D8D8D]">
+                <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
                   <TrendingUp size={24} className="mb-2" />
                   <p className="text-xs">Search for GIFs or try trending ones</p>
                   <div className="flex gap-2 mt-3">
@@ -208,7 +208,7 @@ export const StickerPicker = memo(function StickerPicker({ onSelect, onClose }: 
                         type="button"
                         key={tag}
                         onClick={() => setGifQuery(tag)}
-                        className="px-2 py-1 bg-white rounded-full text-xs text-[#8D8D8D] hover:bg-[#EBEBEB] capitalize"
+                        className="px-2 py-1 bg-card rounded-full text-xs text-muted-foreground hover:bg-accent capitalize"
                       >
                         {tag}
                       </button>
@@ -222,7 +222,7 @@ export const StickerPicker = memo(function StickerPicker({ onSelect, onClose }: 
                       type="button"
                       key={`${url}-${i}`}
                       onClick={() => handleGifSelect(url)}
-                      className="aspect-video bg-[#EBEBEB] rounded-lg overflow-hidden hover:opacity-80 transition-opacity"
+                      className="aspect-video bg-muted rounded-lg overflow-hidden hover:opacity-80 transition-opacity"
                     >
                       <img src={url} className="w-full h-full object-cover" alt={`GIF ${i + 1}`} loading="lazy" />
                     </button>

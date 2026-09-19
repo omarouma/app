@@ -1,6 +1,25 @@
 import { create } from 'zustand';
 import { toast } from 'sonner';
-import { isFirestoreAvailable, COLLECTIONS, getDocById, updateDocById, subscribeToDoc } from '@/lib/firestore';
+import { isFirestoreAvailable, COLLECTIONS, getDocById, updateDocById, subscribeToDoc, getDb } from '@/lib/firestore';
+
+// SECURITY: challenge rewards are minted server-side. The client never writes
+// `coins` directly (that column is frozen by a DB guard trigger). These helpers
+// call the authoritative RPCs which look up the reward and enforce idempotency.
+async function claimDailyChallengeRpc(challengeType: string): Promise<{ claimed: boolean; coins: number; reason?: string }> {
+  const db = getDb();
+  if (!db) throw new Error('Database not available');
+  const { data, error } = await db.rpc('claim_daily_challenge', { p_challenge_type: challengeType });
+  if (error) throw error;
+  return (data as { claimed: boolean; coins: number; reason?: string }) || { claimed: false, coins: 0 };
+}
+
+async function claimDailyCheckinRpc(userId: string): Promise<{ streak: number; coins: number; xp: number }> {
+  const db = getDb();
+  if (!db) throw new Error('Database not available');
+  const { data, error } = await db.rpc('wallet_claim_daily_checkin', { p_user_id: userId });
+  if (error) throw error;
+  return (data as { streak: number; coins: number; xp: number }) || { streak: 0, coins: 0, xp: 0 };
+}
 
 export interface Challenge {
   id: string;
@@ -210,6 +229,26 @@ export const useChallengeStore = create<ChallengeStore>((set, get) => ({
     const challenge = challenges.find(c => c.id === challengeId);
     if (!challenge || !challenge.completed || challenge.claimed) return;
 
+    // SECURITY: award coins server-side. The RPC looks up the reward from
+    // daily_challenges and enforces one claim per user/type/UTC-day, so the
+    // client cannot inflate the amount. XP/level remain cosmetic client state.
+    let awardedCoins = challenge.rewardCoins;
+    if (isFirestoreAvailable()) {
+      try {
+        const res = await claimDailyChallengeRpc(challenge.type);
+        if (!res.claimed) {
+          // Already claimed today (e.g. duplicate tab) — mark locally, no toast spam.
+          set({ challenges: challenges.map(c => c.id === challengeId ? { ...c, claimed: true } : c) });
+          return;
+        }
+        awardedCoins = res.coins;
+      } catch (err) {
+        console.error('claimReward error:', err);
+        toast.error('Could not claim reward. Please try again.');
+        return;
+      }
+    }
+
     const updated = challenges.map(c =>
       c.id === challengeId ? { ...c, claimed: true } : c
     );
@@ -217,24 +256,24 @@ export const useChallengeStore = create<ChallengeStore>((set, get) => ({
     const newStats = {
       ...userStats,
       totalXp: userStats.totalXp + challenge.rewardXp,
-      coinsEarned: userStats.coinsEarned + challenge.rewardCoins,
+      coinsEarned: userStats.coinsEarned + awardedCoins,
       challengesCompleted: userStats.challengesCompleted + 1,
       level: getLevelFromXp(userStats.totalXp + challenge.rewardXp),
     };
 
     set({ challenges: updated, userStats: newStats });
-    toast.success(`Reward claimed! +${challenge.rewardCoins} coins, +${challenge.rewardXp} XP`);
+    toast.success(`Reward claimed! +${awardedCoins} coins, +${challenge.rewardXp} XP`);
 
+    // Persist only non-privileged progress fields (coins are server-owned).
     if (isFirestoreAvailable()) {
       try {
         await updateDocById(COLLECTIONS.USERS, userId, {
           totalXp: newStats.totalXp,
-          coins: newStats.coinsEarned,
           level: newStats.level,
           challengesCompleted: newStats.challengesCompleted,
         });
       } catch (err) {
-        console.error('claimReward error:', err);
+        console.error('claimReward progress persist error:', err);
       }
     }
   },
@@ -253,31 +292,46 @@ export const useChallengeStore = create<ChallengeStore>((set, get) => ({
     const isStreak = lastCheck && new Date(lastCheck.getFullYear(), lastCheck.getMonth(), lastCheck.getDate()).getTime() === yesterday.getTime();
     const newStreak = isStreak ? userStats.dailyStreak + 1 : 1;
 
-    // Streak bonus
-    const streakBonus = newStreak >= 7 ? 100 : newStreak >= 3 ? 50 : 20;
+    // Streak bonus (client-side XP is cosmetic; coins are server-authoritative).
     const xpBonus = newStreak >= 7 ? 200 : newStreak >= 3 ? 100 : 50;
+
+    // SECURITY: the server computes the streak, credits coins to the wallet and
+    // updates users.streak_days. The client must not write those columns.
+    let serverStreak = newStreak;
+    let serverCoins = newStreak >= 7 ? 100 : newStreak >= 3 ? 50 : 20;
+    let serverXp = xpBonus;
+    if (isFirestoreAvailable()) {
+      try {
+        const res = await claimDailyCheckinRpc(userId);
+        serverStreak = res.streak ?? newStreak;
+        serverCoins = res.coins ?? serverCoins;
+        serverXp = res.xp ?? xpBonus;
+      } catch (err) {
+        console.error('checkInDaily error:', err);
+        toast.error('Could not check in. Please try again.');
+        return;
+      }
+    }
 
     const newStats = {
       ...userStats,
-      dailyStreak: newStreak,
+      dailyStreak: serverStreak,
       lastCheckIn: now,
-      totalXp: userStats.totalXp + xpBonus,
-      coinsEarned: userStats.coinsEarned + streakBonus,
+      totalXp: userStats.totalXp + serverXp,
+      coinsEarned: userStats.coinsEarned + serverCoins,
     };
 
     set({ userStats: newStats });
-    toast.success(`Daily check-in! Streak: ${newStreak} days 🔥 +${streakBonus} coins, +${xpBonus} XP`);
+    toast.success(`Daily check-in! Streak: ${serverStreak} days 🔥 +${serverCoins} coins, +${serverXp} XP`);
 
+    // Persist only non-privileged progress fields (streak/coins are server-owned).
     if (isFirestoreAvailable()) {
       try {
         await updateDocById(COLLECTIONS.USERS, userId, {
-          dailyStreak: newStreak,
-          lastCheckIn: now.toISOString(),
           totalXp: newStats.totalXp,
-          coins: newStats.coinsEarned,
         });
       } catch (err) {
-        console.error('checkInDaily error:', err);
+        console.error('checkInDaily progress persist error:', err);
       }
     }
   },

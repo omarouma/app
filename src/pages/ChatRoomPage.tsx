@@ -12,7 +12,7 @@ export default function ChatRoomPage() {
 
   if (!normalizedUserId) {
     return (
-      <div className="h-dvh bg-white flex items-center justify-center px-6">
+      <div className="h-dvh bg-card flex items-center justify-center px-6">
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -28,7 +28,7 @@ export default function ChatRoomPage() {
           <button
             type="button"
             onClick={() => navigate('/chats')}
-            className="mt-4 px-4 py-2 bg-[#00C300] text-white rounded-xl text-sm font-medium hover:bg-[#00A800] transition-colors"
+            className="mt-4 px-4 py-2 bg-primary text-primary-foreground rounded-xl text-sm font-medium hover:bg-primary/90 transition-colors"
           >
             Go to Chats
           </button>

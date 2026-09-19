@@ -1,29 +1,79 @@
+<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-label="GaGa Chat">
   <defs>
-    <linearGradient id="fgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#00FF66"/>
-      <stop offset="55%" stop-color="#00C300"/>
+    <!-- Brand background gradient -->
+    <linearGradient id="gagaBg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00E676"/>
+      <stop offset="48%" stop-color="#00C300"/>
       <stop offset="100%" stop-color="#008A00"/>
     </linearGradient>
-    <linearGradient id="fgBub" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#00FF66"/>
+
+    <!-- Front bubble gradient -->
+    <linearGradient id="gagaBubble" x1="15%" y1="0%" x2="85%" y2="100%">
+      <stop offset="0%" stop-color="#00FF7A"/>
       <stop offset="55%" stop-color="#00C300"/>
-      <stop offset="100%" stop-color="#00A300"/>
+      <stop offset="100%" stop-color="#009A00"/>
     </linearGradient>
+
+    <!-- Soft top-left sheen -->
+    <radialGradient id="gagaSheen" cx="26%" cy="18%" r="72%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.32"/>
+      <stop offset="55%" stop-color="#ffffff" stop-opacity="0.07"/>
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- Drop shadow for the front bubble -->
+    <filter id="gagaShadow" x="-25%" y="-25%" width="150%" height="150%">
+      <feDropShadow dx="0" dy="12" stdDeviation="16" flood-color="#003D00" flood-opacity="0.30"/>
+    </filter>
   </defs>
-  <rect x="12" y="12" width="488" height="488" rx="120" fill="url(#fgGrad)"/>
-  <ellipse cx="170" cy="110" rx="230" ry="130" fill="#ffffff" opacity="0.14"/>
+
+  <!-- Rounded-square brand background -->
+  <rect x="16" y="16" width="480" height="480" rx="116" fill="url(#gagaBg)"/>
+  <rect x="16" y="16" width="480" height="480" rx="116" fill="url(#gagaSheen)"/>
+
+  <!-- Back bubble (second "Ga") — clean rounded speech bubble, top-right -->
   <path
-    d="M256 112 C 168 112 104 168 104 244 C 104 306 148 356 222 368 L 222 404 L 268 372 C 276 373 284 373 292 373 C 366 373 408 338 408 244 C 408 168 344 112 256 112 Z"
-    fill="#ffffff"
-  />
+    d="M340 132
+       C 396 132 438 172 438 224
+       C 438 276 396 316 340 316
+       L 340 348 L 306 316
+       C 306 316 306 316 306 316
+       C 306 316 306 316 306 316
+       Z"
+    fill="#ffffff" opacity="0.28"/>
+
+  <!-- Front bubble (primary "Ga") — clean rounded speech bubble -->
+  <g filter="url(#gagaShadow)">
+    <path
+      d="M232 128
+         C 140 128 72 190 72 268
+         C 72 346 140 408 232 408
+         C 246 408 260 407 273 404
+         L 320 440 L 320 396
+         C 372 372 392 326 392 268
+         C 392 190 324 128 232 128 Z"
+      fill="#ffffff"/>
+  </g>
+
+  <!-- Inner gradient bubble -->
   <path
-    d="M256 150 C 190 150 144 190 144 244 C 144 290 176 322 226 332 L 226 356 L 258 334 C 264 335 270 335 276 335 C 326 335 356 310 356 244 C 356 190 322 150 256 150 Z"
-    fill="url(#fgBub)"
-  />
+    d="M232 162
+       C 158 162 106 210 106 268
+       C 106 326 158 374 232 374
+       C 244 374 256 373 267 370
+       L 300 392 L 300 360
+       C 340 342 358 308 358 268
+       C 358 210 306 162 232 162 Z"
+    fill="url(#gagaBubble)"/>
+
+  <!-- Bold white "G" monogram (stroke-based, centered in bubble) -->
   <path
-    d="M 232 196 C 214 196 202 212 202 236 C 202 262 214 278 234 278 C 250 278 262 268 265 250 L 250 250 L 250 238 L 268 238 L 268 262 C 268 284 254 296 234 296 C 206 296 188 276 188 236 C 188 198 206 178 232 178 C 256 178 276 192 280 214 L 266 214 C 262 202 249 196 232 196 Z"
-    fill="#ffffff"
-  />
-  <circle cx="330" cy="180" r="14" fill="#00FF66" opacity="0.9"/>
+    d="M 277 223 A 64 64 0 1 0 277 313 L 277 268 L 238 268"
+    fill="none" stroke="#ffffff" stroke-width="30"
+    stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- Accent spark (call/video dot) -->
+  <circle cx="368" cy="150" r="20" fill="#00FF7A"/>
+  <circle cx="368" cy="150" r="20" fill="#ffffff" opacity="0.22"/>
 </svg>

@@ -5,8 +5,8 @@
  */
 import { createClient, AuthRetryableFetchError } from '@supabase/supabase-js';
 
-const SUPABASE_URL = 'https://alzwgikndwbecuqmlrca.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFsendnaWtuZHdiZWN1cW1scmNhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU3Nzc0OTcsImV4cCI6MjEwMTM1MzQ5N30.4QI10WfQYvenslEFNTon3HbRbP1dZVDqas9zSz-zB7w';
+const SUPABASE_URL = 'https://fcjgbbmfqdkucfpqjxae.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZjamdiYm1mcWRrdWNmcHFqeGFlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODcyNTYyOTAsImV4cCI6MjEwMjgzMjI5MH0.aB0eNNa9O8Kzg6dXJoF-ccJhXzz0t0bRchO6j6rupMs';
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 

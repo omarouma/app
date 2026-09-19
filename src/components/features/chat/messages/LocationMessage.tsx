@@ -35,8 +35,8 @@ export const LocationMessage = memo(function LocationMessage(props: LocationMess
   if (!coords) {
     return (
       <div className="flex items-center gap-2 bg-black/10 rounded-xl px-3 py-2 mb-1 max-w-full">
-        <MapPin size={18} className="text-[#FF3B30] shrink-0" />
-        <span className={`text-sm ${isMe ? 'text-white/80' : 'text-[#8D8D8D]'}`}>Location unavailable</span>
+        <MapPin size={18} className="text-destructive shrink-0" />
+        <span className={`text-sm ${isMe ? 'text-white/80' : 'text-muted-foreground'}`}>Location unavailable</span>
       </div>
     );
   }
@@ -76,24 +76,24 @@ export const LocationMessage = memo(function LocationMessage(props: LocationMess
           onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
         />
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-          <MapPin size={28} className="text-[#FF3B30] drop-shadow-lg -translate-y-2" fill="#FF3B30" />
+          <MapPin size={28} className="text-destructive drop-shadow-lg -translate-y-2" fill="#FF3B30" />
         </div>
       </a>
 
       {/* Footer: coordinates + actions */}
       <div className="flex items-center gap-2 px-3 py-2">
         <div className="flex-1 min-w-0">
-          <p className={`text-xs font-semibold truncate ${isMe ? 'text-white' : 'text-[#111111]'}`}>
+          <p className={`text-xs font-semibold truncate ${isMe ? 'text-white' : 'text-foreground'}`}>
             Shared Location
           </p>
-          <p className={`text-[11px] truncate ${isMe ? 'text-white/75' : 'text-[#8D8D8D]'}`}>
+          <p className={`text-[11px] truncate ${isMe ? 'text-white/75' : 'text-muted-foreground'}`}>
             {coordLabel}
           </p>
         </div>
         <button
           type="button"
           onClick={copyCoords}
-          className={`p-1.5 rounded-full transition-colors ${isMe ? 'hover:bg-white/15 text-white/85' : 'hover:bg-black/10 text-[#666]'}`}
+          className={`p-1.5 rounded-full transition-colors ${isMe ? 'hover:bg-white/15 text-white/85' : 'hover:bg-black/10 text-muted-foreground'}`}
           aria-label="Copy coordinates"
         >
           <Copy size={14} />
@@ -103,7 +103,7 @@ export const LocationMessage = memo(function LocationMessage(props: LocationMess
           target="_blank"
           rel="noopener noreferrer"
           onClick={(e) => e.stopPropagation()}
-          className={`p-1.5 rounded-full transition-colors ${isMe ? 'hover:bg-white/15 text-white' : 'hover:bg-black/10 text-[#07C160]'}`}
+          className={`p-1.5 rounded-full transition-colors ${isMe ? 'hover:bg-white/15 text-white' : 'hover:bg-black/10 text-primary'}`}
           aria-label="Navigate to location"
         >
           <Navigation size={14} />
