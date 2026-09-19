@@ -36,7 +36,7 @@ export default function TermsPage() {
             { title: '7. Termination', text: 'We may terminate your account for violations, with or without notice. You may delete your account anytime via settings. Upon termination, your service access ends immediately.' },
             { title: '8. Limitation of Liability', text: 'GaGa Chat is provided "as is". To the maximum extent under applicable law, we are not liable for indirect damages. Total liability is capped at ৳1,000 or fees paid in the last 12 months.' },
             { title: '9. Dispute Resolution', text: 'Disputes shall first be resolved amicably. If unresolved, arbitration under applicable arbitration laws in the jurisdiction of the user applies. Both parties submit to the courts of their respective jurisdiction.' },
-            { title: '10. Contact', text: 'Email: legal@gagachat.app | Address: GaGa Chat Global HQ | Support: 24/7 in-app chat' },
+            { title: '10. Contact', text: 'Email: admin@gagachat.app | Legal: legal@gagachat.app | Address: GaGa Chat Global HQ | Support: 24/7 in-app chat' },
           ].map((section) => (
             <div key={section.title} className="pb-4 border-b border-[#EBEBEB] last:border-0 last:pb-0">
               <h3 className="text-[#111111] font-medium text-sm mb-1">{section.title}</h3>

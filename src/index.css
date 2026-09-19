@@ -75,6 +75,36 @@
     }
   }
 
+  /* Midnight theme — deep blue-tinted dark palette (distinct from plain Dark) */
+  .dark.theme-midnight {
+    --background: 222 47% 7%;
+    --foreground: 210 40% 96%;
+    --card: 222 40% 10%;
+    --card-foreground: 210 40% 96%;
+    --popover: 222 40% 10%;
+    --popover-foreground: 210 40% 96%;
+    --secondary: 222 32% 16%;
+    --secondary-foreground: 210 40% 96%;
+    --muted: 222 32% 16%;
+    --muted-foreground: 215 20% 62%;
+    --accent: 222 32% 18%;
+    --accent-foreground: 210 40% 96%;
+    --border: 222 30% 20%;
+    --input: 222 30% 20%;
+  }
+
+  /* OLED theme — true black for OLED displays */
+  .dark.theme-oled {
+    --background: 0 0% 0%;
+    --card: 0 0% 0%;
+    --popover: 0 0% 0%;
+    --secondary: 0 0% 8%;
+    --muted: 0 0% 8%;
+    --accent: 0 0% 10%;
+    --border: 0 0% 12%;
+    --input: 0 0% 12%;
+  }
+
   html {
     scroll-behavior: smooth;
     -webkit-font-smoothing: antialiased;

@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
-import { MessageCircle, Globe, Shield, Zap } from 'lucide-react';
+import { MessageCircle, Globe, Shield, Zap, Mail } from 'lucide-react';
 import Logo from '@/components/Logo';
+import { CONTACT, mailto } from '@/lib/contact';
 
 const footerLinks = [
   {
@@ -32,7 +33,8 @@ const footerLinks = [
       { label: 'Help Center', to: '/help' },
       { label: 'Community Guidelines', to: '/community-guidelines' },
       { label: 'Cookie Policy', to: '/cookies' },
-      { label: 'Report a Problem', href: '/#security' },
+      { label: 'Contact Support', href: mailto('admin', 'GaGa Chat Support Request') },
+      { label: 'Report a Problem', href: mailto('abuse', 'Report a Problem') },
     ],
   },
   {
@@ -99,7 +101,10 @@ export default function Footer() {
             &copy; {currentYear} GaGa Chat. All rights reserved. GaGa Chat is a free messaging app available in Bangladesh &amp; globally.
           </p>
           <div className="flex items-center gap-4">
-            <span className="text-[#8D8D8D] text-xs">Made with care for Bangladesh &amp; the world</span>
+            <a href={mailto('admin')} className="flex items-center gap-1.5 text-[#8D8D8D] hover:text-[#00C300] text-xs transition-colors">
+              <Mail size={13} /> {CONTACT.admin}
+            </a>
+            <span className="text-[#8D8D8D] text-xs hidden sm:inline">Made with care for Bangladesh &amp; the world</span>
           </div>
         </div>
       </div>

@@ -13,18 +13,15 @@ import { useScheduledMessages } from '@/hooks/useScheduledMessages';
 import type { Message, User } from '@/types';
 import { toast } from 'sonner';
 import { copyToClipboard } from '@/lib/share';
+import { formatDateSeparator as formatDateSeparatorUtil } from '@/lib/timeUtils';
 import { GroupChatHeader } from '@/components/features/chat/GroupChatHeader';
 import { GroupChatMessageList } from '@/components/features/chat/GroupChatMessageList';
 import { GroupChatInput } from '@/components/features/chat/GroupChatInput';
 
 function formatDateSeparator(date: Date) {
-    const now = new Date();
     const d = new Date(date);
     if (Number.isNaN(d.getTime())) return '';
-    if (d.toDateString() === now.toDateString()) return 'Today';
-    const yesterday = new Date(now); yesterday.setDate(yesterday.getDate() - 1);
-    if (d.toDateString() === yesterday.toDateString()) return 'Yesterday';
-    return d.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
+    return formatDateSeparatorUtil(d);
 }
 
 export default function GroupChatPage() {

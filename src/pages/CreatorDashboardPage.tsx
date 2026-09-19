@@ -14,6 +14,7 @@ import { useEnhancedTimelineStore } from '@/store/useEnhancedTimelineStore';
 import { usePremiumStore } from '@/store/usePremiumStore';
 import { useReelStore } from '@/store/useReelStore';
 import { queryCollection, COLLECTIONS, where, orderBy, isFirestoreAvailable } from '@/lib/firestore';
+import { formatDateBySettings, getActiveRegionSettings } from '@/lib/regionUtils';
 import type { TimelinePost, CreatorAnalytics, Reel } from '@/types';
 import {
   Line, AreaChart, Area, XAxis, YAxis, CartesianGrid,
@@ -67,7 +68,7 @@ function formatNumber(n: number): string {
 
 function formatDateLabel(dateStr: string): string {
   const d = new Date(dateStr);
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  return formatDateBySettings(d, getActiveRegionSettings(), { month: 'short', day: 'numeric' });
 }
 
 function mapPostFromDoc(d: Record<string, unknown>): TimelinePost {
@@ -557,7 +558,7 @@ const followerCount = useMemo(() => user?.followers?.length || 0, [user]);
               <Wallet size={16} style={{ color: '#FF9800' }} />
               Earnings Overview
             </h2>
-            <button onClick={() => goTo('/wallet')} className="text-xs flex items-center gap-1 hover:underline" style={{ color: '#00C300' }}>
+            <button type="button" onClick={() => goTo('/wallet')} className="text-xs flex items-center gap-1 hover:underline" style={{ color: '#00C300' }}>
               View Wallet <ArrowRight size={12} />
             </button>
           </div>
@@ -742,7 +743,7 @@ const followerCount = useMemo(() => user?.followers?.length || 0, [user]);
               <span className="text-[10px]" style={{ color: '#666' }}>
                 {topPosts.length} posts
               </span>
-              <button onClick={() => goTo('/timeline')} className="text-xs flex items-center gap-1 hover:underline" style={{ color: '#00C300' }}>
+              <button type="button" onClick={() => goTo('/timeline')} className="text-xs flex items-center gap-1 hover:underline" style={{ color: '#00C300' }}>
                 View All <ArrowRight size={12} />
               </button>
             </div>
@@ -786,7 +787,7 @@ const followerCount = useMemo(() => user?.followers?.length || 0, [user]);
                 <Play size={16} style={{ color: '#FF4081' }} />
                 Reels Performance
               </h2>
-              <button onClick={() => goTo('/reels')} className="text-xs flex items-center gap-1 hover:underline" style={{ color: '#00C300' }}>
+              <button type="button" onClick={() => goTo('/reels')} className="text-xs flex items-center gap-1 hover:underline" style={{ color: '#00C300' }}>
                 View All <ArrowRight size={12} />
               </button>
             </div>

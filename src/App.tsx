@@ -10,17 +10,20 @@ import { useChatStore } from '@/store/useChatStore';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { usePageTracking, useEngagementTracking } from '@/hooks/useFirebaseAnalytics';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
+import { configureNativeShell, initNativePush, setNativeNavigator, setNativeUser } from '@/lib/nativePlatform';
 import { useGATracking } from '@/hooks/useGATracking';
 import { useForegroundNotifications } from '@/hooks/useForegroundNotifications';
 import { useIncomingCallNotifications } from '@/hooks/useIncomingCallNotifications';
 import { useMessageNotifications } from '@/hooks/useMessageNotifications';
 import { useTrackPresence } from '@/hooks/usePresence';
+import { useRegionSettingsSync } from '@/hooks/useRegionSettings';
 import { MessageCircle, Phone, Users, Flame, Settings } from 'lucide-react';
 import { Toaster } from '@/components/ui/sonner';
 import { CallProvider } from '@/context/CallContext';
 import { VoicePlayerProvider } from '@/context/VoicePlayerContext';
 import CallOverlay from '@/components/calling/CallOverlay';
 import PWAPrompt from '@/components/PWAPrompt';
+import NetworkStatusBanner from '@/components/NetworkStatusBanner';
 import Logo from '@/components/Logo';
 import { toast } from 'sonner';
 import { getDefaultAvatar, sanitizeMediaUrl } from '@/lib/utils';
@@ -230,11 +233,77 @@ const MOBILE_PROTECTED_ROUTE_PATHS: string[] = [
   '/events', '/marketplace', '/bookmarks', '/hashtags', '/analytics', '/search',
   '/broadcast-lists', '/create-reel', '/creators', '/voice-rooms', '/voice-room/:roomId',
   '/challenges', '/ai-chat', '/live-streams', '/live/:streamId', '/creator-dashboard',
-  '/post/:postId',
+  '/post/:postId', '/privacy-settings', '/group-info/:groupId',
 ];
 
-function getMobileRouteElement(path: string) {
-  switch (path) {
+// ── Centralized per-route document titles (SEO + browser tab UX) ──
+// Applied once in AppContent so every page gets a meaningful <title> without
+// each page needing to import useDocumentTitle individually.
+const ROUTE_TITLES: Array<[string, string]> = [
+  ['/chats', 'Chats'],
+  ['/chat/', 'Chat'],
+  ['/group/', 'Group Chat'],
+  ['/create-group', 'New Group'],
+  ['/calls', 'Calls'],
+  ['/call', 'Call'],
+  ['/contacts', 'People'],
+  ['/timeline', 'Feed'],
+  ['/profile', 'Profile'],
+  ['/settings', 'Settings'],
+  ['/notifications', 'Notifications'],
+  ['/qr-scanner', 'QR Code'],
+  ['/wallet', 'Wallet'],
+  ['/rewards', 'Gaga Rewards'],
+  ['/add-friends', 'Add Friends'],
+  ['/sent-requests', 'Sent Requests'],
+  ['/blocked-users', 'Blocked Users'],
+  ['/chat-info/', 'Chat Info'],
+  ['/group-info/', 'Group Info'],
+  ['/saved-messages', 'Saved Messages'],
+  ['/premium', 'Premium'],
+  ['/reels', 'Reels'],
+  ['/create-reel', 'Create Reel'],
+  ['/more', 'More'],
+  ['/share', 'Share'],
+  ['/events', 'Events'],
+  ['/marketplace', 'Marketplace'],
+  ['/bookmarks', 'Bookmarks'],
+  ['/hashtags', 'Hashtags'],
+  ['/analytics', 'Analytics'],
+  ['/search', 'Search'],
+  ['/post/', 'Post'],
+  ['/help', 'Help Center'],
+  ['/broadcast-lists', 'Broadcast Lists'],
+  ['/creators', 'Creator Center'],
+  ['/creator-dashboard', 'Creator Dashboard'],
+  ['/voice-rooms', 'Voice Rooms'],
+  ['/voice-room/', 'Voice Room'],
+  ['/challenges', 'Daily Challenges'],
+  ['/ai-chat', 'GaGa AI'],
+  ['/live-streams', 'Live Streams'],
+  ['/live/', 'Live'],
+  ['/privacy-settings', 'Privacy'],
+  ['/privacy', 'Privacy Policy'],
+  ['/terms', 'Terms of Service'],
+  ['/cookies', 'Cookie Policy'],
+  ['/community-guidelines', 'Community Guidelines'],
+  ['/about', 'About'],
+  ['/blog', 'Blog'],
+  ['/careers', 'Careers'],
+  ['/admin', 'Admin'],
+  ['/onboarding', 'Welcome'],
+  ['/auth', 'Sign In'],
+];
+
+function useRouteDocumentTitle(pathname: string) {
+  useEffect(() => {
+    const match = ROUTE_TITLES.find(([prefix]) => pathname === prefix || pathname.startsWith(prefix));
+    const page = match ? match[1] : 'GaGa Chat';
+    document.title = `${page} | GaGa Chat`;
+  }, [pathname]);
+}
+
+function getMobileRouteElement(path: string) {  switch (path) {
     case '/chats': return <ErrorBoundary key="chats"><ChatsPage /></ErrorBoundary>;
     case '/chat/:userId': return <ErrorBoundary key="chat"><ChatRoomPage /></ErrorBoundary>;
     case '/group/:groupId': return <ErrorBoundary key="group"><GroupChatPage /></ErrorBoundary>;
@@ -256,6 +325,7 @@ function getMobileRouteElement(path: string) {
     case '/sent-requests': return <ErrorBoundary key="sent-requests"><SentRequestsPage /></ErrorBoundary>;
     case '/blocked-users': return <ErrorBoundary key="blocked-users"><BlockedUsersPage /></ErrorBoundary>;
     case '/chat-info/:chatId': return <ErrorBoundary key="chat-info"><ChatInfoPage /></ErrorBoundary>;
+    case '/group-info/:groupId': return <ErrorBoundary key="group-info"><ChatInfoPage /></ErrorBoundary>;
     case '/saved-messages': return <ErrorBoundary key="saved-messages"><SavedMessagesPage /></ErrorBoundary>;
     case '/premium': return <ErrorBoundary key="premium"><PremiumPage /></ErrorBoundary>;
     case '/reels': return <ErrorBoundary key="reels"><ReelsPage /></ErrorBoundary>;
@@ -277,6 +347,7 @@ function getMobileRouteElement(path: string) {
     case '/ai-chat': return <ErrorBoundary key="ai-chat"><AIChatPage /></ErrorBoundary>;
     case '/live-streams': return <ErrorBoundary key="live-streams"><LiveStreamsPage /></ErrorBoundary>;
     case '/creator-dashboard': return <ErrorBoundary key="creator-dashboard"><CreatorDashboardPage /></ErrorBoundary>;
+    case '/privacy-settings': return <ErrorBoundary key="privacy-settings"><PrivacyPage /></ErrorBoundary>;
     default: return <NotFound />;
   }
 }
@@ -414,6 +485,9 @@ function AppContent() {
   const didOnboardingRedirectRef = useRef(false);
   const navigate = useNavigate();
 
+  // Keep language + region formatting in sync with the persisted settings.
+  useRegionSettingsSync();
+
   useEffect(() => {
     const publicSeo: Record<string, { title: string; description: string }> = {
       '/': {
@@ -456,6 +530,7 @@ function AppContent() {
   usePageTracking();
   useEngagementTracking();
   useGATracking();
+  useRouteDocumentTitle(location.pathname);
   usePushNotifications();
   useForegroundNotifications();
   useIncomingCallNotifications();  // NEW: Handle incoming call notifications & sounds
@@ -499,6 +574,19 @@ function AppContent() {
 
   useTrackPresence(user?.id);
 
+  // ── Native (Capacitor) shell: status bar, splash, back button, deep links ──
+  useEffect(() => {
+    void configureNativeShell();
+    setNativeNavigator((path) => navigate(path));
+    return () => setNativeNavigator(null);
+  }, [navigate]);
+
+  // ── Native push: register FCM token with Supabase once the user is known ──
+  useEffect(() => {
+    void setNativeUser(user?.id ?? null);
+    if (user?.id) void initNativePush(user.id);
+  }, [user?.id]);
+
   useEffect(() => { initAudioOnInteraction(); }, []);
 
   // Start the global offline-queue flusher (singleton, idempotent)
@@ -541,7 +629,7 @@ function AppContent() {
           <Route path="/about" element={<AboutPage />} />
           <Route path="/blog" element={<BlogPage />} />
           <Route path="/careers" element={<CareersPage />} />
-          <Route path="/privacy" element={isMobile ? <PrivacyPage /> : <PrivacyView />} />
+          <Route path="/privacy" element={<PrivacyView />} />
           <Route path="/terms" element={isMobile ? <TermsPage /> : <TermsView />} />
           <Route path="/help" element={<HelpCenterPage />} />
           <Route path="/onboarding" element={
@@ -600,6 +688,8 @@ function AppContent() {
                         <Route path="share" element={<ShareTargetPage />} />
                         <Route path="settings" element={<SettingsPage />} />
                         <Route path="chat-info/:chatId" element={<ChatInfoPage />} />
+                        <Route path="group-info/:groupId" element={<ChatInfoPage />} />
+                        <Route path="privacy-settings" element={<PrivacyPage />} />
                         <Route path="saved-messages" element={<SavedMessagesPage />} />
                         <Route path="premium" element={<PremiumPage />} />
                         <Route path="events" element={<EventsPage />} />
@@ -637,6 +727,7 @@ function AppContent() {
 
       {showBottomNav && <BottomNav />}
       <ScrollToTop />
+      <NetworkStatusBanner />
       <CallOverlay />
       <PWAPrompt />
       <Toaster position="top-center" />

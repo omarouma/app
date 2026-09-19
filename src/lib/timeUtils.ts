@@ -1,4 +1,11 @@
 // Pure time/date utility functions — no external dependencies
+import {
+  getActiveRegionSettings,
+  formatTimeOfDay,
+  formatDateBySettings,
+  getTimezoneLabel,
+} from '@/lib/regionUtils';
+
 export function toDate(date: string | Date | null | undefined): Date | null {
   if (!date) return null;
   return typeof date === 'string' ? new Date(date) : date;
@@ -23,6 +30,11 @@ export function toDateFromDb(raw: unknown): Date {
   return new Date();
 }
 
+/**
+ * Format a timestamp for chat lists. Uses the user's language + region for the
+ * clock/date conventions instead of the browser default. An explicit `locale`
+ * argument still wins when provided (kept for backwards compatibility).
+ */
 export function formatTime(date: string | Date | null | undefined, locale?: string): string {
   const d = toDate(date);
   if (!d || isNaN(d.getTime())) return '';
@@ -31,8 +43,13 @@ export function formatTime(date: string | Date | null | undefined, locale?: stri
   const diff = now.getTime() - d.getTime();
   const oneDay = 24 * 60 * 60 * 1000;
 
+  const settings = getActiveRegionSettings();
+
   if (diff < oneDay && d.getDate() === now.getDate()) {
-    return d.toLocaleTimeString(locale ?? [], { hour: '2-digit', minute: '2-digit' });
+    if (locale) {
+      return d.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
+    }
+    return formatTimeOfDay(d, settings);
   }
 
   const yesterday = new Date(now);
@@ -46,12 +63,16 @@ export function formatTime(date: string | Date | null | undefined, locale?: stri
   }
 
   if (d.getFullYear() === now.getFullYear()) {
-    return d.toLocaleDateString(locale ?? [], { month: 'short', day: 'numeric' });
+    return formatDateBySettings(d, settings, { month: 'short', day: 'numeric' });
   }
 
-  return d.toLocaleDateString(locale ?? [], { year: 'numeric', month: 'short', day: 'numeric' });
+  return formatDateBySettings(d, settings, { year: 'numeric', month: 'short', day: 'numeric' });
 }
 
+/**
+ * Format a date separator shown between message groups ("Today", "Yesterday",
+ * or a localised full date). Previously hard-coded to 'en-US'.
+ */
 export function formatDateSeparator(date: Date): string {
   const now = new Date();
   const d = new Date(date);
@@ -59,9 +80,14 @@ export function formatDateSeparator(date: Date): string {
   const yesterday = new Date(now);
   yesterday.setDate(yesterday.getDate() - 1);
   if (d.toDateString() === yesterday.toDateString()) return 'Yesterday';
-  return d.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
+  const settings = getActiveRegionSettings();
+  return formatDateBySettings(d, settings, { weekday: 'long', month: 'short', day: 'numeric' });
 }
 
+/**
+ * Relative "last seen" string. Falls back to a region-aware absolute time for
+ * anything older than a week.
+ */
 export function formatLastSeen(date: string | Date | null | undefined): string {
   const d = toDate(date);
   if (!d) return 'a while ago';
@@ -86,4 +112,16 @@ export function formatLastSeen(date: string | Date | null | undefined): string {
     return `${days} day${days > 1 ? 's' : ''} ago`;
   }
   return formatTime(date);
+}
+
+/**
+ * Full, region-aware timestamp including the timezone label when the user has
+ * enabled it in Language & Region settings.
+ */
+export function formatFullTimestamp(date: string | Date | null | undefined): string {
+  const d = toDate(date);
+  if (!d || isNaN(d.getTime())) return '';
+  const settings = getActiveRegionSettings();
+  const base = `${formatDateBySettings(d, settings, { year: 'numeric', month: 'short', day: 'numeric' })} · ${formatTimeOfDay(d, settings)}`;
+  return settings.showTimezone ? `${base} (${getTimezoneLabel(d)})` : base;
 }

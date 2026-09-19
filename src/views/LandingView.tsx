@@ -667,7 +667,7 @@ export default function LandingView() {
                   </div>
                   <div className="flex items-center justify-between text-xs text-[#8D8D8D] mt-1">
                     <span>Version</span>
-                    <span className="font-medium text-[#111111]">2.0.0</span>
+                    <span className="font-medium text-[#111111]">{typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '1.0.0'}</span>
                   </div>
                   <div className="flex items-center justify-between text-xs text-[#8D8D8D] mt-1">
                     <span>Rating</span>

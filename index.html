@@ -7,8 +7,8 @@
   <!-- Performance: early connection hints for required third-party origins.
        These let the browser warm up DNS/TLS while the HTML is still parsing,
        cutting hundreds of ms off first API/analytics calls on mobile. -->
-  <link rel="preconnect" href="https://alzwgikndwbecuqmlrca.supabase.co" crossorigin />
-  <link rel="dns-prefetch" href="https://alzwgikndwbecuqmlrca.supabase.co" />
+  <link rel="preconnect" href="https://fcjgbbmfqdkucfpqjxae.supabase.co" crossorigin />
+  <link rel="dns-prefetch" href="https://fcjgbbmfqdkucfpqjxae.supabase.co" />
   <link rel="preconnect" href="https://www.googletagmanager.com" />
   <link rel="dns-prefetch" href="https://www.googletagmanager.com" />
   <link rel="preconnect" href="https://pagead2.googlesyndication.com" />
@@ -75,6 +75,10 @@
   <!-- Alternate Languages for Bangladesh -->
   <link rel="alternate" hreflang="en" href="https://gagachat.app/" />
   <link rel="alternate" hreflang="bn" href="https://gagachat.app/" />
+  <link rel="alternate" hreflang="es" href="https://gagachat.app/" />
+  <link rel="alternate" hreflang="fr" href="https://gagachat.app/" />
+  <link rel="alternate" hreflang="ar" href="https://gagachat.app/" />
+  <link rel="alternate" hreflang="zh" href="https://gagachat.app/" />
   <link rel="alternate" hreflang="x-default" href="https://gagachat.app/" />
 
   <!-- Open Graph -->
@@ -85,11 +89,12 @@
   <meta property="og:description"
     content="GaGa Chat is a free global messaging app with HD voice & video calls, group chat, live streaming, reels, marketplace, and Gaga Coins. Secure, no VPN needed, works everywhere in Bangladesh and globally!" />
   <meta property="og:url" content="https://gagachat.app/" />
-  <meta property="og:image" content="https://gagachat.app/logo-512.png" />
-  <meta property="og:image:width" content="512" />
-  <meta property="og:image:height" content="512" />
+  <meta property="og:image" content="https://gagachat.app/og-image.png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
   <meta property="og:image:alt" content="GaGa Chat - A Global Free Messaging App" />
   <meta property="og:locale" content="en_US" />
+  <meta property="og:locale:alternate" content="bn_BD" />
 
   <!-- Twitter Card -->
   <meta name="twitter:card" content="summary_large_image" />
@@ -97,8 +102,10 @@
     content="GaGa Chat - Free Global Messaging, HD Voice & Video Calls, Earn Gaga Coins | GaGaChat" />
   <meta name="twitter:description"
     content="GaGa Chat is a free global messaging app with HD voice & video calls, group chat, live streaming, reels, marketplace, and Gaga Coins. Secure, no VPN needed, works everywhere in Bangladesh and globally!" />
-  <meta name="twitter:image" content="https://gagachat.app/logo-512.png" />
+  <meta name="twitter:image" content="https://gagachat.app/og-image.png" />
   <meta name="twitter:image:alt" content="GaGa Chat App Logo" />
+  <meta name="twitter:site" content="@gagachat" />
+  <meta name="twitter:creator" content="@gagachat" />
 
   <!-- Windows PWA -->
   <meta name="msapplication-TileColor" content="#00C300" />
@@ -193,9 +200,11 @@
         "logo": "https://gagachat.app/logo-192.png",
         "description": "A global free messaging app with HD voice & video calls, instant messaging, and Gaga Coins. Best chatting app in Bangladesh.",
         "sameAs": ["https://gagachat.app"],
+        "email": "admin@gagachat.app",
         "contactPoint": {
           "@type": "ContactPoint",
           "contactType": "customer support",
+          "email": "admin@gagachat.app",
           "availableLanguage": ["English", "Bengali"]
         }
       }
@@ -232,6 +241,46 @@
       }
     </script>
   <!-- End JSON-LD Structured Data -->
+  <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "FAQPage",
+        "mainEntity": [
+          {
+            "@type": "Question",
+            "name": "Is GaGa Chat free to use?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Yes. GaGa Chat is completely free for messaging, HD voice calls and video calls. Optional premium features and Gaga Coins are available for power users and creators."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "Does GaGa Chat work worldwide without a VPN?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Yes. GaGa Chat is built for global use and works in Bangladesh and worldwide without a VPN."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "How do I contact GaGa Chat support?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "You can reach our support team any time at admin@gagachat.app or through the in-app Help Center."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "What features does GaGa Chat include?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "GaGa Chat includes instant messaging, group chat, HD voice and video calls, live streaming, reels, voice rooms, a marketplace, events, a built-in wallet with Gaga Coins, and creator monetization tools."
+            }
+          }
+        ]
+      }
+    </script>
   <script>
     // Lock screen orientation to portrait mode on supported devices.
     // Fail silently on unsupported browsers or desktop environments.

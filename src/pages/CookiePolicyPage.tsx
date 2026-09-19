@@ -34,7 +34,7 @@ export default function CookiePolicyPage() {
             { title: '5. Managing Cookies', text: 'You can control cookies through your browser settings. Note that disabling essential cookies may prevent GaGa Chat from working properly. Most browsers allow you to block or delete cookies in their settings menu.' },
             { title: '6. PWA & Local Storage', text: 'As a Progressive Web App, GaGa Chat also uses localStorage and IndexedDB to store app data, messages, and settings for offline functionality. This data remains on your device and is not shared with third parties.' },
             { title: '7. Changes to This Policy', text: 'We may update this Cookie Policy from time to time. We will notify you of any changes by posting the new policy on this page and updating the "Last updated" date.' },
-            { title: '8. Contact Us', text: 'If you have questions about this Cookie Policy, contact us at privacy@gagachat.app' },
+            { title: '8. Contact Us', text: 'If you have questions about this Cookie Policy, contact us at admin@gagachat.app or privacy@gagachat.app' },
           ].map((section) => (
             <div key={section.title} className="pb-4 border-b border-[#EBEBEB] last:border-0 last:pb-0">
               <h3 className="text-[#111111] font-medium text-sm mb-1">{section.title}</h3>

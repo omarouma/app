@@ -254,7 +254,7 @@ export default function PrivacyPage() {
           </div>
         </div>
         <p className="text-[#8D8D8D] text-xs leading-relaxed">
-          Your data is stored in the Asia region (Singapore) with backups in secure locations. We comply with applicable jurisdiction Telecommunication Regulation Act 2001 and Digital Security Act 2018. You have the right to access, correct, or delete your data. Contact privacy@gagachat.app for data requests.
+          Your data is stored in the Asia region (Singapore) with backups in secure locations. We comply with applicable jurisdiction Telecommunication Regulation Act 2001 and Digital Security Act 2018. You have the right to access, correct, or delete your data. Contact admin@gagachat.app or privacy@gagachat.app for data requests.
         </p>
       </div>
     </div>

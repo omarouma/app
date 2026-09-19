@@ -91,7 +91,7 @@ export function InputBar({
         {showAttachments && (
           <motion.div
             initial={{ height: 0 }}
-            animate={{ height: 220 }}
+            animate={{ height: 'auto' }}
             exit={{ height: 0 }}
             className="shrink-0 bg-[#F5F5F5] border-t border-gray-200 overflow-hidden z-10"
           >
@@ -115,7 +115,8 @@ export function InputBar({
                         else if (item.label === 'Contact') onContactShare();
                         else if (item.label === 'Poll') onPollOpen();
                       }}
-                      className={`w-14 h-14 ${item.color} rounded-full flex items-center justify-center text-white shadow-sm cursor-pointer`}
+                      className={`w-14 h-14 ${item.color} rounded-full flex items-center justify-center text-white shadow-sm cursor-pointer transition-transform active:scale-95`}
+                      aria-label={item.label}
                     >
                       {IconComponent ? <IconComponent size={28} strokeWidth={1.5} /> : null}
                     </button>

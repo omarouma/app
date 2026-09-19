@@ -19,6 +19,12 @@ const defaultSettings: ThemeSettings = {
   fontSize: 'medium',
   language: 'en',
   accentColor: '#00C300',
+  region: 'auto',
+  timeFormat: '12h',
+  dateFormat: 'auto',
+  firstDayOfWeek: 0,
+  numberFormat: 'auto',
+  showTimezone: false,
   notifications: {
     pushEnabled: true,
     messageSound: true,

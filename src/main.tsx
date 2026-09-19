@@ -165,6 +165,23 @@ const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
 }
 window.addEventListener('unhandledrejection', handleUnhandledRejection)
 
+// ── Language & region bootstrap ──────────────────────────────────────────────
+// Apply the persisted language + region to the document root before React
+// mounts so the very first paint already has the correct lang/dir/locale.
+try {
+  const raw = window.localStorage.getItem('gaga-settings');
+  if (raw) {
+    const parsed = JSON.parse(raw);
+    const s = parsed?.state?.settings ?? {};
+    const lang = s.language || 'en';
+    const region = s.region || 'auto';
+    document.documentElement.lang = region && region !== 'auto' ? `${lang}-${region}` : lang;
+    document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr';
+  }
+} catch {
+  // ignore malformed storage
+}
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <BrowserRouter>

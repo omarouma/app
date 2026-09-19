@@ -33,7 +33,7 @@ export function getSupabase(): SupabaseClient {
         flowType: 'pkce',
       },
       global: {
-        headers: { 'x-app-version': typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '2.0.0' },
+        headers: { 'x-app-version': typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '1.0.0' },
       },
     });
   }

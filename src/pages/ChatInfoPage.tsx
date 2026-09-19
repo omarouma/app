@@ -12,13 +12,16 @@ import { useGroupStore } from '@/store/useGroupStore';
 import { useFriendStore } from '@/store/useFriendStore';
 import { isFirestoreAvailable } from '@/lib/firestore';
 import { getDefaultAvatar, sanitizeMediaUrl } from '@/lib/utils';
+import { MediaGallery } from '@/components/features/chat/MediaGallery';
 import { toast } from 'sonner';
 import { safeGetStorageItem, safeSetStorageItem } from '@/lib/safeStorage';
 import type { Message, User } from '@/types';
 
 export default function ChatInfoPage() {
   const _params = useParams();
-  const chatId = (_params as { chatId?: string }).chatId;
+  // Supports both /chat-info/:chatId (direct chats) and /group-info/:groupId (groups).
+  const chatId = (_params as { chatId?: string; groupId?: string }).chatId
+    ?? (_params as { groupId?: string }).groupId;
   const navigate = useNavigate();
   const { user: currentUser } = useAuthStore();
   const { chats, archiveChat, unarchiveChat, getSharedMedia, setDisappearingMessages, lockChat, unlockChat } = useChatStore();
@@ -41,6 +44,7 @@ export default function ChatInfoPage() {
   const [unlockPinError, setUnlockPinError] = useState('');
   const [lockPinInput, setLockPinInput] = useState('');
   const [isFavorited, setIsFavorited] = useState(false);
+  const [galleryIndex, setGalleryIndex] = useState<number | null>(null);
 
   const chat = useMemo(() => {
     const direct = chats.find(c => c.id === chatId);
@@ -126,6 +130,19 @@ export default function ChatInfoPage() {
   const linkMessages = useMemo(() =>
     messages.filter(m => m.type === 'text' && /https?:\/\/\S+/.test(m.content)),
     [messages]);
+
+  // Gallery items for the in-app full-screen viewer (images + videos).
+  const galleryItems = useMemo(
+    () =>
+      mediaMessages
+        .filter(m => sanitizeMediaUrl(m.mediaUrl))
+        .map(m => ({
+          id: m.id,
+          url: sanitizeMediaUrl(m.mediaUrl) as string,
+          type: (m.type === 'video' ? 'video' : 'image') as 'image' | 'video',
+        })),
+    [mediaMessages],
+  );
 
   const handleToggleMute = () => {
     if (!chatId || !currentUser) return;
@@ -268,7 +285,7 @@ export default function ChatInfoPage() {
           <button type="button" onClick={() => navigate(-1)} aria-label="Go back" className="p-2 -ml-2 hover:bg-[#F5F5F5] rounded-full text-[#111111]">
             <ArrowLeft size={22} />
           </button>
-          <h1 className="text-lg font-bold text-[#111111] flex-1">Chat Info</h1>
+          <h1 className="text-lg font-bold text-[#111111] flex-1">{isGroup ? 'Group Info' : 'Chat Info'}</h1>
           <button type="button" onClick={() => setShowSearch(!showSearch)} aria-label={showSearch ? 'Close search' : 'Open search'}
             className="p-2 hover:bg-[#F5F5F5] rounded-full text-[#8D8D8D]"
           >
@@ -417,23 +434,42 @@ export default function ChatInfoPage() {
               </div>
             ) : activeMediaTab === 'media' ? (
               mediaMessages.length === 0 ? (
-                <p className="text-[#8D8D8D] text-sm text-center py-6">No shared media</p>
+                <div className="flex flex-col items-center justify-center py-8 gap-2">
+                  <ImageIcon size={28} className="text-[#C7C7CC]" />
+                  <p className="text-[#8D8D8D] text-sm">No shared media yet</p>
+                </div>
               ) : (
                 <div className="grid grid-cols-3 gap-1">
-                  {mediaMessages.map(m => (
-                    <a key={m.id} href={m.mediaUrl} target="_blank" rel="noopener noreferrer" className="aspect-square bg-[#F5F5F5] rounded-lg overflow-hidden hover:opacity-90 transition-opacity">
+                  {mediaMessages.map((m, i) => (
+                    <button
+                      type="button"
+                      key={m.id}
+                      onClick={() => setGalleryIndex(i)}
+                      className="relative aspect-square bg-[#F5F5F5] rounded-lg overflow-hidden hover:opacity-90 transition-opacity"
+                      aria-label={m.type === 'video' ? 'Play video' : 'View image'}
+                    >
                       {m.type === 'image' ? (
-                        <img src={m.mediaUrl} className="w-full h-full object-cover" alt="Shared image" />
+                        <img src={sanitizeMediaUrl(m.mediaUrl)} className="w-full h-full object-cover" alt="Shared image" loading="lazy" />
                       ) : (
-                        <video src={m.mediaUrl} className="w-full h-full object-cover" />
+                        <>
+                          <video src={sanitizeMediaUrl(m.mediaUrl)} className="w-full h-full object-cover" preload="metadata" muted playsInline />
+                          <span className="absolute inset-0 flex items-center justify-center bg-black/25">
+                            <span className="w-9 h-9 rounded-full bg-white/90 flex items-center justify-center shadow">
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="#111111" aria-hidden="true"><path d="M8 5v14l11-7z" /></svg>
+                            </span>
+                          </span>
+                        </>
                       )}
-                    </a>
+                    </button>
                   ))}
                 </div>
               )
             ) : activeMediaTab === 'files' ? (
               fileMessages.length === 0 ? (
-                <p className="text-[#8D8D8D] text-sm text-center py-6">No shared files</p>
+                <div className="flex flex-col items-center justify-center py-8 gap-2">
+                  <FileText size={28} className="text-[#C7C7CC]" />
+                  <p className="text-[#8D8D8D] text-sm">No shared files yet</p>
+                </div>
               ) : (
                 <div className="space-y-1">
                   {fileMessages.map(m => (
@@ -452,7 +488,10 @@ export default function ChatInfoPage() {
               )
             ) : (
               linkMessages.length === 0 ? (
-                <p className="text-[#8D8D8D] text-sm text-center py-6">No shared links</p>
+                <div className="flex flex-col items-center justify-center py-8 gap-2">
+                  <Link size={28} className="text-[#C7C7CC]" />
+                  <p className="text-[#8D8D8D] text-sm">No shared links yet</p>
+                </div>
               ) : (
                 <div className="space-y-1">
                   {linkMessages.map(m => {
@@ -738,6 +777,15 @@ export default function ChatInfoPage() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* In-app full-screen media viewer */}
+      {galleryIndex !== null && galleryItems.length > 0 && (
+        <MediaGallery
+          images={galleryItems}
+          initialIndex={galleryIndex}
+          onClose={() => setGalleryIndex(null)}
+        />
+      )}
     </div>
   );
 }
