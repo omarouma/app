@@ -352,7 +352,6 @@
     top: 0;
     z-index: 40;
     min-height: var(--header-h);
-    will-change: transform;
   }
 
   @media (min-width: 640px) {
@@ -423,19 +422,17 @@
   }
 }
 
-.page-enter {
-  animation: pageEnter 0.22s cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
-}
-
+/* NOTE: pageEnter animates opacity ONLY. A transform (even translateY(0) with
+   fill-mode: both) persists after the animation and creates a containing block,
+   which mispositions position:fixed descendants (e.g. the contacts alphabet
+   index, chat context menu). Opacity-only keeps those elements correct. */
 @keyframes pageEnter {
   from {
     opacity: 0;
-    transform: translateY(8px);
   }
 
   to {
     opacity: 1;
-    transform: translateY(0);
   }
 }
 
@@ -533,9 +530,9 @@
   overscroll-behavior: contain;
 }
 
-/* Smooth, GPU-friendly page transition */
+/* Smooth, GPU-friendly page transition (opacity-only — see pageEnter note) */
 .page-enter {
-  animation: pageEnter var(--dur-slow) var(--ease-emphasized) both;
+  animation: pageEnter var(--dur-base) var(--ease-standard) both;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -843,50 +840,25 @@
   }
 }
 /* ==========================================================================
-   Global Interaction Baseline (Phase 4)
-   Consistent, snappy feedback for every interactive element without needing
-   per-component classes. Uses only transform/opacity (GPU-friendly).
+   Interaction Baseline (Phase 4 — safe version)
+   IMPORTANT: We deliberately do NOT apply a global `transform` on :active.
+   Doing so overrides Tailwind centering transforms (e.g. -translate-y-1/2 on
+   search-clear buttons) and conflicts with framer-motion, causing elements to
+   jump when tapped. Tactile feedback is opt-in via .tap-scale / .icon-btn /
+   .press-card / .press-scale, which are safe because those elements don't use
+   their own transforms.
    ========================================================================== */
 
-/* Smooth color/transform transitions on all interactive elements */
+/* Smooth color feedback only (never transform) on interactive elements */
 button,
 a,
 [role="button"],
 [role="tab"],
 [role="menuitem"],
 summary {
-  transition-property: background-color, border-color, color, opacity, transform, box-shadow;
+  transition-property: background-color, border-color, color, opacity, box-shadow;
   transition-duration: var(--dur-fast);
   transition-timing-function: var(--ease-standard);
-}
-
-/* Tactile press feedback for buttons that don't opt out */
-button:not(:disabled):active,
-[role="button"]:not([aria-disabled="true"]):active {
-  transform: scale(0.97);
-}
-
-/* Respect reduced-motion: disable press scaling */
-@media (prefers-reduced-motion: reduce) {
-  button:not(:disabled):active,
-  [role="button"]:active {
-    transform: none;
-  }
-}
-
-/* Ensure icon-only buttons have a comfortable minimum touch target */
-.icon-btn {
-  min-width: 40px;
-  min-height: 40px;
-}
-
-/* Consistent focus ring for keyboard users only */
-button:focus-visible,
-a:focus-visible,
-[role="button"]:focus-visible,
-[role="tab"]:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 2px hsl(var(--background)), 0 0 0 4px hsl(var(--primary) / 0.55);
 }
 
 /* Prevent layout shift / jank on long scrollable lists */
