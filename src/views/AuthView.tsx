@@ -13,6 +13,7 @@ import { safePlay, playNotification, vibrateNotification } from '@/lib/sounds';
 import { sendEmailVerification, fetchUserProfile } from '@/lib/supabaseAuth';
 import { isSupabaseConfigured, getSupabaseSafe } from '@/lib/supabase';
 import { getPostAuthPath } from '@/lib/onboarding';
+import { isNativeApp } from '@/lib/platform';
 
 // ─── Types ────────────────────────────────────────────────────
 type Screen = 'landing' | 'login-email' | 'login-phone' | 'signup-email' | 'signup-phone' | 'magic' | 'forgot' | 'verify';
@@ -428,10 +429,12 @@ export default function AuthView() {
         {BUBBLES.map((b, i) => <Bubble key={i} {...b} />)}
       </div>
 
-      <button type="button" onClick={() => navigate('/')}
-        className="absolute top-5 left-5 z-20 flex items-center gap-1.5 px-3.5 py-2 bg-white/70 backdrop-blur-sm rounded-full border border-white/50 text-[#555] text-xs font-medium hover:bg-white transition-all shadow-sm">
-        <Home size={14} /> Home
-      </button>
+      {!isNativeApp() && (
+        <button type="button" onClick={() => navigate('/')}
+          className="absolute top-5 left-5 z-20 flex items-center gap-1.5 px-3.5 py-2 bg-white/70 backdrop-blur-sm rounded-full border border-white/50 text-[#555] text-xs font-medium hover:bg-white transition-all shadow-sm">
+          <Home size={14} /> Home
+        </button>
+      )}
 
       <div className="relative z-10 w-full max-w-sm">
         <AnimatePresence mode="wait">

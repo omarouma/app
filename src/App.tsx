@@ -27,6 +27,7 @@ import { getDefaultAvatar, sanitizeMediaUrl } from '@/lib/utils';
 import { initAudioOnInteraction } from '@/lib/sounds';
 import { startOfflineQueueSync } from '@/lib/offlineSync';
 import { getPostAuthPath } from '@/lib/onboarding';
+import { isNativeApp, shouldShowLandingPage, shouldShowOnboarding } from '@/lib/platform';
 import { safeGetBooleanStorageItem, safeGetStorageItem, safeSetStorageItem } from '@/lib/safeStorage';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import ScrollToTop from '@/components/ScrollToTop';
@@ -327,6 +328,9 @@ function useServiceWorker() {
   const navigate = useNavigate();
 
   useEffect(() => {
+    // Native builds bundle all assets locally — a service worker is unnecessary
+    // and can serve stale chunks after an app update.
+    if (isNativeApp()) return;
     if (!('serviceWorker' in navigator)) return;
 
     let registration: ServiceWorkerRegistration | null = null;
@@ -408,7 +412,9 @@ function ProtectedRoute({ element, adminOnly = false, isAuthenticated, isAdmin =
 
 function AppContent() {
   const location = useLocation();
-  const isMobile = useIsMobile();
+  const isMobileViewport = useIsMobile();
+  // Native builds always use the mobile layout, even on large tablets.
+  const isMobile = isNativeApp() || isMobileViewport;
   const { isAuthenticated, loading } = useAuth();
   const { user } = useAuthStore();
   const didOnboardingRedirectRef = useRef(false);
@@ -462,6 +468,8 @@ function AppContent() {
   useMessageNotifications();       // NEW: WeChat-style message sounds + background notifications
 
   useEffect(() => {
+    // Native builds skip onboarding entirely — go straight into the app.
+    if (!shouldShowOnboarding()) return;
     // These public pages must be visible even when onboarding is incomplete
     const publicPaths = ['/privacy', '/terms', '/help', '/cookies', '/community-guidelines', '/about', '/blog', '/careers'];
     const isPublicPath = publicPaths.some((p) => location.pathname.startsWith(p));
@@ -527,7 +535,7 @@ function AppContent() {
             element={
               isAuthenticated
                 ? <Navigate to={getPostAuthPath(isMobile)} replace />
-                : <LandingView />
+                : (shouldShowLandingPage() ? <LandingView /> : <Navigate to="/auth" replace />)
             }
           />
           <Route
@@ -545,7 +553,9 @@ function AppContent() {
           <Route path="/terms" element={isMobile ? <TermsPage /> : <TermsView />} />
           <Route path="/help" element={<HelpCenterPage />} />
           <Route path="/onboarding" element={
-            <ProtectedRoute element={<OnboardingPage />} isAuthenticated={isAuthenticated} />
+            shouldShowOnboarding()
+              ? <ProtectedRoute element={<OnboardingPage />} isAuthenticated={isAuthenticated} />
+              : <Navigate to={isAuthenticated ? getPostAuthPath(isMobile) : '/auth'} replace />
           } />
 
           {/* Mobile routes */}
@@ -638,7 +648,7 @@ function AppContent() {
       {showBottomNav && <BottomNav />}
       <ScrollToTop />
       <CallOverlay />
-      <PWAPrompt />
+      {!isNativeApp() && <PWAPrompt />}
       <Toaster position="top-center" />
     </div>
   );
