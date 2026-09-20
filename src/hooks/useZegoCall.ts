@@ -153,8 +153,17 @@ export function useZegoCall(): ZegoCallController {
             url.searchParams.set('room', roomID);
             url.searchParams.set('user', userID);
 
+            // The deployed Supabase Edge Function (zego-token) accepts POST with
+            // the room/user in the JSON body (query params are also accepted as a
+            // fallback). Sending POST keeps the client in sync with the function
+            // and avoids leaking the params into access logs / caches.
             const response = await fetch(url.toString(), {
-                headers: { Authorization: `Bearer ${accessToken}` },
+                method: 'POST',
+                headers: {
+                    Authorization: `Bearer ${accessToken}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ room: roomID, user: userID }),
             });
             if (!response.ok) {
                 console.warn(`[ZEGO] Token server responded ${response.status}.`);
@@ -207,8 +216,25 @@ export function useZegoCall(): ZegoCallController {
             // Prefer the server-issued token. The client-side test secret is
             // allowed only during local development and must never be used by
             // a production build when the token endpoint is unavailable.
-            let kitToken = await fetchServerToken(roomID, userID);
-            if (!kitToken && import.meta.env.DEV && ZEGO_SERVER_SECRET) {
+            //
+            // IMPORTANT: the token endpoint returns a *raw* ZEGO JWT, but
+            // `ZegoUIKitPrebuilt.create()` expects a "kit token" in the form
+            //   `<jwt>#<base64({userID,roomID,userName,appID})>`
+            // Passing the raw JWT makes the SDK throw `kitToken error` and the
+            // call never connects. Wrap the server token with
+            // `generateKitTokenForProduction` so the SDK can parse the room and
+            // user identity. (Verified against @zegocloud/zego-uikit-prebuilt.)
+            const rawToken = await fetchServerToken(roomID, userID);
+            let kitToken: string | null = null;
+            if (rawToken) {
+                kitToken = ZegoUIKitPrebuilt.generateKitTokenForProduction(
+                    ZEGO_APP_ID,
+                    rawToken,
+                    roomID,
+                    userID,
+                    userName,
+                );
+            } else if (import.meta.env.DEV && ZEGO_SERVER_SECRET) {
                 kitToken = ZegoUIKitPrebuilt.generateKitTokenForTest(
                     ZEGO_APP_ID,
                     ZEGO_SERVER_SECRET,

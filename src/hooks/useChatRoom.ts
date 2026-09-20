@@ -154,38 +154,51 @@ export const useChatRoom = (chatId: string, userId: string) => {
     if (editingMessageId) { await handleEditSave(editingMessageId); return; }
     const content = (contentOverride ?? input).trim();
     if (!content) return;
+    setInput('');
+    setReplyingTo(null);
+    stopTyping();
     try {
       if (isOnline) {
-        await sendMessage(chatId, currentUser.id, content, 'text', undefined, replyingTo?.id);
+        const result = await sendMessage(chatId, currentUser.id, content, 'text', undefined, replyingTo?.id);
+        if (!result.success && !result.id) {
+          setInput(draft => draft || content);
+          toast.error('Message was not sent. Please try again.');
+        }
       } else {
         queueMessage({ chatId, senderId: currentUser.id, content, type: 'direct', replyTo: replyingTo?.id });
         toast.info('You are offline. Message will be sent when you are back online.');
       }
-      setInput('');
-      setReplyingTo(null);
-      stopTyping();
     } catch (error) {
+      setInput(draft => draft || content);
       stopTyping();
       handleError(error, 'Failed to send message.');
     }
   }, [chatId, currentUser, input, editingMessageId, replyingTo, sendMessage, queueMessage, stopTyping, handleEditSave, isOnline]);
 
   const handleMediaUpload = useCallback(async (files: File[]) => {
-    if (!currentUser) return;
+    if (!currentUser) return files;
+    const failed: File[] = [];
     setShowAttachments(false);
     for (const file of files) {
       try {
         const url = await uploadMediaBlob(file, { userId: currentUser.id, kind: 'chats', fileName: file.name, contentType: file.type });
         const type = file.type.startsWith('image/') ? 'image' : file.type.startsWith('video/') ? 'video' : 'file';
         if (!url) {
+          failed.push(file);
           toast.error(`Failed to upload ${file.name}.`);
           continue;
         }
-        await sendMessage(chatId, currentUser.id, file.name, type, url);
+        const result = await sendMessage(chatId, currentUser.id, file.name, type, url);
+        if (!result.success) {
+          if (!result.id) failed.push(file);
+          toast.error(result.id ? 'Message failed. Retry from its chat bubble.' : 'Message was not sent. Please retry.');
+        }
       } catch (error) {
+        failed.push(file);
         handleError(error, `Failed to upload ${file.name}.`);
       }
     }
+    return failed;
   }, [chatId, currentUser, sendMessage]);
 
   const handleDelete = useCallback(async (msgId: string) => {
