@@ -20,6 +20,7 @@ import { ChatHeader } from './ChatHeader';
 import { MessageItem } from './MessageItem';
 import { MessageSearch } from './MessageSearch';
 import { InputBar } from './InputBar';
+import { AttachmentPreview } from './AttachmentPreview';
 import TransferModal from '@/components/TransferModal';
 import { Virtuoso } from 'react-virtuoso';
 import { toast } from 'sonner';
@@ -42,6 +43,18 @@ export default function ChatRoom({ chatId, userId, onBack }: {
   onBack?: () => void;
 }): ReactElement {
   const navigate = useNavigate();
+  const [attachments, setAttachments] = useState<File[]>([]);
+  const attachmentBusy = useRef(false);
+  const activeAttachmentChat = useRef(chatId);
+  activeAttachmentChat.current = chatId;
+  useEffect(() => { setAttachments([]); attachmentBusy.current = false; }, [chatId]);
+  const selectAttachments = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files || []);
+    event.target.value = '';
+    if (attachmentBusy.current) { toast.info('Wait for these attachments to finish sending.'); return; }
+    if (attachments.length + files.length > 10) toast.info('Select up to 10 attachments at a time.');
+    setAttachments(previous => [...previous, ...files].slice(0, 10));
+  };
 
   // Mark this conversation as the active chat so global notification
   // hooks stay silent while the user is reading it (WeChat behavior).
@@ -205,8 +218,11 @@ export default function ChatRoom({ chatId, userId, onBack }: {
       if (!blob) return;
       // Single upload path (no double-upload) with the correct 'voice' kind,
       // then send as a typed 'voice' message.
-      const url = await uploadMediaBlob(blob, { userId: currentUser.id, kind: 'voice', contentType: 'audio/webm' });
-      if (url) await useChatStore.getState().sendMessage(chatId, currentUser.id, 'Voice message', 'voice', url);
+      const url = await uploadMediaBlob(blob, { userId: currentUser.id, kind: 'voice', contentType: blob.type || 'audio/webm' });
+      if (url) {
+        const result = await useChatStore.getState().sendMessage(chatId, currentUser.id, 'Voice message', 'voice', url);
+        if (!result.success) toast.error('Voice message was not sent. Check the failed message and retry.');
+      }
       scrollToBottom();
     } catch {
       toast.error('Failed to send voice message.');
@@ -619,6 +635,7 @@ export default function ChatRoom({ chatId, userId, onBack }: {
         <Virtuoso
           ref={virtuoso}
           data={msgs}
+          computeItemKey={(_, message) => message.localId || message.id}
           initialTopMostItemIndex={msgs.length > 0 ? msgs.length - 1 : 0}
           atBottomStateChange={handleAtBottomStateChange}
           followOutput={'auto'}
@@ -700,6 +717,7 @@ export default function ChatRoom({ chatId, userId, onBack }: {
         )}
       </div>
 
+      <AttachmentPreview key={chatId} files={attachments} onChange={files => { if (activeAttachmentChat.current === chatId) setAttachments(files); }} onSend={handleMediaUpload} onBusy={busy => { if (activeAttachmentChat.current === chatId) attachmentBusy.current = busy; }} />
       {/* Input bar */}
       <InputBar
         input={input}
@@ -719,9 +737,9 @@ export default function ChatRoom({ chatId, userId, onBack }: {
         onStartRecording={startRecording}
         onCancelRecording={cancelRecording}
         onVoiceSend={handleVoiceSend}
-        onPhotoUpload={(e) => handleMediaUpload(Array.from(e.target.files || []))}
-        onVideoUpload={(e) => handleMediaUpload(Array.from(e.target.files || []))}
-        onFileUpload={(e) => handleMediaUpload(Array.from(e.target.files || []))}
+        onPhotoUpload={selectAttachments}
+        onVideoUpload={selectAttachments}
+        onFileUpload={selectAttachments}
         onSchedule={() => setShowSchedulePicker(true)}
         onContactShare={() => {
           if (currentUser) handleSendContact({ userId: currentUser.id, name: currentUser.name || 'User', phone: currentUser.phone, email: currentUser.email, avatar: currentUser.avatar, username: currentUser.username });

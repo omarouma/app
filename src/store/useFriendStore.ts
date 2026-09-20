@@ -248,6 +248,9 @@ loading: {
 
     let unsubFriends: (() => void) | null = null;
     let unsubRequests: (() => void) | null = null;
+    let active = true;
+    let friendsRevision = 0;
+    let requestsRevision = 0;
 
     try {
       // ── Friends (batch fetch profiles) ──────────────────────────
@@ -255,20 +258,15 @@ loading: {
         COLLECTIONS.FRIENDSHIPS,
         [where('userId', '==', userId)],
         async (data) => {
+          const revision = ++friendsRevision;
           const friendIds = (data || [])
             .map((f: Record<string, unknown>) => f.friendId as string)
             .filter(Boolean);
           const friends = await batchFetchUsers(friendIds);
+          if (!active || revision !== friendsRevision) return;
           const friendMap = new Map(friends.map((f) => [f.id, f]));
 
-          set((state) => {
-            const currentIds = state.friends.map((f) => f.id).join(',');
-            const newIds = friends.map((f) => f.id).join(',');
-            if (currentIds === newIds) {
-              return { friendMap, loadingFriends: false };
-            }
-            return { friends, friendMap, loadingFriends: false };
-          });
+          set({ friends, friendMap, loadingFriends: false });
         },
       );
 
@@ -278,8 +276,10 @@ loading: {
         [where('toUserId', '==', userId), where('status', '==', 'pending')],
         async (data) => {
           const raw = data || [];
+          const revision = ++requestsRevision;
           const senderIds = [...new Set(raw.map((d: Record<string, unknown>) => d.fromUserId as string).filter(Boolean))];
           const senderProfiles = await batchFetchUsers(senderIds);
+          if (!active || revision !== requestsRevision) return;
           const senderMap = Object.fromEntries(senderProfiles.map((u) => [u.id, u]));
           const requests: FriendRequest[] = raw.map((d: Record<string, unknown>) => ({
             id: d.id as string,
@@ -299,6 +299,7 @@ loading: {
     }
 
     return () => {
+      active = false;
       if (unsubFriends) unsubFriends();
       if (unsubRequests) unsubRequests();
     };

@@ -28,20 +28,22 @@ export default function ProfilePage() {
   usePageTitle(isOwnProfile ? 'My Profile' : 'Profile');
 
   useEffect(() => {
+    setOtherUser(null);
+    setLoadingOther(false);
     if (isOwnProfile || !paramUserId) return;
     const friend = friends.find(f => f.id === paramUserId);
-    if (friend) { setOtherUser(friend as User); return; }
+    if (friend) setOtherUser(friend as User);
     if (!isFirestoreAvailable()) return;
     setLoadingOther(true);
     let resolved = false;
     const unsub = subscribeToDoc(COLLECTIONS.USERS, paramUserId, (data) => {
-      if (data) setOtherUser(data as User);
+      setOtherUser(data ? data as User : null);
       if (!resolved) { resolved = true; setLoadingOther(false); }
     });
     return () => { unsub(); };
   }, [isOwnProfile, paramUserId, friends]);
 
-  const displayUser = isOwnProfile ? user : otherUser;
+  const displayUser = isOwnProfile ? user : (otherUser?.id === paramUserId ? otherUser : null);
 
   // Edit state
   const [editing, setEditing] = useState(false);
@@ -52,7 +54,7 @@ export default function ProfilePage() {
   const [saving, setSaving] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [uploadingCover, setUploadingCover] = useState(false);
-  const [userPostsCount, setUserPostsCount] = useState(0);
+  const [userPostsCount, setUserPostsCount] = useState<number | null>(null);
   const [showShareSheet, setShowShareSheet] = useState(false);
 
   const avatarInputRef = useRef<HTMLInputElement>(null);
@@ -71,6 +73,13 @@ export default function ProfilePage() {
 
   const saveEdit = useCallback(async () => {
     if (!user?.id || !isFirestoreAvailable()) return;
+    if (!editName.trim()) { toast.error('Please enter your name.'); return; }
+    if (editWebsite.trim()) {
+      try {
+        const website = new URL(/^https?:\/\//i.test(editWebsite.trim()) ? editWebsite.trim() : `https://${editWebsite.trim()}`);
+        if (!['http:', 'https:'].includes(website.protocol) || !website.hostname.includes('.')) throw new Error();
+      } catch { toast.error('Please enter a valid website address.'); return; }
+    }
     setSaving(true);
     try {
       const updates = {
@@ -80,7 +89,8 @@ export default function ProfilePage() {
         website: editWebsite.trim(),
       };
       await updateDocById(COLLECTIONS.USERS, user.id, updates);
-      setUser({ ...user, ...updates });
+      const latest = useAuthStore.getState().user;
+      if (latest?.id === user.id) setUser({ ...latest, ...updates });
       setEditing(false);
       toast.success('Profile updated');
     } catch {
@@ -101,7 +111,8 @@ export default function ProfilePage() {
       const url = await uploadMediaBlob({ kind: 'avatars', file, mimeType: file.type, userId: user.id });
       if (!url) throw new Error('Upload failed');
       await updateDocById(COLLECTIONS.USERS, user.id, { avatar: url });
-      setUser({ ...user, avatar: url });
+      const latest = useAuthStore.getState().user;
+      if (latest?.id === user.id) setUser({ ...latest, avatar: url });
       toast.success('Avatar updated');
     } catch {
       toast.error('Failed to upload avatar');
@@ -124,7 +135,8 @@ export default function ProfilePage() {
       const url = await uploadMediaBlob({ kind: 'covers', file, mimeType: file.type, userId: user.id });
       if (!url) throw new Error('Upload failed');
       await updateDocById(COLLECTIONS.USERS, user.id, { coverImage: url });
-      setUser({ ...user, coverImage: url });
+      const latest = useAuthStore.getState().user;
+      if (latest?.id === user.id) setUser({ ...latest, coverImage: url });
       toast.success('Cover image updated');
     } catch {
       toast.error('Failed to upload cover image');
@@ -136,6 +148,7 @@ export default function ProfilePage() {
 
   // Load actual post count for the profile owner
   useEffect(() => {
+    setUserPostsCount(null);
     if (!displayUser?.id) return;
     let cancelled = false;
     const loadCount = async () => {
@@ -143,11 +156,11 @@ export default function ProfilePage() {
         const { getSupabaseSafe } = await import('@/lib/supabase');
         const supabase = getSupabaseSafe();
         if (!supabase) return;
-        const { count } = await supabase
+        const { count, error } = await supabase
           .from('posts')
           .select('id', { count: 'exact', head: true })
           .eq('user_id', displayUser.id);
-        if (!cancelled && typeof count === 'number') setUserPostsCount(count);
+        if (!cancelled && !error && typeof count === 'number') setUserPostsCount(count);
       } catch {
         // Non-fatal — keep count at 0 if query fails
       }
@@ -189,7 +202,7 @@ export default function ProfilePage() {
 
   const stats = [
     { label: 'Friends', value: displayUser?.friends?.length ?? (isOwnProfile ? friends.length : 0) },
-    { label: 'Posts', value: userPostsCount },
+    { label: 'Posts', value: userPostsCount ?? '—' },
     { label: 'Followers', value: displayUser?.followers?.length ?? 0 },
     { label: 'Following', value: displayUser?.following?.length ?? 0 },
   ];
