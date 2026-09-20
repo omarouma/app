@@ -422,7 +422,8 @@ async function uploadWithFallback(
   // 1) Try Cloudinary first — ONLY if actually configured. Empty/bogus keys
   //    previously threw before reaching any fallback, breaking avatar/post
   //    uploads even though Firebase Storage was configured.
-  if (CLOUDINARY_CLOUD_NAME && CLOUDINARY_UPLOAD_PRESET) {
+  const isConversationMedia = ['chats', 'voice', 'avatars', 'covers'].includes(opts.kind || '');
+  if (!isConversationMedia && CLOUDINARY_CLOUD_NAME && CLOUDINARY_UPLOAD_PRESET) {
     try {
       return await cloudinaryUpload(file, opts);
     } catch (err) {
@@ -444,7 +445,7 @@ async function uploadWithFallback(
       return '';
     })();
     const fileName = opts.fileName
-      ? opts.fileName.replace(/[^a-zA-Z0-9._-]/g, '_')
+      ? `${uuidv4()}_${opts.fileName.replace(/[^a-zA-Z0-9._-]/g, '_')}`
       : `${Date.now()}_${Math.random().toString(36).slice(2, 8)}${ext}`;
     const bucketByKind: Record<string, string> = {
       chats: 'chat-media',
@@ -461,6 +462,9 @@ async function uploadWithFallback(
   } catch (err) {
     errors.push(`Supabase: ${err instanceof Error ? err.message : String(err)}`);
   }
+
+  // Conversation media must be accessible on the recipient's device.
+  if (isConversationMedia) throw new Error('Media upload failed. Please retry when connected.');
 
   // 3) Prefer the localStorage base64 fallback for small images FIRST because it
   //    returns a displayable data URL that persists across reloads. For larger

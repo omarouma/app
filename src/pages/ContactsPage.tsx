@@ -43,7 +43,8 @@ export default function ContactsPage() {
   const [showOnlineOnly, setShowOnlineOnly] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [actionMenu, setActionMenu] = useState<string | null>(null);
-  const refreshTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [refreshRevision, setRefreshRevision] = useState(0);
+  const openingChat = useRef(false);
   const userIdRef = useRef(user?.id);
   useEffect(() => { userIdRef.current = user?.id; }, [user?.id]);
 
@@ -60,7 +61,6 @@ export default function ContactsPage() {
     findContactsOnGaga,
     syncContacts: handleSyncContacts,
     clearContacts,
-    refreshMatches,
   } = phone;
 
   // Subscribe to friends, sent requests, and blocked users (all real-time)
@@ -70,24 +70,26 @@ export default function ContactsPage() {
     const unsubSent = subscribeSentRequests(user.id);
     const unsubBlocked = subscribeBlockedUsers(user.id);
     return () => { unsubFriends(); unsubSent(); unsubBlocked(); };
-  }, [user?.id, subscribeFriends, subscribeSentRequests, subscribeBlockedUsers]);
+  }, [user?.id, subscribeFriends, subscribeSentRequests, subscribeBlockedUsers, refreshRevision]);
 
-  // Cleanup refresh timeout on unmount
-  useEffect(() => () => {
-    if (refreshTimeoutRef.current) clearTimeout(refreshTimeoutRef.current);
-  }, []);
-
-  const handleRefresh = useCallback(() => {
+  const handleRefresh = useCallback(async () => {
     if (!userIdRef.current || refreshing) return;
     setRefreshing(true);
-    refreshMatches();
-    refreshTimeoutRef.current = setTimeout(() => setRefreshing(false), 1200);
-  }, [refreshing, refreshMatches]);
+    setRefreshRevision(revision => revision + 1);
+    try { await findContactsOnGaga(); }
+    catch { toast.error('Could not refresh contacts. Please retry.'); }
+    finally { setRefreshing(false); }
+  }, [refreshing, findContactsOnGaga]);
 
   const handleMessage = async (friendId: string) => {
-    if (!user?.id) return;
-    await createDirectChat(friendId, user.id);
-    navigate(`/chat/${friendId}`);
+    if (!user?.id || openingChat.current) return;
+    openingChat.current = true;
+    try {
+      const chat = await createDirectChat(friendId, user.id);
+      if (!chat) throw new Error('Could not open this conversation.');
+      if (userIdRef.current === user.id) navigate(`/chat/${friendId}`);
+    } catch { toast.error('Could not open this conversation. Please retry.'); }
+    finally { openingChat.current = false; }
   };
 
   const handleInvite = async (contactName?: string) => {
@@ -125,15 +127,13 @@ export default function ContactsPage() {
   };
 
   const handleMessageFromContact = async (matchedUserId: string) => {
-    if (!user?.id) return;
-    await createDirectChat(matchedUserId, user.id);
-    navigate(`/chat/${matchedUserId}`);
+    await handleMessage(matchedUserId);
   };
 
   // ─── Filtering ───
 
   const filtered = useMemo(() => {
-    const query = search.toLowerCase();
+    const query = search.trim().toLowerCase();
     const results = friends.filter(f => {
       const match = f.name?.toLowerCase().includes(query) || f.username?.toLowerCase().includes(query);
       if (tab === 'favorites') return match && user?.favorites?.includes(f.id);
