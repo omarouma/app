@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Adaptive icon FOREGROUND: white bubble + G mark, centered in the 66% safe zone -->
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="fgBubble" x1="15%" y1="0%" x2="85%" y2="100%">
+      <stop offset="0%" stop-color="#00FF7A"/>
+      <stop offset="55%" stop-color="#00C300"/>
+      <stop offset="100%" stop-color="#009A00"/>
+    </linearGradient>
+  </defs>
+  <!-- Group scaled to ~62% and centered for adaptive-icon safe zone -->
+  <g transform="translate(256 256) scale(0.62) translate(-256 -256)">
+    <!-- Back bubble -->
+    <path
+      d="M340 132 C 396 132 438 172 438 224 C 438 276 396 316 340 316 L 340 348 L 306 316 Z"
+      fill="#ffffff" opacity="0.28"/>
+    <!-- Front bubble -->
+    <path
+      d="M232 128 C 140 128 72 190 72 268 C 72 346 140 408 232 408 C 246 408 260 407 273 404 L 320 440 L 320 396 C 372 372 392 326 392 268 C 392 190 324 128 232 128 Z"
+      fill="#ffffff"/>
+    <!-- Inner gradient bubble -->
+    <path
+      d="M232 162 C 158 162 106 210 106 268 C 106 326 158 374 232 374 C 244 374 256 373 267 370 L 300 392 L 300 360 C 340 342 358 308 358 268 C 358 210 306 162 232 162 Z"
+      fill="url(#fgBubble)"/>
+    <!-- G monogram -->
+    <path
+      d="M 277 223 A 64 64 0 1 0 277 313 L 277 268 L 238 268"
+      fill="none" stroke="#ffffff" stroke-width="30"
+      stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+</svg>

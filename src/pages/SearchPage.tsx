@@ -265,26 +265,26 @@ export default function SearchPage() {
       {/* Header */}
       <div className="shrink-0 px-4 py-3 border-b border-[#1a1a1a]">
         <div className="flex items-center gap-3">
-          <button type="button" onClick={() => navigate(-1)} className="p-1.5 rounded-lg hover:bg-[#1a1a1a] text-[#8D8D8D]">
+          <button type="button" onClick={() => navigate(-1)} className="p-1.5 rounded-lg hover:bg-[#1a1a1a] text-muted-foreground">
             <X size={20} />
           </button>
           <div className="relative flex-1">
-            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8D8D8D]" />
+            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
             <input
               type="text"
               value={query}
               onChange={e => setQuery(e.target.value)}
               placeholder="Search people, posts, tags, events..."
-              className="w-full bg-[#1a1a1a] text-white pl-10 pr-10 py-2.5 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#00C300] placeholder:text-[#8D8D8D]"
+              className="w-full bg-[#1a1a1a] text-white pl-10 pr-10 py-2.5 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
               autoFocus
             />
             {query && (
-              <button type="button" onClick={() => setQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8D8D8D]">
+              <button type="button" onClick={() => setQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">
                 <X size={14} />
               </button>
             )}
           </div>
-          <button type="button" className="p-2 rounded-lg hover:bg-[#1a1a1a] text-[#8D8D8D]">
+          <button type="button" className="p-2 rounded-lg hover:bg-[#1a1a1a] text-muted-foreground">
             <SlidersHorizontal size={18} />
           </button>
         </div>
@@ -295,7 +295,7 @@ export default function SearchPage() {
             <button type="button" key={tab.key}
               onClick={() => setActiveTab(tab.key)}
               className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${
-                activeTab === tab.key ? 'bg-[#00C300] text-black' : 'bg-[#1a1a1a] text-[#8D8D8D]'
+                activeTab === tab.key ? 'bg-primary text-black' : 'bg-[#1a1a1a] text-muted-foreground'
               }`}
             >
               <tab.icon size={12} /> {tab.label}
@@ -312,14 +312,14 @@ export default function SearchPage() {
             {recentSearches.length > 0 && (
               <div className="mb-6">
                 <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-xs font-semibold text-[#8D8D8D] uppercase tracking-wider">Recent</h3>
-                  <button type="button" onClick={clearRecents} className="text-xs text-[#FF3B30]">Clear</button>
+                  <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Recent</h3>
+                  <button type="button" onClick={clearRecents} className="text-xs text-destructive">Clear</button>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {recentSearches.map((s, i) => (
                     <button type="button" key={i}
                       onClick={() => setQuery(s)}
-                      className="flex items-center gap-1 px-3 py-1.5 rounded-full bg-[#1a1a1a] text-[#8D8D8D] text-xs hover:bg-[#2a2a2a]"
+                      className="flex items-center gap-1 px-3 py-1.5 rounded-full bg-[#1a1a1a] text-muted-foreground text-xs hover:bg-[#2a2a2a]"
                     >
                       <Clock size={10} /> {s}
                     </button>
@@ -330,12 +330,12 @@ export default function SearchPage() {
 
             {/* Trending searches */}
             <div>
-              <h3 className="text-xs font-semibold text-[#8D8D8D] uppercase tracking-wider mb-2">Trending</h3>
+              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Trending</h3>
               <div className="flex flex-wrap gap-2">
                 {trendingSearches.map((s, i) => (
                   <button type="button" key={i}
                     onClick={() => setQuery(s)}
-                    className="flex items-center gap-1 px-3 py-1.5 rounded-full bg-[#1a1a1a] text-[#00C300] text-xs hover:bg-[#2a2a2a]"
+                    className="flex items-center gap-1 px-3 py-1.5 rounded-full bg-[#1a1a1a] text-primary text-xs hover:bg-[#2a2a2a]"
                   >
                     <TrendingUp size={10} /> {s}
                   </button>
@@ -348,7 +348,7 @@ export default function SearchPage() {
         {/* Loading */}
         {loading && (
           <div className="flex justify-center py-12">
-            <Loader size={24} className="text-[#00C300] animate-spin" />
+            <Loader size={24} className="text-primary animate-spin" />
           </div>
         )}
 
@@ -356,8 +356,8 @@ export default function SearchPage() {
         {!loading && query && results.length === 0 && (
           <div className="text-center py-16">
             <Search size={48} className="mx-auto text-[#2a2a2a] mb-4" />
-            <p className="text-[#8D8D8D] font-medium">No results found</p>
-            <p className="text-[#8D8D8D]/60 text-sm mt-1">Try different keywords</p>
+            <p className="text-muted-foreground font-medium">No results found</p>
+            <p className="text-muted-foreground/60 text-sm mt-1">Try different keywords</p>
           </div>
         )}
 
@@ -378,19 +378,19 @@ export default function SearchPage() {
                   <div className="w-12 h-12 rounded-xl bg-[#2a2a2a] flex items-center justify-center shrink-0">
                     {(() => {
                       const TabIcon = TABS.find(t => t.key === result.type)?.icon || Search;
-                      return <TabIcon size={20} className="text-[#8D8D8D]" />;
+                      return <TabIcon size={20} className="text-muted-foreground" />;
                     })()}
                   </div>
                 )}
                 <div className="flex-1 min-w-0">
                   <p className="text-white text-sm font-medium truncate">{result.title}</p>
-                  <p className="text-[#8D8D8D] text-xs truncate">{result.subtitle}</p>
+                  <p className="text-muted-foreground text-xs truncate">{result.subtitle}</p>
                 </div>
                 <div className="text-right shrink-0">
                   {result.meta && (
-                    <span className="text-[10px] text-[#00C300] bg-[#00C300]/10 px-2 py-0.5 rounded-full">{result.meta}</span>
+                    <span className="text-[10px] text-primary bg-primary/10 px-2 py-0.5 rounded-full">{result.meta}</span>
                   )}
-                  <ArrowRight size={14} className="text-[#8D8D8D] mt-1 ml-auto" />
+                  <ArrowRight size={14} className="text-muted-foreground mt-1 ml-auto" />
                 </div>
               </motion.button>
             ))}

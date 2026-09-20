@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { useAuthStore } from '@/store/useAuthStore';
 import { isFirestoreAvailable, COLLECTIONS, updateDocById } from '@/lib/firestore';
+import { getDb } from '@/lib/supabaseDb';
 import { formatTime, getDefaultAvatar, sanitizeMediaUrl } from '@/lib/utils';
 import type { TimelinePost, PostComment } from '@/types';
 import { findYouTubeIds } from '@/services/youtubeService';
@@ -75,6 +76,13 @@ export default function TimelineCard({
 
   const isLiked = currentUser ? localLikes.includes(currentUser.id) : false;
 
+  // Record a view once per mounted card (server-authoritative, RLS-safe).
+  useEffect(() => {
+    const db = getDb();
+    if (!db) return;
+    void db.rpc('increment_post_view', { p_post_id: post.id }).then(() => undefined, () => undefined);
+  }, [post.id]);
+
   const handleLike = async () => {
     if (!currentUser) return;
     const prev = [...localLikes];
@@ -83,7 +91,20 @@ export default function TimelineCard({
       : [...localLikes, currentUser.id];
     setLocalLikes(next);
     try {
-      if (isFirestoreAvailable()) await updateDocById(COLLECTIONS.POSTS, post.id, { likes: next });
+      // Server-authoritative toggle: works on ANY user's post (RLS-safe RPC).
+      const db = getDb();
+      if (db) {
+        const { data, error } = await db.rpc('toggle_post_like', { p_post_id: post.id });
+        if (error) throw error;
+        const res = data as { ok?: boolean; liked?: boolean; count?: number } | null;
+        if (res && typeof res.liked === 'boolean') {
+          setLocalLikes(res.liked
+            ? Array.from(new Set([...prev, currentUser.id]))
+            : prev.filter(id => id !== currentUser.id));
+        }
+      } else if (isFirestoreAvailable()) {
+        await updateDocById(COLLECTIONS.POSTS, post.id, { likes: next });
+      }
     } catch {
       setLocalLikes(prev);
       toast.error('Failed to update like');
@@ -120,8 +141,23 @@ export default function TimelineCard({
     setCommentText('');
     const next = [...localComments, comment];
     setLocalComments(next);
-    if (!isFirestoreAvailable()) return;
-    try { await updateDocById(COLLECTIONS.POSTS, post.id, { comments: next }); } catch { /* keep local */ }
+    try {
+      // Server-authoritative comment: works on ANY user's post (RLS-safe RPC).
+      const db = getDb();
+      if (db) {
+        const { data, error } = await db.rpc('add_post_comment', {
+          p_post_id: post.id,
+          p_content: comment.content,
+        });
+        if (error) throw error;
+        const res = data as { ok?: boolean; comment?: PostComment } | null;
+        if (res?.comment) {
+          setLocalComments(prev => [...prev.filter(c => c.id !== comment.id), res.comment as PostComment]);
+        }
+      } else if (isFirestoreAvailable()) {
+        await updateDocById(COLLECTIONS.POSTS, post.id, { comments: next });
+      }
+    } catch { /* keep local */ }
   };
 
   const handleCommentLike = (id: string) => {
@@ -133,9 +169,19 @@ export default function TimelineCard({
   const handleCommentDelete = async (id: string) => {
     const next = localComments.filter(c => c.id !== id);
     setLocalComments(next);
-    if (isFirestoreAvailable()) {
-      try { await updateDocById(COLLECTIONS.POSTS, post.id, { comments: next }); } catch { /* keep local */ }
-    }
+    try {
+      // Server-authoritative delete: only the comment author (or post owner) may remove.
+      const db = getDb();
+      if (db) {
+        const { error } = await db.rpc('delete_post_comment', {
+          p_post_id: post.id,
+          p_comment_id: id,
+        });
+        if (error) throw error;
+      } else if (isFirestoreAvailable()) {
+        await updateDocById(COLLECTIONS.POSTS, post.id, { comments: next });
+      }
+    } catch { /* keep local */ }
   };
 
   const handleSave = async () => {
@@ -161,10 +207,20 @@ export default function TimelineCard({
         ? [...(opt.votes || []), currentUser.id]
         : (opt.votes || []).filter((id: string) => id !== currentUser.id),
     }));
-    if (!isFirestoreAvailable()) return;
     try {
-      await updateDocById(COLLECTIONS.POSTS, post.id, { pollData: { ...post.pollData, options: nextOptions } });
-      toast.success('Vote recorded');
+      // Server-authoritative poll vote: works on ANY user's post (RLS-safe RPC).
+      const db = getDb();
+      if (db) {
+        const { error } = await db.rpc('vote_post_poll', {
+          p_post_id: post.id,
+          p_option_index: optionIndex,
+        });
+        if (error) throw error;
+        toast.success('Vote recorded');
+      } else if (isFirestoreAvailable()) {
+        await updateDocById(COLLECTIONS.POSTS, post.id, { pollData: { ...post.pollData, options: nextOptions } });
+        toast.success('Vote recorded');
+      }
     } catch { toast.error('Failed to vote'); }
   };
 
@@ -177,7 +233,7 @@ export default function TimelineCard({
       <>
         <span>
           {display.split(/(\s+)/).map((word, i) => {
-            if (word.startsWith('#')) return <span key={i} className="text-[#00C300] cursor-pointer hover:underline">{word}</span>;
+            if (word.startsWith('#')) return <span key={i} className="text-primary cursor-pointer hover:underline">{word}</span>;
             if (word.startsWith('@')) return <span key={i} className="text-[#2196F3] cursor-pointer hover:underline">{word}</span>;
             return word;
           })}
@@ -379,7 +435,7 @@ export default function TimelineCard({
         {showHeartAnim && (
           <motion.div initial={{ opacity: 0, scale: 0 }} animate={{ opacity: 1, scale: 1.5 }} exit={{ opacity: 0, scale: 2 }}
             className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
-            <Heart size={80} className="text-[#FF3B30] fill-current drop-shadow-2xl" />
+            <Heart size={80} className="text-destructive fill-current drop-shadow-2xl" />
           </motion.div>
         )}
       </AnimatePresence>

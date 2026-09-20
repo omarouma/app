@@ -139,15 +139,15 @@ export default function DesktopTimelineView() {
   }, [images.length]);
 
   return (
-    <div className="h-full flex flex-col bg-white">
-      <div className="shrink-0 p-4 border-b border-[#EBEBEB] flex items-center justify-between">
-        <h1 className="text-xl font-bold text-[#111111] flex items-center gap-2">
-          <Clock size={20} className="text-[#00C300]" /> Timeline
+    <div className="h-full flex flex-col bg-card">
+      <div className="shrink-0 p-4 border-b border-border flex items-center justify-between">
+        <h1 className="text-xl font-bold text-foreground flex items-center gap-2">
+          <Clock size={20} className="text-primary" /> Timeline
         </h1>
         <button
           type="button"
           onClick={() => setShowComposer(v => !v)}
-          className="flex items-center gap-2 px-4 py-2 bg-[#00C300] text-white text-sm font-medium rounded-full hover:bg-[#00A300] transition-colors"
+          className="flex items-center gap-2 px-4 py-2 bg-primary text-white text-sm font-medium rounded-full hover:bg-[#00A300] transition-colors"
           aria-expanded={showComposer}
           aria-label={showComposer ? 'Close composer' : 'New post'}
         >
@@ -164,7 +164,7 @@ export default function DesktopTimelineView() {
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: 'auto' }}
               exit={{ opacity: 0, height: 0 }}
-              className="border-b border-[#EBEBEB] bg-[#F5F5F5] overflow-hidden"
+              className="border-b border-border bg-secondary overflow-hidden"
             >
               <div className="p-4">
                 <textarea
@@ -172,7 +172,7 @@ export default function DesktopTimelineView() {
                   onChange={e => setContent(e.target.value)}
                   placeholder="What's on your mind?"
                   aria-label="Post content"
-                  className="w-full bg-white rounded-xl p-3 text-[#111111] text-sm focus:outline-none focus:ring-2 focus:ring-[#00C300] resize-none min-h-[80px] placeholder:text-[#8D8D8D]"
+                  className="w-full bg-card rounded-xl p-3 text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary resize-none min-h-[80px] placeholder:text-muted-foreground"
                 />
                 {images.length > 0 && (
                   <div className="flex gap-2 mt-2 flex-wrap">
@@ -186,7 +186,7 @@ export default function DesktopTimelineView() {
                         <button
                           type="button"
                           onClick={() => setImages(prev => prev.filter((_, idx) => idx !== i))}
-                          className="absolute -top-1 -right-1 w-4 h-4 bg-[#FF3B30] text-white rounded-full flex items-center justify-center"
+                          className="absolute -top-1 -right-1 w-4 h-4 bg-destructive text-white rounded-full flex items-center justify-center"
                           aria-label={`Remove image ${i + 1}`}
                         >
                           <X size={10} />
@@ -200,21 +200,21 @@ export default function DesktopTimelineView() {
                     <button
                       type="button"
                       onClick={() => fileInputRef.current?.click()}
-                      className="p-2.5 min-w-11 min-h-11 rounded-full hover:bg-white text-[#00C300] transition-colors"
+                      className="p-2.5 min-w-11 min-h-11 rounded-full hover:bg-card text-primary transition-colors"
                       aria-label="Add photos or videos"
                     >
                       <Image size={18} />
                     </button>
                     {/* Visibility toggle buttons */}
-                    <div className="flex items-center gap-1 bg-white rounded-full p-1">
+                    <div className="flex items-center gap-1 bg-card rounded-full p-1">
                       {VISIBILITY_OPTIONS.map(({ value, label, icon: Icon }) => (
                         <button
                           key={value}
                           type="button"
                           onClick={() => setVisibility(value)}
                           className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${visibility === value
-                              ? 'bg-[#00C300] text-white'
-                              : 'text-[#8D8D8D] hover:text-[#111111]'
+                              ? 'bg-primary text-white'
+                              : 'text-muted-foreground hover:text-foreground'
                             }`}
                           aria-pressed={visibility === value}
                           aria-label={`Set visibility to ${label}`}
@@ -237,7 +237,7 @@ export default function DesktopTimelineView() {
                     type="button"
                     onClick={handlePost}
                     disabled={(!content.trim() && images.length === 0) || posting}
-                    className="min-h-11 bg-[#00C300] hover:bg-[#00A300] disabled:opacity-50 text-white rounded-full px-6 py-2 text-sm font-bold transition-colors flex items-center gap-2"
+                    className="min-h-11 bg-primary hover:bg-[#00A300] disabled:opacity-50 text-white rounded-full px-6 py-2 text-sm font-bold transition-colors flex items-center gap-2"
                   >
                     {posting && <Loader size={14} className="animate-spin" />}
                     Post
@@ -250,8 +250,8 @@ export default function DesktopTimelineView() {
 
         {loading ? (
           <div className="flex flex-col items-center justify-center h-64">
-            <Loader size={24} className="animate-spin text-[#00C300] mb-2" />
-            <p className="text-[#8D8D8D] text-sm">Loading timeline...</p>
+            <Loader size={24} className="animate-spin text-primary mb-2" />
+            <p className="text-muted-foreground text-sm">Loading timeline...</p>
           </div>
         ) : posts.length === 0 ? (
           <EmptyState
@@ -262,7 +262,7 @@ export default function DesktopTimelineView() {
               <button
                 type="button"
                 onClick={() => setShowComposer(true)}
-                className="bg-[#00C300] text-white text-sm font-medium px-4 py-2 rounded-full hover:bg-[#00A300] transition-colors"
+                className="bg-primary text-white text-sm font-medium px-4 py-2 rounded-full hover:bg-[#00A300] transition-colors"
               >
                 Create Post
               </button>

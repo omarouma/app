@@ -173,7 +173,7 @@ export default function CameraCapture({ onCapture, onClose }: CameraCaptureProps
             <button
               type="button"
               onClick={() => setMode(prev => prev === 'photo' ? 'video' : 'photo')}
-              className={`px-3 py-1.5 rounded-full text-xs font-medium ${mode === 'video' ? 'bg-[#FF3B30] text-white' : 'bg-black/40 text-white'}`}
+              className={`px-3 py-1.5 rounded-full text-xs font-medium ${mode === 'video' ? 'bg-destructive text-white' : 'bg-black/40 text-white'}`}
             >
               {mode === 'photo' ? 'Photo' : 'Video'}
             </button>
@@ -190,9 +190,9 @@ export default function CameraCapture({ onCapture, onClose }: CameraCaptureProps
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0 }}
-              className="absolute top-16 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-[#FF3B30]/90 px-3 py-1 rounded-full"
+              className="absolute top-16 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-destructive/90 px-3 py-1 rounded-full"
             >
-              <div className="w-2 h-2 rounded-full bg-white animate-pulse" />
+              <div className="w-2 h-2 rounded-full bg-card animate-pulse" />
               <span className="text-white text-xs font-medium">{formatDuration(recordDuration)}</span>
             </motion.div>
           )}
@@ -206,7 +206,7 @@ export default function CameraCapture({ onCapture, onClose }: CameraCaptureProps
             <button type="button" onClick={handleRetake} className="p-3 rounded-full bg-white/20 text-white">
               <X size={24} />
             </button>
-            <button type="button" onClick={handleConfirm} className="p-3 rounded-full bg-[#00C300] text-black">
+            <button type="button" onClick={handleConfirm} className="p-3 rounded-full bg-primary text-black">
               <Check size={28} />
             </button>
           </>
@@ -217,19 +217,19 @@ export default function CameraCapture({ onCapture, onClose }: CameraCaptureProps
             disabled={!isReady}
             className="w-20 h-20 rounded-full border-4 border-white flex items-center justify-center active:scale-95 transition-transform disabled:opacity-50"
           >
-            <div className="w-16 h-16 rounded-full bg-white" />
+            <div className="w-16 h-16 rounded-full bg-card" />
           </button>
         ) : (
           <button
             type="button"
             onClick={isRecording ? stopRecording : startRecording}
             disabled={!isReady}
-            className={`w-20 h-20 rounded-full border-4 flex items-center justify-center active:scale-95 transition-transform disabled:opacity-50 ${isRecording ? 'border-[#FF3B30]' : 'border-white'}`}
+            className={`w-20 h-20 rounded-full border-4 flex items-center justify-center active:scale-95 transition-transform disabled:opacity-50 ${isRecording ? 'border-destructive' : 'border-white'}`}
           >
             {isRecording ? (
-              <Square size={28} className="text-[#FF3B30]" fill="#FF3B30" />
+              <Square size={28} className="text-destructive" fill="#FF3B30" />
             ) : (
-              <Circle size={28} className="text-[#FF3B30]" fill="#FF3B30" />
+              <Circle size={28} className="text-destructive" fill="#FF3B30" />
             )}
           </button>
         )}

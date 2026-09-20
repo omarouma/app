@@ -24,7 +24,7 @@ function StatCard({ label, value, icon: Icon, color, delay }: StatCardProps) {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay }}
-      className="bg-white border border-gray-100 rounded-xl p-4 hover:shadow-sm transition-shadow"
+      className="bg-card border border-gray-100 rounded-xl p-4 hover:shadow-sm transition-shadow"
     >
       <div className="flex items-center justify-between mb-2">
         <Icon size={18} style={{ color }} />
@@ -38,7 +38,7 @@ function StatCard({ label, value, icon: Icon, color, delay }: StatCardProps) {
 function SimpleBarChart({ data, label }: { data: { label: string; value: number }[]; label: string }) {
   const max = Math.max(...data.map((d) => d.value), 1);
   return (
-    <div className="bg-white border border-gray-100 rounded-xl p-4">
+    <div className="bg-card border border-gray-100 rounded-xl p-4">
       <h3 className="font-bold text-gray-900 text-sm mb-3">{label}</h3>
       <div className="space-y-2">
         {data.map((d, i) => (
@@ -49,7 +49,7 @@ function SimpleBarChart({ data, label }: { data: { label: string; value: number 
                 initial={{ width: 0 }}
                 animate={{ width: `${(d.value / max) * 100}%` }}
                 transition={{ duration: 0.8, delay: i * 0.1 }}
-                className="h-full bg-[#00C300] rounded-full"
+                className="h-full bg-primary rounded-full"
               />
             </div>
             <span className="text-xs text-gray-600 w-10 shrink-0">{d.value.toLocaleString()}</span>
@@ -137,9 +137,9 @@ export default function AnalyticsPage() {
   ];
 
   return (
-    <div className="min-h-[100dvh] bg-white">
+    <div className="min-h-[100dvh] bg-card">
       {/* Header */}
-      <div className="sticky top-0 bg-white border-b border-gray-100 z-10 px-4 py-3">
+      <div className="sticky top-0 bg-card border-b border-gray-100 z-10 px-4 py-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <button type="button" onClick={() => navigate(-1)} className="p-2 hover:bg-gray-100 rounded-full">
@@ -151,7 +151,7 @@ export default function AnalyticsPage() {
             {(['7', '30', '90', 'all'] as const).map((d) => (
               <button type="button" key={d}
                 onClick={() => setDateRange(d)}
-                className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${dateRange === d ? 'bg-[#00C300] text-white' : 'bg-gray-100 text-gray-500'}`}
+                className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${dateRange === d ? 'bg-primary text-white' : 'bg-gray-100 text-gray-500'}`}
               >
                 {d === 'all' ? 'All' : `${d}d`}
               </button>
@@ -162,16 +162,16 @@ export default function AnalyticsPage() {
 
       {/* Premium banner */}
       {!isPremium && (
-        <div className="mx-4 mt-3 bg-gradient-to-r from-[#00C300]/10 to-[#00C300]/5 border border-[#00C300]/20 rounded-xl p-4 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-[#00C300]/10 flex items-center justify-center">
-            <Crown size={20} className="text-[#00C300]" />
+        <div className="mx-4 mt-3 bg-gradient-to-r from-primary/10 to-primary/5 border border-primary/20 rounded-xl p-4 flex items-center gap-3">
+          <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+            <Crown size={20} className="text-primary" />
           </div>
           <div className="flex-1">
             <p className="font-medium text-gray-900 text-sm">Unlock Full Analytics</p>
             <p className="text-xs text-gray-500">Get detailed insights, demographics, and growth charts</p>
           </div>
           <button type="button" onClick={() => navigate('/premium')}
-            className="px-4 py-2 bg-[#00C300] text-white rounded-lg text-xs font-bold hover:bg-[#00b000] transition-colors"
+            className="px-4 py-2 bg-primary text-white rounded-lg text-xs font-bold hover:bg-[#00b000] transition-colors"
           >
             Upgrade
           </button>
@@ -215,7 +215,7 @@ export default function AnalyticsPage() {
           )}
 
           {/* Top Posts */}
-          <div className="bg-white border border-gray-100 rounded-xl p-4">
+          <div className="bg-card border border-gray-100 rounded-xl p-4">
             <h3 className="font-bold text-gray-900 text-sm mb-3">Top Performing Posts</h3>
             {data.topPosts.length === 0 ? (
               <p className="text-gray-400 text-sm text-center py-4">No posts yet. Start creating!</p>
@@ -223,7 +223,7 @@ export default function AnalyticsPage() {
               <div className="space-y-2">
                 {data.topPosts.slice(0, 5).map((postId, idx) => (
                   <div key={postId} className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 transition-colors">
-                    <span className="text-xs font-bold text-[#00C300] w-5">#{idx + 1}</span>
+                    <span className="text-xs font-bold text-primary w-5">#{idx + 1}</span>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm text-gray-900 truncate">Post ID: {postId.slice(0, 8)}</p>
                     </div>
@@ -236,7 +236,7 @@ export default function AnalyticsPage() {
 
           {/* Engagement tip */}
           <div className="bg-gray-50 rounded-xl p-4 text-center">
-            <Zap size={20} className="mx-auto text-[#00C300] mb-2" />
+            <Zap size={20} className="mx-auto text-primary mb-2" />
             <p className="text-sm font-medium text-gray-900">Boost Your Engagement</p>
             <p className="text-xs text-gray-500 mt-1">Post consistently, use hashtags, and engage with your audience to grow faster</p>
           </div>

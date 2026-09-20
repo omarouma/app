@@ -14,8 +14,8 @@ const STEPS = [
     icon: Sparkles,
     title: 'Welcome to GaGa Chat',
     description: 'The free messaging app for everyone. Chat, call, share, and earn — all in one place. No VPN needed, supports all languages.',
-    color: 'text-[#00C300]',
-    bg: 'bg-[#00C300]/10',
+    color: 'text-primary',
+    bg: 'bg-primary/10',
   },
   {
     icon: Users,
@@ -57,8 +57,8 @@ const STEPS = [
     icon: Settings2,
     title: 'App Permissions',
     description: '',
-    color: 'text-[#00C300]',
-    bg: 'bg-[#00C300]/10',
+    color: 'text-primary',
+    bg: 'bg-primary/10',
     isPermissions: true,
   },
 ];
@@ -99,15 +99,15 @@ export default function OnboardingPage() {
   const isPermissionsStep = 'isPermissions' in current && current.isPermissions;
 
   return (
-    <div className="h-[100dvh] w-screen bg-white flex flex-col overflow-hidden">
+    <div className="h-[100dvh] w-screen bg-card flex flex-col overflow-hidden">
       {/* Header */}
       <div className="shrink-0 flex items-center justify-between px-6 py-4">
         <div className="flex items-center gap-2">
           <Logo size={32} />
-          <span className="text-[#111111] font-bold text-sm">GaGa Chat</span>
+          <span className="text-foreground font-bold text-sm">GaGa Chat</span>
         </div>
         <button type="button" onClick={skip}
-          className="text-[#8D8D8D] text-sm font-medium hover:text-[#111111] transition-colors"
+          className="text-muted-foreground text-sm font-medium hover:text-foreground transition-colors"
         >
           Skip
         </button>
@@ -120,7 +120,7 @@ export default function OnboardingPage() {
             <div
               key={i}
               className={`h-1 rounded-full transition-all duration-300 ${
-                i <= step ? 'bg-[#00C300] flex-1' : 'bg-[#EBEBEB] flex-1'
+                i <= step ? 'bg-primary flex-1' : 'bg-secondary flex-1'
               }`}
             />
           ))}
@@ -146,8 +146,8 @@ export default function OnboardingPage() {
                 <div className={`w-24 h-24 rounded-3xl ${current.bg} flex items-center justify-center mx-auto mb-6`}>
                   <Icon size={40} className={current.color} />
                 </div>
-                <h2 className="text-2xl font-bold text-[#111111] mb-3">{current.title}</h2>
-                <p className="text-[#8D8D8D] text-base leading-relaxed">{current.description}</p>
+                <h2 className="text-2xl font-bold text-foreground mb-3">{current.title}</h2>
+                <p className="text-muted-foreground text-base leading-relaxed">{current.description}</p>
               </>
             )}
           </motion.div>
@@ -159,13 +159,13 @@ export default function OnboardingPage() {
         <div className="flex items-center gap-3">
           {step > 0 && (
             <button type="button" onClick={goBack}
-              className="px-4 py-3 rounded-xl bg-[#F5F5F5] text-[#111111] text-sm font-medium hover:bg-[#EBEBEB] transition-colors"
+              className="px-4 py-3 rounded-xl bg-secondary text-foreground text-sm font-medium hover:bg-secondary transition-colors"
             >
               Back
             </button>
           )}
           <button type="button" onClick={goNext}
-            className="flex-1 py-3 rounded-xl bg-[#00C300] text-white text-sm font-bold hover:bg-[#00A300] transition-colors flex items-center justify-center gap-2"
+            className="flex-1 py-3 rounded-xl bg-primary text-white text-sm font-bold hover:bg-[#00A300] transition-colors flex items-center justify-center gap-2"
           >
             {step === STEPS.length - 1 ? (
               <>
@@ -178,7 +178,7 @@ export default function OnboardingPage() {
             )}
           </button>
         </div>
-        <p className="text-center text-[#8D8D8D] text-xs mt-4">
+        <p className="text-center text-muted-foreground text-xs mt-4">
           Step {step + 1} of {STEPS.length}
         </p>
       </div>

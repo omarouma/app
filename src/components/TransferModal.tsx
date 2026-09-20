@@ -69,29 +69,29 @@ setSending(true);
           animate={{ y: 0 }}
           exit={{ y: '100%' }}
           transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-          className="bg-white w-full sm:max-w-md sm:rounded-2xl rounded-t-2xl overflow-hidden"
+          className="bg-card w-full sm:max-w-md sm:rounded-2xl rounded-t-2xl overflow-hidden"
           onClick={e => e.stopPropagation()}
         >
           {/* Header */}
-          <div className="flex items-center justify-between p-4 border-b border-[#EBEBEB]">
-            <h3 className="text-lg font-bold text-[#111111]">Send to {toUserName || 'User'}</h3>
+          <div className="flex items-center justify-between p-4 border-b border-border">
+            <h3 className="text-lg font-bold text-foreground">Send to {toUserName || 'User'}</h3>
             <button type="button" onClick={onClose} className="p-1 hover:bg-gray-100 rounded-full">
-              <X size={20} className="text-[#8D8D8D]" />
+              <X size={20} className="text-muted-foreground" />
             </button>
           </div>
 
           {/* Tabs */}
-          <div className="flex border-b border-[#EBEBEB]">
+          <div className="flex border-b border-border">
             <button type="button" onClick={() => { setTab('coins'); setError(''); setSuccess(''); }}
               className={`flex-1 py-3 text-sm font-medium flex items-center justify-center gap-2 transition-colors ${
-                tab === 'coins' ? 'text-[#00C300] border-b-2 border-[#00C300]' : 'text-[#8D8D8D]'
+                tab === 'coins' ? 'text-primary border-b-2 border-primary' : 'text-muted-foreground'
               }`}
             >
               <Coins size={16} /> Gaga Coins
             </button>
             <button type="button" onClick={() => { setTab('usd'); setError(''); setSuccess(''); }}
               className={`flex-1 py-3 text-sm font-medium flex items-center justify-center gap-2 transition-colors ${
-                tab === 'usd' ? 'text-[#00C300] border-b-2 border-[#00C300]' : 'text-[#8D8D8D]'
+                tab === 'usd' ? 'text-primary border-b-2 border-primary' : 'text-muted-foreground'
               }`}
             >
               <Banknote size={16} /> USD
@@ -100,18 +100,18 @@ setSending(true);
 
           <div className="p-4 space-y-4">
             {/* Balance */}
-            <div className="bg-[#F5F5F5] rounded-xl p-3 flex items-center justify-between">
-              <span className="text-[#8D8D8D] text-sm">Available</span>
-              <span className="text-[#111111] font-bold">
+            <div className="bg-secondary rounded-xl p-3 flex items-center justify-between">
+              <span className="text-muted-foreground text-sm">Available</span>
+              <span className="text-foreground font-bold">
                 {tab === 'coins' ? `${coins} coins` : `$${usd.toFixed(2)}`}
               </span>
             </div>
 
             {/* Amount Input */}
             <div>
-              <label className="text-[#8D8D8D] text-xs mb-1 block">Amount</label>
+              <label className="text-muted-foreground text-xs mb-1 block">Amount</label>
               <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8D8D8D] text-lg">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-lg">
                   {tab === 'coins' ? '\u20BF' : '$'}
                 </span>
                 <input
@@ -119,30 +119,30 @@ setSending(true);
                   value={amount}
                   onChange={e => setAmount(e.target.value)}
                   placeholder="0"
-                  className="w-full bg-[#F5F5F5] rounded-xl pl-10 pr-4 py-3 text-[#111111] text-lg font-bold focus:outline-none focus:ring-2 focus:ring-[#00C300] placeholder:text-[#C7C7CC]"
+                  className="w-full bg-secondary rounded-xl pl-10 pr-4 py-3 text-foreground text-lg font-bold focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
                 />
               </div>
             </div>
 
             {/* Note */}
             <div>
-              <label className="text-[#8D8D8D] text-xs mb-1 block">Note (optional)</label>
+              <label className="text-muted-foreground text-xs mb-1 block">Note (optional)</label>
               <input
                 value={note}
                 onChange={e => setNote(e.target.value)}
                 placeholder="What's this for?"
-                className="w-full bg-[#F5F5F5] rounded-xl px-4 py-3 text-[#111111] text-sm focus:outline-none focus:ring-2 focus:ring-[#00C300] placeholder:text-[#C7C7CC]"
+                className="w-full bg-secondary rounded-xl px-4 py-3 text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
               />
             </div>
 
             {/* Error/Success */}
-            {error && <p className="text-[#FF3B30] text-xs">{error}</p>}
-            {success && <p className="text-[#00C300] text-xs font-medium">{success}</p>}
+            {error && <p className="text-destructive text-xs">{error}</p>}
+            {success && <p className="text-primary text-xs font-medium">{success}</p>}
 
             {/* Send Button */}
             <button type="button" onClick={handleSend}
               disabled={sending || !amount}
-              className="w-full bg-[#00C300] hover:bg-[#00A300] text-white rounded-xl py-3.5 font-bold text-sm transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              className="w-full bg-primary hover:bg-[#00A300] text-white rounded-xl py-3.5 font-bold text-sm transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
             >
               {sending ? <Loader size={16} className="animate-spin" /> : <><Send size={16} /> Send {tab === 'coins' ? 'Coins' : 'USD'}</>}
             </button>

@@ -94,10 +94,10 @@ export default function YouTubeVideoCard({ video, index, onPlay }: YouTubeVideoC
 
       {/* Info */}
       <div className="p-3 space-y-1.5">
-        <h3 className="text-sm font-medium text-white line-clamp-2 leading-snug group-hover:text-[#00C300] transition-colors">
+        <h3 className="text-sm font-medium text-white line-clamp-2 leading-snug group-hover:text-primary transition-colors">
           {video.title}
         </h3>
-        <div className="flex items-center justify-between text-[#8D8D8D] text-xs">
+        <div className="flex items-center justify-between text-muted-foreground text-xs">
           <span className="truncate max-w-[60%]">
             {('channelTitle' in video) ? video.channelTitle : (('user' in video) ? video.user.name : 'Unknown')}
           </span>
@@ -105,7 +105,7 @@ export default function YouTubeVideoCard({ video, index, onPlay }: YouTubeVideoC
         </div>
         <div className="flex items-center gap-1.5 pt-0.5">
           <div className={`w-2 h-2 rounded-full ${isYouTube ? 'bg-red-500' : 'bg-green-500'}`} />
-          <span className="text-[10px] text-[#8D8D8D]">Tap to play in GaGa Chat</span>
+          <span className="text-[10px] text-muted-foreground">Tap to play in GaGa Chat</span>
         </div>
       </div>
     </div>

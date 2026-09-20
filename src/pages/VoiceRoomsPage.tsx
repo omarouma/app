@@ -82,26 +82,26 @@ export default function VoiceRoomsPage() {
       <div className="shrink-0 px-5 py-4 border-b border-[#1a1a1a]">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
-            <div className="w-9 h-9 rounded-full bg-[#00C300]/20 flex items-center justify-center">
-              <Radio size={18} className="text-[#00C300]" />
+            <div className="w-9 h-9 rounded-full bg-primary/20 flex items-center justify-center">
+              <Radio size={18} className="text-primary" />
             </div>
             <h1 className="text-xl font-bold">Voice Rooms</h1>
           </div>
           <button
             type="button"
             onClick={() => setShowCreateModal(true)}
-            className="flex items-center gap-1.5 px-4 py-2 bg-[#00C300] text-black rounded-full text-sm font-bold hover:bg-[#00A300] transition-colors"
+            className="flex items-center gap-1.5 px-4 py-2 bg-primary text-black rounded-full text-sm font-bold hover:bg-[#00A300] transition-colors"
           >
             <Plus size={16} /> Create
           </button>
         </div>
         <div className="relative">
-          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8D8D8D]" />
+          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <input
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder="Search rooms, topics, hosts..."
-            className="w-full bg-[#1a1a1a] rounded-xl pl-10 pr-4 py-2.5 text-sm text-white placeholder:text-[#8D8D8D] focus:outline-none focus:ring-2 focus:ring-[#00C300]/30"
+            className="w-full bg-[#1a1a1a] rounded-xl pl-10 pr-4 py-2.5 text-sm text-white placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
           />
         </div>
       </div>
@@ -114,8 +114,8 @@ export default function VoiceRoomsPage() {
             type="button"
             onClick={() => setActiveCategory(cat)}
             className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${activeCategory === cat
-                ? 'bg-[#00C300] text-black'
-                : 'bg-[#1a1a1a] text-[#8D8D8D] hover:text-white'
+                ? 'bg-primary text-black'
+                : 'bg-[#1a1a1a] text-muted-foreground hover:text-white'
               }`}
           >
             {cat}
@@ -136,7 +136,7 @@ export default function VoiceRoomsPage() {
               <button
                 type="button"
                 onClick={() => setShowCreateModal(true)}
-                className="px-5 py-2 bg-[#00C300] text-black rounded-full text-sm font-bold"
+                className="px-5 py-2 bg-primary text-black rounded-full text-sm font-bold"
               >
                 Create Room
               </button>
@@ -167,18 +167,18 @@ export default function VoiceRoomsPage() {
                         />
                         <div className="min-w-0">
                           <p className="text-white text-xs font-medium truncate">{room.hostName}</p>
-                          <p className="text-[#00C300] text-[10px] flex items-center gap-1">
-                            <span className="w-1.5 h-1.5 bg-[#00C300] rounded-full animate-pulse" /> LIVE
+                          <p className="text-primary text-[10px] flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 bg-primary rounded-full animate-pulse" /> LIVE
                           </p>
                         </div>
                       </div>
                       <p className="text-white text-sm font-semibold truncate mb-1">{room.title}</p>
-                      <p className="text-[#8D8D8D] text-xs truncate">{room.topic}</p>
+                      <p className="text-muted-foreground text-xs truncate">{room.topic}</p>
                       <div className="flex items-center gap-2 mt-2">
-                        <span className="text-[#8D8D8D] text-[10px] flex items-center gap-1">
+                        <span className="text-muted-foreground text-[10px] flex items-center gap-1">
                           <Users size={10} /> {formatListenerCount(room.listenerCount)}
                         </span>
-                        <span className="text-[#8D8D8D] text-[10px]">{room.category}</span>
+                        <span className="text-muted-foreground text-[10px]">{room.category}</span>
                       </div>
                     </button>
                   ))}
@@ -233,32 +233,32 @@ export default function VoiceRoomsPage() {
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-bold text-white">Create Voice Room</h2>
                 <button type="button" onClick={() => setShowCreateModal(false)}>
-                  <X size={20} className="text-[#8D8D8D]" />
+                  <X size={20} className="text-muted-foreground" />
                 </button>
               </div>
               <div className="space-y-4">
                 <div>
-                  <label className="text-xs text-[#8D8D8D] mb-1 block">Room Title</label>
+                  <label className="text-xs text-muted-foreground mb-1 block">Room Title</label>
                   <input
                     value={newRoomTitle}
                     onChange={e => setNewRoomTitle(e.target.value)}
                     placeholder="e.g., Tech Talk Tuesday"
                     maxLength={60}
-                    className="w-full bg-[#2a2a2a] rounded-xl px-4 py-3 text-sm text-white placeholder:text-[#8D8D8D] outline-none focus:ring-2 focus:ring-[#00C300]/30"
+                    className="w-full bg-[#2a2a2a] rounded-xl px-4 py-3 text-sm text-white placeholder:text-muted-foreground outline-none focus:ring-2 focus:ring-primary/30"
                   />
                 </div>
                 <div>
-                  <label className="text-xs text-[#8D8D8D] mb-1 block">Topic</label>
+                  <label className="text-xs text-muted-foreground mb-1 block">Topic</label>
                   <input
                     value={newRoomTopic}
                     onChange={e => setNewRoomTopic(e.target.value)}
                     placeholder="What's the discussion about?"
                     maxLength={100}
-                    className="w-full bg-[#2a2a2a] rounded-xl px-4 py-3 text-sm text-white placeholder:text-[#8D8D8D] outline-none focus:ring-2 focus:ring-[#00C300]/30"
+                    className="w-full bg-[#2a2a2a] rounded-xl px-4 py-3 text-sm text-white placeholder:text-muted-foreground outline-none focus:ring-2 focus:ring-primary/30"
                   />
                 </div>
                 <div>
-                  <label className="text-xs text-[#8D8D8D] mb-1 block">Category</label>
+                  <label className="text-xs text-muted-foreground mb-1 block">Category</label>
                   <div className="flex gap-2 flex-wrap">
                     {ROOM_CATEGORIES.slice(1).map(cat => (
                       <button
@@ -266,8 +266,8 @@ export default function VoiceRoomsPage() {
                         type="button"
                         onClick={() => setNewRoomCategory(cat)}
                         className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${newRoomCategory === cat
-                            ? 'bg-[#00C300] text-black'
-                            : 'bg-[#2a2a2a] text-[#8D8D8D]'
+                            ? 'bg-primary text-black'
+                            : 'bg-[#2a2a2a] text-muted-foreground'
                           }`}
                       >
                         {cat}
@@ -279,7 +279,7 @@ export default function VoiceRoomsPage() {
                   <button
                     type="button"
                     onClick={() => setIsPrivate(!isPrivate)}
-                    className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium transition-colors ${isPrivate ? 'bg-[#FF4081]/20 text-[#FF4081]' : 'bg-[#2a2a2a] text-[#8D8D8D]'
+                    className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium transition-colors ${isPrivate ? 'bg-[#FF4081]/20 text-[#FF4081]' : 'bg-[#2a2a2a] text-muted-foreground'
                       }`}
                   >
                     {isPrivate ? <Lock size={12} /> : <Globe size={12} />}
@@ -290,7 +290,7 @@ export default function VoiceRoomsPage() {
                   type="button"
                   onClick={handleCreate}
                   disabled={!newRoomTitle.trim()}
-                  className="w-full py-3 bg-[#00C300] text-black rounded-xl text-sm font-bold disabled:opacity-50 hover:bg-[#00A300] transition-colors"
+                  className="w-full py-3 bg-primary text-black rounded-xl text-sm font-bold disabled:opacity-50 hover:bg-[#00A300] transition-colors"
                 >
                   Go Live
                 </button>
@@ -316,7 +316,7 @@ function RoomCard({ room, onJoin }: { room: VoiceRoom; onJoin: () => void }) {
           alt="Host"
           className="w-12 h-12 rounded-full object-cover"
         />
-        <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 bg-[#00C300] rounded-full border-2 border-[#1a1a1a] flex items-center justify-center">
+        <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 bg-primary rounded-full border-2 border-[#1a1a1a] flex items-center justify-center">
           <Mic size={8} className="text-black" />
         </div>
       </div>
@@ -325,18 +325,18 @@ function RoomCard({ room, onJoin }: { room: VoiceRoom; onJoin: () => void }) {
           <p className="text-white font-semibold text-sm truncate">{room.title}</p>
           {room.isPrivate && <Lock size={12} className="text-[#FF4081] shrink-0" />}
         </div>
-        <p className="text-[#8D8D8D] text-xs truncate">{room.topic || room.description}</p>
+        <p className="text-muted-foreground text-xs truncate">{room.topic || room.description}</p>
         <div className="flex items-center gap-3 mt-1">
-          <span className="text-[#00C300] text-[10px] flex items-center gap-1">
-            <span className="w-1.5 h-1.5 bg-[#00C300] rounded-full animate-pulse" /> LIVE
+          <span className="text-primary text-[10px] flex items-center gap-1">
+            <span className="w-1.5 h-1.5 bg-primary rounded-full animate-pulse" /> LIVE
           </span>
-          <span className="text-[#8D8D8D] text-[10px] flex items-center gap-1">
+          <span className="text-muted-foreground text-[10px] flex items-center gap-1">
             <Users size={10} /> {room.listenerCount} listening
           </span>
-          <span className="text-[#8D8D8D] text-[10px]">{room.category}</span>
+          <span className="text-muted-foreground text-[10px]">{room.category}</span>
         </div>
       </div>
-      <ChevronRight size={18} className="text-[#8D8D8D] shrink-0" />
+      <ChevronRight size={18} className="text-muted-foreground shrink-0" />
     </button>
   );
 }

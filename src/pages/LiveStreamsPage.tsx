@@ -91,26 +91,26 @@ const streamId = await startLive(user.id, {
       <div className="shrink-0 px-5 py-4 border-b border-[#2a2a2a]">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
-            <div className="w-9 h-9 rounded-full bg-[#00C300]/20 flex items-center justify-center">
-              <Radio size={18} className="text-[#00C300]" />
+            <div className="w-9 h-9 rounded-full bg-primary/20 flex items-center justify-center">
+              <Radio size={18} className="text-primary" />
             </div>
             <h1 className="text-xl font-bold">Live Streams</h1>
           </div>
           <button
             type="button"
             onClick={() => setShowGoLiveModal(true)}
-            className="flex items-center gap-1.5 px-4 py-2 bg-[#00C300] text-black rounded-full text-sm font-bold hover:bg-[#00A300] transition-colors"
+            className="flex items-center gap-1.5 px-4 py-2 bg-primary text-black rounded-full text-sm font-bold hover:bg-[#00A300] transition-colors"
           >
             <Video size={16} /> Go Live
           </button>
         </div>
         <div className="relative">
-          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8D8D8D]" />
+          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search streams, categories, hosts..."
-            className="w-full bg-[#1a1a1a] rounded-xl pl-10 pr-4 py-2.5 text-sm text-white placeholder:text-[#8D8D8D] focus:outline-none focus:ring-2 focus:ring-[#00C300]/30"
+            className="w-full bg-[#1a1a1a] rounded-xl pl-10 pr-4 py-2.5 text-sm text-white placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
           />
         </div>
       </div>
@@ -124,8 +124,8 @@ const streamId = await startLive(user.id, {
             onClick={() => setActiveCategory(cat)}
             className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${
               activeCategory === cat
-                ? 'bg-[#00C300] text-black'
-                : 'bg-[#1a1a1a] text-[#8D8D8D] hover:text-white'
+                ? 'bg-primary text-black'
+                : 'bg-[#1a1a1a] text-muted-foreground hover:text-white'
             }`}
           >
             {cat}
@@ -148,16 +148,16 @@ const streamId = await startLive(user.id, {
         ) : filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center px-6">
             <div className="w-16 h-16 rounded-full bg-[#1a1a1a] flex items-center justify-center mb-4">
-              <Video size={28} className="text-[#8D8D8D]" />
+              <Video size={28} className="text-muted-foreground" />
             </div>
             <h3 className="text-white font-semibold mb-1">No live streams</h3>
-            <p className="text-[#8D8D8D] text-sm mb-4">
+            <p className="text-muted-foreground text-sm mb-4">
               No one is streaming right now. Be the first to go live!
             </p>
             <button
               type="button"
               onClick={() => setShowGoLiveModal(true)}
-              className="px-5 py-2 bg-[#00C300] text-black rounded-full text-sm font-bold"
+              className="px-5 py-2 bg-primary text-black rounded-full text-sm font-bold"
             >
               Start Streaming
             </button>
@@ -177,7 +177,7 @@ const streamId = await startLive(user.id, {
                       key={stream.id}
                       type="button"
                       onClick={() => navigate(`/live/${stream.id}`)}
-                      className="shrink-0 w-52 bg-[#1a1a1a] rounded-xl overflow-hidden text-left hover:ring-2 hover:ring-[#00C300]/40 transition-all"
+                      className="shrink-0 w-52 bg-[#1a1a1a] rounded-xl overflow-hidden text-left hover:ring-2 hover:ring-primary/40 transition-all"
                     >
                       <div className="relative h-28 bg-[#2a2a2a]">
                         {stream.thumbnailUrl ? (
@@ -188,10 +188,10 @@ const streamId = await startLive(user.id, {
                           />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center">
-                            <Play size={28} className="text-[#8D8D8D]" />
+                            <Play size={28} className="text-muted-foreground" />
                           </div>
                         )}
-                        <div className="absolute top-2 left-2 bg-[#FF3B30] text-white text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
+                        <div className="absolute top-2 left-2 bg-destructive text-white text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
                           <Circle size={6} className="fill-white animate-pulse" /> LIVE
                         </div>
                         <div className="absolute bottom-2 right-2 bg-black/60 text-white text-[10px] px-2 py-0.5 rounded-full flex items-center gap-1">
@@ -208,7 +208,7 @@ const streamId = await startLive(user.id, {
                           <p className="text-white text-xs font-medium truncate">{stream.userName || 'Streamer'}</p>
                         </div>
                         <p className="text-white text-sm font-semibold truncate mb-1">{stream.title}</p>
-                        <p className="text-[#8D8D8D] text-[10px] truncate">{stream.category}</p>
+                        <p className="text-muted-foreground text-[10px] truncate">{stream.category}</p>
                       </div>
                     </button>
                   ))}
@@ -241,10 +241,10 @@ const streamId = await startLive(user.id, {
                         />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center">
-                          <Play size={32} className="text-[#8D8D8D]" />
+                          <Play size={32} className="text-muted-foreground" />
                         </div>
                       )}
-                      <div className="absolute top-2 left-2 bg-[#FF3B30] text-white text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
+                      <div className="absolute top-2 left-2 bg-destructive text-white text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
                         <Circle size={6} className="fill-white animate-pulse" /> LIVE
                       </div>
                       <div className="absolute bottom-2 right-2 bg-black/60 text-white text-[10px] px-2 py-0.5 rounded-full flex items-center gap-1">
@@ -265,12 +265,12 @@ const streamId = await startLive(user.id, {
                       <p className="text-white text-sm font-semibold truncate mb-1">{stream.title}</p>
                       <div className="flex items-center gap-2 flex-wrap">
                         {stream.category && (
-                          <span className="text-[#8D8D8D] text-[10px] bg-[#2a2a2a] px-2 py-0.5 rounded-full">
+                          <span className="text-muted-foreground text-[10px] bg-[#2a2a2a] px-2 py-0.5 rounded-full">
                             {stream.category}
                           </span>
                         )}
                         {(stream.hashtags || []).slice(0, 2).map((tag) => (
-                          <span key={tag} className="text-[#00C300] text-[10px] flex items-center gap-0.5">
+                          <span key={tag} className="text-primary text-[10px] flex items-center gap-0.5">
                             <Hash size={8} /> {tag}
                           </span>
                         ))}
@@ -306,22 +306,22 @@ const streamId = await startLive(user.id, {
                 <div className="flex items-center justify-between mb-4">
                   <h2 className="text-lg font-bold text-white">Go Live</h2>
                   <button type="button" onClick={() => setShowGoLiveModal(false)}>
-                    <X size={20} className="text-[#8D8D8D]" />
+                    <X size={20} className="text-muted-foreground" />
                   </button>
                 </div>
                 <div className="space-y-4">
                   <div>
-                    <label className="text-xs text-[#8D8D8D] mb-1 block">Stream Title</label>
+                    <label className="text-xs text-muted-foreground mb-1 block">Stream Title</label>
                     <input
                       value={newTitle}
                       onChange={(e) => setNewTitle(e.target.value)}
                       placeholder="What's your stream about?"
                       maxLength={80}
-                      className="w-full bg-[#2a2a2a] rounded-xl px-4 py-3 text-sm text-white placeholder:text-[#8D8D8D] outline-none focus:ring-2 focus:ring-[#00C300]/30"
+                      className="w-full bg-[#2a2a2a] rounded-xl px-4 py-3 text-sm text-white placeholder:text-muted-foreground outline-none focus:ring-2 focus:ring-primary/30"
                     />
                   </div>
                   <div>
-                    <label className="text-xs text-[#8D8D8D] mb-1 block">Category</label>
+                    <label className="text-xs text-muted-foreground mb-1 block">Category</label>
                     <div className="flex gap-2 flex-wrap">
                       {STREAM_CATEGORIES.slice(1).map((cat) => (
                         <button
@@ -330,8 +330,8 @@ const streamId = await startLive(user.id, {
                           onClick={() => setNewCategory(cat)}
                           className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
                             newCategory === cat
-                              ? 'bg-[#00C300] text-black'
-                              : 'bg-[#2a2a2a] text-[#8D8D8D]'
+                              ? 'bg-primary text-black'
+                              : 'bg-[#2a2a2a] text-muted-foreground'
                           }`}
                         >
                           {cat}
@@ -340,19 +340,19 @@ const streamId = await startLive(user.id, {
                     </div>
                   </div>
                   <div>
-                    <label className="text-xs text-[#8D8D8D] mb-1 block">Hashtags</label>
+                    <label className="text-xs text-muted-foreground mb-1 block">Hashtags</label>
                     <input
                       value={newHashtags}
                       onChange={(e) => setNewHashtags(e.target.value)}
                       placeholder="#gaming, #fun (comma separated)"
-                      className="w-full bg-[#2a2a2a] rounded-xl px-4 py-3 text-sm text-white placeholder:text-[#8D8D8D] outline-none focus:ring-2 focus:ring-[#00C300]/30"
+                      className="w-full bg-[#2a2a2a] rounded-xl px-4 py-3 text-sm text-white placeholder:text-muted-foreground outline-none focus:ring-2 focus:ring-primary/30"
                     />
                   </div>
                   <button
                     type="button"
                     onClick={handleGoLive}
                     disabled={!newTitle.trim() || isStarting}
-                    className="w-full py-3 bg-[#00C300] text-black rounded-xl text-sm font-bold disabled:opacity-50 hover:bg-[#00A300] transition-colors flex items-center justify-center gap-2"
+                    className="w-full py-3 bg-primary text-black rounded-xl text-sm font-bold disabled:opacity-50 hover:bg-[#00A300] transition-colors flex items-center justify-center gap-2"
                   >
                     {isStarting ? (
                       <motion.div

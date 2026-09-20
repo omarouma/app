@@ -7,6 +7,7 @@ import { UserPlus, Plus, Search, Users, Archive, MessageCircle, MessageSquare, A
 import { ChatList } from '@/components/features/chat/ChatList';
 import LoadingSkeleton from '@/components/LoadingSkeleton';
 import EmptyState from '@/components/EmptyState';
+import PageHeader from '@/components/layout/PageHeader';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import { useChatLogic } from '@/hooks/useChatLogic';
 import { useChatStore } from '@/store/useChatStore';
@@ -92,51 +93,48 @@ export default function ChatsPage() {
   return (
     <div className="h-screen-safe bg-background flex flex-col relative page-enter">
       {/* Header */}
-      <header className="shrink-0 page-header">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-foreground tracking-tight">Chats</h1>
-          {totalUnread > 0 && (
-            <p className="text-primary text-xs font-semibold mt-0.5">
-              {totalUnread} unread message{totalUnread !== 1 ? 's' : ''}
-            </p>
-          )}
-        </div>
-        <div className="flex gap-1.5 sm:gap-2 text-foreground">
-          {totalUnread > 0 && (
-            <button type="button" onClick={handleMarkAllAsRead}
+      <PageHeader
+        large
+        title="Chats"
+        subtitle={totalUnread > 0 ? `${totalUnread} unread message${totalUnread !== 1 ? 's' : ''}` : undefined}
+        actions={
+          <>
+            {totalUnread > 0 && (
+              <button type="button" onClick={handleMarkAllAsRead}
+                className="icon-btn w-10 h-10 sm:w-11 sm:h-11 bg-accent text-foreground"
+                aria-label="Mark all chats as read"
+                title="Mark all as read"
+              >
+                <CheckCheck size={18} strokeWidth={2} />
+              </button>
+            )}
+            <button type="button" onClick={() => navigate('/calls')}
               className="icon-btn w-10 h-10 sm:w-11 sm:h-11 bg-accent text-foreground"
-              aria-label="Mark all chats as read"
-              title="Mark all as read"
+              aria-label="Calls"
             >
-              <CheckCheck size={18} strokeWidth={2} />
+              <Phone size={18} strokeWidth={2} />
             </button>
-          )}
-          <button type="button" onClick={() => navigate('/calls')}
-            className="icon-btn w-10 h-10 sm:w-11 sm:h-11 bg-accent text-foreground"
-            aria-label="Calls"
-          >
-            <Phone size={18} strokeWidth={2} />
-          </button>
-          <button type="button" onClick={() => navigate('/notifications')}
-            className="icon-btn w-10 h-10 sm:w-11 sm:h-11 bg-accent text-foreground"
-            aria-label="Notifications"
-          >
-            <Bell size={18} strokeWidth={2} />
-          </button>
-          <button type="button" onClick={() => navigate('/add-friends')}
-            className="icon-btn w-10 h-10 sm:w-11 sm:h-11 bg-accent text-foreground"
-            aria-label="Add friends"
-          >
-            <UserPlus size={18} strokeWidth={2} />
-          </button>
-          <button type="button" onClick={() => navigate('/create-group')}
-            className="icon-btn w-10 h-10 sm:w-11 sm:h-11 bg-accent text-foreground"
-            aria-label="Create new group"
-          >
-            <Plus size={18} strokeWidth={2.5} />
-          </button>
-        </div>
-      </header>
+            <button type="button" onClick={() => navigate('/notifications')}
+              className="icon-btn w-10 h-10 sm:w-11 sm:h-11 bg-accent text-foreground"
+              aria-label="Notifications"
+            >
+              <Bell size={18} strokeWidth={2} />
+            </button>
+            <button type="button" onClick={() => navigate('/add-friends')}
+              className="icon-btn w-10 h-10 sm:w-11 sm:h-11 bg-accent text-foreground"
+              aria-label="Add friends"
+            >
+              <UserPlus size={18} strokeWidth={2} />
+            </button>
+            <button type="button" onClick={() => navigate('/create-group')}
+              className="icon-btn w-10 h-10 sm:w-11 sm:h-11 bg-accent text-foreground"
+              aria-label="Create new group"
+            >
+              <Plus size={18} strokeWidth={2.5} />
+            </button>
+          </>
+        }
+      />
 
       {/* Search */}
       <div className="shrink-0 page-padding-x pb-2 bg-card/50">

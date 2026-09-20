@@ -332,10 +332,10 @@ export default function CreatePostModal({ isOpen, onClose, onPost }: CreatePostM
           exit={{ scale: 0.9, opacity: 0, y: 20 }}
           transition={{ type: 'spring', stiffness: 300, damping: 30 }}
           onClick={(e) => e.stopPropagation()}
-          className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto"
+          className="bg-card rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto"
         >
           {/* Header */}
-          <div className="flex items-center justify-between p-4 border-b border-gray-100 sticky top-0 bg-white rounded-t-2xl z-10">
+          <div className="flex items-center justify-between p-4 border-b border-gray-100 sticky top-0 bg-card rounded-t-2xl z-10">
             <h2 className="font-bold text-lg text-gray-900">Create Post</h2>
             <button type="button" onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full transition-colors" aria-label="Close">
               <X size={20} className="text-gray-500" />
@@ -381,9 +381,9 @@ export default function CreatePostModal({ isOpen, onClose, onPost }: CreatePostM
                       type="button"
                       key={opt.value}
                       onClick={() => setState((prev) => ({ ...prev, privacy: opt.value, showPrivacy: false }))}
-                      className={`w-full flex items-center gap-3 p-2 rounded-lg text-left transition-colors ${state.privacy === opt.value ? 'bg-white shadow-sm' : 'hover:bg-white/50'}`}
+                      className={`w-full flex items-center gap-3 p-2 rounded-lg text-left transition-colors ${state.privacy === opt.value ? 'bg-card shadow-sm' : 'hover:bg-white/50'}`}
                     >
-                      <opt.icon size={16} className={state.privacy === opt.value ? 'text-[#00C300]' : 'text-gray-400'} />
+                      <opt.icon size={16} className={state.privacy === opt.value ? 'text-primary' : 'text-gray-400'} />
                       <div>
                         <p className={`text-sm font-medium ${state.privacy === opt.value ? 'text-gray-900' : 'text-gray-600'}`}>{opt.label}</p>
                         <p className="text-xs text-gray-400">{opt.desc}</p>
@@ -450,7 +450,7 @@ export default function CreatePostModal({ isOpen, onClose, onPost }: CreatePostM
                     onChange={(e) => set('pollQuestion', e.target.value)}
                     placeholder="Ask a question..."
                     maxLength={200}
-                    className="w-full px-3 py-2 rounded-lg bg-white border border-gray-200 text-sm outline-none focus:border-[#00C300]"
+                    className="w-full px-3 py-2 rounded-lg bg-card border border-gray-200 text-sm outline-none focus:border-primary"
                   />
                   {state.pollOptions.map((opt, idx) => (
                     <div key={idx} className="flex items-center gap-2">
@@ -460,7 +460,7 @@ export default function CreatePostModal({ isOpen, onClose, onPost }: CreatePostM
                         onChange={(e) => updatePollOption(idx, e.target.value)}
                         placeholder={`Option ${idx + 1}`}
                         maxLength={100}
-                        className="flex-1 px-3 py-2 rounded-lg bg-white border border-gray-200 text-sm outline-none focus:border-[#00C300]"
+                        className="flex-1 px-3 py-2 rounded-lg bg-card border border-gray-200 text-sm outline-none focus:border-primary"
                       />
                       {state.pollOptions.length > 2 && (
                         <button type="button" onClick={() => removePollOption(idx)} className="p-1 hover:bg-gray-200 rounded" aria-label="Remove option">
@@ -470,7 +470,7 @@ export default function CreatePostModal({ isOpen, onClose, onPost }: CreatePostM
                     </div>
                   ))}
                   {state.pollOptions.length < 4 && (
-                    <button type="button" onClick={addPollOption} className="flex items-center gap-1 text-xs text-[#00C300] font-medium">
+                    <button type="button" onClick={addPollOption} className="flex items-center gap-1 text-xs text-primary font-medium">
                       <Plus size={12} /> Add option
                     </button>
                   )}
@@ -503,7 +503,7 @@ export default function CreatePostModal({ isOpen, onClose, onPost }: CreatePostM
                       type="button"
                       key={loc}
                       onClick={() => setState((prev) => ({ ...prev, location: loc, showLocation: false }))}
-                      className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${state.location === loc ? 'bg-[#00C300] text-white' : 'bg-white text-gray-600 hover:bg-gray-100'}`}
+                      className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${state.location === loc ? 'bg-primary text-white' : 'bg-card text-gray-600 hover:bg-gray-100'}`}
                     >
                       {loc}
                     </button>
@@ -529,7 +529,7 @@ export default function CreatePostModal({ isOpen, onClose, onPost }: CreatePostM
                     value={state.scheduledDate}
                     min={new Date(Date.now() + 60000).toISOString().slice(0, 16)}
                     onChange={(e) => set('scheduledDate', e.target.value)}
-                    className="w-full px-3 py-2 rounded-lg bg-white border border-gray-200 text-sm outline-none focus:border-[#00C300]"
+                    className="w-full px-3 py-2 rounded-lg bg-card border border-gray-200 text-sm outline-none focus:border-primary"
                   />
                 </div>
               </motion.div>
@@ -568,7 +568,7 @@ export default function CreatePostModal({ isOpen, onClose, onPost }: CreatePostM
           {state.hashtags.length > 0 && (
             <div className="px-4 pb-2 flex flex-wrap gap-1">
               {state.hashtags.slice(0, 5).map((tag) => (
-                <span key={tag} className="text-xs text-[#00C300] font-medium bg-[#00C300]/10 px-2 py-0.5 rounded-full">#{tag}</span>
+                <span key={tag} className="text-xs text-primary font-medium bg-primary/10 px-2 py-0.5 rounded-full">#{tag}</span>
               ))}
             </div>
           )}
@@ -629,39 +629,39 @@ export default function CreatePostModal({ isOpen, onClose, onPost }: CreatePostM
               title={`Photo/Video (${state.images.length}/${MAX_IMAGES})`}
               disabled={state.images.length >= MAX_IMAGES}
             >
-              <Image size={20} className={state.images.length >= MAX_IMAGES ? 'text-gray-300' : 'text-[#00C300]'} />
+              <Image size={20} className={state.images.length >= MAX_IMAGES ? 'text-gray-300' : 'text-primary'} />
             </button>
             <button
               type="button"
               onClick={() => set('showPoll', !state.showPoll)}
-              className={`p-2 hover:bg-gray-100 rounded-lg transition-colors ${state.showPoll ? 'bg-[#00C300]/10' : ''}`}
+              className={`p-2 hover:bg-gray-100 rounded-lg transition-colors ${state.showPoll ? 'bg-primary/10' : ''}`}
               title="Poll"
             >
-              <BarChart2 size={20} className={state.showPoll ? 'text-[#00C300]' : 'text-gray-500'} />
+              <BarChart2 size={20} className={state.showPoll ? 'text-primary' : 'text-gray-500'} />
             </button>
             <button
               type="button"
               onClick={() => set('showLocation', !state.showLocation)}
-              className={`p-2 hover:bg-gray-100 rounded-lg transition-colors ${state.location ? 'bg-[#00C300]/10' : ''}`}
+              className={`p-2 hover:bg-gray-100 rounded-lg transition-colors ${state.location ? 'bg-primary/10' : ''}`}
               title="Location"
             >
-              <MapPin size={20} className={state.location ? 'text-[#00C300]' : 'text-gray-500'} />
+              <MapPin size={20} className={state.location ? 'text-primary' : 'text-gray-500'} />
             </button>
             <button
               type="button"
               onClick={() => set('showEmoji', !state.showEmoji)}
-              className={`p-2 hover:bg-gray-100 rounded-lg transition-colors ${state.showEmoji ? 'bg-[#00C300]/10' : ''}`}
+              className={`p-2 hover:bg-gray-100 rounded-lg transition-colors ${state.showEmoji ? 'bg-primary/10' : ''}`}
               title="Emoji"
             >
-              <Smile size={20} className={state.showEmoji ? 'text-[#00C300]' : 'text-gray-500'} />
+              <Smile size={20} className={state.showEmoji ? 'text-primary' : 'text-gray-500'} />
             </button>
             <button
               type="button"
               onClick={() => set('showSchedule', !state.showSchedule)}
-              className={`p-2 hover:bg-gray-100 rounded-lg transition-colors ${state.scheduledDate ? 'bg-[#00C300]/10' : ''}`}
+              className={`p-2 hover:bg-gray-100 rounded-lg transition-colors ${state.scheduledDate ? 'bg-primary/10' : ''}`}
               title="Schedule"
             >
-              <Calendar size={20} className={state.scheduledDate ? 'text-[#00C300]' : 'text-gray-500'} />
+              <Calendar size={20} className={state.scheduledDate ? 'text-primary' : 'text-gray-500'} />
             </button>
           </div>
 
@@ -670,7 +670,7 @@ export default function CreatePostModal({ isOpen, onClose, onPost }: CreatePostM
             <div className="px-4 pb-2">
               <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
                 <div
-                  className="h-full bg-[#00C300] rounded-full transition-all duration-300"
+                  className="h-full bg-primary rounded-full transition-all duration-300"
                   style={{ width: `${state.uploadProgress}%` }}
                 />
               </div>
@@ -684,7 +684,7 @@ export default function CreatePostModal({ isOpen, onClose, onPost }: CreatePostM
               type="button"
               onClick={handlePost}
               disabled={state.isPosting || isOverLimit}
-              className="w-full py-3 bg-[#00C300] text-white rounded-xl font-bold text-sm hover:bg-[#00b000] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              className="w-full py-3 bg-primary text-white rounded-xl font-bold text-sm hover:bg-[#00b000] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               {state.isPosting ? (
                 <>
@@ -713,7 +713,7 @@ export default function CreatePostModal({ isOpen, onClose, onPost }: CreatePostM
                   initial={{ scale: 0.5, opacity: 0 }}
                   animate={{ scale: 1, opacity: 1 }}
                   transition={{ type: 'spring', stiffness: 260, damping: 18 }}
-                  className="w-16 h-16 rounded-full bg-[#00C300] flex items-center justify-center shadow-lg shadow-green-500/30"
+                  className="w-16 h-16 rounded-full bg-primary flex items-center justify-center shadow-lg shadow-green-500/30"
                 >
                   <svg viewBox="0 0 24 24" fill="none" className="w-8 h-8 text-white">
                     <path d="M5 13l4 4L19 7" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />

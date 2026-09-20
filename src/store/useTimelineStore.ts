@@ -14,6 +14,7 @@ import {
 } from '@/lib/firestore';
 import type { TimelinePost, Story } from '@/types';
 import { where, orderBy, limit } from '@/lib/firestore';
+import { getDb } from '@/lib/supabaseDb';
 
 interface TimelineStore {
   posts: TimelinePost[];
@@ -132,19 +133,33 @@ export const useTimelineStore = create<TimelineStore>((set) => ({
           where('userId', '==', userId),
         ]);
         const friendIds = (friendships || []).map((f: any) => f.friendId as string);
-        // Supabase 'in' operator supports max 10 items — chunk if needed
-        const allIds = [...new Set([...friendIds, userId])].slice(0, 10);
+        const allIds = [...new Set([...friendIds, userId])];
 
         if (allIds.length === 0) {
           set({ stories: [], loadingStories: false });
           return;
         }
 
-        const data = await queryCollection(COLLECTIONS.STORIES, [
-          where('userId', 'in', allIds),
-          orderBy('createdAt', 'desc'),
-          limit(50),
-        ]);
+        // Supabase's `in` filter accepts a bounded list; chunk the ids so users
+        // with many friends still see every friend's stories (previously the
+        // list was truncated to the first 10 ids, silently hiding the rest).
+        const CHUNK = 10;
+        const chunks: string[][] = [];
+        for (let i = 0; i < allIds.length; i += CHUNK) {
+          chunks.push(allIds.slice(i, i + CHUNK));
+        }
+
+        const results = await Promise.all(
+          chunks.map((ids) =>
+            queryCollection(COLLECTIONS.STORIES, [
+              where('userId', 'in', ids),
+              orderBy('createdAt', 'desc'),
+              limit(50),
+            ]).catch(() => [] as any[]),
+          ),
+        );
+
+        const data = results.flat();
 
         const userIds = [...new Set((data || []).map((d: any) => d.userId as string).filter(Boolean))];
         const userMap: Record<string, any> = {};
@@ -169,20 +184,23 @@ export const useTimelineStore = create<TimelineStore>((set) => ({
     fetchStories();
 
     let cancelled = false;
-    let unsub: (() => void) | null = null;
+    let unsubs: Array<() => void> = [];
 
     const setup = async () => {
       try {
         const friendships = await queryCollection(COLLECTIONS.FRIENDSHIPS, [where('userId', '==', userId)]);
         if (cancelled) return;
         const friendIds = (friendships || []).map((f: any) => f.friendId as string);
-        const allIds = [...new Set([...friendIds, userId])].slice(0, 10);
-        if (allIds.length > 0) {
-          unsub = subscribeToCollection(COLLECTIONS.STORIES, [
-            where('userId', 'in', allIds),
+        const allIds = [...new Set([...friendIds, userId])];
+        const CHUNK = 10;
+        for (let i = 0; i < allIds.length; i += CHUNK) {
+          const ids = allIds.slice(i, i + CHUNK);
+          if (ids.length === 0) continue;
+          unsubs.push(subscribeToCollection(COLLECTIONS.STORIES, [
+            where('userId', 'in', ids),
             orderBy('createdAt', 'desc'),
             limit(50),
-          ], () => { fetchStories().catch(() => {}); });
+          ], () => { fetchStories().catch(() => {}); }));
         }
       } catch {
         // ignore
@@ -193,7 +211,8 @@ export const useTimelineStore = create<TimelineStore>((set) => ({
 
     return () => {
       cancelled = true;
-      if (unsub) unsub();
+      unsubs.forEach((u) => u());
+      unsubs = [];
     };
   },
 
@@ -242,6 +261,12 @@ export const useTimelineStore = create<TimelineStore>((set) => ({
   },
 
   likePost: async (postId, userId) => {
+    // Server-authoritative toggle (works on any user's post, RLS-safe).
+    const db = getDb();
+    if (db) {
+      try { await db.rpc('toggle_post_like', { p_post_id: postId }); } catch { /* ignore */ }
+      return;
+    }
     if (!isFirestoreAvailable()) return;
     try {
       await updateDocById(COLLECTIONS.POSTS, postId, { likes: arrayUnion(userId) });
@@ -251,6 +276,12 @@ export const useTimelineStore = create<TimelineStore>((set) => ({
   },
 
   unlikePost: async (postId, userId) => {
+    // Server-authoritative toggle (works on any user's post, RLS-safe).
+    const db = getDb();
+    if (db) {
+      try { await db.rpc('toggle_post_like', { p_post_id: postId }); } catch { /* ignore */ }
+      return;
+    }
     if (!isFirestoreAvailable()) return;
     try {
       await updateDocById(COLLECTIONS.POSTS, postId, { likes: arrayRemove(userId) });
@@ -260,6 +291,12 @@ export const useTimelineStore = create<TimelineStore>((set) => ({
   },
 
   commentPost: async (postId, userId, content) => {
+    // Server-authoritative comment (works on any user's post, RLS-safe).
+    const db = getDb();
+    if (db) {
+      try { await db.rpc('add_post_comment', { p_post_id: postId, p_content: content }); } catch { /* ignore */ }
+      return;
+    }
     if (!isFirestoreAvailable()) return;
     try {
       const post = await getDocById(COLLECTIONS.POSTS, postId);

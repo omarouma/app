@@ -9,10 +9,15 @@ const ZEGO_SERVER_SECRET = Deno.env.get('ZEGO_SERVER_SECRET') ?? '';
 
 const allowedOrigins = new Set([
   'https://gagachat.app',
+  'https://www.gagachat.app',
   'https://oumagachat.web.app',
   'https://oumagachat.firebaseapp.com',
   'http://localhost:3000',
   'http://localhost:5173',
+  // Native Capacitor Android/iOS WebView origins
+  'https://localhost',
+  'http://localhost',
+  'capacitor://localhost',
 ]);
 
 function corsHeaders(req: Request): Record<string, string> {
@@ -20,7 +25,7 @@ function corsHeaders(req: Request): Record<string, string> {
   return {
   'Access-Control-Allow-Origin': allowedOrigins.has(origin) ? origin : 'null',
   'Access-Control-Allow-Headers': 'authorization, content-type, apikey',
-  'Access-Control-Allow-Methods': 'GET, OPTIONS',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
   'Cache-Control': 'private, no-store, no-cache, must-revalidate',
   'Vary': 'Origin',
   };
@@ -101,23 +106,31 @@ async function isCallParticipant(req: Request, callerId: string, room: string): 
 
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: corsHeaders(req) });
-  if (req.method !== 'GET') return json(req, { error: 'METHOD_NOT_ALLOWED' }, 405);
+  if (req.method !== 'POST') return json(req, { token: null, error: 'Method not allowed. Use POST.' }, 405);
 
   const callerId = await authenticate(req);
-  if (!callerId) return json(req, { error: 'UNAUTHORIZED', message: 'A valid Supabase session is required.' }, 401);
+  if (!callerId) return json(req, { token: null, error: 'Invalid authentication token' }, 401);
 
+  // Accept params from the JSON body (preferred) or the query string.
+  let room = '';
+  let user = '';
+  try {
+    const body = await req.json() as { room?: string; user?: string };
+    room = String(body?.room ?? '').trim();
+    user = String(body?.user ?? '').trim();
+  } catch { /* no/invalid body — fall back to query params */ }
   const url = new URL(req.url);
-  const room = (url.searchParams.get('room') ?? '').trim();
-  const user = (url.searchParams.get('user') ?? '').trim();
-  if (!room || !user) return json(req, { error: 'MISSING_PARAMS' }, 400);
-  if (room.length > 64 || !/^[A-Za-z0-9_-]+$/.test(room)) return json(req, { error: 'INVALID_ROOM' }, 400);
+  if (!room) room = (url.searchParams.get('room') ?? '').trim();
+  if (!user) user = (url.searchParams.get('user') ?? '').trim();
+  if (!room || !user) return json(req, { token: null, error: 'MISSING_PARAMS' }, 400);
+  if (room.length > 64 || !/^[A-Za-z0-9_-]+$/.test(room)) return json(req, { token: null, error: 'INVALID_ROOM' }, 400);
 
   const sanitizedCaller = callerId.replace(/[^A-Za-z0-9_-]/g, '_').slice(0, 64);
-  if (user !== callerId && user !== sanitizedCaller) return json(req, { error: 'FORBIDDEN' }, 403);
+  if (user !== callerId && user !== sanitizedCaller) return json(req, { token: null, error: 'FORBIDDEN' }, 403);
   if (!(await isCallParticipant(req, callerId, room))) {
-    return json(req, { error: 'CALL_ACCESS_DENIED' }, 403);
+    return json(req, { token: null, error: 'CALL_ACCESS_DENIED' }, 403);
   }
-  if (!ZEGO_APP_ID || !ZEGO_SERVER_SECRET) return json(req, { error: 'ZEGO_NOT_CONFIGURED' }, 500);
+  if (!ZEGO_APP_ID || !ZEGO_SERVER_SECRET) return json(req, { token: null, error: 'ZEGO_NOT_CONFIGURED' }, 500);
 
   const now = Math.floor(Date.now() / 1000);
   const expireAt = now + 24 * 60 * 60;

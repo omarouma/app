@@ -89,12 +89,12 @@ export default function GagaRewardsPage() {
   };
 
   const [missions, _setMissions] = useState<Mission[]>([
-    { id: '1', title: 'Send a Message', description: 'Send 5 messages to friends', reward: 5, icon: Zap, color: 'text-[#00C300]', completed: false, progress: 3, maxProgress: 5 },
+    { id: '1', title: 'Send a Message', description: 'Send 5 messages to friends', reward: 5, icon: Zap, color: 'text-primary', completed: false, progress: 3, maxProgress: 5 },
     { id: '2', title: 'Make a Voice Call', description: 'Complete 1 voice call', reward: 10, icon: Users, color: 'text-[#2196F3]', completed: false, progress: 0, maxProgress: 1 },
     { id: '3', title: 'Post on Timeline', description: 'Create 1 timeline post', reward: 15, icon: Star, color: 'text-[#FF9800]', completed: false, progress: 0, maxProgress: 1 },
     { id: '4', title: 'Refer a Friend', description: 'Invite 1 friend to GaGa Chat', reward: 50, icon: Users, color: 'text-[#8B5CF6]', completed: false, progress: 0, maxProgress: 1 },
-    { id: '5', title: 'Daily Login Streak', description: 'Login for 3 days in a row', reward: 20, icon: Flame, color: 'text-[#FF3B30]', completed: false, progress: 2, maxProgress: 3 },
-    { id: '6', title: 'Save 100 Gaga Coins', description: 'Keep a balance of 100+ GAGA', reward: 25, icon: TrendingUp, color: 'text-[#00C300]', completed: coins >= 100, progress: Math.min(coins, 100), maxProgress: 100 },
+    { id: '5', title: 'Daily Login Streak', description: 'Login for 3 days in a row', reward: 20, icon: Flame, color: 'text-destructive', completed: false, progress: 2, maxProgress: 3 },
+    { id: '6', title: 'Save 100 Gaga Coins', description: 'Keep a balance of 100+ GAGA', reward: 25, icon: TrendingUp, color: 'text-primary', completed: coins >= 100, progress: Math.min(coins, 100), maxProgress: 100 },
   ]);
 
   const handleClaimMission = async (mission: Mission) => {
@@ -113,9 +113,9 @@ export default function GagaRewardsPage() {
   const stakingAPY = useWalletStore((s) => s.getStakingAPY());
 
   return (
-    <div className="min-h-[100dvh] bg-[#F5F5F5]">
+    <div className="min-h-[100dvh] bg-secondary">
       {/* Header */}
-      <div className="bg-gradient-to-br from-[#00C300] to-[#00A300] text-white">
+      <div className="bg-gradient-to-br from-primary to-[#00A300] text-white">
         <div className="flex items-center gap-3 p-4">
           <button type="button" onClick={() => navigate(-1)} className="p-2 -ml-2 active:bg-white/20 rounded-full text-white transition-colors">
             <ArrowLeft size={22} />
@@ -156,7 +156,7 @@ export default function GagaRewardsPage() {
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          className="mx-4 -mt-3 bg-white rounded-2xl p-4 shadow-sm border border-[#EBEBEB] relative z-10"
+          className="mx-4 -mt-3 bg-card rounded-2xl p-4 shadow-sm border border-border relative z-10"
         >
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -164,13 +164,13 @@ export default function GagaRewardsPage() {
                 <Sparkles size={18} className="text-white" />
               </div>
               <div>
-                <p className="text-[#111111] text-sm font-medium">Daily Staking Reward</p>
-                <p className="text-[#00C300] text-lg font-bold">+{dailyInterest} GAGA</p>
+                <p className="text-foreground text-sm font-medium">Daily Staking Reward</p>
+                <p className="text-primary text-lg font-bold">+{dailyInterest} GAGA</p>
               </div>
             </div>
             <button type="button" onClick={handleClaimStaking}
               disabled={interestLoading}
-              className="px-4 py-2 bg-[#00C300] text-white rounded-xl text-sm font-bold active:bg-[#00A300] transition-colors disabled:opacity-50"
+              className="px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold active:bg-[#00A300] transition-colors disabled:opacity-50"
             >
               {interestLoading ? '...' : 'Claim'}
             </button>
@@ -179,12 +179,12 @@ export default function GagaRewardsPage() {
       )}
 
       {/* Tabs */}
-      <div className="flex border-b border-[#EBEBEB] px-4 mt-4 bg-white">
+      <div className="flex border-b border-border px-4 mt-4 bg-card">
         {(['checkin', 'missions', 'refer'] as const).map(tab => (
           <button type="button" key={tab}
             onClick={() => setActiveTab(tab)}
             className={`flex-1 py-3 text-sm font-medium transition-colors capitalize ${
-              activeTab === tab ? 'text-[#00C300] border-b-2 border-[#00C300]' : 'text-[#8D8D8D]'
+              activeTab === tab ? 'text-primary border-b-2 border-primary' : 'text-muted-foreground'
             }`}
           >
             {tab === 'checkin' ? 'Daily Check-in' : tab === 'missions' ? 'Missions' : 'Refer Friends'}
@@ -196,11 +196,11 @@ export default function GagaRewardsPage() {
         {/* Daily Check-in */}
         {activeTab === 'checkin' && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-            <div className="bg-white rounded-2xl p-4 border border-[#EBEBEB] mb-4">
+            <div className="bg-card rounded-2xl p-4 border border-border mb-4">
               <div className="flex items-center justify-between mb-4">
                 <div>
-                  <h3 className="text-[#111111] font-bold">7-Day Streak</h3>
-                  <p className="text-[#8D8D8D] text-xs">Check in daily for bigger rewards</p>
+                  <h3 className="text-foreground font-bold">7-Day Streak</h3>
+                  <p className="text-muted-foreground text-xs">Check in daily for bigger rewards</p>
                 </div>
                 <div className="flex items-center gap-1 bg-[#FF9800]/10 px-3 py-1 rounded-full">
                   <Flame size={14} className="text-[#FF9800]" />
@@ -217,15 +217,15 @@ export default function GagaRewardsPage() {
                       disabled={!isToday || checked}
                       className={`flex flex-col items-center gap-1 py-3 rounded-xl transition-all ${
                         checked
-                          ? 'bg-[#00C300]/10 border border-[#00C300]/30'
+                          ? 'bg-primary/10 border border-primary/30'
                           : isToday
-                          ? 'bg-[#00C300] text-white active:scale-95'
-                          : 'bg-[#F5F5F5] text-[#8D8D8D]'
+                          ? 'bg-primary text-white active:scale-95'
+                          : 'bg-secondary text-muted-foreground'
                       }`}
                     >
                       <span className="text-[10px] font-medium">{day}</span>
                       {checked ? (
-                        <Check size={16} className="text-[#00C300]" />
+                        <Check size={16} className="text-primary" />
                       ) : (
                         <span className="text-xs font-bold">+{checkInRewards[i]}</span>
                       )}
@@ -233,33 +233,33 @@ export default function GagaRewardsPage() {
                   );
                 })}
               </div>
-              <p className="text-center text-[#8D8D8D] text-xs mt-3">
+              <p className="text-center text-muted-foreground text-xs mt-3">
                 {checkInDays[adjustedToday] ? 'Come back tomorrow for +5 GAGA!' : 'Tap today to claim your reward!'}
               </p>
             </div>
 
             {/* Staking Info */}
-            <div className="bg-white rounded-2xl p-4 border border-[#EBEBEB]">
-              <h3 className="text-[#111111] font-bold mb-3 flex items-center gap-2">
-                <TrendingUp size={16} className="text-[#00C300]" /> Staking Tiers
+            <div className="bg-card rounded-2xl p-4 border border-border">
+              <h3 className="text-foreground font-bold mb-3 flex items-center gap-2">
+                <TrendingUp size={16} className="text-primary" /> Staking Tiers
               </h3>
               <div className="space-y-2">
                 {STAKING_TIERS.filter(t => t.minCoins > 0).map(t => (
                   <div
                     key={t.label}
                     className={`flex items-center justify-between p-3 rounded-xl ${
-                      coins >= t.minCoins ? 'bg-[#00C300]/5 border border-[#00C300]/20' : 'bg-[#F5F5F5]'
+                      coins >= t.minCoins ? 'bg-primary/5 border border-primary/20' : 'bg-secondary'
                     }`}
                   >
                     <div className="flex items-center gap-2">
-                      <Trophy size={14} className={coins >= t.minCoins ? 'text-[#FFD700]' : 'text-[#C7C7CC]'} />
-                      <span className={`text-sm ${coins >= t.minCoins ? 'text-[#00C300] font-medium' : 'text-[#8D8D8D]'}`}>
+                      <Trophy size={14} className={coins >= t.minCoins ? 'text-[#FFD700]' : 'text-muted-foreground'} />
+                      <span className={`text-sm ${coins >= t.minCoins ? 'text-primary font-medium' : 'text-muted-foreground'}`}>
                         {t.label}
                       </span>
                     </div>
                     <div className="text-right">
                       <span className="text-sm font-bold">{t.apy}% APY</span>
-                      <p className="text-[#8D8D8D] text-[10px]">{t.minCoins.toLocaleString()}+ GAGA</p>
+                      <p className="text-muted-foreground text-[10px]">{t.minCoins.toLocaleString()}+ GAGA</p>
                     </div>
                   </div>
                 ))}
@@ -277,44 +277,44 @@ export default function GagaRewardsPage() {
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: i * 0.05 }}
-                className={`bg-white rounded-2xl p-4 border ${
-                  mission.completed ? 'border-[#00C300]/30 opacity-60' : 'border-[#EBEBEB]'
+                className={`bg-card rounded-2xl p-4 border ${
+                  mission.completed ? 'border-primary/30 opacity-60' : 'border-border'
                 }`}
               >
                 <div className="flex items-start justify-between mb-2">
                   <div className="flex items-center gap-3">
-                    <div className={`w-10 h-10 rounded-full bg-[#F5F5F5] flex items-center justify-center ${mission.completed ? 'bg-[#00C300]/10' : ''}`}>
+                    <div className={`w-10 h-10 rounded-full bg-secondary flex items-center justify-center ${mission.completed ? 'bg-primary/10' : ''}`}>
                       {mission.completed ? (
-                        <Check size={18} className="text-[#00C300]" />
+                        <Check size={18} className="text-primary" />
                       ) : (
                         <mission.icon size={18} className={mission.color} />
                       )}
                     </div>
                     <div>
-                      <p className={`text-sm font-medium ${mission.completed ? 'text-[#8D8D8D] line-through' : 'text-[#111111]'}`}>
+                      <p className={`text-sm font-medium ${mission.completed ? 'text-muted-foreground line-through' : 'text-foreground'}`}>
                         {mission.title}
                       </p>
-                      <p className="text-[#8D8D8D] text-[11px]">{mission.description}</p>
+                      <p className="text-muted-foreground text-[11px]">{mission.description}</p>
                     </div>
                   </div>
                   <div className="text-right">
-                    <span className="text-[#00C300] font-bold text-sm">+{mission.reward}</span>
-                    <p className="text-[#8D8D8D] text-[10px]">GAGA</p>
+                    <span className="text-primary font-bold text-sm">+{mission.reward}</span>
+                    <p className="text-muted-foreground text-[10px]">GAGA</p>
                   </div>
                 </div>
                 {!mission.completed && (
                   <div className="ml-13 pl-[52px]">
-                    <div className="w-full h-1.5 bg-[#F5F5F5] rounded-full overflow-hidden">
+                    <div className="w-full h-1.5 bg-secondary rounded-full overflow-hidden">
                       <div
-                        className="h-full bg-[#00C300] rounded-full transition-all"
+                        className="h-full bg-primary rounded-full transition-all"
                         style={{ width: `${(mission.progress / mission.maxProgress) * 100}%` }}
                       />
                     </div>
                     <div className="flex items-center justify-between mt-1.5">
-                      <span className="text-[#8D8D8D] text-[10px]">{mission.progress}/{mission.maxProgress}</span>
+                      <span className="text-muted-foreground text-[10px]">{mission.progress}/{mission.maxProgress}</span>
                       {mission.progress >= mission.maxProgress && (
                         <button type="button" onClick={() => handleClaimMission(mission)}
-                          className="px-3 py-1 bg-[#00C300] text-white text-[10px] rounded-full font-medium active:bg-[#00A300]"
+                          className="px-3 py-1 bg-primary text-white text-[10px] rounded-full font-medium active:bg-[#00A300]"
                         >
                           Claim
                         </button>
@@ -330,14 +330,14 @@ export default function GagaRewardsPage() {
         {/* Refer Friends */}
         {activeTab === 'refer' && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-            <div className="bg-white rounded-2xl p-6 border border-[#EBEBEB] text-center mb-4">
-              <div className="w-16 h-16 rounded-full bg-gradient-to-br from-[#00C300] to-[#00A300] flex items-center justify-center mx-auto mb-3">
+            <div className="bg-card rounded-2xl p-6 border border-border text-center mb-4">
+              <div className="w-16 h-16 rounded-full bg-gradient-to-br from-primary to-[#00A300] flex items-center justify-center mx-auto mb-3">
                 <Gift size={32} className="text-white" />
               </div>
-              <h3 className="text-[#111111] font-bold text-lg mb-1">Invite & Earn</h3>
-              <p className="text-[#8D8D8D] text-sm mb-4">Share your referral code with friends and earn 50 GAGA for each signup!</p>
-              <div className="bg-[#F5F5F5] rounded-xl p-4 flex items-center justify-between mb-4">
-                <span className="text-[#111111] font-mono font-bold">{referralCode}</span>
+              <h3 className="text-foreground font-bold text-lg mb-1">Invite & Earn</h3>
+              <p className="text-muted-foreground text-sm mb-4">Share your referral code with friends and earn 50 GAGA for each signup!</p>
+              <div className="bg-secondary rounded-xl p-4 flex items-center justify-between mb-4">
+                <span className="text-foreground font-mono font-bold">{referralCode}</span>
                 <button type="button" onClick={async () => {
                     const ok = await copyToClipboard(referralCode);
                     if (ok) {
@@ -346,7 +346,7 @@ export default function GagaRewardsPage() {
                       timeoutRef.current = setTimeout(() => setCopiedRef(false), 2000);
                     }
                   }}
-                  className="text-[#00C300] text-sm font-medium"
+                  className="text-primary text-sm font-medium"
                 >
                   {copiedRef ? 'Copied!' : 'Copy'}
                 </button>
@@ -360,25 +360,25 @@ export default function GagaRewardsPage() {
                     });
                   } catch { /* cancelled */ }
                 }}
-                className="w-full py-3 bg-[#00C300] text-white rounded-xl text-sm font-bold active:bg-[#00A300] transition-colors"
+                className="w-full py-3 bg-primary text-white rounded-xl text-sm font-bold active:bg-[#00A300] transition-colors"
               >
                 Share with Friends
               </button>
             </div>
 
             {/* How it works */}
-            <div className="bg-white rounded-2xl p-4 border border-[#EBEBEB]">
-              <h3 className="text-[#111111] font-bold text-sm mb-3">How it works</h3>
+            <div className="bg-card rounded-2xl p-4 border border-border">
+              <h3 className="text-foreground font-bold text-sm mb-3">How it works</h3>
               {[
                 { step: '1', text: 'Share your unique referral code' },
                 { step: '2', text: 'Friend signs up using your code' },
                 { step: '3', text: 'Both get 50 GAGA bonus!' },
               ].map(item => (
                 <div key={item.step} className="flex items-center gap-3 py-2.5">
-                  <div className="w-6 h-6 rounded-full bg-[#00C300] text-white flex items-center justify-center text-xs font-bold shrink-0">
+                  <div className="w-6 h-6 rounded-full bg-primary text-white flex items-center justify-center text-xs font-bold shrink-0">
                     {item.step}
                   </div>
-                  <p className="text-[#111111] text-sm">{item.text}</p>
+                  <p className="text-foreground text-sm">{item.text}</p>
                 </div>
               ))}
             </div>
@@ -388,16 +388,16 @@ export default function GagaRewardsPage() {
 
       {/* Claimed Toast */}
       <Dialog open={showClaimed} onOpenChange={setShowClaimed}>
-        <DialogContent className="bg-white border-[#00C300] text-[#111111] sm:max-w-sm text-center p-6">
+        <DialogContent className="bg-card border-primary text-foreground sm:max-w-sm text-center p-6">
           <motion.div
             initial={{ scale: 0 }}
             animate={{ scale: 1 }}
-            className="w-16 h-16 rounded-full bg-[#00C300]/10 flex items-center justify-center mx-auto mb-3"
+            className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-3"
           >
-            <Coins size={32} className="text-[#00C300]" />
+            <Coins size={32} className="text-primary" />
           </motion.div>
-          <p className="text-2xl font-bold text-[#00C300]">+{claimedAmount} GAGA</p>
-          <p className="text-[#8D8D8D] text-sm">Claimed successfully!</p>
+          <p className="text-2xl font-bold text-primary">+{claimedAmount} GAGA</p>
+          <p className="text-muted-foreground text-sm">Claimed successfully!</p>
         </DialogContent>
       </Dialog>
     </div>

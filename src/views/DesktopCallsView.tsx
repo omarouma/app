@@ -44,9 +44,9 @@ export default function DesktopCallsView() {
   };
 
   const getCallIcon = (call: CallRecord) => {
-    if (call.status === 'missed') return <PhoneMissed size={16} className="text-[#FF3B30]" />;
-    if (call.initiatorId === user?.id) return <PhoneOutgoing size={16} className="text-[#00C300]" />;
-    return <PhoneIncoming size={16} className="text-[#00C300]" />;
+    if (call.status === 'missed') return <PhoneMissed size={16} className="text-destructive" />;
+    if (call.initiatorId === user?.id) return <PhoneOutgoing size={16} className="text-primary" />;
+    return <PhoneIncoming size={16} className="text-primary" />;
   };
 
   const formatDuration = (s: number) => {
@@ -67,40 +67,40 @@ export default function DesktopCallsView() {
     .slice(0, 50);
 
   return (
-    <div className="h-full flex flex-col bg-white">
-      <div className="shrink-0 p-4 border-b border-[#EBEBEB]">
+    <div className="h-full flex flex-col bg-card">
+      <div className="shrink-0 p-4 border-b border-border">
         <div className="flex items-center justify-between mb-4">
-          <h1 className="text-xl font-bold text-[#111111] flex items-center gap-2">
-            <Phone size={20} className="text-[#00C300]" /> Calls
+          <h1 className="text-xl font-bold text-foreground flex items-center gap-2">
+            <Phone size={20} className="text-primary" /> Calls
           </h1>
           <div className="flex gap-2">
             {history.length > 0 && (
               <button type="button" onClick={handleClearAll}
-                className="p-2 rounded-full hover:bg-[#F5F5F5] text-[#8D8D8D] hover:text-[#FF3B30] transition-colors"
+                className="p-2 rounded-full hover:bg-secondary text-muted-foreground hover:text-destructive transition-colors"
                 title="Clear all"
               >
                 <Trash2 size={16} />
               </button>
             )}
             <button type="button" onClick={() => setFilter('all')}
-              className={`px-3 py-1 rounded-full text-xs font-medium ${filter === 'all' ? 'bg-[#00C300] text-white' : 'bg-[#F5F5F5] text-[#8D8D8D]'}`}
+              className={`px-3 py-1 rounded-full text-xs font-medium ${filter === 'all' ? 'bg-primary text-white' : 'bg-secondary text-muted-foreground'}`}
             >
               All
             </button>
             <button type="button" onClick={() => setFilter('missed')}
-              className={`px-3 py-1 rounded-full text-xs font-medium ${filter === 'missed' ? 'bg-[#FF3B30] text-white' : 'bg-[#F5F5F5] text-[#8D8D8D]'}`}
+              className={`px-3 py-1 rounded-full text-xs font-medium ${filter === 'missed' ? 'bg-destructive text-white' : 'bg-secondary text-muted-foreground'}`}
             >
               Missed
             </button>
           </div>
         </div>
         <div className="relative">
-          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8D8D8D]" />
+          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <input
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder="Search call history..."
-            className="w-full bg-[#F5F5F5] border-none rounded-xl pl-10 pr-4 py-2.5 text-[#111111] text-sm focus:outline-none focus:ring-2 focus:ring-[#00C300] placeholder:text-[#8D8D8D]"
+            className="w-full bg-secondary border-none rounded-xl pl-10 pr-4 py-2.5 text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
           />
         </div>
       </div>
@@ -110,10 +110,10 @@ export default function DesktopCallsView() {
           <div className="p-4 space-y-3">
             {[1, 2, 3, 4].map(i => (
               <div key={i} className="flex items-center gap-3 animate-pulse p-3">
-                <div className="w-10 h-10 rounded-full bg-[#F5F5F5]" />
+                <div className="w-10 h-10 rounded-full bg-secondary" />
                 <div className="flex-1">
-                  <div className="h-3 bg-[#F5F5F5] rounded w-1/3 mb-1" />
-                  <div className="h-2 bg-[#F5F5F5] rounded w-1/2" />
+                  <div className="h-3 bg-secondary rounded w-1/3 mb-1" />
+                  <div className="h-2 bg-secondary rounded w-1/2" />
                 </div>
               </div>
             ))}
@@ -134,9 +134,9 @@ export default function DesktopCallsView() {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ delay: i * 0.03 }}
-                className="flex items-center gap-3 p-4 hover:bg-[#F5F5F5] transition-colors"
+                className="flex items-center gap-3 p-4 hover:bg-secondary transition-colors"
               >
-                <div className="w-10 h-10 rounded-full bg-[#F5F5F5] flex items-center justify-center overflow-hidden shrink-0">
+                <div className="w-10 h-10 rounded-full bg-secondary flex items-center justify-center overflow-hidden shrink-0">
                   {sanitizeMediaUrl(friend?.avatar) ? (
                     <img src={sanitizeMediaUrl(friend?.avatar)} className="w-full h-full object-cover" alt="User avatar" />
                   ) : (
@@ -146,30 +146,30 @@ export default function DesktopCallsView() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     {getCallIcon(call)}
-                    <p className={`text-sm font-medium truncate ${call.status === 'missed' ? 'text-[#FF3B30]' : 'text-[#111111]'}`}>
+                    <p className={`text-sm font-medium truncate ${call.status === 'missed' ? 'text-destructive' : 'text-foreground'}`}>
                       {friend?.name || 'Unknown'}
                     </p>
                   </div>
-                  <p className="text-[#8D8D8D] text-xs">
+                  <p className="text-muted-foreground text-xs">
                     {call.type === 'video' ? 'Video' : 'Voice'} call &bull; {formatTime(call.timestamp)}
                     {call.duration ? ` \u2022 ${formatDuration(call.duration)}` : ''}
                   </p>
                 </div>
                 <div className="flex items-center gap-1">
                   <button type="button" onClick={() => navigate('/call', { state: { userId: otherId, mode: 'voice' } })}
-                    className="p-2 rounded-full hover:bg-[#00C300]/10 text-[#8D8D8D] hover:text-[#00C300] transition-colors"
+                    className="p-2 rounded-full hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors"
                     title="Voice call"
                   >
                     <Phone size={16} />
                   </button>
                   <button type="button" onClick={() => navigate('/call', { state: { userId: otherId, mode: 'video' } })}
-                    className="p-2 rounded-full hover:bg-[#00C300]/10 text-[#8D8D8D] hover:text-[#00C300] transition-colors"
+                    className="p-2 rounded-full hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors"
                     title="Video call"
                   >
                     <Video size={16} />
                   </button>
                   <button type="button" onClick={() => handleDelete(call.id)}
-                    className="p-2 rounded-full hover:bg-red-50 text-[#8D8D8D] hover:text-[#FF3B30] transition-colors"
+                    className="p-2 rounded-full hover:bg-red-50 text-muted-foreground hover:text-destructive transition-colors"
                     title="Delete"
                   >
                     <Trash2 size={16} />

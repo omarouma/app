@@ -150,11 +150,11 @@ export default function VoiceRoomPage() {
     return (
       <div className="h-[100dvh] bg-[#0a0a0a] text-white flex items-center justify-center">
         <div className="text-center">
-          <p className="text-[#8D8D8D] mb-2">Room not found or has ended</p>
+          <p className="text-muted-foreground mb-2">Room not found or has ended</p>
           <button
             type="button"
             onClick={() => navigate('/voice-rooms')}
-            className="px-5 py-2 bg-[#00C300] text-black rounded-full text-sm font-bold"
+            className="px-5 py-2 bg-primary text-black rounded-full text-sm font-bold"
           >
             Back to Rooms
           </button>
@@ -173,8 +173,8 @@ export default function VoiceRoomPage() {
           </button>
           <div className="min-w-0">
             <p className="text-sm font-bold truncate">{room.title}</p>
-            <p className="text-[10px] text-[#8D8D8D] flex items-center gap-1">
-              <span className="w-1.5 h-1.5 bg-[#00C300] rounded-full animate-pulse" />
+            <p className="text-[10px] text-muted-foreground flex items-center gap-1">
+              <span className="w-1.5 h-1.5 bg-primary rounded-full animate-pulse" />
               {room.participants.length} participants
             </p>
           </div>
@@ -200,20 +200,20 @@ export default function VoiceRoomPage() {
             <img
               src={room.hostAvatar || getDefaultAvatar(room.hostId)}
               alt="Host"
-              className="w-20 h-20 rounded-full object-cover mx-auto border-2 border-[#00C300]"
+              className="w-20 h-20 rounded-full object-cover mx-auto border-2 border-primary"
             />
             <div className="absolute -bottom-1 -right-1 bg-[#FFD700] rounded-full p-1">
               <Crown size={12} className="text-black" />
             </div>
           </div>
           <p className="text-white font-semibold mt-2">{room.hostName}</p>
-          <p className="text-[#8D8D8D] text-xs">Host</p>
+          <p className="text-muted-foreground text-xs">Host</p>
         </div>
 
         {/* Topic */}
         {room.topic && (
           <div className="bg-[#1a1a1a] rounded-xl p-3 mb-4 text-center">
-            <p className="text-[#8D8D8D] text-xs uppercase tracking-wider mb-1">Topic</p>
+            <p className="text-muted-foreground text-xs uppercase tracking-wider mb-1">Topic</p>
             <p className="text-white text-sm font-medium">{room.topic}</p>
           </div>
         )}
@@ -221,7 +221,7 @@ export default function VoiceRoomPage() {
         {/* Speakers grid */}
         {speakers.length > 0 && (
           <div className="mb-4">
-            <p className="text-[#8D8D8D] text-xs uppercase tracking-wider mb-2">Speakers</p>
+            <p className="text-muted-foreground text-xs uppercase tracking-wider mb-2">Speakers</p>
             <div className="grid grid-cols-4 gap-3">
               {speakers.map(speakerId => (
                 <SpeakerAvatar
@@ -241,14 +241,14 @@ export default function VoiceRoomPage() {
         {/* Raised hands */}
         {room.raisedHands.length > 0 && canManage && (
           <div className="mb-4">
-            <p className="text-[#8D8D8D] text-xs uppercase tracking-wider mb-2">Raised Hands</p>
+            <p className="text-muted-foreground text-xs uppercase tracking-wider mb-2">Raised Hands</p>
             <div className="flex gap-2 flex-wrap">
               {room.raisedHands.map(userId => (
                 <button
                   key={userId}
                   type="button"
                   onClick={() => handlePromote(userId)}
-                  className="flex items-center gap-1 px-3 py-1.5 bg-[#00C300]/20 text-[#00C300] rounded-full text-xs font-medium"
+                  className="flex items-center gap-1 px-3 py-1.5 bg-primary/20 text-primary rounded-full text-xs font-medium"
                 >
                   <Hand size={12} /> Promote
                 </button>
@@ -260,7 +260,7 @@ export default function VoiceRoomPage() {
         {/* Listeners */}
         {listeners.length > 0 && (
           <div>
-            <p className="text-[#8D8D8D] text-xs uppercase tracking-wider mb-2">Listeners</p>
+            <p className="text-muted-foreground text-xs uppercase tracking-wider mb-2">Listeners</p>
             <div className="grid grid-cols-6 gap-2">
               {listeners.map(listenerId => (
                 <div key={listenerId} className="text-center">
@@ -285,7 +285,7 @@ export default function VoiceRoomPage() {
               type="button"
               onClick={rtc.toggleMute}
               aria-label={rtc.isMuted ? 'Unmute microphone' : 'Mute microphone'}
-              className={`w-14 h-14 rounded-full flex items-center justify-center transition-colors ${rtc.isMuted ? 'bg-[#FF3B30]/20 text-[#FF3B30]' : 'bg-[#00C300]/20 text-[#00C300]'
+              className={`w-14 h-14 rounded-full flex items-center justify-center transition-colors ${rtc.isMuted ? 'bg-destructive/20 text-destructive' : 'bg-primary/20 text-primary'
                 }`}
             >
               {rtc.isMuted ? <MicOff size={24} /> : <Mic size={24} />}
@@ -298,7 +298,7 @@ export default function VoiceRoomPage() {
               type="button"
               onClick={handleRaiseHand}
               aria-label={hasHandRaised ? 'Lower hand' : 'Raise hand'}
-              className={`w-14 h-14 rounded-full flex items-center justify-center transition-colors ${hasHandRaised ? 'bg-[#00C300]/20 text-[#00C300]' : 'bg-[#1a1a1a] text-white'
+              className={`w-14 h-14 rounded-full flex items-center justify-center transition-colors ${hasHandRaised ? 'bg-primary/20 text-primary' : 'bg-[#1a1a1a] text-white'
                 }`}
             >
               <Hand size={24} />
@@ -311,7 +311,7 @@ export default function VoiceRoomPage() {
               type="button"
               onClick={handleEndRoom}
               aria-label="End room"
-              className="w-14 h-14 rounded-full bg-[#FF3B30] flex items-center justify-center text-white"
+              className="w-14 h-14 rounded-full bg-destructive flex items-center justify-center text-white"
             >
               <PhoneOff size={24} />
             </button>
@@ -320,7 +320,7 @@ export default function VoiceRoomPage() {
               type="button"
               onClick={handleLeave}
               aria-label="Leave room"
-              className="w-14 h-14 rounded-full bg-[#FF3B30] flex items-center justify-center text-white"
+              className="w-14 h-14 rounded-full bg-destructive flex items-center justify-center text-white"
             >
               <PhoneOff size={24} />
             </button>
@@ -382,12 +382,12 @@ export default function VoiceRoomPage() {
             </div>
             <div className="flex-1 overflow-y-auto p-4 space-y-2">
               {chatMessages.length === 0 ? (
-                <p className="text-center text-[#8D8D8D] text-xs py-4">No messages yet</p>
+                <p className="text-center text-muted-foreground text-xs py-4">No messages yet</p>
               ) : (
                 chatMessages.map(msg => (
                   <div key={msg.id} className={`flex gap-2 ${msg.userId === user?.id ? 'flex-row-reverse' : ''}`}>
                     <img src={getDefaultAvatar(msg.userId)} alt="User" className="w-6 h-6 rounded-full object-cover shrink-0" />
-                    <div className={`px-3 py-2 rounded-xl text-xs max-w-[70%] ${msg.userId === user?.id ? 'bg-[#00C300] text-black' : 'bg-[#2a2a2a] text-white'
+                    <div className={`px-3 py-2 rounded-xl text-xs max-w-[70%] ${msg.userId === user?.id ? 'bg-primary text-black' : 'bg-[#2a2a2a] text-white'
                       }`}>
                       <p className="font-medium text-[10px] opacity-70 mb-0.5">{msg.name}</p>
                       <p>{msg.text}</p>
@@ -403,13 +403,13 @@ export default function VoiceRoomPage() {
                 onChange={e => setChatInput(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && handleSendChat()}
                 placeholder="Type a message..."
-                className="flex-1 bg-[#2a2a2a] rounded-full px-4 py-2 text-xs text-white placeholder:text-[#8D8D8D] outline-none focus:ring-2 focus:ring-[#00C300]"
+                className="flex-1 bg-[#2a2a2a] rounded-full px-4 py-2 text-xs text-white placeholder:text-muted-foreground outline-none focus:ring-2 focus:ring-primary"
               />
               <button
                 type="button"
                 onClick={handleSendChat}
                 disabled={!chatInput.trim()}
-                className="p-2 rounded-full bg-[#00C300] text-black disabled:opacity-50"
+                className="p-2 rounded-full bg-primary text-black disabled:opacity-50"
               >
                 <MessageSquare size={16} />
               </button>
@@ -431,11 +431,11 @@ function SpeakerAvatar({ userId, isHost, isCoHost, isMe, isMuted, name }: {
         <img
           src={getDefaultAvatar(userId)}
           alt={name || `User ${userId.slice(0, 6)}`}
-          className={`w-14 h-14 rounded-full object-cover mx-auto transition-all ${isHost ? 'border-2 border-[#FFD700]' : isCoHost ? 'border-2 border-[#00C300]' : isSpeaking ? 'border-2 border-[#00C300] shadow-[0_0_10px_#00C300]' : 'border-2 border-[#333]'
+          className={`w-14 h-14 rounded-full object-cover mx-auto transition-all ${isHost ? 'border-2 border-[#FFD700]' : isCoHost ? 'border-2 border-primary' : isSpeaking ? 'border-2 border-primary shadow-[0_0_10px_#00C300]' : 'border-2 border-[#333]'
             }`}
         />
         {isMuted && (
-          <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-[#FF3B30] rounded-full flex items-center justify-center border border-[#0a0a0a]" aria-label="Muted">
+          <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-destructive rounded-full flex items-center justify-center border border-[#0a0a0a]" aria-label="Muted">
             <MicOff size={10} className="text-white" />
           </div>
         )}
@@ -445,7 +445,7 @@ function SpeakerAvatar({ userId, isHost, isCoHost, isMe, isMuted, name }: {
           </div>
         )}
       </div>
-      <p className="text-[10px] text-[#8D8D8D] mt-1 truncate">{isMe ? 'You' : (name || `User ${userId.slice(0, 6)}`)}</p>
+      <p className="text-[10px] text-muted-foreground mt-1 truncate">{isMe ? 'You' : (name || `User ${userId.slice(0, 6)}`)}</p>
     </div>
   );
 }
@@ -461,17 +461,17 @@ function ParticipantRow({ userId, isHost, isSpeaker, isMe, canManage, onPromote,
         <p className="text-white text-sm font-medium">
           {isMe ? 'You' : (name || `User ${userId.slice(0, 6)}`)}
           {isHost && <span className="text-[#FFD700] text-xs ml-1">Host</span>}
-          {isSpeaker && !isHost && <span className="text-[#00C300] text-xs ml-1">Speaker</span>}
+          {isSpeaker && !isHost && <span className="text-primary text-xs ml-1">Speaker</span>}
         </p>
       </div>
       {canManage && !isMe && !isHost && (
         <div className="flex gap-1">
           {!isSpeaker ? (
-            <button type="button" onClick={onPromote} className="px-2 py-1 bg-[#00C300]/20 text-[#00C300] rounded-full text-xs">
+            <button type="button" onClick={onPromote} className="px-2 py-1 bg-primary/20 text-primary rounded-full text-xs">
               Promote
             </button>
           ) : (
-            <button type="button" onClick={onDemote} className="px-2 py-1 bg-[#FF3B30]/20 text-[#FF3B30] rounded-full text-xs">
+            <button type="button" onClick={onDemote} className="px-2 py-1 bg-destructive/20 text-destructive rounded-full text-xs">
               Demote
             </button>
           )}

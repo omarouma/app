@@ -150,15 +150,15 @@ export default function CallPage() {
 
   if (!userId || !currentUser) {
     return (
-      <div className="h-[100dvh] bg-white flex flex-col items-center justify-center p-6 text-center">
-        <p className="text-[#111111] text-lg font-semibold mb-2">No contact selected</p>
-        <p className="text-[#8D8D8D] text-sm max-w-sm mb-4">Choose a contact from chats or contacts before starting a call.</p>
+      <div className="h-[100dvh] bg-card flex flex-col items-center justify-center p-6 text-center">
+        <p className="text-foreground text-lg font-semibold mb-2">No contact selected</p>
+        <p className="text-muted-foreground text-sm max-w-sm mb-4">Choose a contact from chats or contacts before starting a call.</p>
         <button
           type="button"
           onClick={() => navigate('/chats')}
           aria-label="Go to Chats to select a contact"
           title="Go to Chats"
-          className="px-5 py-3 bg-[#00C300] text-white rounded-full text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#00C300] hover:bg-[#00A800] transition-colors"
+          className="px-5 py-3 bg-primary text-white rounded-full text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary hover:bg-[#00A800] transition-colors"
         >
           Go to Chats
         </button>
@@ -180,7 +180,7 @@ export default function CallPage() {
         </p>
         <div className="flex gap-3 mt-2">
           <button type="button" onClick={handleRetry}
-            className="flex items-center gap-2 px-5 py-3 bg-[#00C300] text-white rounded-full text-sm font-semibold">
+            className="flex items-center gap-2 px-5 py-3 bg-primary text-white rounded-full text-sm font-semibold">
             <RotateCw size={16} /> Retry
           </button>
           <button type="button" onClick={handleEndCall}
@@ -194,7 +194,10 @@ export default function CallPage() {
 
   // 回退通话界面——在 CallOverlay 挂载前展示全部通话控制按钮
   return (
-    <div className="h-[100dvh] bg-[#111111] flex flex-col items-center justify-center gap-6 p-6">
+    <div
+      className="h-[100dvh] bg-[#111111] flex flex-col items-center justify-center gap-6 px-6"
+      style={{ paddingTop: 'max(1.5rem, env(safe-area-inset-top, 0px))', paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom, 0px))' }}
+    >
       {/* 通话联系人与状态 */}
       <p className="text-white/50 text-sm">
         {currentCall?.status === 'connected' ? 'Call active' : 'Connecting…'}
@@ -263,7 +266,7 @@ export default function CallPage() {
             type="button"
             onClick={handleEndCall}
             aria-label="End call"
-            className="w-16 h-16 rounded-full bg-[#FF3B30] flex items-center justify-center shadow-lg shadow-red-900/40 active:scale-95 transition-transform"
+            className="w-16 h-16 rounded-full bg-destructive flex items-center justify-center shadow-lg shadow-red-900/40 active:scale-95 transition-transform"
           >
             <PhoneOff size={28} className="text-white" />
           </button>

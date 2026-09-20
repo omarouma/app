@@ -53,7 +53,7 @@ export default function DailyChallengesPage() {
         <div className="flex items-center justify-between mb-4">
           <div>
             <h1 className="text-xl font-bold">Daily Challenges</h1>
-            <p className="text-[#8D8D8D] text-xs">Complete tasks & earn rewards</p>
+            <p className="text-muted-foreground text-xs">Complete tasks & earn rewards</p>
           </div>
           <div className="flex items-center gap-2">
             <div className="flex items-center gap-1 bg-[#2a2a2a] px-3 py-1.5 rounded-full">
@@ -72,11 +72,11 @@ export default function DailyChallengesPage() {
               </div>
               <div>
                 <p className="text-sm font-bold">Level {userStats.level}</p>
-                <p className="text-[#8D8D8D] text-[10px]">{userStats.totalXp.toLocaleString()} XP total</p>
+                <p className="text-muted-foreground text-[10px]">{userStats.totalXp.toLocaleString()} XP total</p>
               </div>
             </div>
             <div className="text-right">
-              <p className="text-[#8D8D8D] text-[10px]">{completedCount}/{challenges.length} completed</p>
+              <p className="text-muted-foreground text-[10px]">{completedCount}/{challenges.length} completed</p>
               <p className="text-[#FFD700] text-xs font-medium">+{totalRewards} coins today</p>
             </div>
           </div>
@@ -98,7 +98,7 @@ export default function DailyChallengesPage() {
           disabled={streakClaimed}
           className={`w-full flex items-center justify-between p-3 rounded-xl transition-colors ${
             streakClaimed
-              ? 'bg-[#00C300]/10 border border-[#00C300]/30'
+              ? 'bg-primary/10 border border-primary/30'
               : 'bg-[#2a2a2a] hover:bg-[#333]'
           }`}
         >
@@ -108,17 +108,17 @@ export default function DailyChallengesPage() {
             </div>
             <div className="text-left">
               <p className="text-sm font-bold">Daily Check-in</p>
-              <p className="text-[#8D8D8D] text-xs">
+              <p className="text-muted-foreground text-xs">
                 {userStats.dailyStreak > 0 ? `${userStats.dailyStreak} day streak 🔥` : 'Start your streak today!'}
               </p>
             </div>
           </div>
           {streakClaimed ? (
-            <Check size={20} className="text-[#00C300]" />
+            <Check size={20} className="text-primary" />
           ) : (
             <div className="text-right">
               <p className="text-[#FFD700] text-xs font-medium">+{userStats.dailyStreak >= 7 ? 100 : userStats.dailyStreak >= 3 ? 50 : 20} coins</p>
-              <ChevronRight size={16} className="text-[#8D8D8D] ml-auto" />
+              <ChevronRight size={16} className="text-muted-foreground ml-auto" />
             </div>
           )}
         </button>
@@ -133,8 +133,8 @@ export default function DailyChallengesPage() {
             onClick={() => setActiveTab(tab)}
             className={`flex-1 py-3 text-sm font-medium capitalize transition-colors ${
               activeTab === tab
-                ? 'text-[#00C300] border-b-2 border-[#00C300]'
-                : 'text-[#8D8D8D]'
+                ? 'text-primary border-b-2 border-primary'
+                : 'text-muted-foreground'
             }`}
           >
             {tab}
@@ -150,9 +150,9 @@ export default function DailyChallengesPage() {
           <div className="py-4 space-y-3">
             {challenges.length === 0 ? (
               <div className="text-center py-8">
-                <Trophy size={48} className="text-[#8D8D8D] mx-auto mb-3" />
-                <p className="text-[#8D8D8D] text-sm">No challenges available today</p>
-                <p className="text-[#8D8D8D] text-xs">Check back tomorrow for new tasks!</p>
+                <Trophy size={48} className="text-muted-foreground mx-auto mb-3" />
+                <p className="text-muted-foreground text-sm">No challenges available today</p>
+                <p className="text-muted-foreground text-xs">Check back tomorrow for new tasks!</p>
               </div>
             ) : (
               challenges.map((challenge, i) => {
@@ -165,33 +165,33 @@ export default function DailyChallengesPage() {
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: i * 0.05 }}
-                    className={`bg-[#1a1a1a] rounded-xl p-4 ${challenge.completed ? 'border border-[#00C300]/20' : ''}`}
+                    className={`bg-[#1a1a1a] rounded-xl p-4 ${challenge.completed ? 'border border-primary/20' : ''}`}
                   >
                     <div className="flex items-start gap-3">
                       <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
-                        challenge.completed ? 'bg-[#00C300]/20' : 'bg-[#2a2a2a]'
+                        challenge.completed ? 'bg-primary/20' : 'bg-[#2a2a2a]'
                       }`}>
-                        <Icon size={20} className={challenge.completed ? 'text-[#00C300]' : 'text-[#8D8D8D]'} />
+                        <Icon size={20} className={challenge.completed ? 'text-primary' : 'text-muted-foreground'} />
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between">
                           <p className="text-sm font-bold">{challenge.title}</p>
                           {challenge.completed && challenge.claimed && (
-                            <Check size={16} className="text-[#00C300]" />
+                            <Check size={16} className="text-primary" />
                           )}
                         </div>
-                        <p className="text-[#8D8D8D] text-xs mb-2">{challenge.description}</p>
+                        <p className="text-muted-foreground text-xs mb-2">{challenge.description}</p>
 
                         {/* Progress bar */}
                         <div className="h-1.5 bg-[#2a2a2a] rounded-full overflow-hidden mb-2">
                           <div
-                            className={`h-full rounded-full ${challenge.completed ? 'bg-[#00C300]' : 'bg-[#8D8D8D]'}`}
+                            className={`h-full rounded-full ${challenge.completed ? 'bg-primary' : 'bg-muted-foreground'}`}
                             style={{ width: `${progressPct}%` }}
                           />
                         </div>
 
                         <div className="flex items-center justify-between">
-                          <span className="text-[#8D8D8D] text-[10px]">{challenge.progress}/{challenge.target}</span>
+                          <span className="text-muted-foreground text-[10px]">{challenge.progress}/{challenge.target}</span>
                           <div className="flex items-center gap-2">
                             <span className="text-[#FFD700] text-[10px] flex items-center gap-0.5">
                               <Coins size={10} /> {challenge.rewardCoins}
@@ -208,13 +208,13 @@ export default function DailyChallengesPage() {
                         <button
                           type="button"
                           onClick={() => handleClaim(challenge.id)}
-                          className="shrink-0 px-3 py-1.5 bg-[#00C300] text-black rounded-full text-xs font-bold"
+                          className="shrink-0 px-3 py-1.5 bg-primary text-black rounded-full text-xs font-bold"
                         >
                           Claim
                         </button>
                       )}
                       {challenge.claimed && (
-                        <span className="shrink-0 text-[#00C300] text-xs font-medium">Claimed</span>
+                        <span className="shrink-0 text-primary text-xs font-medium">Claimed</span>
                       )}
                     </div>
                   </motion.div>
@@ -226,7 +226,7 @@ export default function DailyChallengesPage() {
           <div className="py-4 space-y-2">
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-sm font-bold">Top GaGa Users</h2>
-              <span className="text-[#8D8D8D] text-xs">This Week</span>
+              <span className="text-muted-foreground text-xs">This Week</span>
             </div>
             {/* Mock leaderboard */}
             {[
@@ -238,20 +238,20 @@ export default function DailyChallengesPage() {
             ].map((entry) => (
               <div
                 key={entry.rank}
-                className={`flex items-center gap-3 p-3 rounded-xl ${entry.isMe ? 'bg-[#00C300]/10 border border-[#00C300]/30' : 'bg-[#1a1a1a]'}`}
+                className={`flex items-center gap-3 p-3 rounded-xl ${entry.isMe ? 'bg-primary/10 border border-primary/30' : 'bg-[#1a1a1a]'}`}
               >
                 <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${
                   entry.rank === 1 ? 'bg-[#FFD700] text-black' :
                   entry.rank === 2 ? 'bg-[#C0C0C0] text-black' :
                   entry.rank === 3 ? 'bg-[#CD7F32] text-black' :
-                  'bg-[#2a2a2a] text-[#8D8D8D]'
+                  'bg-[#2a2a2a] text-muted-foreground'
                 }`}>
                   {entry.rank}
                 </div>
                 <img src={entry.avatar || getDefaultAvatar(entry.name)} alt="User" className="w-9 h-9 rounded-full object-cover" />
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium truncate">{entry.name}</p>
-                  <p className="text-[#8D8D8D] text-[10px]">Level {entry.level} • {entry.xp.toLocaleString()} XP</p>
+                  <p className="text-muted-foreground text-[10px]">Level {entry.level} • {entry.xp.toLocaleString()} XP</p>
                 </div>
                 <div className="text-right">
                   <p className="text-[#FF4081] text-xs font-bold flex items-center gap-1">
@@ -284,7 +284,7 @@ export default function DailyChallengesPage() {
                       <BadgeIcon size={24} style={{ color: badge.unlocked ? badge.color : '#8D8D8D' }} />
                     </div>
                     <p className="text-xs font-medium">{badge.name}</p>
-                    <p className="text-[10px] text-[#8D8D8D]">{badge.desc}</p>
+                    <p className="text-[10px] text-muted-foreground">{badge.desc}</p>
                   </div>
                 );
               })}

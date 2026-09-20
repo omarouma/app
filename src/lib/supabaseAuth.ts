@@ -25,7 +25,7 @@ export async function fetchUserProfile(userId: string): Promise<User | null> {
     .eq('id', userId)
     .single()
     : { data: null, error: null };
-  let data = privateError || !privateData ? publicData : privateData;
+  const data = privateError || !privateData ? publicData : privateData;
   const error = privateError && publicError ? publicError : null;
 
   if (error || !data) return null;

@@ -192,7 +192,7 @@ export default function CallOverlay() {
         exit={{ scale: 0.6, opacity: 0 }}
         className="fixed bottom-24 right-4 z-[70] flex flex-col items-center gap-2"
       >
-        <div className="relative w-20 h-20 rounded-full overflow-hidden shadow-xl border-2 border-[#00C300] bg-[#1a1a2e]">
+        <div className="relative w-20 h-20 rounded-full overflow-hidden shadow-xl border-2 border-primary bg-[#1a1a2e]">
           {isVideo && remoteStream ? (
             <video ref={remoteVideoRef} autoPlay playsInline className="w-full h-full object-cover" />
           ) : (
@@ -206,7 +206,7 @@ export default function CallOverlay() {
           <button
             type="button"
             onClick={handleEndCall}
-            className="w-10 h-10 rounded-full bg-[#FF3B30] flex items-center justify-center shadow-lg"
+            className="w-10 h-10 rounded-full bg-destructive flex items-center justify-center shadow-lg"
             aria-label="End call"
           >
             <PhoneOff size={18} className="text-white" />
@@ -217,7 +217,7 @@ export default function CallOverlay() {
             className="w-10 h-10 rounded-full bg-white/90 flex items-center justify-center shadow-lg"
             aria-label="Restore call"
           >
-            <Maximize2 size={18} className="text-[#111111]" />
+            <Maximize2 size={18} className="text-foreground" />
           </button>
         </div>
       </motion.div>
@@ -286,7 +286,10 @@ export default function CallOverlay() {
             {/* Content */}
             <div className="relative z-10 flex flex-col h-full">
               {/* Top bar */}
-              <div className="flex items-center justify-between gap-2 px-5 pt-14 pb-4">
+              <div
+                className="flex items-center justify-between gap-2 px-4 pb-4"
+                style={{ paddingTop: 'max(1rem, env(safe-area-inset-top, 0px))' }}
+              >
                 <span className={`shrink-0 text-xs font-medium px-2.5 py-1 rounded-full ${isVideo ? 'bg-blue-500/20 text-blue-300' : 'bg-green-500/20 text-green-300'}`}>
                   {isGroup
                     ? (isVideo ? '👥 Group Video' : '👥 Group Voice')
@@ -413,7 +416,7 @@ export default function CallOverlay() {
                       <motion.button
                         whileTap={{ scale: 0.92 }}
                         onClick={handleReject}
-                        className="w-16 h-16 rounded-full bg-[#FF3B30] flex items-center justify-center shadow-lg shadow-red-900/40"
+                        className="w-16 h-16 rounded-full bg-destructive flex items-center justify-center shadow-lg shadow-red-900/40"
                         aria-label="Reject call"
                       >
                         <PhoneOff size={28} className="text-white" />
@@ -424,7 +427,7 @@ export default function CallOverlay() {
                       <motion.button
                         whileTap={{ scale: 0.92 }}
                         onClick={handleAccept}
-                        className="w-16 h-16 rounded-full bg-[#00C300] flex items-center justify-center shadow-lg shadow-green-900/40"
+                        className="w-16 h-16 rounded-full bg-primary flex items-center justify-center shadow-lg shadow-green-900/40"
                         aria-label="Accept call"
                       >
                         <Phone size={28} className="text-white" />
@@ -562,7 +565,7 @@ export default function CallOverlay() {
                         <motion.button
                           whileTap={{ scale: 0.92 }}
                           onClick={handleEndCall}
-                          className="w-16 h-16 rounded-full bg-[#FF3B30] flex items-center justify-center shadow-lg shadow-red-900/40"
+                          className="w-16 h-16 rounded-full bg-destructive flex items-center justify-center shadow-lg shadow-red-900/40"
                           aria-label="End call"
                         >
                           <PhoneOff size={28} className="text-white" />

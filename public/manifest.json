@@ -7,7 +7,7 @@
     "description": "A global free messaging app. Voice & video calls, instant messaging, and Gaga Coins. একটি বিশ্বব্যাপী ফ্রি মেসেজিং অ্যাপ।",
     "start_url": "/",
     "display": "standalone",
-    "background_color": "#ffffff",
+    "background_color": "#0B0B0F",
     "theme_color": "#00C300",
     "orientation": "portrait",
     "scope": "/",

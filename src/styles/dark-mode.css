@@ -98,3 +98,114 @@ html.dark [class*="rounded-xl bg-white"] {
 
 html.dark ::-webkit-scrollbar-track { background: hsl(var(--background)); }
 html.dark ::-webkit-scrollbar-thumb { background: hsl(var(--border)); }
+
+/* ── Legacy gray-scale text overrides ──────────────────────────
+   Many legacy components use hardcoded Tailwind gray text colors
+   (text-gray-900/800/700/600/500/400) which are invisible or
+   unreadable on the dark background. Map them onto the theme
+   tokens so text stays legible in dark mode.
+   ────────────────────────────────────────────────────────────── */
+html.dark [class*="text-gray-900"],
+html.dark [class*="text-gray-800"],
+html.dark [class*="text-gray-700"] {
+  color: hsl(var(--foreground)) !important;
+}
+
+html.dark [class*="text-gray-600"],
+html.dark [class*="text-gray-500"] {
+  color: hsl(var(--muted-foreground)) !important;
+}
+
+html.dark [class*="text-gray-400"],
+html.dark [class*="text-gray-300"] {
+  color: hsl(var(--muted-foreground) / 0.75) !important;
+}
+
+/* ── Legacy gray-scale surface overrides ─────────────────────── */
+html.dark [class*="bg-gray-100"],
+html.dark [class*="bg-gray-200"] {
+  background-color: hsl(var(--secondary)) !important;
+}
+
+html.dark [class*="hover:bg-gray-100"]:hover,
+html.dark [class*="hover:bg-gray-200"]:hover,
+html.dark [class*="hover:bg-gray-300"]:hover,
+html.dark [class*="active:bg-gray-100"]:active,
+html.dark [class*="active:bg-gray-50"]:active {
+  background-color: hsl(var(--accent)) !important;
+}
+
+html.dark [class*="border-gray-100"],
+html.dark [class*="border-gray-200"] {
+  border-color: hsl(var(--border)) !important;
+}
+
+/* Placeholder text used by legacy inputs */
+html.dark [class*="placeholder-gray-400"]::placeholder {
+  color: hsl(var(--muted-foreground)) !important;
+}
+
+/* ── Legacy muted-gray text overrides ─────────────────────────────────────
+   The app uses several hardcoded muted grays for secondary text. On the
+   dark background these are too dim / low-contrast, so map them onto the
+   theme's muted-foreground token for consistent legibility.
+   ───────────────────────────────────────────────────────────────────────── */
+html.dark [class*="text-[#8D8D8D]"],
+html.dark [class*="text-[#ADADAD]"],
+html.dark [class*="text-[#ABABAB]"],
+html.dark [class*="text-[#C7C7CC]"],
+html.dark [class*="text-[#CCCCCC]"],
+html.dark [class*="text-[#888]"],
+html.dark [class*="text-[#888888]"],
+html.dark [class*="text-[#666]"],
+html.dark [class*="text-[#666666]"] {
+  color: hsl(var(--muted-foreground)) !important;
+}
+
+/* ── Legacy destructive (red) overrides ─────────────────────────────────── */
+html.dark [class*="text-[#FF3B30]"],
+html.dark [class*="text-[#FF5252]"],
+html.dark [class*="text-[#FF6B6B]"] {
+  color: hsl(var(--destructive)) !important;
+}
+
+html.dark [class*="bg-[#FF3B30]"]:not([class*="bg-[#FF3B30]/"]),
+html.dark [class*="bg-[#FF5252]"] {
+  background-color: hsl(var(--destructive)) !important;
+}
+
+html.dark [class*="bg-[#FF3B30]/10"],
+html.dark [class*="bg-[#FF3B30]/5"] {
+  background-color: hsl(var(--destructive) / 0.12) !important;
+}
+
+html.dark [class*="border-[#FF3B30]"] {
+  border-color: hsl(var(--destructive)) !important;
+}
+
+/* ── Legacy brand-green tint overrides ──────────────────────────────────── */
+html.dark [class*="bg-[#00C300]/10"],
+html.dark [class*="bg-[#00C300]/5"] {
+  background-color: hsl(var(--primary) / 0.14) !important;
+}
+
+html.dark [class*="bg-[#E8F5E9]"] {
+  background-color: hsl(var(--primary) / 0.14) !important;
+}
+
+/* ── Legacy neutral surface overrides ───────────────────────────────────── */
+html.dark [class*="bg-[#E8E8E8]"],
+html.dark [class*="bg-[#E4E6EB]"] {
+  background-color: hsl(var(--muted)) !important;
+}
+
+html.dark [class*="border-[#E8E8E8]"],
+html.dark [class*="border-[#D0D0D0]"] {
+  border-color: hsl(var(--border)) !important;
+}
+
+/* ── Legacy placeholder color overrides ─────────────────────────────────── */
+html.dark [class*="placeholder-[#ADADAD]"]::placeholder,
+html.dark [class*="placeholder-[#8D8D8D]"]::placeholder {
+  color: hsl(var(--muted-foreground)) !important;
+}

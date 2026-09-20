@@ -64,12 +64,12 @@ export default function AdBanner({
         initial={{ opacity: 0, y: 10 }}
         animate={isVisible ? { opacity: 1, y: 0 } : {}}
         transition={{ duration: 0.4, ease: 'easeOut' }}
-        className={`relative bg-white rounded-xl border border-[#EBEBEB] overflow-hidden cursor-pointer hover:border-[#00C300]/30 transition-colors ${className}`}
+        className={`relative bg-card rounded-xl border border-border overflow-hidden cursor-pointer hover:border-primary/30 transition-colors ${className}`}
         onClick={handleClick}
       >
         <div className="flex items-center gap-3 p-3">
           {imageUrl && (
-            <div className="w-16 h-16 rounded-lg bg-[#F5F5F5] overflow-hidden shrink-0">
+            <div className="w-16 h-16 rounded-lg bg-secondary overflow-hidden shrink-0">
               <img
                 src={imageUrl}
                 alt={title}
@@ -80,27 +80,27 @@ export default function AdBanner({
           )}
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-1.5 mb-1">
-              <Megaphone size={10} className="text-[#8D8D8D]" />
-              <span className="text-[10px] text-[#8D8D8D] font-medium uppercase tracking-wide">
+              <Megaphone size={10} className="text-muted-foreground" />
+              <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wide">
                 Promoted
               </span>
-              <span className="text-[10px] text-[#C7C7CC]">•</span>
-              <span className="text-[10px] text-[#8D8D8D]">{sponsorName}</span>
+              <span className="text-[10px] text-muted-foreground">•</span>
+              <span className="text-[10px] text-muted-foreground">{sponsorName}</span>
             </div>
-            <h4 className="text-sm font-bold text-[#111111] truncate">{title}</h4>
-            <p className="text-xs text-[#8D8D8D] truncate">{description}</p>
+            <h4 className="text-sm font-bold text-foreground truncate">{title}</h4>
+            <p className="text-xs text-muted-foreground truncate">{description}</p>
           </div>
-          <div className="flex items-center gap-1 text-[#00C300] shrink-0">
+          <div className="flex items-center gap-1 text-primary shrink-0">
             <span className="text-xs font-medium">{ctaText}</span>
             <ChevronRight size={14} />
           </div>
         </div>
         {onDismiss && (
           <button type="button" onClick={handleDismiss}
-            className="absolute top-2 right-2 p-1 hover:bg-[#F5F5F5] rounded-full transition-colors opacity-0 hover:opacity-100 group-hover:opacity-100"
+            className="absolute top-2 right-2 p-1 hover:bg-secondary rounded-full transition-colors opacity-0 hover:opacity-100 group-hover:opacity-100"
             style={{ opacity: 0.6 }}
           >
-            <X size={12} className="text-[#8D8D8D]" />
+            <X size={12} className="text-muted-foreground" />
           </button>
         )}
       </motion.div>
@@ -113,7 +113,7 @@ export default function AdBanner({
       initial={{ opacity: 0, y: 12 }}
       animate={isVisible ? { opacity: 1, y: 0 } : {}}
       transition={{ duration: 0.5, ease: 'easeOut' }}
-      className={`relative bg-white rounded-2xl border border-[#EBEBEB] overflow-hidden cursor-pointer group hover:shadow-md transition-all ${className}`}
+      className={`relative bg-card rounded-2xl border border-border overflow-hidden cursor-pointer group hover:shadow-md transition-all ${className}`}
       onClick={handleClick}
     >
       {/* Promoted Label */}
@@ -132,7 +132,7 @@ export default function AdBanner({
 
       {/* Image */}
       {imageUrl && (
-        <div className="w-full h-40 bg-[#F5F5F5] overflow-hidden">
+        <div className="w-full h-40 bg-secondary overflow-hidden">
           <img
             src={imageUrl}
             alt={title}
@@ -148,15 +148,15 @@ export default function AdBanner({
           {sponsorLogo ? (
             <img src={sponsorLogo} alt="Advertisement" className="w-5 h-5 rounded-full object-cover" />
           ) : (
-            <div className="w-5 h-5 rounded-full bg-[#00C300]/10 flex items-center justify-center">
-              <Megaphone size={10} className="text-[#00C300]" />
+            <div className="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center">
+              <Megaphone size={10} className="text-primary" />
             </div>
           )}
-          <span className="text-xs text-[#8D8D8D] font-medium">{sponsorName}</span>
+          <span className="text-xs text-muted-foreground font-medium">{sponsorName}</span>
         </div>
 
-        <h4 className="text-base font-bold text-[#111111] mb-1 leading-tight">{title}</h4>
-        <p className="text-sm text-[#8D8D8D] mb-4 line-clamp-2">{description}</p>
+        <h4 className="text-base font-bold text-foreground mb-1 leading-tight">{title}</h4>
+        <p className="text-sm text-muted-foreground mb-4 line-clamp-2">{description}</p>
 
         <div className="flex items-center justify-between">
           <button type="button" onClick={(e) => {
@@ -170,7 +170,7 @@ export default function AdBanner({
           </button>
 
           {linkUrl && (
-            <span className="text-[10px] text-[#C7C7CC] truncate max-w-[120px]">
+            <span className="text-[10px] text-muted-foreground truncate max-w-[120px]">
               {linkUrl.replace(/^https?:\/\//, '')}
             </span>
           )}
@@ -225,7 +225,7 @@ export function AdBannerCarousel({
             <button type="button" key={i}
               onClick={() => setIndex(i)}
               className={`h-1 rounded-full transition-all ${
-                i === index ? 'w-4 bg-[#00C300]' : 'w-1.5 bg-[#C7C7CC]'
+                i === index ? 'w-4 bg-primary' : 'w-1.5 bg-muted-foreground'
               }`}
             />
           ))}

@@ -24,6 +24,9 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@capacitor/android": "^6.2.2",
+    "@capacitor/cli": "^6.2.2",
+    "@capacitor/core": "^6.2.2",
     "@dataconnect/generated": "file:src/dataconnect-generated",
     "@hookform/resolvers": "^5.4.0",
     "@radix-ui/react-accordion": "^1.2.16",

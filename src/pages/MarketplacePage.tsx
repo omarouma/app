@@ -28,9 +28,9 @@ const conditionLabels: Record<string, string> = {
 };
 
 const conditionColors: Record<string, string> = {
-  new: 'bg-[#00C300] text-black',
-  like_new: 'bg-[#00C300]/80 text-black',
-good: 'bg-[#00C300] text-black',
+  new: 'bg-primary text-black',
+  like_new: 'bg-primary/80 text-black',
+good: 'bg-primary text-black',
   fair: 'bg-yellow-500 text-black',
   poor: 'bg-red-500 text-white',
 };
@@ -199,12 +199,12 @@ export default function MarketplacePage() {
         </div>
         <div className="flex items-center gap-2">
           <button type="button" onClick={() => setShowSearch(!showSearch)}
-            className="p-2 rounded-lg hover:bg-[#1a1a1a] text-[#8D8D8D]"
+            className="p-2 rounded-lg hover:bg-[#1a1a1a] text-muted-foreground"
           >
             <Search size={18} />
           </button>
           <button type="button" onClick={() => setShowFilters(!showFilters)}
-            className="p-2 rounded-lg hover:bg-[#1a1a1a] text-[#8D8D8D]"
+            className="p-2 rounded-lg hover:bg-[#1a1a1a] text-muted-foreground"
           >
             <SlidersHorizontal size={18} />
           </button>
@@ -222,17 +222,17 @@ export default function MarketplacePage() {
           >
             <div className="px-4 py-2 border-b border-[#1a1a1a]">
               <div className="relative">
-                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8D8D8D]" />
+                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                 <input
                   type="text"
                   placeholder="Search listings..."
                   value={searchQuery}
                   onChange={e => setSearchQuery(e.target.value)}
-                  className="w-full bg-[#1a1a1a] text-white pl-10 pr-4 py-2 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#00C300]"
+                  className="w-full bg-[#1a1a1a] text-white pl-10 pr-4 py-2 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                   autoFocus
                 />
                 {searchQuery && (
-                  <button type="button" onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8D8D8D]">
+                  <button type="button" onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">
                     <X size={14} />
                   </button>
                 )}
@@ -258,8 +258,8 @@ export default function MarketplacePage() {
                     onClick={() => setSelectedCategory(cat)}
                     className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap ${
                       selectedCategory === cat
-                        ? 'bg-[#00C300] text-black'
-                        : 'bg-[#1a1a1a] text-[#8D8D8D]'
+                        ? 'bg-primary text-black'
+                        : 'bg-[#1a1a1a] text-muted-foreground'
                     }`}
                   >
                     {cat}
@@ -269,14 +269,14 @@ export default function MarketplacePage() {
               <div className="flex gap-2">
                 <button type="button" onClick={() => setPriceSort(priceSort === 'low' ? 'none' : 'low')}
                   className={`px-3 py-1 rounded-full text-xs font-medium ${
-                    priceSort === 'low' ? 'bg-[#00C300] text-black' : 'bg-[#1a1a1a] text-[#8D8D8D]'
+                    priceSort === 'low' ? 'bg-primary text-black' : 'bg-[#1a1a1a] text-muted-foreground'
                   }`}
                 >
                   Price: Low to High
                 </button>
                 <button type="button" onClick={() => setPriceSort(priceSort === 'high' ? 'none' : 'high')}
                   className={`px-3 py-1 rounded-full text-xs font-medium ${
-                    priceSort === 'high' ? 'bg-[#00C300] text-black' : 'bg-[#1a1a1a] text-[#8D8D8D]'
+                    priceSort === 'high' ? 'bg-primary text-black' : 'bg-[#1a1a1a] text-muted-foreground'
                   }`}
                 >
                   Price: High to Low
@@ -298,7 +298,7 @@ export default function MarketplacePage() {
           <button type="button" key={t.key}
             onClick={() => setActiveTab(t.key)}
             className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap ${
-              activeTab === t.key ? 'bg-[#00C300] text-black' : 'bg-[#1a1a1a] text-[#8D8D8D]'
+              activeTab === t.key ? 'bg-primary text-black' : 'bg-[#1a1a1a] text-muted-foreground'
             }`}
           >
             {t.label}
@@ -334,7 +334,7 @@ export default function MarketplacePage() {
                   <img src={item.images[0]} alt={item.title} className="w-full h-full object-cover" />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center">
-                    <Tag size={32} className="text-[#8D8D8D]" />
+                    <Tag size={32} className="text-muted-foreground" />
                   </div>
                 )}
                 {/* Favorite button */}
@@ -347,7 +347,7 @@ export default function MarketplacePage() {
                   />
                 </button>
                 {/* Condition badge */}
-                <span className={`absolute top-2 left-2 px-2 py-0.5 rounded-md text-[10px] font-bold ${conditionColors[item.condition] || 'bg-[#8D8D8D] text-white'}`}>
+                <span className={`absolute top-2 left-2 px-2 py-0.5 rounded-md text-[10px] font-bold ${conditionColors[item.condition] || 'bg-muted-foreground text-white'}`}>
                   {conditionLabels[item.condition] || item.condition}
                 </span>
               </div>
@@ -358,14 +358,14 @@ export default function MarketplacePage() {
                   <h3 className="text-white text-sm font-medium line-clamp-2 leading-tight">{item.title}</h3>
                 </div>
                 <div className="flex items-center gap-1.5 mb-1.5">
-                  <span className="text-[#00C300] font-bold text-sm">{item.price} {item.currency}</span>
+                  <span className="text-primary font-bold text-sm">{item.price} {item.currency}</span>
                   {item.isNegotiable && (
-                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#2a2a2a] text-[#8D8D8D]">
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#2a2a2a] text-muted-foreground">
                       Negotiable
                     </span>
                   )}
                 </div>
-                <div className="flex items-center gap-1 text-[#8D8D8D] text-xs">
+                <div className="flex items-center gap-1 text-muted-foreground text-xs">
                   <MapPin size={12} />
                   <span className="truncate">{item.location}</span>
                 </div>
@@ -375,7 +375,7 @@ export default function MarketplacePage() {
                     alt="User avatar"
                     className="w-5 h-5 rounded-full object-cover"
                   />
-                  <span className="text-[#8D8D8D] text-xs truncate">{item.userName || 'Seller'}</span>
+                  <span className="text-muted-foreground text-xs truncate">{item.userName || 'Seller'}</span>
                 </div>
               </div>
             </motion.div>
@@ -385,7 +385,7 @@ export default function MarketplacePage() {
 
       {/* Create Listing FAB */}
       <button type="button" onClick={() => setShowCreateModal(true)}
-        className="fixed bottom-20 right-4 z-30 w-12 h-12 rounded-full bg-[#00C300] text-black flex items-center justify-center shadow-lg hover:bg-[#00C300]/90 transition-colors"
+        className="fixed bottom-20 right-4 z-30 w-12 h-12 rounded-full bg-primary text-black flex items-center justify-center shadow-lg hover:bg-primary/90 transition-colors"
       >
         <Plus size={22} />
       </button>
@@ -418,19 +418,19 @@ export default function MarketplacePage() {
                   <div>
                     <h2 className="text-lg font-bold text-white">{selectedListing.title}</h2>
                     <div className="flex items-center gap-2 mt-1">
-                      <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${conditionColors[selectedListing.condition] || 'bg-[#8D8D8D] text-white'}`}>
+                      <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${conditionColors[selectedListing.condition] || 'bg-muted-foreground text-white'}`}>
                         {conditionLabels[selectedListing.condition] || selectedListing.condition}
                       </span>
-                      <span className="text-[#00C300] font-bold">{selectedListing.price} {selectedListing.currency}</span>
-                      {selectedListing.isNegotiable && <span className="text-[10px] text-[#8D8D8D]">Negotiable</span>}
+                      <span className="text-primary font-bold">{selectedListing.price} {selectedListing.currency}</span>
+                      {selectedListing.isNegotiable && <span className="text-[10px] text-muted-foreground">Negotiable</span>}
                     </div>
                   </div>
-                  <button type="button" onClick={() => setSelectedListing(null)} className="text-[#8D8D8D] p-1">
+                  <button type="button" onClick={() => setSelectedListing(null)} className="text-muted-foreground p-1">
                     <X size={20} />
                   </button>
                 </div>
-                <p className="text-[#8D8D8D] text-sm leading-relaxed">{selectedListing.description || 'No description provided.'}</p>
-                <div className="flex items-center gap-2 text-[#8D8D8D] text-sm">
+                <p className="text-muted-foreground text-sm leading-relaxed">{selectedListing.description || 'No description provided.'}</p>
+                <div className="flex items-center gap-2 text-muted-foreground text-sm">
                   <MapPin size={14} />
                   <span>{selectedListing.location}</span>
                 </div>
@@ -452,7 +452,7 @@ export default function MarketplacePage() {
                       await createDirectChat(selectedListing.userId, user.id);
                       navigate(`/chat/${selectedListing.userId}`);
                     }}
-                    className="flex-1 py-2.5 rounded-xl bg-[#00C300] text-black text-sm font-medium hover:bg-[#00C300]/90 transition-colors"
+                    className="flex-1 py-2.5 rounded-xl bg-primary text-black text-sm font-medium hover:bg-primary/90 transition-colors"
                   >
                     Chat with Seller
                   </button>
@@ -483,7 +483,7 @@ export default function MarketplacePage() {
             >
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-bold text-white">Create Listing</h2>
-                <button type="button" onClick={() => setShowCreateModal(false)} className="text-[#8D8D8D] p-1">
+                <button type="button" onClick={() => setShowCreateModal(false)} className="text-muted-foreground p-1">
                   <X size={20} />
                 </button>
               </div>
@@ -492,23 +492,23 @@ export default function MarketplacePage() {
                 <input
                   type="text" placeholder="Item title *"
                   value={createTitle} onChange={e => setCreateTitle(e.target.value)}
-                  className="w-full bg-[#0d0d0d] text-white px-4 py-3 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#00C300]"
+                  className="w-full bg-[#0d0d0d] text-white px-4 py-3 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                 />
                 <textarea
                   placeholder="Description"
                   value={createDesc} onChange={e => setCreateDesc(e.target.value)}
                   rows={3}
-                  className="w-full bg-[#0d0d0d] text-white px-4 py-3 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#00C300] resize-none"
+                  className="w-full bg-[#0d0d0d] text-white px-4 py-3 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary resize-none"
                 />
                 <div className="grid grid-cols-2 gap-3">
                   <input
                     type="number" placeholder="Price *"
                     value={createPrice} onChange={e => setCreatePrice(e.target.value)}
-                    className="w-full bg-[#0d0d0d] text-white px-4 py-3 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#00C300]"
+                    className="w-full bg-[#0d0d0d] text-white px-4 py-3 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                   />
                   <select
                     value={createCategory} onChange={e => setCreateCategory(e.target.value)}
-                    className="w-full bg-[#0d0d0d] text-white px-3 py-3 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#00C300]"
+                    className="w-full bg-[#0d0d0d] text-white px-3 py-3 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                   >
                     {categories.filter(c => c !== 'All').map(c => (
                       <option key={c} value={c}>{c}</option>
@@ -518,7 +518,7 @@ export default function MarketplacePage() {
                 <div className="grid grid-cols-2 gap-3">
                   <select
                     value={createCondition} onChange={e => setCreateCondition(e.target.value as 'new' | 'like_new' | 'good' | 'fair' | 'poor')}
-                    className="w-full bg-[#0d0d0d] text-white px-3 py-3 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#00C300]"
+                    className="w-full bg-[#0d0d0d] text-white px-3 py-3 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                   >
                     {Object.entries(conditionLabels).map(([k, v]) => (
                       <option key={k} value={k}>{v}</option>
@@ -527,7 +527,7 @@ export default function MarketplacePage() {
                   <input
                     type="text" placeholder="Location *"
                     value={createLocation} onChange={e => setCreateLocation(e.target.value)}
-                    className="w-full bg-[#0d0d0d] text-white px-4 py-3 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#00C300]"
+                    className="w-full bg-[#0d0d0d] text-white px-4 py-3 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                   />
                 </div>
                 <label className="flex items-center gap-2 text-white text-sm cursor-pointer">
@@ -540,7 +540,7 @@ export default function MarketplacePage() {
                 <button
                   type="button" onClick={handleCreateListing}
                   disabled={creating || !createTitle.trim() || !createPrice.trim() || !createLocation.trim()}
-                  className="w-full py-3 rounded-xl bg-[#00C300] text-black font-semibold text-sm hover:bg-[#00C300]/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  className="w-full py-3 rounded-xl bg-primary text-black font-semibold text-sm hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
                   {creating ? 'Creating...' : 'Create Listing'}
                 </button>

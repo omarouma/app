@@ -36,7 +36,21 @@
     --sidebar-ring: 120 100% 38%;
     --app-font-size: 16px;
     --header-h: 56px;
-    --nav-h: 58px;
+    --nav-h: 60px;
+    /* ── Design tokens ─────────────────────────────────────────── */
+    --radius-sm: 0.5rem;
+    --radius-md: 0.75rem;
+    --radius-lg: 1rem;
+    --radius-xl: 1.25rem;
+    --radius-2xl: 1.5rem;
+    --shadow-soft: 0 1px 2px 0 rgb(0 0 0 / 0.04), 0 1px 3px 0 rgb(0 0 0 / 0.06);
+    --shadow-float: 0 8px 30px -6px rgb(0 0 0 / 0.18), 0 2px 8px -2px rgb(0 0 0 / 0.10);
+    --shadow-nav: 0 -1px 0 0 hsl(var(--border)), 0 -8px 24px -12px rgb(0 0 0 / 0.12);
+    --ease-standard: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    --ease-emphasized: cubic-bezier(0.2, 0, 0, 1);
+    --dur-fast: 120ms;
+    --dur-base: 200ms;
+    --dur-slow: 320ms;
   }
 
   .dark {
@@ -325,28 +339,30 @@
 
   .page-header {
     display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0.75rem 1rem 0.75rem 1rem;
-    padding-top: max(0.75rem, env(safe-area-inset-top));
-    background: hsl(var(--card) / 0.95);
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.5rem;
+    padding: 0.625rem 1rem;
+    padding-top: max(0.625rem, env(safe-area-inset-top));
+    background: hsl(var(--card) / 0.92);
     -webkit-backdrop-filter: blur(16px) saturate(180%);
     backdrop-filter: blur(16px) saturate(180%);
     border-bottom: 1px solid hsl(var(--border));
     position: sticky;
     top: 0;
     z-index: 40;
+    min-height: var(--header-h);
   }
 
   @media (min-width: 640px) {
     .page-header {
-      padding: 1rem 1.5rem;
+      padding: 0.875rem 1.5rem;
     }
   }
 
   .page-content {
     padding: 1rem;
-    padding-bottom: calc(58px + env(safe-area-inset-bottom, 0px));
+    padding-bottom: calc(var(--nav-h) + env(safe-area-inset-bottom, 0px));
   }
 
   @media (min-width: 640px) {
@@ -406,19 +422,17 @@
   }
 }
 
-.page-enter {
-  animation: pageEnter 0.22s cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
-}
-
+/* NOTE: pageEnter animates opacity ONLY. A transform (even translateY(0) with
+   fill-mode: both) persists after the animation and creates a containing block,
+   which mispositions position:fixed descendants (e.g. the contacts alphabet
+   index, chat context menu). Opacity-only keeps those elements correct. */
 @keyframes pageEnter {
   from {
     opacity: 0;
-    transform: translateY(8px);
   }
 
   to {
     opacity: 1;
-    transform: translateY(0);
   }
 }
 
@@ -497,7 +511,34 @@
 }
 
 .pb-nav {
-  padding-bottom: calc(58px + env(safe-area-inset-bottom, 0px));
+  padding-bottom: calc(var(--nav-h) + env(safe-area-inset-bottom, 0px));
+}
+
+/* ── Performance & smoothness helpers ─────────────────────────── */
+.list-virtual {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 72px;
+}
+
+.gpu {
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}
+
+.scroll-touch {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
+/* Smooth, GPU-friendly page transition (opacity-only — see pageEnter note) */
+.page-enter {
+  animation: pageEnter var(--dur-base) var(--ease-standard) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page-enter {
+    animation: none;
+  }
 }
 
 .pt-safe {
@@ -797,4 +838,32 @@
   .tablet-columns-2 {
     column-count: 2;
   }
+}
+/* ==========================================================================
+   Interaction Baseline (Phase 4 — safe version)
+   IMPORTANT: We deliberately do NOT apply a global `transform` on :active.
+   Doing so overrides Tailwind centering transforms (e.g. -translate-y-1/2 on
+   search-clear buttons) and conflicts with framer-motion, causing elements to
+   jump when tapped. Tactile feedback is opt-in via .tap-scale / .icon-btn /
+   .press-card / .press-scale, which are safe because those elements don't use
+   their own transforms.
+   ========================================================================== */
+
+/* Smooth color feedback only (never transform) on interactive elements */
+button,
+a,
+[role="button"],
+[role="tab"],
+[role="menuitem"],
+summary {
+  transition-property: background-color, border-color, color, opacity, box-shadow;
+  transition-duration: var(--dur-fast);
+  transition-timing-function: var(--ease-standard);
+}
+
+/* Prevent layout shift / jank on long scrollable lists */
+.scroll-touch,
+.overflow-y-auto,
+.overflow-auto {
+  -webkit-overflow-scrolling: touch;
 }

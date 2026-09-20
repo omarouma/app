@@ -2,10 +2,11 @@ import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  ArrowLeft, Bell, Trash2, Check, MessageCircle, Phone, Heart,
+  Bell, Trash2, Check, MessageCircle, Phone, Heart,
   UserPlus, AtSign, Users, CheckCheck, Filter, X, ChevronRight, BellRing,
   Wallet, UserMinus, Ban, Settings, VolumeX, Volume2
 } from 'lucide-react';
+import PageHeader from '@/components/layout/PageHeader';
 import { useNotificationStore } from '@/store/useNotificationStore';
 import { useAuthStore } from '@/store/useAuthStore';
 import { usePageTitle } from '@/hooks/useDocumentTitle';
@@ -31,18 +32,18 @@ const iconMap: Record<string, typeof MessageCircle> = {
 };
 
 const iconColors: Record<string, string> = {
-  message: 'bg-[#00C300]/10 text-[#00C300]',
+  message: 'bg-primary/10 text-primary',
   call: 'bg-[#2196F3]/10 text-[#2196F3]',
-  reaction: 'bg-[#FF3B30]/10 text-[#FF3B30]',
+  reaction: 'bg-destructive/10 text-destructive',
   mention: 'bg-[#8B5CF6]/10 text-[#8B5CF6]',
   group_invite: 'bg-[#FF9800]/10 text-[#FF9800]',
   friend_request: 'bg-[#00C3C3]/10 text-[#00C3C3]',
-  money_received: 'bg-[#00C300]/10 text-[#00C300]',
+  money_received: 'bg-primary/10 text-primary',
   group_call: 'bg-[#2196F3]/10 text-[#2196F3]',
-  post_like: 'bg-[#FF3B30]/10 text-[#FF3B30]',
+  post_like: 'bg-destructive/10 text-destructive',
   comment: 'bg-[#8B5CF6]/10 text-[#8B5CF6]',
   friend_removed: 'bg-[#FF9800]/10 text-[#FF9800]',
-  blocked_interaction: 'bg-[#FF3B30]/10 text-[#FF3B30]',
+  blocked_interaction: 'bg-destructive/10 text-destructive',
 };
 
 const typeLabels: Record<string, string> = {
@@ -165,13 +166,13 @@ export default function NotificationsPage() {
   const renderGroup = (title: string, items: typeof filtered, showDivider: boolean) => {
     if (items.length === 0) return null;
     return (
-      <div className={showDivider ? 'border-t border-[#EBEBEB]' : ''}>
-        <div className="px-4 py-2 bg-[#F5F5F5]">
-          <p className="text-[#8D8D8D] text-xs font-medium uppercase tracking-wider">{title}</p>
+      <div className={showDivider ? 'border-t border-border' : ''}>
+        <div className="px-4 py-2 bg-secondary">
+          <p className="text-muted-foreground text-xs font-medium uppercase tracking-wider">{title}</p>
         </div>
         {items.map((notif, i) => {
           const Icon = iconMap[notif.type] || Bell;
-          const colorClass = iconColors[notif.type] || 'bg-[#F5F5F5] text-[#8D8D8D]';
+          const colorClass = iconColors[notif.type] || 'bg-secondary text-muted-foreground';
           const isSelected = selectedIds.includes(notif.id);
           return (
             <motion.div
@@ -191,11 +192,11 @@ export default function NotificationsPage() {
                   else if (notif.type === 'friend_request') navigate('/add-friends');
                 }
               }}
-              className={`flex items-start gap-3 p-4 active:bg-gray-50 transition-colors cursor-pointer relative ${!notif.read ? 'bg-[#00C300]/5' : 'bg-white'
-                } ${isSelected ? 'bg-[#00C300]/10' : ''}`}
+              className={`flex items-start gap-3 p-4 active:bg-gray-50 transition-colors cursor-pointer relative ${!notif.read ? 'bg-primary/5' : 'bg-card'
+                } ${isSelected ? 'bg-primary/10' : ''}`}
             >
               {selectMode && (
-                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 mt-2 ${isSelected ? 'bg-[#00C300] border-[#00C300]' : 'border-[#C7C7CC]'
+                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 mt-2 ${isSelected ? 'bg-primary border-primary' : 'border-border'
                   }`}>
                   {isSelected && <Check size={12} className="text-white" />}
                 </div>
@@ -204,13 +205,13 @@ export default function NotificationsPage() {
                 <Icon size={18} />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-[#111111] text-sm font-medium">{notif.title}</p>
-                <p className="text-[#8D8D8D] text-xs mt-0.5">{notif.body}</p>
-                <p className="text-[#C7C7CC] text-[10px] mt-1">{formatTime(notif.timestamp)}</p>
+                <p className="text-foreground text-sm font-medium">{notif.title}</p>
+                <p className="text-muted-foreground text-xs mt-0.5">{notif.body}</p>
+                <p className="text-muted-foreground text-[10px] mt-1">{formatTime(notif.timestamp)}</p>
               </div>
-              {!notif.read && !selectMode && <div className="w-2 h-2 rounded-full bg-[#00C300] shrink-0 mt-2" />}
+              {!notif.read && !selectMode && <div className="w-2 h-2 rounded-full bg-primary shrink-0 mt-2" />}
               {!selectMode && (
-                <ChevronRight size={16} className="text-[#C7C7CC] shrink-0 mt-2" />
+                <ChevronRight size={16} className="text-muted-foreground shrink-0 mt-2" />
               )}
             </motion.div>
           );
@@ -220,57 +221,52 @@ export default function NotificationsPage() {
   };
 
   return (
-    <div className="min-h-screen-safe bg-[#F5F5F5]">
+    <div className="min-h-screen-safe bg-background">
       {/* Header */}
-      <div className="sticky top-0 z-10 bg-white/90 backdrop-blur-md border-b border-[#EBEBEB]">
-        <div className="flex items-center justify-between px-4 pb-4" style={{ paddingTop: 'max(16px, env(safe-area-inset-top, 0px))' }}>
-          <div className="flex items-center gap-3">
-            <button type="button" onClick={() => navigate(-1)} className="w-11 h-11 flex items-center justify-center text-[#111111] hover:text-[#8D8D8D] -ml-2">
-              <ArrowLeft size={22} />
-            </button>
-            <div>
-              <h1 className="text-lg font-bold text-[#111111]">Notifications</h1>
-              {unreadCount > 0 && <p className="text-[#00C300] text-xs font-medium">{unreadCount} unread</p>}
-            </div>
-          </div>
-          <div className="flex gap-2">
-            {notifications.length > 0 && (
-              <>
-                <button type="button" onClick={() => setShowSettings(true)}
-                  className="w-11 h-11 flex items-center justify-center rounded-full text-[#8D8D8D] hover:text-[#111111] transition-colors"
-                >
-                  <Settings size={18} />
-                </button>
-                <button type="button" onClick={() => { setSelectMode(s => !s); setSelectedIds([]); }}
-                  className={`text-xs font-medium px-3 py-2 rounded-full transition-colors min-h-[36px] ${selectMode ? 'bg-[#00C300] text-white' : 'text-[#00C300]'
-                    }`}
-                >
-                  {selectMode ? 'Done' : 'Select'}
-                </button>
-                <button type="button" onClick={() => setShowFilter(!showFilter)}
-                  className={`w-11 h-11 flex items-center justify-center rounded-full transition-colors ${showFilter ? 'bg-[#00C300]/10 text-[#00C300]' : 'text-[#8D8D8D]'}`}
-                >
-                  <Filter size={18} />
-                </button>
-              </>
-            )}
-          </div>
-        </div>
+      <PageHeader
+        showBack
+        title="Notifications"
+        subtitle={unreadCount > 0 ? `${unreadCount} unread` : undefined}
+        actions={
+          notifications.length > 0 ? (
+            <>
+              <button type="button" onClick={() => setShowSettings(true)}
+                className="icon-btn w-10 h-10 text-muted-foreground"
+                aria-label="Notification settings"
+              >
+                <Settings size={18} />
+              </button>
+              <button type="button" onClick={() => { setSelectMode(s => !s); setSelectedIds([]); }}
+                className={`text-xs font-medium px-3 py-2 rounded-full transition-colors min-h-[36px] ${selectMode ? 'bg-primary text-primary-foreground' : 'text-primary'
+                  }`}
+              >
+                {selectMode ? 'Done' : 'Select'}
+              </button>
+              <button type="button" onClick={() => setShowFilter(!showFilter)}
+                className={`icon-btn w-10 h-10 ${showFilter ? 'bg-primary/10 text-primary' : 'text-muted-foreground'}`}
+                aria-label="Filter notifications"
+              >
+                <Filter size={18} />
+              </button>
+            </>
+          ) : undefined
+        }
+      />
 
         {/* Push Notification Permission Banner */}
         {isSupported && typeof Notification !== 'undefined' && Notification.permission === 'default' && (
           <motion.div
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="bg-[#00C300]/10 border-b border-[#00C300]/20 px-4 py-3 flex items-center gap-3"
+            className="bg-primary/10 border-b border-primary/20 px-4 py-3 flex items-center gap-3"
           >
-            <BellRing size={18} className="text-[#00C300] shrink-0" />
+            <BellRing size={18} className="text-primary shrink-0" />
             <div className="flex-1">
-              <p className="text-[#111111] text-sm font-medium">Enable push notifications</p>
-              <p className="text-[#8D8D8D] text-xs">Get notified about messages and calls</p>
+              <p className="text-foreground text-sm font-medium">Enable push notifications</p>
+              <p className="text-muted-foreground text-xs">Get notified about messages and calls</p>
             </div>
             <button type="button" onClick={requestPermission}
-              className="px-3 py-1.5 bg-[#00C300] text-white text-xs rounded-full font-medium active:bg-[#00A300] transition-colors"
+              className="px-3 py-1.5 bg-primary text-white text-xs rounded-full font-medium active:bg-[#00A300] transition-colors"
             >
               Enable
             </button>
@@ -284,11 +280,11 @@ export default function NotificationsPage() {
               initial={{ height: 0, opacity: 0 }}
               animate={{ height: 'auto', opacity: 1 }}
               exit={{ height: 0, opacity: 0 }}
-              className="overflow-hidden border-t border-[#EBEBEB]"
+              className="overflow-hidden border-t border-border"
             >
               <div className="flex gap-2 p-3 overflow-x-auto scrollbar-hide">
                 <button type="button" onClick={() => changeFilter('all')}
-                  className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${filterType === 'all' ? 'bg-[#00C300] text-white' : 'bg-[#F5F5F5] text-[#8D8D8D]'
+                  className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${filterType === 'all' ? 'bg-primary text-white' : 'bg-secondary text-muted-foreground'
                     }`}
                 >
                   All
@@ -296,7 +292,7 @@ export default function NotificationsPage() {
                 {Object.entries(typeLabels).map(([type, label]) => (
                   <button type="button" key={type}
                     onClick={() => changeFilter(type)}
-                    className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${filterType === type ? 'bg-[#00C300] text-white' : 'bg-[#F5F5F5] text-[#8D8D8D]'
+                    className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${filterType === type ? 'bg-primary text-white' : 'bg-secondary text-muted-foreground'
                       }`}
                   >
                     {label}
@@ -314,21 +310,21 @@ export default function NotificationsPage() {
               initial={{ height: 0, opacity: 0 }}
               animate={{ height: 'auto', opacity: 1 }}
               exit={{ height: 0, opacity: 0 }}
-              className="overflow-hidden border-t border-[#EBEBEB]"
+              className="overflow-hidden border-t border-border"
             >
               <div className="flex gap-2 p-3">
                 <button type="button" onClick={handleMarkSelectedRead}
-                  className="flex items-center gap-1 px-3 py-1.5 bg-[#00C300]/10 text-[#00C300] text-xs rounded-full font-medium"
+                  className="flex items-center gap-1 px-3 py-1.5 bg-primary/10 text-primary text-xs rounded-full font-medium"
                 >
                   <CheckCheck size={12} /> Mark Read
                 </button>
                 <button type="button" onClick={handleDeleteSelected}
-                  className="flex items-center gap-1 px-3 py-1.5 bg-[#FF3B30]/10 text-[#FF3B30] text-xs rounded-full font-medium"
+                  className="flex items-center gap-1 px-3 py-1.5 bg-destructive/10 text-destructive text-xs rounded-full font-medium"
                 >
                   <Trash2 size={12} /> Delete
                 </button>
                 <button type="button" onClick={() => { setSelectedIds([]); setSelectMode(false); }}
-                  className="flex items-center gap-1 px-3 py-1.5 bg-[#F5F5F5] text-[#8D8D8D] text-xs rounded-full font-medium ml-auto"
+                  className="flex items-center gap-1 px-3 py-1.5 bg-secondary text-muted-foreground text-xs rounded-full font-medium ml-auto"
                 >
                   <X size={12} /> Cancel
                 </button>
@@ -336,25 +332,24 @@ export default function NotificationsPage() {
             </motion.div>
           )}
         </AnimatePresence>
-      </div>
 
       {/* Notification List */}
-      <div className="divide-y divide-[#EBEBEB] pb-16">
+      <div className="divide-y divide-border pb-16">
         {loading ? (
           <div className="p-4">
             <LoadingSkeleton count={6} variant="list" />
           </div>
         ) : notifications.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-64 text-[#8D8D8D]">
-            <div className="w-16 h-16 rounded-full bg-[#F5F5F5] flex items-center justify-center mb-4">
-              <Bell size={32} className="text-[#C7C7CC]" />
+          <div className="flex flex-col items-center justify-center h-64 text-muted-foreground">
+            <div className="w-16 h-16 rounded-full bg-secondary flex items-center justify-center mb-4">
+              <Bell size={32} className="text-muted-foreground" />
             </div>
             <p className="text-sm font-medium">No notifications</p>
             <p className="text-xs mt-1">You are all caught up!</p>
           </div>
         ) : filtered.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-64 text-[#8D8D8D]">
-            <Filter size={32} className="mb-3 text-[#C7C7CC]" />
+          <div className="flex flex-col items-center justify-center h-64 text-muted-foreground">
+            <Filter size={32} className="mb-3 text-muted-foreground" />
             <p className="text-sm">No notifications match this filter</p>
           </div>
         ) : (
@@ -373,7 +368,7 @@ export default function NotificationsPage() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           onClick={markAllRead}
-          className="fixed bottom-[calc(80px+env(safe-area-inset-bottom,0px))] left-1/2 -translate-x-1/2 flex items-center gap-2 px-4 py-2.5 bg-[#00C300] text-white rounded-full text-sm font-medium shadow-lg hover:bg-[#00A300] transition-colors z-20"
+          className="fixed bottom-[calc(80px+env(safe-area-inset-bottom,0px))] left-1/2 -translate-x-1/2 flex items-center gap-2 px-4 py-2.5 bg-primary text-white rounded-full text-sm font-medium shadow-lg hover:bg-[#00A300] transition-colors z-20"
         >
           <CheckCheck size={16} /> Mark all as read ({unreadCount})
         </motion.button>
@@ -394,30 +389,30 @@ export default function NotificationsPage() {
               animate={{ y: 0 }}
               exit={{ y: '100%' }}
               transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-              className="bg-white rounded-t-2xl sm:rounded-2xl w-full sm:max-w-sm max-h-[80vh] flex flex-col"
+              className="bg-card rounded-t-2xl sm:rounded-2xl w-full sm:max-w-sm max-h-[80vh] flex flex-col"
               onClick={e => e.stopPropagation()}
             >
-              <div className="flex items-center justify-between p-4 border-b border-[#EBEBEB]">
-                <h2 className="text-lg font-bold text-[#111111]">Notification Settings</h2>
-                <button type="button" onClick={() => setShowSettings(false)} className="p-1 text-[#8D8D8D]">
+              <div className="flex items-center justify-between p-4 border-b border-border">
+                <h2 className="text-lg font-bold text-foreground">Notification Settings</h2>
+                <button type="button" onClick={() => setShowSettings(false)} className="p-1 text-muted-foreground">
                   <X size={20} />
                 </button>
               </div>
               <div className="flex-1 overflow-y-auto p-4 space-y-4">
-                <p className="text-[#8D8D8D] text-xs">Mute notification types you don&apos;t want to receive</p>
+                <p className="text-muted-foreground text-xs">Mute notification types you don&apos;t want to receive</p>
                 {Object.entries(typeLabels).map(([type, label]) => {
                   const Icon = iconMap[type] || Bell;
                   const muted = isMuted(type);
                   return (
                     <div key={type} className="flex items-center justify-between py-2">
                       <div className="flex items-center gap-3">
-                        <div className={`w-8 h-8 rounded-full flex items-center justify-center ${iconColors[type] || 'bg-[#F5F5F5] text-[#8D8D8D]'}`}>
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center ${iconColors[type] || 'bg-secondary text-muted-foreground'}`}>
                           <Icon size={14} />
                         </div>
-                        <span className="text-sm text-[#111111]">{label}</span>
+                        <span className="text-sm text-foreground">{label}</span>
                       </div>
                       <button type="button" onClick={() => toggleMuteType(type)}
-                        className={`p-1.5 rounded-full transition-colors ${muted ? 'bg-[#FF3B30]/10 text-[#FF3B30]' : 'bg-[#00C300]/10 text-[#00C300]'}`}
+                        className={`p-1.5 rounded-full transition-colors ${muted ? 'bg-destructive/10 text-destructive' : 'bg-primary/10 text-primary'}`}
                       >
                         {muted ? <VolumeX size={16} /> : <Volume2 size={16} />}
                       </button>
@@ -425,9 +420,9 @@ export default function NotificationsPage() {
                   );
                 })}
               </div>
-              <div className="p-4 border-t border-[#EBEBEB]">
+              <div className="p-4 border-t border-border">
                 <button type="button" onClick={() => setShowSettings(false)}
-                  className="w-full py-3 bg-[#00C300] text-white rounded-xl text-sm font-bold hover:bg-[#00A300] transition-colors"
+                  className="w-full py-3 bg-primary text-white rounded-xl text-sm font-bold hover:bg-[#00A300] transition-colors"
                 >
                   Done
                 </button>

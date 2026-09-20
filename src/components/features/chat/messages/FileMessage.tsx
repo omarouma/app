@@ -29,7 +29,7 @@ function getFileColor(ext: string): string {
     MP4: 'bg-cyan-500/10 text-cyan-500',
     TXT: 'bg-gray-500/10 text-gray-500',
   };
-  return map[ext] || 'bg-[#00C300]/10 text-[#00C300]';
+  return map[ext] || 'bg-primary/10 text-primary';
 }
 
 export const FileMessage = memo(function FileMessage(props: FileMessageProps) {
@@ -64,8 +64,8 @@ export const FileMessage = memo(function FileMessage(props: FileMessageProps) {
   if (!safeUrl) {
     return (
       <div className="flex items-center gap-2 bg-black/10 rounded-xl px-3 py-2 mb-1 max-w-full">
-        <FileText size={18} className={`shrink-0 ${isMe ? 'text-white' : 'text-[#111111]'}`} />
-        <span className={`text-sm truncate ${isMe ? 'text-white' : 'text-[#111111]'}`}>
+        <FileText size={18} className={`shrink-0 ${isMe ? 'text-white' : 'text-foreground'}`} />
+        <span className={`text-sm truncate ${isMe ? 'text-white' : 'text-foreground'}`}>
           File unavailable
         </span>
       </div>
@@ -90,13 +90,13 @@ export const FileMessage = memo(function FileMessage(props: FileMessageProps) {
         <FileText size={18} />
       </div>
       <div className="flex-1 min-w-0">
-        <p className={`text-sm font-medium truncate ${isMe ? 'text-white' : 'text-[#111111]'}`}>{fileName}</p>
-        <p className={`text-[10px] ${isMe ? 'text-white/60' : 'text-[#8D8D8D]'}`}>{ext} file</p>
+        <p className={`text-sm font-medium truncate ${isMe ? 'text-white' : 'text-foreground'}`}>{fileName}</p>
+        <p className={`text-[10px] ${isMe ? 'text-white/60' : 'text-muted-foreground'}`}>{ext} file</p>
       </div>
       {downloaded ? (
-        <Check size={16} className={`shrink-0 ${isMe ? 'text-white' : 'text-[#00C300]'}`} />
+        <Check size={16} className={`shrink-0 ${isMe ? 'text-white' : 'text-primary'}`} />
       ) : (
-        <Download size={16} className={`shrink-0 ${isMe ? 'text-white/70' : 'text-[#8D8D8D]'}`} />
+        <Download size={16} className={`shrink-0 ${isMe ? 'text-white/70' : 'text-muted-foreground'}`} />
       )}
     </div>
   );

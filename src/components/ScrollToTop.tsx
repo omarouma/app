@@ -50,7 +50,7 @@ export default function ScrollToTop({ scrollContainerRef }: ScrollToTopProps) {
           transition={{ duration: 0.2 }}
           type="button"
           onClick={scrollToTop}
-          className="fixed bottom-6 right-6 z-50 w-12 h-12 rounded-full bg-[#00C300] text-white shadow-lg shadow-[#00C300]/30 flex items-center justify-center hover:bg-[#00A300] transition-colors"
+          className="fixed bottom-6 right-6 z-50 w-12 h-12 rounded-full bg-primary text-white shadow-lg shadow-[#00C300]/30 flex items-center justify-center hover:bg-[#00A300] transition-colors"
           aria-label="Scroll to top"
         >
           <ChevronUp size={24} />

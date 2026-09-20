@@ -31,7 +31,7 @@ function renderRichText(content: string, isMe: boolean) {
           href={token}
           target="_blank"
           rel="noopener noreferrer"
-          className={`underline ${isMe ? 'text-white/90 hover:text-white' : 'text-[#00C300] hover:text-[#00A300]'}`}
+          className={`underline ${isMe ? 'text-white/90 hover:text-white' : 'text-primary hover:text-primary/80'}`}
           onClick={(e) => e.stopPropagation()}
         >
           {token}
@@ -39,13 +39,13 @@ function renderRichText(content: string, isMe: boolean) {
       );
     } else if (token.startsWith('#')) {
       parts.push(
-        <span key={key++} className={`font-medium ${isMe ? 'text-white/90' : 'text-[#00C300]'}`}>
+        <span key={key++} className={`font-medium ${isMe ? 'text-white/90' : 'text-primary'}`}>
           {token}
         </span>
       );
     } else if (token.startsWith('@')) {
       parts.push(
-        <span key={key++} className={`font-medium ${isMe ? 'text-white/90' : 'text-[#2196F3]'}`}>
+        <span key={key++} className={`font-medium ${isMe ? 'text-white/90' : 'text-blue-500'}`}>
           {token}
         </span>
       );
@@ -66,7 +66,7 @@ export const TextMessage = memo(function TextMessage(props: TextMessageProps) {
   return (
     <>
       {isEditing ? (
-        <div className={`inline-block px-3 py-2 rounded-2xl text-[15px] w-full ${isMe ? 'bg-[#00C300] text-white rounded-br-none' : 'bg-white text-[#111111] rounded-bl-none'}`}>
+        <div className={`inline-block px-3 py-2 rounded-2xl text-[15px] w-full ${isMe ? 'bg-primary text-primary-foreground rounded-br-none' : 'bg-secondary text-foreground rounded-bl-none'}`}>
           <input
             value={editInput}
             onChange={(e) => onEditInputChange(e.target.value)}
@@ -79,20 +79,20 @@ export const TextMessage = memo(function TextMessage(props: TextMessageProps) {
             }}
             autoFocus
             aria-label="Edit message content"
-            className={`w-full bg-transparent focus:outline-none text-[15px] ${isMe ? 'text-white placeholder:text-white/50' : 'text-[#111111] placeholder:text-[#8D8D8D]'}`}
+            className={`w-full bg-transparent focus:outline-none text-[15px] ${isMe ? 'text-white placeholder:text-white/50' : 'text-foreground placeholder:text-muted-foreground'}`}
           />
           <div className="flex items-center gap-2 mt-2">
-            <button type="button" onClick={() => onEditSave(msg.id)} aria-label="Save edit" className={`min-w-8 min-h-8 inline-flex items-center justify-center rounded-lg ${isMe ? 'text-white/80 hover:text-white' : 'text-[#00C300] hover:text-[#00A300]'}`}>
+            <button type="button" onClick={() => onEditSave(msg.id)} aria-label="Save edit" className={`min-w-8 min-h-8 inline-flex items-center justify-center rounded-lg ${isMe ? 'text-white/80 hover:text-white' : 'text-primary hover:text-primary/80'}`}>
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5" /></svg>
             </button>
-            <button type="button" onClick={onEditCancel} aria-label="Cancel edit" className={`min-w-8 min-h-8 inline-flex items-center justify-center rounded-lg ${isMe ? 'text-white/70 hover:text-white' : 'text-[#8D8D8D] hover:text-[#111111]'}`}>
+            <button type="button" onClick={onEditCancel} aria-label="Cancel edit" className={`min-w-8 min-h-8 inline-flex items-center justify-center rounded-lg ${isMe ? 'text-white/70 hover:text-white' : 'text-muted-foreground hover:text-foreground'}`}>
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
             </button>
           </div>
         </div>
       ) : (
         <div
-          className={`inline-block px-3 py-2 rounded-2xl text-[15px] cursor-pointer active:scale-[0.98] transition-transform ${isMe ? 'bg-[#00C300] text-white rounded-br-none' : 'bg-white text-[#111111] rounded-bl-none'}`}
+          className={`inline-block px-3 py-2 rounded-2xl text-[15px] cursor-pointer active:scale-[0.98] transition-transform ${isMe ? 'bg-primary text-primary-foreground rounded-br-none' : 'bg-secondary text-foreground rounded-bl-none'}`}
         >
           <p className="whitespace-pre-wrap break-words">{richContent}</p>
         </div>

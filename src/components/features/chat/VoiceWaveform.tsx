@@ -24,6 +24,12 @@ export const VoiceWaveform = memo(function VoiceWaveform({
 
   const { register, unregister, notifyPlaying } = useVoicePlayer();
 
+  // Guard against NaN / Infinity durations (streamed or malformed media) so the
+  // UI never renders "Infinity:NaN" and progress math stays finite.
+  const safeDuration = Number.isFinite(duration) && duration > 0 ? duration : 0;
+  const safeCurrentTime = Number.isFinite(currentTime) && currentTime > 0 ? currentTime : 0;
+  const progress = safeDuration > 0 ? (safeCurrentTime / safeDuration) * 100 : 0;
+
   const bars = useMemo(() => {
     const count = 40;
     const seed = audioUrl.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0);
@@ -53,7 +59,7 @@ export const VoiceWaveform = memo(function VoiceWaveform({
     audioRef.current = audio;
     register(audioUrl, audio);
 
-    const onLoadedMetadata = () => setDuration(audio.duration);
+    const onLoadedMetadata = () => setDuration(Number.isFinite(audio.duration) ? audio.duration : 0);
     const onTimeUpdate = () => {
       if (!draggingRef.current) setCurrentTime(audio.currentTime);
     };
@@ -118,15 +124,15 @@ export const VoiceWaveform = memo(function VoiceWaveform({
 
   const seekToPercent = useCallback(
     (clientX: number, containerEl: HTMLElement) => {
-      if (!audioRef.current || !duration) return;
+      if (!audioRef.current || !safeDuration) return;
       const rect = containerEl.getBoundingClientRect();
       const x = Math.max(0, Math.min(rect.width, clientX - rect.left));
       const percent = x / rect.width;
-      const next = percent * duration;
+      const next = percent * safeDuration;
       audioRef.current.currentTime = next;
       setCurrentTime(next);
     },
-    [duration],
+    [safeDuration],
   );
 
   const onWaveClick = useCallback(
@@ -163,12 +169,14 @@ export const VoiceWaveform = memo(function VoiceWaveform({
   }, [seekToPercent]);
 
   const formatTime = (seconds: number) => {
+    // Guard against NaN / Infinity (e.g. when audio metadata reports a
+    // non-finite duration for streamed or malformed media). Without this the
+    // UI renders "Infinity:NaN".
+    if (!Number.isFinite(seconds) || seconds < 0) return '0:00';
     const m = Math.floor(seconds / 60);
     const s = Math.floor(seconds % 60);
     return `${m}:${s.toString().padStart(2, '0')}`;
   };
-
-  const progress = duration > 0 ? (currentTime / duration) * 100 : 0;
 
   const cyclePlaybackRate = () => {
     const rates = VOICE_PLAYBACK_RATES;
@@ -180,7 +188,7 @@ export const VoiceWaveform = memo(function VoiceWaveform({
   if (loadError) {
     return (
       <div
-        className={`flex items-center gap-2 py-1 text-xs ${isOwnMessage ? 'text-white/70' : 'text-[#8D8D8D]'}`}
+        className={`flex items-center gap-2 py-1 text-xs ${isOwnMessage ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}
         role="alert"
       >
         Audio unavailable
@@ -189,11 +197,11 @@ export const VoiceWaveform = memo(function VoiceWaveform({
   }
 
   return (
-    <div className={`flex items-center gap-2 min-w-[200px] max-w-full py-1 ${isOwnMessage ? 'text-white' : 'text-[#111111]'}`}>
+    <div className={`flex items-center gap-2 min-w-[200px] max-w-full py-1 ${isOwnMessage ? 'text-primary-foreground' : 'text-foreground'}`}>
       <button
         type="button"
         onClick={togglePlayPause}
-        className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 transition-colors ${isOwnMessage ? 'bg-white/20 hover:bg-white/30' : 'bg-[#00C300]/10 hover:bg-[#00C300]/20'
+        className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 transition-colors ${isOwnMessage ? 'bg-card/20 hover:bg-card/30' : 'bg-primary/10 hover:bg-primary/20'
           }`}
         aria-label={isPlaying ? 'Pause voice message' : 'Play voice message'}
       >
@@ -210,13 +218,13 @@ export const VoiceWaveform = memo(function VoiceWaveform({
         role="slider"
         tabIndex={0}
         onKeyDown={(e) => {
-          if (!duration) return;
+          if (!safeDuration) return;
           if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') {
             e.preventDefault();
-            seekToPercent(Math.max(0, (currentTime - 5) / duration * e.currentTarget.clientWidth), e.currentTarget);
+            seekToPercent(Math.max(0, (safeCurrentTime - 5) / safeDuration * e.currentTarget.clientWidth), e.currentTarget);
           } else if (e.key === 'ArrowRight' || e.key === 'ArrowUp') {
             e.preventDefault();
-            seekToPercent(Math.min(e.currentTarget.clientWidth, (currentTime + 5) / duration * e.currentTarget.clientWidth), e.currentTarget);
+            seekToPercent(Math.min(e.currentTarget.clientWidth, (safeCurrentTime + 5) / safeDuration * e.currentTarget.clientWidth), e.currentTarget);
           } else if (e.key === 'Home') {
             e.preventDefault();
             seekToPercent(0, e.currentTarget);
@@ -227,8 +235,8 @@ export const VoiceWaveform = memo(function VoiceWaveform({
         }}
         aria-label="Seek voice message"
         aria-valuemin={0}
-        aria-valuemax={Math.round(duration)}
-        aria-valuenow={Math.round(currentTime)}
+        aria-valuemax={Math.round(safeDuration)}
+        aria-valuenow={Math.round(safeCurrentTime)}
       >
         {bars.map((height, i) => {
           const barProgress = i / bars.length;
@@ -257,13 +265,13 @@ export const VoiceWaveform = memo(function VoiceWaveform({
       </div>
 
       <div className="flex flex-col items-end gap-0.5 shrink-0">
-        <span className={`text-[10px] font-medium ${isOwnMessage ? 'text-white/80' : 'text-[#8D8D8D]'}`}>
-          {formatTime(currentTime)} / {formatTime(duration)}
+        <span className={`text-[10px] font-medium ${isOwnMessage ? 'text-primary-foreground/80' : 'text-muted-foreground'}`}>
+          {formatTime(safeCurrentTime)} / {formatTime(safeDuration)}
         </span>
         <button
           type="button"
           onClick={cyclePlaybackRate}
-          className={`text-[9px] px-1 py-0.5 rounded font-bold transition-colors ${isOwnMessage ? 'bg-white/20 text-white/90 hover:bg-white/30' : 'bg-[#F5F5F5] text-[#8D8D8D] hover:bg-[#EBEBEB]'
+          className={`text-[9px] px-1 py-0.5 rounded font-bold transition-colors ${isOwnMessage ? 'bg-card/20 text-primary-foreground/90 hover:bg-card/30' : 'bg-secondary text-muted-foreground hover:bg-accent'
             }`}
           aria-label={`Playback speed ${playbackRate}x`}
         >

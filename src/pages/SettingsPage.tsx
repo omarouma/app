@@ -22,12 +22,13 @@ import { useTranslation } from '@/hooks/useTranslation';
 import type { LangCode } from '@/lib/i18n';
 import type { ThemeSettings } from '@/types';
 import Logo from '@/components/Logo';
+import PageHeader from '@/components/layout/PageHeader';
 import { previewSound, type SoundProfile, isVibrationSupported } from '@/lib/sounds';
 import { deleteAccount } from '@/lib/supabaseAuth';
 import { toast } from 'sonner';
 
 const accentColors = [
-  { name: 'GaGa Green', value: '#00C300', class: 'bg-[#00C300]' },
+  { name: 'GaGa Green', value: '#00C300', class: 'bg-primary' },
   { name: 'Ocean Blue', value: '#2196F3', class: 'bg-[#2196F3]' },
   { name: 'Coral Red', value: '#FF5252', class: 'bg-[#FF5252]' },
   { name: 'Royal Purple', value: '#8B5CF6', class: 'bg-[#8B5CF6]' },
@@ -209,16 +210,12 @@ export default function SettingsPage() {
   return (
     <div className="min-h-screen bg-secondary/40">
       {/* Header */}
-      <header className="page-header">
-        <div className="w-full max-w-2xl mx-auto flex items-center gap-3">
-          <button type="button" onClick={() => section ? setSection(null) : navigate(-1)} className="icon-btn w-9 h-9 -ml-2 bg-accent/50">
-            <ArrowLeft size={20} className="text-foreground" />
-          </button>
-          <h1 className="text-lg sm:text-xl font-bold text-foreground truncate">
-            {section ? sections.find(s => s.id === section)?.label : 'Settings'}
-          </h1>
-        </div>
-      </header>
+      <PageHeader
+        showBack
+        onBack={() => (section ? setSection(null) : navigate(-1))}
+        title={section ? sections.find(s => s.id === section)?.label : 'Settings'}
+        rowClassName="max-w-2xl mx-auto"
+      />
 
       <div className="container-page py-4 pb-16">
         <AnimatePresence mode="wait">
@@ -513,7 +510,7 @@ export default function SettingsPage() {
                       className={`w-11 h-6 rounded-full transition-colors relative shrink-0 ${settings.notifications.callSound ? 'bg-primary' : 'bg-muted'}`}
                       aria-pressed={settings.notifications.callSound}
                     >
-                      <div className={`w-4 h-4 rounded-full bg-white absolute top-1 transition-all ${settings.notifications.callSound ? 'left-5' : 'left-1'}`} />
+                      <div className={`w-4 h-4 rounded-full bg-card absolute top-1 transition-all ${settings.notifications.callSound ? 'left-5' : 'left-1'}`} />
                     </button>
                   ))}
                   {isVibrationSupported() && settingItem('Vibration', Smartphone, (

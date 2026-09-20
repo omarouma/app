@@ -39,8 +39,8 @@ export function LazyVideo({
   return (
     <div ref={containerRef} className={`relative overflow-hidden ${className}`} style={{ minHeight: 100 }}>
       {!inView && (
-        <div className="absolute inset-0 bg-[#F5F5F5] animate-pulse flex items-center justify-center">
-          <div className="w-8 h-8 border-2 border-[#00C300] border-t-transparent rounded-full animate-spin" />
+        <div className="absolute inset-0 bg-secondary animate-pulse flex items-center justify-center">
+          <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
         </div>
       )}
       {inView && (

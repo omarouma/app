@@ -32,7 +32,7 @@ export const PollMessage = memo(function PollMessage(props: PollMessageProps) {
   if (!pollData) {
     return (
       <div className={`max-w-[70%]`}>
-        <div className={`inline-block px-4 py-3 rounded-2xl ${isMe ? 'bg-[#8B5CF6] text-white rounded-br-none' : 'bg-white text-[#111111] rounded-bl-none'}`}>
+        <div className={`inline-block px-4 py-3 rounded-2xl ${isMe ? 'bg-[#8B5CF6] text-white rounded-br-none' : 'bg-secondary text-foreground rounded-bl-none'}`}>
           <div className="flex items-center gap-1.5 mb-2">
             <BarChart3 size={14} />
             <span className="text-xs font-medium">Poll</span>
@@ -46,7 +46,7 @@ export const PollMessage = memo(function PollMessage(props: PollMessageProps) {
 
   return (
     <div className={`max-w-[70%]`}>
-      <div className={`inline-block px-4 py-3 rounded-2xl ${isMe ? 'bg-[#8B5CF6] text-white rounded-br-none' : 'bg-white text-[#111111] rounded-bl-none'}`}>
+      <div className={`inline-block px-4 py-3 rounded-2xl ${isMe ? 'bg-[#8B5CF6] text-white rounded-br-none' : 'bg-secondary text-foreground rounded-bl-none'}`}>
         <div className="flex items-center gap-1.5 mb-2">
           <BarChart3 size={14} />
           <span className="text-xs font-medium">Poll</span>
@@ -70,7 +70,7 @@ export const PollMessage = memo(function PollMessage(props: PollMessageProps) {
                     : 'bg-[#8B5CF6]/10 text-[#8B5CF6]'
                   : isMe
                     ? 'bg-white/10 text-white/90 hover:bg-white/20'
-                    : 'bg-[#F5F5F5] text-[#111111] hover:bg-[#EBEBEB]'
+                    : 'bg-background text-foreground hover:bg-accent'
                   }`}
               >
                 {hasVoted && (

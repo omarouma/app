@@ -14,11 +14,11 @@ export const REPORT_OPTIONS = [
 
 export const reactionEmojis = [
   { emoji: '👍', label: 'like', color: 'text-[#2196F3]' },
-  { emoji: '❤️', label: 'love', color: 'text-[#FF3B30]' },
+  { emoji: '❤️', label: 'love', color: 'text-destructive' },
   { emoji: '😂', label: 'laugh', color: 'text-[#FF9800]' },
   { emoji: '😮', label: 'wow', color: 'text-[#8B5CF6]' },
   { emoji: '😢', label: 'sad', color: 'text-[#2196F3]' },
-  { emoji: '😡', label: 'angry', color: 'text-[#FF3B30]' },
+  { emoji: '😡', label: 'angry', color: 'text-destructive' },
   { emoji: '🎉', label: 'celebrate', color: 'text-[#FF9800]' },
   { emoji: '🔥', label: 'fire', color: 'text-[#FF5722]' },
 ] as const;
@@ -35,7 +35,7 @@ export const attachmentOptions: AttachmentOption[] = [
   { iconKey: 'image', label: 'Photos', color: 'bg-[#4CAF50]' },
   { iconKey: 'camera', label: 'Camera', color: 'bg-[#2196F3]' },
   { iconKey: 'video', label: 'Video', color: 'bg-[#9C27B0]' },
-  { iconKey: 'phone', label: 'Audio', color: 'bg-[#00C300]' },
+  { iconKey: 'phone', label: 'Audio', color: 'bg-primary' },
   { iconKey: 'user', label: 'Contact', color: 'bg-[#FF9800]' },
   { iconKey: 'map', label: 'Location', color: 'bg-[#E91E63]' },
   { iconKey: 'file', label: 'File', color: 'bg-[#673AB7]' },

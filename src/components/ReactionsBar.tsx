@@ -63,7 +63,7 @@ export default function ReactionsBar({ postId, userId, reactions, showPicker = t
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 10, scale: 0.8 }}
             transition={{ type: 'spring', stiffness: 400, damping: 25 }}
-            className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 bg-white rounded-2xl shadow-2xl border border-gray-100 px-3 py-2 flex items-center gap-1 z-50"
+            className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 bg-card rounded-2xl shadow-2xl border border-gray-100 px-3 py-2 flex items-center gap-1 z-50"
             onMouseEnter={handleEnter}
             onMouseLeave={handleLeave}
           >
@@ -119,7 +119,7 @@ export default function ReactionsBar({ postId, userId, reactions, showPicker = t
             {REACTION_CONFIG.filter((r) => (reactions[r.key]?.length || 0) > 0)
               .slice(0, 3)
               .map((r) => (
-                <span key={r.key} className="text-xs bg-white rounded-full shadow-sm border border-gray-100 w-4 h-4 flex items-center justify-center">
+                <span key={r.key} className="text-xs bg-card rounded-full shadow-sm border border-gray-100 w-4 h-4 flex items-center justify-center">
                   {r.emoji}
                 </span>
               ))}
@@ -143,7 +143,7 @@ export default function ReactionsBar({ postId, userId, reactions, showPicker = t
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
               onClick={(e) => e.stopPropagation()}
-              className="bg-white rounded-2xl shadow-2xl max-w-sm w-full max-h-[70vh] overflow-hidden"
+              className="bg-card rounded-2xl shadow-2xl max-w-sm w-full max-h-[70vh] overflow-hidden"
             >
               <div className="flex items-center justify-between p-4 border-b border-gray-100">
                 <h3 className="font-bold text-gray-900">Reactions</h3>

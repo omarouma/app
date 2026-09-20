@@ -19,7 +19,7 @@ import { PROMO_CODES, DEFAULT_WALLET } from '@/lib/walletPromo';
 
 const depositMethods = [
   { icon: CreditCard, label: 'Visa/Mastercard', color: 'bg-[#1A1F71]', currency: 'USD' as CurrencyCode },
-  { icon: Banknote, label: 'Bank Transfer', color: 'bg-[#00C300]', currency: 'USD' as CurrencyCode },
+  { icon: Banknote, label: 'Bank Transfer', color: 'bg-primary', currency: 'USD' as CurrencyCode },
   { icon: Banknote, label: 'bKash', color: 'bg-[#E2136E]', currency: 'BDT' as CurrencyCode },
   { icon: Banknote, label: 'Nagad', color: 'bg-[#F6921E]', currency: 'BDT' as CurrencyCode },
   { icon: Banknote, label: 'Rocket', color: 'bg-[#8C3494]', currency: 'BDT' as CurrencyCode },
@@ -30,7 +30,7 @@ const depositMethods = [
 
 // All supported currencies for the wallet
 const ALL_CURRENCIES: { code: CurrencyCode; label: string; color: string }[] = [
-  { code: 'GAGA', label: 'Gaga Coins', color: 'text-[#00C300]' },
+  { code: 'GAGA', label: 'Gaga Coins', color: 'text-primary' },
   { code: 'USD', label: 'US Dollar', color: 'text-[#8B5CF6]' },
   { code: 'BDT', label: 'Bangladeshi Taka', color: 'text-[#E2136E]' },
   { code: 'RMB', label: 'Chinese Yuan', color: 'text-[#FF5722]' },
@@ -191,9 +191,9 @@ export default function WalletPage() {
   }
 
   return (
-    <div className="min-h-[100dvh] bg-[#F5F5F5]">
+    <div className="min-h-[100dvh] bg-secondary">
       {/* Header */}
-      <div className="bg-gradient-to-br from-[#00C300] to-[#00A300] text-white">
+      <div className="bg-gradient-to-br from-primary to-[#00A300] text-white">
         <div className="flex items-center gap-3 p-4">
           <button type="button" onClick={() => navigate(-1)} className="p-2 -ml-2 active:bg-white/20 rounded-full text-white transition-colors" aria-label="Go back">
             <ArrowLeft size={22} />
@@ -228,7 +228,7 @@ export default function WalletPage() {
                 <button type="button" key={c.code}
                   onClick={() => { haptic(); setActiveCurrency(c.code); }}
                   className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${activeCurrency === c.code
-                    ? 'bg-white text-[#00C300]'
+                    ? 'bg-card text-primary'
                     : 'bg-white/20 text-white/80 hover:bg-white/30'
                     }`}
                 >
@@ -291,7 +291,7 @@ export default function WalletPage() {
           {/* Main Action Buttons */}
           <div className="flex gap-2 mt-4">
             {[
-              { icon: Plus, label: 'Deposit', color: 'bg-white text-[#00C300]', action: () => setShowDeposit(true) },
+              { icon: Plus, label: 'Deposit', color: 'bg-card text-primary', action: () => setShowDeposit(true) },
               { icon: Minus, label: 'Withdraw', color: 'bg-white/20 text-white', action: () => setShowWithdraw(true) },
               { icon: ArrowRightLeft, label: 'Convert', color: 'bg-white/20 text-white', action: () => setShowConvert(true) },
               { icon: Send, label: 'Send', color: 'bg-white/20 text-white', action: () => setShowSendToFriend(true) },
@@ -316,28 +316,28 @@ export default function WalletPage() {
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          className="bg-white border border-[#EBEBEB] rounded-2xl p-4"
+          className="bg-card border border-border rounded-2xl p-4"
         >
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-full bg-[#00C300]/10 flex items-center justify-center">
-                <Coins size={16} className="text-[#00C300]" />
+              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                <Coins size={16} className="text-primary" />
               </div>
               <div>
-                <p className="text-[#111111] text-sm font-semibold">Gaga Coins Value</p>
-                <p className="text-[#8D8D8D] text-[10px]">Your total portfolio value</p>
+                <p className="text-foreground text-sm font-semibold">Gaga Coins Value</p>
+                <p className="text-muted-foreground text-[10px]">Your total portfolio value</p>
               </div>
             </div>
-            <p className="text-[#00C300] font-bold text-lg">{Math.round(totalGagaValue).toLocaleString()} GAGA</p>
+            <p className="text-primary font-bold text-lg">{Math.round(totalGagaValue).toLocaleString()} GAGA</p>
           </div>
           <div className="grid grid-cols-2 gap-2">
-            <div className="bg-[#F5F5F5] rounded-xl p-2.5 text-center">
-              <p className="text-[#00C300] font-bold text-sm">{coins.toLocaleString()}</p>
-              <p className="text-[#8D8D8D] text-[10px]">GAGA</p>
+            <div className="bg-secondary rounded-xl p-2.5 text-center">
+              <p className="text-primary font-bold text-sm">{coins.toLocaleString()}</p>
+              <p className="text-muted-foreground text-[10px]">GAGA</p>
             </div>
-            <div className="bg-[#F5F5F5] rounded-xl p-2.5 text-center">
+            <div className="bg-secondary rounded-xl p-2.5 text-center">
               <p className="text-[#8B5CF6] font-bold text-sm">${(usdBalance || 0).toFixed(0)}</p>
-              <p className="text-[#8D8D8D] text-[10px]">USD</p>
+              <p className="text-muted-foreground text-[10px]">USD</p>
             </div>
           </div>
         </motion.div>
@@ -347,7 +347,7 @@ export default function WalletPage() {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.15 }}
-          className="bg-white border border-[#EBEBEB] rounded-2xl p-4"
+          className="bg-card border border-border rounded-2xl p-4"
         >
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
@@ -355,28 +355,28 @@ export default function WalletPage() {
                 <Award size={16} className="text-white" />
               </div>
               <div>
-                <p className="text-[#111111] text-sm font-semibold">{tier.label} Tier</p>
-                <p className="text-[#8D8D8D] text-[10px]">{apy}% APY staking reward</p>
+                <p className="text-foreground text-sm font-semibold">{tier.label} Tier</p>
+                <p className="text-muted-foreground text-[10px]">{apy}% APY staking reward</p>
               </div>
             </div>
             <button type="button" onClick={() => setShowInterest(true)}
-              className="text-[#00C300] text-xs font-medium hover:underline"
+              className="text-primary text-xs font-medium hover:underline"
             >
               Claim +{dailyInterest}
             </button>
           </div>
           {/* Progress bar */}
-          <div className="w-full h-2 bg-[#F5F5F5] rounded-full overflow-hidden">
+          <div className="w-full h-2 bg-secondary rounded-full overflow-hidden">
             <motion.div
               initial={{ width: 0 }}
               animate={{ width: `${Math.min((coins / 10000) * 100, 100)}%` }}
               transition={{ duration: 1, delay: 0.3 }}
-              className="h-full bg-gradient-to-r from-[#00C300] to-[#FFD700] rounded-full"
+              className="h-full bg-gradient-to-r from-primary to-[#FFD700] rounded-full"
             />
           </div>
           <div className="flex justify-between mt-1.5">
             {STAKING_TIERS.filter(t => t.minCoins > 0).map(t => (
-              <span key={t.label} className={`text-[9px] ${coins >= t.minCoins ? 'text-[#00C300] font-medium' : 'text-[#C7C7CC]'}`}>
+              <span key={t.label} className={`text-[9px] ${coins >= t.minCoins ? 'text-primary font-medium' : 'text-muted-foreground'}`}>
                 {t.label}
               </span>
             ))}
@@ -391,21 +391,21 @@ export default function WalletPage() {
           className="grid grid-cols-4 gap-2"
         >
           {[
-            { icon: ArrowRightLeft, label: 'Convert', color: 'text-[#00C300]', action: () => setShowConvert(true) },
-            { icon: TrendingDown, label: 'Withdraw', color: 'text-[#FF3B30]', action: () => setShowWithdraw(true) },
+            { icon: ArrowRightLeft, label: 'Convert', color: 'text-primary', action: () => setShowConvert(true) },
+            { icon: TrendingDown, label: 'Withdraw', color: 'text-destructive', action: () => setShowWithdraw(true) },
             { icon: Banknote, label: 'Deposit', color: 'text-[#2196F3]', action: () => setShowDeposit(true) },
-            { icon: Send, label: 'Send', color: 'text-[#00C300]', action: () => setShowSendToFriend(true) },
+            { icon: Send, label: 'Send', color: 'text-primary', action: () => setShowSendToFriend(true) },
             { icon: HandCoins, label: 'Request', color: 'text-[#FF9800]', action: () => setShowRequestMoney(true) },
             { icon: Split, label: 'Split', color: 'text-[#8B5CF6]', action: () => setShowSplitBill(true) },
             { icon: Gift, label: 'Promo', color: 'text-[#FF9800]', action: () => setShowPromo(true) },
-            { icon: Shield, label: 'Security', color: 'text-[#00C300]', action: () => setShowSecurity(true) },
+            { icon: Shield, label: 'Security', color: 'text-primary', action: () => setShowSecurity(true) },
           ].map((item) => (
             <button type="button" key={item.label}
               onClick={item.action}
-              className="flex flex-col items-center gap-1.5 p-3 bg-white rounded-xl border border-[#EBEBEB] active:scale-95 transition-transform"
+              className="flex flex-col items-center gap-1.5 p-3 bg-card rounded-xl border border-border active:scale-95 transition-transform"
             >
               <item.icon size={20} className={item.color} />
-              <span className="text-[#111111] text-[10px] font-medium">{item.label}</span>
+              <span className="text-foreground text-[10px] font-medium">{item.label}</span>
             </button>
           ))}
         </motion.div>
@@ -416,18 +416,18 @@ export default function WalletPage() {
           animate={{ opacity: 1 }}
           transition={{ delay: 0.25 }}
           onClick={() => setShowPromo(true)}
-          className="w-full flex items-center justify-between p-4 bg-white rounded-2xl border border-[#EBEBEB] active:bg-gray-50 transition-colors"
+          className="w-full flex items-center justify-between p-4 bg-card rounded-2xl border border-border active:bg-gray-50 transition-colors"
         >
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-[#FF9800]/10 flex items-center justify-center">
               <Gift size={18} className="text-[#FF9800]" />
             </div>
             <div>
-              <span className="text-[#111111] text-sm font-medium">Redeem Promo Code</span>
-              <p className="text-[#8D8D8D] text-[10px]">Get free Gaga Coins</p>
+              <span className="text-foreground text-sm font-medium">Redeem Promo Code</span>
+              <p className="text-muted-foreground text-[10px]">Get free Gaga Coins</p>
             </div>
           </div>
-          <ChevronRight size={20} className="text-[#C7C7CC]" />
+          <ChevronRight size={20} className="text-muted-foreground" />
         </motion.button>
 
         {/* Security Card */}
@@ -436,25 +436,25 @@ export default function WalletPage() {
           animate={{ opacity: 1 }}
           transition={{ delay: 0.3 }}
           onClick={() => setShowSecurity(true)}
-          className="w-full flex items-center justify-between p-4 bg-white rounded-2xl border border-[#EBEBEB] active:bg-gray-50 transition-colors"
+          className="w-full flex items-center justify-between p-4 bg-card rounded-2xl border border-border active:bg-gray-50 transition-colors"
         >
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-[#00C300]/10 flex items-center justify-center">
-              {hasPinSet() ? <Lock size={18} className="text-[#00C300]" /> : <Unlock size={18} className="text-[#FF3B30]" />}
+            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+              {hasPinSet() ? <Lock size={18} className="text-primary" /> : <Unlock size={18} className="text-destructive" />}
             </div>
             <div>
-              <span className="text-[#111111] text-sm font-medium">Wallet Security</span>
-              <p className="text-[#8D8D8D] text-[10px]">
+              <span className="text-foreground text-sm font-medium">Wallet Security</span>
+              <p className="text-muted-foreground text-[10px]">
                 {hasPinSet() ? 'PIN protected' : 'Set up PIN protection'}
               </p>
             </div>
           </div>
-          <ChevronRight size={20} className="text-[#C7C7CC]" />
+          <ChevronRight size={20} className="text-muted-foreground" />
         </motion.button>
 
         {/* Recent Transactions */}
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.35 }}>
-          <h3 className="text-[#8D8D8D] text-sm font-medium mb-3 flex items-center gap-2 px-1">
+          <h3 className="text-muted-foreground text-sm font-medium mb-3 flex items-center gap-2 px-1">
             <History size={14} /> Recent Transactions
           </h3>
           <div className="space-y-2">
@@ -465,48 +465,48 @@ export default function WalletPage() {
                   key={tx.id}
                   initial={{ opacity: 0, x: -10 }}
                   animate={{ opacity: 1, x: 0 }}
-                  className="flex items-center justify-between p-4 bg-white rounded-xl border border-[#EBEBEB] hover:shadow-md transition-shadow"
+                  className="flex items-center justify-between p-4 bg-card rounded-xl border border-border hover:shadow-md transition-shadow"
                 >
                   <div className="flex items-center gap-3">
                     <div className={`w-10 h-10 rounded-full flex items-center justify-center ${isPositive
-                      ? 'bg-gradient-to-br from-[#00C300]/20 to-[#00C300]/30' : tx.type === 'convert'
+                      ? 'bg-gradient-to-br from-primary/20 to-primary/30' : tx.type === 'convert'
                         ? 'bg-gradient-to-br from-[#2196F3]/20 to-[#2196F3]/30' : 'bg-gradient-to-br from-[#FF3B30]/20 to-[#FF3B30]/30'
                       }`}>
                       {isPositive
-                        ? <TrendingUp size={16} className="text-[#00C300]" />
+                        ? <TrendingUp size={16} className="text-primary" />
                         : tx.type === 'convert'
                           ? <ArrowRightLeft size={16} className="text-[#2196F3]" />
-                          : <TrendingDown size={16} className="text-[#FF3B30]" />
+                          : <TrendingDown size={16} className="text-destructive" />
                       }
                     </div>
                     <div>
-                      <p className="text-[#111111] text-sm font-medium">{tx.description}</p>
-                      <p className="text-[#8D8D8D] text-[10px]">
+                      <p className="text-foreground text-sm font-medium">{tx.description}</p>
+                      <p className="text-muted-foreground text-[10px]">
                         {new Date(tx.timestamp).toLocaleString()} {tx.currency && `· ${tx.currency}`}
                       </p>
                     </div>
                   </div>
                   <div className="text-right">
                     <span className={`text-sm font-bold ${isPositive
-                      ? 'text-[#00C300]' : tx.type === 'convert'
-                        ? 'text-[#2196F3]' : 'text-[#FF3B30]'
+                      ? 'text-primary' : tx.type === 'convert'
+                        ? 'text-[#2196F3]' : 'text-destructive'
                       }`}>
                       {isPositive ? '+' : '-'}
                       {tx.currency === 'USD' ? '$' : ''}{tx.amount}
                       {!tx.currency && ' GAGA'}
                     </span>
                     {tx.id && (
-                      <p className="text-[#C7C7CC] text-[9px] mt-0.5 font-mono">{tx.id.slice(-8).toUpperCase()}</p>
+                      <p className="text-muted-foreground text-[9px] mt-0.5 font-mono">{tx.id.slice(-8).toUpperCase()}</p>
                     )}
                   </div>
                 </motion.div>
               );
             })}
             {(!wallet?.transactions || wallet.transactions.length === 0) && (
-              <div className="text-center py-10 bg-white rounded-xl border border-dashed border-[#EBEBEB]">
+              <div className="text-center py-10 bg-card rounded-xl border border-dashed border-border">
                 <History size={40} className="mx-auto mb-3 opacity-30" />
-                <p className="text-sm text-[#8D8D8D]">No transactions yet</p>
-                <p className="text-xs text-[#C7C7CC] mt-1">Start depositing to see your history</p>
+                <p className="text-sm text-muted-foreground">No transactions yet</p>
+                <p className="text-xs text-muted-foreground mt-1">Start depositing to see your history</p>
               </div>
             )}
           </div>
@@ -515,28 +515,28 @@ export default function WalletPage() {
 
       {/* Promo Dialog */}
       <Dialog open={showPromo} onOpenChange={setShowPromo}>
-        <DialogContent className="bg-white border-[#EBEBEB] text-[#111111] sm:max-w-md">
-          <DialogHeader><DialogTitle className="text-[#111111] flex items-center gap-2"><Gift size={18} className="text-[#FF9800]" /> Redeem Promo Code</DialogTitle></DialogHeader>
+        <DialogContent className="bg-card border-border text-foreground sm:max-w-md">
+          <DialogHeader><DialogTitle className="text-foreground flex items-center gap-2"><Gift size={18} className="text-[#FF9800]" /> Redeem Promo Code</DialogTitle></DialogHeader>
           <div className="pt-4">
             <input
               value={promoInput}
               onChange={e => { setPromoInput(e.target.value); setPromoError(''); setPromoSuccess(''); }}
               placeholder="Enter promo code"
-              className="w-full bg-[#F5F5F5] border border-[#EBEBEB] rounded-xl px-4 py-3 text-[#111111] text-sm focus:outline-none focus:ring-2 focus:ring-[#00C300] uppercase placeholder:normal-case placeholder:text-[#8D8D8D]"
+              className="w-full bg-secondary border border-border rounded-xl px-4 py-3 text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary uppercase placeholder:normal-case placeholder:text-muted-foreground"
             />
-            {promoError && <p className="text-[#FF3B30] text-xs mt-2">{promoError}</p>}
-            {promoSuccess && <p className="text-[#00C300] text-xs mt-2">{promoSuccess}</p>}
+            {promoError && <p className="text-destructive text-xs mt-2">{promoError}</p>}
+            {promoSuccess && <p className="text-primary text-xs mt-2">{promoSuccess}</p>}
             <button type="button" onClick={handleRedeem}
-              className="w-full bg-[#00C300] hover:bg-[#00A300] text-white rounded-xl py-3 mt-4 text-sm font-bold transition-colors"
+              className="w-full bg-primary hover:bg-[#00A300] text-white rounded-xl py-3 mt-4 text-sm font-bold transition-colors"
             >
               Redeem
             </button>
             <div className="mt-4 space-y-2">
-              <p className="text-[#8D8D8D] text-xs">Available codes:</p>
+              <p className="text-muted-foreground text-xs">Available codes:</p>
               {Object.entries(PROMO_CODES).map(([code, data]) => (
-                <div key={code} className="flex items-center justify-between bg-[#F5F5F5] rounded-lg px-3 py-2">
-                  <span className="text-[#111111] text-xs font-bold">{code}</span>
-                  <span className="text-[#00C300] text-xs font-medium">+{data.coins} GAGA</span>
+                <div key={code} className="flex items-center justify-between bg-secondary rounded-lg px-3 py-2">
+                  <span className="text-foreground text-xs font-bold">{code}</span>
+                  <span className="text-primary text-xs font-medium">+{data.coins} GAGA</span>
                 </div>
               ))}
             </div>
@@ -546,16 +546,16 @@ export default function WalletPage() {
 
       {/* Deposit Dialog */}
       <Dialog open={showDeposit} onOpenChange={setShowDeposit}>
-        <DialogContent className="bg-white border-[#EBEBEB] text-[#111111] sm:max-w-md">
-          <DialogHeader><DialogTitle className="text-[#111111] flex items-center gap-2"><Banknote size={18} className="text-[#2196F3]" /> Deposit</DialogTitle></DialogHeader>
+        <DialogContent className="bg-card border-border text-foreground sm:max-w-md">
+          <DialogHeader><DialogTitle className="text-foreground flex items-center gap-2"><Banknote size={18} className="text-[#2196F3]" /> Deposit</DialogTitle></DialogHeader>
           <div className="pt-4 space-y-4">
             <div>
-              <label className="text-[#8D8D8D] text-xs mb-2 block">Select Currency</label>
+              <label className="text-muted-foreground text-xs mb-2 block">Select Currency</label>
               <div className="flex gap-2">
                 {(['GAGA', 'USD'] as CurrencyCode[]).map(c => (
                   <button type="button" key={c}
                     onClick={() => setDepositCurrency(c)}
-                    className={`flex-1 py-2 rounded-xl text-sm font-medium transition-colors ${depositCurrency === c ? 'bg-[#00C300] text-white' : 'bg-[#F5F5F5] text-[#8D8D8D]'
+                    className={`flex-1 py-2 rounded-xl text-sm font-medium transition-colors ${depositCurrency === c ? 'bg-primary text-white' : 'bg-secondary text-muted-foreground'
                       }`}
                   >
                     {c}
@@ -564,34 +564,34 @@ export default function WalletPage() {
               </div>
             </div>
             <div>
-              <label className="text-[#8D8D8D] text-xs mb-2 block">Select Method</label>
+              <label className="text-muted-foreground text-xs mb-2 block">Select Method</label>
               <div className="grid grid-cols-2 gap-2">
                 {depositMethods.filter(m => m.currency === depositCurrency || depositCurrency === 'GAGA').map((method) => (
                   <button type="button" key={method.label}
                     onClick={() => setDepositMethod(method.label)}
                     className={`flex items-center gap-2 p-3 rounded-xl border transition-colors ${depositMethod === method.label
-                      ? 'border-[#00C300] bg-[#00C300]/5'
-                      : 'border-[#EBEBEB] bg-[#F5F5F5]'
+                      ? 'border-primary bg-primary/5'
+                      : 'border-border bg-secondary'
                       }`}
                   >
                     <div className={`w-8 h-8 rounded-full ${method.color} flex items-center justify-center text-white`}>
                       <method.icon size={14} />
                     </div>
-                    <span className="text-[#111111] text-xs font-medium">{method.label}</span>
+                    <span className="text-foreground text-xs font-medium">{method.label}</span>
                   </button>
                 ))}
               </div>
             </div>
             <div>
-              <label className="text-[#8D8D8D] text-xs mb-1 block">Amount ({depositCurrency})</label>
+              <label className="text-muted-foreground text-xs mb-1 block">Amount ({depositCurrency})</label>
               <div className="relative">
-                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[#8D8D8D] font-bold">{getCurrencySymbol(depositCurrency)}</span>
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground font-bold">{getCurrencySymbol(depositCurrency)}</span>
                 <input
                   type="number"
                   value={depositAmount}
                   onChange={e => setDepositAmount(e.target.value)}
                   placeholder="0.00"
-                  className="w-full bg-[#F5F5F5] rounded-xl pl-10 pr-4 py-3 text-[#111111] focus:outline-none focus:ring-2 focus:ring-[#00C300]"
+                  className="w-full bg-secondary rounded-xl pl-10 pr-4 py-3 text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
                 />
               </div>
             </div>
@@ -607,16 +607,16 @@ export default function WalletPage() {
 
       {/* Withdraw Dialog */}
       <Dialog open={showWithdraw} onOpenChange={setShowWithdraw}>
-        <DialogContent className="bg-white border-[#EBEBEB] text-[#111111] sm:max-w-md">
-          <DialogHeader><DialogTitle className="text-[#111111] flex items-center gap-2"><TrendingDown size={18} className="text-[#FF3B30]" /> Withdraw</DialogTitle></DialogHeader>
+        <DialogContent className="bg-card border-border text-foreground sm:max-w-md">
+          <DialogHeader><DialogTitle className="text-foreground flex items-center gap-2"><TrendingDown size={18} className="text-destructive" /> Withdraw</DialogTitle></DialogHeader>
           <div className="pt-4 space-y-4">
             <div>
-              <label className="text-[#8D8D8D] text-xs mb-2 block">Currency</label>
+              <label className="text-muted-foreground text-xs mb-2 block">Currency</label>
               <div className="flex gap-2">
                 {(['GAGA', 'USD'] as CurrencyCode[]).map(c => (
                   <button type="button" key={c}
                     onClick={() => setWithdrawCurrency(c)}
-                    className={`flex-1 py-2 rounded-xl text-sm font-medium transition-colors ${withdrawCurrency === c ? 'bg-[#00C300] text-white' : 'bg-[#F5F5F5] text-[#8D8D8D]'
+                    className={`flex-1 py-2 rounded-xl text-sm font-medium transition-colors ${withdrawCurrency === c ? 'bg-primary text-white' : 'bg-secondary text-muted-foreground'
                       }`}
                   >
                     {c}
@@ -625,36 +625,36 @@ export default function WalletPage() {
               </div>
             </div>
             <div>
-              <label className="text-[#8D8D8D] text-xs mb-1 block">Amount</label>
+              <label className="text-muted-foreground text-xs mb-1 block">Amount</label>
               <input
                 type="number"
                 value={withdrawAmount}
                 onChange={e => setWithdrawAmount(e.target.value)}
                 placeholder="0.00"
-                className="w-full bg-[#F5F5F5] rounded-xl px-4 py-3 text-[#111111] focus:outline-none focus:ring-2 focus:ring-[#00C300]"
+                className="w-full bg-secondary rounded-xl px-4 py-3 text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
               />
             </div>
             <div>
-              <label className="text-[#8D8D8D] text-xs mb-1 block">Method (e.g. PayPal, Bank)</label>
+              <label className="text-muted-foreground text-xs mb-1 block">Method (e.g. PayPal, Bank)</label>
               <input
                 value={withdrawMethod}
                 onChange={e => setWithdrawMethod(e.target.value)}
                 placeholder="Withdrawal method"
-                className="w-full bg-[#F5F5F5] rounded-xl px-4 py-3 text-[#111111] focus:outline-none focus:ring-2 focus:ring-[#00C300]"
+                className="w-full bg-secondary rounded-xl px-4 py-3 text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
               />
             </div>
             <div>
-              <label className="text-[#8D8D8D] text-xs mb-1 block">Account Number</label>
+              <label className="text-muted-foreground text-xs mb-1 block">Account Number</label>
               <input
                 value={withdrawAccount}
                 onChange={e => setWithdrawAccount(e.target.value)}
                 placeholder="Your account number"
-                className="w-full bg-[#F5F5F5] rounded-xl px-4 py-3 text-[#111111] focus:outline-none focus:ring-2 focus:ring-[#00C300]"
+                className="w-full bg-secondary rounded-xl px-4 py-3 text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
               />
             </div>
             <button type="button" onClick={handleWithdraw}
               disabled={!withdrawAmount || !withdrawMethod || !withdrawAccount || processing}
-              className="w-full bg-[#FF3B30] hover:bg-[#D32F2F] text-white rounded-xl py-3 text-sm font-bold transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              className="w-full bg-destructive hover:bg-[#D32F2F] text-white rounded-xl py-3 text-sm font-bold transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
             >
               {processing ? <Loader size={16} className="animate-spin" /> : 'Withdraw'}
             </button>
@@ -664,14 +664,14 @@ export default function WalletPage() {
 
       {/* Convert Dialog */}
       <Dialog open={showConvert} onOpenChange={setShowConvert}>
-        <DialogContent className="bg-white border-[#EBEBEB] text-[#111111] sm:max-w-md">
-          <DialogHeader><DialogTitle className="text-[#111111] flex items-center gap-2"><ArrowRightLeft size={18} className="text-[#00C300]" /> Convert Currency</DialogTitle></DialogHeader>
+        <DialogContent className="bg-card border-border text-foreground sm:max-w-md">
+          <DialogHeader><DialogTitle className="text-foreground flex items-center gap-2"><ArrowRightLeft size={18} className="text-primary" /> Convert Currency</DialogTitle></DialogHeader>
           <div className="pt-4 space-y-4">
-            <div className="flex border-b border-[#EBEBEB] overflow-x-auto">
+            <div className="flex border-b border-border overflow-x-auto">
               {(['GAGA_USD', 'USD_GAGA'] as const).map(pair => (
                 <button type="button" key={pair}
                   onClick={() => setConvertTab(pair)}
-                  className={`px-3 py-2 text-xs font-medium whitespace-nowrap transition-colors ${convertTab === pair ? 'text-[#00C300] border-b-2 border-[#00C300]' : 'text-[#8D8D8D]'
+                  className={`px-3 py-2 text-xs font-medium whitespace-nowrap transition-colors ${convertTab === pair ? 'text-primary border-b-2 border-primary' : 'text-muted-foreground'
                     }`}
                 >
                   {pair.replace('_', ' → ')}
@@ -680,21 +680,21 @@ export default function WalletPage() {
             </div>
 
             <div>
-              <label className="text-[#8D8D8D] text-xs mb-1 block">Amount</label>
+              <label className="text-muted-foreground text-xs mb-1 block">Amount</label>
               <input
                 type="number"
                 value={convertAmount}
                 onChange={e => setConvertAmount(e.target.value)}
                 placeholder="0"
-                className="w-full bg-[#F5F5F5] rounded-xl px-4 py-3 text-[#111111] focus:outline-none focus:ring-2 focus:ring-[#00C300]"
+                className="w-full bg-secondary rounded-xl px-4 py-3 text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
               />
-              <p className="text-[#8D8D8D] text-xs mt-1">
+              <p className="text-muted-foreground text-xs mt-1">
                 You'll get {formatCurrency(convertCurrency(parseFloat(convertAmount || '0'), convertTab.split('_')[0] as CurrencyCode, convertTab.split('_')[1] as CurrencyCode), convertTab.split('_')[1] as CurrencyCode)}
               </p>
             </div>
             <button type="button" onClick={handleConvert}
               disabled={!convertAmount || processing}
-              className="w-full bg-[#00C300] hover:bg-[#00A300] text-white rounded-xl py-3 text-sm font-bold transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              className="w-full bg-primary hover:bg-[#00A300] text-white rounded-xl py-3 text-sm font-bold transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
             >
               {processing ? <Loader size={16} className="animate-spin" /> : 'Convert'}
             </button>
@@ -704,56 +704,56 @@ export default function WalletPage() {
 
       {/* Interest / Earn Dialog */}
       <Dialog open={showInterest} onOpenChange={setShowInterest}>
-        <DialogContent className="bg-white border-[#EBEBEB] text-[#111111] sm:max-w-md">
-          <DialogHeader><DialogTitle className="text-[#111111] flex items-center gap-2"><Sparkles size={18} className="text-[#FFD700]" /> Gaga Staking Rewards</DialogTitle></DialogHeader>
+        <DialogContent className="bg-card border-border text-foreground sm:max-w-md">
+          <DialogHeader><DialogTitle className="text-foreground flex items-center gap-2"><Sparkles size={18} className="text-[#FFD700]" /> Gaga Staking Rewards</DialogTitle></DialogHeader>
           <div className="pt-4 space-y-4">
             {interestClaimed > 0 && (
               <motion.div
                 initial={{ opacity: 0, scale: 0.9 }}
                 animate={{ opacity: 1, scale: 1 }}
-                className="bg-[#00C300]/10 border border-[#00C300]/30 rounded-xl p-4 text-center"
+                className="bg-primary/10 border border-primary/30 rounded-xl p-4 text-center"
               >
-                <p className="text-[#00C300] font-bold text-lg">+{interestClaimed} GAGA</p>
-                <p className="text-[#00C300] text-xs">Claimed successfully!</p>
+                <p className="text-primary font-bold text-lg">+{interestClaimed} GAGA</p>
+                <p className="text-primary text-xs">Claimed successfully!</p>
               </motion.div>
             )}
 
-            <div className="bg-[#F5F5F5] rounded-2xl p-4 text-center">
-              <p className="text-[#8D8D8D] text-xs mb-1">Current Balance</p>
-              <p className="text-2xl font-bold text-[#111111]">{coins.toLocaleString()} GAGA</p>
-              <p className="text-[#00C300] text-sm font-medium mt-1">{apy}% APY — {tier.label} Tier</p>
+            <div className="bg-secondary rounded-2xl p-4 text-center">
+              <p className="text-muted-foreground text-xs mb-1">Current Balance</p>
+              <p className="text-2xl font-bold text-foreground">{coins.toLocaleString()} GAGA</p>
+              <p className="text-primary text-sm font-medium mt-1">{apy}% APY — {tier.label} Tier</p>
             </div>
 
             <div className="bg-gradient-to-r from-[#FFD700]/10 to-[#FFA500]/10 rounded-xl p-4">
-              <p className="text-[#111111] text-sm font-medium mb-2">Available to claim</p>
+              <p className="text-foreground text-sm font-medium mb-2">Available to claim</p>
               <div className="flex items-center justify-between">
-                <p className="text-2xl font-bold text-[#111111]">+{dailyInterest} GAGA</p>
+                <p className="text-2xl font-bold text-foreground">+{dailyInterest} GAGA</p>
                 <button type="button" onClick={handleClaimInterest}
                   disabled={interestLoading || dailyInterest <= 0}
-                  className="px-4 py-2 bg-[#00C300] text-white rounded-xl text-sm font-bold disabled:opacity-50 active:bg-[#00A300] transition-colors"
+                  className="px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold disabled:opacity-50 active:bg-[#00A300] transition-colors"
                 >
                   {interestLoading ? <Loader size={14} className="animate-spin" /> : 'Claim'}
                 </button>
               </div>
-              <p className="text-[#8D8D8D] text-[10px] mt-1">Resets every 24 hours</p>
+              <p className="text-muted-foreground text-[10px] mt-1">Resets every 24 hours</p>
             </div>
 
             {/* Tier Table */}
             <div className="space-y-2">
-              <p className="text-[#111111] text-sm font-medium">Staking Tiers</p>
+              <p className="text-foreground text-sm font-medium">Staking Tiers</p>
               {STAKING_TIERS.filter(t => t.minCoins > 0).map(t => (
                 <div
                   key={t.label}
-                  className={`flex items-center justify-between p-2.5 rounded-lg ${coins >= t.minCoins ? 'bg-[#00C300]/10 border border-[#00C300]/30' : 'bg-[#F5F5F5]'
+                  className={`flex items-center justify-between p-2.5 rounded-lg ${coins >= t.minCoins ? 'bg-primary/10 border border-primary/30' : 'bg-secondary'
                     }`}
                 >
                   <div className="flex items-center gap-2">
-                    <Award size={14} className={coins >= t.minCoins ? 'text-[#00C300]' : 'text-[#C7C7CC]'} />
-                    <span className={`text-sm ${coins >= t.minCoins ? 'text-[#00C300] font-medium' : 'text-[#8D8D8D]'}`}>{t.label}</span>
+                    <Award size={14} className={coins >= t.minCoins ? 'text-primary' : 'text-muted-foreground'} />
+                    <span className={`text-sm ${coins >= t.minCoins ? 'text-primary font-medium' : 'text-muted-foreground'}`}>{t.label}</span>
                   </div>
                   <div className="text-right">
                     <span className="text-sm font-medium">{t.apy}%</span>
-                    <span className="text-[#8D8D8D] text-[10px] ml-2">{t.minCoins.toLocaleString()}+ GAGA</span>
+                    <span className="text-muted-foreground text-[10px] ml-2">{t.minCoins.toLocaleString()}+ GAGA</span>
                   </div>
                 </div>
               ))}
@@ -764,36 +764,36 @@ export default function WalletPage() {
 
       {/* Security Dialog */}
       <Dialog open={showSecurity} onOpenChange={setShowSecurity}>
-        <DialogContent className="bg-white border-[#EBEBEB] text-[#111111] sm:max-w-md">
-          <DialogHeader><DialogTitle className="text-[#111111] flex items-center gap-2"><Shield size={18} className="text-[#00C300]" /> Wallet Security</DialogTitle></DialogHeader>
+        <DialogContent className="bg-card border-border text-foreground sm:max-w-md">
+          <DialogHeader><DialogTitle className="text-foreground flex items-center gap-2"><Shield size={18} className="text-primary" /> Wallet Security</DialogTitle></DialogHeader>
           <div className="pt-4 space-y-4">
-            <div className="bg-[#F5F5F5] rounded-2xl p-4 text-center">
-              <div className="w-12 h-12 rounded-full bg-[#00C300]/10 flex items-center justify-center mx-auto mb-2">
-                {hasPinSet() ? <Lock size={24} className="text-[#00C300]" /> : <Unlock size={24} className="text-[#FF3B30]" />}
+            <div className="bg-secondary rounded-2xl p-4 text-center">
+              <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-2">
+                {hasPinSet() ? <Lock size={24} className="text-primary" /> : <Unlock size={24} className="text-destructive" />}
               </div>
-              <p className="text-[#111111] font-medium">
+              <p className="text-foreground font-medium">
                 {hasPinSet() ? 'Your wallet is PIN protected' : 'No PIN set — wallet is unsecured'}
               </p>
-              <p className="text-[#8D8D8D] text-xs mt-1">
+              <p className="text-muted-foreground text-xs mt-1">
                 {hasPinSet() ? 'Enter PIN required to access wallet' : 'Set a 6-digit PIN to secure your funds'}
               </p>
             </div>
 
             {!hasPinSet() ? (
               <button type="button" onClick={() => { setShowSecurity(false); setPinMode('set'); }}
-                className="w-full bg-[#00C300] text-white rounded-xl py-3 text-sm font-bold hover:bg-[#00A300] transition-colors"
+                className="w-full bg-primary text-white rounded-xl py-3 text-sm font-bold hover:bg-[#00A300] transition-colors"
               >
                 Set Up PIN
               </button>
             ) : (
               <>
                 <button type="button" onClick={() => { setShowSecurity(false); setPinMode('set'); }}
-                  className="w-full bg-[#F5F5F5] text-[#111111] rounded-xl py-3 text-sm font-bold hover:bg-[#EBEBEB] transition-colors"
+                  className="w-full bg-secondary text-foreground rounded-xl py-3 text-sm font-bold hover:bg-secondary transition-colors"
                 >
                   Change PIN
                 </button>
                 <button type="button" onClick={() => { clearWalletPin(user?.id || ''); setShowSecurity(false); }}
-                  className="w-full text-[#FF3B30] rounded-xl py-3 text-sm font-medium hover:bg-[#FF3B30]/10 transition-colors"
+                  className="w-full text-destructive rounded-xl py-3 text-sm font-medium hover:bg-destructive/10 transition-colors"
                 >
                   Remove PIN Protection
                 </button>

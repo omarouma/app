@@ -69,7 +69,7 @@ export function GroupChatMessageList({
         <div ref={messagesContainerRef} className="flex-1 overflow-y-auto p-4 scrollbar-hide">
             <div className="space-y-4">
                 <div className="flex justify-center my-4">
-                    <div className="bg-black/20 text-white text-center text-[11px] px-4 py-2 rounded-2xl backdrop-blur-sm max-w-[80%]">
+                    <div className="bg-black/20 text-primary-foreground text-center text-[11px] px-4 py-2 rounded-2xl backdrop-blur-sm max-w-[80%]">
                         <p className="font-medium text-xs mb-0.5">{group.name}</p>
                         <p className="opacity-80">{group.description || `${group.participants.length} members`}</p>
                     </div>
@@ -87,7 +87,7 @@ export function GroupChatMessageList({
                     if (isSystem) {
                         return (
                             <div key={msg.id} className="flex justify-center my-2">
-                                <span className="bg-black/15 text-white text-[10px] px-3 py-1 rounded-full">{msg.content}</span>
+                                <span className="bg-black/15 text-primary-foreground text-[10px] px-3 py-1 rounded-full">{msg.content}</span>
                             </div>
                         );
                     }
@@ -96,7 +96,7 @@ export function GroupChatMessageList({
                         <div key={msg.id}>
                             {showDate && (
                                 <div className="flex justify-center my-4">
-                                    <span className="bg-black/20 text-white text-[11px] px-3 py-1 rounded-full backdrop-blur-sm">{msgDate}</span>
+                                    <span className="bg-black/20 text-primary-foreground text-[11px] px-3 py-1 rounded-full backdrop-blur-sm">{msgDate}</span>
                                 </div>
                             )}
                             <div
@@ -106,8 +106,8 @@ export function GroupChatMessageList({
                                     <img src={sanitizeMediaUrl(getSenderAvatar(msg.senderId)) || getDefaultAvatar(msg.senderId)} alt="" className="w-6 h-6 rounded-full shrink-0" />
                                 )}
                                 <div className={`max-w-[70%] p-0 relative`}>
-                                    {!isMe && <p className="text-[11px] text-white/80 mb-0.5 ml-1">{getSenderName(msg.senderId)}</p>}
-                                    <div className={`px-3 py-2 rounded-xl text-sm leading-tight relative ${isMe ? 'bg-[#00C300] text-white rounded-br-none' : 'bg-white text-[#111111] rounded-bl-none'}`}>
+                                    {!isMe && <p className="text-[11px] text-primary-foreground/80 mb-0.5 ml-1">{getSenderName(msg.senderId)}</p>}
+                                    <div className={`px-3 py-2 rounded-xl text-sm leading-tight relative ${isMe ? 'bg-primary text-primary-foreground rounded-br-none' : 'bg-card text-foreground rounded-bl-none'}`}>
                                         {(() => {
                                             const mediaUrl = sanitizeMediaUrl(msg.mediaUrl);
                                             if (mediaUrl && msg.type === 'image') {

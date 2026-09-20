@@ -475,7 +475,7 @@ export default function FeedReelsViewer({ onClose }: FeedReelsViewerProps) {
                       {[0.5, 0.75, 1, 1.25, 1.5, 2].map(s => (
                         <button key={s} type="button" onClick={() => handleSpeedChange(s)}
                           className={`block w-full px-4 py-2 text-xs font-medium text-left transition-colors ${
-                            playbackSpeed === s ? 'bg-[#00C300] text-black' : 'text-white hover:bg-white/10'
+                            playbackSpeed === s ? 'bg-primary text-black' : 'text-white hover:bg-white/10'
                           }`}>
                           {s}x
                         </button>
@@ -505,7 +505,7 @@ export default function FeedReelsViewer({ onClose }: FeedReelsViewerProps) {
                   <button
                     type="button"
                     onClick={() => handleFollow(reel)}
-                    className="absolute -bottom-2 left-1/2 -translate-x-1/2 bg-[#00C300] rounded-full p-0.5"
+                    className="absolute -bottom-2 left-1/2 -translate-x-1/2 bg-primary rounded-full p-0.5"
                   >
                     {isFollowing(reel) ? (
                       <Check size={12} className="text-black" />
@@ -537,7 +537,7 @@ export default function FeedReelsViewer({ onClose }: FeedReelsViewerProps) {
               <button type="button" onClick={() => handleSave(reel)} className="flex flex-col items-center gap-0.5">
                 <Bookmark
                   size={28}
-                  className={isSaved(reel) ? 'text-[#00C300] fill-[#00C300]' : 'text-white'}
+                  className={isSaved(reel) ? 'text-primary fill-[#00C300]' : 'text-white'}
                 />
               </button>
 
@@ -587,7 +587,7 @@ export default function FeedReelsViewer({ onClose }: FeedReelsViewerProps) {
                     className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
                       isFollowing(reel)
                         ? 'bg-white/20 text-white'
-                        : 'bg-white text-black'
+                        : 'bg-card text-black'
                     }`}
                   >
                     {isFollowing(reel) ? 'Following' : 'Follow'}
@@ -600,7 +600,7 @@ export default function FeedReelsViewer({ onClose }: FeedReelsViewerProps) {
               {reel.tags && reel.tags.length > 0 && (
                 <div className="flex flex-wrap gap-1 mb-2">
                   {reel.tags.map(tag => (
-                    <span key={tag} className="text-[#00C300] text-sm">#{tag}</span>
+                    <span key={tag} className="text-primary text-sm">#{tag}</span>
                   ))}
                 </div>
               )}
@@ -622,7 +622,7 @@ export default function FeedReelsViewer({ onClose }: FeedReelsViewerProps) {
 
             {/* Video progress bar at bottom */}
             <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-white/20 z-20">
-              <div className="h-full bg-[#00C300] transition-all duration-100" style={{ width: `${videoProgress * 100}%` }} />
+              <div className="h-full bg-primary transition-all duration-100" style={{ width: `${videoProgress * 100}%` }} />
             </div>
           </div>
         ))}
@@ -653,11 +653,11 @@ export default function FeedReelsViewer({ onClose }: FeedReelsViewerProps) {
               onClick={e => e.stopPropagation()}
             >
               <div className="flex items-center justify-center py-3 border-b border-[#2a2a2a]">
-                <div className="w-10 h-1 rounded-full bg-[#8D8D8D]" />
+                <div className="w-10 h-1 rounded-full bg-muted-foreground" />
               </div>
               <div className="flex-1 overflow-y-auto p-4 space-y-4">
                 {showComments.comments.length === 0 ? (
-                  <p className="text-center text-[#8D8D8D] text-sm py-8">No comments yet</p>
+                  <p className="text-center text-muted-foreground text-sm py-8">No comments yet</p>
                 ) : (
                   showComments.comments.map((comment: any) => (
                     <div key={comment.id || comment.userId + comment.timestamp} className="flex gap-3">
@@ -668,7 +668,7 @@ export default function FeedReelsViewer({ onClose }: FeedReelsViewerProps) {
                       />
                       <div className="flex-1">
                         <p className="text-white text-sm font-medium">{comment.userName || 'User'}</p>
-                        <p className="text-[#8D8D8D] text-sm">{comment.content}</p>
+                        <p className="text-muted-foreground text-sm">{comment.content}</p>
                       </div>
                     </div>
                   ))
@@ -680,12 +680,12 @@ export default function FeedReelsViewer({ onClose }: FeedReelsViewerProps) {
                   value={commentText}
                   onChange={e => setCommentText(e.target.value)}
                   placeholder="Add a comment..."
-                  className="flex-1 bg-[#2a2a2a] text-white rounded-full px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#00C300]"
+                  className="flex-1 bg-[#2a2a2a] text-white rounded-full px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                   onKeyDown={e => e.key === 'Enter' && handleAddComment()}
                 />
                 <button type="button" onClick={handleAddComment}
                   disabled={!commentText.trim()}
-                  className="p-2 rounded-full bg-[#00C300] text-black disabled:opacity-50"
+                  className="p-2 rounded-full bg-primary text-black disabled:opacity-50"
                 >
                   <Send size={18} />
                 </button>
@@ -714,32 +714,32 @@ export default function FeedReelsViewer({ onClose }: FeedReelsViewerProps) {
               onClick={e => e.stopPropagation()}
             >
               <div className="flex items-center justify-center py-3 border-b border-[#2a2a2a]">
-                <div className="w-10 h-1 rounded-full bg-[#8D8D8D]" />
+                <div className="w-10 h-1 rounded-full bg-muted-foreground" />
               </div>
               <div className="p-6 space-y-4">
                 <h3 className="text-white font-bold text-lg">Reel Insights</h3>
                 <div className="grid grid-cols-3 gap-4">
                   <div className="text-center">
                     <p className="text-white text-2xl font-bold">{showInsights.viewCount.toLocaleString()}</p>
-                    <p className="text-[#8D8D8D] text-xs">Views</p>
+                    <p className="text-muted-foreground text-xs">Views</p>
                   </div>
                   <div className="text-center">
                     <p className="text-white text-2xl font-bold">{showInsights.likes.length.toLocaleString()}</p>
-                    <p className="text-[#8D8D8D] text-xs">Likes</p>
+                    <p className="text-muted-foreground text-xs">Likes</p>
                   </div>
                   <div className="text-center">
                     <p className="text-white text-2xl font-bold">{showInsights.comments.length.toLocaleString()}</p>
-                    <p className="text-[#8D8D8D] text-xs">Comments</p>
+                    <p className="text-muted-foreground text-xs">Comments</p>
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="text-center">
                     <p className="text-white text-2xl font-bold">{showInsights.shares.length.toLocaleString()}</p>
-                    <p className="text-[#8D8D8D] text-xs">Shares</p>
+                    <p className="text-muted-foreground text-xs">Shares</p>
                   </div>
                   <div className="text-center">
                     <p className="text-white text-2xl font-bold">{showInsights.savedBy.length.toLocaleString()}</p>
-                    <p className="text-[#8D8D8D] text-xs">Saves</p>
+                    <p className="text-muted-foreground text-xs">Saves</p>
                   </div>
                 </div>
                 <button type="button" onClick={() => setShowInsights(null)}
@@ -771,7 +771,7 @@ export default function FeedReelsViewer({ onClose }: FeedReelsViewerProps) {
               onClick={e => e.stopPropagation()}
             >
               <div className="flex items-center justify-center mb-2">
-                <div className="w-10 h-1 rounded-full bg-[#8D8D8D]" />
+                <div className="w-10 h-1 rounded-full bg-muted-foreground" />
               </div>
               <h3 className="text-white font-semibold mb-2">Share Reel</h3>
               <button
@@ -836,7 +836,7 @@ export default function FeedReelsViewer({ onClose }: FeedReelsViewerProps) {
               onClick={e => e.stopPropagation()}
             >
               <div className="flex items-center justify-center mb-2">
-                <div className="w-10 h-1 rounded-full bg-[#8D8D8D]" />
+                <div className="w-10 h-1 rounded-full bg-muted-foreground" />
               </div>
               <h3 className="text-white font-semibold mb-2">Options</h3>
               <button
@@ -857,7 +857,7 @@ export default function FeedReelsViewer({ onClose }: FeedReelsViewerProps) {
                 <button
                   type="button"
                   onClick={() => handleReport()}
-                  className="w-full flex items-center gap-3 p-3 rounded-xl bg-[#2a2a2a] text-[#FF3B30] hover:bg-[#333] transition-colors"
+                  className="w-full flex items-center gap-3 p-3 rounded-xl bg-[#2a2a2a] text-destructive hover:bg-[#333] transition-colors"
                 >
                   <Flag size={18} /> Report
                 </button>

@@ -23,13 +23,13 @@ export const VideoMessage = memo(function VideoMessage(props: VideoMessageProps)
 
   if (!safeUrl || failed) {
     return (
-      <div className="rounded-2xl mb-1 w-full max-w-full h-32 bg-[#F5F5F5] flex flex-col items-center justify-center gap-2 text-sm text-[#8D8D8D]">
+      <div className="rounded-2xl mb-1 w-full max-w-full h-32 bg-secondary flex flex-col items-center justify-center gap-2 text-sm text-muted-foreground">
         <span className="text-2xl">🎬</span>
         <span>Video unavailable</span>
         <button
           type="button"
           onClick={handleRetry}
-          className="px-3 py-1 bg-[#00C300]/10 text-[#00C300] text-xs font-medium rounded-full hover:bg-[#00C300]/20 transition-colors"
+          className="px-3 py-1 bg-primary/10 text-primary text-xs font-medium rounded-full hover:bg-primary/20 transition-colors"
         >
           Retry
         </button>
@@ -40,8 +40,8 @@ export const VideoMessage = memo(function VideoMessage(props: VideoMessageProps)
   return (
     <div className="relative max-w-full">
       {!loaded && (
-        <div className="rounded-2xl mb-1 h-32 bg-[#F5F5F5] animate-pulse flex items-center justify-center">
-          <Loader size={20} className="animate-spin text-[#8D8D8D]" />
+        <div className="rounded-2xl mb-1 h-32 bg-secondary animate-pulse flex items-center justify-center">
+          <Loader size={20} className="animate-spin text-muted-foreground" />
         </div>
       )}
       <video

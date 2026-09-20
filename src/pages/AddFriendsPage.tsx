@@ -16,7 +16,8 @@ import { useGeolocation, getDistanceKm, formatDistance } from '@/hooks/useGeoloc
 import { copyToClipboard, nativeShare } from '@/lib/share';
 import { toast } from 'sonner';
 import type { User } from '@/types';
-import { where, limit, isFirestoreAvailable, updateDocById, queryCollection } from '@/lib/firestore';
+import { limit, isFirestoreAvailable, updateDocById, queryCollection } from '@/lib/firestore';
+import { getDb } from '@/lib/supabaseDb';
 
 type FriendStatus = 'not_friends' | 'request_sent' | 'request_received' | 'friends' | 'blocked' | 'self';
 
@@ -152,17 +153,17 @@ function UserCard({ user, status = 'not_friends', mutualCount = 0, distance, sug
 
   const renderAction = () => {
     if (loading) {
-      return <Loader size={16} className="animate-spin text-[#8D8D8D]" />;
+      return <Loader size={16} className="animate-spin text-muted-foreground" />;
     }
 
     switch (status) {
       case 'self':
-        return <span className="text-[#8D8D8D] text-xs font-medium">You</span>;
+        return <span className="text-muted-foreground text-xs font-medium">You</span>;
 
       case 'friends':
         return (
           <button type="button" onClick={(e) => handleAction('message', e)}
-            className="flex items-center gap-1 px-3 py-1.5 bg-[#00C300]/10 text-[#00C300] text-xs rounded-full font-medium active:bg-[#00C300]/20 transition-colors"
+            className="flex items-center gap-1 px-3 py-1.5 bg-primary/10 text-primary text-xs rounded-full font-medium active:bg-primary/20 transition-colors"
           >
             <MessageCircle size={18} /> Message
           </button>
@@ -171,11 +172,11 @@ function UserCard({ user, status = 'not_friends', mutualCount = 0, distance, sug
       case 'request_sent':
         return (
           <div className="flex items-center gap-2">
-            <span className="flex items-center gap-1 px-3 py-1.5 bg-[#F5F5F5] text-[#8D8D8D] text-xs rounded-full font-medium">
+            <span className="flex items-center gap-1 px-3 py-1.5 bg-secondary text-muted-foreground text-xs rounded-full font-medium">
               <UserCheck size={18} /> Sent
             </span>
             <button type="button" onClick={(e) => handleAction('cancel', e)}
-              className="flex items-center gap-1 text-[#8D8D8D] text-xs font-medium hover:text-red-500 transition-colors"
+              className="flex items-center gap-1 text-muted-foreground text-xs font-medium hover:text-red-500 transition-colors"
             >
               <X size={18} /> Cancel
             </button>
@@ -186,12 +187,12 @@ function UserCard({ user, status = 'not_friends', mutualCount = 0, distance, sug
         return (
           <div className="flex items-center gap-1">
             <button type="button" onClick={(e) => handleAction('accept', e)}
-              className="flex items-center gap-1 px-3 py-1.5 bg-[#00C300] text-white text-xs rounded-full font-bold active:bg-[#00A300] transition-colors"
+              className="flex items-center gap-1 px-3 py-1.5 bg-primary text-white text-xs rounded-full font-bold active:bg-[#00A300] transition-colors"
             >
               <Check size={18} /> Accept
             </button>
             <button type="button" onClick={(e) => handleAction('reject', e)}
-              className="flex items-center gap-1 px-3 py-1.5 bg-[#F5F5F5] text-[#8D8D8D] text-xs rounded-full font-medium"
+              className="flex items-center gap-1 px-3 py-1.5 bg-secondary text-muted-foreground text-xs rounded-full font-medium"
             >
               <X size={18} /> Decline
             </button>
@@ -205,7 +206,7 @@ function UserCard({ user, status = 'not_friends', mutualCount = 0, distance, sug
               <Ban size={18} /> Blocked
             </span>
             <button type="button" onClick={(e) => handleAction('unblock', e)}
-              className="text-[#00C300] text-xs font-medium"
+              className="text-primary text-xs font-medium"
             >
               Unblock
             </button>
@@ -216,7 +217,7 @@ function UserCard({ user, status = 'not_friends', mutualCount = 0, distance, sug
       default:
         return (
           <button type="button" onClick={(e) => handleAction('add', e)}
-            className="flex items-center gap-1 px-4 py-2 bg-[#00C300] text-white text-xs rounded-full font-bold active:bg-[#00A300] transition-colors"
+            className="flex items-center gap-1 px-4 py-2 bg-primary text-white text-xs rounded-full font-bold active:bg-[#00A300] transition-colors"
           >
             <UserPlus size={18} /> Add Friend
           </button>
@@ -229,32 +230,32 @@ function UserCard({ user, status = 'not_friends', mutualCount = 0, distance, sug
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       onClick={handleClick}
-      className={`flex items-center gap-3 p-4 bg-white rounded-xl border border-[#EBEBEB] ${!disableNavigation ? 'cursor-pointer active:bg-gray-50' : ''} transition-colors`}
+      className={`flex items-center gap-3 p-4 bg-card rounded-xl border border-border ${!disableNavigation ? 'cursor-pointer active:bg-gray-50' : ''} transition-colors`}
     >
-      <div className="w-12 h-12 rounded-full bg-[#F5F5F5] flex items-center justify-center overflow-hidden shrink-0">
+      <div className="w-12 h-12 rounded-full bg-secondary flex items-center justify-center overflow-hidden shrink-0">
         {user.avatar ? (
           <img src={user.avatar} className="w-full h-full object-cover" alt="User avatar" />
         ) : (
-          <span className="text-[#8D8D8D] font-bold text-sm">{(user.name || 'U')[0]}</span>
+          <span className="text-muted-foreground font-bold text-sm">{(user.name || 'U')[0]}</span>
         )}
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-1">
-          <p className="text-[#111111] text-sm font-medium truncate">{user.name || 'User'}</p>
-          {user.verified && <BadgeCheck size={14} className="text-[#00C300] shrink-0" />}
+          <p className="text-foreground text-sm font-medium truncate">{user.name || 'User'}</p>
+          {user.verified && <BadgeCheck size={14} className="text-primary shrink-0" />}
         </div>
-        <p className="text-[#8D8D8D] text-xs truncate">@{user.username || 'user'}</p>
+        <p className="text-muted-foreground text-xs truncate">@{user.username || 'user'}</p>
         {user.bio && (
-          <p className="text-[#8D8D8D] text-[10px] truncate mt-0.5">{user.bio}</p>
+          <p className="text-muted-foreground text-[10px] truncate mt-0.5">{user.bio}</p>
         )}
         <div className="flex items-center gap-2 mt-0.5 flex-wrap">
           {mutualCount > 0 && (
-            <p className="text-[#00C300] text-[10px] flex items-center gap-0.5">
+            <p className="text-primary text-[10px] flex items-center gap-0.5">
               <Users size={8} /> {mutualCount} mutual
             </p>
           )}
           {distance !== undefined && (
-            <p className="text-[#00C300] text-[10px] flex items-center gap-0.5">
+            <p className="text-primary text-[10px] flex items-center gap-0.5">
               <MapPin size={8} /> {formatDistance(distance)} away
             </p>
           )}
@@ -524,22 +525,33 @@ export default function AddFriendsPage() {
 
     try {
       if (isFirestoreAvailable() && (phoneSet.size > 0 || emails.length > 0)) {
-        // Firestore doesn't support OR or ilike queries; query by email and phone separately
+        // SECURITY: matching runs server-side (public.match_contacts) so phone
+        // and email stay out of the public_profiles view. Every contact is
+        // matched (no client-side truncation).
+        const db = getDb();
         const foundUsers: User[] = [];
-        const emailQueries = emails.slice(0, 10).map(async (e: string) => {
-          const data = await queryCollection('users', [where('email', '==', e), limit(1)]);
-          return (data as Record<string, unknown>[]).map(mapUser);
-        });
-        const phoneQueries = Array.from(phoneSet).slice(0, 10).map(async (p: string) => {
-          const data = await queryCollection('users', [
-            where('phone', '>=', p),
-            where('phone', '<=', p + '\uf8ff'),
-            limit(10),
-          ]);
-          return (data as Record<string, unknown>[]).map(mapUser);
-        });
-        const results = await Promise.all([...emailQueries, ...phoneQueries]);
-        results.forEach((arr: User[]) => foundUsers.push(...arr));
+        if (db) {
+          const emailList = Array.from(new Set(emails.map((e) => e.trim().toLowerCase()).filter(Boolean)));
+          const phoneList = Array.from(phoneSet);
+          const { data, error } = await db.rpc('match_contacts', {
+            p_emails: emailList,
+            p_phones: phoneList,
+          });
+          if (error) throw error;
+          for (const r of (data as Array<Record<string, unknown>>) || []) {
+            foundUsers.push({
+              id: r.id as string,
+              name: (r.name as string) || '',
+              displayName: (r.display_name as string) || undefined,
+              username: (r.username as string) || undefined,
+              avatar: (r.avatar as string) || undefined,
+              email: (r.email as string) || '',
+              phone: (r.phone as string) || '',
+              verified: (r.is_verified as boolean) || false,
+              isPremium: (r.is_premium as boolean) || false,
+            } as unknown as User);
+          }
+        }
         const friendIdSet = new Set(friends.map((f) => f.id));
         const matches = foundUsers.filter((u) => u.id !== currentUser.id && !friendIdSet.has(u.id));
         const uniqueMatches = Array.from(new Map(matches.map((u) => [u.id, u])).values());
@@ -623,21 +635,21 @@ export default function AddFriendsPage() {
   // ─── Render ───
 
   return (
-    <div className="min-h-[100dvh] bg-[#F5F5F5]">
+    <div className="min-h-[100dvh] bg-secondary">
       {/* Header */}
-      <div className="bg-white border-b border-[#EBEBEB] flex items-center gap-3 p-4">
-        <button type="button" onClick={() => navigate(-1)} className="p-2 -ml-2 active:bg-gray-100 rounded-full text-[#111111]">
+      <div className="bg-card border-b border-border flex items-center gap-3 p-4">
+        <button type="button" onClick={() => navigate(-1)} className="p-2 -ml-2 active:bg-gray-100 rounded-full text-foreground">
           <ArrowLeft size={22} />
         </button>
-        <h1 className="text-lg font-bold text-[#111111]">Add Friends</h1>
+        <h1 className="text-lg font-bold text-foreground">Add Friends</h1>
       </div>
 
       {/* Tabs */}
-      <div className="flex bg-white border-b border-[#EBEBEB] overflow-x-auto">
+      <div className="flex bg-card border-b border-border overflow-x-auto">
         {(['search', 'suggestions', 'requests', 'nearby', 'contacts'] as const).map(tab => (
           <button type="button" key={tab}
             onClick={() => setActiveTab(tab)}
-            className={`flex-1 py-3 text-sm font-medium transition-colors whitespace-nowrap ${activeTab === tab ? 'text-[#00C300] border-b-2 border-[#00C300]' : 'text-[#8D8D8D]'
+            className={`flex-1 py-3 text-sm font-medium transition-colors whitespace-nowrap ${activeTab === tab ? 'text-primary border-b-2 border-primary' : 'text-muted-foreground'
               }`}
           >
             {tab === 'search' ? 'Search' :
@@ -661,68 +673,68 @@ export default function AddFriendsPage() {
             {/* Quick Actions */}
             <div className="grid grid-cols-3 gap-3">
               <button type="button" onClick={() => setShowQrModal(true)}
-                className="flex items-center gap-2 justify-center p-3 bg-white border border-[#EBEBEB] rounded-xl text-sm font-medium text-[#111111] active:bg-[#F5F5F5] transition-colors"
+                className="flex items-center gap-2 justify-center p-3 bg-card border border-border rounded-xl text-sm font-medium text-foreground active:bg-secondary transition-colors"
               >
-                <QrCode size={18} className="text-[#00C300]" /> My QR
+                <QrCode size={18} className="text-primary" /> My QR
               </button>
               <button type="button" onClick={() => navigate('/qr-scanner?tab=scan')}
-                className="flex items-center gap-2 justify-center p-3 bg-white border border-[#EBEBEB] rounded-xl text-sm font-medium text-[#111111] active:bg-[#F5F5F5] transition-colors"
+                className="flex items-center gap-2 justify-center p-3 bg-card border border-border rounded-xl text-sm font-medium text-foreground active:bg-secondary transition-colors"
               >
                 <ScanLine size={18} className="text-[#FF9800]" /> Scan QR
               </button>
               <button type="button" onClick={handleShare}
-                className="flex items-center gap-2 justify-center p-3 bg-white border border-[#EBEBEB] rounded-xl text-sm font-medium text-[#111111] active:bg-[#F5F5F5] transition-colors"
+                className="flex items-center gap-2 justify-center p-3 bg-card border border-border rounded-xl text-sm font-medium text-foreground active:bg-secondary transition-colors"
               >
                 <Share2 size={18} className="text-[#2196F3]" /> Share
               </button>
             </div>
 
             {/* My Link */}
-            <div className="bg-white border border-[#EBEBEB] rounded-2xl p-4">
-              <p className="text-[#8D8D8D] text-xs mb-2">Your Profile Link</p>
-              <div className="flex items-center gap-2 bg-[#F5F5F5] rounded-xl p-3">
-                <Link2 size={14} className="text-[#00C300] shrink-0" />
+            <div className="bg-card border border-border rounded-2xl p-4">
+              <p className="text-muted-foreground text-xs mb-2">Your Profile Link</p>
+              <div className="flex items-center gap-2 bg-secondary rounded-xl p-3">
+                <Link2 size={14} className="text-primary shrink-0" />
                 <a
                   href={myWebLink}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-[#00C300] text-xs flex-1 truncate hover:underline"
+                  className="text-primary text-xs flex-1 truncate hover:underline"
                 >
                   {myWebLink}
                 </a>
                 <button type="button" onClick={handleCopyLink}
-                  className="text-[#8D8D8D] hover:text-[#111111] text-xs shrink-0 font-medium transition-colors"
+                  className="text-muted-foreground hover:text-foreground text-xs shrink-0 font-medium transition-colors"
                 >
-                  {copied ? <Check size={14} className="text-[#00C300]" /> : <Copy size={14} />}
+                  {copied ? <Check size={14} className="text-primary" /> : <Copy size={14} />}
                 </button>
               </div>
             </div>
 
             {/* Search Input */}
-            <div className="bg-white border border-[#EBEBEB] rounded-2xl p-4">
+            <div className="bg-card border border-border rounded-2xl p-4">
               <div className="relative mb-3">
-                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8D8D8D]" />
+                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                 <input
                   value={searchQuery}
                   onChange={e => setSearchQuery(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && handleSearch()}
                   placeholder="Search by username, email, phone, or ID..."
-                  className="w-full bg-[#F5F5F5] rounded-xl pl-10 pr-10 py-3 text-[#111111] text-sm focus:outline-none focus:ring-2 focus:ring-[#00C300] placeholder:text-[#8D8D8D]"
+                  className="w-full bg-secondary rounded-xl pl-10 pr-10 py-3 text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
                 />
                 {searchQuery && (
-                  <button type="button" onClick={() => { setSearchQuery(''); setSearchResults([]); }} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8D8D8D]">
+                  <button type="button" onClick={() => { setSearchQuery(''); setSearchResults([]); }} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">
                     <Ban size={14} />
                   </button>
                 )}
               </div>
               {searching && (
                 <div className="flex items-center justify-center py-4">
-                  <Loader size={18} className="animate-spin text-[#00C300]" />
+                  <Loader size={18} className="animate-spin text-primary" />
                 </div>
               )}
               {!searching && searchQuery.trim() && (
                 <button type="button" onClick={handleSearch}
-                  className="w-full py-2.5 bg-[#00C300] text-white rounded-xl text-sm font-bold active:bg-[#00A300] transition-colors"
+                  className="w-full py-2.5 bg-primary text-white rounded-xl text-sm font-bold active:bg-[#00A300] transition-colors"
                 >
                   Search
                 </button>
@@ -733,7 +745,7 @@ export default function AddFriendsPage() {
             <div className="space-y-2">
               {searchResults.length > 0 ? (
                 <>
-                  <p className="text-[#8D8D8D] text-xs font-medium px-1">Search Results ({searchResults.length})</p>
+                  <p className="text-muted-foreground text-xs font-medium px-1">Search Results ({searchResults.length})</p>
                   {searchResults.map(u => (
                     <UserCard
                       key={u.id}
@@ -745,15 +757,15 @@ export default function AddFriendsPage() {
                 </>
               ) : searchQuery && !searching ? (
                 <div className="text-center py-8">
-                  <Users size={32} className="text-[#EBEBEB] mx-auto mb-2" />
-                  <p className="text-[#8D8D8D] text-sm">No users found. Try a different name or username.</p>
+                  <Users size={32} className="text-border mx-auto mb-2" />
+                  <p className="text-muted-foreground text-sm">No users found. Try a different name or username.</p>
                 </div>
               ) : null}
             </div>
 
             {/* QR Add */}
-            <div className="bg-white border border-[#EBEBEB] rounded-2xl p-4">
-              <p className="text-[#8D8D8D] text-xs font-medium mb-2">Add by QR or Link</p>
+            <div className="bg-card border border-border rounded-2xl p-4">
+              <p className="text-muted-foreground text-xs font-medium mb-2">Add by QR or Link</p>
               <QRManualAdd onAdd={handleQrAdd} />
             </div>
           </motion.div>
@@ -770,14 +782,14 @@ export default function AddFriendsPage() {
           >
             <div className="flex items-center gap-2 mb-2">
               <Sparkles size={16} className="text-[#FF9800]" />
-              <p className="text-[#8D8D8D] text-xs font-medium">People you may know</p>
-              <button type="button" onClick={loadSuggestions} className="ml-auto text-[#00C300] text-xs flex items-center gap-1">
+              <p className="text-muted-foreground text-xs font-medium">People you may know</p>
+              <button type="button" onClick={loadSuggestions} className="ml-auto text-primary text-xs flex items-center gap-1">
                 <RefreshCw size={12} className={loadingSuggestions ? 'animate-spin' : ''} /> Refresh
               </button>
             </div>
             {loadingSuggestions ? (
               <div className="flex items-center justify-center py-8">
-                <Loader size={18} className="animate-spin text-[#00C300]" />
+                <Loader size={18} className="animate-spin text-primary" />
               </div>
             ) : suggestions.length > 0 ? (
               suggestions.map((u) => (
@@ -792,9 +804,9 @@ export default function AddFriendsPage() {
               ))
             ) : (
               <div className="text-center py-8">
-                <Users size={32} className="text-[#EBEBEB] mx-auto mb-2" />
-                <p className="text-[#8D8D8D] text-sm">No suggestions yet</p>
-                <p className="text-[#C7C7CC] text-xs mt-1">More users will appear as the app grows</p>
+                <Users size={32} className="text-border mx-auto mb-2" />
+                <p className="text-muted-foreground text-sm">No suggestions yet</p>
+                <p className="text-muted-foreground text-xs mt-1">More users will appear as the app grows</p>
               </div>
             )}
           </motion.div>
@@ -812,8 +824,8 @@ export default function AddFriendsPage() {
             {/* Received Requests */}
             <div>
               <div className="flex items-center justify-between mb-2">
-                <p className="text-[#8D8D8D] text-xs font-medium">Received Requests</p>
-                <span className="text-[#00C300] text-xs font-medium">{pendingRequests.length}</span>
+                <p className="text-muted-foreground text-xs font-medium">Received Requests</p>
+                <span className="text-primary text-xs font-medium">{pendingRequests.length}</span>
               </div>
               {pendingRequests.length > 0 ? (
                 <div className="space-y-2">
@@ -824,26 +836,26 @@ export default function AddFriendsPage() {
                         key={req.id}
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
-                        className="flex items-center gap-3 p-4 bg-white rounded-xl border border-[#EBEBEB]"
+                        className="flex items-center gap-3 p-4 bg-card rounded-xl border border-border"
                       >
                         <div
-                          className="w-12 h-12 rounded-full bg-[#F5F5F5] flex items-center justify-center overflow-hidden shrink-0 cursor-pointer"
+                          className="w-12 h-12 rounded-full bg-secondary flex items-center justify-center overflow-hidden shrink-0 cursor-pointer"
                           onClick={() => sender && navigate(`/profile/${sender.id}`)}
                         >
                           {sender?.avatar ? (
                             <img src={sender.avatar} className="w-full h-full object-cover" alt="User avatar" />
                           ) : (
-                            <UserPlus size={20} className="text-[#8D8D8D]" />
+                            <UserPlus size={20} className="text-muted-foreground" />
                           )}
                         </div>
                         <div
                           className="flex-1 min-w-0 cursor-pointer"
                           onClick={() => sender && navigate(`/profile/${sender.id}`)}
                         >
-                          <p className="text-[#111111] text-sm font-medium">{sender?.name || 'Loading...'}</p>
-                          <p className="text-[#8D8D8D] text-xs truncate">@{sender?.username || req.from.slice(0, 8) + '...'}</p>
+                          <p className="text-foreground text-sm font-medium">{sender?.name || 'Loading...'}</p>
+                          <p className="text-muted-foreground text-xs truncate">@{sender?.username || req.from.slice(0, 8) + '...'}</p>
                           {sender?.bio && (
-                            <p className="text-[#8D8D8D] text-[10px] truncate mt-0.5">{sender.bio}</p>
+                            <p className="text-muted-foreground text-[10px] truncate mt-0.5">{sender.bio}</p>
                           )}
                         </div>
                         <div className="flex gap-2 shrink-0">
@@ -856,7 +868,7 @@ export default function AddFriendsPage() {
                               toast.error(err instanceof Error ? err.message : 'Failed to accept');
                             }
                           }}
-                            className="flex items-center gap-1 px-3 py-1.5 bg-[#00C300] text-white text-xs rounded-full font-bold active:bg-[#00A300] transition-colors"
+                            className="flex items-center gap-1 px-3 py-1.5 bg-primary text-white text-xs rounded-full font-bold active:bg-[#00A300] transition-colors"
                           >
                             <Check size={18} /> Accept
                           </button>
@@ -868,7 +880,7 @@ export default function AddFriendsPage() {
                               toast.error(err instanceof Error ? err.message : 'Failed to decline');
                             }
                           }}
-                            className="flex items-center gap-1 px-3 py-1.5 bg-[#F5F5F5] text-[#8D8D8D] text-xs rounded-full font-medium"
+                            className="flex items-center gap-1 px-3 py-1.5 bg-secondary text-muted-foreground text-xs rounded-full font-medium"
                           >
                             <X size={18} /> Decline
                           </button>
@@ -879,9 +891,9 @@ export default function AddFriendsPage() {
                 </div>
               ) : (
                 <div className="text-center py-6">
-                  <UserCheck size={28} className="text-[#EBEBEB] mx-auto mb-2" />
-                  <p className="text-[#8D8D8D] text-sm">No pending requests</p>
-                  <p className="text-[#C7C7CC] text-xs mt-1">Friend requests will appear here</p>
+                  <UserCheck size={28} className="text-border mx-auto mb-2" />
+                  <p className="text-muted-foreground text-sm">No pending requests</p>
+                  <p className="text-muted-foreground text-xs mt-1">Friend requests will appear here</p>
                 </div>
               )}
             </div>
@@ -889,8 +901,8 @@ export default function AddFriendsPage() {
             {/* Sent Requests */}
             <div>
               <div className="flex items-center justify-between mb-2">
-                <p className="text-[#8D8D8D] text-xs font-medium">Sent Requests</p>
-                <span className="text-[#8D8D8D] text-xs font-medium">{sentRequests.length}</span>
+                <p className="text-muted-foreground text-xs font-medium">Sent Requests</p>
+                <span className="text-muted-foreground text-xs font-medium">{sentRequests.length}</span>
               </div>
               {sentRequests.length > 0 ? (
                 <div className="space-y-2">
@@ -901,26 +913,26 @@ export default function AddFriendsPage() {
                         key={req.id}
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
-                        className="flex items-center gap-3 p-4 bg-white rounded-xl border border-[#EBEBEB]"
+                        className="flex items-center gap-3 p-4 bg-card rounded-xl border border-border"
                       >
                         <div
-                          className="w-12 h-12 rounded-full bg-[#F5F5F5] flex items-center justify-center overflow-hidden shrink-0 cursor-pointer"
+                          className="w-12 h-12 rounded-full bg-secondary flex items-center justify-center overflow-hidden shrink-0 cursor-pointer"
                           onClick={() => receiver && navigate(`/profile/${receiver.id}`)}
                         >
                           {receiver?.avatar ? (
                             <img src={receiver.avatar} className="w-full h-full object-cover" alt="User avatar" />
                           ) : (
-                            <Send size={18} className="text-[#8D8D8D]" />
+                            <Send size={18} className="text-muted-foreground" />
                           )}
                         </div>
                         <div
                           className="flex-1 min-w-0 cursor-pointer"
                           onClick={() => receiver && navigate(`/profile/${receiver.id}`)}
                         >
-                          <p className="text-[#111111] text-sm font-medium">{receiver?.name || 'Loading...'}</p>
-                          <p className="text-[#8D8D8D] text-xs truncate">@{receiver?.username || req.toUserId.slice(0, 8) + '...'}</p>
+                          <p className="text-foreground text-sm font-medium">{receiver?.name || 'Loading...'}</p>
+                          <p className="text-muted-foreground text-xs truncate">@{receiver?.username || req.toUserId.slice(0, 8) + '...'}</p>
                           {receiver?.bio && (
-                            <p className="text-[#8D8D8D] text-[10px] truncate mt-0.5">{receiver.bio}</p>
+                            <p className="text-muted-foreground text-[10px] truncate mt-0.5">{receiver.bio}</p>
                           )}
                         </div>
                         <button type="button" onClick={async () => {
@@ -931,7 +943,7 @@ export default function AddFriendsPage() {
                             toast.error(err instanceof Error ? err.message : 'Failed to cancel');
                           }
                         }}
-                          className="text-[#8D8D8D] text-xs font-medium hover:text-red-500 transition-colors shrink-0"
+                          className="text-muted-foreground text-xs font-medium hover:text-red-500 transition-colors shrink-0"
                         >
                           Cancel
                         </button>
@@ -941,9 +953,9 @@ export default function AddFriendsPage() {
                 </div>
               ) : (
                 <div className="text-center py-6">
-                  <Send size={28} className="text-[#EBEBEB] mx-auto mb-2" />
-                  <p className="text-[#8D8D8D] text-sm">No sent requests</p>
-                  <p className="text-[#C7C7CC] text-xs mt-1">Requests you send will appear here</p>
+                  <Send size={28} className="text-border mx-auto mb-2" />
+                  <p className="text-muted-foreground text-sm">No sent requests</p>
+                  <p className="text-muted-foreground text-xs mt-1">Requests you send will appear here</p>
                 </div>
               )}
             </div>
@@ -961,18 +973,18 @@ export default function AddFriendsPage() {
           >
             {!geoSupported ? (
               <div className="text-center py-8">
-                <MapPin size={32} className="text-[#EBEBEB] mx-auto mb-2" />
-                <p className="text-[#8D8D8D] text-sm">Location not supported</p>
-                <p className="text-[#C7C7CC] text-xs mt-1">Your browser does not support geolocation</p>
+                <MapPin size={32} className="text-border mx-auto mb-2" />
+                <p className="text-muted-foreground text-sm">Location not supported</p>
+                <p className="text-muted-foreground text-xs mt-1">Your browser does not support geolocation</p>
               </div>
             ) : !location ? (
               <div className="text-center py-8">
-                <Navigation size={32} className="text-[#00C300] mx-auto mb-2" />
-                <p className="text-[#8D8D8D] text-sm mb-3">Find friends nearby</p>
-                <p className="text-[#C7C7CC] text-xs mb-4">Enable location to discover GaGa Chat users around you</p>
+                <Navigation size={32} className="text-primary mx-auto mb-2" />
+                <p className="text-muted-foreground text-sm mb-3">Find friends nearby</p>
+                <p className="text-muted-foreground text-xs mb-4">Enable location to discover GaGa Chat users around you</p>
                 <button type="button" onClick={getLocation}
                   disabled={geoLoading}
-                  className="px-6 py-3 bg-[#00C300] text-white rounded-full text-sm font-bold active:bg-[#00A300] transition-colors disabled:opacity-50"
+                  className="px-6 py-3 bg-primary text-white rounded-full text-sm font-bold active:bg-[#00A300] transition-colors disabled:opacity-50"
                 >
                   {geoLoading ? <Loader size={16} className="animate-spin" /> : <MapPin size={16} />}
                   {geoLoading ? 'Getting location...' : 'Enable Location'}
@@ -980,17 +992,17 @@ export default function AddFriendsPage() {
               </div>
             ) : loadingNearby ? (
               <div className="flex justify-center py-8">
-                <Loader size={24} className="text-[#00C300] animate-spin" />
+                <Loader size={24} className="text-primary animate-spin" />
               </div>
             ) : nearbyUsers.length === 0 ? (
               <div className="text-center py-8">
-                <Users size={32} className="text-[#EBEBEB] mx-auto mb-2" />
-                <p className="text-[#8D8D8D] text-sm">No nearby users found</p>
-                <p className="text-[#C7C7CC] text-xs mt-1">Try again later or expand your search</p>
+                <Users size={32} className="text-border mx-auto mb-2" />
+                <p className="text-muted-foreground text-sm">No nearby users found</p>
+                <p className="text-muted-foreground text-xs mt-1">Try again later or expand your search</p>
               </div>
             ) : (
               <div className="space-y-2">
-                <p className="text-[#8D8D8D] text-xs mb-2">Found {nearbyUsers.length} users nearby</p>
+                <p className="text-muted-foreground text-xs mb-2">Found {nearbyUsers.length} users nearby</p>
                 {nearbyUsers.map(u => (
                   <UserCard
                     key={u.id}
@@ -1017,19 +1029,19 @@ export default function AddFriendsPage() {
             {!contactsSupported ? (
               <div className="space-y-6">
                 {/* Manual phone search fallback */}
-                <div className="bg-white border border-[#EBEBEB] rounded-2xl p-4">
+                <div className="bg-card border border-border rounded-2xl p-4">
                   <div className="flex items-center gap-2 mb-3">
-                    <Phone size={18} className="text-[#00C300]" />
-                    <h3 className="text-sm font-bold text-[#111111]">Find by Phone</h3>
+                    <Phone size={18} className="text-primary" />
+                    <h3 className="text-sm font-bold text-foreground">Find by Phone</h3>
                   </div>
-                  <p className="text-xs text-[#8D8D8D] mb-3">
+                  <p className="text-xs text-muted-foreground mb-3">
                     Your browser doesn't support contact import. You can search by phone number instead.
                   </p>
                   <div className="flex gap-2">
                     <input
                       type="tel"
                       placeholder="Enter phone number..."
-                      className="flex-1 bg-[#F5F5F5] rounded-xl px-4 py-2.5 text-sm text-[#111111] placeholder:text-[#8D8D8D] focus:outline-none focus:ring-2 focus:ring-[#00C300]"
+                      className="flex-1 bg-secondary rounded-xl px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
                       onKeyDown={(e) => {
                         if (e.key === 'Enter') {
                           const val = (e.target as HTMLInputElement).value.trim();
@@ -1043,7 +1055,7 @@ export default function AddFriendsPage() {
                         const input = (e.target as HTMLElement).closest('div')?.querySelector('input') as HTMLInputElement;
                         if (input?.value.trim()) { setSearchQuery(input.value.trim()); setActiveTab('search'); }
                       }}
-                      className="px-4 py-2.5 bg-[#00C300] text-white rounded-xl text-sm font-bold"
+                      className="px-4 py-2.5 bg-primary text-white rounded-xl text-sm font-bold"
                     >
                       <Search size={16} />
                     </button>
@@ -1051,12 +1063,12 @@ export default function AddFriendsPage() {
                 </div>
 
                 {/* Invite friends */}
-                <div className="bg-white border border-[#EBEBEB] rounded-2xl p-4">
+                <div className="bg-card border border-border rounded-2xl p-4">
                   <div className="flex items-center gap-2 mb-3">
                     <Share2 size={18} className="text-[#2196F3]" />
-                    <h3 className="text-sm font-bold text-[#111111]">Invite Friends</h3>
+                    <h3 className="text-sm font-bold text-foreground">Invite Friends</h3>
                   </div>
-                  <p className="text-xs text-[#8D8D8D] mb-3">
+                  <p className="text-xs text-muted-foreground mb-3">
                     Share your invite link with friends so they can join GaGa Chat.
                   </p>
                   <button
@@ -1069,56 +1081,56 @@ export default function AddFriendsPage() {
                 </div>
 
                 {/* Alternative methods */}
-                <div className="bg-white border border-[#EBEBEB] rounded-2xl p-4">
+                <div className="bg-card border border-border rounded-2xl p-4">
                   <div className="flex items-center gap-2 mb-3">
                     <QrCode size={18} className="text-[#FF9800]" />
-                    <h3 className="text-sm font-bold text-[#111111]">Other Ways to Connect</h3>
+                    <h3 className="text-sm font-bold text-foreground">Other Ways to Connect</h3>
                   </div>
                   <div className="space-y-2">
                     <button
                       type="button"
                       onClick={() => setActiveTab('search')}
-                      className="w-full flex items-center justify-between p-3 bg-[#F5F5F5] rounded-xl text-left"
+                      className="w-full flex items-center justify-between p-3 bg-secondary rounded-xl text-left"
                     >
                       <div className="flex items-center gap-2">
-                        <Search size={16} className="text-[#8D8D8D]" />
-                        <span className="text-sm text-[#111111]">Search by username</span>
+                        <Search size={16} className="text-muted-foreground" />
+                        <span className="text-sm text-foreground">Search by username</span>
                       </div>
-                      <ChevronRight size={16} className="text-[#C7C7CC]" />
+                      <ChevronRight size={16} className="text-muted-foreground" />
                     </button>
                     <button
                       type="button"
                       onClick={() => setActiveTab('nearby')}
-                      className="w-full flex items-center justify-between p-3 bg-[#F5F5F5] rounded-xl text-left"
+                      className="w-full flex items-center justify-between p-3 bg-secondary rounded-xl text-left"
                     >
                       <div className="flex items-center gap-2">
-                        <MapPin size={16} className="text-[#8D8D8D]" />
-                        <span className="text-sm text-[#111111]">Find nearby users</span>
+                        <MapPin size={16} className="text-muted-foreground" />
+                        <span className="text-sm text-foreground">Find nearby users</span>
                       </div>
-                      <ChevronRight size={16} className="text-[#C7C7CC]" />
+                      <ChevronRight size={16} className="text-muted-foreground" />
                     </button>
                     <button
                       type="button"
                       onClick={() => setShowQrModal(true)}
-                      className="w-full flex items-center justify-between p-3 bg-[#F5F5F5] rounded-xl text-left"
+                      className="w-full flex items-center justify-between p-3 bg-secondary rounded-xl text-left"
                     >
                       <div className="flex items-center gap-2">
-                        <QrCode size={16} className="text-[#8D8D8D]" />
-                        <span className="text-sm text-[#111111]">Scan QR code</span>
+                        <QrCode size={16} className="text-muted-foreground" />
+                        <span className="text-sm text-foreground">Scan QR code</span>
                       </div>
-                      <ChevronRight size={16} className="text-[#C7C7CC]" />
+                      <ChevronRight size={16} className="text-muted-foreground" />
                     </button>
                   </div>
                 </div>
               </div>
             ) : contacts.length === 0 ? (
               <div className="text-center py-8">
-                <BookUser size={32} className="text-[#00C300] mx-auto mb-2" />
-                <p className="text-[#8D8D8D] text-sm mb-3">Import your phone contacts</p>
-                <p className="text-[#C7C7CC] text-xs mb-4">Find friends who are already on GaGa Chat</p>
+                <BookUser size={32} className="text-primary mx-auto mb-2" />
+                <p className="text-muted-foreground text-sm mb-3">Import your phone contacts</p>
+                <p className="text-muted-foreground text-xs mb-4">Find friends who are already on GaGa Chat</p>
                 <button type="button" onClick={selectContacts}
                   disabled={contactsLoading}
-                  className="px-6 py-3 bg-[#00C300] text-white rounded-full text-sm font-bold active:bg-[#00A300] transition-colors disabled:opacity-50"
+                  className="px-6 py-3 bg-primary text-white rounded-full text-sm font-bold active:bg-[#00A300] transition-colors disabled:opacity-50"
                 >
                   {contactsLoading ? <Loader size={16} className="animate-spin" /> : <BookUser size={16} />}
                   {contactsLoading ? 'Importing...' : 'Import Contacts'}
@@ -1126,12 +1138,12 @@ export default function AddFriendsPage() {
               </div>
             ) : (
               <div className="space-y-2">
-                <p className="text-[#8D8D8D] text-xs mb-2">
+                <p className="text-muted-foreground text-xs mb-2">
                   {contacts.length} contacts imported {contactMatches.length > 0 && `· ${contactMatches.length} on GaGa Chat`}
                 </p>
                 {loadingContacts && (
                   <div className="flex justify-center py-4">
-                    <Loader size={20} className="text-[#00C300] animate-spin" />
+                    <Loader size={20} className="text-primary animate-spin" />
                   </div>
                 )}
                 {contactMatches.length > 0 ? (
@@ -1145,8 +1157,8 @@ export default function AddFriendsPage() {
                   ))
                 ) : !loadingContacts && (
                   <div className="text-center py-4">
-                    <p className="text-[#8D8D8D] text-sm">No contacts found on GaGa Chat yet</p>
-                    <p className="text-[#C7C7CC] text-xs mt-1">Invite them to join!</p>
+                    <p className="text-muted-foreground text-sm">No contacts found on GaGa Chat yet</p>
+                    <p className="text-muted-foreground text-xs mt-1">Invite them to join!</p>
                   </div>
                 )}
               </div>
@@ -1169,35 +1181,35 @@ export default function AddFriendsPage() {
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-white rounded-3xl p-6 max-w-sm w-full"
+              className="bg-card rounded-3xl p-6 max-w-sm w-full"
               onClick={e => e.stopPropagation()}
             >
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-bold text-[#111111]">My QR Code</h2>
-                <button type="button" onClick={() => setShowQrModal(false)} className="p-1 text-[#8D8D8D]">
+                <h2 className="text-lg font-bold text-foreground">My QR Code</h2>
+                <button type="button" onClick={() => setShowQrModal(false)} className="p-1 text-muted-foreground">
                   <Ban size={18} />
                 </button>
               </div>
-              <div className="bg-[#F5F5F5] rounded-2xl p-6 mb-4">
-                <div className="w-48 h-48 mx-auto bg-white rounded-xl p-4 flex flex-col items-center justify-center gap-3">
-                  <QrCode size={48} className="text-[#00C300]" />
-                  <p className="text-center text-[#111111] text-xs font-medium break-all px-1">{myLink}</p>
+              <div className="bg-secondary rounded-2xl p-6 mb-4">
+                <div className="w-48 h-48 mx-auto bg-card rounded-xl p-4 flex flex-col items-center justify-center gap-3">
+                  <QrCode size={48} className="text-primary" />
+                  <p className="text-center text-foreground text-xs font-medium break-all px-1">{myLink}</p>
                   <button type="button" onClick={() => { handleCopyLink(); }}
-                    className="flex items-center gap-1 px-3 py-1.5 bg-[#00C300] text-white text-xs rounded-full font-medium"
+                    className="flex items-center gap-1 px-3 py-1.5 bg-primary text-white text-xs rounded-full font-medium"
                   >
                     <Copy size={14} /> Copy Link
                   </button>
                 </div>
-                <p className="text-center text-[#8D8D8D] text-xs mt-3">Scan to add me on GaGa Chat</p>
+                <p className="text-center text-muted-foreground text-xs mt-3">Scan to add me on GaGa Chat</p>
               </div>
               <div className="flex gap-2">
                 <button type="button" onClick={() => { handleCopyLink(); setShowQrModal(false); }}
-                  className="flex-1 flex items-center justify-center gap-2 py-3 bg-[#F5F5F5] text-[#111111] rounded-xl text-sm font-bold"
+                  className="flex-1 flex items-center justify-center gap-2 py-3 bg-secondary text-foreground rounded-xl text-sm font-bold"
                 >
                   <Copy size={16} /> Copy Link
                 </button>
                 <button type="button" onClick={() => { handleShare(); setShowQrModal(false); }}
-                  className="flex-1 flex items-center justify-center gap-2 py-3 bg-[#00C300] text-white rounded-xl text-sm font-bold"
+                  className="flex-1 flex items-center justify-center gap-2 py-3 bg-primary text-white rounded-xl text-sm font-bold"
                 >
                   <Share2 size={16} /> Share
                 </button>
@@ -1247,11 +1259,11 @@ function QRManualAdd({ onAdd }: { onAdd: (data: string) => void }) {
           value={input}
           onChange={e => setInput(e.target.value)}
           placeholder="Paste Gaga Chat link or user ID"
-          className="flex-1 bg-[#F5F5F5] rounded-xl px-4 py-3 text-[#111111] text-sm focus:outline-none focus:ring-2 focus:ring-[#00C300] placeholder:text-[#8D8D8D]"
+          className="flex-1 bg-secondary rounded-xl px-4 py-3 text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
         />
         <button type="button" onClick={() => { if (input) { onAdd(input); setInput(''); } }}
           disabled={!input}
-          className="px-4 py-3 bg-[#00C300] text-white rounded-xl text-sm font-bold disabled:opacity-30 active:bg-[#00A300] transition-colors"
+          className="px-4 py-3 bg-primary text-white rounded-xl text-sm font-bold disabled:opacity-30 active:bg-[#00A300] transition-colors"
         >
           <UserPlus size={16} />
         </button>
@@ -1259,7 +1271,7 @@ function QRManualAdd({ onAdd }: { onAdd: (data: string) => void }) {
       <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleFile} />
       <button type="button" onClick={() => fileRef.current?.click()}
         disabled={scanning}
-        className="w-full flex items-center justify-center gap-2 py-2.5 bg-[#F5F5F5] text-[#8D8D8D] rounded-xl text-xs font-medium hover:text-[#111111] transition-colors"
+        className="w-full flex items-center justify-center gap-2 py-2.5 bg-secondary text-muted-foreground rounded-xl text-xs font-medium hover:text-foreground transition-colors"
       >
         {scanning ? <Loader size={14} className="animate-spin" /> : <QrCode size={14} />}
         {scanning ? 'Scanning...' : 'Upload QR Image'}

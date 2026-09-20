@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import { ArrowLeft, Loader, MessageCircle, X, Copy, Share2, Mail } from 'lucide-react';
 import { useAuthStore } from '@/store/useAuthStore';
 import { isFirestoreAvailable, COLLECTIONS, increment, updateDocById, subscribeToDoc } from '@/lib/firestore';
+import { getDb } from '@/lib/supabaseDb';
 import TimelineCard from '@/components/features/timeline/TimelineCard';
 import EmptyState from '@/components/EmptyState';
 import { getDefaultAvatar } from '@/lib/utils';
@@ -117,7 +118,13 @@ export default function PostPage() {
         if (!viewed) {
           viewed = true;
           try {
-            updateDocById(COLLECTIONS.POSTS, id, { viewCount: increment(1) }).catch(() => { /* ignore */ });
+            // Server-authoritative view increment (RLS-safe on any user's post).
+            const db = getDb();
+            if (db) {
+              db.rpc('increment_post_view', { p_post_id: id }).then(() => undefined, () => undefined);
+            } else {
+              updateDocById(COLLECTIONS.POSTS, id, { viewCount: increment(1) }).catch(() => { /* ignore */ });
+            }
           } catch { /* ignore */ }
         }
       }
@@ -145,7 +152,7 @@ export default function PostPage() {
       <div className="flex-1 overflow-y-auto">
         {loading ? (
           <div className="flex items-center justify-center py-20">
-            <Loader size={20} className="animate-spin text-[#00C300]" />
+            <Loader size={20} className="animate-spin text-primary" />
           </div>
         ) : notFound || !post ? (
           <div className="px-4 py-16">
@@ -190,7 +197,7 @@ export default function PostPage() {
           >
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-white font-semibold">Share Post</h3>
-              <button type="button" onClick={() => setShowShareModal(false)} className="text-[#8D8D8D] hover:text-white p-1" aria-label="Close">
+              <button type="button" onClick={() => setShowShareModal(false)} className="text-muted-foreground hover:text-white p-1" aria-label="Close">
                 <X size={18} />
               </button>
             </div>
@@ -222,8 +229,8 @@ export default function PostPage() {
                     onClick={() => setShowShareModal(false)} className={`${base} bg-[#0A66C2]/20 hover:bg-[#0A66C2]/30`}>
                     <span className="text-lg">💼</span> LinkedIn
                   </a>
-                  <a href={emailShareUrl({ title, text, url })} onClick={() => setShowShareModal(false)} className={`${base} bg-[#8D8D8D]/20 hover:bg-[#8D8D8D]/30`}>
-                    <Mail size={18} className="text-[#8D8D8D]" /> Email
+                  <a href={emailShareUrl({ title, text, url })} onClick={() => setShowShareModal(false)} className={`${base} bg-muted-foreground/20 hover:bg-muted-foreground/30`}>
+                    <Mail size={18} className="text-muted-foreground" /> Email
                   </a>
 
                   <div className="border-t border-[#2a2a2a] my-1" />
@@ -240,7 +247,7 @@ export default function PostPage() {
                     }}
                     className={`${base} flex items-center justify-center gap-2 bg-[#2a2a2a] hover:bg-[#333]`}
                   >
-                    <Share2 size={18} className="text-[#00C300]" /> Share via...
+                    <Share2 size={18} className="text-primary" /> Share via...
                   </button>
                   <button
                     type="button"
@@ -251,7 +258,7 @@ export default function PostPage() {
                     }}
                     className={`${base} flex items-center justify-center gap-2 bg-[#2a2a2a] hover:bg-[#333]`}
                   >
-                    <Copy size={18} className="text-[#00C300]" /> Copy Link
+                    <Copy size={18} className="text-primary" /> Copy Link
                   </button>
                 </div>
               );

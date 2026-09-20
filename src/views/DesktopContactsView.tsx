@@ -109,39 +109,39 @@ const handleUnblock = useCallback(async (blockedId: string) => {
   };
 
   return (
-    <div className="h-full flex flex-col bg-white">
-      <div className="shrink-0 p-4 border-b border-[#EBEBEB]">
+    <div className="h-full flex flex-col bg-card">
+      <div className="shrink-0 p-4 border-b border-border">
         <div className="flex items-center justify-between mb-4">
-          <h1 className="text-xl font-bold text-[#111111] flex items-center gap-2">
-            <Users size={20} className="text-[#00C300]" /> Contacts
+          <h1 className="text-xl font-bold text-foreground flex items-center gap-2">
+            <Users size={20} className="text-primary" /> Contacts
           </h1>
           <div className="flex items-center gap-2">
             <button type="button" onClick={() => navigate('/qr-scanner')}
-              className="flex items-center gap-2 px-3 py-2 bg-[#F5F5F5] text-[#111111] text-sm font-medium rounded-full hover:bg-[#EBEBEB] transition-colors"
+              className="flex items-center gap-2 px-3 py-2 bg-secondary text-foreground text-sm font-medium rounded-full hover:bg-accent transition-colors"
               title="Scan QR Code"
             >
               <QrCode size={16} />
             </button>
             <button type="button" onClick={() => navigate('/add-friends')}
-              className="flex items-center gap-2 px-3 py-2 bg-[#F5F5F5] text-[#111111] text-sm font-medium rounded-full hover:bg-[#EBEBEB] transition-colors"
+              className="flex items-center gap-2 px-3 py-2 bg-secondary text-foreground text-sm font-medium rounded-full hover:bg-accent transition-colors"
               title="Find Nearby"
             >
               <MapPin size={16} />
             </button>
             <button type="button" onClick={() => navigate('/add-friends')}
-              className="flex items-center gap-2 px-4 py-2 bg-[#00C300] text-white text-sm font-medium rounded-full hover:bg-[#00A300] transition-colors"
+              className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground text-sm font-medium rounded-full hover:bg-primary/90 transition-colors"
             >
               <UserPlus size={16} /> Add Friend
             </button>
           </div>
         </div>
         <div className="relative mb-3">
-          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8D8D8D]" />
+          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <input
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder="Search friends..."
-            className="w-full bg-[#F5F5F5] border-none rounded-xl pl-10 pr-4 py-2.5 text-[#111111] text-sm focus:outline-none focus:ring-2 focus:ring-[#00C300] placeholder:text-[#8D8D8D]"
+            className="w-full bg-secondary border-none rounded-xl pl-10 pr-4 py-2.5 text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
           />
         </div>
         <div className="flex gap-2 overflow-x-auto scrollbar-hide">
@@ -149,7 +149,7 @@ const handleUnblock = useCallback(async (blockedId: string) => {
             <button type="button" key={t}
               onClick={() => setTab(t)}
               className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
-                tab === t ? 'bg-[#00C300] text-white' : 'bg-[#F5F5F5] text-[#8D8D8D] hover:text-[#111111]'
+                tab === t ? 'bg-primary text-primary-foreground' : 'bg-secondary text-muted-foreground hover:text-foreground'
               }`}
             >
               {tabLabels[t]}
@@ -172,24 +172,24 @@ const handleUnblock = useCallback(async (blockedId: string) => {
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: i * 0.05 }}
-                    className="flex items-center gap-3 p-4 bg-[#F5F5F5] rounded-xl"
+                    className="flex items-center gap-3 p-4 bg-secondary rounded-xl"
                   >
                     <img
                       src={sanitizeMediaUrl(req.fromUser?.avatar) || getDefaultAvatar(req.fromUser?.id || req.from)}
                       alt="User avatar"
-                      className="w-10 h-10 rounded-full object-cover shrink-0 bg-white"
+                      className="w-10 h-10 rounded-full object-cover shrink-0 bg-card"
                       onError={(e) => { (e.target as HTMLImageElement).src = getDefaultAvatar(req.from); }}
                     />
                     <div className="flex-1 min-w-0">
-                      <p className="text-[#111111] text-sm font-medium truncate">{req.fromUser?.name || req.from}</p>
-                      <p className="text-[#8D8D8D] text-xs truncate">@{req.fromUser?.username || 'user'}</p>
+                      <p className="text-foreground text-sm font-medium truncate">{req.fromUser?.name || req.from}</p>
+                      <p className="text-muted-foreground text-xs truncate">@{req.fromUser?.username || 'user'}</p>
                     </div>
                     <div className="flex gap-2">
                       <button type="button" onClick={async () => {
                           try { await acceptRequest(req.id); toast.success('Friend request accepted'); }
                           catch { toast.error('Failed to accept request'); }
                         }}
-                        className="px-4 py-2 bg-[#00C300] text-white text-sm rounded-full font-medium hover:bg-[#00A300] transition-colors"
+                        className="px-4 py-2 bg-primary text-primary-foreground text-sm rounded-full font-medium hover:bg-primary/90 transition-colors"
                       >
                         Accept
                       </button>
@@ -197,7 +197,7 @@ const handleUnblock = useCallback(async (blockedId: string) => {
                           try { await rejectRequest(req.id); toast.success('Request declined'); }
                           catch { toast.error('Failed to decline request'); }
                         }}
-                        className="px-4 py-2 bg-white text-[#8D8D8D] text-sm rounded-full hover:bg-gray-100 transition-colors"
+                        className="px-4 py-2 bg-card text-muted-foreground text-sm rounded-full hover:bg-gray-100 transition-colors"
                       >
                         Decline
                       </button>
@@ -215,8 +215,8 @@ const handleUnblock = useCallback(async (blockedId: string) => {
                 <div className="p-4 space-y-3">
                   {[1, 2, 3].map(i => (
                     <div key={i} className="flex items-center gap-3 animate-pulse">
-                      <div className="w-10 h-10 rounded-full bg-[#F5F5F5]" />
-                      <div className="flex-1"><div className="h-3 bg-[#F5F5F5] rounded w-1/3 mb-1" /><div className="h-2 bg-[#F5F5F5] rounded w-1/2" /></div>
+                      <div className="w-10 h-10 rounded-full bg-secondary" />
+                      <div className="flex-1"><div className="h-3 bg-secondary rounded w-1/3 mb-1" /><div className="h-2 bg-secondary rounded w-1/2" /></div>
                     </div>
                   ))}
                 </div>
@@ -229,9 +229,9 @@ const handleUnblock = useCallback(async (blockedId: string) => {
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: i * 0.05 }}
-                    className="flex items-center gap-3 p-4 bg-[#F5F5F5] rounded-xl"
+                    className="flex items-center gap-3 p-4 bg-secondary rounded-xl"
                   >
-                    <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center shrink-0 overflow-hidden">
+                    <div className="w-10 h-10 rounded-full bg-card flex items-center justify-center shrink-0 overflow-hidden">
                       {sanitizeMediaUrl(req.toUser?.avatar) ? (
                         <img src={sanitizeMediaUrl(req.toUser?.avatar)} className="w-full h-full object-cover" alt="User avatar" />
                       ) : (
@@ -239,12 +239,12 @@ const handleUnblock = useCallback(async (blockedId: string) => {
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-[#111111] text-sm font-medium">{req.toUser?.name || 'User'}</p>
-                      <p className="text-[#8D8D8D] text-xs">@{req.toUser?.username || req.toUserId?.slice(0, 8)}</p>
-                      <p className="text-[#8D8D8D] text-[10px] mt-0.5">Sent {formatTime(req.timestamp)}</p>
+                      <p className="text-foreground text-sm font-medium">{req.toUser?.name || 'User'}</p>
+                      <p className="text-muted-foreground text-xs">@{req.toUser?.username || req.toUserId?.slice(0, 8)}</p>
+                      <p className="text-muted-foreground text-[10px] mt-0.5">Sent {formatTime(req.timestamp)}</p>
                     </div>
                     <button type="button" onClick={() => handleCancel(req.id)}
-                      className="flex items-center gap-1 px-3 py-1.5 bg-white text-[#FF3B30] text-xs rounded-full font-medium hover:bg-gray-100 transition-colors"
+                      className="flex items-center gap-1 px-3 py-1.5 bg-card text-destructive text-xs rounded-full font-medium hover:bg-gray-100 transition-colors"
                     >
                       <X size={12} /> Cancel
                     </button>
@@ -261,8 +261,8 @@ const handleUnblock = useCallback(async (blockedId: string) => {
                 <div className="p-4 space-y-3">
                   {[1, 2, 3].map(i => (
                     <div key={i} className="flex items-center gap-3 animate-pulse">
-                      <div className="w-10 h-10 rounded-full bg-[#F5F5F5]" />
-                      <div className="flex-1"><div className="h-3 bg-[#F5F5F5] rounded w-1/3 mb-1" /><div className="h-2 bg-[#F5F5F5] rounded w-1/2" /></div>
+                      <div className="w-10 h-10 rounded-full bg-secondary" />
+                      <div className="flex-1"><div className="h-3 bg-secondary rounded w-1/3 mb-1" /><div className="h-2 bg-secondary rounded w-1/2" /></div>
                     </div>
                   ))}
                 </div>
@@ -275,9 +275,9 @@ const handleUnblock = useCallback(async (blockedId: string) => {
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: i * 0.05 }}
-                    className="flex items-center gap-3 p-4 bg-[#F5F5F5] rounded-xl"
+                    className="flex items-center gap-3 p-4 bg-secondary rounded-xl"
                   >
-                    <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center shrink-0 overflow-hidden">
+                    <div className="w-10 h-10 rounded-full bg-card flex items-center justify-center shrink-0 overflow-hidden">
                       {sanitizeMediaUrl(record.blockedUser?.avatar) ? (
                         <img src={sanitizeMediaUrl(record.blockedUser?.avatar)} className="w-full h-full object-cover" alt="User avatar" />
                       ) : (
@@ -285,12 +285,12 @@ const handleUnblock = useCallback(async (blockedId: string) => {
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-[#111111] text-sm font-medium">{record.blockedUser?.name || 'User'}</p>
-                      <p className="text-[#8D8D8D] text-xs">@{record.blockedUser?.username || record.blockedId?.slice(0, 8)}</p>
-                      {record.reason && <p className="text-[#8D8D8D] text-[10px] mt-0.5 truncate">Reason: {record.reason}</p>}
+                      <p className="text-foreground text-sm font-medium">{record.blockedUser?.name || 'User'}</p>
+                      <p className="text-muted-foreground text-xs">@{record.blockedUser?.username || record.blockedId?.slice(0, 8)}</p>
+                      {record.reason && <p className="text-muted-foreground text-[10px] mt-0.5 truncate">Reason: {record.reason}</p>}
                     </div>
                     <button type="button" onClick={() => handleUnblock(record.blockedId)}
-                      className="flex items-center gap-1 px-3 py-1.5 bg-white text-[#00C300] text-xs rounded-full font-medium hover:bg-gray-100 transition-colors"
+                      className="flex items-center gap-1 px-3 py-1.5 bg-card text-primary text-xs rounded-full font-medium hover:bg-gray-100 transition-colors"
                     >
                       <UserPlus size={12} /> Unblock
                     </button>
@@ -307,10 +307,10 @@ const handleUnblock = useCallback(async (blockedId: string) => {
                 <div className="p-4 space-y-3">
                   {[1, 2, 3, 4].map(i => (
                     <div key={i} className="flex items-center gap-3 animate-pulse">
-                      <div className="w-10 h-10 rounded-full bg-[#F5F5F5]" />
+                      <div className="w-10 h-10 rounded-full bg-secondary" />
                       <div className="flex-1">
-                        <div className="h-3 bg-[#F5F5F5] rounded w-1/3 mb-1" />
-                        <div className="h-2 bg-[#F5F5F5] rounded w-1/2" />
+                        <div className="h-3 bg-secondary rounded w-1/3 mb-1" />
+                        <div className="h-2 bg-secondary rounded w-1/2" />
                       </div>
                     </div>
                   ))}
@@ -337,10 +337,10 @@ const handleUnblock = useCallback(async (blockedId: string) => {
                     >
                       <button type="button"
                         onClick={(e) => { e.stopPropagation(); setActionMenu(showMenu ? null : friend.id); }}
-                        className="w-full flex items-center gap-3 p-4 hover:bg-[#F5F5F5] transition-colors text-left"
+                        className="w-full flex items-center gap-3 p-4 hover:bg-secondary transition-colors text-left"
                       >
                         <div className="relative">
-                          <div className="w-10 h-10 rounded-full bg-[#F5F5F5] flex items-center justify-center overflow-hidden shrink-0">
+                          <div className="w-10 h-10 rounded-full bg-secondary flex items-center justify-center overflow-hidden shrink-0">
                             {sanitizeMediaUrl(friend.avatar) ? (
                               <img src={sanitizeMediaUrl(friend.avatar)} className="w-full h-full object-cover" alt="User avatar" />
                             ) : (
@@ -348,15 +348,15 @@ const handleUnblock = useCallback(async (blockedId: string) => {
                             )}
                           </div>
                           {isOnline && (
-                            <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-[#00C300] rounded-full border-2 border-white" />
+                            <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-primary rounded-full border-2 border-white" />
                           )}
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-1">
-                            <p className="text-[#111111] text-sm font-medium">{friend.name || 'User'}</p>
-                            {isFav && <Star size={12} className="text-[#00C300] fill-current" />}
+                            <p className="text-foreground text-sm font-medium">{friend.name || 'User'}</p>
+                            {isFav && <Star size={12} className="text-primary fill-current" />}
                           </div>
-                          <p className="text-[#8D8D8D] text-xs">
+                          <p className="text-muted-foreground text-xs">
                             {friend.statusMessage || (isOnline ? 'Online' : 'Offline')}
                           </p>
                         </div>
@@ -368,36 +368,36 @@ const handleUnblock = useCallback(async (blockedId: string) => {
                             initial={{ opacity: 0, height: 0 }}
                             animate={{ opacity: 1, height: 'auto' }}
                             exit={{ opacity: 0, height: 0 }}
-                            className="overflow-hidden bg-white border-t border-[#EBEBEB]"
+                            className="overflow-hidden bg-card border-t border-border"
                           >
                             <div className="flex flex-wrap gap-2 px-14 py-2">
                               <button type="button" onClick={(e) => { e.stopPropagation(); navigate(`/chat/${friend.id}`); }}
-                                className="flex items-center gap-1 px-3 py-1.5 bg-[#00C300]/10 text-[#00C300] text-xs rounded-full font-medium hover:bg-[#00C300]/20 transition-colors"
+                                className="flex items-center gap-1 px-3 py-1.5 bg-primary/10 text-primary text-xs rounded-full font-medium hover:bg-primary/20 transition-colors"
                               >
                                 <MessageCircle size={12} /> Message
                               </button>
                               <button type="button" onClick={(e) => { e.stopPropagation(); navigate('/call', { state: { userId: friend.id, mode: 'voice' } }); }}
-                                className="flex items-center gap-1 px-3 py-1.5 bg-[#2196F3]/10 text-[#2196F3] text-xs rounded-full font-medium hover:bg-[#2196F3]/20 transition-colors"
+                                className="flex items-center gap-1 px-3 py-1.5 bg-[#2196F3]/10 text-blue-500 text-xs rounded-full font-medium hover:bg-blue-500/20 transition-colors"
                               >
                                 <Phone size={12} /> Voice
                               </button>
                               <button type="button" onClick={(e) => { e.stopPropagation(); navigate('/call', { state: { userId: friend.id, mode: 'video' } }); }}
-                                className="flex items-center gap-1 px-3 py-1.5 bg-[#8B5CF6]/10 text-[#8B5CF6] text-xs rounded-full font-medium hover:bg-[#8B5CF6]/20 transition-colors"
+                                className="flex items-center gap-1 px-3 py-1.5 bg-[#8B5CF6]/10 text-purple-500 text-xs rounded-full font-medium hover:bg-purple-500/20 transition-colors"
                               >
                                 <Video size={12} /> Video
                               </button>
                               <button type="button" onClick={(e) => { e.stopPropagation(); handleToggleFavorite(friend.id); }}
-                                className="flex items-center gap-1 px-3 py-1.5 bg-[#FF9800]/10 text-[#FF9800] text-xs rounded-full font-medium hover:bg-[#FF9800]/20 transition-colors"
+                                className="flex items-center gap-1 px-3 py-1.5 bg-[#FF9800]/10 text-amber-500 text-xs rounded-full font-medium hover:bg-amber-500/20 transition-colors"
                               >
                                 {isFav ? <><StarOff size={12} /> Unstar</> : <><Star size={12} /> Star</>}
                               </button>
                               <button type="button" onClick={(e) => { e.stopPropagation(); handleBlock(friend.id); }}
-                                className="flex items-center gap-1 px-3 py-1.5 bg-[#FF3B30]/10 text-[#FF3B30] text-xs rounded-full font-medium hover:bg-[#FF3B30]/20 transition-colors"
+                                className="flex items-center gap-1 px-3 py-1.5 bg-destructive/10 text-destructive text-xs rounded-full font-medium hover:bg-destructive/20 transition-colors"
                               >
                                 <Ban size={12} /> Block
                               </button>
                               <button type="button" onClick={(e) => { e.stopPropagation(); handleRemoveFriend(friend.id); }}
-                                className="flex items-center gap-1 px-3 py-1.5 bg-[#FF3B30]/10 text-[#FF3B30] text-xs rounded-full font-medium hover:bg-[#FF3B30]/20 transition-colors"
+                                className="flex items-center gap-1 px-3 py-1.5 bg-destructive/10 text-destructive text-xs rounded-full font-medium hover:bg-destructive/20 transition-colors"
                               >
                                 <Trash2 size={12} /> Remove
                               </button>

@@ -127,17 +127,17 @@ export const MediaGallery = memo(function MediaGallery({ images, initialIndex, o
         onClick={onClose}
       >
         <div className="absolute top-0 left-0 right-0 z-10 flex items-center justify-between px-4 py-3 bg-gradient-to-b from-black/60 to-transparent">
-          <button type="button" onClick={onClose} className="p-2 text-white/80 hover:text-white" aria-label="Close gallery">
+          <button type="button" onClick={onClose} className="p-2 text-primary-foreground/80 hover:text-primary-foreground" aria-label="Close gallery">
             <X size={24} />
           </button>
-          <span className="text-white/90 text-sm font-medium">
+          <span className="text-primary-foreground/90 text-sm font-medium">
             {currentIndex + 1} / {images.length}
           </span>
           <button
             type="button"
             onClick={handleDownload}
             disabled={downloading}
-            className="p-2 text-white/80 hover:text-white disabled:opacity-60"
+            className="p-2 text-primary-foreground/80 hover:text-primary-foreground disabled:opacity-60"
             aria-label="Download media"
           >
             <Download size={22} />
@@ -159,7 +159,7 @@ export const MediaGallery = memo(function MediaGallery({ images, initialIndex, o
                 e.stopPropagation();
                 goTo('prev');
               }}
-              className="absolute left-4 top-1/2 -translate-y-1/2 p-2 bg-white/10 hover:bg-white/20 rounded-full text-white transition-colors z-10"
+              className="absolute left-4 top-1/2 -translate-y-1/2 p-2 bg-card/10 hover:bg-card/20 rounded-full text-primary-foreground transition-colors z-10"
               aria-label="Previous"
             >
               <ChevronLeft size={24} />
@@ -205,7 +205,7 @@ export const MediaGallery = memo(function MediaGallery({ images, initialIndex, o
                 e.stopPropagation();
                 goTo('next');
               }}
-              className="absolute right-4 top-1/2 -translate-y-1/2 p-2 bg-white/10 hover:bg-white/20 rounded-full text-white transition-colors z-10"
+              className="absolute right-4 top-1/2 -translate-y-1/2 p-2 bg-card/10 hover:bg-card/20 rounded-full text-primary-foreground transition-colors z-10"
               aria-label="Next"
             >
               <ChevronRight size={24} />
@@ -230,7 +230,7 @@ export const MediaGallery = memo(function MediaGallery({ images, initialIndex, o
                 >
                   {img.type === 'video' ? (
                     <div className="w-full h-full bg-[#333] flex items-center justify-center">
-                      <span className="text-white text-lg">▶</span>
+                      <span className="text-primary-foreground text-lg">▶</span>
                     </div>
                   ) : (
                     <img src={img.url} className="w-full h-full object-cover" alt={`Thumbnail ${i + 1}`} loading="lazy" />

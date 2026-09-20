@@ -59,13 +59,13 @@ export default function HashtagsPage() {
   const getTrendIcon = (rank?: number) => {
     if (!rank) return null;
     if (rank <= 3) return <Flame size={14} className="text-orange-500" />;
-    return <TrendingUp size={14} className="text-[#00C300]" />;
+    return <TrendingUp size={14} className="text-primary" />;
   };
 
   return (
-    <div className="min-h-[100dvh] bg-white">
+    <div className="min-h-[100dvh] bg-card">
       {/* Header */}
-      <div className="sticky top-0 bg-white border-b border-gray-100 z-10 px-4 py-3">
+      <div className="sticky top-0 bg-card border-b border-gray-100 z-10 px-4 py-3">
         <div className="flex items-center gap-3">
           <button type="button" onClick={() => navigate(-1)} className="p-2 hover:bg-gray-100 rounded-full">
             <X size={20} className="text-gray-500" />
@@ -83,7 +83,7 @@ export default function HashtagsPage() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search hashtags..."
-            className="w-full pl-9 pr-3 py-2.5 bg-gray-100 rounded-xl text-sm outline-none focus:ring-2 focus:ring-[#00C300]/20"
+            className="w-full pl-9 pr-3 py-2.5 bg-gray-100 rounded-xl text-sm outline-none focus:ring-2 focus:ring-primary/20"
           />
         </div>
       </div>
@@ -93,7 +93,7 @@ export default function HashtagsPage() {
         {(['trending', 'following', 'discover'] as const).map((t) => (
           <button type="button" key={t}
             onClick={() => setTab(t)}
-            className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${tab === t ? 'bg-[#00C300] text-white' : 'bg-gray-100 text-gray-600'}`}
+            className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${tab === t ? 'bg-primary text-white' : 'bg-gray-100 text-gray-600'}`}
           >
             {t === 'trending' ? 'Trending' : t === 'following' ? 'Following' : 'Discover'}
           </button>
@@ -115,8 +115,8 @@ export default function HashtagsPage() {
                   transition={{ delay: idx * 0.05 }}
                   className="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 transition-colors"
                 >
-                  <div className="w-8 h-8 rounded-full bg-[#00C300]/10 flex items-center justify-center shrink-0">
-                    <span className="text-xs font-bold text-[#00C300]">#{hashtag.trendRank || idx + 1}</span>
+                  <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                    <span className="text-xs font-bold text-primary">#{hashtag.trendRank || idx + 1}</span>
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5">
@@ -133,7 +133,7 @@ export default function HashtagsPage() {
                     )}
                   </div>
                   <button type="button" onClick={() => handleFollow(hashtag.id)}
-                    className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${isFollowing(hashtag.id) ? 'bg-gray-100 text-gray-500' : 'bg-[#00C300] text-white'}`}
+                    className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${isFollowing(hashtag.id) ? 'bg-gray-100 text-gray-500' : 'bg-primary text-white'}`}
                   >
                     {isFollowing(hashtag.id) ? 'Following' : 'Follow'}
                   </button>
@@ -152,7 +152,7 @@ export default function HashtagsPage() {
             ) : (
               filtered.filter((h) => isFollowing(h.id)).map((hashtag) => (
                 <div key={hashtag.id} className="flex items-center gap-3 p-3 rounded-xl bg-gray-50">
-                  <Hash size={20} className="text-[#00C300]" />
+                  <Hash size={20} className="text-primary" />
                   <div className="flex-1">
                     <p className="font-medium text-gray-900 text-sm">#{hashtag.tag}</p>
                     <p className="text-xs text-gray-400">{hashtag.postCount.toLocaleString()} posts</p>
@@ -178,15 +178,15 @@ export default function HashtagsPage() {
                 transition={{ delay: idx * 0.03 }}
                 className="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 transition-colors"
               >
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#00C300]/20 to-[#00C300]/5 flex items-center justify-center shrink-0">
-                  <Hash size={20} className="text-[#00C300]" />
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center shrink-0">
+                  <Hash size={20} className="text-primary" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="font-medium text-gray-900 text-sm">#{hashtag.tag}</p>
                   <p className="text-xs text-gray-400">{hashtag.postCount.toLocaleString()} posts · {(hashtag.followers?.length || 0).toLocaleString()} followers</p>
                 </div>
                 <button type="button" onClick={() => handleFollow(hashtag.id)}
-                  className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${isFollowing(hashtag.id) ? 'bg-gray-100 text-gray-500' : 'bg-[#00C300] text-white'}`}
+                  className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${isFollowing(hashtag.id) ? 'bg-gray-100 text-gray-500' : 'bg-primary text-white'}`}
                 >
                   {isFollowing(hashtag.id) ? 'Following' : 'Follow'}
                 </button>

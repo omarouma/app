@@ -95,32 +95,32 @@ export default function SplitBillModal({ open, onClose }: SplitBillModalProps) {
           animate={{ y: 0 }}
           exit={{ y: '100%' }}
           transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-          className="bg-white w-full sm:max-w-md sm:rounded-2xl rounded-t-2xl overflow-hidden max-h-[90vh] flex flex-col"
+          className="bg-card w-full sm:max-w-md sm:rounded-2xl rounded-t-2xl overflow-hidden max-h-[90vh] flex flex-col"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
-          <div className="flex items-center justify-between p-4 border-b border-[#EBEBEB] shrink-0">
-            <h3 className="text-lg font-bold text-[#111111]">Split Bill</h3>
+          <div className="flex items-center justify-between p-4 border-b border-border shrink-0">
+            <h3 className="text-lg font-bold text-foreground">Split Bill</h3>
             <button type="button" onClick={onClose} className="p-1 hover:bg-gray-100 rounded-full">
-              <X size={20} className="text-[#8D8D8D]" />
+              <X size={20} className="text-muted-foreground" />
             </button>
           </div>
 
           <div className="p-4 space-y-4 overflow-y-auto flex-1">
             {/* Description */}
             <div>
-              <label className="text-[#8D8D8D] text-xs mb-1 block">What is this for?</label>
+              <label className="text-muted-foreground text-xs mb-1 block">What is this for?</label>
               <input
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder="e.g. Dinner, Taxi, Movie tickets"
-                className="w-full bg-[#F5F5F5] rounded-xl px-4 py-3 text-[#111111] text-sm focus:outline-none focus:ring-2 focus:ring-[#00C300] placeholder:text-[#C7C7CC]"
+                className="w-full bg-secondary rounded-xl px-4 py-3 text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
               />
             </div>
 
             {/* Currency */}
             <div>
-              <label className="text-[#8D8D8D] text-xs mb-2 block">Currency</label>
+              <label className="text-muted-foreground text-xs mb-2 block">Currency</label>
               <div className="flex gap-2">
                 {([
                   { code: 'GAGA' as CurrencyCode, icon: Coins, label: 'GAGA' },
@@ -130,8 +130,8 @@ export default function SplitBillModal({ open, onClose }: SplitBillModalProps) {
                     onClick={() => setCurrency(c.code)}
                     className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-medium transition-colors ${
                       currency === c.code
-                        ? 'bg-[#00C300] text-white'
-                        : 'bg-[#F5F5F5] text-[#8D8D8D]'
+                        ? 'bg-primary text-white'
+                        : 'bg-secondary text-muted-foreground'
                     }`}
                   >
                     <c.icon size={14} /> {c.label}
@@ -142,9 +142,9 @@ export default function SplitBillModal({ open, onClose }: SplitBillModalProps) {
 
             {/* Total Amount */}
             <div>
-              <label className="text-[#8D8D8D] text-xs mb-1 block">Total Amount</label>
+              <label className="text-muted-foreground text-xs mb-1 block">Total Amount</label>
               <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8D8D8D] text-lg font-bold">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-lg font-bold">
                   {currency === 'GAGA' ? 'G' : '$'}
                 </span>
                 <input
@@ -152,21 +152,21 @@ export default function SplitBillModal({ open, onClose }: SplitBillModalProps) {
                   value={totalAmount}
                   onChange={(e) => setTotalAmount(e.target.value)}
                   placeholder="0"
-                  className="w-full bg-[#F5F5F5] rounded-xl pl-10 pr-4 py-3 text-[#111111] text-lg font-bold focus:outline-none focus:ring-2 focus:ring-[#00C300] placeholder:text-[#C7C7CC]"
+                  className="w-full bg-secondary rounded-xl pl-10 pr-4 py-3 text-foreground text-lg font-bold focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
                 />
               </div>
             </div>
 
             {/* Per Person Summary */}
             {selectedFriendIds.size > 0 && totalAmount && (
-              <div className="bg-[#00C300]/10 rounded-xl p-3 flex items-center justify-between">
+              <div className="bg-primary/10 rounded-xl p-3 flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <Users size={16} className="text-[#00C300]" />
-                  <span className="text-[#111111] text-sm font-medium">
+                  <Users size={16} className="text-primary" />
+                  <span className="text-foreground text-sm font-medium">
                     {selectedFriendIds.size + 1} people
                   </span>
                 </div>
-                <span className="text-[#00C300] font-bold">
+                <span className="text-primary font-bold">
                   {currency === 'GAGA' ? perPerson.toFixed(2) + ' GAGA' : '$' + perPerson.toFixed(2)} each
                 </span>
               </div>
@@ -174,21 +174,21 @@ export default function SplitBillModal({ open, onClose }: SplitBillModalProps) {
 
             {/* Friend Selector */}
             <div>
-              <label className="text-[#8D8D8D] text-xs mb-2 block">
+              <label className="text-muted-foreground text-xs mb-2 block">
                 Select Friends ({selectedFriendIds.size} selected)
               </label>
               <div className="relative mb-2">
-                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8D8D8D]" />
+                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                 <input
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Search friends..."
-                  className="w-full bg-[#F5F5F5] rounded-xl pl-9 pr-4 py-2.5 text-[#111111] text-sm focus:outline-none focus:ring-2 focus:ring-[#00C300] placeholder:text-[#8D8D8D]"
+                  className="w-full bg-secondary rounded-xl pl-9 pr-4 py-2.5 text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
                 />
               </div>
               <div className="max-h-48 overflow-y-auto space-y-1">
                 {filteredFriends.length === 0 ? (
-                  <p className="text-[#8D8D8D] text-xs text-center py-2">No friends found</p>
+                  <p className="text-muted-foreground text-xs text-center py-2">No friends found</p>
                 ) : (
                   filteredFriends.map((f) => {
                     const selected = selectedFriendIds.has(f.id);
@@ -196,10 +196,10 @@ export default function SplitBillModal({ open, onClose }: SplitBillModalProps) {
                       <button type="button" key={f.id}
                         onClick={() => toggleFriend(f.id)}
                         className={`w-full flex items-center gap-3 p-2.5 rounded-xl transition-colors text-left ${
-                          selected ? 'bg-[#00C300]/10 border border-[#00C300]/30' : 'hover:bg-[#F5F5F5]'
+                          selected ? 'bg-primary/10 border border-primary/30' : 'hover:bg-secondary'
                         }`}
                       >
-                        <div className="w-9 h-9 rounded-full bg-[#F5F5F5] overflow-hidden flex items-center justify-center shrink-0">
+                        <div className="w-9 h-9 rounded-full bg-secondary overflow-hidden flex items-center justify-center shrink-0">
                           {sanitizeMediaUrl(f.avatar) ? (
                             <img src={sanitizeMediaUrl(f.avatar)} className="w-full h-full object-cover" alt="User avatar" />
                           ) : (
@@ -207,12 +207,12 @@ export default function SplitBillModal({ open, onClose }: SplitBillModalProps) {
                           )}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-[#111111] text-sm font-medium truncate">{f.name}</p>
-                          <p className="text-[#8D8D8D] text-xs">@{f.username}</p>
+                          <p className="text-foreground text-sm font-medium truncate">{f.name}</p>
+                          <p className="text-muted-foreground text-xs">@{f.username}</p>
                         </div>
                         <div
                           className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${
-                            selected ? 'bg-[#00C300] border-[#00C300]' : 'border-[#C7C7CC]'
+                            selected ? 'bg-primary border-primary' : 'border-border'
                           }`}
                         >
                           {selected && <Check size={12} className="text-white" />}
@@ -227,7 +227,7 @@ export default function SplitBillModal({ open, onClose }: SplitBillModalProps) {
             {/* Split Button */}
             <button type="button" onClick={handleSplit}
               disabled={sending || !totalAmount || selectedFriendIds.size === 0}
-              className="w-full bg-[#00C300] hover:bg-[#00A300] text-white rounded-xl py-3.5 font-bold text-sm transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              className="w-full bg-primary hover:bg-[#00A300] text-white rounded-xl py-3.5 font-bold text-sm transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
             >
               {sending ? <Loader size={16} className="animate-spin" /> : <><Split size={16} /> Split Bill</>}
             </button>
