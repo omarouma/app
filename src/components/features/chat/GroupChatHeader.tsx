@@ -69,31 +69,34 @@ export function GroupChatHeader({
 
     return (
         <>
-            <div className="shrink-0 relative flex justify-between items-center px-2 py-3 bg-card border-b border-border z-10">
-                <div className="flex items-center gap-2">
-                    <button type="button" onClick={() => navigate(-1)} className="p-2 -ml-2 active:bg-accent rounded-full text-foreground">
-                        <ChevronLeft size={28} strokeWidth={1.5} />
+            <div
+                className="shrink-0 relative flex justify-between items-center gap-1 px-2 pb-2 bg-card border-b border-border z-10"
+                style={{ paddingTop: 'max(0.5rem, env(safe-area-inset-top, 0px))' }}
+            >
+                <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                    <button type="button" onClick={() => navigate(-1)} className="icon-btn w-10 h-10 -ml-1 shrink-0 text-foreground" aria-label="Go back">
+                        <ChevronLeft size={26} strokeWidth={1.75} />
                     </button>
-                    <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                    <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0 overflow-hidden">
                         {group.avatar ? (
-                            <img src={group.avatar} className="w-full h-full object-cover rounded-full" alt="User avatar" />
+                            <img src={group.avatar} className="w-full h-full object-cover rounded-full" alt="Group avatar" />
                         ) : (
                             <Users size={18} className="text-primary" />
                         )}
                     </div>
-                    <div>
-                        <h3 className="text-base font-bold text-foreground leading-tight">{group.name || 'Group'}</h3>
-                        <p className="text-[11px] text-muted-foreground">{memberCount} members</p>
+                    <div className="min-w-0">
+                        <h3 className="text-[15px] font-bold text-foreground leading-tight truncate">{group.name || 'Group'}</h3>
+                        <p className="text-[11px] text-muted-foreground leading-tight truncate">{memberCount} members</p>
                     </div>
                 </div>
-                <div className="flex items-center gap-4 pr-3 text-foreground">
-                    <button type="button" onClick={() => setShowSearch(!showSearch)} className="active:opacity-60" title="Search messages">
-                        <Search size={22} strokeWidth={1.5} className={showSearch ? 'text-primary' : ''} />
+                <div className="flex items-center gap-0.5 shrink-0 text-foreground">
+                    <button type="button" onClick={() => setShowSearch(!showSearch)} className="icon-btn w-10 h-10" aria-label="Search messages">
+                        <Search size={21} strokeWidth={1.75} className={showSearch ? 'text-primary' : ''} />
                     </button>
-                    <button type="button" className="active:opacity-60" onClick={() => setShowCallPicker(true)} title="Call a member"><Phone size={22} strokeWidth={1.5} /></button>
+                    <button type="button" className="icon-btn w-10 h-10" onClick={() => setShowCallPicker(true)} aria-label="Call a member"><Phone size={21} strokeWidth={1.75} /></button>
                     <div className="relative" ref={menuRef}>
-                        <button type="button" onClick={() => setShowMenu(!showMenu)} className="active:opacity-60">
-                            <MoreHorizontal size={22} strokeWidth={1.5} />
+                        <button type="button" onClick={() => setShowMenu(!showMenu)} className="icon-btn w-10 h-10" aria-label="Group options" aria-expanded={showMenu}>
+                            <MoreHorizontal size={21} strokeWidth={1.75} />
                         </button>
                         <AnimatePresence>
                             {showMenu && (

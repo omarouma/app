@@ -42,10 +42,13 @@ export const ImageMessage = memo(function ImageMessage(props: ImageMessageProps)
   }
 
   return (
-    <div className="relative intro max-w-full group">
-      {/* Loading skeleton overlay */}
+    <div className="relative intro max-w-full group min-h-[160px]">
+      {/* Loading skeleton — rendered as an overlay so the <img> stays in the
+          layout and can actually load. Previously the img was `hidden`
+          (display:none) while `loading="lazy"`, so it never entered the
+          viewport and onLoad never fired → stuck on "Loading image...". */}
       {!loaded && (
-        <div className="rounded-2xl mb-1 h-40 bg-secondary animate-pulse flex items-center justify-center">
+        <div className="absolute inset-0 rounded-2xl bg-secondary animate-pulse flex items-center justify-center z-10">
           <span className="text-xs text-muted-foreground">Loading image...</span>
         </div>
       )}
@@ -55,9 +58,10 @@ export const ImageMessage = memo(function ImageMessage(props: ImageMessageProps)
         onClick={() => onSetLightbox(safeUrl)}
         onError={() => setFailed(true)}
         onLoad={() => setLoaded(true)}
-        className={`rounded-2xl mb-1 max-w-full cursor-pointer hover:opacity-95 transition-opacity ${loaded ? 'block' : 'hidden'}`}
+        className={`rounded-2xl mb-1 max-w-full cursor-pointer hover:opacity-95 transition-opacity ${loaded ? 'opacity-100' : 'opacity-0'}`}
         alt={msg.content || 'Shared image'}
         loading="lazy"
+        decoding="async"
       />
       {/* Double-tap zoom hint */}
       {loaded && (

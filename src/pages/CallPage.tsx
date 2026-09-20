@@ -194,7 +194,10 @@ export default function CallPage() {
 
   // 回退通话界面——在 CallOverlay 挂载前展示全部通话控制按钮
   return (
-    <div className="h-[100dvh] bg-[#111111] flex flex-col items-center justify-center gap-6 p-6">
+    <div
+      className="h-[100dvh] bg-[#111111] flex flex-col items-center justify-center gap-6 px-6"
+      style={{ paddingTop: 'max(1.5rem, env(safe-area-inset-top, 0px))', paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom, 0px))' }}
+    >
       {/* 通话联系人与状态 */}
       <p className="text-white/50 text-sm">
         {currentCall?.status === 'connected' ? 'Call active' : 'Connecting…'}

@@ -286,7 +286,10 @@ export default function CallOverlay() {
             {/* Content */}
             <div className="relative z-10 flex flex-col h-full">
               {/* Top bar */}
-              <div className="flex items-center justify-between gap-2 px-5 pt-14 pb-4">
+              <div
+                className="flex items-center justify-between gap-2 px-4 pb-4"
+                style={{ paddingTop: 'max(1rem, env(safe-area-inset-top, 0px))' }}
+              >
                 <span className={`shrink-0 text-xs font-medium px-2.5 py-1 rounded-full ${isVideo ? 'bg-blue-500/20 text-blue-300' : 'bg-green-500/20 text-green-300'}`}>
                   {isGroup
                     ? (isVideo ? '👥 Group Video' : '👥 Group Voice')
