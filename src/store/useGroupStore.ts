@@ -99,6 +99,20 @@ export const useGroupStore = create<GroupStore>((set) => ({
             settings: (d.settings as Chat['settings']) || undefined,
           }));
           set({ groups, loading: false });
+
+          // Overlay authoritative per-user unread counts (server RPC).
+          void (async () => {
+            try {
+              const { chatApi } = await import('@/services/chatApi');
+              const unreadMap = await chatApi.fetchUnreadCounts(userId);
+              if (!unreadMap || Object.keys(unreadMap).length === 0) return;
+              set((s) => ({
+                groups: s.groups.map((g) =>
+                  unreadMap[g.id] !== undefined ? { ...g, unreadCount: unreadMap[g.id] } : g
+                ),
+              }));
+            } catch { /* unread overlay is best-effort */ }
+          })();
         },
       );
     } catch {

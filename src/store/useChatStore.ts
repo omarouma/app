@@ -146,6 +146,18 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       const activeChats = mappedChats.filter(c => !c.archived);
       const totalUnread = activeChats.reduce((sum, chat) => sum + (chat.unreadCount || 0), 0);
       set({ chats: activeChats, archivedChats, loadingChats: false, totalUnread });
+
+      // Overlay authoritative per-user unread counts (server RPC).
+      void chatApi.fetchUnreadCounts(userId).then((unreadMap) => {
+        if (!unreadMap || Object.keys(unreadMap).length === 0) return;
+        const apply = (list: Chat[]) =>
+          list.map(c => (unreadMap[c.id] !== undefined ? { ...c, unreadCount: unreadMap[c.id] } : c));
+        const state = get();
+        const nextActive = apply(state.chats);
+        const nextArchived = apply(state.archivedChats);
+        const nextTotal = nextActive.reduce((sum, chat) => sum + (chat.unreadCount || 0), 0);
+        set({ chats: nextActive, archivedChats: nextArchived, totalUnread: nextTotal });
+      });
     } catch (error) {
       logStoreError('fetchChats', error, { userId });
       set({ loadingChats: false });
@@ -165,6 +177,18 @@ export const useChatStore = create<ChatStore>((set, get) => ({
           const activeChats = chats.filter(c => !c.archived);
           const totalUnread = activeChats.reduce((sum, chat) => sum + (chat.unreadCount || 0), 0);
           set({ chats: activeChats, archivedChats, totalUnread });
+
+          // Overlay authoritative per-user unread counts (server RPC).
+          void chatApi.fetchUnreadCounts(userId).then((unreadMap) => {
+            if (!unreadMap || Object.keys(unreadMap).length === 0) return;
+            const apply = (list: Chat[]) =>
+              list.map(c => (unreadMap[c.id] !== undefined ? { ...c, unreadCount: unreadMap[c.id] } : c));
+            const state = get();
+            const nextActive = apply(state.chats);
+            const nextArchived = apply(state.archivedChats);
+            const nextTotal = nextActive.reduce((sum, chat) => sum + (chat.unreadCount || 0), 0);
+            set({ chats: nextActive, archivedChats: nextArchived, totalUnread: nextTotal });
+          });
         },
       )
     );

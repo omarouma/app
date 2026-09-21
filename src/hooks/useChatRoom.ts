@@ -300,7 +300,7 @@ export const useChatRoom = (chatId: string, userId: string) => {
     if (!currentUser?.id || !userId) return;
     setProcessingAction(true);
     try {
-      await sendRequest(currentUser.id, userId);
+      await sendRequest(userId, currentUser.id);
       setFriendStatus('request_sent');
       toast.success('Friend request sent!');
     } catch (error) {
@@ -366,7 +366,7 @@ export const useChatRoom = (chatId: string, userId: string) => {
     if (!currentUser?.id || !userId) return;
     setProcessingAction(true);
     try {
-      await removeFriend(currentUser.id, userId);
+      await removeFriend(userId, currentUser.id);
       setFriendStatus('not_friends');
       toast.success('Friend removed.');
     } catch (error) {
@@ -382,7 +382,7 @@ export const useChatRoom = (chatId: string, userId: string) => {
     if (!currentUser?.id || !userId) return;
     setProcessingAction(true);
     try {
-      await blockUser(currentUser.id, userId);
+      await blockUser(userId, currentUser.id);
       setFriendStatus('blocked');
       toast.success('User blocked.');
     } catch (error) {
@@ -397,7 +397,7 @@ export const useChatRoom = (chatId: string, userId: string) => {
     if (!currentUser?.id || !userId) return;
     setProcessingAction(true);
     try {
-      await unblockUser(currentUser.id, userId);
+      await unblockUser(userId, currentUser.id);
       const status = await getFriendStatus(currentUser.id, userId);
       setFriendStatus(status);
       toast.success('User unblocked.');
