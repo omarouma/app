@@ -30,7 +30,7 @@ interface CallStore {
   subscribeCalls: (userId: string) => () => void;
   subscribeToCallHistory: (userId: string) => () => void;
   clearCallHistory: (userId: string) => Promise<void>;
-  deleteCall: (callId: string) => Promise<void>;
+  deleteCall: (callId: string, userId: string) => Promise<void>;
   cancelCallIfStale: () => void;
 }
 
@@ -47,6 +47,11 @@ const mapCall = (d: Record<string, unknown>): CallRecord => {
   const participantIds: string[] = storedParticipants.length > 0
     ? Array.from(new Set([...storedParticipants, caller, callee].filter(Boolean) as string[]))
     : [caller, callee].filter(Boolean) as string[];
+  const deletedBy = Array.isArray((d as any).deletedBy)
+    ? ((d as any).deletedBy as string[]).filter(Boolean)
+    : Array.isArray((d as any).deleted_by)
+      ? ((d as any).deleted_by as string[]).filter(Boolean)
+      : [];
   return {
     id: d.id as string,
     initiatorId: caller,
@@ -57,6 +62,7 @@ const mapCall = (d: Record<string, unknown>): CallRecord => {
       ? (d.createdAt as { toDate(): Date }).toDate()
       : d.createdAt ? new Date(d.createdAt as string) : new Date(),
     duration: (d.duration as number) || 0,
+    deletedBy,
   };
 };
 
@@ -132,6 +138,8 @@ const processCallData = (
     const call = mapCall(d);
     const isParticipant = call.participantIds.includes(currentUserId);
     if (!isParticipant) continue;
+    // Per-user soft delete: hide calls this user removed from their own log.
+    if (call.deletedBy?.includes(currentUserId)) continue;
 
     if (['ended', 'rejected', 'missed'].includes(call.status)) {
       history.push(call);
@@ -249,18 +257,23 @@ export const useCallStore = create<CallStore>((set, get) => ({
       return;
     }
     const { history } = get();
+    // Per-user soft delete: mark every visible call as deleted for this user
+    // only. The rows are retained for the other participant(s).
     try {
-      const { deleteDocById } = await import('@/lib/firestore');
-      await Promise.allSettled(history.map((c) => deleteDocById(COLLECTIONS.CALL_HISTORY, c.id)));
+      const { updateDocById: updateDoc, arrayUnion: union } = await import('@/lib/firestore');
+      await Promise.allSettled(
+        history.map((c) => updateDoc(COLLECTIONS.CALL_HISTORY, c.id, { deletedBy: union(userId) })),
+      );
     } catch { /* ignore individual failures */ }
     set({ history: [] });
   },
 
-  deleteCall: async (callId: string) => {
-    if (!isFirestoreAvailable() || !callId) return;
+  deleteCall: async (callId: string, userId: string) => {
+    if (!isFirestoreAvailable() || !callId || !userId) return;
     try {
-      const { deleteDocById } = await import('@/lib/firestore');
-      await deleteDocById(COLLECTIONS.CALL_HISTORY, callId);
+      const { updateDocById: updateDoc, arrayUnion: union } = await import('@/lib/firestore');
+      // Soft delete for the acting user only — never remove the shared row.
+      await updateDoc(COLLECTIONS.CALL_HISTORY, callId, { deletedBy: union(userId) });
       set({ history: get().history.filter((c) => c.id !== callId) });
     } catch {
       // ignore

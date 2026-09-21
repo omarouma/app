@@ -1,6 +1,6 @@
 import { memo } from 'react';
 import { Phone, Video, PhoneMissed, PhoneIncoming, PhoneOutgoing, Trash2 } from 'lucide-react';
-import { getCallDirection, getOtherParticipantId, isGroupCall, isVideoCallType } from '@/lib/callUtils';
+import { getCallDirection, getOtherParticipantId, isGroupCall, isVideoCallType, getCallStatusLabel } from '@/lib/callUtils';
 import { getDefaultAvatar, sanitizeMediaUrl } from '@/lib/utils';
 import type { CallRecord } from '@/types';
 
@@ -38,15 +38,20 @@ const CallListItemComponent = ({ call, userName, userAvatar, currentUserId, onCa
   const direction = getCallDirection(call, currentUserId);
   const otherUserId = getOtherParticipantId(call, currentUserId);
 
-  const isMissed = call.status === 'missed';
   const isOutgoing = direction === 'outgoing';
   const isGroup = isGroupCall(call);
   const isVideoType = isVideoCallType(call.type);
 
-  const CallIcon = isMissed ? PhoneMissed : isOutgoing ? PhoneOutgoing : PhoneIncoming;
-  const iconColor = isMissed ? 'text-red-500' : 'text-[#00C300]';
-  const label = isMissed ? 'Missed' : isOutgoing ? 'Outgoing' : 'Incoming';
-  const labelColor = isMissed ? 'text-red-500' : 'text-[#8D8D8D]';
+  const statusLabel = getCallStatusLabel(call, currentUserId);
+  const isNegative = statusLabel === 'Missed' || statusLabel === 'Declined' || statusLabel === 'Cancelled';
+  const CallIcon = statusLabel === 'Missed'
+    ? PhoneMissed
+    : isOutgoing
+      ? PhoneOutgoing
+      : PhoneIncoming;
+  const iconColor = isNegative ? 'text-red-500' : 'text-[#00C300]';
+  const label = statusLabel;
+  const labelColor = isNegative ? 'text-red-500' : 'text-[#8D8D8D]';
   const typeLabel = isGroup ? (isVideoType ? 'Group Video' : 'Group Voice') : isVideoType ? 'Video' : 'Voice';
 
   const avatarSrc = sanitizeMediaUrl(userAvatar);
@@ -66,7 +71,7 @@ const CallListItemComponent = ({ call, userName, userAvatar, currentUserId, onCa
 
       {/* Info */}
       <div className="flex-1 min-w-0">
-        <p className={`text-sm font-semibold truncate ${isMissed ? 'text-red-500' : 'text-[#111111]'}`}>
+        <p className={`text-sm font-semibold truncate ${isNegative ? 'text-red-500' : 'text-[#111111]'}`}>
           {userName}
         </p>
         <div className="flex items-center gap-1.5 mt-0.5">

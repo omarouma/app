@@ -16,7 +16,7 @@ import type { CallRecord } from '@/types';
 
 type CallDirection = 'outgoing' | 'incoming';
 import { CallListItem } from '@/components/features/calls/CallListItem';
-import { getCallDirection, getOtherParticipantId } from '@/lib/callUtils';
+import { getCallDirection, getOtherParticipantId, groupCallsByDate } from '@/lib/callUtils';
 
 type CallWithDetails = CallRecord & {
   otherId: string;
@@ -92,7 +92,7 @@ export default function CallsPage() {
   const handleDelete = async (callId: string) => {
     const promise = async () => {
       if (!user?.id) throw new Error('Authentication error');
-      await deleteCall(callId);
+      await deleteCall(callId, user.id);
     };
     toast.promise(promise, {
       loading: 'Deleting call...',
@@ -200,18 +200,27 @@ export default function CallsPage() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="card-surface overflow-hidden divide-y divide-border"
+              className="space-y-4"
             >
-              {filteredCalls.map((call) => (
-                <CallListItem
-                  key={call.id}
-                  call={call}
-                  userName={call.name}
-                  userAvatar={call.avatar}
-                  currentUserId={user?.id}
-                  onCall={handleInitiateCall}
-                  onDelete={handleDelete}
-                />
+              {groupCallsByDate(filteredCalls).map((group) => (
+                <div key={group.key}>
+                  <h2 className="px-1 pb-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    {group.label}
+                  </h2>
+                  <div className="card-surface overflow-hidden divide-y divide-border">
+                    {group.items.map((call) => (
+                      <CallListItem
+                        key={call.id}
+                        call={call}
+                        userName={call.name}
+                        userAvatar={call.avatar}
+                        currentUserId={user?.id}
+                        onCall={handleInitiateCall}
+                        onDelete={handleDelete}
+                      />
+                    ))}
+                  </div>
+                </div>
               ))}
             </motion.div>
           </AnimatePresence>
