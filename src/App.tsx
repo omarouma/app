@@ -15,6 +15,7 @@ import { useForegroundNotifications } from '@/hooks/useForegroundNotifications';
 import { useIncomingCallNotifications } from '@/hooks/useIncomingCallNotifications';
 import { useMessageNotifications } from '@/hooks/useMessageNotifications';
 import { useTrackPresence } from '@/hooks/usePresence';
+import { useSessionGuard } from '@/hooks/useSessionGuard';
 import { MessageCircle, Phone, Users, Settings } from 'lucide-react';
 import { Toaster } from '@/components/ui/sonner';
 import { CallProvider } from '@/context/CallContext';
@@ -376,6 +377,9 @@ function AppContent() {
   const { user } = useAuthStore();
   const didOnboardingRedirectRef = useRef(false);
   const navigate = useNavigate();
+
+  // Detect revoked/expired sessions and redirect safely to login.
+  useSessionGuard();
 
   useEffect(() => {
     const publicSeo: Record<string, { title: string; description: string }> = {

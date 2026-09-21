@@ -11,6 +11,8 @@ import { useFriendStore } from '@/store/useFriendStore';
 import { buildGagaChatWebUrl, getDefaultAvatar, sanitizeMediaUrl } from '@/lib/utils';
 import { isFirestoreAvailable, COLLECTIONS, updateDocById, subscribeToDoc } from '@/lib/firestore';
 import { copyToClipboard, nativeShare } from '@/lib/share';
+import { validateUsername } from '@/lib/validation';
+import { isUsernameAvailable } from '@/lib/supabaseAuth';
 import { usePageTitle } from '@/hooks/useDocumentTitle';
 import { toast } from 'sonner';
 import type { User } from '@/types';
@@ -46,6 +48,7 @@ export default function ProfilePage() {
   // Edit state
   const [editing, setEditing] = useState(false);
   const [editName, setEditName] = useState(user?.name || '');
+  const [editUsername, setEditUsername] = useState(user?.username || '');
   const [editBio, setEditBio] = useState(user?.bio || '');
   const [editLocation, setEditLocation] = useState(user?.location || '');
   const [editWebsite, setEditWebsite] = useState(user?.website || '');
@@ -60,6 +63,7 @@ export default function ProfilePage() {
 
   const startEdit = useCallback(() => {
     setEditName(user?.name || '');
+    setEditUsername(user?.username || '');
     setEditBio(user?.bio || '');
     setEditLocation(user?.location || '');
     setEditWebsite(user?.website || '');
@@ -70,10 +74,25 @@ export default function ProfilePage() {
 
   const saveEdit = useCallback(async () => {
     if (!user?.id || !isFirestoreAvailable()) return;
+    const usernameCheck = validateUsername(editUsername);
+    if (editUsername.trim() && !usernameCheck.valid) {
+      toast.error(usernameCheck.error || 'Invalid username');
+      return;
+    }
     setSaving(true);
     try {
+      const normalizedUsername = usernameCheck.normalized;
+      if (normalizedUsername && normalizedUsername !== (user.username || '')) {
+        const availability = await isUsernameAvailable(normalizedUsername, user.id);
+        if (!availability.available) {
+          toast.error(availability.error || 'That username is already taken');
+          setSaving(false);
+          return;
+        }
+      }
       const updates = {
         name: editName.trim(),
+        username: normalizedUsername,
         bio: editBio.trim(),
         location: editLocation.trim(),
         website: editWebsite.trim(),
@@ -87,7 +106,7 @@ export default function ProfilePage() {
     } finally {
       setSaving(false);
     }
-  }, [user, editName, editBio, editLocation, editWebsite, setUser]);
+  }, [user, editName, editUsername, editBio, editLocation, editWebsite, setUser]);
 
   const handleAvatarUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -327,6 +346,28 @@ export default function ProfilePage() {
                 </div>
               )}
               <p className="text-sm text-[#8D8D8D] mb-2">@{displayUser.username || 'user'}</p>
+
+              {/* Username (edit mode) */}
+              {editing && (
+                <div className="w-full max-w-xs mb-2">
+                  <div className="flex items-center gap-2 bg-[#F5F5F5] rounded-xl px-3 py-2">
+                    <span className="text-sm text-[#8D8D8D]">@</span>
+                    <input
+                      value={editUsername}
+                      onChange={e => setEditUsername(e.target.value)}
+                      className="flex-1 bg-transparent text-sm text-[#111111] focus:outline-none"
+                      placeholder="username"
+                      aria-label="Edit username"
+                      maxLength={30}
+                      autoCapitalize="none"
+                      autoCorrect="off"
+                    />
+                  </div>
+                  {editUsername.trim() && !validateUsername(editUsername).valid && (
+                    <p className="text-[11px] text-red-500 mt-1 px-1">{validateUsername(editUsername).error}</p>
+                  )}
+                </div>
+              )}
 
               {/* Bio */}
               {editing ? (

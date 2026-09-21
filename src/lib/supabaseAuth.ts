@@ -1,4 +1,5 @@
 import { getSupabaseSafe } from './supabase';
+import { normalizeUsername, validateUsername } from './validation';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { User } from '@/types';
 
@@ -79,6 +80,7 @@ export async function updateUserProfile(userId: string, updates: Partial<User>):
   const payload: Record<string, unknown> = {};
   if (updates.name !== undefined) payload.name = updates.name;
   if (updates.displayName !== undefined) payload.display_name = updates.displayName;
+  if (updates.username !== undefined) payload.username = updates.username;
   if (updates.bio !== undefined) payload.bio = updates.bio;
   if (updates.avatar !== undefined) payload.avatar = updates.avatar;
   if (updates.coverImage !== undefined) payload.cover_image = updates.coverImage;
@@ -107,10 +109,21 @@ export function onAuthStateChange(callback: (user: User | null) => void) {
 
   let initialHandled = false;
 
-  const { data } = supabase.auth.onAuthStateChange(async (_event, session) => {
+  const { data } = supabase.auth.onAuthStateChange(async (event, session) => {
     // On INITIAL_SESSION the listener fires with the current session,
     // so we don't need a separate getSession() call.
     if (!initialHandled) initialHandled = true;
+
+    // Surface session lifecycle events so the app can react safely:
+    //  - SIGNED_OUT                  → clear user, redirect to login
+    //  - TOKEN_REFRESHED             → session renewed, keep user
+    //  - USER_UPDATED                → refresh profile (email/name changes)
+    //  - PASSWORD_RECOVERY           → user is in reset flow
+    if (event === 'SIGNED_OUT') {
+      callback(null);
+      return;
+    }
+
     if (session?.user) {
       const user = await fetchUserProfile(session.user.id);
       callback(user);
@@ -120,6 +133,35 @@ export function onAuthStateChange(callback: (user: User | null) => void) {
   });
 
   return () => data.subscription.unsubscribe();
+}
+
+/**
+ * Returns the current session, or null when there is none / it is invalid.
+ * Used by the session-expiry guard to detect revoked or expired sessions.
+ */
+export async function getSession() {
+  const supabase = getSupabaseSafe();
+  if (!supabase) return null;
+  const { data, error } = await supabase.auth.getSession();
+  if (error) return null;
+  return data.session;
+}
+
+/**
+ * Verifies the current session against the server. Returns false when the
+ * session has been revoked or the refresh token is no longer valid, so the
+ * caller can safely redirect to login.
+ */
+export async function isSessionValid(): Promise<boolean> {
+  const supabase = getSupabaseSafe();
+  if (!supabase) return false;
+  try {
+    const { data, error } = await supabase.auth.getUser();
+    if (error) return false;
+    return !!data.user;
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -328,11 +370,62 @@ export async function sendEmailVerification(): Promise<{
   return { success: true };
 }
 
+/**
+ * Re-authenticate the current user by verifying their password.
+ * Used as a security gate before destructive actions (e.g. account deletion).
+ * Returns true when the supplied password matches the signed-in account.
+ */
+export async function reauthenticate(password: string): Promise<{ success: boolean; error?: string }> {
+  const supabase = getSupabaseSafe();
+  if (!supabase) return { success: false, error: 'Supabase not configured' };
+  if (!password) return { success: false, error: 'Password is required' };
+
+  const { data: userData } = await supabase.auth.getUser();
+  const email = userData.user?.email;
+  if (!email) return { success: false, error: 'Not signed in' };
+
+  const { error } = await supabase.auth.signInWithPassword({ email, password });
+  if (error) return { success: false, error: 'Incorrect password. Please try again.' };
+  return { success: true };
+}
+
+/**
+ * Permanently delete the current account.
+ * Requires the caller to have re-authenticated first (see `reauthenticate`).
+ * The `delete_user` RPC anonymizes the profile and removes auth + owned data.
+ */
 export async function deleteAccount() {
   const supabase = getSupabaseSafe();
   if (!supabase) throw new Error('Supabase not configured');
   const { error } = await supabase.rpc('delete_user');
   if (error) throw error;
+}
+
+/**
+ * Check whether a username is available (case-insensitive, normalized).
+ * Excludes the current user so they can keep their own username.
+ */
+export async function isUsernameAvailable(
+  username: string,
+  currentUserId?: string,
+): Promise<{ available: boolean; normalized: string; error?: string }> {
+  const normalized = normalizeUsername(username);
+  const check = validateUsername(normalized);
+  if (!check.valid) return { available: false, normalized, error: check.error };
+
+  const supabase = getSupabaseSafe();
+  if (!supabase) return { available: false, normalized, error: 'Supabase not configured' };
+
+  let query = supabase
+    .from('public_profiles')
+    .select('id')
+    .ilike('username', normalized)
+    .limit(1);
+  if (currentUserId) query = query.neq('id', currentUserId);
+
+  const { data, error } = await query;
+  if (error) return { available: false, normalized, error: error.message };
+  return { available: (data ?? []).length === 0, normalized };
 }
 
 export async function searchUsers(query: string, currentUserId: string): Promise<User[]> {

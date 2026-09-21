@@ -247,3 +247,80 @@ export function validateVotePoll(input: unknown) {
 export function validateSendContactCard(input: unknown) {
     return SendContactCardParamsSchema.safeParse(input);
 }
+
+// ============================================================
+// Username Validation (anti-impersonation + normalization)
+// ============================================================
+
+/** Reserved usernames that must never be claimable (impersonation / routing). */
+export const RESERVED_USERNAMES = new Set([
+    'admin', 'administrator', 'root', 'system', 'support', 'help', 'official',
+    'gaga', 'gagachat', 'gaga_chat', 'moderator', 'mod', 'staff', 'team',
+    'security', 'billing', 'payments', 'wallet', 'api', 'www', 'mail', 'email',
+    'null', 'undefined', 'anonymous', 'guest', 'user', 'me', 'you', 'everyone',
+    'settings', 'login', 'signup', 'register', 'logout', 'profile', 'account',
+]);
+
+/**
+ * Normalizes a username: trims, lowercases, strips a leading '@', removes
+ * disallowed characters, and collapses separators. Returns the canonical form.
+ */
+export function normalizeUsername(raw: string): string {
+    return (raw || '')
+        .trim()
+        .replace(/^@+/, '')
+        .toLowerCase()
+        .replace(/[^a-z0-9_.]/g, '')
+        .replace(/[_.]{2,}/g, '_')
+        .replace(/^[_.]+|[_.]+$/g, '')
+        .slice(0, 30);
+}
+
+export interface UsernameValidationResult {
+    valid: boolean;
+    normalized: string;
+    error?: string;
+}
+
+/**
+ * Validates a username against format, length, reserved-word and
+ * anti-impersonation rules. Does NOT check uniqueness (that requires a
+ * server round-trip — see `isUsernameAvailable`).
+ */
+export function validateUsername(raw: string): UsernameValidationResult {
+    const normalized = normalizeUsername(raw);
+
+    if (!normalized) {
+        return { valid: false, normalized, error: 'Username is required.' };
+    }
+    if (normalized.length < 3) {
+        return { valid: false, normalized, error: 'Username must be at least 3 characters.' };
+    }
+    if (normalized.length > 30) {
+        return { valid: false, normalized, error: 'Username must be 30 characters or fewer.' };
+    }
+    if (!/^[a-z0-9]/.test(normalized)) {
+        return { valid: false, normalized, error: 'Username must start with a letter or number.' };
+    }
+    if (/[_.]$/.test(normalized)) {
+        return { valid: false, normalized, error: 'Username cannot end with a dot or underscore.' };
+    }
+    if (RESERVED_USERNAMES.has(normalized)) {
+        return { valid: false, normalized, error: 'That username is reserved. Please choose another.' };
+    }
+    // Anti-impersonation: block names that only differ from a reserved word by
+    // separators (e.g. "a_d_m_i_n").
+    const collapsed = normalized.replace(/[_.]/g, '');
+    if (RESERVED_USERNAMES.has(collapsed)) {
+        return { valid: false, normalized, error: 'That username is too similar to a reserved name.' };
+    }
+    return { valid: true, normalized };
+}
+
+/** Zod schema for a validated username (post-normalization). */
+export const UsernameSchema = z
+    .string()
+    .transform((v) => normalizeUsername(v))
+    .refine((v) => validateUsername(v).valid, {
+        message: 'Invalid username.',
+    });
