@@ -29,7 +29,7 @@ export const useChatRoom = (chatId: string, userId: string) => {
   const {
     friends, getFriendStatus, getUserById, sendRequest, cancelRequest,
     acceptRequest, rejectRequest, blockUser, unblockUser, reportUser,
-    removeFriend, sentRequests, requests,
+    removeFriend, sentRequests, requests, blockedUsers,
   } = useFriendStore();
   const { typingUsers, sendTyping, stopTyping } = useTyping(chatId);
   const { queueMessage } = useOfflineQueue();
@@ -109,6 +109,14 @@ export const useChatRoom = (chatId: string, userId: string) => {
   );
   const chat = useMemo(() => chats.find(c => c.id === chatId), [chatId, chats]);
 
+  // Block enforcement: true when the current user has blocked the other party.
+  // The DB also enforces this (messages_participant_insert), but we surface a
+  // clear UI state and prevent the optimistic send.
+  const iBlockedUser = useMemo(
+    () => blockedUsers.some((b) => b.blockedId === userId),
+    [blockedUsers, userId],
+  );
+
   // ── Effects ──────────────────────────────────────────────────────────────
 
   // Delegate the canonical subscription + markAsRead + lastSeen realtime +
@@ -156,6 +164,10 @@ export const useChatRoom = (chatId: string, userId: string) => {
     if (editingMessageId) { await handleEditSave(editingMessageId); return; }
     const content = (contentOverride ?? input).trim();
     if (!content) return;
+    if (iBlockedUser) {
+      toast.error('You blocked this user. Unblock to send messages.');
+      return;
+    }
     try {
       if (isOnline) {
         await sendMessage(chatId, currentUser.id, content, 'text', undefined, replyingTo?.id);
@@ -170,7 +182,7 @@ export const useChatRoom = (chatId: string, userId: string) => {
       stopTyping();
       handleError(error, 'Failed to send message.');
     }
-  }, [chatId, currentUser, input, editingMessageId, replyingTo, sendMessage, queueMessage, stopTyping, handleEditSave, isOnline]);
+  }, [chatId, currentUser, input, editingMessageId, replyingTo, sendMessage, queueMessage, stopTyping, handleEditSave, isOnline, iBlockedUser]);
 
   const handleMediaUpload = useCallback(async (files: File[]) => {
     if (!currentUser) return;
@@ -453,7 +465,7 @@ export const useChatRoom = (chatId: string, userId: string) => {
     friendStatus, setFriendStatus, showReportModal, setShowReportModal,
     reportReason, setReportReason, reportDetails, setReportDetails,
     processingAction, lastSeen, setLastSeen, lightboxImage, setLightboxImage,
-    uploadProgress,
+    uploadProgress, iBlockedUser,
     showDeleteForEveryoneConfirm, setShowDeleteForEveryoneConfirm,
     showRemoveFriendConfirm, setShowRemoveFriendConfirm,
     showBlockConfirm, setShowBlockConfirm,

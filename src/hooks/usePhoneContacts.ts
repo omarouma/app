@@ -24,6 +24,19 @@ export interface MatchedContact {
 const STORAGE_KEY = 'gaga_phone_contacts';
 const STORAGE_TIMESTAMP_KEY = 'gaga_contacts_synced_at';
 
+/**
+ * Default country code used to expand national phone numbers into E.164-style
+ * digits before hashing. Overridable via the `gaga_default_country_code`
+ * storage key (set from Settings → Privacy in a later section).
+ */
+const DEFAULT_COUNTRY_CODE = (() => {
+  try {
+    return safeGetStorageItem('gaga_default_country_code') || '880';
+  } catch {
+    return '880';
+  }
+})();
+
 export function loadStoredPhoneContacts(): PhoneContact[] {
   try {
     const raw = safeGetStorageItem(STORAGE_KEY);
@@ -93,54 +106,68 @@ export function usePhoneContacts(userId: string | undefined): UsePhoneContactsRe
     if (!phoneContacts.length || !userId) return;
     setLoadingContactMatch(true);
     try {
-      const [fsLib, cmLib] = await Promise.all([
-        import('@/lib/firestore'),
+      const [cmLib, dbLib] = await Promise.all([
         import('@/lib/contactMatching'),
+        import('@/lib/supabaseDb'),
       ]);
-      const { queryCollection, where, limit: qLimit } = fsLib;
-      const { dedupeContactEntries, normalizeEmailForMatching, normalizePhoneForMatching } = cmLib;
+      const {
+        dedupeContactEntries,
+        hashPhoneForDiscovery,
+        hashEmailForDiscovery,
+      } = cmLib;
 
       const cleanedContacts = dedupeContactEntries(phoneContacts);
-      const emails = cleanedContacts
-        .map((c) => normalizeEmailForMatching(c.email))
-        .filter(Boolean) as string[];
-      const phones = cleanedContacts
-        .map((c) => normalizePhoneForMatching(c.phone))
-        .filter(Boolean) as string[];
 
-      const foundUsers: User[] = [];
-      const emailQueries = emails.slice(0, 10).map(async (email) => {
-        const data = await queryCollection('users', [where('email', '==', email), qLimit(1)]);
-        foundUsers.push(...(data as unknown as User[]));
-      });
-      const phoneQueries = phones.slice(0, 10).map(async (phone) => {
-        const data = await queryCollection('users', [
-          where('phone', '>=', phone),
-          where('phone', '<=', phone + '\uf8ff'),
-          qLimit(5),
-        ]);
-        foundUsers.push(...(data as unknown as User[]));
-      });
-      await Promise.all([...emailQueries, ...phoneQueries]);
-
-      const unique = Array.from(new Map(foundUsers.map((u) => [u.id, u])).values()).filter(
-        (u) => u.id !== userId,
+      // Privacy-preserving discovery: hash every identifier locally and send
+      // ONLY the hashes to the server. Raw phone numbers / emails never leave
+      // the device. The `discover_contacts` RPC matches against stored hashes.
+      const phoneHashPairs = await Promise.all(
+        cleanedContacts.map(async (c) => ({
+          contact: c,
+          hash: await hashPhoneForDiscovery(c.phone, DEFAULT_COUNTRY_CODE),
+        })),
       );
+      const emailHashPairs = await Promise.all(
+        cleanedContacts.map(async (c) => ({
+          contact: c,
+          hash: await hashEmailForDiscovery(c.email),
+        })),
+      );
+
+      const phoneHashes = Array.from(new Set(phoneHashPairs.map((p) => p.hash).filter(Boolean)));
+      const emailHashes = Array.from(new Set(emailHashPairs.map((p) => p.hash).filter(Boolean)));
+
+      const db = dbLib.getDb();
+      if (!db) throw new Error('Backend unavailable');
+
+      const { data, error } = await db.rpc('discover_contacts', {
+        p_phone_hashes: phoneHashes,
+        p_email_hashes: emailHashes,
+      });
+      if (error) throw error;
+
+      const foundUsers = (data || []) as Array<Record<string, unknown>>;
       const matched: MatchedContact[] = [];
       const matchedContactIds = new Set<string>();
 
-      for (const u of unique) {
-        const userEmail = normalizeEmailForMatching(u.email || '');
-        const userPhone = normalizePhoneForMatching(u.phone || '');
-        const matchingContact = cleanedContacts.find((c) => {
-          const contactEmail = normalizeEmailForMatching(c.email);
-          const contactPhone = normalizePhoneForMatching(c.phone);
-          return (
-            (contactEmail && contactEmail === userEmail) ||
-            (contactPhone && contactPhone === userPhone) ||
-            (c.name && u.name && c.name.trim().toLowerCase() === u.name.trim().toLowerCase())
-          );
-        });
+      for (const row of foundUsers) {
+        const u = {
+          id: row.id as string,
+          name: (row.name as string) || 'User',
+          displayName: (row.display_name as string) || (row.name as string) || 'User',
+          username: (row.username as string) || '',
+          avatar: (row.avatar as string) || '',
+          bio: (row.bio as string) || '',
+          verified: (row.is_verified as boolean) || false,
+        } as unknown as User;
+
+        const rowPhoneHash = (row.phone_hash as string) || '';
+        const rowEmailHash = (row.email_hash as string) || '';
+
+        const matchingContact =
+          phoneHashPairs.find((p) => p.hash && p.hash === rowPhoneHash)?.contact ||
+          emailHashPairs.find((p) => p.hash && p.hash === rowEmailHash)?.contact;
+
         if (matchingContact) {
           matched.push({ contact: matchingContact, user: u });
           matchedContactIds.add(matchingContact.id);

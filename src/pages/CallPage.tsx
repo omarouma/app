@@ -24,7 +24,7 @@ export default function CallPage() {
   const userId = navState.userId;
   const mode = navState.mode ?? navState.callType;
   const { user: currentUser } = useAuthStore();
-  const { friends } = useFriendStore();
+  const { friends, blockedUsers } = useFriendStore();
   const { startCall, currentCall, cancelCallIfStale } = useCallStore();
   const { ensureCallPermissions } = useAppPermissions();
   const initiatedRef = useRef(false);
@@ -55,6 +55,12 @@ export default function CallPage() {
   useEffect(() => {
     if (!userId || !currentUser) return;
     if (initiatedRef.current) return;
+    // Block enforcement: never initiate a call to a user you have blocked.
+    if (blockedUsers.some((b) => b.blockedId === userId)) {
+      initiatedRef.current = true;
+      setError('You blocked this user. Unblock them to start a call.');
+      return;
+    }
     // 如果已有活跃通话但呼叫的不是当前用户，先结束再拨打新电话
     if (currentCall && !currentCall.participantIds.includes(userId)) {
       switchingToUserIdRef.current = userId;

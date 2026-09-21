@@ -3,7 +3,7 @@ import type { ReactElement } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  ChevronDown, Loader, Lock,
+  ChevronDown, Loader, Lock, Ban,
 } from 'lucide-react';
 
 import { useFilteredOnline, useOnlineUsers } from '@/hooks/usePresence';
@@ -155,6 +155,7 @@ export default function ChatRoom({ chatId, userId, onBack }: {
     sendTyping,
     stopTyping,
     unlockChat,
+    iBlockedUser,
   } = useChatRoom(chatId, userId);
 
   const { chats } = useChatStore();
@@ -727,6 +728,19 @@ export default function ChatRoom({ chatId, userId, onBack }: {
       </AnimatePresence>
 
       {/* Input bar */}
+      {iBlockedUser ? (
+        <div className="shrink-0 px-4 py-3 border-t border-[#EBEBEB] bg-[#F5F5F5] flex items-center justify-center gap-2">
+          <Ban size={16} className="text-[#FF3B30]" />
+          <span className="text-sm text-[#8D8D8D]">You blocked this user.</span>
+          <button
+            type="button"
+            onClick={handleUnblockUser}
+            className="text-sm font-semibold text-[#00C300] hover:underline"
+          >
+            Unblock
+          </button>
+        </div>
+      ) : (
       <InputBar
         input={input}
         onInputChange={setInput}
@@ -798,6 +812,7 @@ export default function ChatRoom({ chatId, userId, onBack }: {
           }
         }}
       />
+      )}
 
       {/* Context Menu */}
       <AnimatePresence>

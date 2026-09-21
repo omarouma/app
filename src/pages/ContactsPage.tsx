@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Users, Search, UserPlus, Star, StarOff, Trash2, Phone, Video,
   MessageCircle, Ban, X, Share2, Globe, QrCode, MapPin, User as UserIcon, Smartphone,
-  Contact2, RefreshCw, ChevronDown, ChevronUp, Loader, Download
+  Contact2, RefreshCw, ChevronDown, ChevronUp, Loader, Download, MoreVertical
 } from 'lucide-react';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useFriendStore } from '@/store/useFriendStore';
@@ -13,6 +13,7 @@ import { useChatStore } from '@/store/useChatStore';
 import { usePhoneContacts } from '@/hooks/usePhoneContacts';
 import EmptyState from '@/components/EmptyState';
 import LoadingSkeleton from '@/components/LoadingSkeleton';
+import ContactPreviewSheet from '@/components/features/contacts/ContactPreviewSheet';
 import { getDefaultAvatar, sanitizeMediaUrl, formatTime } from '@/lib/utils';
 import { toast } from 'sonner';
 import { copyToClipboard, nativeShare } from '@/lib/share';
@@ -32,7 +33,7 @@ export default function ContactsPage() {
     loadingFriends, loadingSentRequests, loadingBlocked,
     subscribeFriends, subscribeSentRequests, subscribeBlockedUsers,
     toggleFavorite, removeFriend, acceptRequest, rejectRequest,
-    cancelRequest, blockUser, unblockUser, sendRequest
+    cancelRequest, blockUser, unblockUser, sendRequest, getRecentContacts
   } = useFriendStore();
   const { createDirectChat } = useChatStore();
   const { filtered: visibleOnline } = useFilteredOnline(user?.id || '', friends);
@@ -48,6 +49,8 @@ export default function ContactsPage() {
   useEffect(() => { userIdRef.current = user?.id; }, [user?.id]);
 
   const [showContactSection, setShowContactSection] = useState(true);
+  const [previewUser, setPreviewUser] = useState<User | null>(null);
+  const [recentContacts, setRecentContacts] = useState<User[]>([]);
 
   const {
     phoneContacts,
@@ -76,6 +79,16 @@ export default function ContactsPage() {
   useEffect(() => () => {
     if (refreshTimeoutRef.current) clearTimeout(refreshTimeoutRef.current);
   }, []);
+
+  // Load recent contacts (most recently chatted direct contacts)
+  useEffect(() => {
+    if (!user?.id) return;
+    let cancelled = false;
+    getRecentContacts(user.id)
+      .then((list) => { if (!cancelled) setRecentContacts(list || []); })
+      .catch(() => { if (!cancelled) setRecentContacts([]); });
+    return () => { cancelled = true; };
+  }, [user?.id, getRecentContacts]);
 
   const handleRefresh = useCallback(() => {
     if (!userIdRef.current || refreshing) return;
@@ -130,11 +143,15 @@ export default function ContactsPage() {
     navigate(`/chat/${matchedUserId}`);
   };
 
+
   // ─── Filtering ───
 
   const filtered = useMemo(() => {
     const query = search.toLowerCase();
+    const blockedIds = new Set(blockedUsers.map((b) => b.blockedId));
     const results = friends.filter(f => {
+      // Gracefully hide accounts the user has blocked
+      if (blockedIds.has(f.id)) return false;
       const match = f.name?.toLowerCase().includes(query) || f.username?.toLowerCase().includes(query);
       if (tab === 'favorites') return match && user?.favorites?.includes(f.id);
       return match;
@@ -147,7 +164,7 @@ export default function ContactsPage() {
       if (visibleOnline[a.id] !== visibleOnline[b.id]) return Number(visibleOnline[b.id]) - Number(visibleOnline[a.id]);
       return (a.name || '').localeCompare(b.name || '');
     });
-  }, [friends, search, tab, user?.favorites, visibleOnline]);
+  }, [friends, search, tab, user?.favorites, visibleOnline, blockedUsers]);
 
   const onlineFriends = filtered.filter(f => visibleOnline[f.id]);
   const displayFriends = showOnlineOnly ? onlineFriends : filtered;
@@ -172,6 +189,75 @@ export default function ContactsPage() {
       toast.error(err instanceof Error ? err.message : 'Failed to unblock user');
     }
   };
+
+  // ─── Contact preview sheet handlers ───
+  const openPreview = useCallback((u: User) => setPreviewUser(u), []);
+
+  const previewIsFriend = useMemo(
+    () => (previewUser ? friends.some((f) => f.id === previewUser.id) : false),
+    [previewUser, friends],
+  );
+  const previewIsFavorite = useMemo(
+    () => (previewUser ? !!user?.favorites?.includes(previewUser.id) : false),
+    [previewUser, user?.favorites],
+  );
+  const previewIsBlocked = useMemo(
+    () => (previewUser ? blockedUsers.some((b) => b.blockedId === previewUser.id) : false),
+    [previewUser, blockedUsers],
+  );
+  const previewRequestSent = useMemo(
+    () => (previewUser ? sentRequests.some((r) => r.toUserId === previewUser.id) : false),
+    [previewUser, sentRequests],
+  );
+  const previewRequestReceived = useMemo(
+    () => (previewUser ? requests.some((r) => r.from === previewUser.id) : false),
+    [previewUser, requests],
+  );
+
+  const handlePreviewMessage = useCallback(async (id: string) => {
+    setPreviewUser(null);
+    await handleMessage(id);
+  }, [handleMessage]);
+
+  const handlePreviewVoice = useCallback((id: string) => {
+    setPreviewUser(null);
+    navigate('/call', { state: { userId: id, mode: 'voice' } });
+  }, [navigate]);
+
+  const handlePreviewVideo = useCallback((id: string) => {
+    setPreviewUser(null);
+    navigate('/call', { state: { userId: id, mode: 'video' } });
+  }, [navigate]);
+
+  const handlePreviewToggleFavorite = useCallback(async (id: string) => {
+    if (!user?.id) return;
+    await toggleFavorite(id, user.id, user.favorites || []);
+  }, [user, toggleFavorite]);
+
+  const handlePreviewBlock = useCallback(async (id: string) => {
+    setPreviewUser(null);
+    await handleBlock(id);
+  }, [handleBlock]);
+
+  const handlePreviewUnblock = useCallback(async (id: string) => {
+    setPreviewUser(null);
+    await handleUnblock(id);
+  }, [handleUnblock]);
+
+  const handlePreviewAddFriend = useCallback(async (id: string) => {
+    if (!user?.id) return;
+    try {
+      await sendRequest(id, user.id);
+      toast.success('Friend request sent');
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Failed to send request');
+    }
+  }, [user, sendRequest]);
+
+  const handlePreviewViewProfile = useCallback((id: string) => {
+    setPreviewUser(null);
+    navigate(`/profile/${id}`);
+  }, [navigate]);
 
   const handleCancel = async (requestId: string) => {
     try {
@@ -279,6 +365,42 @@ export default function ContactsPage() {
             aria-label="Search contacts"
           />
         </div>
+
+        {/* === RECENT CONTACTS ROW === */}
+        {!search && recentContacts.length > 0 && (
+          <div className="mb-4">
+            <h3 className="text-[13px] font-semibold text-[#8D8D8D] uppercase tracking-wide mb-2 px-0.5">Recent</h3>
+            <div className="flex gap-3 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-hide">
+              {recentContacts
+                .filter((rc) => !blockedUsers.some((b) => b.blockedId === rc.id))
+                .slice(0, 12)
+                .map((rc) => (
+                  <button
+                    key={rc.id}
+                    type="button"
+                    onClick={() => openPreview(rc)}
+                    className="flex flex-col items-center gap-1.5 shrink-0 w-[64px] active:opacity-70 transition-opacity"
+                    aria-label={`Open ${rc.name || rc.username || 'contact'}`}
+                  >
+                    <div className="relative">
+                      <img
+                        src={sanitizeMediaUrl(rc.avatar) || getDefaultAvatar(rc.name || rc.username || rc.id)}
+                        alt=""
+                        className="w-14 h-14 rounded-full object-cover bg-[#F5F5F5]"
+                        loading="lazy"
+                      />
+                      {visibleOnline[rc.id] && (
+                        <span className="absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full bg-[#00C300] border-2 border-white" />
+                      )}
+                    </div>
+                    <span className="text-[11px] text-[#111111] truncate w-full text-center">
+                      {(rc.name || rc.username || 'User').split(' ')[0]}
+                    </span>
+                  </button>
+                ))}
+            </div>
+          </div>
+        )}
 
         {/* === PHONE CONTACTS SECTION === */}
         <div className="mb-4">
@@ -738,6 +860,7 @@ export default function ContactsPage() {
                       const isFav = user?.favorites?.includes(friend.id);
                       const isOnline = visibleOnline[friend.id];
                       const showMenu = actionMenu === friend.id;
+                      const isDeleted = !friend.name || friend.name === 'User' || friend.name === 'Deleted User' || friend.name === 'Deleted account';
 
                       return (
                         <motion.div
@@ -747,7 +870,7 @@ export default function ContactsPage() {
                           transition={{ delay: i * 0.03 }}
                           className="relative"
                         >
-                          <button type="button" onClick={() => setActionMenu(showMenu ? null : friend.id)}
+                          <button type="button" onClick={() => openPreview(friend)}
                             className="w-full flex items-center py-2.5 active:bg-gray-50 rounded-xl transition-colors text-left"
                           >
                             <div className="relative mr-4">
@@ -766,11 +889,22 @@ export default function ContactsPage() {
                               <div className="flex items-center gap-1">
                                 <h3 className="text-[16px] font-medium text-[#111111]">{friend.name || 'User'}</h3>
                                 {isFav && <Star size={12} className="text-[#00C300] fill-current" />}
+                                {isDeleted && (
+                                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-[#F5F5F5] text-[#8D8D8D] font-medium">Deleted</span>
+                                )}
                               </div>
                               <p className="text-[12px] text-[#8D8D8D] truncate">
-                                {friend.statusMessage || (isOnline ? 'Online' : 'Offline')}
+                                {isDeleted ? 'This account is no longer available' : (friend.statusMessage || (isOnline ? 'Online' : 'Offline'))}
                               </p>
                             </div>
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); setActionMenu(showMenu ? null : friend.id); }}
+                              className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-[#F5F5F5] shrink-0"
+                              aria-label={`More actions for ${friend.name}`}
+                            >
+                              <MoreVertical size={18} className="text-[#8D8D8D]" />
+                            </button>
                           </button>
 
                           {/* Action Menu */}
@@ -850,6 +984,25 @@ export default function ContactsPage() {
           </div>
         )}
       </div>
+
+      {/* Contact preview sheet (shown before starting a chat) */}
+      <ContactPreviewSheet
+        user={previewUser}
+        isFriend={previewIsFriend}
+        isFavorite={previewIsFavorite}
+        isBlocked={previewIsBlocked}
+        requestSent={previewRequestSent}
+        requestReceived={previewRequestReceived}
+        onClose={() => setPreviewUser(null)}
+        onMessage={handlePreviewMessage}
+        onVoiceCall={handlePreviewVoice}
+        onVideoCall={handlePreviewVideo}
+        onToggleFavorite={handlePreviewToggleFavorite}
+        onBlock={handlePreviewBlock}
+        onUnblock={handlePreviewUnblock}
+        onAddFriend={handlePreviewAddFriend}
+        onViewProfile={handlePreviewViewProfile}
+      />
 
     </div>
   );

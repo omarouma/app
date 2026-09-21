@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { useGroupStore } from '@/store/useGroupStore';
 import { useChatStore } from '@/store/useChatStore';
+import { useFriendStore } from '@/store/useFriendStore';
 import { isFirestoreAvailable, queryCollection, COLLECTIONS, where, limit } from '@/lib/firestore';
 import { safeGetStorageItem, safeRemoveStorageItem, safeSetStorageItem } from '@/lib/safeStorage';
 import { getDefaultAvatar } from '@/lib/utils';
@@ -35,6 +36,7 @@ export default function SearchPage() {
   const navigate = useNavigate();
   const { groups } = useGroupStore();
   const { chats } = useChatStore();
+  const { blockedUsers } = useFriendStore();
 
   const [query, setQuery] = useState('');
   const [activeTab, setActiveTab] = useState<TabKey>('all');
@@ -96,7 +98,10 @@ export default function SearchPage() {
           const userMap = new Map<string, UserType>();
           (nameData || []).forEach((u) => userMap.set(u.id, u));
           (usernameData || []).forEach((u) => userMap.set(u.id, u));
+          // Block enforcement: hide users the current user has blocked from search.
+          const blockedIds = new Set(blockedUsers.map((b) => b.blockedId));
           userMap.forEach((u) => {
+            if (blockedIds.has(u.id)) return;
             all.push({
               id: u.id,
               type: 'users',
@@ -155,7 +160,7 @@ export default function SearchPage() {
 
     setResults(all);
     setLoading(false);
-  }, [activeTab, groups, chats]);
+  }, [activeTab, groups, chats, blockedUsers]);
 
   // Debounced search
   useEffect(() => {
