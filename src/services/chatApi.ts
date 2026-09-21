@@ -37,6 +37,7 @@ import { checkMessageRateLimit } from '@/hooks/useMessageRateLimiter';
 import { isOnline } from '@/lib/offlineQueue';
 import { toDateFromDb } from '@/lib/timeUtils';
 import { sanitizeText } from '@/lib/sanitize';
+import { getMessagePreview } from '@/lib/utils';
 import { logStoreError } from '@/lib/errorLogger';
 import { validateSendMessageParams, validateVotePoll, validateSendContactCard, validateSendPollParams } from '@/lib/validation';
 
@@ -268,6 +269,22 @@ export const chatApi = {
             await updateDocById(COLLECTIONS.CHATS, chatId, { isMuted });
         } catch (error) {
             logStoreError('chatApi.toggleMuteChat', error, { chatId, isMuted });
+            throw error;
+        }
+    },
+
+    /**
+     * Pin/unpin a chat
+     */
+    async togglePinChat(chatId: string, pinned: boolean): Promise<void> {
+        if (!isFirestoreAvailable() || !chatId) {
+            return;
+        }
+
+        try {
+            await updateDocById(COLLECTIONS.CHATS, chatId, { pinned });
+        } catch (error) {
+            logStoreError('chatApi.togglePinChat', error, { chatId, pinned });
             throw error;
         }
     },
@@ -606,7 +623,7 @@ export const chatApi = {
 
             // Update chat metadata
             await updateDocById(COLLECTIONS.CHATS, chatId, {
-                lastMessage: content,
+                lastMessage: getMessagePreview(type, content),
                 lastMessageSenderId: senderId,
                 updatedAt: serverTimestamp(),
             });

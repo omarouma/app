@@ -6,6 +6,7 @@ import { useFriendStore } from '@/store/useFriendStore';
 import { useFilteredOnline } from '@/hooks/usePresence';
 import { useChatListTyping } from '@/hooks/useChatListTyping';
 import { isFirestoreAvailable, getDocById } from '@/lib/firestore';
+import { getMessagePreview } from '@/lib/utils';
 import type { Chat } from '@/types';
 
 type ChatListItemData = Chat & { itemType: 'direct' | 'group' };
@@ -76,12 +77,30 @@ export function useChatLogic() {
 
     const searchFilter = (c: ChatListItemData) => {
       if (!search) return true;
-      if (c.type === 'group') return (c.name as string)?.toLowerCase().includes(search.toLowerCase());
-      const participants = c.participants as string[];
-      const otherId = participants.find((p) => p !== user?.id) || '';
-      const f = friends.find((fr) => fr.id === otherId);
-      const name = f?.name || nonFriendNames[otherId] || 'Chat';
-      return name.toLowerCase().includes(search.toLowerCase());
+      const q = search.toLowerCase();
+
+      // Match on conversation name (group name or the other participant's name)
+      let name = '';
+      if (c.type === 'group') {
+        name = (c.name as string) || '';
+      } else {
+        const participants = c.participants as string[];
+        const otherId = participants.find((p) => p !== user?.id) || '';
+        const f = friends.find((fr) => fr.id === otherId);
+        name = f?.name || nonFriendNames[otherId] || 'Chat';
+      }
+      if (name.toLowerCase().includes(q)) return true;
+
+      // Also match on the last-message preview text so users can find a
+      // conversation by something that was said in it.
+      const lm = c.lastMessage;
+      const previewText =
+        typeof lm === 'string'
+          ? lm
+          : lm && typeof lm === 'object'
+            ? getMessagePreview((lm as { type?: string }).type || 'text', (lm as { content?: string }).content || '')
+            : '';
+      return previewText.toLowerCase().includes(q);
     };
 
     return base.filter(filterFunctions[activeTab]).filter(searchFilter);

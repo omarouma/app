@@ -1,9 +1,10 @@
-import { memo, useMemo, useCallback } from 'react';
+import { memo, useMemo, useCallback, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
-import { Pin, Users, UserPlus } from 'lucide-react';
+import { motion, useMotionValue, useTransform, animate } from 'framer-motion';
+import { Pin, Users, UserPlus, Archive, VolumeX, Volume2 } from 'lucide-react';
 import type { Chat } from '@/types';
-import { formatTime, getDefaultAvatar, sanitizeMediaUrl } from '@/lib/utils';
+import { formatTime, getDefaultAvatar, sanitizeMediaUrl, getMessagePreview } from '@/lib/utils';
+import { safeGetStorageItem } from '@/lib/safeStorage';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useFriendStore } from '@/store/useFriendStore';
 import { useFilteredOnline } from '@/hooks/usePresence';
@@ -18,6 +19,8 @@ interface ChatListItemProps {
   avatar?: string;
   typingName?: string;
   onAddFriend?: (friendId: string) => Promise<void>;
+  onArchive?: (chatId: string, archived: boolean) => void;
+  onToggleMute?: (chatId: string) => void;
 }
 
 export const ChatListItem = memo(function ChatListItem({
@@ -30,8 +33,15 @@ export const ChatListItem = memo(function ChatListItem({
   avatar: propAvatar,
   typingName,
   onAddFriend,
+  onArchive,
+  onToggleMute,
 }: ChatListItemProps) {
   const navigate = useNavigate();
+  const swipeEnabled = !!onArchive || !!onToggleMute;
+  const x = useMotionValue(0);
+  const [revealed, setRevealed] = useState(false);
+  const archiveOpacity = useTransform(x, [-120, -40, 0], [1, 0.6, 0]);
+  const muteOpacity = useTransform(x, [0, 40, 120], [0, 0.6, 1]);
   const { user } = useAuthStore();
   const { friends, requests, sentRequests } = useFriendStore();
   const { filtered: visibleOnline } = useFilteredOnline(user?.id || '', friends);
@@ -54,8 +64,18 @@ export const ChatListItem = memo(function ChatListItem({
     const lm = chat.lastMessage;
     if (!lm) return '';
     if (typeof lm === 'string') return lm;
-    return lm.content || '';
+    return getMessagePreview(lm.type, lm.content);
   }, [chat.lastMessage, typingName]);
+
+  // Local draft preview (stored per-chat in localStorage by the chat room)
+  const draft = useMemo(() => {
+    if (typingName) return '';
+    try {
+      return safeGetStorageItem(`draft_${chat.id}`) || '';
+    } catch {
+      return '';
+    }
+  }, [chat.id, typingName]);
 
   const avatarSrc = sanitizeMediaUrl(avatar) || getDefaultAvatar(otherId || chat.id || name || 'C');
 
@@ -71,13 +91,34 @@ export const ChatListItem = memo(function ChatListItem({
     }
   }, [onAddFriend, otherId]);
 
-  return (
+  const closeSwipe = useCallback(() => {
+    animate(x, 0, { type: 'spring', stiffness: 400, damping: 40 });
+    setRevealed(false);
+  }, [x]);
+
+  const handleDragEnd = useCallback((_: unknown, info: { offset: { x: number } }) => {
+    const offset = info.offset.x;
+    if (offset < -60 && onArchive) {
+      animate(x, -96, { type: 'spring', stiffness: 400, damping: 40 });
+      setRevealed(true);
+    } else if (offset > 60 && onToggleMute) {
+      animate(x, 96, { type: 'spring', stiffness: 400, damping: 40 });
+      setRevealed(true);
+    } else {
+      closeSwipe();
+    }
+  }, [x, onArchive, onToggleMute, closeSwipe]);
+
+  const item = (
     <motion.div
       initial={{ opacity: 0, y: 6 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: Math.min(index * 0.03, 0.3) }}
-      onClick={() => navigate(isGroup ? `/group/${chat.id}` : `/chat/${otherId || chat.id}`)}
-      className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 active:bg-gray-100 transition-colors cursor-pointer relative"
+      onClick={() => {
+        if (revealed) { closeSwipe(); return; }
+        navigate(isGroup ? `/group/${chat.id}` : `/chat/${otherId || chat.id}`);
+      }}
+      className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 active:bg-gray-100 transition-colors cursor-pointer relative bg-white"
     >
       <div className="relative shrink-0">
         <div className="w-12 h-12 rounded-full bg-gray-100 overflow-hidden flex items-center justify-center">
@@ -134,8 +175,10 @@ export const ChatListItem = memo(function ChatListItem({
           </div>
         </div>
         <div className="flex items-center justify-between gap-2 mt-0.5">
-          <p className={`text-xs truncate ${typingName ? 'text-[#00C300] font-medium' : 'text-gray-500'}`}>
-            {lastMsgPreview}
+          <p className={`text-xs truncate ${typingName ? 'text-[#00C300] font-medium' : draft ? 'text-[#FF9800]' : 'text-gray-500'}`}>
+            {draft ? (
+              <><span className="font-semibold text-[#FF9800]">Draft: </span>{draft}</>
+            ) : lastMsgPreview}
           </p>
           {(chat.unreadCount ?? 0) > 0 && (
             <span className="shrink-0 min-w-[18px] h-[18px] bg-[#00C300] text-white text-[10px] font-bold rounded-full flex items-center justify-center px-1">
@@ -145,5 +188,48 @@ export const ChatListItem = memo(function ChatListItem({
         </div>
       </div>
     </motion.div>
+  );
+
+  if (!swipeEnabled) return item;
+
+  return (
+    <div className="relative overflow-hidden">
+      {/* Left action (revealed by swiping right): mute/unmute */}
+      {onToggleMute && (
+        <motion.button
+          type="button"
+          style={{ opacity: muteOpacity }}
+          onClick={() => { onToggleMute(chat.id); closeSwipe(); }}
+          className="absolute inset-y-0 left-0 w-24 flex flex-col items-center justify-center gap-1 bg-amber-500 text-white text-[11px] font-semibold"
+          aria-label={chat.isMuted ? 'Unmute chat' : 'Mute chat'}
+        >
+          {chat.isMuted ? <Volume2 size={18} /> : <VolumeX size={18} />}
+          {chat.isMuted ? 'Unmute' : 'Mute'}
+        </motion.button>
+      )}
+      {/* Right action (revealed by swiping left): archive/unarchive */}
+      {onArchive && (
+        <motion.button
+          type="button"
+          style={{ opacity: archiveOpacity }}
+          onClick={() => { onArchive(chat.id, !!chat.archived); closeSwipe(); }}
+          className="absolute inset-y-0 right-0 w-24 flex flex-col items-center justify-center gap-1 bg-gray-500 text-white text-[11px] font-semibold"
+          aria-label={chat.archived ? 'Unarchive chat' : 'Archive chat'}
+        >
+          <Archive size={18} />
+          {chat.archived ? 'Unarchive' : 'Archive'}
+        </motion.button>
+      )}
+      <motion.div
+        drag="x"
+        dragConstraints={{ left: 0, right: 0 }}
+        dragElastic={0.5}
+        style={{ x }}
+        onDragEnd={handleDragEnd}
+        className="relative z-10 bg-white"
+      >
+        {item}
+      </motion.div>
+    </div>
   );
 });

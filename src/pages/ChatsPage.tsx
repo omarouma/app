@@ -2,7 +2,7 @@ import { useState, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 
-import { UserPlus, Plus, Search, Users, Archive, MessageCircle, MessageSquare, ArchiveRestore, Phone, Bell, CheckCheck, Volume2, VolumeX } from 'lucide-react';
+import { UserPlus, Plus, Search, Users, Archive, MessageCircle, MessageSquare, ArchiveRestore, Phone, Bell, CheckCheck, Volume2, VolumeX, Pin, Mail } from 'lucide-react';
 
 import { ChatList } from '@/components/features/chat/ChatList';
 import LoadingSkeleton from '@/components/LoadingSkeleton';
@@ -21,18 +21,19 @@ export default function ChatsPage() {
     handleRefresh,
   } = useChatLogic();
 
-  const { archiveChat, unarchiveChat, markAsRead, muteChat } = useChatStore();
+  const { archiveChat, unarchiveChat, markAsRead, muteChat, pinChat, markAsUnread } = useChatStore();
 
   useDocumentTitle(`Chats (${totalUnread})`);
 
   const [refreshing, setRefreshing] = useState(false);
-  const [contextMenu, setContextMenu] = useState<{ chatId: string; archived: boolean; muted: boolean; x: number; y: number } | null>(null);
+  const [contextMenu, setContextMenu] = useState<{ chatId: string; archived: boolean; muted: boolean; pinned: boolean; x: number; y: number } | null>(null);
   const touchStartRef = useRef(0);
   const containerRef = useRef<HTMLDivElement>(null);
 
   const handleLongPress = useCallback((chatId: string, archived: boolean, muted: boolean, y: number) => {
-    setContextMenu({ chatId, archived, muted, x: 20, y: Math.min(y, window.innerHeight - 120) });
-  }, []);
+    const chat = activeChats.find((c) => c.id === chatId) || archivedChats.find((c) => c.id === chatId);
+    setContextMenu({ chatId, archived, muted, pinned: !!chat?.pinned, x: 20, y: Math.min(y, window.innerHeight - 200) });
+  }, [activeChats, archivedChats]);
 
   const handleMarkAllAsRead = useCallback(async () => {
     if (!user?.id || activeChats.every((chat) => (chat.unreadCount ?? 0) === 0)) return;
@@ -243,6 +244,8 @@ export default function ChatsPage() {
               typingMap={typingMap}
               onAddFriend={handleAddFriend}
               onLongPress={handleLongPress}
+              onArchive={handleArchiveToggle}
+              onToggleMute={handleToggleMute}
             />
           )}
         </div>
@@ -291,6 +294,20 @@ export default function ChatsPage() {
                 ? <><Volume2 size={16} className="text-primary" /> Unmute Chat</>
                 : <><VolumeX size={16} className="text-primary" /> Mute Chat</>
               }
+            </button>
+            <button
+              type="button"
+              onClick={() => { void pinChat(contextMenu.chatId); setContextMenu(null); }}
+              className="w-full flex items-center gap-3 px-4 py-3 text-sm text-foreground hover:bg-accent transition-colors"
+            >
+              <Pin size={16} className="text-primary" /> {contextMenu.pinned ? 'Unpin Chat' : 'Pin Chat'}
+            </button>
+            <button
+              type="button"
+              onClick={() => { void markAsUnread(contextMenu.chatId); setContextMenu(null); }}
+              className="w-full flex items-center gap-3 px-4 py-3 text-sm text-foreground hover:bg-accent transition-colors"
+            >
+              <Mail size={16} className="text-primary" /> Mark as Unread
             </button>
             <button
               type="button"

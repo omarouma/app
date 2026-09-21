@@ -12,6 +12,8 @@ interface ChatListProps {
   typingMap: Record<string, string>;
   onAddFriend: (friendId: string) => Promise<void>;
   onLongPress?: (chatId: string, archived: boolean, muted: boolean, y: number) => void;
+  onArchive?: (chatId: string, archived: boolean) => void;
+  onToggleMute?: (chatId: string) => void;
 }
 
 export const ChatList = memo(({
@@ -24,6 +26,8 @@ export const ChatList = memo(({
   typingMap,
   onAddFriend,
   onLongPress,
+  onArchive,
+  onToggleMute,
 }: ChatListProps) => {
   const longPressTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
@@ -85,6 +89,8 @@ export const ChatList = memo(({
               avatar={avatar}
               typingName={typingName}
               onAddFriend={onAddFriend}
+              onArchive={onArchive}
+              onToggleMute={onToggleMute}
             />
           </div>
         );
