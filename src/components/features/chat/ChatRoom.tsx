@@ -790,6 +790,7 @@ export default function ChatRoom({ chatId, userId, onBack }: {
             {[
               { label: 'Reply', action: () => { setReplyingTo(contextMenu.msg); setContextMenu(null); } },
               { label: 'Copy', action: async () => { const ok = await copyToClipboard(contextMenu.msg.content); if (ok) toast.success('Copied'); else toast.error('Unable to copy in this browser'); setContextMenu(null); } },
+              { label: 'Select', action: () => { setSelectionMode(true); setSelectedMessages(new Set([contextMenu.msg.id])); setContextMenu(null); } },
               ...(contextMenu.msg.senderId === currentUser?.id ? [
                 { label: 'Edit', action: () => handleEditStart(contextMenu.msg as Message) },
                 { label: 'Recall', action: () => handleRecall(contextMenu.msg.id) },
