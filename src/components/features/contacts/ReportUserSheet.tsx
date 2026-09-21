@@ -79,10 +79,10 @@ export default function ReportUserSheet({ user, onClose }: ReportUserSheetProps)
             animate={{ y: 0 }}
             exit={{ y: '100%' }}
             transition={{ type: 'spring', damping: 26, stiffness: 300 }}
-            className="bg-white rounded-t-3xl w-full max-w-lg max-h-[85vh] overflow-y-auto pb-[max(16px,env(safe-area-inset-bottom))]"
+            className="bg-background rounded-t-3xl w-full max-w-lg max-h-[85vh] overflow-y-auto pb-[max(16px,env(safe-area-inset-bottom))]"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="w-10 h-1 bg-[#EBEBEB] rounded-full mx-auto mt-3 mb-4" />
+            <div className="w-10 h-1 bg-muted rounded-full mx-auto mt-3 mb-4" />
 
             <div className="px-5">
               <div className="flex items-center justify-between mb-1">
@@ -90,18 +90,18 @@ export default function ReportUserSheet({ user, onClose }: ReportUserSheetProps)
                   <div className="w-9 h-9 rounded-full bg-[#FF3B30]/10 flex items-center justify-center">
                     <Flag size={18} className="text-[#FF3B30]" />
                   </div>
-                  <h3 className="text-base font-bold text-[#111111]">Report {user.name || 'user'}</h3>
+                  <h3 className="text-base font-bold text-foreground">Report {user.name || 'user'}</h3>
                 </div>
                 <button
                   type="button"
                   onClick={onClose}
-                  className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-[#F5F5F5]"
+                  className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-muted"
                   aria-label="Close report sheet"
                 >
-                  <X size={18} className="text-[#8D8D8D]" />
+                  <X size={18} className="text-muted-foreground" />
                 </button>
               </div>
-              <p className="text-xs text-[#8D8D8D] mb-4">
+              <p className="text-xs text-muted-foreground mb-4">
                 Your report is anonymous. The user will not be told that you reported them.
               </p>
 
@@ -114,11 +114,11 @@ export default function ReportUserSheet({ user, onClose }: ReportUserSheetProps)
                     className={`w-full flex items-center justify-between gap-3 p-3 rounded-xl border transition-colors text-left ${
                       reason === r.id
                         ? 'border-[#FF3B30] bg-[#FF3B30]/5'
-                        : 'border-[#EBEBEB] hover:bg-[#F5F5F5]'
+                        : 'border-border hover:bg-muted'
                     }`}
                     aria-pressed={reason === r.id}
                   >
-                    <span className="text-sm font-medium text-[#111111]">{r.label}</span>
+                    <span className="text-sm font-medium text-foreground">{r.label}</span>
                     {reason === r.id && <Check size={16} className="text-[#FF3B30] shrink-0" />}
                   </button>
                 ))}
@@ -130,7 +130,7 @@ export default function ReportUserSheet({ user, onClose }: ReportUserSheetProps)
                 placeholder="Add any additional details (optional)"
                 rows={3}
                 maxLength={500}
-                className="w-full mt-3 bg-[#F5F5F5] rounded-xl px-3 py-2.5 text-sm text-[#111111] resize-none focus:outline-none focus:ring-2 focus:ring-[#FF3B30]"
+                className="w-full mt-3 bg-muted rounded-xl px-3 py-2.5 text-sm text-foreground resize-none focus:outline-none focus:ring-2 focus:ring-[#FF3B30]"
                 aria-label="Report details"
               />
 
@@ -145,7 +145,7 @@ export default function ReportUserSheet({ user, onClose }: ReportUserSheetProps)
               <button
                 type="button"
                 onClick={onClose}
-                className="w-full mt-2 py-3 bg-[#F5F5F5] text-[#111111] rounded-xl text-sm font-bold"
+                className="w-full mt-2 py-3 bg-muted text-foreground rounded-xl text-sm font-bold"
               >
                 Cancel
               </button>

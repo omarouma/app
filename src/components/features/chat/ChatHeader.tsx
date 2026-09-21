@@ -87,13 +87,13 @@ export const ChatHeader = memo(function ChatHeader(props: ChatHeaderProps) {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="shrink-0 flex justify-between items-center px-2 py-3 bg-white border-b border-[#EBEBEB] z-10"
+      className="shrink-0 flex justify-between items-center px-2 py-3 bg-background border-b border-border z-10"
     >
       <div className="flex items-center gap-2 flex-1 min-w-0">
-        <button type="button" onClick={props.onBack} aria-label="Go back" className="p-2 -ml-2 active:bg-gray-100 rounded-full text-[#111111]">
+        <button type="button" onClick={props.onBack} aria-label="Go back" className="p-2 -ml-2 active:bg-muted rounded-full text-foreground">
           <ChevronLeft size={28} strokeWidth={1.5} />
         </button>
-        <div className="w-9 h-9 rounded-full bg-[#F5F5F5] flex items-center justify-center overflow-hidden shrink-0">
+        <div className="w-9 h-9 rounded-full bg-muted flex items-center justify-center overflow-hidden shrink-0">
           {sanitizeMediaUrl(props.displayUser?.avatar) ? (
             <img src={sanitizeMediaUrl(props.displayUser?.avatar)} className="w-full h-full object-cover" alt="User avatar" />
           ) : (
@@ -101,8 +101,8 @@ export const ChatHeader = memo(function ChatHeader(props: ChatHeaderProps) {
           )}
         </div>
         <div className="min-w-0">
-          <h3 className="text-base font-bold text-[#111111] leading-tight truncate">{props.displayUser?.name || 'Chat'}</h3>
-          <p className="text-[11px] text-[#8D8D8D] truncate">
+          <h3 className="text-base font-bold text-foreground leading-tight truncate">{props.displayUser?.name || 'Chat'}</h3>
+          <p className="text-[11px] text-muted-foreground truncate">
             {props.activeTypingUsers.length > 0
               ? renderTypingText(props.activeTypingUsers)
               : props.isUserOnline ? 'Online' : props.lastSeen ? `last seen ${props.lastSeen}` : 'Offline'}
@@ -110,7 +110,7 @@ export const ChatHeader = memo(function ChatHeader(props: ChatHeaderProps) {
         </div>
       </div>
 
-      <div className="flex items-center gap-3 pr-3 text-[#111111]">
+      <div className="flex items-center gap-3 pr-3 text-foreground">
         <button type="button" onClick={props.onToggleSearch} className="active:opacity-60" aria-label="Search messages">
           <Search size={22} strokeWidth={1.5} className={props.showSearch ? 'text-[#00C300]' : ''} />
         </button>
@@ -142,19 +142,19 @@ export const ChatHeader = memo(function ChatHeader(props: ChatHeaderProps) {
                 initial={{ opacity: 0, scale: 0.95, y: -5 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.95, y: -5 }}
-                className="absolute right-0 top-full mt-1 bg-white rounded-xl shadow-xl border border-[#EBEBEB] py-1 z-50 w-44"
+                className="absolute right-0 top-full mt-1 bg-background rounded-xl shadow-xl border border-border py-1 z-50 w-44"
               >
                 <button
                   type="button"
                   onClick={() => { setShowMoreMenu(false); props.onViewProfile(); }}
-                  className="w-full flex items-center gap-2 px-3 py-2 text-sm text-[#111111] hover:bg-[#F5F5F5] transition-colors text-left"
+                  className="w-full flex items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-muted transition-colors text-left"
                 >
                   <User size={14} /> View Profile
                 </button>
                 <button
                   type="button"
                   onClick={() => { setShowMoreMenu(false); props.onChatInfo(); }}
-                  className="w-full flex items-center gap-2 px-3 py-2 text-sm text-[#111111] hover:bg-[#F5F5F5] transition-colors text-left"
+                  className="w-full flex items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-muted transition-colors text-left"
                 >
                   <Info size={14} /> Chat Info
                 </button>
@@ -173,7 +173,7 @@ export const ChatHeader = memo(function ChatHeader(props: ChatHeaderProps) {
                     type="button"
                     onClick={() => { setShowMoreMenu(false); props.onBlockUser(); }}
                     disabled={props.processingAction}
-                    className="w-full flex items-center gap-2 px-3 py-2 text-sm text-[#111111] hover:bg-[#F5F5F5] transition-colors text-left disabled:opacity-50"
+                    className="w-full flex items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-muted transition-colors text-left disabled:opacity-50"
                   >
                     <Ban size={14} /> Block User
                   </button>
@@ -190,7 +190,7 @@ export const ChatHeader = memo(function ChatHeader(props: ChatHeaderProps) {
                 <button
                   type="button"
                   onClick={() => { setShowMoreMenu(false); props.onReport(); }}
-                  className="w-full flex items-center gap-2 px-3 py-2 text-sm text-[#111111] hover:bg-[#F5F5F5] transition-colors text-left"
+                  className="w-full flex items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-muted transition-colors text-left"
                 >
                   <Flag size={14} /> Report User
                 </button>

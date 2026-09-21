@@ -524,7 +524,7 @@ export default function SettingsPage() {
                       className={`w-11 h-6 rounded-full transition-colors relative shrink-0 ${settings.notifications.callSound ? 'bg-primary' : 'bg-muted'}`}
                       aria-pressed={settings.notifications.callSound}
                     >
-                      <div className={`w-4 h-4 rounded-full bg-white absolute top-1 transition-all ${settings.notifications.callSound ? 'left-5' : 'left-1'}`} />
+                      <div className={`w-4 h-4 rounded-full bg-background absolute top-1 transition-all ${settings.notifications.callSound ? 'left-5' : 'left-1'}`} />
                     </button>
                   ))}
                   {isVibrationSupported() && settingItem('Vibration', Smartphone, (

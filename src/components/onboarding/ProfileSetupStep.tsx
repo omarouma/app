@@ -138,8 +138,8 @@ const ProfileSetupStep = forwardRef<ProfileSetupHandle, ProfileSetupStepProps>(
 
     return (
       <div className="w-full max-w-sm mx-auto text-center">
-        <h2 className="text-2xl font-bold text-[#111111] mb-2">Set up your profile</h2>
-        <p className="text-[#8D8D8D] text-sm mb-6 leading-relaxed">
+        <h2 className="text-2xl font-bold text-foreground mb-2">Set up your profile</h2>
+        <p className="text-muted-foreground text-sm mb-6 leading-relaxed">
           Choose how you appear to friends. Your username is how others can find and add you.
         </p>
 
@@ -170,16 +170,16 @@ const ProfileSetupStep = forwardRef<ProfileSetupHandle, ProfileSetupStepProps>(
 
         {/* Display name */}
         <div className="text-left mb-4">
-          <label className="block text-xs font-semibold text-[#8D8D8D] mb-1.5 ml-1">Display name</label>
-          <div className="flex items-center gap-2 bg-[#F5F5F5] rounded-xl px-3 py-3">
-            <UserIcon size={16} className="text-[#8D8D8D] shrink-0" />
+          <label className="block text-xs font-semibold text-muted-foreground mb-1.5 ml-1">Display name</label>
+          <div className="flex items-center gap-2 bg-muted rounded-xl px-3 py-3">
+            <UserIcon size={16} className="text-muted-foreground shrink-0" />
             <input
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Your name"
               maxLength={50}
               autoComplete="name"
-              className="flex-1 bg-transparent text-sm text-[#111111] focus:outline-none"
+              className="flex-1 bg-transparent text-sm text-foreground focus:outline-none"
               aria-label="Display name"
             />
             {nameValid && <Check size={16} className="text-[#00C300] shrink-0" />}
@@ -188,9 +188,9 @@ const ProfileSetupStep = forwardRef<ProfileSetupHandle, ProfileSetupStepProps>(
 
         {/* Username */}
         <div className="text-left mb-2">
-          <label className="block text-xs font-semibold text-[#8D8D8D] mb-1.5 ml-1">Username</label>
-          <div className="flex items-center gap-2 bg-[#F5F5F5] rounded-xl px-3 py-3">
-            <AtSign size={16} className="text-[#8D8D8D] shrink-0" />
+          <label className="block text-xs font-semibold text-muted-foreground mb-1.5 ml-1">Username</label>
+          <div className="flex items-center gap-2 bg-muted rounded-xl px-3 py-3">
+            <AtSign size={16} className="text-muted-foreground shrink-0" />
             <input
               value={username}
               onChange={(e) => setUsername(e.target.value)}
@@ -199,10 +199,10 @@ const ProfileSetupStep = forwardRef<ProfileSetupHandle, ProfileSetupStepProps>(
               autoCapitalize="none"
               autoCorrect="off"
               spellCheck={false}
-              className="flex-1 bg-transparent text-sm text-[#111111] focus:outline-none"
+              className="flex-1 bg-transparent text-sm text-foreground focus:outline-none"
               aria-label="Username"
             />
-            {usernameStatus === 'checking' && <Loader size={16} className="text-[#8D8D8D] animate-spin shrink-0" />}
+            {usernameStatus === 'checking' && <Loader size={16} className="text-muted-foreground animate-spin shrink-0" />}
             {usernameStatus === 'available' && <Check size={16} className="text-[#00C300] shrink-0" />}
             {(usernameStatus === 'taken' || usernameStatus === 'invalid') && <X size={16} className="text-red-500 shrink-0" />}
           </div>
@@ -212,7 +212,7 @@ const ProfileSetupStep = forwardRef<ProfileSetupHandle, ProfileSetupStepProps>(
           )}
         </div>
 
-        {saving && <p className="text-xs text-[#8D8D8D] mt-3">Saving…</p>}
+        {saving && <p className="text-xs text-muted-foreground mt-3">Saving…</p>}
       </div>
     );
   },

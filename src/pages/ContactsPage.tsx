@@ -299,19 +299,19 @@ export default function ContactsPage() {
   const alphabetLetters = useMemo(() => groupedFriends.map(([letter]) => letter), [groupedFriends]);
 
   return (
-    <div className="h-[100dvh] bg-white flex flex-col page-enter">
+    <div className="h-[100dvh] bg-background flex flex-col page-enter">
       {/* Header */}
       <div className="shrink-0 px-5 pt-5 pb-3 flex justify-between items-center">
-        <h1 className="text-[26px] font-bold text-[#111111] tracking-tight">Contacts</h1>
+        <h1 className="text-[26px] font-bold text-foreground tracking-tight">Contacts</h1>
         <div className="flex items-center gap-2">
           <button type="button" onClick={() => navigate('/qr-scanner?tab=scan')}
-            className="w-9 h-9 flex items-center justify-center bg-[#F5F5F5] text-[#111111] rounded-full active:bg-[#EBEBEB] transition-colors tap-scale"
+            className="w-9 h-9 flex items-center justify-center bg-muted text-foreground rounded-full active:bg-muted transition-colors tap-scale"
             title="Scan QR"
           >
             <QrCode size={16} />
           </button>
           <button type="button" onClick={() => navigate('/add-friends', { state: { tab: 'nearby' } })}
-            className="w-9 h-9 flex items-center justify-center bg-[#F5F5F5] text-[#111111] rounded-full active:bg-[#EBEBEB] transition-colors tap-scale"
+            className="w-9 h-9 flex items-center justify-center bg-muted text-foreground rounded-full active:bg-muted transition-colors tap-scale"
             title="Find Nearby"
           >
             <MapPin size={16} />
@@ -354,14 +354,14 @@ export default function ContactsPage() {
         )}
 
         {/* Search */}
-        <div className="bg-[#F5F5F5] rounded-2xl px-3 py-2.5 flex items-center gap-2 mb-4">
-          <Search size={16} className="text-[#ADADAD] ml-0.5 shrink-0" />
+        <div className="bg-muted rounded-2xl px-3 py-2.5 flex items-center gap-2 mb-4">
+          <Search size={16} className="text-muted-foreground ml-0.5 shrink-0" />
           <input
             type="text"
             placeholder="Search contacts…"
             value={search}
             onChange={e => setSearch(e.target.value)}
-            className="bg-transparent border-none focus:outline-none text-[15px] w-full text-[#111111] placeholder-[#ADADAD]"
+            className="bg-transparent border-none focus:outline-none text-[15px] w-full text-foreground placeholder:text-muted-foreground"
             aria-label="Search contacts"
           />
         </div>
@@ -369,7 +369,7 @@ export default function ContactsPage() {
         {/* === RECENT CONTACTS ROW === */}
         {!search && recentContacts.length > 0 && (
           <div className="mb-4">
-            <h3 className="text-[13px] font-semibold text-[#8D8D8D] uppercase tracking-wide mb-2 px-0.5">Recent</h3>
+            <h3 className="text-[13px] font-semibold text-muted-foreground uppercase tracking-wide mb-2 px-0.5">Recent</h3>
             <div className="flex gap-3 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-hide">
               {recentContacts
                 .filter((rc) => !blockedUsers.some((b) => b.blockedId === rc.id))
@@ -386,14 +386,14 @@ export default function ContactsPage() {
                       <img
                         src={sanitizeMediaUrl(rc.avatar) || getDefaultAvatar(rc.name || rc.username || rc.id)}
                         alt=""
-                        className="w-14 h-14 rounded-full object-cover bg-[#F5F5F5]"
+                        className="w-14 h-14 rounded-full object-cover bg-muted"
                         loading="lazy"
                       />
                       {visibleOnline[rc.id] && (
                         <span className="absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full bg-[#00C300] border-2 border-white" />
                       )}
                     </div>
-                    <span className="text-[11px] text-[#111111] truncate w-full text-center">
+                    <span className="text-[11px] text-foreground truncate w-full text-center">
                       {(rc.name || rc.username || 'User').split(' ')[0]}
                     </span>
                   </button>
@@ -414,9 +414,9 @@ export default function ContactsPage() {
                 <Contact2 size={16} className="text-[#00C300]" />
               </div>
               <div className="text-left">
-                <h3 className="text-[15px] font-semibold text-[#111111]">Phone Contacts</h3>
+                <h3 className="text-[15px] font-semibold text-foreground">Phone Contacts</h3>
                 {syncTime && (
-                  <p className="text-[11px] text-[#8D8D8D]">Synced {syncTime}</p>
+                  <p className="text-[11px] text-muted-foreground">Synced {syncTime}</p>
                 )}
               </div>
             </div>
@@ -425,12 +425,12 @@ export default function ContactsPage() {
                 <button
                   type="button"
                   onClick={(e) => { e.stopPropagation(); handleClearContacts(); }}
-                  className="text-[#8D8D8D] text-xs hover:text-[#FF3B30] transition-colors px-2 py-1"
+                  className="text-muted-foreground text-xs hover:text-[#FF3B30] transition-colors px-2 py-1"
                 >
                   Clear
                 </button>
               )}
-              {showContactSection ? <ChevronUp size={18} className="text-[#8D8D8D]" /> : <ChevronDown size={18} className="text-[#8D8D8D]" />}
+              {showContactSection ? <ChevronUp size={18} className="text-muted-foreground" /> : <ChevronDown size={18} className="text-muted-foreground" />}
             </div>
           </button>
 
@@ -444,12 +444,12 @@ export default function ContactsPage() {
               >
                 {/* Import Button */}
                 {!hasContactData && !contactsLoading && (
-                  <div className="bg-[#F5F5F5] rounded-xl p-4 mb-3 text-center">
+                  <div className="bg-muted rounded-xl p-4 mb-3 text-center">
                     <div className="w-12 h-12 rounded-full bg-[#00C300]/10 flex items-center justify-center mx-auto mb-2">
                       <Smartphone size={24} className="text-[#00C300]" />
                     </div>
-                    <p className="text-[#111111] font-medium text-sm mb-1">Find friends from your phone</p>
-                    <p className="text-[#8D8D8D] text-xs mb-3">Sync your contacts to see who's already on GaGa Chat</p>
+                    <p className="text-foreground font-medium text-sm mb-1">Find friends from your phone</p>
+                    <p className="text-muted-foreground text-xs mb-3">Sync your contacts to see who's already on GaGa Chat</p>
                     <button
                       type="button"
                       onClick={handleSyncContacts}
@@ -472,7 +472,7 @@ export default function ContactsPage() {
                       transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
                       className="w-6 h-6 border-2 border-[#00C300] border-t-transparent rounded-full mb-2"
                     />
-                    <p className="text-[#8D8D8D] text-xs">Importing contacts...</p>
+                    <p className="text-muted-foreground text-xs">Importing contacts...</p>
                   </div>
                 )}
 
@@ -480,7 +480,7 @@ export default function ContactsPage() {
                 {loadingContactMatch && (
                   <div className="flex items-center justify-center py-3 mb-2">
                     <Loader size={16} className="animate-spin text-[#00C300] mr-2" />
-                    <p className="text-[#8D8D8D] text-xs">Finding friends on GaGa Chat...</p>
+                    <p className="text-muted-foreground text-xs">Finding friends on GaGa Chat...</p>
                   </div>
                 )}
 
@@ -489,7 +489,7 @@ export default function ContactsPage() {
                   <div className="mb-3">
                     <div className="flex items-center justify-between mb-2">
                       <p className="text-xs font-semibold text-[#00C300] uppercase tracking-wider">On GaGa Chat</p>
-                      <span className="text-[#8D8D8D] text-xs">{matchedContacts.length}</span>
+                      <span className="text-muted-foreground text-xs">{matchedContacts.length}</span>
                     </div>
                     <div className="space-y-1">
                       {matchedContacts.map(({ contact, user: matchedUser }) => {
@@ -504,7 +504,7 @@ export default function ContactsPage() {
                             className="flex items-center gap-3 p-2.5 bg-[#00C300]/5 rounded-xl"
                           >
                             <div className="relative">
-                              <div className="w-10 h-10 rounded-full bg-[#F5F5F5] flex items-center justify-center overflow-hidden">
+                              <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center overflow-hidden">
                                 {sanitizeMediaUrl(matchedUser.avatar) ? (
                                   <img src={sanitizeMediaUrl(matchedUser.avatar)} className="w-full h-full object-cover" alt="User avatar" />
                                 ) : (
@@ -516,8 +516,8 @@ export default function ContactsPage() {
                               )}
                             </div>
                             <div className="flex-1 min-w-0">
-                              <p className="text-[#111111] text-sm font-medium truncate">{contact.name}</p>
-                              <p className="text-[#8D8D8D] text-xs truncate">{matchedUser.phone || matchedUser.email || matchedUser.username || '@user'}</p>
+                              <p className="text-foreground text-sm font-medium truncate">{contact.name}</p>
+                              <p className="text-muted-foreground text-xs truncate">{matchedUser.phone || matchedUser.email || matchedUser.username || '@user'}</p>
                             </div>
                             <div className="flex items-center gap-1.5">
                               {isFriend ? (
@@ -549,8 +549,8 @@ export default function ContactsPage() {
                 {unmatchedContacts.length > 0 && (
                   <div className="mb-3">
                     <div className="flex items-center justify-between mb-2">
-                      <p className="text-xs font-semibold text-[#8D8D8D] uppercase tracking-wider">Invite to GaGa Chat</p>
-                      <span className="text-[#8D8D8D] text-xs">{unmatchedContacts.length}</span>
+                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Invite to GaGa Chat</p>
+                      <span className="text-muted-foreground text-xs">{unmatchedContacts.length}</span>
                     </div>
                     <div className="space-y-1">
                       {unmatchedContacts.slice(0, 10).map((contact) => (
@@ -558,26 +558,26 @@ export default function ContactsPage() {
                           key={contact.id}
                           initial={{ opacity: 0, y: 5 }}
                           animate={{ opacity: 1, y: 0 }}
-                          className="flex items-center gap-3 p-2.5 bg-[#F5F5F5] rounded-xl"
+                          className="flex items-center gap-3 p-2.5 bg-muted rounded-xl"
                         >
                           <div className="w-10 h-10 rounded-full bg-[#E8F5E9] flex items-center justify-center">
                             <UserIcon size={18} className="text-[#00C300]" />
                           </div>
                           <div className="flex-1 min-w-0">
-                            <p className="text-[#111111] text-sm font-medium truncate">{contact.name}</p>
-                            <p className="text-[#8D8D8D] text-xs truncate">{contact.phone || contact.email || 'No contact info'}</p>
+                            <p className="text-foreground text-sm font-medium truncate">{contact.name}</p>
+                            <p className="text-muted-foreground text-xs truncate">{contact.phone || contact.email || 'No contact info'}</p>
                           </div>
                           <button
                             type="button"
                             onClick={() => handleInvite(contact.name)}
-                            className="flex items-center gap-1 px-3 py-1.5 bg-white text-[#00C300] text-xs rounded-full font-medium active:bg-gray-100 transition-colors border border-[#00C300]/20"
+                            className="flex items-center gap-1 px-3 py-1.5 bg-background text-[#00C300] text-xs rounded-full font-medium active:bg-muted transition-colors border border-[#00C300]/20"
                           >
                             <Share2 size={12} /> Invite
                           </button>
                         </motion.div>
                       ))}
                       {unmatchedContacts.length > 10 && (
-                        <p className="text-center text-[#8D8D8D] text-xs py-1">
+                        <p className="text-center text-muted-foreground text-xs py-1">
                           +{unmatchedContacts.length - 10} more contacts
                         </p>
                       )}
@@ -590,7 +590,7 @@ export default function ContactsPage() {
                   <button
                     type="button"
                     onClick={handleSyncContacts}
-                    className="w-full flex items-center justify-center gap-2 py-2.5 bg-[#F5F5F5] rounded-xl text-[#8D8D8D] text-xs font-medium hover:text-[#111111] transition-colors mb-2"
+                    className="w-full flex items-center justify-center gap-2 py-2.5 bg-muted rounded-xl text-muted-foreground text-xs font-medium hover:text-foreground transition-colors mb-2"
                   >
                     <RefreshCw size={14} /> Re-sync contacts
                   </button>
@@ -600,7 +600,7 @@ export default function ContactsPage() {
           </AnimatePresence>
         </div>
 
-        <div className="border-t border-[#EBEBEB] my-2" />
+        <div className="border-t border-border my-2" />
 
         {/* Tabs */}
         <div className="flex gap-2 mb-3 overflow-x-auto scrollbar-hide">
@@ -609,7 +609,7 @@ export default function ContactsPage() {
               onClick={() => setTab(t)}
               className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all whitespace-nowrap tap-scale ${tab === t
                 ? 'bg-[#111111] text-white shadow-sm'
-                : 'bg-[#F5F5F5] text-[#8D8D8D] hover:text-[#111111]'
+                : 'bg-muted text-muted-foreground hover:text-foreground'
                 }`}
             >
               {tabLabels[t]}
@@ -624,7 +624,7 @@ export default function ContactsPage() {
               <button type="button" onClick={() => setShowOnlineOnly(!showOnlineOnly)}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${showOnlineOnly
                   ? 'bg-[#00C300]/10 text-[#00C300]'
-                  : 'bg-[#F5F5F5] text-[#8D8D8D]'
+                  : 'bg-muted text-muted-foreground'
                   }`}
               >
                 <Globe size={12} />
@@ -632,14 +632,14 @@ export default function ContactsPage() {
               </button>
               {showOnlineOnly && (
                 <button type="button" onClick={() => setShowOnlineOnly(false)}
-                  className="text-[#8D8D8D] text-xs hover:text-[#111111] transition-colors"
+                  className="text-muted-foreground text-xs hover:text-foreground transition-colors"
                 >
                   <X size={14} />
                 </button>
               )}
             </div>
             <button type="button" onClick={() => handleInvite()}
-              className="flex items-center gap-1 px-3 py-1.5 bg-[#F5F5F5] text-[#8D8D8D] text-xs rounded-full font-medium hover:text-[#111111] transition-colors"
+              className="flex items-center gap-1 px-3 py-1.5 bg-muted text-muted-foreground text-xs rounded-full font-medium hover:text-foreground transition-colors"
             >
               <Share2 size={12} /> Invite
             </button>
@@ -670,7 +670,7 @@ export default function ContactsPage() {
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: i * 0.05 }}
-                    className="flex items-center gap-3 p-3 bg-[#F5F5F5] rounded-xl"
+                    className="flex items-center gap-3 p-3 bg-muted rounded-xl"
                   >
                     <img
                       src={
@@ -682,7 +682,7 @@ export default function ContactsPage() {
                         )
                       }
                       alt="User avatar"
-                      className="w-11 h-11 rounded-full object-cover shrink-0 bg-white"
+                      className="w-11 h-11 rounded-full object-cover shrink-0 bg-background"
                       onError={(e) => {
                         const targetId =
                           (req as { fromUserId?: string }).fromUserId ||
@@ -692,10 +692,10 @@ export default function ContactsPage() {
                       }}
                     />
                     <div className="flex-1 min-w-0">
-                      <p className="text-[#111111] text-sm font-medium truncate">
+                      <p className="text-foreground text-sm font-medium truncate">
                         {(req as { fromUser?: { name?: string } }).fromUser?.name || 'Loading...'}
                       </p>
-                      <p className="text-[#8D8D8D] text-xs truncate">
+                      <p className="text-muted-foreground text-xs truncate">
                         @{(req as { fromUser?: { username?: string } }).fromUser?.username || 'user'}
                       </p>
                     </div>
@@ -712,7 +712,7 @@ export default function ContactsPage() {
                         try { await rejectRequest(req.id); toast.success('Friend request declined'); }
                         catch { toast.error('Failed to decline request'); }
                       }}
-                        className="px-3 py-1.5 bg-white text-[#8D8D8D] text-xs rounded-full active:bg-gray-100 transition-colors"
+                        className="px-3 py-1.5 bg-background text-muted-foreground text-xs rounded-full active:bg-muted transition-colors"
                       >
                         Decline
                       </button>
@@ -748,9 +748,9 @@ export default function ContactsPage() {
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: i * 0.05 }}
-                    className="flex items-center gap-3 p-3 bg-[#F5F5F5] rounded-xl"
+                    className="flex items-center gap-3 p-3 bg-muted rounded-xl"
                   >
-                    <div className="w-11 h-11 rounded-full bg-white flex items-center justify-center shrink-0 overflow-hidden">
+                    <div className="w-11 h-11 rounded-full bg-background flex items-center justify-center shrink-0 overflow-hidden">
                       {sanitizeMediaUrl(req.toUser?.avatar) ? (
                         <img src={sanitizeMediaUrl(req.toUser?.avatar)} className="w-full h-full object-cover" alt="User avatar" />
                       ) : (
@@ -758,12 +758,12 @@ export default function ContactsPage() {
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-[#111111] text-sm font-medium">{req.toUser?.name || 'User'}</p>
-                      <p className="text-[#8D8D8D] text-xs">@{req.toUser?.username || req.toUserId.slice(0, 8)}</p>
-                      <p className="text-[#8D8D8D] text-[10px] mt-0.5">Sent {formatTime(req.timestamp)}</p>
+                      <p className="text-foreground text-sm font-medium">{req.toUser?.name || 'User'}</p>
+                      <p className="text-muted-foreground text-xs">@{req.toUser?.username || req.toUserId.slice(0, 8)}</p>
+                      <p className="text-muted-foreground text-[10px] mt-0.5">Sent {formatTime(req.timestamp)}</p>
                     </div>
                     <button type="button" onClick={() => handleCancel(req.id)}
-                      className="flex items-center gap-1 px-3 py-1.5 bg-white text-[#FF3B30] text-xs rounded-full font-medium active:bg-gray-100 transition-colors"
+                      className="flex items-center gap-1 px-3 py-1.5 bg-background text-[#FF3B30] text-xs rounded-full font-medium active:bg-muted transition-colors"
                     >
                       <X size={12} /> Cancel
                     </button>
@@ -798,9 +798,9 @@ export default function ContactsPage() {
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: i * 0.05 }}
-                    className="flex items-center gap-3 p-3 bg-[#F5F5F5] rounded-xl"
+                    className="flex items-center gap-3 p-3 bg-muted rounded-xl"
                   >
-                    <div className="w-11 h-11 rounded-full bg-white flex items-center justify-center shrink-0 overflow-hidden">
+                    <div className="w-11 h-11 rounded-full bg-background flex items-center justify-center shrink-0 overflow-hidden">
                       {sanitizeMediaUrl(record.blockedUser?.avatar) ? (
                         <img src={sanitizeMediaUrl(record.blockedUser?.avatar)} className="w-full h-full object-cover" alt="User avatar" />
                       ) : (
@@ -808,14 +808,14 @@ export default function ContactsPage() {
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-[#111111] text-sm font-medium">{record.blockedUser?.name || 'User'}</p>
-                      <p className="text-[#8D8D8D] text-xs">@{record.blockedUser?.username || record.blockedId.slice(0, 8)}</p>
+                      <p className="text-foreground text-sm font-medium">{record.blockedUser?.name || 'User'}</p>
+                      <p className="text-muted-foreground text-xs">@{record.blockedUser?.username || record.blockedId.slice(0, 8)}</p>
                       {record.reason && (
-                        <p className="text-[#8D8D8D] text-[10px] mt-0.5 truncate">Reason: {record.reason}</p>
+                        <p className="text-muted-foreground text-[10px] mt-0.5 truncate">Reason: {record.reason}</p>
                       )}
                     </div>
                     <button type="button" onClick={() => handleUnblock(record.blockedId)}
-                      className="flex items-center gap-1 px-3 py-1.5 bg-white text-[#00C300] text-xs rounded-full font-medium active:bg-gray-100 transition-colors"
+                      className="flex items-center gap-1 px-3 py-1.5 bg-background text-[#00C300] text-xs rounded-full font-medium active:bg-muted transition-colors"
                     >
                       <UserPlus size={12} /> Unblock
                     </button>
@@ -854,7 +854,7 @@ export default function ContactsPage() {
                 groupedFriends.map(([letter, friendsInGroup]) => (
                   <div key={letter} id={`contact-section-${letter.replace(/[^A-Z]/g, '')}`}>
                     <div className="sticky top-0 bg-white/95 backdrop-blur-sm z-10 py-1 px-1">
-                      <span className="text-xs font-bold text-[#8D8D8D] uppercase tracking-wider">{letter}</span>
+                      <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">{letter}</span>
                     </div>
                     {friendsInGroup.map((friend, i) => {
                       const isFav = user?.favorites?.includes(friend.id);
@@ -871,10 +871,10 @@ export default function ContactsPage() {
                           className="relative"
                         >
                           <button type="button" onClick={() => openPreview(friend)}
-                            className="w-full flex items-center py-2.5 active:bg-gray-50 rounded-xl transition-colors text-left"
+                            className="w-full flex items-center py-2.5 active:bg-muted rounded-xl transition-colors text-left"
                           >
                             <div className="relative mr-4">
-                              <div className="w-11 h-11 rounded-full bg-[#F5F5F5] flex items-center justify-center overflow-hidden">
+                              <div className="w-11 h-11 rounded-full bg-muted flex items-center justify-center overflow-hidden">
                                 {sanitizeMediaUrl(friend.avatar) ? (
                                   <img src={sanitizeMediaUrl(friend.avatar)} className="w-full h-full object-cover" alt="User avatar" />
                                 ) : (
@@ -887,23 +887,23 @@ export default function ContactsPage() {
                             </div>
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-1">
-                                <h3 className="text-[16px] font-medium text-[#111111]">{friend.name || 'User'}</h3>
+                                <h3 className="text-[16px] font-medium text-foreground">{friend.name || 'User'}</h3>
                                 {isFav && <Star size={12} className="text-[#00C300] fill-current" />}
                                 {isDeleted && (
-                                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-[#F5F5F5] text-[#8D8D8D] font-medium">Deleted</span>
+                                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground font-medium">Deleted</span>
                                 )}
                               </div>
-                              <p className="text-[12px] text-[#8D8D8D] truncate">
+                              <p className="text-[12px] text-muted-foreground truncate">
                                 {isDeleted ? 'This account is no longer available' : (friend.statusMessage || (isOnline ? 'Online' : 'Offline'))}
                               </p>
                             </div>
                             <button
                               type="button"
                               onClick={(e) => { e.stopPropagation(); setActionMenu(showMenu ? null : friend.id); }}
-                              className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-[#F5F5F5] shrink-0"
+                              className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-muted shrink-0"
                               aria-label={`More actions for ${friend.name}`}
                             >
-                              <MoreVertical size={18} className="text-[#8D8D8D]" />
+                              <MoreVertical size={18} className="text-muted-foreground" />
                             </button>
                           </button>
 
@@ -976,7 +976,7 @@ export default function ContactsPage() {
                   const el = document.getElementById('contact-section-' + safeId);
                   if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
                 }}
-                className="w-5 h-5 flex items-center justify-center text-[9px] font-bold text-[#8D8D8D] hover:text-[#00C300] hover:bg-[#F5F5F5] rounded transition-colors"
+                className="w-5 h-5 flex items-center justify-center text-[9px] font-bold text-muted-foreground hover:text-[#00C300] hover:bg-muted rounded transition-colors"
               >
                 {letter}
               </button>

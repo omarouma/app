@@ -36,7 +36,7 @@ export const LocationMessage = memo(function LocationMessage(props: LocationMess
     return (
       <div className="flex items-center gap-2 bg-black/10 rounded-xl px-3 py-2 mb-1 max-w-full">
         <MapPin size={18} className="text-[#FF3B30] shrink-0" />
-        <span className={`text-sm ${isMe ? 'text-white/80' : 'text-[#8D8D8D]'}`}>Location unavailable</span>
+        <span className={`text-sm ${isMe ? 'text-white/80' : 'text-muted-foreground'}`}>Location unavailable</span>
       </div>
     );
   }
@@ -83,10 +83,10 @@ export const LocationMessage = memo(function LocationMessage(props: LocationMess
       {/* Footer: coordinates + actions */}
       <div className="flex items-center gap-2 px-3 py-2">
         <div className="flex-1 min-w-0">
-          <p className={`text-xs font-semibold truncate ${isMe ? 'text-white' : 'text-[#111111]'}`}>
+          <p className={`text-xs font-semibold truncate ${isMe ? 'text-white' : 'text-foreground'}`}>
             Shared Location
           </p>
-          <p className={`text-[11px] truncate ${isMe ? 'text-white/75' : 'text-[#8D8D8D]'}`}>
+          <p className={`text-[11px] truncate ${isMe ? 'text-white/75' : 'text-muted-foreground'}`}>
             {coordLabel}
           </p>
         </div>

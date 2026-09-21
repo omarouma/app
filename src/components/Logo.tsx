@@ -57,7 +57,7 @@ export default function Logo({ size = 40, className = '', fallback = false, with
     return (
       <span className={`inline-flex items-center gap-2 ${className}`}>
         {mark}
-        <span className="text-lg font-bold tracking-tight text-[#111111]">GaGa Chat</span>
+        <span className="text-lg font-bold tracking-tight text-foreground">GaGa Chat</span>
       </span>
     );
   }

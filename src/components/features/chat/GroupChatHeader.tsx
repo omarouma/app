@@ -72,9 +72,9 @@ export function GroupChatHeader({
 
     return (
         <>
-            <div className="shrink-0 relative flex justify-between items-center px-2 py-3 bg-white border-b border-[#EBEBEB] z-10">
+            <div className="shrink-0 relative flex justify-between items-center px-2 py-3 bg-background border-b border-border z-10">
                 <div className="flex items-center gap-2">
-                    <button type="button" onClick={() => navigate(-1)} className="p-2 -ml-2 active:bg-gray-100 rounded-full text-[#111111]">
+                    <button type="button" onClick={() => navigate(-1)} className="p-2 -ml-2 active:bg-muted rounded-full text-foreground">
                         <ChevronLeft size={28} strokeWidth={1.5} />
                     </button>
                     <div className="w-9 h-9 rounded-full bg-[#00C300]/10 flex items-center justify-center shrink-0">
@@ -85,11 +85,11 @@ export function GroupChatHeader({
                         )}
                     </div>
                     <div>
-                        <h3 className="text-base font-bold text-[#111111] leading-tight">{group.name || 'Group'}</h3>
-                        <p className="text-[11px] text-[#8D8D8D]">{memberCount} members</p>
+                        <h3 className="text-base font-bold text-foreground leading-tight">{group.name || 'Group'}</h3>
+                        <p className="text-[11px] text-muted-foreground">{memberCount} members</p>
                     </div>
                 </div>
-                <div className="flex items-center gap-4 pr-3 text-[#111111]">
+                <div className="flex items-center gap-4 pr-3 text-foreground">
                     <button type="button" onClick={() => setShowSearch(!showSearch)} className="active:opacity-60" title="Search messages">
                         <Search size={22} strokeWidth={1.5} className={showSearch ? 'text-[#00C300]' : ''} />
                     </button>
@@ -104,15 +104,15 @@ export function GroupChatHeader({
                                     initial={{ opacity: 0, y: -10 }}
                                     animate={{ opacity: 1, y: 0 }}
                                     exit={{ opacity: 0, y: -10 }}
-                                    className="absolute top-full right-0 mt-1 bg-white rounded-xl shadow-lg border border-[#EBEBEB] z-30 overflow-hidden w-48"
+                                    className="absolute top-full right-0 mt-1 bg-background rounded-xl shadow-lg border border-border z-30 overflow-hidden w-48"
                                 >
                                     {menuItems.map((item, i) => (
                                         <button type="button" key={i}
                                             onClick={() => item.action()}
-                                            className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-[#F5F5F5] active:bg-gray-100 transition-colors"
+                                            className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-muted active:bg-muted transition-colors"
                                         >
-                                            <item.icon size={18} className={item.label === 'Leave Group' ? 'text-[#FF3B30]' : 'text-[#8D8D8D]'} />
-                                            <span className={`text-sm ${item.label === 'Leave Group' ? 'text-[#FF3B30]' : 'text-[#111111]'}`}>{item.label}</span>
+                                            <item.icon size={18} className={item.label === 'Leave Group' ? 'text-[#FF3B30]' : 'text-muted-foreground'} />
+                                            <span className={`text-sm ${item.label === 'Leave Group' ? 'text-[#FF3B30]' : 'text-foreground'}`}>{item.label}</span>
                                         </button>
                                     ))}
                                 </motion.div>
@@ -128,23 +128,23 @@ export function GroupChatHeader({
                         initial={{ height: 0, opacity: 0 }}
                         animate={{ height: 'auto', opacity: 1 }}
                         exit={{ height: 0, opacity: 0 }}
-                        className="shrink-0 bg-white border-b border-[#EBEBEB] overflow-hidden"
+                        className="shrink-0 bg-background border-b border-border overflow-hidden"
                     >
                         <div className="flex items-center gap-2 px-4 py-2">
-                            <Search size={16} className="text-[#8D8D8D]" />
+                            <Search size={16} className="text-muted-foreground" />
                             <input
                                 autoFocus
                                 value={searchQuery}
                                 onChange={e => setSearchQuery(e.target.value)}
                                 placeholder="Search messages..."
-                                className="flex-1 bg-[#F5F5F5] rounded-xl px-3 py-2 text-sm text-[#111111] focus:outline-none focus:ring-2 focus:ring-[#00C300] placeholder:text-[#8D8D8D]"
+                                className="flex-1 bg-muted rounded-xl px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-[#00C300] placeholder:text-muted-foreground"
                             />
-                            <button type="button" onClick={() => { setShowSearch(false); setSearchQuery(''); }} className="text-[#8D8D8D]">
+                            <button type="button" onClick={() => { setShowSearch(false); setSearchQuery(''); }} className="text-muted-foreground">
                                 <X size={18} />
                             </button>
                         </div>
                         {searchQuery && (
-                            <p className="px-4 pb-2 text-[#8D8D8D] text-xs">
+                            <p className="px-4 pb-2 text-muted-foreground text-xs">
                                 {filteredMsgsLength} result{filteredMsgsLength !== 1 ? 's' : ''}
                             </p>
                         )}
@@ -167,12 +167,12 @@ export function GroupChatHeader({
                             animate={{ y: 0, opacity: 1 }}
                             exit={{ y: 40, opacity: 0 }}
                             transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-                            className="w-full sm:max-w-sm bg-white rounded-t-2xl sm:rounded-2xl overflow-hidden"
+                            className="w-full sm:max-w-sm bg-background rounded-t-2xl sm:rounded-2xl overflow-hidden"
                             onClick={(e) => e.stopPropagation()}
                         >
-                            <div className="flex items-center justify-between px-4 py-3 border-b border-[#EBEBEB]">
-                                <h3 className="text-base font-bold text-[#111111]">Call a member</h3>
-                                <button type="button" onClick={() => setShowCallPicker(false)} className="p-1 rounded-full hover:bg-gray-100 text-[#8D8D8D]">
+                            <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+                                <h3 className="text-base font-bold text-foreground">Call a member</h3>
+                                <button type="button" onClick={() => setShowCallPicker(false)} className="p-1 rounded-full hover:bg-muted text-muted-foreground">
                                     <X size={20} />
                                 </button>
                             </div>
@@ -184,7 +184,7 @@ export function GroupChatHeader({
                                         const name = info?.name || 'Member';
                                         const avatar = info?.avatar;
                                         return (
-                                            <div key={memberId} className="flex items-center gap-3 px-4 py-3 hover:bg-[#F5F5F5] transition-colors">
+                                            <div key={memberId} className="flex items-center gap-3 px-4 py-3 hover:bg-muted transition-colors">
                                                 <div className="w-10 h-10 rounded-full bg-[#00C300]/10 flex items-center justify-center shrink-0 overflow-hidden">
                                                     {avatar ? (
                                                         <img src={avatar} className="w-full h-full object-cover" alt={name} />
@@ -193,8 +193,8 @@ export function GroupChatHeader({
                                                     )}
                                                 </div>
                                                 <div className="flex-1 min-w-0">
-                                                    <p className="text-sm font-medium text-[#111111] truncate">{name}</p>
-                                                    <p className="text-[11px] text-[#8D8D8D] truncate">{info?.name ? memberId : 'Group member'}</p>
+                                                    <p className="text-sm font-medium text-foreground truncate">{name}</p>
+                                                    <p className="text-[11px] text-muted-foreground truncate">{info?.name ? memberId : 'Group member'}</p>
                                                 </div>
                                                 <div className="flex items-center gap-1 shrink-0">
                                                     <button
@@ -220,7 +220,7 @@ export function GroupChatHeader({
                                         );
                                     })}
                                 {(!group.participants || group.participants.filter((id: string) => id !== currentUser?.id).length === 0) && (
-                                    <div className="px-4 py-8 text-center text-sm text-[#8D8D8D]">No other members to call.</div>
+                                    <div className="px-4 py-8 text-center text-sm text-muted-foreground">No other members to call.</div>
                                 )}
                             </div>
                         </motion.div>

@@ -92,13 +92,13 @@ export default function ChatRoomLoader({ userId, onRetry }: ChatRoomLoaderProps)
 
   if (!userId) {
     return (
-      <div className="h-[100dvh] bg-white flex flex-col items-center justify-center p-6">
+      <div className="h-[100dvh] bg-background flex flex-col items-center justify-center p-6">
         <p className="text-[#FF3B30] text-sm font-medium mb-2">Chat not available</p>
-        <p className="text-[#8D8D8D] text-xs text-center mb-4">The selected conversation is missing a valid user reference.</p>
+        <p className="text-muted-foreground text-xs text-center mb-4">The selected conversation is missing a valid user reference.</p>
         <button
           type="button"
           onClick={() => navigate(-1)}
-          className="px-4 py-2 bg-[#F5F5F5] text-[#111111] rounded-xl text-sm font-medium"
+          className="px-4 py-2 bg-muted text-foreground rounded-xl text-sm font-medium"
         >
           Go Back
         </button>
@@ -108,13 +108,13 @@ export default function ChatRoomLoader({ userId, onRetry }: ChatRoomLoaderProps)
 
   if (isSelfChat) {
     return (
-      <div className="h-[100dvh] bg-white flex flex-col items-center justify-center p-6">
+      <div className="h-[100dvh] bg-background flex flex-col items-center justify-center p-6">
         <p className="text-[#FF3B30] text-sm font-medium mb-2">You cannot chat with yourself</p>
-        <p className="text-[#8D8D8D] text-xs text-center mb-4">Please select a different user to start a conversation.</p>
+        <p className="text-muted-foreground text-xs text-center mb-4">Please select a different user to start a conversation.</p>
         <button
           type="button"
           onClick={() => navigate('/contacts')}
-          className="px-4 py-2 bg-[#F5F5F5] text-[#111111] rounded-xl text-sm font-medium"
+          className="px-4 py-2 bg-muted text-foreground rounded-xl text-sm font-medium"
         >
           Pick a contact
         </button>
@@ -124,7 +124,7 @@ export default function ChatRoomLoader({ userId, onRetry }: ChatRoomLoaderProps)
 
   if (loading) {
     return (
-      <div className="h-[100dvh] bg-white flex flex-col items-center justify-center">
+      <div className="h-[100dvh] bg-background flex flex-col items-center justify-center">
         <motion.div
           initial={{ scale: 0.8, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
@@ -133,7 +133,7 @@ export default function ChatRoomLoader({ userId, onRetry }: ChatRoomLoaderProps)
           <div className="mx-auto mb-4">
             <Logo size={48} />
           </div>
-          <p className="text-[#8D8D8D] text-sm">Starting chat...</p>
+          <p className="text-muted-foreground text-sm">Starting chat...</p>
         </motion.div>
       </div>
     );
@@ -141,9 +141,9 @@ export default function ChatRoomLoader({ userId, onRetry }: ChatRoomLoaderProps)
 
   if (error || !chatId) {
     return (
-      <div className="h-[100dvh] bg-white flex flex-col items-center justify-center p-6">
+      <div className="h-[100dvh] bg-background flex flex-col items-center justify-center p-6">
         <p className="text-[#FF3B30] text-sm font-medium mb-2">Could not start chat</p>
-        <p className="text-[#8D8D8D] text-xs text-center mb-4">
+        <p className="text-muted-foreground text-xs text-center mb-4">
           {isOnline
             ? 'The user may have blocked you or the chat could not be created.'
             : 'You are offline. Please check your connection and try again.'}
@@ -167,7 +167,7 @@ export default function ChatRoomLoader({ userId, onRetry }: ChatRoomLoaderProps)
           <button
             type="button"
             onClick={() => navigate(-1)}
-            className="px-4 py-2 bg-[#F5F5F5] text-[#111111] rounded-xl text-sm font-medium"
+            className="px-4 py-2 bg-muted text-foreground rounded-xl text-sm font-medium"
           >
             Go Back
           </button>
@@ -177,7 +177,7 @@ export default function ChatRoomLoader({ userId, onRetry }: ChatRoomLoaderProps)
   }
 
   return (
-    <div className="h-[100dvh] bg-white">
+    <div className="h-[100dvh] bg-background">
       <ChatRoom chatId={chatId} userId={userId} onBack={() => navigate(-1)} />
     </div>
   );

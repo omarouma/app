@@ -40,7 +40,7 @@ export const VideoMessage = memo(function VideoMessage(props: VideoMessageProps)
 
   if (!safeUrl || failed) {
     return (
-      <div className="rounded-2xl mb-1 w-full max-w-full h-32 bg-[#F5F5F5] dark:bg-white/5 flex flex-col items-center justify-center gap-2 text-sm text-[#8D8D8D]">
+      <div className="rounded-2xl mb-1 w-full max-w-full h-32 bg-muted dark:bg-white/5 flex flex-col items-center justify-center gap-2 text-sm text-muted-foreground">
         <VideoOff size={24} className="opacity-70" />
         <span>Video unavailable</span>
         <button
@@ -58,8 +58,8 @@ export const VideoMessage = memo(function VideoMessage(props: VideoMessageProps)
   return (
     <div className="relative max-w-full min-h-[128px]">
       {!loaded && (
-        <div className="absolute inset-0 rounded-2xl mb-1 bg-[#F5F5F5] dark:bg-white/5 animate-pulse flex items-center justify-center z-[1]">
-          <Loader size={20} className="animate-spin text-[#8D8D8D]" />
+        <div className="absolute inset-0 rounded-2xl mb-1 bg-muted dark:bg-white/5 animate-pulse flex items-center justify-center z-[1]">
+          <Loader size={20} className="animate-spin text-muted-foreground" />
         </div>
       )}
       <video

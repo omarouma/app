@@ -156,9 +156,9 @@ export default function CallPage() {
 
   if (!userId || !currentUser) {
     return (
-      <div className="h-[100dvh] bg-white flex flex-col items-center justify-center p-6 text-center">
-        <p className="text-[#111111] text-lg font-semibold mb-2">No contact selected</p>
-        <p className="text-[#8D8D8D] text-sm max-w-sm mb-4">Choose a contact from chats or contacts before starting a call.</p>
+      <div className="h-[100dvh] bg-background flex flex-col items-center justify-center p-6 text-center">
+        <p className="text-foreground text-lg font-semibold mb-2">No contact selected</p>
+        <p className="text-muted-foreground text-sm max-w-sm mb-4">Choose a contact from chats or contacts before starting a call.</p>
         <button
           type="button"
           onClick={() => navigate('/chats')}

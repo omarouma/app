@@ -35,19 +35,19 @@ export default function JoinGroupPage() {
   }, [code, user, joinGroupByInvite, navigate]);
 
   return (
-    <div className="min-h-[100dvh] bg-[#F5F5F5] flex items-center justify-center p-6">
+    <div className="min-h-[100dvh] bg-muted flex items-center justify-center p-6">
       <div className="text-center max-w-xs">
         {status === 'joining' ? (
           <>
             <Loader size={40} className="mx-auto mb-4 animate-spin text-[#00C300]" />
-            <p className="text-[#111111] font-medium">Joining group…</p>
-            <p className="text-sm text-[#8D8D8D] mt-1">Verifying your invite link</p>
+            <p className="text-foreground font-medium">Joining group…</p>
+            <p className="text-sm text-muted-foreground mt-1">Verifying your invite link</p>
           </>
         ) : (
           <>
             <AlertCircle size={40} className="mx-auto mb-4 text-[#FF3B30]" />
-            <p className="text-[#111111] font-medium">Invalid or expired invite</p>
-            <p className="text-sm text-[#8D8D8D] mt-1">This invite link is no longer valid.</p>
+            <p className="text-foreground font-medium">Invalid or expired invite</p>
+            <p className="text-sm text-muted-foreground mt-1">This invite link is no longer valid.</p>
             <button
               type="button"
               onClick={() => navigate('/chats')}

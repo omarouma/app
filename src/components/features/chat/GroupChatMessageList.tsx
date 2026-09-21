@@ -124,7 +124,7 @@ export function GroupChatMessageList({
                                 )}
                                 <div className={`max-w-[70%] p-0 relative`}>
                                     {!isMe && <p className="text-[11px] text-white/80 mb-0.5 ml-1">{getSenderName(msg.senderId)}</p>}
-                                    <div className={`px-3 py-2 rounded-xl text-sm leading-tight relative ${isMe ? 'bg-[#00C300] text-white rounded-br-none' : 'bg-white text-[#111111] rounded-bl-none'}`}>
+                                    <div className={`px-3 py-2 rounded-xl text-sm leading-tight relative ${isMe ? 'bg-[#00C300] text-white rounded-br-none' : 'bg-background text-foreground rounded-bl-none'}`}>
                                         {(() => {
                                             const mediaUrl = sanitizeMediaUrl(msg.mediaUrl);
                                             if (mediaUrl && msg.type === 'image') {
@@ -146,11 +146,11 @@ export function GroupChatMessageList({
                                         })()}
                                         <span className="text-[10px] ml-2 float-right mt-1.5 opacity-70">{formatTime(msg.timestamp)}</span>
                                         {hasReactions && (
-                                            <div className="absolute -bottom-3 right-0 flex items-center gap-0.5 bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-full px-1 py-0.5">
+                                            <div className="absolute -bottom-3 right-0 flex items-center gap-0.5 bg-muted dark:bg-gray-700 border border-border dark:border-gray-600 rounded-full px-1 py-0.5">
                                                 {Object.entries(reactions).map(([reaction, users]) => users.length > 0 ? (
                                                     <span key={reaction} className="text-xs">{reaction}</span>
                                                 ) : null)}
-                                                <span className="text-[10px] text-gray-500 dark:text-gray-400 ml-1">{Object.values(reactions).flat().length}</span>
+                                                <span className="text-[10px] text-muted-foreground dark:text-muted-foreground ml-1">{Object.values(reactions).flat().length}</span>
                                             </div>
                                         )}
                                     </div>

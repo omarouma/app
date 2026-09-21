@@ -69,13 +69,13 @@ export default class ErrorBoundary extends Component<Props, State> {
   render() {
     if (this.state.hasError) {
       return (
-        <div className="min-h-screen bg-white flex items-center justify-center p-4">
+        <div className="min-h-screen bg-background flex items-center justify-center p-4">
           <div className="text-center max-w-md mx-auto">
             <div className="w-20 h-20 rounded-full bg-[#FF3B30]/10 flex items-center justify-center mx-auto mb-6">
               <AlertTriangle size={36} className="text-[#FF3B30]" />
             </div>
-            <h1 className="text-2xl font-bold text-[#111111] mb-2">Something went wrong</h1>
-            <p className="text-[#8D8D8D] text-sm mb-6">We're sorry for the inconvenience. Please try refreshing the page.</p>
+            <h1 className="text-2xl font-bold text-foreground mb-2">Something went wrong</h1>
+            <p className="text-muted-foreground text-sm mb-6">We're sorry for the inconvenience. Please try refreshing the page.</p>
             {this.state.error && (
               <p className="text-[#FF3B30]/70 text-xs mb-6 p-3 bg-[#FF3B30]/10 rounded-lg">
                 {String(this.state.error.message).replace(/[<>"'&]/g, (c) => ({ '<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;','&':'&amp;' }[c] ?? c))}

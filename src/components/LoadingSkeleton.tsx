@@ -7,8 +7,8 @@ interface LoadingSkeletonProps {
 }
 
 /** Shared shimmer surface — light + dark aware. */
-const SURFACE = 'bg-[#F5F5F5] dark:bg-white/5';
-const SURFACE_STRONG = 'bg-[#EAEAEA] dark:bg-white/10';
+const SURFACE = 'bg-muted dark:bg-white/5';
+const SURFACE_STRONG = 'bg-muted dark:bg-white/10';
 
 function LoadingSkeleton({ count = 3, variant = 'list' }: LoadingSkeletonProps) {
   if (variant === 'chat') {

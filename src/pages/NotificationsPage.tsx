@@ -165,13 +165,13 @@ export default function NotificationsPage() {
   const renderGroup = (title: string, items: typeof filtered, showDivider: boolean) => {
     if (items.length === 0) return null;
     return (
-      <div className={showDivider ? 'border-t border-[#EBEBEB]' : ''}>
-        <div className="px-4 py-2 bg-[#F5F5F5]">
-          <p className="text-[#8D8D8D] text-xs font-medium uppercase tracking-wider">{title}</p>
+      <div className={showDivider ? 'border-t border-border' : ''}>
+        <div className="px-4 py-2 bg-muted">
+          <p className="text-muted-foreground text-xs font-medium uppercase tracking-wider">{title}</p>
         </div>
         {items.map((notif, i) => {
           const Icon = iconMap[notif.type] || Bell;
-          const colorClass = iconColors[notif.type] || 'bg-[#F5F5F5] text-[#8D8D8D]';
+          const colorClass = iconColors[notif.type] || 'bg-muted text-muted-foreground';
           const isSelected = selectedIds.includes(notif.id);
           return (
             <motion.div
@@ -191,7 +191,7 @@ export default function NotificationsPage() {
                   else if (notif.type === 'friend_request') navigate('/add-friends');
                 }
               }}
-              className={`flex items-start gap-3 p-4 active:bg-gray-50 transition-colors cursor-pointer relative ${!notif.read ? 'bg-[#00C300]/5' : 'bg-white'
+              className={`flex items-start gap-3 p-4 active:bg-muted transition-colors cursor-pointer relative ${!notif.read ? 'bg-[#00C300]/5' : 'bg-background'
                 } ${isSelected ? 'bg-[#00C300]/10' : ''}`}
             >
               {selectMode && (
@@ -204,13 +204,13 @@ export default function NotificationsPage() {
                 <Icon size={18} />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-[#111111] text-sm font-medium">{notif.title}</p>
-                <p className="text-[#8D8D8D] text-xs mt-0.5">{notif.body}</p>
-                <p className="text-[#C7C7CC] text-[10px] mt-1">{formatTime(notif.timestamp)}</p>
+                <p className="text-foreground text-sm font-medium">{notif.title}</p>
+                <p className="text-muted-foreground text-xs mt-0.5">{notif.body}</p>
+                <p className="text-muted-foreground text-[10px] mt-1">{formatTime(notif.timestamp)}</p>
               </div>
               {!notif.read && !selectMode && <div className="w-2 h-2 rounded-full bg-[#00C300] shrink-0 mt-2" />}
               {!selectMode && (
-                <ChevronRight size={16} className="text-[#C7C7CC] shrink-0 mt-2" />
+                <ChevronRight size={16} className="text-muted-foreground shrink-0 mt-2" />
               )}
             </motion.div>
           );
@@ -220,16 +220,16 @@ export default function NotificationsPage() {
   };
 
   return (
-    <div className="min-h-screen-safe bg-[#F5F5F5]">
+    <div className="min-h-screen-safe bg-muted">
       {/* Header */}
-      <div className="sticky top-0 z-10 bg-white/90 backdrop-blur-md border-b border-[#EBEBEB]">
+      <div className="sticky top-0 z-10 bg-white/90 backdrop-blur-md border-b border-border">
         <div className="flex items-center justify-between px-4 pb-4" style={{ paddingTop: 'max(16px, env(safe-area-inset-top, 0px))' }}>
           <div className="flex items-center gap-3">
-            <button type="button" onClick={() => navigate(-1)} className="w-11 h-11 flex items-center justify-center text-[#111111] hover:text-[#8D8D8D] -ml-2">
+            <button type="button" onClick={() => navigate(-1)} className="w-11 h-11 flex items-center justify-center text-foreground hover:text-muted-foreground -ml-2">
               <ArrowLeft size={22} />
             </button>
             <div>
-              <h1 className="text-lg font-bold text-[#111111]">Notifications</h1>
+              <h1 className="text-lg font-bold text-foreground">Notifications</h1>
               {unreadCount > 0 && <p className="text-[#00C300] text-xs font-medium">{unreadCount} unread</p>}
             </div>
           </div>
@@ -237,7 +237,7 @@ export default function NotificationsPage() {
             {notifications.length > 0 && (
               <>
                 <button type="button" onClick={() => setShowSettings(true)}
-                  className="w-11 h-11 flex items-center justify-center rounded-full text-[#8D8D8D] hover:text-[#111111] transition-colors"
+                  className="w-11 h-11 flex items-center justify-center rounded-full text-muted-foreground hover:text-foreground transition-colors"
                 >
                   <Settings size={18} />
                 </button>
@@ -248,7 +248,7 @@ export default function NotificationsPage() {
                   {selectMode ? 'Done' : 'Select'}
                 </button>
                 <button type="button" onClick={() => setShowFilter(!showFilter)}
-                  className={`w-11 h-11 flex items-center justify-center rounded-full transition-colors ${showFilter ? 'bg-[#00C300]/10 text-[#00C300]' : 'text-[#8D8D8D]'}`}
+                  className={`w-11 h-11 flex items-center justify-center rounded-full transition-colors ${showFilter ? 'bg-[#00C300]/10 text-[#00C300]' : 'text-muted-foreground'}`}
                 >
                   <Filter size={18} />
                 </button>
@@ -266,8 +266,8 @@ export default function NotificationsPage() {
           >
             <BellRing size={18} className="text-[#00C300] shrink-0" />
             <div className="flex-1">
-              <p className="text-[#111111] text-sm font-medium">Enable push notifications</p>
-              <p className="text-[#8D8D8D] text-xs">Get notified about messages and calls</p>
+              <p className="text-foreground text-sm font-medium">Enable push notifications</p>
+              <p className="text-muted-foreground text-xs">Get notified about messages and calls</p>
             </div>
             <button type="button" onClick={requestPermission}
               className="px-3 py-1.5 bg-[#00C300] text-white text-xs rounded-full font-medium active:bg-[#00A300] transition-colors"
@@ -284,11 +284,11 @@ export default function NotificationsPage() {
               initial={{ height: 0, opacity: 0 }}
               animate={{ height: 'auto', opacity: 1 }}
               exit={{ height: 0, opacity: 0 }}
-              className="overflow-hidden border-t border-[#EBEBEB]"
+              className="overflow-hidden border-t border-border"
             >
               <div className="flex gap-2 p-3 overflow-x-auto scrollbar-hide">
                 <button type="button" onClick={() => changeFilter('all')}
-                  className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${filterType === 'all' ? 'bg-[#00C300] text-white' : 'bg-[#F5F5F5] text-[#8D8D8D]'
+                  className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${filterType === 'all' ? 'bg-[#00C300] text-white' : 'bg-muted text-muted-foreground'
                     }`}
                 >
                   All
@@ -296,7 +296,7 @@ export default function NotificationsPage() {
                 {Object.entries(typeLabels).map(([type, label]) => (
                   <button type="button" key={type}
                     onClick={() => changeFilter(type)}
-                    className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${filterType === type ? 'bg-[#00C300] text-white' : 'bg-[#F5F5F5] text-[#8D8D8D]'
+                    className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${filterType === type ? 'bg-[#00C300] text-white' : 'bg-muted text-muted-foreground'
                       }`}
                   >
                     {label}
@@ -314,7 +314,7 @@ export default function NotificationsPage() {
               initial={{ height: 0, opacity: 0 }}
               animate={{ height: 'auto', opacity: 1 }}
               exit={{ height: 0, opacity: 0 }}
-              className="overflow-hidden border-t border-[#EBEBEB]"
+              className="overflow-hidden border-t border-border"
             >
               <div className="flex gap-2 p-3">
                 <button type="button" onClick={handleMarkSelectedRead}
@@ -328,7 +328,7 @@ export default function NotificationsPage() {
                   <Trash2 size={12} /> Delete
                 </button>
                 <button type="button" onClick={() => { setSelectedIds([]); setSelectMode(false); }}
-                  className="flex items-center gap-1 px-3 py-1.5 bg-[#F5F5F5] text-[#8D8D8D] text-xs rounded-full font-medium ml-auto"
+                  className="flex items-center gap-1 px-3 py-1.5 bg-muted text-muted-foreground text-xs rounded-full font-medium ml-auto"
                 >
                   <X size={12} /> Cancel
                 </button>
@@ -339,22 +339,22 @@ export default function NotificationsPage() {
       </div>
 
       {/* Notification List */}
-      <div className="divide-y divide-[#EBEBEB] pb-16">
+      <div className="divide-y divide-border pb-16">
         {loading ? (
           <div className="p-4">
             <LoadingSkeleton count={6} variant="list" />
           </div>
         ) : notifications.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-64 text-[#8D8D8D]">
-            <div className="w-16 h-16 rounded-full bg-[#F5F5F5] flex items-center justify-center mb-4">
-              <Bell size={32} className="text-[#C7C7CC]" />
+          <div className="flex flex-col items-center justify-center h-64 text-muted-foreground">
+            <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-4">
+              <Bell size={32} className="text-muted-foreground" />
             </div>
             <p className="text-sm font-medium">No notifications</p>
             <p className="text-xs mt-1">You are all caught up!</p>
           </div>
         ) : filtered.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-64 text-[#8D8D8D]">
-            <Filter size={32} className="mb-3 text-[#C7C7CC]" />
+          <div className="flex flex-col items-center justify-center h-64 text-muted-foreground">
+            <Filter size={32} className="mb-3 text-muted-foreground" />
             <p className="text-sm">No notifications match this filter</p>
           </div>
         ) : (
@@ -394,27 +394,27 @@ export default function NotificationsPage() {
               animate={{ y: 0 }}
               exit={{ y: '100%' }}
               transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-              className="bg-white rounded-t-2xl sm:rounded-2xl w-full sm:max-w-sm max-h-[80vh] flex flex-col"
+              className="bg-background rounded-t-2xl sm:rounded-2xl w-full sm:max-w-sm max-h-[80vh] flex flex-col"
               onClick={e => e.stopPropagation()}
             >
-              <div className="flex items-center justify-between p-4 border-b border-[#EBEBEB]">
-                <h2 className="text-lg font-bold text-[#111111]">Notification Settings</h2>
-                <button type="button" onClick={() => setShowSettings(false)} className="p-1 text-[#8D8D8D]">
+              <div className="flex items-center justify-between p-4 border-b border-border">
+                <h2 className="text-lg font-bold text-foreground">Notification Settings</h2>
+                <button type="button" onClick={() => setShowSettings(false)} className="p-1 text-muted-foreground">
                   <X size={20} />
                 </button>
               </div>
               <div className="flex-1 overflow-y-auto p-4 space-y-4">
-                <p className="text-[#8D8D8D] text-xs">Mute notification types you don&apos;t want to receive</p>
+                <p className="text-muted-foreground text-xs">Mute notification types you don&apos;t want to receive</p>
                 {Object.entries(typeLabels).map(([type, label]) => {
                   const Icon = iconMap[type] || Bell;
                   const muted = isMuted(type);
                   return (
                     <div key={type} className="flex items-center justify-between py-2">
                       <div className="flex items-center gap-3">
-                        <div className={`w-8 h-8 rounded-full flex items-center justify-center ${iconColors[type] || 'bg-[#F5F5F5] text-[#8D8D8D]'}`}>
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center ${iconColors[type] || 'bg-muted text-muted-foreground'}`}>
                           <Icon size={14} />
                         </div>
-                        <span className="text-sm text-[#111111]">{label}</span>
+                        <span className="text-sm text-foreground">{label}</span>
                       </div>
                       <button type="button" onClick={() => toggleMuteType(type)}
                         className={`p-1.5 rounded-full transition-colors ${muted ? 'bg-[#FF3B30]/10 text-[#FF3B30]' : 'bg-[#00C300]/10 text-[#00C300]'}`}
@@ -425,7 +425,7 @@ export default function NotificationsPage() {
                   );
                 })}
               </div>
-              <div className="p-4 border-t border-[#EBEBEB]">
+              <div className="p-4 border-t border-border">
                 <button type="button" onClick={() => setShowSettings(false)}
                   className="w-full py-3 bg-[#00C300] text-white rounded-xl text-sm font-bold hover:bg-[#00A300] transition-colors"
                 >

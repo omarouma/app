@@ -5,27 +5,27 @@ export default function TermsPage() {
   const navigate = useNavigate();
 
   return (
-    <div className="min-h-[100dvh] bg-[#F5F5F5]">
-      <div className="bg-white border-b border-[#EBEBEB] flex items-center gap-3 p-4">
-        <button type="button" onClick={() => navigate(-1)} className="p-2 -ml-2 active:bg-gray-100 rounded-full text-[#111111]">
+    <div className="min-h-[100dvh] bg-muted">
+      <div className="bg-background border-b border-border flex items-center gap-3 p-4">
+        <button type="button" onClick={() => navigate(-1)} className="p-2 -ml-2 active:bg-muted rounded-full text-foreground">
           <ArrowLeft size={22} />
         </button>
-        <h1 className="text-lg font-bold text-[#111111]">Terms of Service</h1>
+        <h1 className="text-lg font-bold text-foreground">Terms of Service</h1>
       </div>
 
       <div className="p-4 space-y-4">
-        <div className="bg-white border border-[#EBEBEB] rounded-2xl p-6">
+        <div className="bg-background border border-border rounded-2xl p-6">
           <div className="w-12 h-12 rounded-full bg-[#00C300]/10 flex items-center justify-center mb-4">
             <FileText size={24} className="text-[#00C300]" />
           </div>
-          <h2 className="text-[#111111] font-semibold mb-2">Acceptance of Terms</h2>
-          <p className="text-[#8D8D8D] text-sm leading-relaxed">
+          <h2 className="text-foreground font-semibold mb-2">Acceptance of Terms</h2>
+          <p className="text-muted-foreground text-sm leading-relaxed">
             By using GaGa Chat, you agree to these Terms of Service and our Privacy Policy. These terms are governed by the applicable laws of your jurisdiction. If you do not agree, please do not use our services.
           </p>
-          <p className="text-[#8D8D8D] text-xs mt-2">Last updated: January 2026</p>
+          <p className="text-muted-foreground text-xs mt-2">Last updated: January 2026</p>
         </div>
 
-        <div className="bg-white border border-[#EBEBEB] rounded-2xl p-4 space-y-4">
+        <div className="bg-background border border-border rounded-2xl p-4 space-y-4">
           {[
             { title: '1. Eligibility', text: 'You must be at least 13 years old. Users 13-17 need parental consent. Wallet features require age 18+. By using GaGa Chat, you confirm you meet these requirements.' },
             { title: '2. User Conduct', text: 'You may not use GaGa Chat for illegal purposes under applicable local law. Prohibited content includes harassment, spam, malware, IP infringement, terrorism promotion, and financial fraud.' },
@@ -38,9 +38,9 @@ export default function TermsPage() {
             { title: '9. Dispute Resolution', text: 'Disputes shall first be resolved amicably. If unresolved, arbitration under applicable arbitration laws in the jurisdiction of the user applies. Both parties submit to the courts of their respective jurisdiction.' },
             { title: '10. Contact', text: 'Email: legal@gagachat.app | Address: GaGa Chat Global HQ | Support: 24/7 in-app chat' },
           ].map((section) => (
-            <div key={section.title} className="pb-4 border-b border-[#EBEBEB] last:border-0 last:pb-0">
-              <h3 className="text-[#111111] font-medium text-sm mb-1">{section.title}</h3>
-              <p className="text-[#8D8D8D] text-sm leading-relaxed">{section.text}</p>
+            <div key={section.title} className="pb-4 border-b border-border last:border-0 last:pb-0">
+              <h3 className="text-foreground font-medium text-sm mb-1">{section.title}</h3>
+              <p className="text-muted-foreground text-sm leading-relaxed">{section.text}</p>
             </div>
           ))}
         </div>

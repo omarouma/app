@@ -39,7 +39,7 @@ export default function GroupChatPage() {
     const { friends } = useFriendStore();
     const { isRecording, duration, startRecording, stopRecording, cancelRecording } = useVoiceRecorder();
     const isDarkChat = settings.theme === 'dark' || settings.theme === 'midnight' || settings.theme === 'oled';
-    const chatBgClass = isDarkChat ? 'bg-[#0d0d0d]' : 'bg-[#F5F5F5]';
+    const chatBgClass = isDarkChat ? 'bg-[#0d0d0d]' : 'bg-muted';
 
     const [input, setInput] = useState('');
     const [showMenu, setShowMenu] = useState(false);
@@ -242,7 +242,7 @@ export default function GroupChatPage() {
     if (!group) {
         return (
             <div className={`h-[100dvh] ${chatBgClass} flex items-center justify-center`}>
-                <div className={isDarkChat ? 'text-center text-white' : 'text-center text-[#111111]'}>
+                <div className={isDarkChat ? 'text-center text-white' : 'text-center text-foreground'}>
                     <Users size={48} className="mx-auto mb-4 opacity-50" />
                     <p className="text-lg font-medium">Group not found</p>
                     <button type="button" onClick={() => navigate('/chats')} className="mt-4 text-sm underline">Go back</button>
@@ -314,7 +314,7 @@ export default function GroupChatPage() {
                         initial={{ opacity: 0, scale: 0.9 }}
                         animate={{ opacity: 1, scale: 1 }}
                         exit={{ opacity: 0, scale: 0.9 }}
-                        className="fixed bg-white rounded-xl shadow-xl border border-gray-100 z-50 py-1 min-w-[160px]"
+                        className="fixed bg-background rounded-xl shadow-xl border border-border z-50 py-1 min-w-[160px]"
                         style={{ top: Math.min(contextMenu.y, window.innerHeight - 200), left: Math.min(contextMenu.x, window.innerWidth - 180) }}
                         onClick={e => e.stopPropagation()}
                     >
@@ -324,7 +324,7 @@ export default function GroupChatPage() {
                             { label: 'Delete', action: () => { handleDeleteMessage(contextMenu.msg); } },
                         ].map(({ label, action }) => (
                             <button key={label} type="button" onClick={action}
-                                className={`w-full text-left px-4 py-2.5 text-sm hover:bg-gray-50 transition-colors ${label === 'Delete' ? 'text-red-500' : 'text-gray-800'
+                                className={`w-full text-left px-4 py-2.5 text-sm hover:bg-muted transition-colors ${label === 'Delete' ? 'text-red-500' : 'text-foreground'
                                     }`}
                             >{label}</button>
                         ))}

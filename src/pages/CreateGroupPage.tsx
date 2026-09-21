@@ -58,18 +58,18 @@ export default function CreateGroupPage() {
   };
 
   return (
-    <div className="min-h-[100dvh] bg-[#F5F5F5] flex flex-col">
+    <div className="min-h-[100dvh] bg-muted flex flex-col">
       {/* Header */}
-      <div className="shrink-0 flex items-center justify-between px-4 py-3 bg-white border-b border-[#EBEBEB]">
+      <div className="shrink-0 flex items-center justify-between px-4 py-3 bg-background border-b border-border">
         <div className="flex items-center gap-3">
-          <button type="button" onClick={() => navigate(-1)} className="p-2 -ml-2 active:bg-gray-100 rounded-full text-[#111111]">
+          <button type="button" onClick={() => navigate(-1)} className="p-2 -ml-2 active:bg-muted rounded-full text-foreground">
             <ArrowLeft size={24} strokeWidth={1.5} />
           </button>
-          <h1 className="text-lg font-bold text-[#111111]">New Group</h1>
+          <h1 className="text-lg font-bold text-foreground">New Group</h1>
         </div>
         <button type="button" onClick={handleCreate}
           disabled={!groupName.trim() || selectedFriends.length === 0 || creating}
-          className="text-[#00C300] font-bold text-sm disabled:text-[#8D8D8D] active:opacity-60"
+          className="text-[#00C300] font-bold text-sm disabled:text-muted-foreground active:opacity-60"
         >
           {creating ? 'Creating...' : 'Create'}
         </button>
@@ -77,10 +77,10 @@ export default function CreateGroupPage() {
 
       <div className="flex-1 overflow-y-auto scrollbar-hide pb-8">
         {/* Group Info */}
-        <div className="bg-white p-4 space-y-4">
+        <div className="bg-background p-4 space-y-4">
           <div className="flex items-center gap-4">
             {/* Avatar Upload */}
-            <button type="button" className="w-16 h-16 rounded-full bg-[#F5F5F5] flex items-center justify-center text-[#8D8D8D] shrink-0 relative overflow-hidden"
+            <button type="button" className="w-16 h-16 rounded-full bg-muted flex items-center justify-center text-muted-foreground shrink-0 relative overflow-hidden"
               onClick={() => avatarInputRef.current?.click()}
             >
               {uploadingAvatar ? (
@@ -103,13 +103,13 @@ export default function CreateGroupPage() {
                 value={groupName}
                 onChange={e => setGroupName(e.target.value)}
                 placeholder="Group Name"
-                className="w-full text-[#111111] text-lg font-medium focus:outline-none placeholder:text-[#8D8D8D] border-b border-[#EBEBEB] pb-2"
+                className="w-full text-foreground text-lg font-medium focus:outline-none placeholder:text-muted-foreground border-b border-border pb-2"
               />
               <input
                 value={description}
                 onChange={e => setDescription(e.target.value)}
                 placeholder="Description (optional)"
-                className="w-full text-[#8D8D8D] text-sm focus:outline-none placeholder:text-[#C7C7CC]"
+                className="w-full text-muted-foreground text-sm focus:outline-none placeholder:text-muted-foreground"
               />
             </div>
           </div>
@@ -117,14 +117,14 @@ export default function CreateGroupPage() {
 
         {/* Selected count */}
         <div className="px-4 py-3 flex items-center justify-between">
-          <span className="text-[#8D8D8D] text-sm">Add Members</span>
+          <span className="text-muted-foreground text-sm">Add Members</span>
           <span className="text-[#00C300] text-sm font-medium">{selectedFriends.length} selected</span>
         </div>
 
         {/* Friends List */}
-        <div className="bg-white">
+        <div className="bg-background">
           {friends.length === 0 ? (
-            <div className="text-center py-8 text-[#8D8D8D] text-sm">
+            <div className="text-center py-8 text-muted-foreground text-sm">
               <Users size={32} className="mx-auto mb-2 opacity-50" />
               <p>No friends yet. Add friends first!</p>
             </div>
@@ -138,24 +138,24 @@ export default function CreateGroupPage() {
                   animate={{ opacity: 1 }}
                   transition={{ delay: i * 0.03 }}
                   onClick={() => toggleFriend(friend.id)}
-                  className={`w-full flex items-center gap-3 px-4 py-3 active:bg-gray-50 transition-colors ${
-                    i !== friends.length - 1 ? 'border-b border-[#EBEBEB]' : ''
+                  className={`w-full flex items-center gap-3 px-4 py-3 active:bg-muted transition-colors ${
+                    i !== friends.length - 1 ? 'border-b border-border' : ''
                   }`}
                 >
                   <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 transition-colors ${
-                    isSelected ? 'bg-[#00C300]' : 'bg-[#F5F5F5]'
+                    isSelected ? 'bg-[#00C300]' : 'bg-muted'
                   }`}>
                     {isSelected ? (
                       <Check size={18} className="text-white" />
                     ) : friend.avatar ? (
                       <img src={friend.avatar} className="w-full h-full object-cover rounded-full" alt="User avatar" />
                     ) : (
-                      <span className="text-[#8D8D8D] font-bold text-sm">{(friend.name || 'U')[0]}</span>
+                      <span className="text-muted-foreground font-bold text-sm">{(friend.name || 'U')[0]}</span>
                     )}
                   </div>
                   <div className="flex-1 text-left">
-                    <p className="text-[#111111] text-sm font-medium">{friend.name || 'User'}</p>
-                    <p className="text-[#8D8D8D] text-xs">@{friend.username || 'user'}</p>
+                    <p className="text-foreground text-sm font-medium">{friend.name || 'User'}</p>
+                    <p className="text-muted-foreground text-xs">@{friend.username || 'user'}</p>
                   </div>
                   {isSelected && (
                     <div className="w-5 h-5 rounded-full bg-[#00C300] flex items-center justify-center">

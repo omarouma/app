@@ -60,7 +60,7 @@ export const ImageMessage = memo(function ImageMessage(props: ImageMessageProps)
 
   if (!safeUrl || failed) {
     return (
-      <div className="rounded-2xl mb-1 w-full max-w-full h-40 bg-[#F5F5F5] dark:bg-white/5 flex flex-col items-center justify-center gap-2 text-sm text-[#8D8D8D]">
+      <div className="rounded-2xl mb-1 w-full max-w-full h-40 bg-muted dark:bg-white/5 flex flex-col items-center justify-center gap-2 text-sm text-muted-foreground">
         <ImageOff size={26} className="opacity-70" />
         <span>Image unavailable</span>
         <button
@@ -81,7 +81,7 @@ export const ImageMessage = memo(function ImageMessage(props: ImageMessageProps)
       <button
         type="button"
         onClick={() => setRevealed(true)}
-        className="rounded-2xl mb-1 w-full max-w-full h-40 bg-[#F5F5F5] dark:bg-white/5 flex flex-col items-center justify-center gap-2 text-sm text-[#8D8D8D] dark:text-white/50 hover:bg-[#EAEAEA] dark:hover:bg-white/10 transition-colors"
+        className="rounded-2xl mb-1 w-full max-w-full h-40 bg-muted dark:bg-white/5 flex flex-col items-center justify-center gap-2 text-sm text-muted-foreground dark:text-white/50 hover:bg-muted dark:hover:bg-white/10 transition-colors"
         aria-label="Tap to download image"
       >
         <Download size={24} className="opacity-70" />
@@ -95,8 +95,8 @@ export const ImageMessage = memo(function ImageMessage(props: ImageMessageProps)
     <div className="relative intro max-w-full group min-h-[160px]">
       {/* Skeleton overlay — sits ON TOP of the image, never hides it. */}
       {!loaded && (
-        <div className="absolute inset-0 rounded-2xl mb-1 bg-[#F5F5F5] dark:bg-white/5 animate-pulse flex items-center justify-center z-[1]">
-          <span className="text-xs text-[#8D8D8D]">Loading image…</span>
+        <div className="absolute inset-0 rounded-2xl mb-1 bg-muted dark:bg-white/5 animate-pulse flex items-center justify-center z-[1]">
+          <span className="text-xs text-muted-foreground">Loading image…</span>
         </div>
       )}
       <img

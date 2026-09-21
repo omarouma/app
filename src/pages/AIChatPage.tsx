@@ -131,7 +131,7 @@ export default function AIChatPage() {
         </div>
         <div className="flex items-center gap-2">
           <button type="button" onClick={handleClear} className="p-2 rounded-full bg-[#1a1a1a]" title="Clear chat">
-            <Trash2 size={16} className="text-[#8D8D8D]" />
+            <Trash2 size={16} className="text-muted-foreground" />
           </button>
         </div>
       </div>
@@ -176,7 +176,7 @@ export default function AIChatPage() {
                     <button
                       type="button"
                       onClick={() => handleCopy(msg.content)}
-                      className="text-[#8D8D8D] hover:text-white transition-colors"
+                      className="text-muted-foreground hover:text-white transition-colors"
                     >
                       <Copy size={12} />
                     </button>
@@ -213,7 +213,7 @@ export default function AIChatPage() {
       {/* Suggested prompts (shown when few messages) */}
       {messages.length < 3 && (
         <div className="shrink-0 px-4 py-2 border-t border-[#1a1a1a]">
-          <p className="text-[10px] text-[#8D8D8D] uppercase tracking-wider mb-2">Suggested</p>
+          <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-2">Suggested</p>
           <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-2">
             {SUGGESTED_PROMPTS.map((prompt, i) => {
               const Icon = prompt.icon;
@@ -222,7 +222,7 @@ export default function AIChatPage() {
                   key={i}
                   type="button"
                   onClick={() => handleSuggestedPrompt(prompt.text)}
-                  className="shrink-0 flex items-center gap-1.5 px-3 py-2 bg-[#1a1a1a] rounded-full text-xs text-[#8D8D8D] hover:text-white hover:bg-[#2a2a2a] transition-colors"
+                  className="shrink-0 flex items-center gap-1.5 px-3 py-2 bg-[#1a1a1a] rounded-full text-xs text-muted-foreground hover:text-white hover:bg-[#2a2a2a] transition-colors"
                 >
                   <Icon size={12} />
                   <span className="whitespace-nowrap">{prompt.text}</span>
@@ -243,13 +243,13 @@ export default function AIChatPage() {
               onChange={e => setInput(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && handleSend()}
               placeholder="Ask GaGa AI anything..."
-              className="w-full bg-[#1a1a1a] rounded-full pl-4 pr-10 py-3 text-sm text-white placeholder:text-[#8D8D8D] outline-none focus:ring-2 focus:ring-[#00C300]/30"
+              className="w-full bg-[#1a1a1a] rounded-full pl-4 pr-10 py-3 text-sm text-white placeholder:text-muted-foreground outline-none focus:ring-2 focus:ring-[#00C300]/30"
             />
             {input && (
               <button
                 type="button"
                 onClick={() => setInput('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8D8D8D]"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground"
               >
                 <X size={14} />
               </button>
@@ -264,7 +264,7 @@ export default function AIChatPage() {
             <Send size={18} />
           </button>
         </div>
-        <p className="text-center text-[10px] text-[#8D8D8D] mt-2">
+        <p className="text-center text-[10px] text-muted-foreground mt-2">
           GaGa AI can make mistakes. Consider checking important information.
         </p>
       </div>

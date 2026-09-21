@@ -51,7 +51,7 @@ const CallListItemComponent = ({ call, userName, userAvatar, currentUserId, onCa
       : PhoneIncoming;
   const iconColor = isNegative ? 'text-red-500' : 'text-[#00C300]';
   const label = statusLabel;
-  const labelColor = isNegative ? 'text-red-500' : 'text-[#8D8D8D]';
+  const labelColor = isNegative ? 'text-red-500' : 'text-muted-foreground';
   const typeLabel = isGroup ? (isVideoType ? 'Group Video' : 'Group Voice') : isVideoType ? 'Video' : 'Voice';
 
   const avatarSrc = sanitizeMediaUrl(userAvatar);
@@ -59,9 +59,9 @@ const CallListItemComponent = ({ call, userName, userAvatar, currentUserId, onCa
   const targetUserId = otherUserId || currentUserId;
 
   return (
-    <div className="flex items-center gap-3 px-4 py-3 hover:bg-[#F5F5F5] active:bg-[#EBEBEB] transition-colors">
+    <div className="flex items-center gap-3 px-4 py-3 hover:bg-muted active:bg-muted transition-colors">
       {/* Avatar */}
-      <div className="w-11 h-11 rounded-full bg-[#F5F5F5] overflow-hidden shrink-0">
+      <div className="w-11 h-11 rounded-full bg-muted overflow-hidden shrink-0">
         <img
           src={avatarSrc || getDefaultAvatar(otherUserId || userName || 'U')}
           className="w-full h-full object-cover"
@@ -71,22 +71,22 @@ const CallListItemComponent = ({ call, userName, userAvatar, currentUserId, onCa
 
       {/* Info */}
       <div className="flex-1 min-w-0">
-        <p className={`text-sm font-semibold truncate ${isNegative ? 'text-red-500' : 'text-[#111111]'}`}>
+        <p className={`text-sm font-semibold truncate ${isNegative ? 'text-red-500' : 'text-foreground'}`}>
           {userName}
         </p>
         <div className="flex items-center gap-1.5 mt-0.5">
           <CallIcon size={13} className={iconColor} />
           <span className={`text-xs ${labelColor}`}>{label}</span>
-          <span className="text-[#CCCCCC] text-xs">·</span>
-          <span className="text-xs text-[#8D8D8D]">{typeLabel}</span>
+          <span className="text-muted-foreground text-xs">·</span>
+          <span className="text-xs text-muted-foreground">{typeLabel}</span>
           {duration && (
             <>
-              <span className="text-[#CCCCCC] text-xs">·</span>
-              <span className="text-xs text-[#8D8D8D]">{duration}</span>
+              <span className="text-muted-foreground text-xs">·</span>
+              <span className="text-xs text-muted-foreground">{duration}</span>
             </>
           )}
-          <span className="text-[#CCCCCC] text-xs">·</span>
-          <span className="text-xs text-[#8D8D8D]">{formatRelativeTime(call.timestamp)}</span>
+          <span className="text-muted-foreground text-xs">·</span>
+          <span className="text-xs text-muted-foreground">{formatRelativeTime(call.timestamp)}</span>
         </div>
       </div>
 
@@ -113,7 +113,7 @@ const CallListItemComponent = ({ call, userName, userAvatar, currentUserId, onCa
         <button
           type="button"
           onClick={() => onDelete(call.id)}
-          className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-red-50 text-[#8D8D8D] hover:text-red-500 active:scale-95 transition-all"
+          className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-red-50 text-muted-foreground hover:text-red-500 active:scale-95 transition-all"
           aria-label="Delete call record"
         >
           <Trash2 size={16} />

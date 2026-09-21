@@ -29,19 +29,19 @@ export default function SavedMessagesPage() {
       case 'file': return <File size={16} className="text-[#8B5CF6]" />;
       case 'location': return <MapPin size={16} className="text-[#FF3B30]" />;
       case 'voice': return <MessageCircle size={16} className="text-[#2196F3]" />;
-      default: return <MessageCircle size={16} className="text-[#8D8D8D]" />;
+      default: return <MessageCircle size={16} className="text-muted-foreground" />;
     }
   };
 
   return (
-    <div className="min-h-[100dvh] bg-[#F5F5F5]">
+    <div className="min-h-[100dvh] bg-muted">
       {/* Header */}
-      <div className="bg-white border-b border-[#EBEBEB] sticky top-0 z-10">
+      <div className="bg-background border-b border-border sticky top-0 z-10">
         <div className="flex items-center gap-3 p-4">
-          <button type="button" onClick={() => navigate(-1)} className="p-2 -ml-2 hover:bg-[#F5F5F5] rounded-full text-[#111111]">
+          <button type="button" onClick={() => navigate(-1)} className="p-2 -ml-2 hover:bg-muted rounded-full text-foreground">
             <ArrowLeft size={22} />
           </button>
-          <h1 className="text-lg font-bold text-[#111111] flex-1">Saved Messages</h1>
+          <h1 className="text-lg font-bold text-foreground flex-1">Saved Messages</h1>
           {saved.length > 0 && (
             <button type="button" onClick={() => setShowConfirm(true)}
               className="text-[#FF3B30] text-sm font-medium"
@@ -52,15 +52,15 @@ export default function SavedMessagesPage() {
         </div>
         <div className="px-4 pb-3">
           <div className="relative">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8D8D8D]" />
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search saved messages..."
-              className="w-full bg-[#F5F5F5] rounded-xl pl-9 pr-9 py-2.5 text-sm text-[#111111] focus:outline-none focus:ring-2 focus:ring-[#00C300] placeholder:text-[#8D8D8D]"
+              className="w-full bg-muted rounded-xl pl-9 pr-9 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-[#00C300] placeholder:text-muted-foreground"
             />
             {search && (
-              <button type="button" onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8D8D8D]">
+              <button type="button" onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">
                 <X size={14} />
               </button>
             )}
@@ -71,11 +71,11 @@ export default function SavedMessagesPage() {
       <div className="p-4 space-y-2">
         {filtered.length === 0 ? (
           <div className="text-center py-12">
-            <Bookmark size={48} className="text-[#C7C7CC] mx-auto mb-3" />
-            <p className="text-[#8D8D8D] text-sm">
+            <Bookmark size={48} className="text-muted-foreground mx-auto mb-3" />
+            <p className="text-muted-foreground text-sm">
               {search ? 'No messages match your search' : 'No saved messages yet'}
             </p>
-            <p className="text-[#C7C7CC] text-xs mt-1">
+            <p className="text-muted-foreground text-xs mt-1">
               {search ? 'Try a different search term' : 'Long press a message and tap Save'}
             </p>
           </div>
@@ -86,14 +86,14 @@ export default function SavedMessagesPage() {
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.03 }}
-              className="bg-white rounded-xl border border-[#EBEBEB] p-4 hover:shadow-sm transition-shadow"
+              className="bg-background rounded-xl border border-border p-4 hover:shadow-sm transition-shadow"
             >
               <div className="flex items-center gap-2 mb-2">
                 {iconForType(msg.type)}
-                <p className="text-[#111111] text-sm font-medium">{msg.senderName}</p>
-                <span className="text-[#C7C7CC] text-xs ml-auto">{formatTime(msg.timestamp)}</span>
+                <p className="text-foreground text-sm font-medium">{msg.senderName}</p>
+                <span className="text-muted-foreground text-xs ml-auto">{formatTime(msg.timestamp)}</span>
               </div>
-              <p className="text-[#111111] text-sm whitespace-pre-wrap break-words">{msg.content}</p>
+              <p className="text-foreground text-sm whitespace-pre-wrap break-words">{msg.content}</p>
               {msg.mediaUrl && msg.type === 'image' && (
                 <a href={msg.mediaUrl} target="_blank" rel="noopener noreferrer" className="mt-2 block">
                   <img src={msg.mediaUrl} className="rounded-lg max-h-48 object-cover" alt="Shared image" />
@@ -103,7 +103,7 @@ export default function SavedMessagesPage() {
                 <video src={msg.mediaUrl} className="mt-2 rounded-lg max-h-48 w-full" controls />
               )}
               <div className="flex items-center justify-between mt-3">
-                <span className="text-[#8D8D8D] text-[10px] flex items-center gap-1">
+                <span className="text-muted-foreground text-[10px] flex items-center gap-1">
                   <Clock size={10} /> Saved {new Date(msg.savedAt).toLocaleDateString()}
                 </span>
                 <button type="button" onClick={() => {
@@ -134,14 +134,14 @@ export default function SavedMessagesPage() {
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-white rounded-2xl p-6 max-w-sm w-full"
+              className="bg-background rounded-2xl p-6 max-w-sm w-full"
               onClick={e => e.stopPropagation()}
             >
-              <h3 className="text-lg font-bold text-[#111111] mb-2">Clear All Saved?</h3>
-              <p className="text-[#8D8D8D] text-sm mb-4">This will remove all saved messages. This cannot be undone.</p>
+              <h3 className="text-lg font-bold text-foreground mb-2">Clear All Saved?</h3>
+              <p className="text-muted-foreground text-sm mb-4">This will remove all saved messages. This cannot be undone.</p>
               <div className="flex gap-2">
                 <button type="button" onClick={() => setShowConfirm(false)}
-                  className="flex-1 py-3 bg-[#F5F5F5] text-[#111111] rounded-xl text-sm font-bold"
+                  className="flex-1 py-3 bg-muted text-foreground rounded-xl text-sm font-bold"
                 >
                   Cancel
                 </button>

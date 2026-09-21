@@ -118,10 +118,10 @@ export const ChatListItem = memo(function ChatListItem({
         if (revealed) { closeSwipe(); return; }
         navigate(isGroup ? `/group/${chat.id}` : `/chat/${otherId || chat.id}`);
       }}
-      className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 active:bg-gray-100 transition-colors cursor-pointer relative bg-white"
+      className="flex items-center gap-3 px-4 py-3 hover:bg-muted active:bg-muted transition-colors cursor-pointer relative bg-background"
     >
       <div className="relative shrink-0">
-        <div className="w-12 h-12 rounded-full bg-gray-100 overflow-hidden flex items-center justify-center">
+        <div className="w-12 h-12 rounded-full bg-muted overflow-hidden flex items-center justify-center">
           {isGroup ? (
             avatar ? (
               <img src={avatarSrc} className="w-full h-full object-cover" alt={name} />
@@ -142,8 +142,8 @@ export const ChatListItem = memo(function ChatListItem({
       <div className="flex-1 min-w-0">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-1 min-w-0">
-            {chat.pinned && <Pin size={11} className="text-gray-400 shrink-0" />}
-            <p className="text-sm font-semibold text-gray-900 truncate">{name}</p>
+            {chat.pinned && <Pin size={11} className="text-muted-foreground shrink-0" />}
+            <p className="text-sm font-semibold text-foreground truncate">{name}</p>
           </div>
           <div className="flex items-center gap-2 shrink-0">
             {showAddFriend && onAddFriend && (
@@ -163,19 +163,19 @@ export const ChatListItem = memo(function ChatListItem({
               </span>
             )}
             {hasSent && (
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-gray-100 text-gray-500">
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-muted text-muted-foreground">
                 Requested
               </span>
             )}
             {chat.updatedAt && (
-              <span className="text-[11px] text-gray-400">
+              <span className="text-[11px] text-muted-foreground">
                 {formatTime(chat.updatedAt)}
               </span>
             )}
           </div>
         </div>
         <div className="flex items-center justify-between gap-2 mt-0.5">
-          <p className={`text-xs truncate ${typingName ? 'text-[#00C300] font-medium' : draft ? 'text-[#FF9800]' : 'text-gray-500'}`}>
+          <p className={`text-xs truncate ${typingName ? 'text-[#00C300] font-medium' : draft ? 'text-[#FF9800]' : 'text-muted-foreground'}`}>
             {draft ? (
               <><span className="font-semibold text-[#FF9800]">Draft: </span>{draft}</>
             ) : lastMsgPreview}
@@ -226,7 +226,7 @@ export const ChatListItem = memo(function ChatListItem({
         dragElastic={0.5}
         style={{ x }}
         onDragEnd={handleDragEnd}
-        className="relative z-10 bg-white"
+        className="relative z-10 bg-background"
       >
         {item}
       </motion.div>

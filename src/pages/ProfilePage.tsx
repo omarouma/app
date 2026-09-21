@@ -368,10 +368,10 @@ export default function ProfilePage() {
 
   if (!displayUser) {
     return (
-      <div className="min-h-[100dvh] bg-[#F5F5F5] flex items-center justify-center">
+      <div className="min-h-[100dvh] bg-muted flex items-center justify-center">
         {loadingOther
           ? <Loader size={28} className="animate-spin text-[#00C300]" />
-          : <p className="text-[#8D8D8D] text-sm">Profile not found</p>}
+          : <p className="text-muted-foreground text-sm">Profile not found</p>}
       </div>
     );
   }
@@ -379,18 +379,18 @@ export default function ProfilePage() {
   const avatarSrc = sanitizeMediaUrl(displayUser.avatar) || getDefaultAvatar(displayUser.id || displayUser.name || 'U');
 
   return (
-    <div className="min-h-screen-safe bg-[#F5F5F5]">
+    <div className="min-h-screen-safe bg-muted">
       {/* Header */}
-      <div className="sticky top-0 z-20 bg-white/95 backdrop-blur-sm border-b border-[#EBEBEB] px-4 flex items-center justify-between" style={{ paddingTop: 'max(12px, env(safe-area-inset-top, 0px))', paddingBottom: '12px' }}>
+      <div className="sticky top-0 z-20 bg-white/95 backdrop-blur-sm border-b border-border px-4 flex items-center justify-between" style={{ paddingTop: 'max(12px, env(safe-area-inset-top, 0px))', paddingBottom: '12px' }}>
         <button
           type="button"
           onClick={() => navigate(-1)}
-          className="w-11 h-11 flex items-center justify-center rounded-full hover:bg-[#F5F5F5] transition-colors"
+          className="w-11 h-11 flex items-center justify-center rounded-full hover:bg-muted transition-colors"
           aria-label="Go back"
         >
-          <ArrowLeft size={22} className="text-[#111111]" />
+          <ArrowLeft size={22} className="text-foreground" />
         </button>
-        <h1 className="text-[17px] font-bold text-[#111111]">
+        <h1 className="text-[17px] font-bold text-foreground">
           {isOwnProfile ? 'My Profile' : displayUser.name}
         </h1>
         <div className="flex items-center gap-1">
@@ -399,18 +399,18 @@ export default function ProfilePage() {
               <button
                 type="button"
                 onClick={() => navigate('/more')}
-                className="w-11 h-11 flex items-center justify-center rounded-full hover:bg-[#F5F5F5] transition-colors"
+                className="w-11 h-11 flex items-center justify-center rounded-full hover:bg-muted transition-colors"
                 aria-label="More options"
               >
-                <MoreHorizontal size={20} className="text-[#8D8D8D]" />
+                <MoreHorizontal size={20} className="text-muted-foreground" />
               </button>
               <button
                 type="button"
                 onClick={() => navigate('/settings')}
-                className="w-11 h-11 flex items-center justify-center rounded-full hover:bg-[#F5F5F5] transition-colors"
+                className="w-11 h-11 flex items-center justify-center rounded-full hover:bg-muted transition-colors"
                 aria-label="Open settings"
               >
-                <Settings size={20} className="text-[#8D8D8D]" />
+                <Settings size={20} className="text-muted-foreground" />
               </button>
             </>
           )}
@@ -419,7 +419,7 @@ export default function ProfilePage() {
 
       <div className="max-w-2xl mx-auto px-4 py-4 space-y-3 pb-16">
         {/* Avatar + Name card */}
-        <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
+        <div className="bg-background rounded-2xl shadow-sm overflow-hidden">
           {/* Cover image */}
           <div className="relative h-32 sm:h-40 w-full bg-gradient-to-r from-[#00C300]/20 to-[#2196F3]/20">
             {sanitizeMediaUrl(displayUser.coverImage) && (
@@ -462,8 +462,8 @@ export default function ProfilePage() {
               {/* Avatar with stories ring + upload */}
               <div className="relative mb-3">
                 <div className={`p-[3px] rounded-full ${displayUser.isPremium ? 'bg-gradient-to-tr from-[#FFD700] via-[#FF9800] to-[#FF4081]' : 'bg-gradient-to-tr from-[#00C300] to-[#00FF00]'}`}>
-                  <div className="p-[2px] bg-white rounded-full">
-                    <div className="w-24 h-24 rounded-full overflow-hidden bg-[#F5F5F5] relative">
+                  <div className="p-[2px] bg-background rounded-full">
+                    <div className="w-24 h-24 rounded-full overflow-hidden bg-muted relative">
                       <img
                         src={avatarSrc}
                         className="w-full h-full object-cover"
@@ -502,14 +502,14 @@ export default function ProfilePage() {
                 <input
                   value={editName}
                   onChange={e => setEditName(e.target.value)}
-                  className="text-xl font-bold text-[#111111] text-center bg-[#F5F5F5] rounded-xl px-3 py-1.5 w-full max-w-xs focus:outline-none focus:ring-2 focus:ring-[#00C300] mb-1"
+                  className="text-xl font-bold text-foreground text-center bg-muted rounded-xl px-3 py-1.5 w-full max-w-xs focus:outline-none focus:ring-2 focus:ring-[#00C300] mb-1"
                   placeholder="Your name"
                   aria-label="Edit name"
                   maxLength={50}
                 />
               ) : (
                 <div className="flex items-center gap-1.5 mb-1">
-                  <h2 className="text-xl font-bold text-[#111111]">
+                  <h2 className="text-xl font-bold text-foreground">
                     {displayUser.displayName || displayUser.name || 'Your profile'}
                   </h2>
                   {displayUser.verified && (
@@ -527,7 +527,7 @@ export default function ProfilePage() {
                   )}
                 </div>
               )}
-              <p className="text-sm text-[#8D8D8D] mb-2">@{displayUser.username || 'user'}</p>
+              <p className="text-sm text-muted-foreground mb-2">@{displayUser.username || 'user'}</p>
 
               {/* Relationship / mutual friends line (other-user view) */}
               {!isOwnProfile && (
@@ -548,7 +548,7 @@ export default function ProfilePage() {
                     <span className="text-[10px] font-medium bg-[#FF3B30]/10 text-[#FF3B30] px-2 py-0.5 rounded-full">Blocked</span>
                   )}
                   {mutualCount > 0 && (
-                    <span className="text-[10px] font-medium bg-[#F5F5F5] text-[#8D8D8D] px-2 py-0.5 rounded-full">
+                    <span className="text-[10px] font-medium bg-muted text-muted-foreground px-2 py-0.5 rounded-full">
                       {mutualCount} mutual friend{mutualCount === 1 ? '' : 's'}
                     </span>
                   )}
@@ -558,12 +558,12 @@ export default function ProfilePage() {
               {/* Username (edit mode) */}
               {editing && (
                 <div className="w-full max-w-xs mb-2">
-                  <div className="flex items-center gap-2 bg-[#F5F5F5] rounded-xl px-3 py-2">
-                    <span className="text-sm text-[#8D8D8D]">@</span>
+                  <div className="flex items-center gap-2 bg-muted rounded-xl px-3 py-2">
+                    <span className="text-sm text-muted-foreground">@</span>
                     <input
                       value={editUsername}
                       onChange={e => setEditUsername(e.target.value)}
-                      className="flex-1 bg-transparent text-sm text-[#111111] focus:outline-none"
+                      className="flex-1 bg-transparent text-sm text-foreground focus:outline-none"
                       placeholder="username"
                       aria-label="Edit username"
                       maxLength={30}
@@ -582,7 +582,7 @@ export default function ProfilePage() {
                 <textarea
                   value={editBio}
                   onChange={e => setEditBio(e.target.value)}
-                  className="w-full max-w-xs bg-[#F5F5F5] rounded-xl px-3 py-2 text-sm text-[#111111] text-center resize-none focus:outline-none focus:ring-2 focus:ring-[#00C300] mb-2"
+                  className="w-full max-w-xs bg-muted rounded-xl px-3 py-2 text-sm text-foreground text-center resize-none focus:outline-none focus:ring-2 focus:ring-[#00C300] mb-2"
                   placeholder="Write a bio..."
                   rows={2}
                   maxLength={150}
@@ -590,30 +590,30 @@ export default function ProfilePage() {
                 />
               ) : (
                 displayUser.bio && (
-                  <p className="text-sm text-[#8D8D8D] text-center max-w-xs mb-2">{displayUser.bio}</p>
+                  <p className="text-sm text-muted-foreground text-center max-w-xs mb-2">{displayUser.bio}</p>
                 )
               )}
 
               {/* Location + Website (edit mode) */}
               {editing && (
                 <div className="w-full max-w-xs space-y-2 mb-3">
-                  <div className="flex items-center gap-2 bg-[#F5F5F5] rounded-xl px-3 py-2">
-                    <MapPin size={14} className="text-[#8D8D8D] shrink-0" />
+                  <div className="flex items-center gap-2 bg-muted rounded-xl px-3 py-2">
+                    <MapPin size={14} className="text-muted-foreground shrink-0" />
                     <input
                       value={editLocation}
                       onChange={e => setEditLocation(e.target.value)}
-                      className="flex-1 bg-transparent text-sm text-[#111111] focus:outline-none"
+                      className="flex-1 bg-transparent text-sm text-foreground focus:outline-none"
                       placeholder="Location"
                       aria-label="Edit location"
                       maxLength={60}
                     />
                   </div>
-                  <div className="flex items-center gap-2 bg-[#F5F5F5] rounded-xl px-3 py-2">
-                    <Link2 size={14} className="text-[#8D8D8D] shrink-0" />
+                  <div className="flex items-center gap-2 bg-muted rounded-xl px-3 py-2">
+                    <Link2 size={14} className="text-muted-foreground shrink-0" />
                     <input
                       value={editWebsite}
                       onChange={e => setEditWebsite(e.target.value)}
-                      className="flex-1 bg-transparent text-sm text-[#111111] focus:outline-none"
+                      className="flex-1 bg-transparent text-sm text-foreground focus:outline-none"
                       placeholder="Website"
                       aria-label="Edit website"
                       maxLength={100}
@@ -626,7 +626,7 @@ export default function ProfilePage() {
               {!editing && (displayUser.location || displayUser.website) && (
                 <div className="flex flex-wrap items-center justify-center gap-3 mb-3">
                   {displayUser.location && (
-                    <span className="flex items-center gap-1 text-xs text-[#8D8D8D]">
+                    <span className="flex items-center gap-1 text-xs text-muted-foreground">
                       <MapPin size={12} /> {displayUser.location}
                     </span>
                   )}
@@ -660,7 +660,7 @@ export default function ProfilePage() {
                       <button
                         type="button"
                         onClick={cancelEdit}
-                        className="flex items-center gap-1.5 px-5 py-2 bg-[#F5F5F5] text-[#111111] rounded-full text-sm font-medium hover:bg-[#EBEBEB] transition-colors"
+                        className="flex items-center gap-1.5 px-5 py-2 bg-muted text-foreground rounded-full text-sm font-medium hover:bg-muted transition-colors"
                         aria-label="Cancel editing"
                       >
                         <X size={14} /> Cancel
@@ -671,7 +671,7 @@ export default function ProfilePage() {
                       <button
                         type="button"
                         onClick={startEdit}
-                        className="flex items-center gap-1.5 px-5 py-2 bg-[#F5F5F5] text-[#111111] rounded-full text-sm font-medium hover:bg-[#EBEBEB] transition-colors"
+                        className="flex items-center gap-1.5 px-5 py-2 bg-muted text-foreground rounded-full text-sm font-medium hover:bg-muted transition-colors"
                         aria-label="Edit profile"
                       >
                         <Edit3 size={14} /> Edit Profile
@@ -679,7 +679,7 @@ export default function ProfilePage() {
                       <button
                         type="button"
                         onClick={() => navigate('/privacy')}
-                        className="flex items-center gap-1.5 px-5 py-2 bg-[#F5F5F5] text-[#111111] rounded-full text-sm font-medium hover:bg-[#EBEBEB] transition-colors"
+                        className="flex items-center gap-1.5 px-5 py-2 bg-muted text-foreground rounded-full text-sm font-medium hover:bg-muted transition-colors"
                         aria-label="Privacy settings"
                       >
                         <Settings size={14} /> Privacy
@@ -687,7 +687,7 @@ export default function ProfilePage() {
                       <button
                         type="button"
                         onClick={() => setShowShareSheet(true)}
-                        className="flex items-center gap-1.5 px-5 py-2 bg-[#F5F5F5] text-[#111111] rounded-full text-sm font-medium hover:bg-[#EBEBEB] transition-colors"
+                        className="flex items-center gap-1.5 px-5 py-2 bg-muted text-foreground rounded-full text-sm font-medium hover:bg-muted transition-colors"
                         aria-label="Share profile"
                       >
                         <Share2 size={14} /> Share
@@ -702,7 +702,7 @@ export default function ProfilePage() {
 
         {/* Other-user action buttons */}
         {!isOwnProfile && (
-          <div className="bg-white rounded-2xl p-4 shadow-sm">
+          <div className="bg-background rounded-2xl p-4 shadow-sm">
             {/* Primary actions */}
             <div className="grid grid-cols-3 gap-2">
               <button
@@ -741,40 +741,40 @@ export default function ProfilePage() {
                   type="button"
                   disabled={actionBusy}
                   onClick={handleRemoveFriend}
-                  className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-[#F5F5F5] transition-colors text-left disabled:opacity-40"
+                  className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-muted transition-colors text-left disabled:opacity-40"
                 >
                   <UserX size={18} className="text-[#FF3B30]" />
-                  <span className="text-sm font-medium text-[#111111]">Remove friend</span>
+                  <span className="text-sm font-medium text-foreground">Remove friend</span>
                 </button>
               ) : requestSent ? (
                 <button
                   type="button"
                   disabled={actionBusy}
                   onClick={handleCancelRequest}
-                  className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-[#F5F5F5] transition-colors text-left disabled:opacity-40"
+                  className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-muted transition-colors text-left disabled:opacity-40"
                 >
-                  <X size={18} className="text-[#8D8D8D]" />
-                  <span className="text-sm font-medium text-[#111111]">Cancel friend request</span>
+                  <X size={18} className="text-muted-foreground" />
+                  <span className="text-sm font-medium text-foreground">Cancel friend request</span>
                 </button>
               ) : incomingRequest ? (
                 <button
                   type="button"
                   disabled={actionBusy}
                   onClick={handleAcceptRequest}
-                  className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-[#F5F5F5] transition-colors text-left disabled:opacity-40"
+                  className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-muted transition-colors text-left disabled:opacity-40"
                 >
                   <UserCheck size={18} className="text-[#00C300]" />
-                  <span className="text-sm font-medium text-[#111111]">Accept friend request</span>
+                  <span className="text-sm font-medium text-foreground">Accept friend request</span>
                 </button>
               ) : (
                 <button
                   type="button"
                   disabled={actionBusy || isBlocked}
                   onClick={handleAddFriend}
-                  className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-[#F5F5F5] transition-colors text-left disabled:opacity-40"
+                  className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-muted transition-colors text-left disabled:opacity-40"
                 >
                   <UserPlus size={18} className="text-[#00C300]" />
-                  <span className="text-sm font-medium text-[#111111]">Add friend</span>
+                  <span className="text-sm font-medium text-foreground">Add friend</span>
                 </button>
               )}
 
@@ -782,38 +782,38 @@ export default function ProfilePage() {
                 type="button"
                 disabled={actionBusy}
                 onClick={handleToggleMute}
-                className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-[#F5F5F5] transition-colors text-left disabled:opacity-40"
+                className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-muted transition-colors text-left disabled:opacity-40"
               >
                 {directChat?.isMuted
-                  ? <><Bell size={18} className="text-[#FF9800]" /><span className="text-sm font-medium text-[#111111]">Unmute notifications</span></>
-                  : <><BellOff size={18} className="text-[#FF9800]" /><span className="text-sm font-medium text-[#111111]">Mute notifications</span></>}
+                  ? <><Bell size={18} className="text-[#FF9800]" /><span className="text-sm font-medium text-foreground">Unmute notifications</span></>
+                  : <><BellOff size={18} className="text-[#FF9800]" /><span className="text-sm font-medium text-foreground">Mute notifications</span></>}
               </button>
 
               <button
                 type="button"
                 disabled={actionBusy}
                 onClick={handleOpenSharedMedia}
-                className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-[#F5F5F5] transition-colors text-left disabled:opacity-40"
+                className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-muted transition-colors text-left disabled:opacity-40"
               >
                 <ImageIcon size={18} className="text-[#2196F3]" />
-                <span className="text-sm font-medium text-[#111111]">Shared media</span>
+                <span className="text-sm font-medium text-foreground">Shared media</span>
               </button>
 
               <button
                 type="button"
                 disabled={actionBusy}
                 onClick={() => setShowShareSheet(true)}
-                className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-[#F5F5F5] transition-colors text-left disabled:opacity-40"
+                className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-muted transition-colors text-left disabled:opacity-40"
               >
                 <Share2 size={18} className="text-[#8B5CF6]" />
-                <span className="text-sm font-medium text-[#111111]">Share profile</span>
+                <span className="text-sm font-medium text-foreground">Share profile</span>
               </button>
 
               <button
                 type="button"
                 disabled={actionBusy}
                 onClick={handleToggleBlock}
-                className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-[#F5F5F5] transition-colors text-left disabled:opacity-40"
+                className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-muted transition-colors text-left disabled:opacity-40"
               >
                 {isBlocked
                   ? <><Ban size={18} className="text-[#00C300]" /><span className="text-sm font-medium text-[#00C300]">Unblock</span></>
@@ -824,7 +824,7 @@ export default function ProfilePage() {
                 type="button"
                 disabled={actionBusy}
                 onClick={() => setShowReportSheet(true)}
-                className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-[#F5F5F5] transition-colors text-left disabled:opacity-40"
+                className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-muted transition-colors text-left disabled:opacity-40"
               >
                 <Flag size={18} className="text-[#FF3B30]" />
                 <span className="text-sm font-medium text-[#FF3B30]">Report</span>
@@ -832,7 +832,7 @@ export default function ProfilePage() {
             </div>
 
             {actionBusy && (
-              <div className="flex items-center justify-center gap-2 py-2 text-[#8D8D8D] text-xs">
+              <div className="flex items-center justify-center gap-2 py-2 text-muted-foreground text-xs">
                 <Loader size={14} className="animate-spin" /> Working…
               </div>
             )}
@@ -840,44 +840,44 @@ export default function ProfilePage() {
         )}
 
         {/* Stats bar */}
-        <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
-          <div className="grid grid-cols-3 divide-x divide-[#EBEBEB]">
+        <div className="bg-background rounded-2xl shadow-sm overflow-hidden">
+          <div className="grid grid-cols-3 divide-x divide-border">
             {stats.map(({ label, value }) => (
               <div key={label} className="flex flex-col items-center py-4 px-2">
-                <span className="text-lg font-bold text-[#111111]">
+                <span className="text-lg font-bold text-foreground">
                   {value === null ? '—' : value.toLocaleString()}
                 </span>
-                <span className="text-[11px] text-[#8D8D8D] mt-0.5">{label}</span>
+                <span className="text-[11px] text-muted-foreground mt-0.5">{label}</span>
               </div>
             ))}
           </div>
         </div>
 
         {isOwnProfile && (
-          <div className="bg-white rounded-2xl p-4 shadow-sm">
+          <div className="bg-background rounded-2xl p-4 shadow-sm">
             <div className="flex items-center justify-between gap-3 mb-2">
               <div>
-                <h3 className="text-sm font-semibold text-[#111111]">Profile completeness</h3>
-                <p className="text-[11px] text-[#8D8D8D]">Add a bio, photo, and links to make your profile feel complete.</p>
+                <h3 className="text-sm font-semibold text-foreground">Profile completeness</h3>
+                <p className="text-[11px] text-muted-foreground">Add a bio, photo, and links to make your profile feel complete.</p>
               </div>
               <span className="text-sm font-bold text-[#00C300]">{profileCompletion}%</span>
             </div>
-            <div className="h-2 bg-[#F5F5F5] rounded-full overflow-hidden">
+            <div className="h-2 bg-muted rounded-full overflow-hidden">
               <div className="h-full rounded-full bg-[#00C300] transition-all" style={{ width: `${profileCompletion}%` }} />
             </div>
             <div className="mt-3 flex flex-wrap gap-2">
-              {user?.hideOnlineStatus ? <span className="rounded-full bg-[#F5F5F5] px-2.5 py-1 text-[10px] font-medium text-[#111111]">Online status hidden</span> : <span className="rounded-full bg-[#00C300]/10 px-2.5 py-1 text-[10px] font-medium text-[#00C300]">Online status visible</span>}
-              {user?.hideFriendList ? <span className="rounded-full bg-[#F5F5F5] px-2.5 py-1 text-[10px] font-medium text-[#111111]">Friend list hidden</span> : <span className="rounded-full bg-[#2196F3]/10 px-2.5 py-1 text-[10px] font-medium text-[#2196F3]">Friend list visible</span>}
+              {user?.hideOnlineStatus ? <span className="rounded-full bg-muted px-2.5 py-1 text-[10px] font-medium text-foreground">Online status hidden</span> : <span className="rounded-full bg-[#00C300]/10 px-2.5 py-1 text-[10px] font-medium text-[#00C300]">Online status visible</span>}
+              {user?.hideFriendList ? <span className="rounded-full bg-muted px-2.5 py-1 text-[10px] font-medium text-foreground">Friend list hidden</span> : <span className="rounded-full bg-[#2196F3]/10 px-2.5 py-1 text-[10px] font-medium text-[#2196F3]">Friend list visible</span>}
             </div>
           </div>
         )}
 
         {/* Business profile */}
         {displayUser.isBusiness && (
-          <div className="bg-white rounded-2xl p-4 shadow-sm space-y-3">
+          <div className="bg-background rounded-2xl p-4 shadow-sm space-y-3">
             <div className="flex items-center gap-2">
               <Briefcase size={16} className="text-[#00C300]" />
-              <h3 className="text-sm font-semibold text-[#111111]">{displayUser.businessName || 'Business'}</h3>
+              <h3 className="text-sm font-semibold text-foreground">{displayUser.businessName || 'Business'}</h3>
               {displayUser.businessCategory && (
                 <span className="text-[10px] bg-[#00C300]/10 text-[#00C300] px-2 py-0.5 rounded-full font-medium">
                   {displayUser.businessCategory}
@@ -885,18 +885,18 @@ export default function ProfilePage() {
               )}
             </div>
             {displayUser.businessDescription && (
-              <p className="text-sm text-[#8D8D8D]">{displayUser.businessDescription}</p>
+              <p className="text-sm text-muted-foreground">{displayUser.businessDescription}</p>
             )}
             <div className="space-y-2">
               {displayUser.businessAddress && (
-                <div className="flex items-center gap-3 text-sm text-[#111111]">
-                  <MapPin size={16} className="text-[#8D8D8D] shrink-0" aria-hidden="true" />
+                <div className="flex items-center gap-3 text-sm text-foreground">
+                  <MapPin size={16} className="text-muted-foreground shrink-0" aria-hidden="true" />
                   <span>{displayUser.businessAddress}</span>
                 </div>
               )}
               {displayUser.businessHours && (
-                <div className="flex items-center gap-3 text-sm text-[#111111]">
-                  <Clock size={16} className="text-[#8D8D8D] shrink-0" aria-hidden="true" />
+                <div className="flex items-center gap-3 text-sm text-foreground">
+                  <Clock size={16} className="text-muted-foreground shrink-0" aria-hidden="true" />
                   <span>{displayUser.businessHours}</span>
                 </div>
               )}
@@ -907,19 +907,19 @@ export default function ProfilePage() {
                   rel="noopener noreferrer"
                   className="flex items-center gap-3 text-sm text-[#00C300] hover:underline"
                 >
-                  <Globe size={16} className="text-[#8D8D8D] shrink-0" aria-hidden="true" />
+                  <Globe size={16} className="text-muted-foreground shrink-0" aria-hidden="true" />
                   <span className="truncate">{displayUser.businessWebsite.replace(/^https?:\/\//, '')}</span>
                 </a>
               )}
               {displayUser.businessEmail && (
-                <div className="flex items-center gap-3 text-sm text-[#111111]">
-                  <Mail size={16} className="text-[#8D8D8D] shrink-0" aria-hidden="true" />
+                <div className="flex items-center gap-3 text-sm text-foreground">
+                  <Mail size={16} className="text-muted-foreground shrink-0" aria-hidden="true" />
                   <span className="truncate">{displayUser.businessEmail}</span>
                 </div>
               )}
               {displayUser.businessPhone && (
-                <div className="flex items-center gap-3 text-sm text-[#111111]">
-                  <Phone size={16} className="text-[#8D8D8D] shrink-0" aria-hidden="true" />
+                <div className="flex items-center gap-3 text-sm text-foreground">
+                  <Phone size={16} className="text-muted-foreground shrink-0" aria-hidden="true" />
                   <span>{displayUser.businessPhone}</span>
                 </div>
               )}
@@ -929,8 +929,8 @@ export default function ProfilePage() {
 
         {/* Groups in common (other-user view) */}
         {!isOwnProfile && mutualGroups.length > 0 && (
-          <div className="bg-white rounded-2xl p-4 shadow-sm">
-            <h3 className="text-sm font-semibold text-[#111111] mb-3">
+          <div className="bg-background rounded-2xl p-4 shadow-sm">
+            <h3 className="text-sm font-semibold text-foreground mb-3">
               Groups in common ({mutualGroups.length})
             </h3>
             <div className="space-y-1">
@@ -939,7 +939,7 @@ export default function ProfilePage() {
                   key={g.id}
                   type="button"
                   onClick={() => navigate(`/group/${g.id}`)}
-                  className="w-full flex items-center gap-3 p-2 rounded-xl hover:bg-[#F5F5F5] transition-colors text-left"
+                  className="w-full flex items-center gap-3 p-2 rounded-xl hover:bg-muted transition-colors text-left"
                   aria-label={`Open group ${g.name || 'Group'}`}
                 >
                   <img
@@ -947,7 +947,7 @@ export default function ProfilePage() {
                     className="w-10 h-10 rounded-full object-cover shrink-0"
                     alt=""
                   />
-                  <span className="text-sm font-medium text-[#111111] truncate">{g.name || 'Group'}</span>
+                  <span className="text-sm font-medium text-foreground truncate">{g.name || 'Group'}</span>
                 </button>
               ))}
             </div>
@@ -956,22 +956,22 @@ export default function ProfilePage() {
 
         {/* Contact info */}
         {(displayUser.email || displayUser.phone || profileUrl) && (
-          <div className="bg-white rounded-2xl p-4 shadow-sm space-y-3">
-            <h3 className="text-sm font-semibold text-[#111111]">Contact Info</h3>
+          <div className="bg-background rounded-2xl p-4 shadow-sm space-y-3">
+            <h3 className="text-sm font-semibold text-foreground">Contact Info</h3>
             {displayUser.email && (
-              <div className="flex items-center gap-3 text-sm text-[#111111]">
-                <Mail size={16} className="text-[#8D8D8D] shrink-0" aria-hidden="true" />
+              <div className="flex items-center gap-3 text-sm text-foreground">
+                <Mail size={16} className="text-muted-foreground shrink-0" aria-hidden="true" />
                 <span className="truncate">{displayUser.email}</span>
               </div>
             )}
             {displayUser.phone && (
-              <div className="flex items-center gap-3 text-sm text-[#111111]">
-                <Phone size={16} className="text-[#8D8D8D] shrink-0" aria-hidden="true" />
+              <div className="flex items-center gap-3 text-sm text-foreground">
+                <Phone size={16} className="text-muted-foreground shrink-0" aria-hidden="true" />
                 <span>{displayUser.phone}</span>
               </div>
             )}
             <div className="flex items-center gap-3 text-sm text-[#00C300]">
-              <Link2 size={16} className="text-[#8D8D8D] shrink-0" aria-hidden="true" />
+              <Link2 size={16} className="text-muted-foreground shrink-0" aria-hidden="true" />
               <button
                 type="button"
                 onClick={handleCopyLink}
@@ -996,11 +996,11 @@ export default function ProfilePage() {
                 key={label}
                 type="button"
                 onClick={action}
-                className="bg-white rounded-2xl p-4 shadow-sm flex flex-col items-center gap-2 hover:bg-[#F5F5F5] transition-colors"
+                className="bg-background rounded-2xl p-4 shadow-sm flex flex-col items-center gap-2 hover:bg-muted transition-colors"
                 aria-label={label}
               >
                 <Icon size={22} className="text-[#00C300]" />
-                <span className="text-xs font-medium text-[#111111]">{label}</span>
+                <span className="text-xs font-medium text-foreground">{label}</span>
               </button>
             ))}
           </div>
@@ -1011,17 +1011,17 @@ export default function ProfilePage() {
           <button
             type="button"
             onClick={() => navigate('/qr-scanner')}
-            className="w-full bg-white rounded-2xl p-4 shadow-sm flex items-center gap-3 hover:bg-[#F5F5F5] transition-colors"
+            className="w-full bg-background rounded-2xl p-4 shadow-sm flex items-center gap-3 hover:bg-muted transition-colors"
             aria-label="View my QR code"
           >
             <div className="w-10 h-10 rounded-xl bg-[#00C300]/10 flex items-center justify-center shrink-0">
               <QrCode size={20} className="text-[#00C300]" />
             </div>
             <div className="flex-1 text-left">
-              <p className="text-sm font-medium text-[#111111]">My QR Code</p>
-              <p className="text-xs text-[#8D8D8D]">Share your profile instantly</p>
+              <p className="text-sm font-medium text-foreground">My QR Code</p>
+              <p className="text-xs text-muted-foreground">Share your profile instantly</p>
             </div>
-            <ArrowLeft size={18} className="text-[#C7C7CC] rotate-180" aria-hidden="true" />
+            <ArrowLeft size={18} className="text-muted-foreground rotate-180" aria-hidden="true" />
           </button>
         )}
       </div>
@@ -1041,59 +1041,59 @@ export default function ProfilePage() {
               animate={{ y: 0 }}
               exit={{ y: '100%' }}
               transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-              className="bg-white rounded-t-3xl p-6 w-full max-w-lg"
+              className="bg-background rounded-t-3xl p-6 w-full max-w-lg"
               onClick={e => e.stopPropagation()}
             >
-              <div className="w-10 h-1 bg-[#EBEBEB] rounded-full mx-auto mb-5" />
-              <h3 className="text-base font-bold text-[#111111] mb-4">Share Profile</h3>
+              <div className="w-10 h-1 bg-muted rounded-full mx-auto mb-5" />
+              <h3 className="text-base font-bold text-foreground mb-4">Share Profile</h3>
               <div className="space-y-2">
                 <button
                   type="button"
                   onClick={handleNativeShare}
-                  className="w-full flex items-center gap-3 p-3.5 rounded-xl hover:bg-[#F5F5F5] transition-colors text-left"
+                  className="w-full flex items-center gap-3 p-3.5 rounded-xl hover:bg-muted transition-colors text-left"
                   aria-label="Share via system share sheet"
                 >
                   <div className="w-10 h-10 rounded-xl bg-[#00C300]/10 flex items-center justify-center shrink-0">
                     <Share2 size={18} className="text-[#00C300]" />
                   </div>
                   <div>
-                    <p className="text-sm font-medium text-[#111111]">Share via…</p>
-                    <p className="text-xs text-[#8D8D8D]">Use your device's share options</p>
+                    <p className="text-sm font-medium text-foreground">Share via…</p>
+                    <p className="text-xs text-muted-foreground">Use your device's share options</p>
                   </div>
                 </button>
                 <button
                   type="button"
                   onClick={handleCopyLink}
-                  className="w-full flex items-center gap-3 p-3.5 rounded-xl hover:bg-[#F5F5F5] transition-colors text-left"
+                  className="w-full flex items-center gap-3 p-3.5 rounded-xl hover:bg-muted transition-colors text-left"
                   aria-label="Copy profile link"
                 >
                   <div className="w-10 h-10 rounded-xl bg-[#2196F3]/10 flex items-center justify-center shrink-0">
                     <Copy size={18} className="text-[#2196F3]" />
                   </div>
                   <div>
-                    <p className="text-sm font-medium text-[#111111]">Copy Link</p>
-                    <p className="text-xs text-[#8D8D8D] truncate max-w-[220px]">{profileUrl}</p>
+                    <p className="text-sm font-medium text-foreground">Copy Link</p>
+                    <p className="text-xs text-muted-foreground truncate max-w-[220px]">{profileUrl}</p>
                   </div>
                 </button>
                 <button
                   type="button"
                   onClick={() => { navigate('/qr-scanner'); setShowShareSheet(false); }}
-                  className="w-full flex items-center gap-3 p-3.5 rounded-xl hover:bg-[#F5F5F5] transition-colors text-left"
+                  className="w-full flex items-center gap-3 p-3.5 rounded-xl hover:bg-muted transition-colors text-left"
                   aria-label="Show QR code"
                 >
                   <div className="w-10 h-10 rounded-xl bg-[#8B5CF6]/10 flex items-center justify-center shrink-0">
                     <QrCode size={18} className="text-[#8B5CF6]" />
                   </div>
                   <div>
-                    <p className="text-sm font-medium text-[#111111]">Show QR Code</p>
-                    <p className="text-xs text-[#8D8D8D]">Let others scan to find you</p>
+                    <p className="text-sm font-medium text-foreground">Show QR Code</p>
+                    <p className="text-xs text-muted-foreground">Let others scan to find you</p>
                   </div>
                 </button>
               </div>
               <button
                 type="button"
                 onClick={() => setShowShareSheet(false)}
-                className="w-full mt-4 py-3 bg-[#F5F5F5] text-[#111111] rounded-xl text-sm font-bold"
+                className="w-full mt-4 py-3 bg-muted text-foreground rounded-xl text-sm font-bold"
               >
                 Cancel
               </button>

@@ -29,11 +29,11 @@ export default function NotFound() {
           animate={{ opacity: 1 }}
           transition={{ delay: 0.3 }}
         >
-          <h1 className="text-6xl sm:text-7xl font-black text-[#111111] mb-2 tracking-tight">
+          <h1 className="text-6xl sm:text-7xl font-black text-foreground mb-2 tracking-tight">
             4<span className="text-[#00C300]">0</span>4
           </h1>
-          <p className="text-lg font-semibold text-[#111111] mb-2">Page Not Found</p>
-          <p className="text-[#8D8D8D] text-sm mb-8 leading-relaxed max-w-xs mx-auto">
+          <p className="text-lg font-semibold text-foreground mb-2">Page Not Found</p>
+          <p className="text-muted-foreground text-sm mb-8 leading-relaxed max-w-xs mx-auto">
             The page you are looking for does not exist or has been moved. Let us get you back on track.
           </p>
         </motion.div>
@@ -48,22 +48,22 @@ export default function NotFound() {
           <button
             type="button"
             onClick={() => navigate('/chats')}
-            className="flex flex-col items-center gap-2 p-4 bg-white border border-[#EBEBEB] rounded-2xl hover:border-[#00C300]/30 hover:shadow-md transition-all group"
+            className="flex flex-col items-center gap-2 p-4 bg-background border border-border rounded-2xl hover:border-[#00C300]/30 hover:shadow-md transition-all group"
           >
             <div className="w-10 h-10 rounded-xl bg-[#00C300]/10 flex items-center justify-center group-hover:bg-[#00C300]/20 transition-colors">
               <MessageCircle size={20} className="text-[#00C300]" />
             </div>
-            <span className="text-[#111111] text-sm font-medium">Chats</span>
+            <span className="text-foreground text-sm font-medium">Chats</span>
           </button>
           <button
             type="button"
             onClick={() => navigate('/contacts')}
-            className="flex flex-col items-center gap-2 p-4 bg-white border border-[#EBEBEB] rounded-2xl hover:border-[#00C300]/30 hover:shadow-md transition-all group"
+            className="flex flex-col items-center gap-2 p-4 bg-background border border-border rounded-2xl hover:border-[#00C300]/30 hover:shadow-md transition-all group"
           >
             <div className="w-10 h-10 rounded-xl bg-[#00C300]/10 flex items-center justify-center group-hover:bg-[#00C300]/20 transition-colors">
               <Search size={20} className="text-[#00C300]" />
             </div>
-            <span className="text-[#111111] text-sm font-medium">People</span>
+            <span className="text-foreground text-sm font-medium">People</span>
           </button>
         </motion.div>
 
@@ -77,7 +77,7 @@ export default function NotFound() {
           <button
             type="button"
             onClick={() => navigate(-1)}
-            className="flex items-center justify-center gap-2 px-6 py-3 border border-[#EBEBEB] rounded-full text-[#111111] text-sm font-medium hover:bg-white hover:border-[#00C300]/30 transition-all"
+            className="flex items-center justify-center gap-2 px-6 py-3 border border-border rounded-full text-foreground text-sm font-medium hover:bg-background hover:border-[#00C300]/30 transition-all"
           >
             <ArrowLeft size={16} /> Go Back
           </button>

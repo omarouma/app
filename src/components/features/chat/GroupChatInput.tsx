@@ -86,14 +86,14 @@ export function GroupChatInput({
     };
 
     return (
-        <div className="shrink-0 bg-white border-t border-[#EBEBEB] p-3">
+        <div className="shrink-0 bg-background border-t border-border p-3">
             <AnimatePresence>
                 {replyingTo && (
                     <motion.div
                         initial={{ opacity: 0, height: 0 }}
                         animate={{ opacity: 1, height: 'auto' }}
                         exit={{ opacity: 0, height: 0 }}
-                        className="bg-[#F5F5F5] rounded-lg p-2 mb-2 text-sm text-[#111111] border-l-4 border-[#00C300]"
+                        className="bg-muted rounded-lg p-2 mb-2 text-sm text-foreground border-l-4 border-[#00C300]"
                     >
                         <div className="flex justify-between items-center">
                             <div>
@@ -115,19 +115,19 @@ export function GroupChatInput({
                             initial={{ opacity: 0, y: 10 }}
                             animate={{ opacity: 1, y: 0 }}
                             exit={{ opacity: 0, y: 10 }}
-                            className="absolute bottom-20 left-4 grid grid-cols-3 gap-4 bg-white p-4 rounded-xl shadow-lg border border-[#EBEBEB] z-20"
+                            className="absolute bottom-20 left-4 grid grid-cols-3 gap-4 bg-background p-4 rounded-xl shadow-lg border border-border z-20"
                         >
                             {attachmentOptions.map(opt => (
                                 <button key={opt.label} type="button" onClick={() => handleAttachmentClick(opt.action)} className="flex flex-col items-center gap-2 text-center">
                                     <div className={`w-12 h-12 rounded-full flex items-center justify-center text-white ${opt.color}`}>{opt.icon}</div>
-                                    <span className="text-xs text-[#8D8D8D]">{opt.label}</span>
+                                    <span className="text-xs text-muted-foreground">{opt.label}</span>
                                 </button>
                             ))}
                         </motion.div>
                     )}
                 </AnimatePresence>
 
-                <button type="button" onClick={() => setShowAttachments(!showAttachments)} className="p-2.5 min-w-11 min-h-11 active:bg-gray-100 rounded-full text-[#111111]" aria-label="Toggle attachments">
+                <button type="button" onClick={() => setShowAttachments(!showAttachments)} className="p-2.5 min-w-11 min-h-11 active:bg-muted rounded-full text-foreground" aria-label="Toggle attachments">
                     <Plus size={24} strokeWidth={1.5} className={`transition-transform duration-300 ${showAttachments ? 'rotate-45' : ''}`} />
                 </button>
 
@@ -138,19 +138,19 @@ export function GroupChatInput({
                                 initial={{ opacity: 0, y: 6 }}
                                 animate={{ opacity: 1, y: 0 }}
                                 exit={{ opacity: 0, y: 6 }}
-                                className="absolute bottom-full left-0 mb-2 w-full max-h-48 overflow-y-auto bg-white rounded-xl shadow-lg border border-[#EBEBEB] z-30"
+                                className="absolute bottom-full left-0 mb-2 w-full max-h-48 overflow-y-auto bg-background rounded-xl shadow-lg border border-border z-30"
                             >
                                 {mentionSuggestions.map(m => (
                                     <button
                                         key={m.id}
                                         type="button"
                                         onClick={() => applyMention(m.name)}
-                                        className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-[#F5F5F5] active:bg-gray-100"
+                                        className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-muted active:bg-muted"
                                     >
                                         <span className="w-7 h-7 rounded-full bg-[#00C300]/10 flex items-center justify-center text-[#00C300] text-xs font-bold shrink-0">
                                             {(m.name || 'U')[0].toUpperCase()}
                                         </span>
-                                        <span className="text-sm text-[#111111] truncate">{m.name}</span>
+                                        <span className="text-sm text-foreground truncate">{m.name}</span>
                                     </button>
                                 ))}
                             </motion.div>
@@ -161,9 +161,9 @@ export function GroupChatInput({
                         onChange={(e) => handleInputChange(e.target.value)}
                         onKeyDown={(e) => e.key === 'Enter' && handleSend()}
                         placeholder="Type a message..."
-                        className="w-full bg-[#F5F5F5] rounded-xl pl-4 pr-10 py-2.5 text-sm text-[#111111] focus:outline-none focus:ring-2 focus:ring-[#00C300] placeholder:text-[#8D8D8D]"
+                        className="w-full bg-muted rounded-xl pl-4 pr-10 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-[#00C300] placeholder:text-muted-foreground"
                     />
-                    <button type="button" onClick={() => setShowEmojiPicker(p => !p)} className={`absolute right-2 top-1/2 -translate-y-1/2 min-w-10 min-h-10 flex items-center justify-center transition-colors ${showEmojiPicker ? 'text-[#00C300]' : 'text-[#8D8D8D]'}`} aria-label="Open emoji picker">
+                    <button type="button" onClick={() => setShowEmojiPicker(p => !p)} className={`absolute right-2 top-1/2 -translate-y-1/2 min-w-10 min-h-10 flex items-center justify-center transition-colors ${showEmojiPicker ? 'text-[#00C300]' : 'text-muted-foreground'}`} aria-label="Open emoji picker">
                         <Smile size={20} />
                     </button>
                 </div>
@@ -173,7 +173,7 @@ export function GroupChatInput({
                         <Send size={20} className="ml-0.5" />
                     </button>
                 ) : isRecording ? (
-                    <div className="flex-1 flex items-center gap-2 bg-[#F5F5F5] rounded-xl px-3 h-10">
+                    <div className="flex-1 flex items-center gap-2 bg-muted rounded-xl px-3 h-10">
                         <div className="w-2.5 h-2.5 rounded-full bg-[#FF3B30] animate-pulse shrink-0" />
                         <RecordingWaveform duration={duration} barColor="#00C300" />
                         <span className="text-[#FF3B30] text-xs font-medium shrink-0">{duration}s</span>
@@ -198,7 +198,7 @@ export function GroupChatInput({
                         initial={{ height: 0, opacity: 0 }}
                         animate={{ height: 'auto', opacity: 1 }}
                         exit={{ height: 0, opacity: 0 }}
-                        className="overflow-hidden border-t border-[#EBEBEB] mt-2"
+                        className="overflow-hidden border-t border-border mt-2"
                     >
                         <EmojiPicker onEmojiSelect={(emoji) => { setInput(input + emoji); setShowEmojiPicker(false); }} />
                     </motion.div>

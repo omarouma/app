@@ -315,7 +315,7 @@ export default function AdminPage() {
         <div className="flex-1 flex items-center justify-center p-8">
           <div className="text-center">
             <h1 className="text-2xl font-bold text-white mb-2">Access Denied</h1>
-            <p className="text-[#8D8D8D] mb-4">This page is for administrators only.</p>
+            <p className="text-muted-foreground mb-4">This page is for administrators only.</p>
             <button
               type="button"
               onClick={() => navigate('/')}
@@ -338,16 +338,16 @@ export default function AdminPage() {
   const maxUserGrowth = Math.max(...userGrowth.map((d) => d.count), 1);
 
   return (
-    <div className="min-h-[100dvh] bg-[#F5F5F5]">
+    <div className="min-h-[100dvh] bg-muted">
       {/* Header */}
-      <div className="sticky top-0 z-10 bg-white/90 backdrop-blur-md border-b border-[#EBEBEB]">
+      <div className="sticky top-0 z-10 bg-white/90 backdrop-blur-md border-b border-border">
         <div className="flex items-center gap-3 p-4">
-          <button type="button" onClick={() => navigate(-1)} className="text-[#111111] hover:text-[#8D8D8D] p-1 -ml-1">
+          <button type="button" onClick={() => navigate(-1)} className="text-foreground hover:text-muted-foreground p-1 -ml-1">
             <ArrowLeft size={22} />
           </button>
           <div>
-            <h1 className="text-lg font-bold text-[#111111]">Admin Dashboard</h1>
-            <p className="text-[#8D8D8D] text-xs">Moderation & Analytics</p>
+            <h1 className="text-lg font-bold text-foreground">Admin Dashboard</h1>
+            <p className="text-muted-foreground text-xs">Moderation & Analytics</p>
           </div>
           <div className="ml-auto flex gap-2">
             <button type="button" onClick={() => {
@@ -355,7 +355,7 @@ export default function AdminPage() {
                 if (activeTab === 'users') fetchUsers();
                 if (activeTab === 'analytics') fetchAnalytics();
               }}
-              className="p-2 text-[#8D8D8D] hover:text-[#00C300] active:bg-[#F5F5F5] rounded-full transition-colors"
+              className="p-2 text-muted-foreground hover:text-[#00C300] active:bg-muted rounded-full transition-colors"
             >
               <RefreshCw size={18} />
             </button>
@@ -374,7 +374,7 @@ export default function AdminPage() {
               <button type="button" key={t.key}
                 onClick={() => setActiveTab(t.key)}
                 className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium whitespace-nowrap transition-colors ${
-                  isActive ? 'bg-[#00C300] text-white' : 'bg-[#F5F5F5] text-[#8D8D8D] hover:text-[#111111]'
+                  isActive ? 'bg-[#00C300] text-white' : 'bg-muted text-muted-foreground hover:text-foreground'
                 }`}
               >
                 <Icon size={14} />
@@ -401,11 +401,11 @@ export default function AdminPage() {
                 { label: 'Pending', value: reportStats.pending, color: 'text-[#FF9800]' },
                 { label: 'Reviewing', value: reportStats.reviewing, color: 'text-[#2196F3]' },
                 { label: 'Resolved', value: reportStats.resolved, color: 'text-[#00C300]' },
-                { label: 'Dismissed', value: reportStats.dismissed, color: 'text-[#8D8D8D]' },
+                { label: 'Dismissed', value: reportStats.dismissed, color: 'text-muted-foreground' },
               ].map((s) => (
-                <div key={s.label} className="bg-white rounded-xl border border-[#EBEBEB] p-3 text-center">
+                <div key={s.label} className="bg-background rounded-xl border border-border p-3 text-center">
                   <p className={`text-xl font-bold ${s.color}`}>{s.value}</p>
-                  <p className="text-[#8D8D8D] text-[10px] mt-0.5">{s.label}</p>
+                  <p className="text-muted-foreground text-[10px] mt-0.5">{s.label}</p>
                 </div>
               ))}
             </div>
@@ -414,15 +414,15 @@ export default function AdminPage() {
             <div className="px-4 pb-3">
               <div className="flex gap-2 mb-3">
                 <div className="relative flex-1">
-                  <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8D8D8D]" />
+                  <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                   <input
                     value={reportSearch}
                     onChange={(e) => setReportSearch(e.target.value)}
                     placeholder="Search reports..."
-                    className="w-full bg-white border border-[#EBEBEB] rounded-xl pl-9 pr-4 py-2.5 text-[#111111] text-sm focus:outline-none focus:ring-2 focus:ring-[#00C300] placeholder:text-[#8D8D8D]"
+                    className="w-full bg-background border border-border rounded-xl pl-9 pr-4 py-2.5 text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-[#00C300] placeholder:text-muted-foreground"
                   />
                 </div>
-                <button type="button" className="p-2.5 bg-white border border-[#EBEBEB] rounded-xl text-[#8D8D8D]">
+                <button type="button" className="p-2.5 bg-background border border-border rounded-xl text-muted-foreground">
                   <Filter size={16} />
                 </button>
               </div>
@@ -431,7 +431,7 @@ export default function AdminPage() {
                   <button type="button" key={f}
                     onClick={() => setReportFilter(f)}
                     className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${
-                      reportFilter === f ? 'bg-[#00C300] text-white' : 'bg-white border border-[#EBEBEB] text-[#8D8D8D]'
+                      reportFilter === f ? 'bg-[#00C300] text-white' : 'bg-background border border-border text-muted-foreground'
                     }`}
                   >
                     {f.charAt(0).toUpperCase() + f.slice(1)}
@@ -449,8 +449,8 @@ export default function AdminPage() {
               ) : filteredReports.length === 0 ? (
                 <div className="text-center py-12">
                   <Shield size={40} className="text-[#EBEBEB] mx-auto mb-3" />
-                  <p className="text-[#8D8D8D] text-sm font-medium">No reports found</p>
-                  <p className="text-[#C7C7CC] text-xs mt-1">All caught up!</p>
+                  <p className="text-muted-foreground text-sm font-medium">No reports found</p>
+                  <p className="text-muted-foreground text-xs mt-1">All caught up!</p>
                 </div>
               ) : (
                 filteredReports.map((report, i) => (
@@ -459,7 +459,7 @@ export default function AdminPage() {
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: i * 0.05 }}
-                    className="bg-white rounded-xl border border-[#EBEBEB] p-4"
+                    className="bg-background rounded-xl border border-border p-4"
                   >
                     <div className="flex items-start justify-between mb-3">
                       <div className="flex items-center gap-2">
@@ -467,7 +467,7 @@ export default function AdminPage() {
                           report.status === 'pending' ? 'bg-[#FF9800]/10 text-[#FF9800]' :
                           report.status === 'reviewing' ? 'bg-[#2196F3]/10 text-[#2196F3]' :
                           report.status === 'resolved' ? 'bg-[#00C300]/10 text-[#00C300]' :
-                          'bg-[#8D8D8D]/10 text-[#8D8D8D]'
+                          'bg-[#8D8D8D]/10 text-muted-foreground'
                         }`}>
                           {report.status === 'pending' ? <AlertTriangle size={14} /> :
                            report.status === 'reviewing' ? <Eye size={14} /> :
@@ -475,8 +475,8 @@ export default function AdminPage() {
                            <X size={14} />}
                         </div>
                         <div>
-                          <p className="text-[#111111] text-sm font-medium">{report.reason}</p>
-                          <p className="text-[#8D8D8D] text-[10px]">
+                          <p className="text-foreground text-sm font-medium">{report.reason}</p>
+                          <p className="text-muted-foreground text-[10px]">
                             {report.createdAt.toLocaleDateString()} · {report.status}
                           </p>
                         </div>
@@ -485,7 +485,7 @@ export default function AdminPage() {
                         report.status === 'pending' ? 'bg-[#FF9800]/10 text-[#FF9800]' :
                         report.status === 'reviewing' ? 'bg-[#2196F3]/10 text-[#2196F3]' :
                         report.status === 'resolved' ? 'bg-[#00C300]/10 text-[#00C300]' :
-                        'bg-[#8D8D8D]/10 text-[#8D8D8D]'
+                        'bg-[#8D8D8D]/10 text-muted-foreground'
                       }`}>
                         {report.status}
                       </span>
@@ -493,22 +493,22 @@ export default function AdminPage() {
 
                     <div className="space-y-2 mb-3">
                       <div className="flex gap-2 text-xs">
-                        <span className="text-[#8D8D8D] w-16 shrink-0">Reporter</span>
-                        <code className="text-[#111111] bg-[#F5F5F5] px-2 py-0.5 rounded">{report.reporterId}</code>
+                        <span className="text-muted-foreground w-16 shrink-0">Reporter</span>
+                        <code className="text-foreground bg-muted px-2 py-0.5 rounded">{report.reporterId}</code>
                       </div>
                       <div className="flex gap-2 text-xs">
-                        <span className="text-[#8D8D8D] w-16 shrink-0">Reported</span>
-                        <code className="text-[#111111] bg-[#F5F5F5] px-2 py-0.5 rounded">{report.reportedId}</code>
+                        <span className="text-muted-foreground w-16 shrink-0">Reported</span>
+                        <code className="text-foreground bg-muted px-2 py-0.5 rounded">{report.reportedId}</code>
                       </div>
                       {report.details && (
                         <div className="flex gap-2 text-xs">
-                          <span className="text-[#8D8D8D] w-16 shrink-0">Details</span>
-                          <p className="text-[#111111] flex-1">{report.details}</p>
+                          <span className="text-muted-foreground w-16 shrink-0">Details</span>
+                          <p className="text-foreground flex-1">{report.details}</p>
                         </div>
                       )}
                       {report.actionTaken && (
                         <div className="flex gap-2 text-xs">
-                          <span className="text-[#8D8D8D] w-16 shrink-0">Action</span>
+                          <span className="text-muted-foreground w-16 shrink-0">Action</span>
                           <p className="text-[#00C300] flex-1">{report.actionTaken}</p>
                         </div>
                       )}
@@ -531,7 +531,7 @@ export default function AdminPage() {
                         </button>
                         <button type="button" onClick={() => updateReportStatus(report.id, 'dismissed', 'No action taken')}
                           disabled={processingReportId === report.id}
-                          className="flex items-center gap-1 px-3 py-1.5 bg-[#F5F5F5] text-[#8D8D8D] text-xs rounded-full font-medium active:bg-[#EBEBEB] transition-colors disabled:opacity-50"
+                          className="flex items-center gap-1 px-3 py-1.5 bg-muted text-muted-foreground text-xs rounded-full font-medium active:bg-muted transition-colors disabled:opacity-50"
                         >
                           <X size={12} /> Dismiss
                         </button>
@@ -553,7 +553,7 @@ export default function AdminPage() {
                         </button>
                         <button type="button" onClick={() => updateReportStatus(report.id, 'dismissed', 'No action taken')}
                           disabled={processingReportId === report.id}
-                          className="flex items-center gap-1 px-3 py-1.5 bg-[#F5F5F5] text-[#8D8D8D] text-xs rounded-full font-medium active:bg-[#EBEBEB] transition-colors disabled:opacity-50"
+                          className="flex items-center gap-1 px-3 py-1.5 bg-muted text-muted-foreground text-xs rounded-full font-medium active:bg-muted transition-colors disabled:opacity-50"
                         >
                           <X size={12} /> Dismiss
                         </button>
@@ -565,7 +565,7 @@ export default function AdminPage() {
                       </div>
                     )}
                     {report.status === 'dismissed' && (
-                      <div className="flex items-center gap-1 text-xs text-[#8D8D8D]">
+                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
                         <X size={12} /> Dismissed by {report.reviewedBy?.slice(0, 8) || 'admin'}...
                       </div>
                     )}
@@ -588,15 +588,15 @@ export default function AdminPage() {
             <div className="px-4 pt-4 pb-3">
               <div className="flex gap-2 mb-3">
                 <div className="relative flex-1">
-                  <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8D8D8D]" />
+                  <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                   <input
                     value={userSearch}
                     onChange={(e) => setUserSearch(e.target.value)}
                     placeholder="Search users..."
-                    className="w-full bg-white border border-[#EBEBEB] rounded-xl pl-9 pr-4 py-2.5 text-[#111111] text-sm focus:outline-none focus:ring-2 focus:ring-[#00C300] placeholder:text-[#8D8D8D]"
+                    className="w-full bg-background border border-border rounded-xl pl-9 pr-4 py-2.5 text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-[#00C300] placeholder:text-muted-foreground"
                   />
                 </div>
-                <button type="button" className="p-2.5 bg-white border border-[#EBEBEB] rounded-xl text-[#8D8D8D]">
+                <button type="button" className="p-2.5 bg-background border border-border rounded-xl text-muted-foreground">
                   <Filter size={16} />
                 </button>
               </div>
@@ -605,7 +605,7 @@ export default function AdminPage() {
                   <button type="button" key={f}
                     onClick={() => setUserFilter(f)}
                     className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${
-                      userFilter === f ? 'bg-[#00C300] text-white' : 'bg-white border border-[#EBEBEB] text-[#8D8D8D]'
+                      userFilter === f ? 'bg-[#00C300] text-white' : 'bg-background border border-border text-muted-foreground'
                     }`}
                   >
                     {f.charAt(0).toUpperCase() + f.slice(1)}
@@ -622,8 +622,8 @@ export default function AdminPage() {
               ) : filteredUsers.length === 0 ? (
                 <div className="text-center py-12">
                   <Users size={40} className="text-[#EBEBEB] mx-auto mb-3" />
-                  <p className="text-[#8D8D8D] text-sm font-medium">No users found</p>
-                  <p className="text-[#C7C7CC] text-xs mt-1">Try a different search or filter.</p>
+                  <p className="text-muted-foreground text-sm font-medium">No users found</p>
+                  <p className="text-muted-foreground text-xs mt-1">Try a different search or filter.</p>
                 </div>
               ) : (
                 filteredUsers.map((u, i) => {
@@ -634,34 +634,34 @@ export default function AdminPage() {
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: i * 0.03 }}
-                      className="bg-white rounded-xl border border-[#EBEBEB] p-4"
+                      className="bg-background rounded-xl border border-border p-4"
                     >
                       <div className="flex items-start gap-3">
-                        <div className="w-10 h-10 rounded-full bg-[#F5F5F5] flex items-center justify-center shrink-0 overflow-hidden">
+                        <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center shrink-0 overflow-hidden">
                           {u.avatar ? (
                             <img src={u.avatar} alt="User avatar" className="w-full h-full object-cover" />
                           ) : (
-                            <Users size={18} className="text-[#8D8D8D]" />
+                            <Users size={18} className="text-muted-foreground" />
                           )}
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-0.5">
-                            <p className="text-[#111111] text-sm font-medium truncate">{u.name}</p>
+                            <p className="text-foreground text-sm font-medium truncate">{u.name}</p>
                             {u.verified && <Check size={12} className="text-[#00C300]" />}
                             {u.isAdmin && <Crown size={12} className="text-[#FF9800]" />}
                           </div>
-                          <p className="text-[#8D8D8D] text-xs truncate">{u.email || u.phone || u.id.slice(0, 12)}</p>
+                          <p className="text-muted-foreground text-xs truncate">{u.email || u.phone || u.id.slice(0, 12)}</p>
                           <div className="flex items-center gap-3 mt-1.5">
                             <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
                               status === 'admin' ? 'bg-[#FF9800]/10 text-[#FF9800]' :
                               status === 'verified' ? 'bg-[#00C300]/10 text-[#00C300]' :
                               status === 'suspended' ? 'bg-[#FF9800]/10 text-[#FF9800]' :
                               status === 'banned' ? 'bg-[#FF3B30]/10 text-[#FF3B30]' :
-                              'bg-[#F5F5F5] text-[#8D8D8D]'
+                              'bg-muted text-muted-foreground'
                             }`}>
                               {status}
                             </span>
-                            <span className="text-[#C7C7CC] text-[10px]">
+                            <span className="text-muted-foreground text-[10px]">
                               Joined {u.createdAt ? u.createdAt.toLocaleDateString() : 'Unknown'}
                             </span>
                           </div>
@@ -712,7 +712,7 @@ export default function AdminPage() {
                             )}
                             {u.isAdmin && (
                               <button type="button" onClick={() => updateUserStatus(u, { isAdmin: false }, 'removed admin')}
-                                className="p-1.5 rounded-lg bg-[#8D8D8D]/10 text-[#8D8D8D] hover:bg-[#8D8D8D]/20 transition-colors"
+                                className="p-1.5 rounded-lg bg-[#8D8D8D]/10 text-muted-foreground hover:bg-[#8D8D8D]/20 transition-colors"
                                 title="Remove Admin"
                               >
                                 <Shield size={14} />
@@ -746,7 +746,7 @@ export default function AdminPage() {
               ) : !stats ? (
                 <div className="text-center py-12">
                   <BarChart3 size={40} className="text-[#EBEBEB] mx-auto mb-3" />
-                  <p className="text-[#8D8D8D] text-sm font-medium">No analytics data</p>
+                  <p className="text-muted-foreground text-sm font-medium">No analytics data</p>
                 </div>
               ) : (
                 <>
@@ -755,7 +755,7 @@ export default function AdminPage() {
                     {[
                       { label: 'Total Users', value: stats.totalUsers, icon: Users, color: 'text-[#00C300]' },
                       { label: 'DAU Today', value: stats.dailyActiveUsers, icon: Activity, color: 'text-[#2196F3]' },
-                      { label: 'Total Messages', value: stats.totalMessages, icon: MessageCircle, color: 'text-[#8D8D8D]' },
+                      { label: 'Total Messages', value: stats.totalMessages, icon: MessageCircle, color: 'text-muted-foreground' },
                       { label: 'New Users Today', value: stats.newUsersToday, icon: TrendingUp, color: 'text-[#00C300]' },
                       { label: 'Pending Reports', value: stats.pendingReports, icon: Flag, color: 'text-[#FF3B30]' },
                     ].map((s, i) => {
@@ -766,13 +766,13 @@ export default function AdminPage() {
                           initial={{ opacity: 0, scale: 0.95 }}
                           animate={{ opacity: 1, scale: 1 }}
                           transition={{ delay: i * 0.05 }}
-                          className="bg-white rounded-xl border border-[#EBEBEB] p-3"
+                          className="bg-background rounded-xl border border-border p-3"
                         >
                           <div className="flex items-center gap-2 mb-1">
-                            <div className={`w-7 h-7 rounded-lg bg-[#F5F5F5] flex items-center justify-center ${s.color}`}>
+                            <div className={`w-7 h-7 rounded-lg bg-muted flex items-center justify-center ${s.color}`}>
                               <Icon size={14} />
                             </div>
-                            <p className="text-[#8D8D8D] text-[10px] font-medium">{s.label}</p>
+                            <p className="text-muted-foreground text-[10px] font-medium">{s.label}</p>
                           </div>
                           <p className={`text-xl font-bold ${s.color}`}>{s.value}</p>
                         </motion.div>
@@ -781,20 +781,20 @@ export default function AdminPage() {
                   </div>
 
                   {/* Engagement Rate */}
-                  <div className="bg-white rounded-xl border border-[#EBEBEB] p-4 mb-4">
+                  <div className="bg-background rounded-xl border border-border p-4 mb-4">
                     <div className="flex items-center gap-2 mb-2">
                       <MousePointerClick size={14} className="text-[#00C300]" />
-                      <p className="text-[#111111] text-sm font-bold">Engagement Rate</p>
+                      <p className="text-foreground text-sm font-bold">Engagement Rate</p>
                     </div>
                     <div className="flex items-end gap-2">
-                      <p className="text-3xl font-bold text-[#111111]">
+                      <p className="text-3xl font-bold text-foreground">
                         {stats.totalUsers > 0
                           ? `${Math.round((stats.dailyActiveUsers / stats.totalUsers) * 100)}%`
                           : '0%'}
                       </p>
-                      <p className="text-[#8D8D8D] text-xs mb-1">DAU / Total Users</p>
+                      <p className="text-muted-foreground text-xs mb-1">DAU / Total Users</p>
                     </div>
-                    <div className="w-full h-2 bg-[#F5F5F5] rounded-full mt-3 overflow-hidden">
+                    <div className="w-full h-2 bg-muted rounded-full mt-3 overflow-hidden">
                       <div
                         className="h-full bg-[#00C300] rounded-full transition-all"
                         style={{
@@ -805,27 +805,27 @@ export default function AdminPage() {
                   </div>
 
                   {/* User Growth Chart */}
-                  <div className="bg-white rounded-xl border border-[#EBEBEB] p-4 mb-4">
+                  <div className="bg-background rounded-xl border border-border p-4 mb-4">
                     <div className="flex items-center justify-between mb-3">
                       <div className="flex items-center gap-2">
                         <TrendingUp size={14} className="text-[#00C300]" />
-                        <p className="text-[#111111] text-sm font-bold">User Growth</p>
+                        <p className="text-foreground text-sm font-bold">User Growth</p>
                       </div>
-                      <span className="text-[#8D8D8D] text-[10px]">Last 7 days</span>
+                      <span className="text-muted-foreground text-[10px]">Last 7 days</span>
                     </div>
                     {userGrowth.length === 0 ? (
-                      <p className="text-[#8D8D8D] text-xs text-center py-4">No data</p>
+                      <p className="text-muted-foreground text-xs text-center py-4">No data</p>
                     ) : (
                       <div className="space-y-2">
                         {userGrowth.map((d) => (
                           <div key={d.day} className="flex items-center gap-2">
-                            <span className="text-[#8D8D8D] text-[10px] w-8 shrink-0">{d.day}</span>
-                            <div className="flex-1 h-6 bg-[#F5F5F5] rounded-md overflow-hidden relative">
+                            <span className="text-muted-foreground text-[10px] w-8 shrink-0">{d.day}</span>
+                            <div className="flex-1 h-6 bg-muted rounded-md overflow-hidden relative">
                               <div
                                 className="h-full bg-[#00C300]/20 rounded-md transition-all"
                                 style={{ width: `${Math.round((d.count / maxUserGrowth) * 100)}%` }}
                               />
-                              <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[#111111] text-[10px] font-medium">
+                              <span className="absolute left-2 top-1/2 -translate-y-1/2 text-foreground text-[10px] font-medium">
                                 {d.count}
                               </span>
                             </div>
@@ -836,26 +836,26 @@ export default function AdminPage() {
                   </div>
 
                   {/* Quick Links */}
-                  <div className="bg-white rounded-xl border border-[#EBEBEB] p-4">
-                    <p className="text-[#111111] text-sm font-bold mb-3">Quick Actions</p>
+                  <div className="bg-background rounded-xl border border-border p-4">
+                    <p className="text-foreground text-sm font-bold mb-3">Quick Actions</p>
                     <div className="space-y-2">
                       <button type="button" onClick={() => setActiveTab('reports')}
-                        className="w-full flex items-center justify-between p-3 rounded-lg bg-[#F5F5F5] hover:bg-[#EBEBEB] transition-colors"
+                        className="w-full flex items-center justify-between p-3 rounded-lg bg-muted hover:bg-muted transition-colors"
                       >
                         <div className="flex items-center gap-2">
                           <Flag size={14} className="text-[#FF3B30]" />
-                          <span className="text-[#111111] text-sm">Review Pending Reports</span>
+                          <span className="text-foreground text-sm">Review Pending Reports</span>
                         </div>
-                        <ChevronRight size={14} className="text-[#8D8D8D]" />
+                        <ChevronRight size={14} className="text-muted-foreground" />
                       </button>
                       <button type="button" onClick={() => setActiveTab('users')}
-                        className="w-full flex items-center justify-between p-3 rounded-lg bg-[#F5F5F5] hover:bg-[#EBEBEB] transition-colors"
+                        className="w-full flex items-center justify-between p-3 rounded-lg bg-muted hover:bg-muted transition-colors"
                       >
                         <div className="flex items-center gap-2">
                           <Users size={14} className="text-[#00C300]" />
-                          <span className="text-[#111111] text-sm">Manage Users</span>
+                          <span className="text-foreground text-sm">Manage Users</span>
                         </div>
-                        <ChevronRight size={14} className="text-[#8D8D8D]" />
+                        <ChevronRight size={14} className="text-muted-foreground" />
                       </button>
                     </div>
                   </div>

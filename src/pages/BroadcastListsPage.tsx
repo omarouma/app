@@ -99,15 +99,15 @@ export default function BroadcastListsPage() {
   });
 
   return (
-    <div className="h-[100dvh] bg-[#F5F5F5] flex flex-col">
+    <div className="h-[100dvh] bg-muted flex flex-col">
       {/* Header */}
-      <div className="bg-white border-b border-[#EBEBEB] shrink-0">
+      <div className="bg-background border-b border-border shrink-0">
         <div className="flex items-center gap-3 p-4">
-          <button type="button" onClick={() => navigate(-1)} className="p-2 -ml-2 hover:bg-[#F5F5F5] rounded-full text-[#111111]">
+          <button type="button" onClick={() => navigate(-1)} className="p-2 -ml-2 hover:bg-muted rounded-full text-foreground">
             <ArrowLeft size={22} />
           </button>
-          <h1 className="text-lg font-bold text-[#111111] flex-1">Broadcast Lists</h1>
-          <button type="button" onClick={() => setShowCreate(true)} className="p-2 hover:bg-[#F5F5F5] rounded-full text-[#00C300]">
+          <h1 className="text-lg font-bold text-foreground flex-1">Broadcast Lists</h1>
+          <button type="button" onClick={() => setShowCreate(true)} className="p-2 hover:bg-muted rounded-full text-[#00C300]">
             <Plus size={22} />
           </button>
         </div>
@@ -137,15 +137,15 @@ export default function BroadcastListsPage() {
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: i * 0.05 }}
-                className="bg-white rounded-2xl border border-[#EBEBEB] overflow-hidden"
+                className="bg-background rounded-2xl border border-border overflow-hidden"
               >
                 <div className="flex items-center gap-3 p-4">
                   <div className="w-10 h-10 rounded-full bg-[#00C300]/10 flex items-center justify-center shrink-0">
                     <Users size={18} className="text-[#00C300]" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-[#111111] text-sm font-medium truncate">{list.name}</p>
-                    <p className="text-[#8D8D8D] text-xs">{(list.recipientIds || []).length} recipients</p>
+                    <p className="text-foreground text-sm font-medium truncate">{list.name}</p>
+                    <p className="text-muted-foreground text-xs">{(list.recipientIds || []).length} recipients</p>
                   </div>
                   <div className="flex items-center gap-1">
                     <button
@@ -162,7 +162,7 @@ export default function BroadcastListsPage() {
                     >
                       <Trash2 size={16} />
                     </button>
-                    <ChevronRight size={16} className="text-[#C7C7CC]" />
+                    <ChevronRight size={16} className="text-muted-foreground" />
                   </div>
                 </div>
               </motion.div>
@@ -186,46 +186,46 @@ export default function BroadcastListsPage() {
               animate={{ y: 0 }}
               exit={{ y: '100%' }}
               transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-              className="bg-white rounded-t-2xl sm:rounded-2xl w-full max-w-sm max-h-[85vh] flex flex-col"
+              className="bg-background rounded-t-2xl sm:rounded-2xl w-full max-w-sm max-h-[85vh] flex flex-col"
               onClick={e => e.stopPropagation()}
             >
-              <div className="p-4 border-b border-[#EBEBEB] flex items-center justify-between shrink-0">
-                <h3 className="text-lg font-bold text-[#111111]">New Broadcast List</h3>
-                <button type="button" onClick={() => setShowCreate(false)} className="p-2 hover:bg-[#F5F5F5] rounded-full">
-                  <X size={20} className="text-[#8D8D8D]" />
+              <div className="p-4 border-b border-border flex items-center justify-between shrink-0">
+                <h3 className="text-lg font-bold text-foreground">New Broadcast List</h3>
+                <button type="button" onClick={() => setShowCreate(false)} className="p-2 hover:bg-muted rounded-full">
+                  <X size={20} className="text-muted-foreground" />
                 </button>
               </div>
 
               <div className="p-4 space-y-4 overflow-y-auto flex-1">
                 <div>
-                  <label className="text-[#8D8D8D] text-xs mb-1 block">List Name</label>
+                  <label className="text-muted-foreground text-xs mb-1 block">List Name</label>
                   <input
                     value={listName}
                     onChange={e => setListName(e.target.value)}
                     placeholder="e.g., Team, Family, Work"
-                    className="w-full bg-[#F5F5F5] rounded-xl px-4 py-3 text-[#111111] text-sm focus:outline-none focus:ring-2 focus:ring-[#00C300] placeholder:text-[#8D8D8D]"
+                    className="w-full bg-muted rounded-xl px-4 py-3 text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-[#00C300] placeholder:text-muted-foreground"
                   />
                 </div>
 
                 <div>
-                  <label className="text-[#8D8D8D] text-xs mb-1 block">
+                  <label className="text-muted-foreground text-xs mb-1 block">
                     Select Recipients ({selectedFriends.length} selected)
                   </label>
-                  <div className="bg-[#F5F5F5] rounded-xl p-2.5 flex items-center gap-2 mb-2">
-                    <Search size={16} className="text-[#8D8D8D] ml-1" />
+                  <div className="bg-muted rounded-xl p-2.5 flex items-center gap-2 mb-2">
+                    <Search size={16} className="text-muted-foreground ml-1" />
                     <input
                       type="text"
                       placeholder="Search friends..."
                       value={friendSearch}
                       onChange={e => setFriendSearch(e.target.value)}
-                      className="bg-transparent border-none focus:outline-none text-[15px] w-full text-[#111111] placeholder-[#8D8D8D]"
+                      className="bg-transparent border-none focus:outline-none text-[15px] w-full text-foreground placeholder:text-muted-foreground"
                     />
                   </div>
 
                   {loadingFriends ? (
                     <LoadingSkeleton count={3} variant="list" />
                   ) : filteredFriends.length === 0 ? (
-                    <p className="text-[#8D8D8D] text-sm text-center py-4">No friends found</p>
+                    <p className="text-muted-foreground text-sm text-center py-4">No friends found</p>
                   ) : (
                     <div className="space-y-1">
                       {filteredFriends.map(f => {
@@ -235,10 +235,10 @@ export default function BroadcastListsPage() {
                             type="button"
                             key={f.id}
                             onClick={() => toggleFriend(f.id)}
-                            className={`w-full flex items-center gap-3 p-3 rounded-xl transition-colors text-left ${isSelected ? 'bg-[#00C300]/10 border border-[#00C300]/20' : 'hover:bg-[#F5F5F5]'
+                            className={`w-full flex items-center gap-3 p-3 rounded-xl transition-colors text-left ${isSelected ? 'bg-[#00C300]/10 border border-[#00C300]/20' : 'hover:bg-muted'
                               }`}
                           >
-                            <div className="w-10 h-10 rounded-full bg-[#F5F5F5] flex items-center justify-center overflow-hidden shrink-0">
+                            <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center overflow-hidden shrink-0">
                               {sanitizeMediaUrl(f.avatar) ? (
                                 <img src={sanitizeMediaUrl(f.avatar)} className="w-full h-full object-cover" alt="User avatar" />
                               ) : (
@@ -246,8 +246,8 @@ export default function BroadcastListsPage() {
                               )}
                             </div>
                             <div className="flex-1 min-w-0">
-                              <p className="text-[#111111] text-sm font-medium">{f.name}</p>
-                              <p className="text-[#8D8D8D] text-xs">@{f.username}</p>
+                              <p className="text-foreground text-sm font-medium">{f.name}</p>
+                              <p className="text-muted-foreground text-xs">@{f.username}</p>
                             </div>
                             <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${isSelected ? 'border-[#00C300] bg-[#00C300]' : 'border-[#C7C7CC]'
                               }`}>
@@ -261,7 +261,7 @@ export default function BroadcastListsPage() {
                 </div>
               </div>
 
-              <div className="p-4 border-t border-[#EBEBEB] shrink-0">
+              <div className="p-4 border-t border-border shrink-0">
                 <button
                   type="button"
                   onClick={handleCreate}
@@ -291,16 +291,16 @@ export default function BroadcastListsPage() {
               animate={{ y: 0 }}
               exit={{ y: '100%' }}
               transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-              className="bg-white rounded-t-2xl sm:rounded-2xl w-full max-w-sm max-h-[85vh] flex flex-col"
+              className="bg-background rounded-t-2xl sm:rounded-2xl w-full max-w-sm max-h-[85vh] flex flex-col"
               onClick={e => e.stopPropagation()}
             >
-              <div className="p-4 border-b border-[#EBEBEB] flex items-center justify-between shrink-0">
+              <div className="p-4 border-b border-border flex items-center justify-between shrink-0">
                 <div>
-                  <h3 className="text-lg font-bold text-[#111111]">Send Broadcast</h3>
-                  <p className="text-[#8D8D8D] text-xs">{selectedList.name} · {(selectedList.recipientIds || []).length} recipients</p>
+                  <h3 className="text-lg font-bold text-foreground">Send Broadcast</h3>
+                  <p className="text-muted-foreground text-xs">{selectedList.name} · {(selectedList.recipientIds || []).length} recipients</p>
                 </div>
-                <button type="button" onClick={() => setShowSend(false)} className="p-2 hover:bg-[#F5F5F5] rounded-full">
-                  <X size={20} className="text-[#8D8D8D]" />
+                <button type="button" onClick={() => setShowSend(false)} className="p-2 hover:bg-muted rounded-full">
+                  <X size={20} className="text-muted-foreground" />
                 </button>
               </div>
 
@@ -310,14 +310,14 @@ export default function BroadcastListsPage() {
                   onChange={e => setBroadcastMessage(e.target.value)}
                   placeholder="Type your broadcast message..."
                   rows={5}
-                  className="w-full bg-[#F5F5F5] rounded-xl px-4 py-3 text-[#111111] text-sm focus:outline-none focus:ring-2 focus:ring-[#00C300] placeholder:text-[#8D8D8D] resize-none"
+                  className="w-full bg-muted rounded-xl px-4 py-3 text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-[#00C300] placeholder:text-muted-foreground resize-none"
                 />
-                <p className="text-[#8D8D8D] text-xs mt-2">
+                <p className="text-muted-foreground text-xs mt-2">
                   This will be sent as a separate message to each recipient.
                 </p>
               </div>
 
-              <div className="p-4 border-t border-[#EBEBEB] shrink-0">
+              <div className="p-4 border-t border-border shrink-0">
                 <button
                   type="button"
                   onClick={handleSendBroadcast}
@@ -354,14 +354,14 @@ export default function BroadcastListsPage() {
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-white rounded-2xl p-6 max-w-sm w-full"
+              className="bg-background rounded-2xl p-6 max-w-sm w-full"
               onClick={e => e.stopPropagation()}
             >
-              <h3 className="text-lg font-bold text-[#111111] mb-2">Delete Broadcast List?</h3>
-              <p className="text-[#8D8D8D] text-sm mb-4">This action cannot be undone.</p>
+              <h3 className="text-lg font-bold text-foreground mb-2">Delete Broadcast List?</h3>
+              <p className="text-muted-foreground text-sm mb-4">This action cannot be undone.</p>
               <div className="flex gap-2">
                 <button type="button" onClick={() => setDeleteConfirm(null)}
-                  className="flex-1 py-3 bg-[#F5F5F5] text-[#111111] rounded-xl text-sm font-bold"
+                  className="flex-1 py-3 bg-muted text-foreground rounded-xl text-sm font-bold"
                 >
                   Cancel
                 </button>

@@ -152,16 +152,16 @@ export default function PremiumPage() {
   };
 
   return (
-    <div className="min-h-[100dvh] bg-[#F5F5F5] pb-20">
+    <div className="min-h-[100dvh] bg-muted pb-20">
       {/* Header */}
-      <div className="sticky top-0 z-30 bg-white/80 backdrop-blur-md border-b border-[#EBEBEB]">
+      <div className="sticky top-0 z-30 bg-white/80 backdrop-blur-md border-b border-border">
         <div className="max-w-3xl mx-auto px-4 h-14 flex items-center justify-between">
           <button type="button" onClick={() => navigate(-1)}
-            className="p-2 -ml-2 hover:bg-[#F5F5F5] rounded-full transition-colors"
+            className="p-2 -ml-2 hover:bg-muted rounded-full transition-colors"
           >
-            <ArrowLeft size={22} className="text-[#111111]" />
+            <ArrowLeft size={22} className="text-foreground" />
           </button>
-          <h1 className="text-lg font-bold text-[#111111]">GaGa Premium</h1>
+          <h1 className="text-lg font-bold text-foreground">GaGa Premium</h1>
           <div className="w-10" />
         </div>
       </div>
@@ -213,7 +213,7 @@ export default function PremiumPage() {
               className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium transition-all ${
                 selectedCurrency === c.code
                   ? 'bg-[#111111] text-white shadow-md'
-                  : 'bg-white text-[#8D8D8D] hover:text-[#111111]'
+                  : 'bg-background text-muted-foreground hover:text-foreground'
               }`}
             >
               <c.icon size={14} /> {c.label}
@@ -239,7 +239,7 @@ export default function PremiumPage() {
                 key={plan.id}
                 variants={cardVariants}
                 whileHover={{ y: -4, scale: 1.01 }}
-                className={`relative bg-white rounded-2xl border-2 p-5 transition-colors ${
+                className={`relative bg-background rounded-2xl border-2 p-5 transition-colors ${
                   isCurrent
                     ? 'border-[#00C300]'
                     : isPopular
@@ -266,23 +266,23 @@ export default function PremiumPage() {
                     {tierIcons[plan.id]}
                   </div>
                   <div>
-                    <h3 className="font-bold text-[#111111]">{plan.name}</h3>
-                    <p className="text-xs text-[#8D8D8D]">{plan.description}</p>
+                    <h3 className="font-bold text-foreground">{plan.name}</h3>
+                    <p className="text-xs text-muted-foreground">{plan.description}</p>
                   </div>
                 </div>
 
                 <div className="mb-4">
-                  <span className="text-3xl font-bold text-[#111111]">
+                  <span className="text-3xl font-bold text-foreground">
                     {price === 0 ? 'Free' : `${currencySymbols[selectedCurrency]}${price}`}
                   </span>
                   {price > 0 && (
-                    <span className="text-[#8D8D8D] text-sm ml-1">/month</span>
+                    <span className="text-muted-foreground text-sm ml-1">/month</span>
                   )}
                 </div>
 
                 <ul className="space-y-2 mb-5">
                   {plan.features.map((feature, idx) => (
-                    <li key={idx} className="flex items-start gap-2 text-sm text-[#111111]">
+                    <li key={idx} className="flex items-start gap-2 text-sm text-foreground">
                       <Check size={14} className="text-[#00C300] mt-0.5 shrink-0" />
                       <span>{feature}</span>
                     </li>
@@ -293,7 +293,7 @@ export default function PremiumPage() {
                   disabled={isCurrent || (upgrading && activePlan === plan.id) || (upgrading && !isUpgradingThis)}
                   className={`w-full py-3 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 ${
                     isCurrent
-                      ? 'bg-[#F5F5F5] text-[#8D8D8D] cursor-default'
+                      ? 'bg-muted text-muted-foreground cursor-default'
                       : isPopular
                       ? 'bg-[#00C300] hover:bg-[#00A300] text-white active:scale-95'
                       : 'bg-[#111111] hover:bg-[#333333] text-white active:scale-95'
@@ -315,8 +315,8 @@ export default function PremiumPage() {
         </motion.div>
 
         {/* Feature Highlights */}
-        <div className="bg-white rounded-2xl p-5 shadow-sm">
-          <h3 className="font-bold text-[#111111] mb-4">Why Go Premium?</h3>
+        <div className="bg-background rounded-2xl p-5 shadow-sm">
+          <h3 className="font-bold text-foreground mb-4">Why Go Premium?</h3>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
             {[
               { icon: Shield, title: 'Verified Badge', desc: 'Get the blue checkmark' },
@@ -327,12 +327,12 @@ export default function PremiumPage() {
               { icon: Palette, title: 'Custom Themes', desc: 'Personalize your app' },
             ].map((item) => (
               <div key={item.title} className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-[#F5F5F5] flex items-center justify-center shrink-0">
+                <div className="w-10 h-10 rounded-xl bg-muted flex items-center justify-center shrink-0">
                   <item.icon size={18} className="text-[#00C300]" />
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-[#111111]">{item.title}</p>
-                  <p className="text-xs text-[#8D8D8D]">{item.desc}</p>
+                  <p className="text-sm font-medium text-foreground">{item.title}</p>
+                  <p className="text-xs text-muted-foreground">{item.desc}</p>
                 </div>
               </div>
             ))}
@@ -340,27 +340,27 @@ export default function PremiumPage() {
         </div>
 
         {/* Referral Section */}
-        <div className="bg-white rounded-2xl p-5 shadow-sm">
+        <div className="bg-background rounded-2xl p-5 shadow-sm">
           <div className="flex items-center gap-2 mb-4">
             <Gift size={18} className="text-[#00C300]" />
-            <h3 className="font-bold text-[#111111]">Refer & Earn</h3>
+            <h3 className="font-bold text-foreground">Refer & Earn</h3>
           </div>
-          <p className="text-sm text-[#8D8D8D] mb-4">
+          <p className="text-sm text-muted-foreground mb-4">
             Share your code with friends. You both earn {REFERRAL_REWARD_COINS} coins when they sign up!
           </p>
 
-          <div className="bg-[#F5F5F5] rounded-xl p-4 flex items-center gap-3 mb-4">
+          <div className="bg-muted rounded-xl p-4 flex items-center gap-3 mb-4">
             <div className="flex-1">
-              <p className="text-xs text-[#8D8D8D] mb-1">Your Referral Code</p>
-              <p className="text-lg font-bold text-[#111111] tracking-wider font-mono">
+              <p className="text-xs text-muted-foreground mb-1">Your Referral Code</p>
+              <p className="text-lg font-bold text-foreground tracking-wider font-mono">
                 {effectiveCode}
               </p>
             </div>
             <button type="button" onClick={handleCopyReferral}
-              className="p-2.5 bg-white rounded-xl hover:bg-[#00C300]/10 transition-colors border border-[#EBEBEB]"
+              className="p-2.5 bg-background rounded-xl hover:bg-[#00C300]/10 transition-colors border border-border"
               title="Copy code"
             >
-              <Copy size={18} className={copied ? 'text-[#00C300]' : 'text-[#8D8D8D]'} />
+              <Copy size={18} className={copied ? 'text-[#00C300]' : 'text-muted-foreground'} />
             </button>
             <button type="button" onClick={handleShareReferral}
               className="p-2.5 bg-[#00C300] rounded-xl hover:bg-[#00A300] transition-colors"
@@ -371,7 +371,7 @@ export default function PremiumPage() {
           </div>
 
           <div className="flex items-center justify-between text-sm mb-4">
-            <div className="flex items-center gap-1 text-[#8D8D8D]">
+            <div className="flex items-center gap-1 text-muted-foreground">
               <UsersIcon count={referralCount} />
               <span>{referralCount} friend{referralCount !== 1 ? 's' : ''} joined</span>
             </div>
@@ -382,7 +382,7 @@ export default function PremiumPage() {
           </div>
 
           <button type="button" onClick={() => setShowReferral(!showReferral)}
-            className="w-full py-2.5 rounded-xl border border-[#EBEBEB] text-sm font-medium text-[#111111] hover:bg-[#F5F5F5] transition-colors"
+            className="w-full py-2.5 rounded-xl border border-border text-sm font-medium text-foreground hover:bg-muted transition-colors"
           >
             {showReferral ? 'Close' : 'Have a referral code?'}
           </button>
@@ -401,7 +401,7 @@ export default function PremiumPage() {
                       value={referralInput}
                       onChange={(e) => setReferralInput(e.target.value.toUpperCase())}
                       placeholder="Enter referral code (e.g. GAGA-ABC123)"
-                      className="flex-1 bg-[#F5F5F5] rounded-xl px-4 py-3 text-sm text-[#111111] focus:outline-none focus:ring-2 focus:ring-[#00C300] placeholder:text-[#C7C7CC]"
+                      className="flex-1 bg-muted rounded-xl px-4 py-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-[#00C300] placeholder:text-muted-foreground"
                     />
                     <button type="button" onClick={handleApplyReferral}
                       disabled={applyingReferral || !referralInput.trim()}
@@ -418,11 +418,11 @@ export default function PremiumPage() {
 
         {/* FAQ / Trust */}
         <div className="text-center space-y-2 pb-4">
-          <div className="flex items-center justify-center gap-1 text-xs text-[#8D8D8D]">
+          <div className="flex items-center justify-center gap-1 text-xs text-muted-foreground">
             <Shield size={12} />
             <span>Secure payment via Visa, Mastercard, PayPal, or Gaga Coins</span>
           </div>
-          <div className="flex items-center justify-center gap-1 text-xs text-[#8D8D8D]">
+          <div className="flex items-center justify-center gap-1 text-xs text-muted-foreground">
             <Globe size={12} />
             <span>Prices shown in {selectedCurrency.toUpperCase()}. Cancel anytime.</span>
           </div>
@@ -441,11 +441,11 @@ export default function PremiumPage() {
             <motion.div
               initial={{ scale: 0.9 }}
               animate={{ scale: 1 }}
-              className="bg-white rounded-2xl p-6 mx-4 max-w-xs w-full text-center"
+              className="bg-background rounded-2xl p-6 mx-4 max-w-xs w-full text-center"
             >
               <Loader size={32} className="animate-spin text-[#00C300] mx-auto mb-3" />
-              <h3 className="font-bold text-[#111111]">Upgrading to {PREMIUM_PLANS.find(p => p.id === activePlan)?.name}</h3>
-              <p className="text-sm text-[#8D8D8D] mt-1">Please wait...</p>
+              <h3 className="font-bold text-foreground">Upgrading to {PREMIUM_PLANS.find(p => p.id === activePlan)?.name}</h3>
+              <p className="text-sm text-muted-foreground mt-1">Please wait...</p>
             </motion.div>
           </motion.div>
         )}

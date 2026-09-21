@@ -17,7 +17,7 @@ export const ContactCardMessage = memo(function ContactCardMessage(props: Contac
   if (!card) {
     return (
       <div className={`max-w-[70%]`}>
-        <div className={`inline-block px-4 py-3 rounded-2xl ${isMe ? 'bg-[#00C300] text-white rounded-br-none' : 'bg-white text-[#111111] rounded-bl-none'} shadow-sm`}>
+        <div className={`inline-block px-4 py-3 rounded-2xl ${isMe ? 'bg-[#00C300] text-white rounded-br-none' : 'bg-background text-foreground rounded-bl-none'} shadow-sm`}>
           <p className="text-sm opacity-70">Contact unavailable</p>
         </div>
         <ReadReceipt isMe={isMe} timestamp={msg.timestamp} deliveryStatus={msg.deliveryStatus ?? (msg.read ? 'read' : 'sent')} edited={msg.edited} />
@@ -30,9 +30,9 @@ export const ContactCardMessage = memo(function ContactCardMessage(props: Contac
 
   return (
     <div className={`max-w-[70%]`}>
-      <div className={`inline-block px-4 py-3 rounded-2xl ${isMe ? 'bg-[#00C300] text-white rounded-br-none' : 'bg-white text-[#111111] rounded-bl-none'} shadow-sm`}>
+      <div className={`inline-block px-4 py-3 rounded-2xl ${isMe ? 'bg-[#00C300] text-white rounded-br-none' : 'bg-background text-foreground rounded-bl-none'} shadow-sm`}>
         <div className="flex items-center gap-2 mb-2">
-          <div className="w-10 h-10 rounded-full bg-[#F5F5F5] flex items-center justify-center shrink-0 overflow-hidden">
+          <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center shrink-0 overflow-hidden">
             {safeAvatar ? (
               <img src={safeAvatar} className="w-full h-full object-cover" alt="" />
             ) : (
@@ -52,14 +52,14 @@ export const ContactCardMessage = memo(function ContactCardMessage(props: Contac
             <button
               type="button"
               onClick={() => onNavigate(`/profile/${card.userId}`)}
-              className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center justify-center gap-1 ${isMe ? 'bg-white/20 text-white hover:bg-white/30' : 'bg-[#F5F5F5] text-[#111111] hover:bg-[#EBEBEB]'}`}
+              className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center justify-center gap-1 ${isMe ? 'bg-white/20 text-white hover:bg-white/30' : 'bg-muted text-foreground hover:bg-muted'}`}
             >
               <UserRound size={12} /> Profile
             </button>
             <button
               type="button"
               onClick={() => onNavigate(`/chat/${card.userId}`)}
-              className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center justify-center gap-1 ${isMe ? 'bg-white/20 text-white hover:bg-white/30' : 'bg-[#F5F5F5] text-[#111111] hover:bg-[#EBEBEB]'}`}
+              className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center justify-center gap-1 ${isMe ? 'bg-white/20 text-white hover:bg-white/30' : 'bg-muted text-foreground hover:bg-muted'}`}
             >
               <MessageCircle size={12} /> Chat
             </button>
@@ -67,7 +67,7 @@ export const ContactCardMessage = memo(function ContactCardMessage(props: Contac
               <a
                 href={`tel:${card.phone}`}
                 onClick={(e) => e.stopPropagation()}
-                className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center justify-center gap-1 ${isMe ? 'bg-white/20 text-white hover:bg-white/30' : 'bg-[#F5F5F5] text-[#111111] hover:bg-[#EBEBEB]'}`}
+                className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center justify-center gap-1 ${isMe ? 'bg-white/20 text-white hover:bg-white/30' : 'bg-muted text-foreground hover:bg-muted'}`}
               >
                 <Phone size={12} /> Call
               </a>

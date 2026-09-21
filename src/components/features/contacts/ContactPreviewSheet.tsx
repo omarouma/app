@@ -86,15 +86,15 @@ export default function ContactPreviewSheet({
             animate={{ y: 0 }}
             exit={{ y: '100%' }}
             transition={{ type: 'spring', damping: 26, stiffness: 300 }}
-            className="bg-white rounded-t-3xl w-full max-w-lg pb-[max(16px,env(safe-area-inset-bottom))]"
+            className="bg-background rounded-t-3xl w-full max-w-lg pb-[max(16px,env(safe-area-inset-bottom))]"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="w-10 h-1 bg-[#EBEBEB] rounded-full mx-auto mt-3 mb-4" />
+            <div className="w-10 h-1 bg-muted rounded-full mx-auto mt-3 mb-4" />
 
             <div className="px-5">
               <div className="flex items-start gap-4">
                 <div className="relative shrink-0">
-                  <div className="w-16 h-16 rounded-full overflow-hidden bg-[#F5F5F5]">
+                  <div className="w-16 h-16 rounded-full overflow-hidden bg-muted">
                     <img src={avatarSrc} className="w-full h-full object-cover" alt={`${user.name}'s avatar`} />
                   </div>
                   {isBlocked && (
@@ -105,11 +105,11 @@ export default function ContactPreviewSheet({
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5">
-                    <h3 className="text-lg font-bold text-[#111111] truncate">{user.name || 'User'}</h3>
+                    <h3 className="text-lg font-bold text-foreground truncate">{user.name || 'User'}</h3>
                     {user.verified && <BadgeCheck size={16} className="text-[#00C300] shrink-0" />}
                   </div>
-                  <p className="text-sm text-[#8D8D8D] truncate">@{user.username || 'user'}</p>
-                  {user.bio && <p className="text-xs text-[#8D8D8D] mt-1 line-clamp-2">{user.bio}</p>}
+                  <p className="text-sm text-muted-foreground truncate">@{user.username || 'user'}</p>
+                  {user.bio && <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{user.bio}</p>}
                   <div className="flex flex-wrap gap-1.5 mt-2">
                     {isFriend && (
                       <span className="text-[10px] font-medium bg-[#00C300]/10 text-[#00C300] px-2 py-0.5 rounded-full">Friend</span>
@@ -131,10 +131,10 @@ export default function ContactPreviewSheet({
                 <button
                   type="button"
                   onClick={onClose}
-                  className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-[#F5F5F5] shrink-0"
+                  className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-muted shrink-0"
                   aria-label="Close preview"
                 >
-                  <X size={18} className="text-[#8D8D8D]" />
+                  <X size={18} className="text-muted-foreground" />
                 </button>
               </div>
 
@@ -173,37 +173,37 @@ export default function ContactPreviewSheet({
                     type="button"
                     disabled={busy}
                     onClick={() => run(() => onAddFriend(user.id))}
-                    className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-[#F5F5F5] transition-colors text-left disabled:opacity-40"
+                    className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-muted transition-colors text-left disabled:opacity-40"
                   >
                     <UserPlus size={18} className="text-[#00C300]" />
-                    <span className="text-sm font-medium text-[#111111]">Add friend</span>
+                    <span className="text-sm font-medium text-foreground">Add friend</span>
                   </button>
                 )}
                 <button
                   type="button"
                   disabled={busy}
                   onClick={() => run(() => onToggleFavorite(user.id))}
-                  className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-[#F5F5F5] transition-colors text-left disabled:opacity-40"
+                  className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-muted transition-colors text-left disabled:opacity-40"
                 >
                   {isFavorite
-                    ? <><StarOff size={18} className="text-[#FF9800]" /><span className="text-sm font-medium text-[#111111]">Remove from favorites</span></>
-                    : <><Star size={18} className="text-[#FF9800]" /><span className="text-sm font-medium text-[#111111]">Add to favorites</span></>}
+                    ? <><StarOff size={18} className="text-[#FF9800]" /><span className="text-sm font-medium text-foreground">Remove from favorites</span></>
+                    : <><Star size={18} className="text-[#FF9800]" /><span className="text-sm font-medium text-foreground">Add to favorites</span></>}
                 </button>
                 <button
                   type="button"
                   disabled={busy}
                   onClick={() => run(() => onViewProfile(user.id))}
-                  className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-[#F5F5F5] transition-colors text-left disabled:opacity-40"
+                  className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-muted transition-colors text-left disabled:opacity-40"
                 >
                   <UserIcon size={18} className="text-[#2196F3]" />
-                  <span className="text-sm font-medium text-[#111111]">View full profile</span>
+                  <span className="text-sm font-medium text-foreground">View full profile</span>
                 </button>
                 {isBlocked ? (
                   <button
                     type="button"
                     disabled={busy}
                     onClick={() => run(() => onUnblock(user.id))}
-                    className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-[#F5F5F5] transition-colors text-left disabled:opacity-40"
+                    className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-muted transition-colors text-left disabled:opacity-40"
                   >
                     <Ban size={18} className="text-[#00C300]" />
                     <span className="text-sm font-medium text-[#00C300]">Unblock</span>
@@ -213,7 +213,7 @@ export default function ContactPreviewSheet({
                     type="button"
                     disabled={busy}
                     onClick={() => run(() => onBlock(user.id))}
-                    className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-[#F5F5F5] transition-colors text-left disabled:opacity-40"
+                    className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-muted transition-colors text-left disabled:opacity-40"
                   >
                     <Ban size={18} className="text-[#FF3B30]" />
                     <span className="text-sm font-medium text-[#FF3B30]">Block</span>
@@ -222,7 +222,7 @@ export default function ContactPreviewSheet({
               </div>
 
               {busy && (
-                <div className="flex items-center justify-center gap-2 py-2 text-[#8D8D8D] text-xs">
+                <div className="flex items-center justify-center gap-2 py-2 text-muted-foreground text-xs">
                   <Loader size={14} className="animate-spin" /> Working…
                 </div>
               )}
