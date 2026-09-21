@@ -49,8 +49,13 @@ export const VoiceMessage = memo(function VoiceMessage(props: VoiceMessageProps)
     };
     audio.addEventListener('loadedmetadata', onLoaded);
     audio.addEventListener('error', onError);
+    // Never leave the user stuck in a permanent "Loading..." state.
+    const timeout = setTimeout(() => {
+      if (!cancelled) setLoading(false);
+    }, 15000);
     return () => {
       cancelled = true;
+      clearTimeout(timeout);
       audio.removeEventListener('loadedmetadata', onLoaded);
       audio.removeEventListener('error', onError);
       audio.pause();
