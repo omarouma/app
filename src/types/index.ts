@@ -47,6 +47,16 @@ export interface User {
   chatLockPins?: Record<string, string>; // chatId -> PIN hash
   broadcastLists?: string[]; // broadcast list IDs
   contactsOnlyInApp?: string[]; // contact IDs not saved to phonebook
+  // ── Business profile (optional) ──
+  isBusiness?: boolean;
+  businessName?: string;
+  businessCategory?: string;
+  businessDescription?: string;
+  businessAddress?: string;
+  businessHours?: string;
+  businessWebsite?: string;
+  businessEmail?: string;
+  businessPhone?: string;
 }
 
 

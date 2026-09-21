@@ -4,10 +4,13 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   ArrowLeft, Settings, Edit3, Share2, Camera, Check, X,
   MapPin, Link2, Mail, Phone, Users, Heart, MessageCircle, BadgeCheck,
-  Copy, QrCode, Loader, MoreHorizontal,
+  Copy, QrCode, Loader, MoreHorizontal, Video, Flag, Ban, Bell, BellOff,
+  Image as ImageIcon, Briefcase, Clock, Globe, UserPlus, UserCheck, UserX,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useFriendStore } from '@/store/useFriendStore';
+import { useChatStore } from '@/store/useChatStore';
+import { useGroupStore } from '@/store/useGroupStore';
 import { buildGagaChatWebUrl, getDefaultAvatar, sanitizeMediaUrl } from '@/lib/utils';
 import { isFirestoreAvailable, COLLECTIONS, updateDocById, subscribeToDoc } from '@/lib/firestore';
 import { copyToClipboard, nativeShare } from '@/lib/share';
@@ -15,17 +18,27 @@ import { validateUsername } from '@/lib/validation';
 import { isUsernameAvailable } from '@/lib/supabaseAuth';
 import { usePageTitle } from '@/hooks/useDocumentTitle';
 import { toast } from 'sonner';
+import ReportUserSheet from '@/components/features/contacts/ReportUserSheet';
 import type { User } from '@/types';
 
 export default function ProfilePage() {
   const { userId: paramUserId } = useParams<{ userId?: string }>();
   const navigate = useNavigate();
   const { user, setUser } = useAuthStore();
-  const { friends } = useFriendStore();
+  const {
+    friends, blockedUsers, requests, sentRequests,
+    blockUser, unblockUser, sendRequest, acceptRequest, cancelRequest,
+    removeFriend, getMutualFriendsCount,
+  } = useFriendStore();
+  const { chats, createDirectChat, muteChat } = useChatStore();
+  const { groups, subscribeGroups } = useGroupStore();
 
   const isOwnProfile = !paramUserId || paramUserId === user?.id;
   const [otherUser, setOtherUser] = useState<User | null>(null);
   const [loadingOther, setLoadingOther] = useState(false);
+  const [mutualCount, setMutualCount] = useState(0);
+  const [showReportSheet, setShowReportSheet] = useState(false);
+  const [actionBusy, setActionBusy] = useState(false);
 
   usePageTitle(isOwnProfile ? 'My Profile' : 'Profile');
 
@@ -42,6 +55,24 @@ export default function ProfilePage() {
     });
     return () => { unsub(); };
   }, [isOwnProfile, paramUserId, friends]);
+
+  // Keep the group list live so "groups in common" stays accurate.
+  useEffect(() => {
+    if (!user?.id) return;
+    const unsub = subscribeGroups(user.id);
+    return () => { unsub(); };
+  }, [user?.id, subscribeGroups]);
+
+  // Resolve the relationship + mutual-friend count when viewing someone else.
+  useEffect(() => {
+    if (isOwnProfile || !user?.id || !otherUser?.id) return;
+    let cancelled = false;
+    (async () => {
+      const count = await getMutualFriendsCount(user.id, otherUser.id);
+      if (!cancelled) setMutualCount(count);
+    })();
+    return () => { cancelled = true; };
+  }, [isOwnProfile, user?.id, otherUser?.id, getMutualFriendsCount]);
 
   const displayUser = isOwnProfile ? user : otherUser;
 
@@ -60,6 +91,39 @@ export default function ProfilePage() {
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const coverInputRef = useRef<HTMLInputElement>(null);
   const profileUrl = displayUser ? buildGagaChatWebUrl(displayUser.id) : '';
+
+  // ── Relationship memos (other-user view) ──
+  const isBlocked = useMemo(
+    () => (otherUser ? blockedUsers.some(b => b.blockedId === otherUser.id) : false),
+    [otherUser, blockedUsers],
+  );
+  const isFriend = useMemo(
+    () => (otherUser ? friends.some(f => f.id === otherUser.id) : false),
+    [otherUser, friends],
+  );
+  const isFavorite = useMemo(
+    () => (otherUser ? !!user?.favorites?.includes(otherUser.id) : false),
+    [otherUser, user?.favorites],
+  );
+  const requestSent = useMemo(
+    () => (otherUser ? sentRequests.some(r => r.toUserId === otherUser.id) : false),
+    [otherUser, sentRequests],
+  );
+  const incomingRequest = useMemo(
+    () => (otherUser ? requests.find(r => r.from === otherUser.id) : undefined),
+    [otherUser, requests],
+  );
+  const directChat = useMemo(
+    () => (otherUser ? chats.find(c => c.type === 'direct' && c.participants.includes(otherUser.id)) : undefined),
+    [otherUser, chats],
+  );
+  const mutualGroups = useMemo(() => {
+    if (!otherUser || !user?.id) return [];
+    return groups.filter(g => g.participants.includes(user.id) && g.participants.includes(otherUser.id));
+  }, [otherUser, user?.id, groups]);
+
+  // ── Visibility enforcement (respect the viewed user's privacy settings) ──
+  const canSeeFriendList = isOwnProfile || !displayUser?.hideFriendList;
 
   const startEdit = useCallback(() => {
     setEditName(user?.name || '');
@@ -170,6 +234,119 @@ export default function ProfilePage() {
     setShowShareSheet(false);
   }, [displayUser?.name, profileUrl, handleCopyLink]);
 
+  // ── Other-user action handlers ──
+  const handleMessageUser = useCallback(async () => {
+    if (!user?.id || !otherUser) return;
+    setActionBusy(true);
+    try {
+      await createDirectChat(otherUser.id, user.id);
+      navigate(`/chat/${otherUser.id}`);
+    } catch {
+      toast.error('Failed to open chat');
+    } finally {
+      setActionBusy(false);
+    }
+  }, [user?.id, otherUser, createDirectChat, navigate]);
+
+  const handleVoiceCall = useCallback(() => {
+    if (!otherUser) return;
+    navigate('/call', { state: { userId: otherUser.id, mode: 'voice' } });
+  }, [otherUser, navigate]);
+
+  const handleVideoCall = useCallback(() => {
+    if (!otherUser) return;
+    navigate('/call', { state: { userId: otherUser.id, mode: 'video' } });
+  }, [otherUser, navigate]);
+
+  const handleToggleBlock = useCallback(async () => {
+    if (!user?.id || !otherUser) return;
+    setActionBusy(true);
+    try {
+      if (isBlocked) {
+        await unblockUser(otherUser.id, user.id);
+        toast.success('User unblocked');
+      } else {
+        await blockUser(otherUser.id, user.id);
+        toast.success('User blocked');
+      }
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Action failed');
+    } finally {
+      setActionBusy(false);
+    }
+  }, [user?.id, otherUser, isBlocked, blockUser, unblockUser]);
+
+  const handleAddFriend = useCallback(async () => {
+    if (!user?.id || !otherUser) return;
+    setActionBusy(true);
+    try {
+      await sendRequest(otherUser.id, user.id);
+      toast.success('Friend request sent');
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Failed to send request');
+    } finally {
+      setActionBusy(false);
+    }
+  }, [user?.id, otherUser, sendRequest]);
+
+  const handleAcceptRequest = useCallback(async () => {
+    if (!incomingRequest) return;
+    setActionBusy(true);
+    try {
+      await acceptRequest(incomingRequest.id);
+      toast.success('Friend request accepted');
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Failed to accept request');
+    } finally {
+      setActionBusy(false);
+    }
+  }, [incomingRequest, acceptRequest]);
+
+  const handleCancelRequest = useCallback(async () => {
+    if (!user?.id || !otherUser) return;
+    setActionBusy(true);
+    try {
+      const req = sentRequests.find(r => r.toUserId === otherUser.id);
+      if (req) await cancelRequest(req.id);
+      toast.success('Request cancelled');
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Failed to cancel request');
+    } finally {
+      setActionBusy(false);
+    }
+  }, [user?.id, otherUser, sentRequests, cancelRequest]);
+
+  const handleRemoveFriend = useCallback(async () => {
+    if (!user?.id || !otherUser) return;
+    setActionBusy(true);
+    try {
+      await removeFriend(otherUser.id, user.id);
+      toast.success('Removed from friends');
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Failed to remove friend');
+    } finally {
+      setActionBusy(false);
+    }
+  }, [user?.id, otherUser, removeFriend]);
+
+  const handleToggleMute = useCallback(async () => {
+    if (!directChat) { toast.error('No conversation to mute yet'); return; }
+    setActionBusy(true);
+    try {
+      await muteChat(directChat.id);
+      toast.success(directChat.isMuted ? 'Notifications unmuted' : 'Notifications muted');
+    } catch {
+      toast.error('Failed to update mute');
+    } finally {
+      setActionBusy(false);
+    }
+  }, [directChat, muteChat]);
+
+  const handleOpenSharedMedia = useCallback(() => {
+    if (!directChat) { toast.error('No conversation yet'); return; }
+    navigate(`/chat-info/${directChat.id}`);
+  }, [directChat, navigate]);
+
   const profileCompletion = useMemo(() => {
     const fields = [
       Boolean(displayUser?.name),
@@ -184,7 +361,7 @@ export default function ProfilePage() {
   }, [displayUser]);
 
   const stats = [
-    { label: 'Friends', value: displayUser?.friends?.length ?? (isOwnProfile ? friends.length : 0) },
+    { label: 'Friends', value: canSeeFriendList ? (displayUser?.friends?.length ?? (isOwnProfile ? friends.length : 0)) : null },
     { label: 'Followers', value: displayUser?.followers?.length ?? 0 },
     { label: 'Following', value: displayUser?.following?.length ?? 0 },
   ];
@@ -343,9 +520,40 @@ export default function ProfilePage() {
                       PRO
                     </span>
                   )}
+                  {displayUser.isBusiness && (
+                    <span className="text-[10px] bg-[#2196F3]/10 text-[#2196F3] px-2 py-0.5 rounded-full font-bold">
+                      BUSINESS
+                    </span>
+                  )}
                 </div>
               )}
               <p className="text-sm text-[#8D8D8D] mb-2">@{displayUser.username || 'user'}</p>
+
+              {/* Relationship / mutual friends line (other-user view) */}
+              {!isOwnProfile && (
+                <div className="flex flex-wrap items-center justify-center gap-2 mb-2">
+                  {isFriend && (
+                    <span className="text-[10px] font-medium bg-[#00C300]/10 text-[#00C300] px-2 py-0.5 rounded-full">Friend</span>
+                  )}
+                  {isFavorite && (
+                    <span className="text-[10px] font-medium bg-[#FF9800]/10 text-[#FF9800] px-2 py-0.5 rounded-full">Favorite</span>
+                  )}
+                  {requestSent && (
+                    <span className="text-[10px] font-medium bg-[#2196F3]/10 text-[#2196F3] px-2 py-0.5 rounded-full">Request sent</span>
+                  )}
+                  {incomingRequest && (
+                    <span className="text-[10px] font-medium bg-[#9C27B0]/10 text-[#9C27B0] px-2 py-0.5 rounded-full">Wants to connect</span>
+                  )}
+                  {isBlocked && (
+                    <span className="text-[10px] font-medium bg-[#FF3B30]/10 text-[#FF3B30] px-2 py-0.5 rounded-full">Blocked</span>
+                  )}
+                  {mutualCount > 0 && (
+                    <span className="text-[10px] font-medium bg-[#F5F5F5] text-[#8D8D8D] px-2 py-0.5 rounded-full">
+                      {mutualCount} mutual friend{mutualCount === 1 ? '' : 's'}
+                    </span>
+                  )}
+                </div>
+              )}
 
               {/* Username (edit mode) */}
               {editing && (
@@ -435,7 +643,7 @@ export default function ProfilePage() {
                 </div>
               )}
 
-              {/* Action buttons */}
+              {/* Action buttons (own profile) */}
               {isOwnProfile && (
                 <div className="flex gap-2 mt-1">
                   {editing ? (
@@ -492,12 +700,153 @@ export default function ProfilePage() {
           </div>
         </div>
 
+        {/* Other-user action buttons */}
+        {!isOwnProfile && (
+          <div className="bg-white rounded-2xl p-4 shadow-sm">
+            {/* Primary actions */}
+            <div className="grid grid-cols-3 gap-2">
+              <button
+                type="button"
+                disabled={actionBusy || isBlocked}
+                onClick={handleMessageUser}
+                className="flex flex-col items-center gap-1.5 py-3 rounded-2xl bg-[#00C300]/10 text-[#00C300] font-medium text-xs active:bg-[#00C300]/20 transition-colors disabled:opacity-40"
+                aria-label="Message user"
+              >
+                <MessageCircle size={20} /> Message
+              </button>
+              <button
+                type="button"
+                disabled={actionBusy || isBlocked}
+                onClick={handleVoiceCall}
+                className="flex flex-col items-center gap-1.5 py-3 rounded-2xl bg-[#2196F3]/10 text-[#2196F3] font-medium text-xs active:bg-[#2196F3]/20 transition-colors disabled:opacity-40"
+                aria-label="Voice call user"
+              >
+                <Phone size={20} /> Voice
+              </button>
+              <button
+                type="button"
+                disabled={actionBusy || isBlocked}
+                onClick={handleVideoCall}
+                className="flex flex-col items-center gap-1.5 py-3 rounded-2xl bg-[#9C27B0]/10 text-[#9C27B0] font-medium text-xs active:bg-[#9C27B0]/20 transition-colors disabled:opacity-40"
+                aria-label="Video call user"
+              >
+                <Video size={20} /> Video
+              </button>
+            </div>
+
+            {/* Secondary actions */}
+            <div className="mt-2 space-y-1">
+              {isFriend ? (
+                <button
+                  type="button"
+                  disabled={actionBusy}
+                  onClick={handleRemoveFriend}
+                  className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-[#F5F5F5] transition-colors text-left disabled:opacity-40"
+                >
+                  <UserX size={18} className="text-[#FF3B30]" />
+                  <span className="text-sm font-medium text-[#111111]">Remove friend</span>
+                </button>
+              ) : requestSent ? (
+                <button
+                  type="button"
+                  disabled={actionBusy}
+                  onClick={handleCancelRequest}
+                  className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-[#F5F5F5] transition-colors text-left disabled:opacity-40"
+                >
+                  <X size={18} className="text-[#8D8D8D]" />
+                  <span className="text-sm font-medium text-[#111111]">Cancel friend request</span>
+                </button>
+              ) : incomingRequest ? (
+                <button
+                  type="button"
+                  disabled={actionBusy}
+                  onClick={handleAcceptRequest}
+                  className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-[#F5F5F5] transition-colors text-left disabled:opacity-40"
+                >
+                  <UserCheck size={18} className="text-[#00C300]" />
+                  <span className="text-sm font-medium text-[#111111]">Accept friend request</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  disabled={actionBusy || isBlocked}
+                  onClick={handleAddFriend}
+                  className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-[#F5F5F5] transition-colors text-left disabled:opacity-40"
+                >
+                  <UserPlus size={18} className="text-[#00C300]" />
+                  <span className="text-sm font-medium text-[#111111]">Add friend</span>
+                </button>
+              )}
+
+              <button
+                type="button"
+                disabled={actionBusy}
+                onClick={handleToggleMute}
+                className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-[#F5F5F5] transition-colors text-left disabled:opacity-40"
+              >
+                {directChat?.isMuted
+                  ? <><Bell size={18} className="text-[#FF9800]" /><span className="text-sm font-medium text-[#111111]">Unmute notifications</span></>
+                  : <><BellOff size={18} className="text-[#FF9800]" /><span className="text-sm font-medium text-[#111111]">Mute notifications</span></>}
+              </button>
+
+              <button
+                type="button"
+                disabled={actionBusy}
+                onClick={handleOpenSharedMedia}
+                className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-[#F5F5F5] transition-colors text-left disabled:opacity-40"
+              >
+                <ImageIcon size={18} className="text-[#2196F3]" />
+                <span className="text-sm font-medium text-[#111111]">Shared media</span>
+              </button>
+
+              <button
+                type="button"
+                disabled={actionBusy}
+                onClick={() => setShowShareSheet(true)}
+                className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-[#F5F5F5] transition-colors text-left disabled:opacity-40"
+              >
+                <Share2 size={18} className="text-[#8B5CF6]" />
+                <span className="text-sm font-medium text-[#111111]">Share profile</span>
+              </button>
+
+              <button
+                type="button"
+                disabled={actionBusy}
+                onClick={handleToggleBlock}
+                className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-[#F5F5F5] transition-colors text-left disabled:opacity-40"
+              >
+                {isBlocked
+                  ? <><Ban size={18} className="text-[#00C300]" /><span className="text-sm font-medium text-[#00C300]">Unblock</span></>
+                  : <><Ban size={18} className="text-[#FF3B30]" /><span className="text-sm font-medium text-[#FF3B30]">Block</span></>}
+              </button>
+
+              <button
+                type="button"
+                disabled={actionBusy}
+                onClick={() => setShowReportSheet(true)}
+                className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-[#F5F5F5] transition-colors text-left disabled:opacity-40"
+              >
+                <Flag size={18} className="text-[#FF3B30]" />
+                <span className="text-sm font-medium text-[#FF3B30]">Report</span>
+              </button>
+            </div>
+
+            {actionBusy && (
+              <div className="flex items-center justify-center gap-2 py-2 text-[#8D8D8D] text-xs">
+                <Loader size={14} className="animate-spin" /> Working…
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Stats bar */}
         <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
-          <div className="grid grid-cols-4 divide-x divide-[#EBEBEB]">
+          <div className="grid grid-cols-3 divide-x divide-[#EBEBEB]">
             {stats.map(({ label, value }) => (
               <div key={label} className="flex flex-col items-center py-4 px-2">
-                <span className="text-lg font-bold text-[#111111]">{value.toLocaleString()}</span>
+                <span className="text-lg font-bold text-[#111111]">
+                  {value === null ? '—' : value.toLocaleString()}
+                </span>
                 <span className="text-[11px] text-[#8D8D8D] mt-0.5">{label}</span>
               </div>
             ))}
@@ -519,6 +868,88 @@ export default function ProfilePage() {
             <div className="mt-3 flex flex-wrap gap-2">
               {user?.hideOnlineStatus ? <span className="rounded-full bg-[#F5F5F5] px-2.5 py-1 text-[10px] font-medium text-[#111111]">Online status hidden</span> : <span className="rounded-full bg-[#00C300]/10 px-2.5 py-1 text-[10px] font-medium text-[#00C300]">Online status visible</span>}
               {user?.hideFriendList ? <span className="rounded-full bg-[#F5F5F5] px-2.5 py-1 text-[10px] font-medium text-[#111111]">Friend list hidden</span> : <span className="rounded-full bg-[#2196F3]/10 px-2.5 py-1 text-[10px] font-medium text-[#2196F3]">Friend list visible</span>}
+            </div>
+          </div>
+        )}
+
+        {/* Business profile */}
+        {displayUser.isBusiness && (
+          <div className="bg-white rounded-2xl p-4 shadow-sm space-y-3">
+            <div className="flex items-center gap-2">
+              <Briefcase size={16} className="text-[#00C300]" />
+              <h3 className="text-sm font-semibold text-[#111111]">{displayUser.businessName || 'Business'}</h3>
+              {displayUser.businessCategory && (
+                <span className="text-[10px] bg-[#00C300]/10 text-[#00C300] px-2 py-0.5 rounded-full font-medium">
+                  {displayUser.businessCategory}
+                </span>
+              )}
+            </div>
+            {displayUser.businessDescription && (
+              <p className="text-sm text-[#8D8D8D]">{displayUser.businessDescription}</p>
+            )}
+            <div className="space-y-2">
+              {displayUser.businessAddress && (
+                <div className="flex items-center gap-3 text-sm text-[#111111]">
+                  <MapPin size={16} className="text-[#8D8D8D] shrink-0" aria-hidden="true" />
+                  <span>{displayUser.businessAddress}</span>
+                </div>
+              )}
+              {displayUser.businessHours && (
+                <div className="flex items-center gap-3 text-sm text-[#111111]">
+                  <Clock size={16} className="text-[#8D8D8D] shrink-0" aria-hidden="true" />
+                  <span>{displayUser.businessHours}</span>
+                </div>
+              )}
+              {displayUser.businessWebsite && (
+                <a
+                  href={displayUser.businessWebsite.startsWith('http') ? displayUser.businessWebsite : `https://${displayUser.businessWebsite}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-3 text-sm text-[#00C300] hover:underline"
+                >
+                  <Globe size={16} className="text-[#8D8D8D] shrink-0" aria-hidden="true" />
+                  <span className="truncate">{displayUser.businessWebsite.replace(/^https?:\/\//, '')}</span>
+                </a>
+              )}
+              {displayUser.businessEmail && (
+                <div className="flex items-center gap-3 text-sm text-[#111111]">
+                  <Mail size={16} className="text-[#8D8D8D] shrink-0" aria-hidden="true" />
+                  <span className="truncate">{displayUser.businessEmail}</span>
+                </div>
+              )}
+              {displayUser.businessPhone && (
+                <div className="flex items-center gap-3 text-sm text-[#111111]">
+                  <Phone size={16} className="text-[#8D8D8D] shrink-0" aria-hidden="true" />
+                  <span>{displayUser.businessPhone}</span>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Groups in common (other-user view) */}
+        {!isOwnProfile && mutualGroups.length > 0 && (
+          <div className="bg-white rounded-2xl p-4 shadow-sm">
+            <h3 className="text-sm font-semibold text-[#111111] mb-3">
+              Groups in common ({mutualGroups.length})
+            </h3>
+            <div className="space-y-1">
+              {mutualGroups.slice(0, 5).map((g) => (
+                <button
+                  key={g.id}
+                  type="button"
+                  onClick={() => navigate(`/group/${g.id}`)}
+                  className="w-full flex items-center gap-3 p-2 rounded-xl hover:bg-[#F5F5F5] transition-colors text-left"
+                  aria-label={`Open group ${g.name || 'Group'}`}
+                >
+                  <img
+                    src={sanitizeMediaUrl(g.avatar) || getDefaultAvatar(g.id)}
+                    className="w-10 h-10 rounded-full object-cover shrink-0"
+                    alt=""
+                  />
+                  <span className="text-sm font-medium text-[#111111] truncate">{g.name || 'Group'}</span>
+                </button>
+              ))}
             </div>
           </div>
         )}
@@ -553,7 +984,7 @@ export default function ProfilePage() {
           </div>
         )}
 
-        {/* Quick actions */}
+        {/* Quick actions (own profile) */}
         {isOwnProfile && (
           <div className="grid grid-cols-3 gap-3">
             {[
@@ -575,7 +1006,7 @@ export default function ProfilePage() {
           </div>
         )}
 
-        {/* QR Code shortcut */}
+        {/* QR Code shortcut (own profile) */}
         {isOwnProfile && (
           <button
             type="button"
@@ -670,6 +1101,9 @@ export default function ProfilePage() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Report sheet */}
+      <ReportUserSheet user={showReportSheet ? otherUser : null} onClose={() => setShowReportSheet(false)} />
     </div>
   );
 }
