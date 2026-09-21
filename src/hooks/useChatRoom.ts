@@ -93,6 +93,8 @@ export const useChatRoom = (chatId: string, userId: string) => {
   // ── Misc ─────────────────────────────────────────────────────────────────
   const [lastSeen, setLastSeen] = useState<string | null>(null);
   const [lightboxImage, setLightboxImage] = useState<string | null>(null);
+  // Upload progress for the current media batch: { name, percent } | null
+  const [uploadProgress, setUploadProgress] = useState<{ name: string; percent: number } | null>(null);
   const [translations, setTranslations] = useState<Record<string, string>>({});
   const [translatingIds, setTranslatingIds] = useState<Set<string>>(new Set());
   const [chatBg, setChatBg] = useState('');
@@ -175,7 +177,14 @@ export const useChatRoom = (chatId: string, userId: string) => {
     setShowAttachments(false);
     for (const file of files) {
       try {
-        const url = await uploadMediaBlob(file, { userId: currentUser.id, kind: 'chats', fileName: file.name, contentType: file.type });
+        setUploadProgress({ name: file.name, percent: 0 });
+        const url = await uploadMediaBlob(file, {
+          userId: currentUser.id,
+          kind: 'chats',
+          fileName: file.name,
+          contentType: file.type,
+          onProgress: (percent) => setUploadProgress({ name: file.name, percent }),
+        });
         const type = file.type.startsWith('image/') ? 'image' : file.type.startsWith('video/') ? 'video' : 'file';
         if (!url) {
           toast.error(`Failed to upload ${file.name}.`);
@@ -184,6 +193,8 @@ export const useChatRoom = (chatId: string, userId: string) => {
         await sendMessage(chatId, currentUser.id, file.name, type, url);
       } catch (error) {
         handleError(error, `Failed to upload ${file.name}.`);
+      } finally {
+        setUploadProgress(null);
       }
     }
   }, [chatId, currentUser, sendMessage]);
@@ -442,6 +453,7 @@ export const useChatRoom = (chatId: string, userId: string) => {
     friendStatus, setFriendStatus, showReportModal, setShowReportModal,
     reportReason, setReportReason, reportDetails, setReportDetails,
     processingAction, lastSeen, setLastSeen, lightboxImage, setLightboxImage,
+    uploadProgress,
     showDeleteForEveryoneConfirm, setShowDeleteForEveryoneConfirm,
     showRemoveFriendConfirm, setShowRemoveFriendConfirm,
     showBlockConfirm, setShowBlockConfirm,

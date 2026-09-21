@@ -14,6 +14,7 @@ import { isFirestoreAvailable } from '@/lib/firestore';
 import { getDefaultAvatar, sanitizeMediaUrl } from '@/lib/utils';
 import { toast } from 'sonner';
 import { safeGetStorageItem, safeSetStorageItem } from '@/lib/safeStorage';
+import { ImageLightbox } from '@/components/features/chat/ImageLightbox';
 import type { Message, User } from '@/types';
 
 export default function ChatInfoPage() {
@@ -32,6 +33,7 @@ export default function ChatInfoPage() {
   const [showFullParticipants, setShowFullParticipants] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [showSearch, setShowSearch] = useState(false);
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const [disappearingTimer, setDisappearingTimer] = useState<number>(0);
   const [showDisappearingPicker, setShowDisappearingPicker] = useState(false);
   const [isChatLocked, setIsChatLocked] = useState(false);
@@ -421,13 +423,21 @@ export default function ChatInfoPage() {
               ) : (
                 <div className="grid grid-cols-3 gap-1">
                   {mediaMessages.map(m => (
-                    <a key={m.id} href={m.mediaUrl} target="_blank" rel="noopener noreferrer" className="aspect-square bg-[#F5F5F5] rounded-lg overflow-hidden hover:opacity-90 transition-opacity">
-                      {m.type === 'image' ? (
-                        <img src={m.mediaUrl} className="w-full h-full object-cover" alt="Shared image" />
-                      ) : (
+                    m.type === 'image' ? (
+                      <button
+                        key={m.id}
+                        type="button"
+                        onClick={() => setLightboxUrl(sanitizeMediaUrl(m.mediaUrl) ?? null)}
+                        className="aspect-square bg-[#F5F5F5] rounded-lg overflow-hidden hover:opacity-90 transition-opacity"
+                        aria-label="View shared image"
+                      >
+                        <img src={sanitizeMediaUrl(m.mediaUrl)} className="w-full h-full object-cover" alt="Shared image" loading="lazy" />
+                      </button>
+                    ) : (
+                      <a key={m.id} href={m.mediaUrl} target="_blank" rel="noopener noreferrer" className="aspect-square bg-[#F5F5F5] rounded-lg overflow-hidden hover:opacity-90 transition-opacity">
                         <video src={m.mediaUrl} className="w-full h-full object-cover" />
-                      )}
-                    </a>
+                      </a>
+                    )
                   ))}
                 </div>
               )
@@ -738,6 +748,9 @@ export default function ChatInfoPage() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Full-screen image viewer */}
+      <ImageLightbox url={lightboxUrl} onClose={() => setLightboxUrl(null)} />
     </div>
   );
 }

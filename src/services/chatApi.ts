@@ -1066,7 +1066,11 @@ export const chatApi = {
      * Get shared media in a chat
      */
     async getSharedMedia(chatId: string, mediaType?: string): Promise<Message[]> {
-        if (!isFirestoreAvailable() || !chatId) {
+        // Supabase is the app's PRIMARY database. `querySubcollection` routes to
+        // Supabase when available and only falls back to Firestore otherwise, so
+        // we must NOT gate on `isFirestoreAvailable()` here — doing so made the
+        // Chat Info media/files/links gallery permanently empty in production.
+        if (!chatId) {
             return [];
         }
 

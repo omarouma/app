@@ -20,6 +20,7 @@ import { ChatHeader } from './ChatHeader';
 import { MessageItem } from './MessageItem';
 import { MessageSearch } from './MessageSearch';
 import { InputBar } from './InputBar';
+import { ImageLightbox } from './ImageLightbox';
 import TransferModal from '@/components/TransferModal';
 import { Virtuoso } from 'react-virtuoso';
 import { toast } from 'sonner';
@@ -108,7 +109,9 @@ export default function ChatRoom({ chatId, userId, onBack }: {
     setReportDetails,
     processingAction,
     lastSeen,
+    lightboxImage,
     setLightboxImage,
+    uploadProgress,
     editingMessageId,
     setEditingMessageId,
     showDeleteForEveryoneConfirm,
@@ -700,6 +703,29 @@ export default function ChatRoom({ chatId, userId, onBack }: {
         )}
       </div>
 
+      {/* Upload progress */}
+      <AnimatePresence>
+        {uploadProgress && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            className="shrink-0 bg-white border-t border-[#EBEBEB] px-4 py-2"
+          >
+            <div className="flex items-center justify-between text-[11px] text-[#8D8D8D] mb-1">
+              <span className="truncate max-w-[70%]">Uploading {uploadProgress.name}…</span>
+              <span>{uploadProgress.percent}%</span>
+            </div>
+            <div className="h-1.5 w-full bg-[#F0F0F0] rounded-full overflow-hidden">
+              <div
+                className="h-full bg-[#00C300] transition-all duration-200"
+                style={{ width: `${uploadProgress.percent}%` }}
+              />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Input bar */}
       <InputBar
         input={input}
@@ -1045,6 +1071,9 @@ export default function ChatRoom({ chatId, userId, onBack }: {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Full-screen image viewer */}
+      <ImageLightbox url={lightboxImage} onClose={() => setLightboxImage(null)} />
     </div>
   );
 }
