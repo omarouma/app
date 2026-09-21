@@ -95,10 +95,13 @@ export function getZegoUIKit(): Promise<typeof import('@zegocloud/zego-uikit-pre
 }
 
 /**
- * Default ZEGO call room configuration for 1:1 calls.
+ * Default ZEGO call room configuration.
  * Matches the exact configuration provided in ZEGOCLOUD/WEB_UIKITS.html.
+ *
+ * @param isGroup When true, configures a multi-party (conference) room instead
+ *                of a strict 1:1 room, so "Add participant" / group calls work.
  */
-export function getZegoCallConfig(): Record<string, unknown> {
+export function getZegoCallConfig(isGroup = false): Record<string, unknown> {
     const config: Record<string, unknown> = {
         turnOnMicrophoneWhenJoining: true,
         turnOnCameraWhenJoining: true,
@@ -108,11 +111,11 @@ export function getZegoCallConfig(): Record<string, unknown> {
         showScreenSharingButton: true,
         showTextChat: true,
         showUserList: true,
-        maxUsers: 2,
-        layout: 'Auto',
-        showLayoutButton: false,
+        maxUsers: isGroup ? 9 : 2,
+        layout: isGroup ? 'Grid' : 'Auto',
+        showLayoutButton: isGroup,
         scenario: {
-            mode: 'OneONoneCall',
+            mode: isGroup ? 'GroupCall' : 'OneONoneCall',
             config: {
                 role: 'Host',
             },

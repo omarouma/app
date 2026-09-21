@@ -14,6 +14,7 @@ import { useGATracking } from '@/hooks/useGATracking';
 import { useForegroundNotifications } from '@/hooks/useForegroundNotifications';
 import { useIncomingCallNotifications } from '@/hooks/useIncomingCallNotifications';
 import { useMessageNotifications } from '@/hooks/useMessageNotifications';
+import { useZimCallInvitation } from '@/hooks/useZimCallInvitation';
 import { useTrackPresence } from '@/hooks/usePresence';
 import { useSessionGuard } from '@/hooks/useSessionGuard';
 import { MessageCircle, Phone, Users, Settings } from 'lucide-react';
@@ -431,6 +432,7 @@ function AppContent() {
   useForegroundNotifications();
   useIncomingCallNotifications();  // NEW: Handle incoming call notifications & sounds
   useMessageNotifications();       // NEW: WeChat-style message sounds + background notifications
+  useZimCallInvitation();          // NEW: ZEGOCLOUD ZIM call-invitation signalling (ring/accept/reject/cancel)
 
   useEffect(() => {
     // These public pages must be visible even when onboarding is incomplete

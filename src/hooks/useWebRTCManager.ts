@@ -3,7 +3,7 @@ import { useCallStore } from '@/store/useCallStore';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useZegoCall, type ZegoCallController } from '@/hooks/useZegoCall';
 import { deriveZegoUserID, buildZegoRoomID, isZegoConfigured } from '@/lib/zego';
-import { isVideoCallType } from '@/lib/callUtils';
+import { isVideoCallType, isGroupCall } from '@/lib/callUtils';
 import { playCallConnected, vibrateCallConnected, playCallEnded, vibrateCallEnded } from '@/lib/sounds';
 
 const CONNECTION_TIMEOUT_MS = 30_000;
@@ -114,6 +114,9 @@ export function useWebRTCManager() {
     const userName = currentUser.name || currentUser.displayName || currentUser.id || 'User';
     // `video` and `group_video` both need the camera on
     const isVideo = isVideoCallType(currentCall.type);
+    // Group calls (or 1:1 calls that have grown via "Add participant") use a
+    // multi-party ZEGO room so more than two people can join.
+    const isGroup = isGroupCall(currentCall) || (currentCall.participantIds?.length ?? 0) > 2;
 
     setIsVideoOn(isVideo);
     setQuality('good');
@@ -133,7 +136,7 @@ export function useWebRTCManager() {
       joinAttempted = true;
       void (async () => {
         try {
-          await zegoRef.current.join(roomID, userID, userName, isVideo);
+          await zegoRef.current.join(roomID, userID, userName, isVideo, isGroup);
         } catch {
           if (joinedCallIdRef.current === callId) {
             joinedCallIdRef.current = null;

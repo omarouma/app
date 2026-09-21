@@ -53,3 +53,6 @@ lint-output.log"deployed_index.html"
 # Release signing keystore (secret)
 keystore/
 *.keystore
+
+# Vite bundle visualizer output (build artifact)
+stats.html
