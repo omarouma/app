@@ -59,7 +59,7 @@ const BottomNav = memo(function BottomNav() {
                       <div className={`w-11 h-11 rounded-full flex items-center justify-center shadow-md transition-all ${
                         isActive ? 'scale-105' : ''
                       }`}
-                           style={{ backgroundColor: isActive ? '#FF4081' : 'rgba(255, 64, 129, 0.85)' }}>
+                           style={{ backgroundColor: isActive ? 'hsl(var(--primary))' : 'hsl(var(--primary) / 0.85)' }}>
                         <Icon size={21} className="text-white" strokeWidth={2.5} />
                       </div>
                     ) : (
@@ -122,7 +122,7 @@ const BottomNav = memo(function BottomNav() {
                     <div className={`${isSmallPhone ? 'w-10 h-10' : 'w-11 h-11'} rounded-full flex items-center justify-center shadow-md transition-transform ${
                       isActive ? 'scale-105' : ''
                     }`}
-                         style={{ backgroundColor: isActive ? '#FF4081' : 'rgba(255, 64, 129, 0.85)' }}>
+                         style={{ backgroundColor: isActive ? 'hsl(var(--primary))' : 'hsl(var(--primary) / 0.85)' }}>
                       <Icon size={isSmallPhone ? 19 : 21} className="text-white" strokeWidth={2.5} />
                     </div>
                   ) : (

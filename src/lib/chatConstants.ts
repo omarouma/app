@@ -28,18 +28,32 @@ export type ReactionEmoji = (typeof reactionEmojis)[number];
 export interface AttachmentOption {
   iconKey: string;
   label: string;
+  /** Tailwind classes for the icon button surface. */
   color: string;
+  /** Tailwind classes for the icon glyph itself. */
+  iconColor: string;
 }
 
+/**
+ * Attachment options.
+ *
+ * Design-system rule (E1): ONE primary GaGa accent. Every attachment action
+ * uses the same GaGa green accent rendered as a soft tinted circle with a
+ * green glyph — no competing green/blue/purple/orange/pink buttons. This keeps
+ * the composer calm and premium while remaining instantly scannable.
+ */
+const GAGA_ACCENT_SURFACE = 'bg-[#00C300]/10 dark:bg-[#00C300]/15';
+const GAGA_ACCENT_ICON = 'text-[#00C300]';
+
 export const attachmentOptions: AttachmentOption[] = [
-  { iconKey: 'image', label: 'Photos', color: 'bg-[#4CAF50]' },
-  { iconKey: 'camera', label: 'Camera', color: 'bg-[#2196F3]' },
-  { iconKey: 'video', label: 'Video', color: 'bg-[#9C27B0]' },
-  { iconKey: 'phone', label: 'Audio', color: 'bg-[#00C300]' },
-  { iconKey: 'user', label: 'Contact', color: 'bg-[#FF9800]' },
-  { iconKey: 'map', label: 'Location', color: 'bg-[#E91E63]' },
-  { iconKey: 'file', label: 'File', color: 'bg-[#673AB7]' },
-  { iconKey: 'poll', label: 'Poll', color: 'bg-[#8B5CF6]' },
+  { iconKey: 'image', label: 'Photos', color: GAGA_ACCENT_SURFACE, iconColor: GAGA_ACCENT_ICON },
+  { iconKey: 'camera', label: 'Camera', color: GAGA_ACCENT_SURFACE, iconColor: GAGA_ACCENT_ICON },
+  { iconKey: 'video', label: 'Video', color: GAGA_ACCENT_SURFACE, iconColor: GAGA_ACCENT_ICON },
+  { iconKey: 'phone', label: 'Audio', color: GAGA_ACCENT_SURFACE, iconColor: GAGA_ACCENT_ICON },
+  { iconKey: 'user', label: 'Contact', color: GAGA_ACCENT_SURFACE, iconColor: GAGA_ACCENT_ICON },
+  { iconKey: 'map', label: 'Location', color: GAGA_ACCENT_SURFACE, iconColor: GAGA_ACCENT_ICON },
+  { iconKey: 'file', label: 'File', color: GAGA_ACCENT_SURFACE, iconColor: GAGA_ACCENT_ICON },
+  { iconKey: 'poll', label: 'Poll', color: GAGA_ACCENT_SURFACE, iconColor: GAGA_ACCENT_ICON },
 ] as const;
 
 /** Currency symbol / suffix map for money-transfer rendering. */

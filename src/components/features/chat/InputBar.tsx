@@ -93,7 +93,7 @@ export function InputBar({
             initial={{ height: 0 }}
             animate={{ height: 220 }}
             exit={{ height: 0 }}
-            className="shrink-0 bg-[#F5F5F5] border-t border-gray-200 overflow-hidden z-10"
+            className="shrink-0 bg-[#F5F5F5] dark:bg-[#111111] border-t border-gray-200 dark:border-white/10 overflow-hidden z-10"
           >
             <div className="grid grid-cols-3 sm:grid-cols-4 gap-y-5 px-6 pt-5 pb-8">
               {attachmentOptions.map((item, i) => {
