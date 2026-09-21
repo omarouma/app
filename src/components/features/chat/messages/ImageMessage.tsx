@@ -1,6 +1,7 @@
 import { memo, useState, useCallback, useEffect, useRef } from 'react';
-import { ImageOff, RefreshCw } from 'lucide-react';
+import { ImageOff, RefreshCw, Download } from 'lucide-react';
 import { sanitizeMediaUrl } from '@/lib/utils';
+import { useUserSettings } from '@/store/useSettingsStore';
 import type { Message } from '@/types';
 
 export interface ImageMessageProps {
@@ -27,6 +28,12 @@ export const ImageMessage = memo(function ImageMessage(props: ImageMessageProps)
   const [retryKey, setRetryKey] = useState(0);
   const [imgUrl, setImgUrl] = useState(() => sanitizeMediaUrl(msg.mediaUrl) ?? '');
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Data-saver: when enabled, images are NOT auto-downloaded. The user taps a
+  // lightweight placeholder to fetch the full image on demand.
+  const dataSaver = useUserSettings((s) => s.settings.data.dataSaver);
+  const [revealed, setRevealed] = useState(false);
+  const gated = dataSaver && !revealed;
 
   const safeUrl = sanitizeMediaUrl(imgUrl);
 
@@ -65,6 +72,22 @@ export const ImageMessage = memo(function ImageMessage(props: ImageMessageProps)
           Retry
         </button>
       </div>
+    );
+  }
+
+  // Data-saver gate: show a tap-to-download placeholder instead of the image.
+  if (gated) {
+    return (
+      <button
+        type="button"
+        onClick={() => setRevealed(true)}
+        className="rounded-2xl mb-1 w-full max-w-full h-40 bg-[#F5F5F5] dark:bg-white/5 flex flex-col items-center justify-center gap-2 text-sm text-[#8D8D8D] dark:text-white/50 hover:bg-[#EAEAEA] dark:hover:bg-white/10 transition-colors"
+        aria-label="Tap to download image"
+      >
+        <Download size={24} className="opacity-70" />
+        <span>Tap to download</span>
+        <span className="text-[10px] opacity-70">Data saver is on</span>
+      </button>
     );
   }
 
