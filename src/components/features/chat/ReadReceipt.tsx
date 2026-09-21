@@ -73,9 +73,9 @@ export const ReadReceipt = memo(function ReadReceipt({
 
   const statusColor =
     deliveryStatus === 'read'
-      ? 'text-[#2196F3]'
+      ? 'text-info'
       : deliveryStatus === 'failed'
-        ? 'text-[#FF3B30] font-medium'
+        ? 'text-danger font-medium'
         : 'text-white/70';
 
   return (

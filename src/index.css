@@ -44,6 +44,18 @@
     --input: 0 0% 92%;
     --ring: 120 100% 38%;
     --radius: 0.625rem;
+    /* ── Semantic roles ──────────────────────────────────────────
+       ONE brand accent (--primary = GaGa green #00C300) plus a small,
+       fixed set of meaning-carrying roles. Components must use these
+       tokens instead of ad-hoc hex values so the palette stays coherent. */
+    --success: 120 100% 38%;      /* same as primary — confirmations */
+    --success-foreground: 0 0% 100%;
+    --info: 207 90% 54%;          /* read receipts, tips, neutral info */
+    --info-foreground: 0 0% 100%;
+    --warning: 36 100% 50%;       /* caution, low-data, pending */
+    --warning-foreground: 0 0% 7%;
+    --danger: 0 84% 60%;          /* errors, destructive, failed */
+    --danger-foreground: 0 0% 98%;
     --sidebar-background: 0 0% 98%;
     --sidebar-foreground: 0 0% 7%;
     --sidebar-primary: 120 100% 38%;
@@ -77,6 +89,14 @@
     --border: 0 0% 15%;
     --input: 0 0% 15%;
     --ring: 120 100% 38%;
+    --success: 120 100% 38%;
+    --success-foreground: 0 0% 100%;
+    --info: 207 90% 54%;
+    --info-foreground: 0 0% 100%;
+    --warning: 36 100% 50%;
+    --warning-foreground: 0 0% 7%;
+    --danger: 0 72% 51%;
+    --danger-foreground: 0 0% 98%;
   }
 
   @media (prefers-color-scheme: dark) {
