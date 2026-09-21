@@ -90,6 +90,13 @@ export const useAuthStore = create<AuthStore>((set) => ({
         profileUnsub = subscribeToUserProfile(user.id, (profileUser) => {
           if (profileUser) applyAuthUser(profileUser, set);
         });
+
+        // Hydrate persisted user settings (theme, notifications, privacy,
+        // data-saver, accessibility, security) from the backend on sign-in.
+        // Dynamic import avoids a circular dependency with useSettingsStore.
+        void import('@/store/useSettingsStore')
+          .then(({ useUserSettings }) => useUserSettings.getState().syncSettings(user.id))
+          .catch(() => { /* settings sync is best-effort */ });
       }
 
       applyAuthUser(user, set);
