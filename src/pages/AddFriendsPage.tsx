@@ -3,20 +3,19 @@ import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   ArrowLeft, Search, UserPlus, QrCode, Link2, Check, Loader, Share2, Copy,
-  Users, Sparkles, UserCheck, Ban, RefreshCw, Send, ScanLine, BookUser, MapPin, Navigation,
-  MessageCircle, BadgeCheck, X, Phone, ChevronRight
+  Users, Sparkles, UserCheck, Ban, RefreshCw, Send, ScanLine, MapPin, Navigation,
+  MessageCircle, BadgeCheck, X
 } from 'lucide-react';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useFriendStore } from '@/store/useFriendStore';
 import { searchUsers, fetchUserProfile } from '@/lib/supabaseAuth';
 
 import { buildGagaChatUri, buildGagaChatWebUrl, parseGagaChatUri } from '@/lib/utils';
-import { useContacts } from '@/hooks/useContacts';
 import { useGeolocation, getDistanceKm, formatDistance } from '@/hooks/useGeolocation';
 import { copyToClipboard, nativeShare } from '@/lib/share';
 import { toast } from 'sonner';
 import type { User } from '@/types';
-import { where, limit, isFirestoreAvailable, updateDocById, queryCollection } from '@/lib/firestore';
+import { limit, isFirestoreAvailable, updateDocById, queryCollection } from '@/lib/firestore';
 
 type FriendStatus = 'not_friends' | 'request_sent' | 'request_received' | 'friends' | 'blocked' | 'self';
 
@@ -299,17 +298,14 @@ export default function AddFriendsPage() {
   const [copied, setCopied] = useState(false);
   const [suggestions, setSuggestions] = useState<(User & { mutualCount: number; score: number; distance?: number })[]>([]);
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
-  const [activeTab, setActiveTab] = useState<'search' | 'suggestions' | 'requests' | 'nearby' | 'contacts'>('search');
+  const [activeTab, setActiveTab] = useState<'search' | 'suggestions' | 'requests' | 'nearby'>('search');
   const [nearbyUsers, setNearbyUsers] = useState<(User & { distance?: number })[]>([]);
   const [loadingNearby, setLoadingNearby] = useState(false);
-  const [contactMatches, setContactMatches] = useState<User[]>([]);
-  const [loadingContacts, setLoadingContacts] = useState(false);
   const [requestSenders, setRequestSenders] = useState<Record<string, User>>({});
   const [sentRequestReceivers, setSentRequestReceivers] = useState<Record<string, User>>({});
   const [userStatuses, setUserStatuses] = useState<Record<string, FriendStatus>>({});
   const [mutualCounts, setMutualCounts] = useState<Record<string, number>>({});
 
-  const { contacts, loading: contactsLoading, selectContacts, isSupported: contactsSupported } = useContacts();
   const { location, loading: geoLoading, getLocation, isSupported: geoSupported } = useGeolocation();
 
   const myLink = currentUser ? buildGagaChatUri(currentUser.id) : '';
@@ -511,58 +507,6 @@ export default function AddFriendsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location, activeTab]);
 
-  // ─── Contacts ───
-
-  const findContactsOnGaga = async () => {
-    if (!contacts.length || !currentUser) return;
-    setLoadingContacts(true);
-    const phoneSet = new Set<string>();
-    contacts.forEach((c: { tel?: string[]; email?: string[] }) => {
-      (c.tel || []).forEach((p: string) => phoneSet.add(p.replace(/[^\d]/g, '')));
-    });
-    const emails = contacts.flatMap((c: { email?: string[] }) => c.email || []);
-
-    try {
-      if (isFirestoreAvailable() && (phoneSet.size > 0 || emails.length > 0)) {
-        // Firestore doesn't support OR or ilike queries; query by email and phone separately
-        const foundUsers: User[] = [];
-        const emailQueries = emails.slice(0, 10).map(async (e: string) => {
-          const data = await queryCollection('users', [where('email', '==', e), limit(1)]);
-          return (data as Record<string, unknown>[]).map(mapUser);
-        });
-        const phoneQueries = Array.from(phoneSet).slice(0, 10).map(async (p: string) => {
-          const data = await queryCollection('users', [
-            where('phone', '>=', p),
-            where('phone', '<=', p + '\uf8ff'),
-            limit(10),
-          ]);
-          return (data as Record<string, unknown>[]).map(mapUser);
-        });
-        const results = await Promise.all([...emailQueries, ...phoneQueries]);
-        results.forEach((arr: User[]) => foundUsers.push(...arr));
-        const friendIdSet = new Set(friends.map((f) => f.id));
-        const matches = foundUsers.filter((u) => u.id !== currentUser.id && !friendIdSet.has(u.id));
-        const uniqueMatches = Array.from(new Map(matches.map((u) => [u.id, u])).values());
-        setContactMatches(uniqueMatches);
-        if (uniqueMatches.length > 0) {
-          toast.success(`Found ${uniqueMatches.length} contacts on GaGa Chat!`);
-        } else {
-          toast.info('No matching contacts found on GaGa Chat');
-        }
-      }
-    } catch (err) {
-      console.error(err);
-    }
-    setLoadingContacts(false);
-  };
-
-  useEffect(() => {
-    if (contacts.length > 0) {
-      queueMicrotask(() => findContactsOnGaga());
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [contacts]);
-
   // ─── Handlers ───
 
   const handleCopyLink = async () => {
@@ -595,18 +539,6 @@ export default function AddFriendsPage() {
     }
   };
 
-  const handleInvite = async () => {
-    const link = 'https://gagachat.app';
-    const text = 'Join me on GaGa Chat - the free messaging app for everyone! 🌍';
-    try {
-      const usedNative = await nativeShare({ title: 'GaGa Chat', text, url: link });
-      if (!usedNative) {
-        const ok = await copyToClipboard(`${text} ${link}`);
-        if (ok) toast.success('Invite link copied to clipboard');
-      }
-    } catch { /* user cancelled */ }
-  };
-
   const handleQrAdd = async (qrInput: string) => {
     const userId = parseGagaChatUri(qrInput) || qrInput;
     if (!userId || !currentUser) return;
@@ -634,7 +566,7 @@ export default function AddFriendsPage() {
 
       {/* Tabs */}
       <div className="flex bg-background border-b border-border overflow-x-auto">
-        {(['search', 'suggestions', 'requests', 'nearby', 'contacts'] as const).map(tab => (
+        {(['search', 'suggestions', 'requests', 'nearby'] as const).map(tab => (
           <button type="button" key={tab}
             onClick={() => setActiveTab(tab)}
             className={`flex-1 py-3 text-sm font-medium transition-colors whitespace-nowrap ${activeTab === tab ? 'text-[#00C300] border-b-2 border-[#00C300]' : 'text-muted-foreground'
@@ -643,7 +575,7 @@ export default function AddFriendsPage() {
             {tab === 'search' ? 'Search' :
               tab === 'suggestions' ? 'Suggestions' :
                 tab === 'requests' ? `Requests (${pendingRequests.length})` :
-                  tab === 'nearby' ? 'Nearby' : 'Contacts'}
+                  'Nearby'}
           </button>
         ))}
       </div>
@@ -1005,154 +937,6 @@ export default function AddFriendsPage() {
           </motion.div>
         )}
 
-        {/* ═══ Contacts Tab ═══ */}
-        {activeTab === 'contacts' && (
-          <motion.div
-            key="contacts"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="p-4 space-y-4"
-          >
-            {!contactsSupported ? (
-              <div className="space-y-6">
-                {/* Manual phone search fallback */}
-                <div className="bg-background border border-border rounded-2xl p-4">
-                  <div className="flex items-center gap-2 mb-3">
-                    <Phone size={18} className="text-[#00C300]" />
-                    <h3 className="text-sm font-bold text-foreground">Find by Phone</h3>
-                  </div>
-                  <p className="text-xs text-muted-foreground mb-3">
-                    Your browser doesn't support contact import. You can search by phone number instead.
-                  </p>
-                  <div className="flex gap-2">
-                    <input
-                      type="tel"
-                      placeholder="Enter phone number..."
-                      className="flex-1 bg-muted rounded-xl px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[#00C300]"
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          const val = (e.target as HTMLInputElement).value.trim();
-                          if (val) { setSearchQuery(val); setActiveTab('search'); }
-                        }
-                      }}
-                    />
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        const input = (e.target as HTMLElement).closest('div')?.querySelector('input') as HTMLInputElement;
-                        if (input?.value.trim()) { setSearchQuery(input.value.trim()); setActiveTab('search'); }
-                      }}
-                      className="px-4 py-2.5 bg-[#00C300] text-white rounded-xl text-sm font-bold"
-                    >
-                      <Search size={16} />
-                    </button>
-                  </div>
-                </div>
-
-                {/* Invite friends */}
-                <div className="bg-background border border-border rounded-2xl p-4">
-                  <div className="flex items-center gap-2 mb-3">
-                    <Share2 size={18} className="text-[#2196F3]" />
-                    <h3 className="text-sm font-bold text-foreground">Invite Friends</h3>
-                  </div>
-                  <p className="text-xs text-muted-foreground mb-3">
-                    Share your invite link with friends so they can join GaGa Chat.
-                  </p>
-                  <button
-                    type="button"
-                    onClick={handleInvite}
-                    className="w-full py-3 bg-[#2196F3] text-white rounded-xl text-sm font-bold flex items-center justify-center gap-2"
-                  >
-                    <Share2 size={16} /> Share Invite Link
-                  </button>
-                </div>
-
-                {/* Alternative methods */}
-                <div className="bg-background border border-border rounded-2xl p-4">
-                  <div className="flex items-center gap-2 mb-3">
-                    <QrCode size={18} className="text-[#FF9800]" />
-                    <h3 className="text-sm font-bold text-foreground">Other Ways to Connect</h3>
-                  </div>
-                  <div className="space-y-2">
-                    <button
-                      type="button"
-                      onClick={() => setActiveTab('search')}
-                      className="w-full flex items-center justify-between p-3 bg-muted rounded-xl text-left"
-                    >
-                      <div className="flex items-center gap-2">
-                        <Search size={16} className="text-muted-foreground" />
-                        <span className="text-sm text-foreground">Search by username</span>
-                      </div>
-                      <ChevronRight size={16} className="text-muted-foreground" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setActiveTab('nearby')}
-                      className="w-full flex items-center justify-between p-3 bg-muted rounded-xl text-left"
-                    >
-                      <div className="flex items-center gap-2">
-                        <MapPin size={16} className="text-muted-foreground" />
-                        <span className="text-sm text-foreground">Find nearby users</span>
-                      </div>
-                      <ChevronRight size={16} className="text-muted-foreground" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setShowQrModal(true)}
-                      className="w-full flex items-center justify-between p-3 bg-muted rounded-xl text-left"
-                    >
-                      <div className="flex items-center gap-2">
-                        <QrCode size={16} className="text-muted-foreground" />
-                        <span className="text-sm text-foreground">Scan QR code</span>
-                      </div>
-                      <ChevronRight size={16} className="text-muted-foreground" />
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ) : contacts.length === 0 ? (
-              <div className="text-center py-8">
-                <BookUser size={32} className="text-[#00C300] mx-auto mb-2" />
-                <p className="text-muted-foreground text-sm mb-3">Import your phone contacts</p>
-                <p className="text-muted-foreground text-xs mb-4">Find friends who are already on GaGa Chat</p>
-                <button type="button" onClick={selectContacts}
-                  disabled={contactsLoading}
-                  className="px-6 py-3 bg-[#00C300] text-white rounded-full text-sm font-bold active:bg-[#00A300] transition-colors disabled:opacity-50"
-                >
-                  {contactsLoading ? <Loader size={16} className="animate-spin" /> : <BookUser size={16} />}
-                  {contactsLoading ? 'Importing...' : 'Import Contacts'}
-                </button>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                <p className="text-muted-foreground text-xs mb-2">
-                  {contacts.length} contacts imported {contactMatches.length > 0 && `· ${contactMatches.length} on GaGa Chat`}
-                </p>
-                {loadingContacts && (
-                  <div className="flex justify-center py-4">
-                    <Loader size={20} className="text-[#00C300] animate-spin" />
-                  </div>
-                )}
-                {contactMatches.length > 0 ? (
-                  contactMatches.map(u => (
-                    <UserCard
-                      key={u.id}
-                      user={u}
-                      status={userStatuses[u.id] || 'not_friends'}
-                      mutualCount={mutualCounts[u.id] || 0}
-                    />
-                  ))
-                ) : !loadingContacts && (
-                  <div className="text-center py-4">
-                    <p className="text-muted-foreground text-sm">No contacts found on GaGa Chat yet</p>
-                    <p className="text-muted-foreground text-xs mt-1">Invite them to join!</p>
-                  </div>
-                )}
-              </div>
-            )}
-          </motion.div>
-        )}
       </AnimatePresence>
 
       {/* QR Modal */}
