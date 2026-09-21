@@ -59,6 +59,24 @@ function main() {
     }
   }
 
+  // Strip JavaScript source maps. They are only useful for hosted-web debugging
+  // and add ~20 MB of dead weight + full source disclosure to the APK.
+  const assetsDir = join(NATIVE_PUBLIC, 'assets');
+  if (existsSync(assetsDir)) {
+    let mapsRemoved = 0;
+    for (const entry of readdirSync(assetsDir)) {
+      if (entry.endsWith('.map')) {
+        if (removeIfPresent(join(assetsDir, entry))) {
+          mapsRemoved += 1;
+        }
+      }
+    }
+    if (mapsRemoved > 0) {
+      console.log(`  ✓ removed ${mapsRemoved} source map(s)`);
+      removed += mapsRemoved;
+    }
+  }
+
   // Sanity check: the app entry must still be present.
   const indexPath = join(NATIVE_PUBLIC, 'index.html');
   if (!existsSync(indexPath) || statSync(indexPath).size === 0) {
