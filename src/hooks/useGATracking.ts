@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useIsMounted } from './use-mobile';
 import env from '@/config/env';
+import { isNative } from '@/lib/platform';
 
 declare global {
   interface Window {
@@ -18,6 +19,8 @@ export function useGATracking() {
   const isMounted = useIsMounted();
 
   useEffect(() => {
+    // Web-only: no Google Analytics inside the native app.
+    if (isNative()) return;
     if (!isMounted || !window.gtag || !GA_MEASUREMENT_ID) return;
     window.gtag('event', 'page_view', {
       page_path: location.pathname + location.search,
@@ -32,6 +35,7 @@ export function trackEvent(
   eventName: string,
   params?: Record<string, string | number | boolean | undefined>
 ) {
+  if (isNative()) return;
   if (typeof window === 'undefined' || !window.gtag || !GA_MEASUREMENT_ID) return;
   window.gtag('event', eventName, { send_to: GA_MEASUREMENT_ID, ...params });
 }

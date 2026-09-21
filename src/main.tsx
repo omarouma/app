@@ -8,6 +8,7 @@ import { ThemeProvider } from '@/components/ThemeProvider'
 import ErrorBoundary from '@/components/ErrorBoundary'
 import { initFirebase } from '@/lib/firebase'
 import { runStorageCleanup } from '@/lib/storageCleanup'
+import { isNative } from '@/lib/platform'
 
 declare global {
   interface Window {
@@ -114,7 +115,8 @@ try { runStorageCleanup(); } catch { /* ignore */ }
 // Initialize GA4 config using env var (avoids hardcoding in HTML)
 // Note: gtag('config') is already called in index.html for initial page load.
 // Here we only set additional runtime options if the env var is present.
-if (typeof window !== 'undefined' && typeof window.gtag === 'function') {
+// Web-only: the native app ships no analytics tags.
+if (!isNative() && typeof window !== 'undefined' && typeof window.gtag === 'function') {
   const gaMeasurementId = import.meta.env.VITE_GA_MEASUREMENT_ID;
   if (gaMeasurementId) {
     window.gtag('config', gaMeasurementId, {
@@ -124,10 +126,12 @@ if (typeof window !== 'undefined' && typeof window.gtag === 'function') {
   }
 }
 
-// Redirect non-canonical domains to the primary domain (production only)
+// Redirect non-canonical domains to the primary domain (production only).
+// Web-only: the native app is served from the local Capacitor origin.
 const CANONICAL = 'gagachat.app';
 const ALLOWED_HOSTS = new Set([CANONICAL, 'oumagachat.web.app', 'oumagachat.firebaseapp.com', 'localhost']);
 if (
+  !isNative() &&
   typeof window !== 'undefined' &&
   import.meta.env.PROD &&
   !ALLOWED_HOSTS.has(window.location.hostname) &&

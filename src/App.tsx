@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, lazy, Suspense, useRef, memo, type ReactElement } from 'react';
+import { useEffect, useLayoutEffect, useState, lazy, Suspense, useRef, memo, type ReactElement } from 'react';
 
 import { Routes, Route, Navigate, useLocation, useNavigate, type NavigateFunction } from 'react-router-dom';
 
@@ -17,6 +17,8 @@ import { useMessageNotifications } from '@/hooks/useMessageNotifications';
 import { useZimCallInvitation } from '@/hooks/useZimCallInvitation';
 import { useTrackPresence } from '@/hooks/usePresence';
 import { useSessionGuard } from '@/hooks/useSessionGuard';
+import { useNativeBootstrap } from '@/hooks/useNativeBootstrap';
+import { useNativeNavigation } from '@/hooks/useNativeNavigation';
 import { MessageCircle, Phone, Users, Settings } from 'lucide-react';
 import { Toaster } from '@/components/ui/sonner';
 import { CallProvider } from '@/context/CallContext';
@@ -26,6 +28,7 @@ import PWAPrompt from '@/components/PWAPrompt';
 import Logo from '@/components/Logo';
 import { toast } from 'sonner';
 import { getDefaultAvatar, sanitizeMediaUrl } from '@/lib/utils';
+import { isNative } from '@/lib/platform';
 import { initAudioOnInteraction } from '@/lib/sounds';
 import { startOfflineQueueSync } from '@/lib/offlineSync';
 import { getPostAuthPath } from '@/lib/onboarding';
@@ -171,16 +174,41 @@ const MorePage = lazy(() => import('@/pages/MorePage'));
 const ShareTargetPage = lazy(() => import('@/pages/ShareTargetPage'));
 const AIChatPage = lazy(() => import('@/pages/AIChatPage'));
 
-const PageLoader = () => (
-  <div className="h-screen w-screen bg-white flex items-center justify-center">
-    <div className="text-center animate-pulse">
-      <div className="mx-auto mb-4">
-        <Logo size={72} />
+/**
+ * Full-screen startup loader.
+ *
+ * Self-healing: if the app is still on this screen after a few seconds it
+ * offers a "Continue" affordance so the user is never trapped by a stalled
+ * startup (e.g. a slow session recovery on a poor connection).
+ */
+const PageLoader = () => {
+  const [showEscape, setShowEscape] = useState(false);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setShowEscape(true), 8000);
+    return () => window.clearTimeout(timer);
+  }, []);
+
+  return (
+    <div className="h-screen w-screen bg-white flex items-center justify-center">
+      <div className="text-center animate-pulse">
+        <div className="mx-auto mb-4">
+          <Logo size={72} />
+        </div>
+        <p className="text-[#8D8D8D] text-sm">Loading...</p>
+        {showEscape && (
+          <button
+            type="button"
+            onClick={() => useAuthStore.getState().setLoading(false)}
+            className="mt-6 px-6 py-2.5 rounded-full bg-[#00C300] text-white text-sm font-bold active:bg-[#00A300] transition-colors"
+          >
+            Continue
+          </button>
+        )}
       </div>
-      <p className="text-[#8D8D8D] text-sm">Loading...</p>
     </div>
-  </div>
-);
+  );
+};
 
 const desktopNavItems = [
   { to: '/chat', icon: MessageCircle, label: 'Chats' },
@@ -296,6 +324,10 @@ function useServiceWorker() {
   const navigate = useNavigate();
 
   useEffect(() => {
+    // Service workers are a web-only concern. Registering one inside the
+    // native WebView can intercept navigations and wedge the app, so skip
+    // entirely on native.
+    if (isNative()) return;
     if (!('serviceWorker' in navigator)) return;
 
     let registration: ServiceWorkerRegistration | null = null;
@@ -385,6 +417,10 @@ function AppContent() {
 
   // Detect revoked/expired sessions and redirect safely to login.
   useSessionGuard();
+
+  // Native shell bootstrap: status bar + splash-screen hide (no-op on web).
+  useNativeBootstrap();
+  useNativeNavigation();
 
   useEffect(() => {
     const publicSeo: Record<string, { title: string; description: string }> = {
@@ -597,7 +633,8 @@ function AppContent() {
       {showBottomNav && <BottomNav />}
       <ScrollToTop />
       <CallOverlay />
-      <PWAPrompt />
+      {/* Web-only PWA install prompt — never shown inside the native app. */}
+      {!isNative() && <PWAPrompt />}
       <Toaster position="top-center" />
     </div>
   );

@@ -1,7 +1,18 @@
 import { getSupabaseSafe } from './supabase';
 import { normalizeUsername, validateUsername } from './validation';
+import { withTimeout } from './platform';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { User } from '@/types';
+
+/**
+ * Upper bound on a single profile fetch (RPC + fallback query).
+ *
+ * `fetchUserProfile` runs inside the auth state-change callback, which gates
+ * the app's loading screen. A slow or unreachable backend must never be able to
+ * hold the UI hostage, so the fetch is bounded and resolves to `null` on
+ * timeout (the caller then falls back to the raw auth user).
+ */
+const PROFILE_FETCH_TIMEOUT_MS = 5000;
 
 export async function getCurrentUser(): Promise<User | null> {
   const supabase = getSupabaseSafe();
@@ -11,7 +22,7 @@ export async function getCurrentUser(): Promise<User | null> {
   return null;
 }
 
-export async function fetchUserProfile(userId: string): Promise<User | null> {
+async function fetchUserProfileUnbounded(userId: string): Promise<User | null> {
   const supabase = getSupabaseSafe();
   if (!supabase || !userId) return null;
 
@@ -73,6 +84,21 @@ export async function fetchUserProfile(userId: string): Promise<User | null> {
   } as User;
 }
 
+/**
+ * Fetch a user's full profile, bounded by a timeout.
+ *
+ * Never rejects and never hangs: on timeout or error it resolves to `null`, so
+ * callers on the startup path always make progress.
+ */
+export async function fetchUserProfile(userId: string): Promise<User | null> {
+  if (!userId) return null;
+  try {
+    return await withTimeout(fetchUserProfileUnbounded(userId), PROFILE_FETCH_TIMEOUT_MS, null);
+  } catch {
+    return null;
+  }
+}
+
 export async function updateUserProfile(userId: string, updates: Partial<User>): Promise<boolean> {
   const supabase = getSupabaseSafe();
   if (!supabase || !userId) return false;
@@ -125,8 +151,15 @@ export function onAuthStateChange(callback: (user: User | null) => void) {
     }
 
     if (session?.user) {
-      const user = await fetchUserProfile(session.user.id);
-      callback(user);
+      // `fetchUserProfile` is timeout-bounded and never throws, but guard the
+      // whole callback anyway: this callback gates the app's loading screen, so
+      // it must always report a result.
+      try {
+        const user = await fetchUserProfile(session.user.id);
+        callback(user);
+      } catch {
+        callback(null);
+      }
     } else {
       callback(null);
     }
@@ -187,7 +220,6 @@ export function subscribeToUserProfile(
     const user = await fetchUserProfile(userId);
     if (!disposed) onUser(user);
   };
-
   // Initial fetch so we have a value immediately even before realtime connects.
   void emit();
 

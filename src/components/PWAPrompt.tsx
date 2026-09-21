@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Download, X, Share, Smartphone } from 'lucide-react';
 import { usePwaInstall } from '@/hooks/usePwaInstall';
 import { safeGetStorageItem, safeSetStorageItem } from '@/lib/safeStorage';
+import { isNative } from '@/lib/platform';
 
 export default function PWAPrompt() {
   const { canInstall, installed, triggerInstall } = usePwaInstall();
@@ -11,6 +12,8 @@ export default function PWAPrompt() {
   const [dismissed, setDismissed] = useState(false);
 
   useEffect(() => {
+    // Web-only: installing a PWA makes no sense inside the native app.
+    if (isNative()) return;
     const isDismissed = safeGetStorageItem('pwa-prompt-dismissed');
     if (isDismissed || installed) return;
 
@@ -44,7 +47,7 @@ export default function PWAPrompt() {
     handleDismiss();
   };
 
-  if (installed || dismissed) return null;
+  if (isNative() || installed || dismissed) return null;
 
   return (
     <>
