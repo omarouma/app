@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">GaGa Chat</string>
+    <string name="title_activity_main">GaGa Chat</string>
+    <string name="package_name">gagachat.app</string>
+    <string name="custom_url_scheme">gagachat.app</string>
+</resources>

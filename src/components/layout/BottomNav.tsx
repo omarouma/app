@@ -1,6 +1,6 @@
 import { NavLink } from 'react-router-dom';
 import { memo, useMemo } from 'react';
-import { MessageCircle, Users, User, Flame, Search } from 'lucide-react';
+import { MessageCircle, Users, User, Phone, Search } from 'lucide-react';
 import { useChatStore } from '@/store/useChatStore';
 import { useGroupStore } from '@/store/useGroupStore';
 import { useNotificationStore } from '@/store/useNotificationStore';
@@ -8,8 +8,8 @@ import { useIsMounted, useIsSmallPhone, useIsTablet } from '@/hooks/use-mobile';
 
 const tabDefs = [
   { to: '/contacts', label: 'People', icon: Users },
-  { to: '/chats', label: 'Chat', icon: MessageCircle },
-  { to: '/timeline', label: 'Feed', icon: Flame, highlight: true },
+  { to: '/chats', label: 'Chat', icon: MessageCircle, highlight: true },
+  { to: '/calls', label: 'Calls', icon: Phone },
   { to: '/search', label: 'Search', icon: Search },
   { to: '/profile', label: 'Profile', icon: User },
 ];

@@ -143,35 +143,19 @@ export const COLLECTIONS = {
   CHATS: 'chats',
   MESSAGES: 'messages',
   USERS: 'users',
-  POSTS: 'posts',
-  STORIES: 'stories',
-  REELS: 'reels',
-  LIVE_STREAMS: 'live_streams',
   FRIENDSHIPS: 'friendships',
   FRIEND_REQUESTS: 'friend_requests',
   BLOCKED_USERS: 'blocked_users',
   NOTIFICATIONS: 'notifications',
-  ANALYTICS: 'analytics',
   SUBSCRIPTIONS: 'subscriptions',
   REFERRALS: 'referrals',
   TIPS: 'tips',
-  CREATOR_SUBSCRIPTIONS: 'creator_subscriptions',
-  ADS: 'ads',
-  ACHIEVEMENTS: 'achievements',
-  STREAKS: 'streaks',
-  POST_VIEWS: 'post_views',
-  STORY_HIGHLIGHTS: 'story_highlights',
-  BOOKMARKS: 'bookmarks',
-  BOOKMARK_COLLECTIONS: 'bookmark_collections',
   CALL_HISTORY: 'call_history',
-  HASHTAGS: 'hashtags',
-  POLLS: 'polls',
   WALLETS: 'wallets',
   PRESENCE: 'presence',
   TYPING: 'typing',
   REPORTS: 'reports',
   GROUPS: 'groups',
-  VOICE_ROOMS: 'voice_rooms',
   BROADCAST_LISTS: 'broadcast_lists',
   USER_REPORTS: 'user_reports',
 } as const;
@@ -568,25 +552,8 @@ const FK_COLUMN: Record<string, Record<string, string>> = {
   [COLLECTIONS.CHATS]: {
     [COLLECTIONS.MESSAGES]: 'chat_id',
   },
-  [COLLECTIONS.POSTS]: {
-    comments: 'post_id',
-  },
-  [COLLECTIONS.REELS]: {
-    comments: 'reel_id',
-  },
-  [COLLECTIONS.STORIES]: {
-    viewers: 'story_id',
-  },
   [COLLECTIONS.GROUPS]: {
     members: 'group_id',
-  },
-  [COLLECTIONS.LIVE_STREAMS]: {
-    comments: 'stream_id',
-    gifts: 'stream_id',
-    signals: 'stream_id',
-  },
-  [COLLECTIONS.VOICE_ROOMS]: {
-    signals: 'room_id',
   },
 };
 

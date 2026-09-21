@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   ArrowLeft, Settings, Edit3, Share2, Camera, Check, X,
-  MapPin, Link2, Mail, Phone, Users, Heart, Image, BadgeCheck,
+  MapPin, Link2, Mail, Phone, Users, Heart, MessageCircle, BadgeCheck,
   Copy, QrCode, Loader, MoreHorizontal,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/useAuthStore';
@@ -52,7 +52,6 @@ export default function ProfilePage() {
   const [saving, setSaving] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [uploadingCover, setUploadingCover] = useState(false);
-  const [userPostsCount, setUserPostsCount] = useState(0);
   const [showShareSheet, setShowShareSheet] = useState(false);
 
   const avatarInputRef = useRef<HTMLInputElement>(null);
@@ -134,28 +133,6 @@ export default function ProfilePage() {
     }
   }, [user, setUser]);
 
-  // Load actual post count for the profile owner
-  useEffect(() => {
-    if (!displayUser?.id) return;
-    let cancelled = false;
-    const loadCount = async () => {
-      try {
-        const { getSupabaseSafe } = await import('@/lib/supabase');
-        const supabase = getSupabaseSafe();
-        if (!supabase) return;
-        const { count } = await supabase
-          .from('posts')
-          .select('id', { count: 'exact', head: true })
-          .eq('user_id', displayUser.id);
-        if (!cancelled && typeof count === 'number') setUserPostsCount(count);
-      } catch {
-        // Non-fatal — keep count at 0 if query fails
-      }
-    };
-    loadCount();
-    return () => { cancelled = true; };
-  }, [displayUser?.id]);
-
   const handleCopyLink = useCallback(async () => {
     const ok = await copyToClipboard(profileUrl);
     if (ok) {
@@ -189,7 +166,6 @@ export default function ProfilePage() {
 
   const stats = [
     { label: 'Friends', value: displayUser?.friends?.length ?? (isOwnProfile ? friends.length : 0) },
-    { label: 'Posts', value: userPostsCount },
     { label: 'Followers', value: displayUser?.followers?.length ?? 0 },
     { label: 'Following', value: displayUser?.following?.length ?? 0 },
   ];
@@ -540,9 +516,9 @@ export default function ProfilePage() {
         {isOwnProfile && (
           <div className="grid grid-cols-3 gap-3">
             {[
-              { icon: Image, label: 'Posts', action: () => navigate('/timeline') },
               { icon: Users, label: 'Friends', action: () => navigate('/contacts') },
               { icon: Heart, label: 'Saved', action: () => navigate('/saved-messages') },
+              { icon: MessageCircle, label: 'Chats', action: () => navigate('/chats') },
             ].map(({ icon: Icon, label, action }) => (
               <button
                 key={label}

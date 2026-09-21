@@ -54,55 +54,22 @@ export const gaEvents = {
   callStarted: (type: 'voice' | 'video') =>
     trackEvent('call_started', { call_type: type }),
 
-  /** User created a post */
-  postCreated: (hasMedia: boolean, visibility: string) =>
-    trackEvent('post_created', { has_media: hasMedia, visibility }),
 
-  /** User liked a post */
-  postLiked: () => trackEvent('post_liked'),
 
-  /** User commented on a post */
-  postCommented: () => trackEvent('post_commented'),
 
-  /** User shared a post */
-  postShared: () => trackEvent('post_shared'),
 
-  /** User viewed reels */
-  reelViewed: (durationSeconds?: number) =>
-    trackEvent('reel_viewed', { duration_seconds: durationSeconds }),
 
-  /** User created a reel */
-  reelCreated: () => trackEvent('reel_created'),
 
-  /** User opened YouTube videos tab */
-  youtubeTabOpened: () => trackEvent('youtube_tab_opened'),
 
-  /** User watched a YouTube video */
-  youtubeVideoPlayed: (videoId: string) =>
-    trackEvent('youtube_video_played', { video_id: videoId }),
 
-  /** User joined a voice room */
-  voiceRoomJoined: (roomId: string) =>
-    trackEvent('voice_room_joined', { room_id: roomId }),
 
-  /** User created a voice room */
-  voiceRoomCreated: () => trackEvent('voice_room_created'),
 
-  /** User completed a daily challenge */
-  challengeCompleted: (challengeId: string) =>
-    trackEvent('challenge_completed', { challenge_id: challengeId }),
 
-  /** User checked in daily */
-  dailyCheckIn: (streak: number) =>
-    trackEvent('daily_checkin', { streak_days: streak }),
 
   /** User chatted with AI */
   aiChatUsed: (category: string) =>
     trackEvent('ai_chat_used', { category }),
 
-  /** User tipped a creator */
-  tipSent: (amount: number, currency: string) =>
-    trackEvent('tip_sent', { amount, currency }),
 
   /** User made a transaction */
   transaction: (type: string, amount: number, currency: string) =>
@@ -115,21 +82,10 @@ export const gaEvents = {
   /** User invited a friend */
   inviteSent: (method: string) => trackEvent('invite_sent', { method }),
 
-  /** User opened a story */
-  storyViewed: (userId: string) =>
-    trackEvent('story_viewed', { story_owner_id: userId }),
 
-  /** User opened marketplace */
-  marketplaceViewed: () => trackEvent('marketplace_viewed'),
 
-  /** User listed an item */
-  itemListed: () => trackEvent('item_listed'),
 
-  /** User opened events */
-  eventsViewed: () => trackEvent('events_viewed'),
 
-  /** User created an event */
-  eventCreated: () => trackEvent('event_created'),
 
   /** User opened wallet */
   walletOpened: () => trackEvent('wallet_opened'),

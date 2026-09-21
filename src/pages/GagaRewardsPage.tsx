@@ -91,7 +91,7 @@ export default function GagaRewardsPage() {
   const [missions, _setMissions] = useState<Mission[]>([
     { id: '1', title: 'Send a Message', description: 'Send 5 messages to friends', reward: 5, icon: Zap, color: 'text-[#00C300]', completed: false, progress: 3, maxProgress: 5 },
     { id: '2', title: 'Make a Voice Call', description: 'Complete 1 voice call', reward: 10, icon: Users, color: 'text-[#2196F3]', completed: false, progress: 0, maxProgress: 1 },
-    { id: '3', title: 'Post on Timeline', description: 'Create 1 timeline post', reward: 15, icon: Star, color: 'text-[#FF9800]', completed: false, progress: 0, maxProgress: 1 },
+    { id: '3', title: 'Start a Group Chat', description: 'Create 1 group chat', reward: 15, icon: Star, color: 'text-[#FF9800]', completed: false, progress: 0, maxProgress: 1 },
     { id: '4', title: 'Refer a Friend', description: 'Invite 1 friend to GaGa Chat', reward: 50, icon: Users, color: 'text-[#8B5CF6]', completed: false, progress: 0, maxProgress: 1 },
     { id: '5', title: 'Daily Login Streak', description: 'Login for 3 days in a row', reward: 20, icon: Flame, color: 'text-[#FF3B30]', completed: false, progress: 2, maxProgress: 3 },
     { id: '6', title: 'Save 100 Gaga Coins', description: 'Keep a balance of 100+ GAGA', reward: 25, icon: TrendingUp, color: 'text-[#00C300]', completed: coins >= 100, progress: Math.min(coins, 100), maxProgress: 100 },

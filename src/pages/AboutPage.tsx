@@ -18,7 +18,7 @@ export default function AboutPage() {
         {
             icon: Sparkles,
             title: 'Creative at heart',
-            text: 'We combine messaging, creator tools, live events, and community features so people can connect, create, and earn in one place.',
+            text: 'We combine messaging, voice and video calls, and group chats so people can connect simply and reliably, wherever they are.',
         },
     ];
 
@@ -37,9 +37,9 @@ export default function AboutPage() {
                         <BadgeCheck size={14} className="text-[#00C300]" />
                         <span className="text-[#00C300] text-sm font-medium">Built for people, not platforms</span>
                     </div>
-                    <h2 className="text-3xl font-bold text-[#111111] mb-3">The social app designed for everyday connection.</h2>
+                    <h2 className="text-3xl font-bold text-[#111111] mb-3">The messaging app designed for everyday connection.</h2>
                     <p className="text-[#8D8D8D] leading-relaxed">
-                        GaGa Chat brings together messaging, voice and video calls, creator tools, live rooms, storytelling, and community features in one trusted experience. Our mission is simple: make digital communication feel personal, fast, and genuinely useful.
+                        GaGa Chat brings together messaging, voice and video calls, group chats, and broadcast lists in one trusted experience. Our mission is simple: make digital communication feel personal, fast, and genuinely useful.
                     </p>
                 </section>
 
@@ -59,9 +59,9 @@ export default function AboutPage() {
                     <h3 className="text-xl font-bold text-[#111111] mb-3">Why people choose GaGa Chat</h3>
                     <ul className="space-y-3 text-sm text-[#8D8D8D] leading-relaxed">
                         <li>• Free, reliable communication without the friction of a VPN or complicated setup.</li>
-                        <li>• Creator-friendly tools that help communities grow, monetize, and stay engaged.</li>
+                        <li>• Group chats and broadcast lists that keep communities connected and informed.</li>
                         <li>• Privacy-first controls that help people feel safe sharing, connecting, and creating online.</li>
-                        <li>• A unified experience combining chat, social discovery, live experiences, and commerce.</li>
+                        <li>• A unified experience combining chat, calls, and contacts in one clean interface.</li>
                     </ul>
                 </section>
             </div>

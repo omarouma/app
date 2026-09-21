@@ -71,40 +71,39 @@ export async function sendAiMessage(
 function generateLocalResponse(userMessage: string): string {
   const lower = userMessage.toLowerCase();
 
-  if (lower.includes('caption') || lower.includes('reel') || lower.includes('post idea')) {
-    const captions = [
-      'When the coffee hits just right ☕✨ #MorningVibes',
-      "Plot twist: I'm the protagonist 🎬✨",
-      'Just vibing through life one reel at a time 🎵',
-      'Caption this: [insert your amazing moment here] 🌟',
-      'Living my best life, no filter needed 😎',
-      'POV: You found your people 💚',
-      "Monday mood: Let's make it legendary 🔥",
-    ];
-    return `Here's a caption idea for you:\n\n${captions[Math.floor(Math.random() * captions.length)]}\n\nWant more options? Just ask! 😊`;
+  if (lower.includes('hello') || lower.includes('hi') || lower.includes('hey')) {
+    return `Hey there! \u{1F44B} I'm GaGa AI.\n\nI can help you with:\n\n\u{1F4AC} Messaging tips & chat features\n\u{1F465} Group chat best practices\n\u{1F4DE} Voice & video calling help\n\u{1F512} Privacy & security settings\n\nWhat can I do for you today?`;
   }
 
-  if (lower.includes('friend') || lower.includes('meet') || lower.includes('people')) {
-    return `Great question! Here are your best moves on GaGa Chat:\n\n1. **Join Voice Rooms** — the easiest way to find your people 🎙️\n2. **Share Stories** — show your personality daily 📸\n3. **React & Comment** — start conversations on others' posts 💬\n4. **Use Nearby** — meet people close by 📍\n5. **Stay consistent** — show up every day 🔥`;
+  if (lower.includes('message') || lower.includes('chat') || lower.includes('text')) {
+    return `Here are some messaging tips on GaGa Chat:\n\n1. **Send in Chat** \u2014 tap the compose button to start a conversation \u{1F4AC}\n2. **Reply & React** \u2014 long-press a message to reply or react \u{1F44D}\n3. **Share Media** \u2014 attach photos, videos, voice notes and files \u{1F4CE}\n4. **Group Chats** \u2014 create a group from the Chats screen \u{1F465}\n5. **Stay in sync** \u2014 messages update in real time across devices \u{1F504}`;
   }
 
-  if (lower.includes('trend') || lower.includes('popular') || lower.includes('topic')) {
-    return `Here's what's hot on GaGa right now:\n\n🔥 #GaGaChallenges\n🎵 #ReelStar\n💚 #VoiceRoomVibes\n📸 #StoryOfTheDay\n\nPick a trending hashtag for your next reel! 🚀`;
+  if (lower.includes('call') || lower.includes('voice') || lower.includes('video')) {
+    return `GaGa Chat supports high-quality voice and video calls \u{1F4DE}\n\n\u2022 Start a call from any 1:1 or group chat\n\u2022 Tap the phone icon for voice, camera icon for video\n\u2022 Grant microphone/camera permission when prompted\n\u2022 Calls use ZEGOCLOUD for reliable global connectivity \u{1F30D}`;
+  }
+
+  if (lower.includes('group')) {
+    return `Group chats on GaGa Chat:\n\n\u2022 Create a group from the Chats screen \u{1F465}\n\u2022 Add members, set a name and photo\n\u2022 Admins can manage members and settings\n\u2022 Everyone gets real-time updates \u{1F504}`;
+  }
+
+  if (lower.includes('privacy') || lower.includes('security') || lower.includes('block')) {
+    return `Your privacy matters on GaGa Chat \u{1F512}\n\n\u2022 Control who can message and call you\n\u2022 Block or report users from their profile\n\u2022 Manage read receipts and last-seen visibility\n\u2022 All data is protected with row-level security`;
+  }
+
+  if (lower.includes('friend') || lower.includes('contact') || lower.includes('people')) {
+    return `Great question! Here are your best moves on GaGa Chat:\n\n1. **Add Friends** \u2014 search by username or scan a QR code \u{1F50D}\n2. **Start a Chat** \u2014 message anyone from your contacts \u{1F4AC}\n3. **Create Groups** \u2014 bring people together \u{1F465}\n4. **Make Calls** \u2014 voice or video, one-to-one or group \u{1F4DE}\n5. **Stay connected** \u2014 real-time messaging everywhere \u{1F30D}`;
   }
 
   if (lower.includes('motivate') || lower.includes('quote') || lower.includes('inspire')) {
     const quotes = [
-      'The best way to predict the future is to create it. ✨',
-      'Your vibe attracts your tribe. Keep shining! 💫',
-      'Every day is a fresh start. Make it count! 🌅',
-      'Success is the sum of small efforts repeated daily. 💪',
+      'The best way to predict the future is to create it. \u2728',
+      'Your vibe attracts your tribe. Keep shining! \u{1F4AB}',
+      'Every day is a fresh start. Make it count! \u{1F305}',
+      'Success is the sum of small efforts repeated daily. \u{1F4AA}',
     ];
-    return `${quotes[Math.floor(Math.random() * quotes.length)]}\n\nYou've got this! Consistency wins. 🔥`;
+    return `${quotes[Math.floor(Math.random() * quotes.length)]}\n\nYou've got this! Consistency wins. \u{1F525}`;
   }
 
-  if (lower.includes('hello') || lower.includes('hi') || lower.includes('hey')) {
-    return `Hey there! 👋 I'm GaGa AI.\n\nI can help you with:\n\n💡 Content ideas & captions\n🤝 Tips for making friends\n📈 Trending topics & strategies\n✨ Motivation & inspiration\n\nWhat can I do for you today?`;
-  }
-
-  return `That's a great question! 🤔\n\nI'd suggest trying:\n\n• Pick a trending topic in the Feed\n• Jump into a Voice Room to connect live\n• Share a creative caption for your next reel\n\nStick with it and you'll see results! 💚`;
+  return `That's a great question! \u{1F914}\n\nI'd suggest trying:\n\n\u2022 Start a new chat from the Chats screen\n\u2022 Create a group to connect with several people\n\u2022 Try a voice or video call\n\nStick with it and you'll see results! \u{1F49A}`;
 }

@@ -2,25 +2,20 @@ import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
-  Search, X, User, Hash, MessageSquare, Calendar, ShoppingBag, Users, Loader,
+  Search, X, User, MessageSquare, Users, Loader,
   ArrowRight, TrendingUp, Clock, SlidersHorizontal
 } from 'lucide-react';
-import { useEnhancedTimelineStore } from '@/store/useEnhancedTimelineStore';
-import { useEventStore } from '@/store/useEventStore';
-import { useMarketplaceStore } from '@/store/useMarketplaceStore';
 import { useGroupStore } from '@/store/useGroupStore';
-import { isFirestoreAvailable, queryCollection, COLLECTIONS, where, orderBy, limit } from '@/lib/firestore';
+import { useChatStore } from '@/store/useChatStore';
+import { isFirestoreAvailable, queryCollection, COLLECTIONS, where, limit } from '@/lib/firestore';
 import { safeGetStorageItem, safeRemoveStorageItem, safeSetStorageItem } from '@/lib/safeStorage';
-import { getDefaultAvatar, formatTime } from '@/lib/utils';
-import type { Chat, TimelinePost, User as UserType, EventData, MarketplaceItem, Hashtag } from '@/types';
+import { getDefaultAvatar } from '@/lib/utils';
+import type { Chat, User as UserType } from '@/types';
 
 const TABS = [
   { key: 'all', label: 'All', icon: Search },
   { key: 'users', label: 'People', icon: User },
-  { key: 'posts', label: 'Posts', icon: MessageSquare },
-  { key: 'hashtags', label: 'Tags', icon: Hash },
-  { key: 'events', label: 'Events', icon: Calendar },
-  { key: 'marketplace', label: 'Market', icon: ShoppingBag },
+  { key: 'chats', label: 'Chats', icon: MessageSquare },
   { key: 'groups', label: 'Groups', icon: Users },
 ] as const;
 
@@ -33,15 +28,13 @@ interface SearchResult {
   subtitle: string;
   image?: string;
   meta?: string;
-  data: UserType | TimelinePost | EventData | MarketplaceItem | Chat | Hashtag;
+  data: UserType | Chat;
 }
 
 export default function SearchPage() {
   const navigate = useNavigate();
-  const { searchHashtags } = useEnhancedTimelineStore();
-  const { events } = useEventStore();
-  const { listings } = useMarketplaceStore();
   const { groups } = useGroupStore();
+  const { chats } = useChatStore();
 
   const [query, setQuery] = useState('');
   const [activeTab, setActiveTab] = useState<TabKey>('all');
@@ -49,7 +42,7 @@ export default function SearchPage() {
   const [loading, setLoading] = useState(false);
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
   const [trendingSearches] = useState([
-    'gagachat', 'tech', 'gaming', 'music', 'food', 'travel', 'photography', 'memes', 'coding', 'fitness',
+    'gagachat', 'friends', 'family', 'work', 'team', 'community', 'support', 'news',
   ]);
 
   // Load recent searches from localStorage
@@ -117,79 +110,23 @@ export default function SearchPage() {
         }
       }
 
-      // Search posts
-      if (activeTab === 'all' || activeTab === 'posts') {
-        if (isFirestoreAvailable()) {
-          const postData = await queryCollection<TimelinePost>(COLLECTIONS.POSTS, [
-            where('content', '>=', term),
-            where('content', '<=', term + '\uf8ff'),
-            orderBy('createdAt', 'desc'),
-            limit(20),
-          ]);
-          (postData || []).forEach((p) => {
-            all.push({
-              id: p.id,
-              type: 'posts',
-              title: p.content?.slice(0, 60) || 'Post',
-              subtitle: p.userName || 'User',
-              image: p.images?.[0] || undefined,
-              meta: p.timestamp ? formatTime(p.timestamp) : '',
-              data: p,
-            });
-          });
-        }
-      }
-
-      // Search hashtags
-      if (activeTab === 'all' || activeTab === 'hashtags') {
-        const hashtags = await searchHashtags(term);
-        hashtags.forEach((h: Hashtag) => {
-          all.push({
-            id: h.id,
-            type: 'hashtags',
-            title: '#' + h.tag,
-            subtitle: `${h.postCount.toLocaleString()} posts`,
-            meta: h.trending ? 'Trending' : '',
-            data: h,
-          });
-        });
-      }
-
-      // Search events
-      if (activeTab === 'all' || activeTab === 'events') {
-        const eventResults = events.filter(e =>
-          e.title.toLowerCase().includes(term) ||
-          e.description.toLowerCase().includes(term) ||
-          e.location.toLowerCase().includes(term)
+      // Search existing 1:1 chats by contact name
+      if (activeTab === 'all' || activeTab === 'chats') {
+        const chatResults = chats.filter((c: Chat) =>
+          c.type !== 'group' &&
+          ((c.name || '').toLowerCase().includes(term) ||
+            (typeof c.lastMessage === 'string' ? c.lastMessage : c.lastMessage?.content || '').toLowerCase().includes(term))
         );
-        eventResults.forEach((e: EventData) => {
+        chatResults.forEach((c) => {
+          const lastMsg = typeof c.lastMessage === 'string' ? c.lastMessage : c.lastMessage?.content || '';
           all.push({
-            id: e.id,
-            type: 'events',
-            title: e.title,
-            subtitle: `${e.location} · ${e.startDate.toLocaleDateString()}`,
-            meta: `${e.attendees.length} going`,
-            data: e,
-          });
-        });
-      }
-
-      // Search marketplace
-      if (activeTab === 'all' || activeTab === 'marketplace') {
-        const marketResults = listings.filter(l =>
-          l.title.toLowerCase().includes(term) ||
-          l.description.toLowerCase().includes(term) ||
-          l.category.toLowerCase().includes(term)
-        );
-        marketResults.forEach((l: MarketplaceItem) => {
-          all.push({
-            id: l.id,
-            type: 'marketplace',
-            title: l.title,
-            subtitle: `৳${l.price.toLocaleString()} · ${l.condition}`,
-            image: l.images?.[0] || undefined,
-            meta: l.status,
-            data: l,
+            id: c.id,
+            type: 'chats',
+            title: c.name || 'Chat',
+            subtitle: lastMsg || 'No messages yet',
+            image: c.avatar || getDefaultAvatar(c.name || 'C'),
+            meta: 'Chat',
+            data: c,
           });
         });
       }
@@ -206,6 +143,7 @@ export default function SearchPage() {
             type: 'groups',
             title: g.name || 'Group',
             subtitle: `${g.participants.length} members`,
+            image: g.avatar || undefined,
             meta: 'Group',
             data: g,
           });
@@ -217,7 +155,7 @@ export default function SearchPage() {
 
     setResults(all);
     setLoading(false);
-  }, [activeTab, events, listings, groups, searchHashtags]);
+  }, [activeTab, groups, chats]);
 
   // Debounced search
   useEffect(() => {
@@ -233,21 +171,8 @@ export default function SearchPage() {
       case 'users':
         navigate('/profile/' + result.id);
         break;
-      case 'posts':
-        navigate('/timeline', { state: { highlightPostId: result.id } });
-        break;
-      case 'hashtags':
-        if ('tag' in result.data) {
-          navigate('/hashtags', { state: { tag: result.data.tag } });
-        } else {
-          navigate('/hashtags');
-        }
-        break;
-      case 'events':
-        navigate('/events', { state: { highlightEventId: result.id } });
-        break;
-      case 'marketplace':
-        navigate('/marketplace', { state: { highlightItemId: result.id } });
+      case 'chats':
+        navigate('/chat/' + result.id);
         break;
       case 'groups':
         navigate(`/group/${result.id}`);
@@ -274,7 +199,7 @@ export default function SearchPage() {
               type="text"
               value={query}
               onChange={e => setQuery(e.target.value)}
-              placeholder="Search people, posts, tags, events..."
+              placeholder="Search people, chats, groups..."
               className="w-full bg-[#1a1a1a] text-white pl-10 pr-10 py-2.5 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#00C300] placeholder:text-[#8D8D8D]"
               autoFocus
             />

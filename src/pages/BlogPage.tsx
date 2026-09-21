@@ -3,9 +3,9 @@ import { Link, useNavigate } from 'react-router-dom';
 
 const posts = [
     {
-        title: 'How creators grow communities that actually convert',
+        title: 'Building group chats that actually stay active',
         date: 'April 2026',
-        summary: 'A practical playbook for building trust, engagement, and recurring support through live interactions and better content systems.',
+        summary: 'A practical playbook for keeping group conversations healthy, organized, and genuinely useful for everyone involved.',
     },
     {
         title: 'Privacy-first messaging: what users really expect',
@@ -13,9 +13,9 @@ const posts = [
         summary: 'The features people care about most—account control, clarity, and peace of mind—when choosing their communication tools.',
     },
     {
-        title: 'Why communities are replacing simple chats',
+        title: 'Why reliable calls matter more than ever',
         date: 'February 2026',
-        summary: 'Modern digital communication is moving toward social layers, creator ecosystems, and richer everyday experiences.',
+        summary: 'Modern digital communication depends on clear, low-latency voice and video that works everywhere, even on weak connections.',
     },
 ];
 
@@ -39,7 +39,7 @@ export default function BlogPage() {
                     </div>
                     <h2 className="text-3xl font-bold text-[#111111] mb-3">Fresh thinking for global communities.</h2>
                     <p className="text-[#8D8D8D] leading-relaxed max-w-2xl">
-                        Explore ideas around creator growth, digital trust, community experiences, and what makes social apps genuinely useful in the modern world.
+                        Explore ideas around messaging, digital trust, group communication, and what makes a chat app genuinely useful in the modern world.
                     </p>
                 </section>
 

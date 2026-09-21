@@ -5,9 +5,8 @@ import { motion } from 'framer-motion';
 import {
   Settings, Bell, Shield, UserCircle, HelpCircle, LogOut,
   ChevronRight, Gift, Coins, Info, QrCode,
-  Clock, BarChart3, Hash, Bookmark, Play,
-  UserPlus, Calendar, Crown, ShoppingBag, Star, Ban, Search, Users,
-  Radio, Trophy, Sparkles, Mic,
+  UserPlus, Crown, Star, Ban, Search, Users, Bookmark,
+  Sparkles, Phone, MessageCircle, UserCheck,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useAuth } from '@/context/AuthContext';
@@ -46,32 +45,21 @@ export default function MorePage() {
 
   const sections: Array<{ title: string; items: NavItem[] }> = [
     {
-      title: 'New & Exciting',
+      title: 'Communication',
       items: [
-        { icon: Radio, label: 'Voice Rooms', subtitle: 'Join live audio conversations', to: '/voice-rooms', color: 'text-[#00C300]', bg: 'bg-[#00C300]/10' },
-        { icon: Mic, label: 'Live Streams', subtitle: 'Go live or watch broadcasts', to: '/live-streams', color: 'text-[#FF3B30]', bg: 'bg-[#FF3B30]/10' },
-        { icon: Trophy, label: 'Daily Challenges', subtitle: 'Complete tasks, earn rewards & XP', to: '/challenges', color: 'text-[#FF4081]', bg: 'bg-[#FF4081]/10' },
-        { icon: Sparkles, label: 'GaGa AI', subtitle: 'Your AI assistant for content & ideas', to: '/ai-chat', color: 'text-[#8B5CF6]', bg: 'bg-[#8B5CF6]/10' },
-      ],
-    },
-    {
-      title: 'Social & Discover',
-      items: [
-        { icon: Search, label: 'Search', subtitle: 'Find people, posts, and more', to: '/search', color: 'text-[#2196F3]', bg: 'bg-[#2196F3]/10' },
-        { icon: Clock, label: 'Timeline', subtitle: 'Your social feed', to: '/timeline', color: 'text-[#00C300]', bg: 'bg-[#00C300]/10' },
-        { icon: Play, label: 'Reels', subtitle: 'Short videos', to: '/reels', color: 'text-[#FF4081]', bg: 'bg-[#FF4081]/10' },
-        { icon: Calendar, label: 'Events', subtitle: 'Discover events near you', to: '/events', color: 'text-[#FF9800]', bg: 'bg-[#FF9800]/10' },
-        { icon: ShoppingBag, label: 'Marketplace', subtitle: 'Buy & sell items', to: '/marketplace', color: 'text-[#4CAF50]', bg: 'bg-[#4CAF50]/10' },
-        { icon: Hash, label: 'Hashtags', subtitle: 'Trending topics', to: '/hashtags', color: 'text-[#00BCD4]', bg: 'bg-[#00BCD4]/10' },
-        { icon: Bookmark, label: 'Bookmarks', subtitle: 'Saved posts & collections', to: '/bookmarks', color: 'text-[#FFD700]', bg: 'bg-[#FFD700]/10' },
+        { icon: MessageCircle, label: 'Chats', subtitle: 'Your conversations', to: '/chats', color: 'text-[#00C300]', bg: 'bg-[#00C300]/10' },
+        { icon: Phone, label: 'Calls', subtitle: 'Voice & video call history', to: '/calls', color: 'text-[#2196F3]', bg: 'bg-[#2196F3]/10' },
+        { icon: Users, label: 'Contacts', subtitle: 'People you can message', to: '/contacts', color: 'text-[#9C27B0]', bg: 'bg-[#9C27B0]/10' },
+        { icon: UserPlus, label: 'Add Friends', subtitle: 'Find and invite people', to: '/add-friends', color: 'text-[#00C3C3]', bg: 'bg-[#00C3C3]/10' },
         { icon: Users, label: 'Broadcast Lists', subtitle: 'Send messages to multiple contacts', to: '/broadcast-lists', color: 'text-[#9C27B0]', bg: 'bg-[#9C27B0]/10' },
+        { icon: Sparkles, label: 'GaGa AI', subtitle: 'Your AI assistant for chats & ideas', to: '/ai-chat', color: 'text-[#8B5CF6]', bg: 'bg-[#8B5CF6]/10' },
       ],
     },
     {
-      title: 'Creator Tools',
+      title: 'Discover',
       items: [
-        { icon: BarChart3, label: 'Analytics', subtitle: 'Track your performance', to: '/analytics', color: 'text-[#8B5CF6]', bg: 'bg-[#8B5CF6]/10' },
-        { icon: Crown, label: 'Premium', subtitle: user?.isPremium ? 'Active subscription' : 'Unlock premium features', to: '/premium', color: 'text-[#FF9800]', bg: 'bg-[#FF9800]/10' },
+        { icon: Search, label: 'Search', subtitle: 'Find people, groups, and messages', to: '/search', color: 'text-[#2196F3]', bg: 'bg-[#2196F3]/10' },
+        { icon: UserCheck, label: 'Sent Requests', subtitle: 'Pending friend requests', to: '/sent-requests', color: 'text-[#00C3C3]', bg: 'bg-[#00C3C3]/10' },
       ],
     },
     {
@@ -100,6 +88,7 @@ export default function MorePage() {
           color: 'text-[#8B5CF6]',
           bg: 'bg-[#8B5CF6]/10',
         },
+        { icon: Crown, label: 'Premium', subtitle: user?.isPremium ? 'Active subscription' : 'Unlock premium features', to: '/premium', color: 'text-[#FF9800]', bg: 'bg-[#FF9800]/10' },
       ],
     },
     {

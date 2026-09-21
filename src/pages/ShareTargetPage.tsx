@@ -3,12 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   Share, X, Image, Link, FileText,
-  ChevronRight, User, MessageCircle, TrendingUp
+  ChevronRight, User, MessageCircle
 } from 'lucide-react';
 import { useAuthStore } from '@/store/useAuthStore';
-import { useEnhancedTimelineStore } from '@/store/useEnhancedTimelineStore';
 import { useChatStore } from '@/store/useChatStore';
-import { uploadMediaBlob } from '@/lib/storage';
 import { toast } from 'sonner';
 
 interface SharedData {
@@ -22,7 +20,6 @@ interface SharedData {
 export default function ShareTargetPage() {
   const navigate = useNavigate();
   const { user } = useAuthStore();
-  const { createPost } = useEnhancedTimelineStore();
   const { chats } = useChatStore();
   const [sharedData, setSharedData] = useState<SharedData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -82,42 +79,6 @@ export default function ShareTargetPage() {
     setMediaFiles(prev => [...prev, ...files]);
   };
 
-  const handlePostToTimeline = async () => {
-    if (!user) { toast.error('Please log in first'); return; }
-    try {
-      const text = `${caption}\n\n${sharedData?.text || ''}\n${sharedData?.url || ''}`.trim();
-
-      // Upload media files to cloud storage
-      const uploadedUrls: string[] = [];
-      const videoUrls = new Set<string>();
-
-      for (const file of mediaFiles) {
-        const isVideo = file.type.startsWith('video/');
-        const kind = isVideo ? 'reels' : 'posts';
-        const url = await uploadMediaBlob({
-          file,
-          kind,
-          mimeType: file.type,
-        });
-        if (url) {
-          uploadedUrls.push(url);
-          if (isVideo) videoUrls.add(url);
-        }
-      }
-
-      // Separate images and video URLs
-      const imageUrls = uploadedUrls.filter(url => !videoUrls.has(url));
-      const videoUrl = Array.from(videoUrls)[0]; // First video if any
-
-      await createPost(user.id, text, imageUrls, 'public', undefined, undefined, undefined, undefined, undefined, videoUrl);
-      toast.success('Posted to timeline!');
-      navigate('/timeline');
-    } catch (err) {
-      console.error('Failed to post:', err);
-      toast.error('Failed to post');
-    }
-  };
-
   const handleShareInChat = (chatId: string) => {
     if (!user) { toast.error('Please log in first'); return; }
     const text = `${caption}\n\n${sharedData?.text || ''}\n${sharedData?.url || ''}`.trim();
@@ -159,14 +120,14 @@ export default function ShareTargetPage() {
             <Share size={48} className="mx-auto mb-4 text-[#8D8D8D]" />
             <p className="text-[#8D8D8D] text-sm mb-4">No content shared</p>
             <p className="text-xs text-[#8D8D8D] mb-6">
-              Share content from other apps to GaGa Chat to post it here.
+              Share content from other apps to GaGa Chat to send it in a conversation.
             </p>
             <button
               type="button"
-              onClick={() => navigate('/timeline')}
+              onClick={() => navigate('/chats')}
               className="bg-[#00C300] text-black px-6 py-2.5 rounded-xl font-medium text-sm"
             >
-              Go to Timeline
+              Go to Chats
             </button>
           </div>
         ) : (
@@ -214,7 +175,7 @@ export default function ShareTargetPage() {
 
             {/* Caption input */}
             <div className="mb-4">
-              <label className="text-xs font-medium text-[#8D8D8D] uppercase tracking-wide mb-2 block">Add a caption</label>
+              <label className="text-xs font-medium text-[#8D8D8D] uppercase tracking-wide mb-2 block">Add a message</label>
               <textarea
                 value={caption}
                 onChange={(e) => setCaption(e.target.value)}
@@ -274,28 +235,15 @@ export default function ShareTargetPage() {
             <div className="space-y-3">
               <button
                 type="button"
-                onClick={handlePostToTimeline}
+                onClick={() => setShowChatPicker(true)}
                 className="w-full flex items-center gap-3 bg-[#00C300] text-black rounded-2xl p-4 hover:bg-[#00b300] transition-colors"
               >
-                <TrendingUp size={20} />
+                <MessageCircle size={20} />
                 <div className="text-left flex-1">
-                  <p className="text-sm font-semibold">Post to Timeline</p>
-                  <p className="text-xs opacity-70">Share with all your followers</p>
+                  <p className="text-sm font-semibold">Send in Chat</p>
+                  <p className="text-xs opacity-70">Share with a specific conversation</p>
                 </div>
                 <ChevronRight size={18} />
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setShowChatPicker(true)}
-                className="w-full flex items-center gap-3 bg-[#F5F5F5] rounded-2xl p-4 hover:bg-[#EBEBEB] transition-colors"
-              >
-                <MessageCircle size={20} className="text-[#00C300]" />
-                <div className="text-left flex-1">
-                  <p className="text-sm font-semibold text-[#111111]">Send in Chat</p>
-                  <p className="text-xs text-[#8D8D8D]">Share with a specific conversation</p>
-                </div>
-                <ChevronRight size={18} className="text-[#8D8D8D]" />
               </button>
             </div>
           </>

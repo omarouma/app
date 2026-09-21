@@ -8,12 +8,9 @@ const footerLinks = [
     links: [
       { label: 'Features', href: '/#features' },
       { label: 'Security', href: '/#security' },
-      { label: 'Reels', to: '/reels' },
-      { label: 'Live Streams', to: '/live-streams' },
-      { label: 'Voice Rooms', to: '/voice-rooms' },
-      { label: 'Events', to: '/events' },
-      { label: 'Marketplace', to: '/marketplace' },
-      { label: 'Creator Center', to: '/creators' },
+      { label: 'Messaging', to: '/auth' },
+      { label: 'Voice & Video Calls', to: '/auth' },
+      { label: 'Group Chats', to: '/auth' },
       { label: 'Download', to: '/auth' },
     ],
   },
@@ -56,7 +53,7 @@ export default function Footer() {
               <Logo size={32} />
             </Link>
             <p className="text-[#8D8D8D] text-sm max-w-xs leading-relaxed mb-4">
-              GaGa Chat - The future of messaging. Free global messaging, HD voice &amp; video calls, reels, live streaming, marketplace, and creator tools. Secure, fast, and beautiful. Free for everyone in Bangladesh and worldwide.
+              GaGa Chat - The future of messaging. Free global messaging, HD voice & video calls, and group chats. Secure, fast, and beautiful. Free for everyone in Bangladesh and worldwide.
             </p>
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 rounded-lg bg-white border border-[#EBEBEB] flex items-center justify-center" title="Messaging">

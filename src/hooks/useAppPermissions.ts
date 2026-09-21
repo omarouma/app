@@ -174,14 +174,14 @@ async function requestAudio(): Promise<PermissionStatus> {
 export const APP_PERMISSIONS: AppPermission[] = [
     {
         id: 'camera', label: 'Camera', icon: '📷',
-        description: 'Video calls, reels, stories, and live streaming',
+        description: 'Video calls and video messages',
         requiresUserGesture: true,
         isSupported: () => typeof navigator !== 'undefined' && !!navigator.mediaDevices?.getUserMedia,
         request: () => requestMedia('video'), check: () => checkMedia('video'),
     },
     {
         id: 'microphone', label: 'Microphone', icon: '🎙️',
-        description: 'Voice & video calls, voice messages, and live streaming',
+        description: 'Voice & video calls and voice messages',
         requiresUserGesture: true,
         isSupported: () => typeof navigator !== 'undefined' && !!navigator.mediaDevices?.getUserMedia,
         request: () => requestMedia('audio'), check: () => checkMedia('audio'),
@@ -195,7 +195,7 @@ export const APP_PERMISSIONS: AppPermission[] = [
     },
     {
         id: 'location', label: 'Location', icon: '📍',
-        description: 'Nearby friends, events, and marketplace items',
+        description: 'Share your location in chats',
         requiresUserGesture: true,
         isSupported: () => typeof navigator !== 'undefined' && !!navigator.geolocation,
         request: requestLocation, check: checkLocation,
@@ -212,7 +212,7 @@ export const APP_PERMISSIONS: AppPermission[] = [
     },
     {
         id: 'photos', label: 'Photos & Videos', icon: '🖼️',
-        description: 'Share media in chats, posts, and reels',
+        description: 'Share photos and videos in chats',
         requiresUserGesture: true,
         isSupported: () => typeof window !== 'undefined' && !!window.isSecureContext,
         request: async () => 'granted', check: checkPhotos,

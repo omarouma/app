@@ -143,86 +143,10 @@ export interface PollData {
   totalVotes: number;
 }
 
-export interface TimelinePost {
-  id: string;
-  userId: string;
-  content: string;
-  images: string[];
-  imageCaptions?: string[];
-  likes: string[];
-  comments: PostComment[];
-  shares: string[];
-  timestamp: Date;
-  visibility: 'public' | 'friends' | 'private' | 'followers' | 'groups' | 'custom' | 'close_friends';
-  liked?: boolean;
-  pollData?: PostPollData;
-  userName?: string;
-  userAvatar?: string;
-  videoUrl?: string;
-  location?: string;
-  lat?: number;
-  lng?: number;
-  hashtags?: string[];
-  mentions?: string[];
-  contentWarning?: string;
-  linkPreview?: LinkPreviewData;
-  reactions?: PostReactions;
-  savedBy?: string[];
-  repostedBy?: string[];
-  originalPostId?: string;
-  edited?: boolean;
-  editedAt?: Date;
-  pinned?: boolean;
-  commentCount?: number;
-  shareCount?: number;
-  viewCount?: number;
-  reachCount?: number;
-  impressionCount?: number;
-  mediaType?: 'text' | 'photo' | 'video' | 'audio' | 'gif' | 'carousel' | 'poll' | 'event' | 'reel' | 'story' | 'live' | 'blog' | 'marketplace';
-  eventData?: EventData;
-}
 
-export interface PostReactions {
-  like: string[];
-  love: string[];
-  haha: string[];
-  wow: string[];
-  sad: string[];
-  angry: string[];
-  clap: string[];
-  fire: string[];
-}
 
-export interface LinkPreviewData {
-  url: string;
-  title: string;
-  description: string;
-  image?: string;
-  domain?: string;
-}
 
-export interface PostPollData {
-  question: string;
-  options: PollOption[];
-  totalVotes: number;
-  endDate?: Date;
-}
 
-export interface PostComment {
-  id: string;
-  userId: string;
-  content: string;
-  timestamp: Date;
-  likes: string[];
-  replies?: PostComment[];
-  userName?: string;
-  userAvatar?: string;
-  reactions?: Record<string, string[]>;
-  pinned?: boolean;
-  imageUrl?: string;
-  voiceUrl?: string;
-  gifUrl?: string;
-}
 
 export interface FriendRequest {
   id: string;
@@ -270,7 +194,7 @@ export interface UserReport {
   actionTaken?: string;
   createdAt: Date;
   contentId?: string;
-  contentType?: 'post' | 'comment' | 'user' | 'message' | 'group' | 'story' | 'reel';
+  contentType?: 'user' | 'message' | 'group' | 'chat' | 'call';
   severity?: 'low' | 'medium' | 'high' | 'critical';
 }
 
@@ -283,9 +207,7 @@ export interface PrivacySettings {
   hideProfilePhoto: boolean;
   allowSearchByPhone: boolean;
   allowSearchByEmail: boolean;
-  postDefaultVisibility: 'public' | 'friends' | 'followers' | 'private' | 'close_friends';
   allowMentions: 'everyone' | 'friends' | 'nobody';
-  allowStoryReplies: 'everyone' | 'friends' | 'nobody';
   ageRestricted?: boolean;
 }
 
@@ -384,7 +306,6 @@ export interface ThemeSettings {
     whoCanComment: 'everyone' | 'friends' | 'nobody';
     groupAddPrivacy: 'everyone' | 'friends_of_friends' | 'nobody';
     allowScreenshot: boolean;
-    storyPrivacy?: 'everyone' | 'friends' | 'close_friends';
     callPrivacy?: 'everyone' | 'friends' | 'nobody';
     profilePhotoPrivacy?: 'everyone' | 'friends' | 'nobody';
   };
@@ -436,245 +357,22 @@ export interface PhoneAuthSession {
   verified: boolean;
 }
 
-export interface Story {
-  id: string;
-  userId: string;
-  mediaUrl: string;
-  type: 'image' | 'video';
-  timestamp: Date;
-  viewedBy: string[];
-  userName?: string;
-  userAvatar?: string;
-  musicUrl?: string;
-  stickers?: StorySticker[];
-  pollData?: StoryPollData;
-  questionData?: StoryQuestionData;
-  countdownData?: StoryCountdownData;
-  mentions?: string[];
-  linkUrl?: string;
-  reactions?: Record<string, string[]>;
-  highlightId?: string;
-  highlightTitle?: string;
-  expiresAt: Date;
-}
 
-export interface StorySticker {
-  type: 'text' | 'emoji' | 'poll' | 'question' | 'countdown' | 'mention' | 'location' | 'hashtag' | 'link';
-  content: string;
-  position: { x: number; y: number };
-  rotation?: number;
-  scale?: number;
-  color?: string;
-  style?: 'classic' | 'typewriter' | 'strong' | 'neon';
-}
 
-export interface StoryPollData {
-  question: string;
-  options: [string, string];
-  votes: Record<string, number>;
-  votedBy: string[];
-}
 
-export interface StoryQuestionData {
-  question: string;
-  responses: { userId: string; response: string; timestamp: Date }[];
-}
 
-export interface StoryCountdownData {
-  title: string;
-  targetDate: Date;
-}
 
-export interface StoryHighlight {
-  id: string;
-  userId: string;
-  title: string;
-  coverImage: string;
-  storyIds: string[];
-  createdAt: Date;
-}
 
-export interface Reel {
-  id: string;
-  userId: string;
-  videoUrl: string;
-  thumbnailUrl?: string;
-  caption: string;
-  musicTitle?: string;
-  musicUrl?: string;
-  filters?: string[];
-  filter?: string;
-  effects?: string[];
-  speed?: number;
-  voiceover?: string;
-  captions?: string;
-  duration: number;
-  likes: string[];
-  comments: PostComment[];
-  shares: string[];
-  savedBy: string[];
-  viewedBy: string[];
-  timestamp: Date;
-  userName?: string;
-  userAvatar?: string;
-  tags?: string[];
-  mentions?: string[];
-  remixOf?: string;
-  duetWith?: string;
-  template?: string;
-  viewCount: number;
-  reactions?: PostReactions;
-  category?: string;
-}
 
-export interface LiveStream {
-  id: string;
-  userId: string;
-  title: string;
-  thumbnailUrl?: string;
-  isLive: boolean;
-  startedAt: Date;
-  endedAt?: Date;
-  viewers: string[];
-  viewerCount: number;
-  peakViewers: number;
-  comments: LiveComment[];
-  reactions: LiveReactions;
-  gifts: LiveGift[];
-  pinnedComment?: string;
-  mutedViewers: string[];
-  replayUrl?: string;
-  replayAvailable: boolean;
-  userName?: string;
-  userAvatar?: string;
-  isScreenSharing?: boolean;
-  multiGuestIds?: string[];
-  category?: string;
-  hashtags?: string[];
-}
 
-export interface LiveComment {
-  id: string;
-  userId: string;
-  content: string;
-  timestamp: Date;
-  userName?: string;
-  isPinned?: boolean;
-  isModerator?: boolean;
-}
 
-export interface LiveReactions {
-  like: number;
-  love: number;
-  haha: number;
-  wow: number;
-  fire: number;
-  clap: number;
-}
 
-export interface LiveGift {
-  id: string;
-  userId: string;
-  type: 'rose' | 'heart' | 'star' | 'crown' | 'diamond' | 'rocket';
-  amount: number;
-  currency: 'coins' | 'USD' | 'BDT' | 'RMB' | 'INR'; // BDT for backwards compatibility
-  timestamp: Date;
-  userName?: string;
-  message?: string;
-}
 
-export interface EventData {
-  id: string;
-  userId: string;
-  title: string;
-  description: string;
-  location: string;
-  lat?: number;
-  lng?: number;
-  startDate: Date;
-  endDate: Date;
-  coverImage?: string;
-  attendees: string[];
-  maybes: string[];
-  notGoing: string[];
-  invited: string[];
-  privacy: 'public' | 'friends' | 'private';
-  cost?: number;
-  currency?: 'USD' | 'BDT';
-  isOnline: boolean;
-  onlineLink?: string;
-  category?: string;
-  capacity?: number;
-  createdAt: Date;
-  userName?: string;
-  userAvatar?: string;
-}
 
-export interface MarketplaceItem {
-  id: string;
-  userId: string;
-  title: string;
-  description: string;
-  price: number;
-  currency: 'USD' | 'BDT';
-  images: string[];
-  category: string;
-  condition: 'new' | 'like_new' | 'good' | 'fair' | 'poor';
-  location: string;
-  lat?: number;
-  lng?: number;
-  isNegotiable: boolean;
-  status: 'active' | 'sold' | 'reserved' | 'deleted';
-  favorites: string[];
-  views: number;
-  createdAt: Date;
-  userName?: string;
-  userAvatar?: string;
-  offers?: MarketplaceOffer[];
-  chatRequests?: string[];
-  tags?: string[];
-}
 
-export interface MarketplaceOffer {
-  id: string;
-  userId: string;
-  amount: number;
-  message: string;
-  status: 'pending' | 'accepted' | 'rejected';
-  timestamp: Date;
-  userName?: string;
-}
 
-export interface Hashtag {
-  id: string;
-  tag: string;
-  postCount: number;
-  followers: string[];
-  trending: boolean;
-  trendRank?: number;
-  relatedTags?: string[];
-  description?: string;
-}
 
-export interface Bookmark {
-  id: string;
-  userId: string;
-  postId: string;
-  collectionId?: string;
-  timestamp: Date;
-  post?: TimelinePost;
-}
 
-export interface BookmarkCollection {
-  id: string;
-  userId: string;
-  name: string;
-  description?: string;
-  coverImage?: string;
-  isPrivate: boolean;
-  count: number;
-  createdAt: Date;
-}
 
 export interface PremiumPlan {
   id: string;
@@ -713,39 +411,7 @@ export interface ReferralRecord {
   referredUser?: User;
 }
 
-export interface AdSlot {
-  id: string;
-  type: 'feed' | 'story' | 'banner' | 'interstitial' | 'native';
-  title: string;
-  description: string;
-  imageUrl?: string;
-  videoUrl?: string;
-  linkUrl: string;
-  advertiser: string;
-  targetAudience?: string[];
-  startDate: Date;
-  endDate: Date;
-  budget: number;
-  spent: number;
-  impressions: number;
-  clicks: number;
-  status: 'active' | 'paused' | 'completed' | 'pending';
-  priority: number;
-}
 
-export interface CreatorSubscription {
-  id: string;
-  creatorId: string;
-  subscriberId: string;
-  price: number;
-  currency: 'USD' | 'coins' | 'BDT' | 'RMB' | 'INR'; // BDT for backwards compatibility
-  tier: 'basic' | 'standard' | 'premium';
-  status: 'active' | 'cancelled' | 'expired';
-  startedAt: Date;
-  expiresAt: Date;
-  creator?: User;
-  subscriber?: User;
-}
 
 export interface TipRecord {
   id: string;
@@ -755,83 +421,16 @@ export interface TipRecord {
   currency: 'coins' | 'USD' | 'BDT' | 'RMB' | 'INR'; // BDT for backwards compatibility
   message: string;
   contentId?: string;
-  contentType?: 'post' | 'reel' | 'live' | 'story';
+  contentType?: 'chat' | 'call';
   timestamp: Date;
   fromUserName?: string;
   toUserName?: string;
 }
 
-export interface Achievement {
-  id: string;
-  name: string;
-  description: string;
-  icon: string;
-  category: 'social' | 'engagement' | 'content' | 'premium' | 'streak' | 'referral' | 'monetization' | 'admin';
-  requirement: number;
-  reward: number;
-  rewardCurrency: 'coins' | 'USD' | 'BDT' | 'RMB' | 'INR'; // BDT for backwards compatibility
-  rarity: 'common' | 'rare' | 'epic' | 'legendary';
-  unlockedAt?: Date;
-  progress?: number;
-}
 
-export interface StreakData {
-  userId: string;
-  currentStreak: number;
-  longestStreak: number;
-  lastActiveDate: Date;
-  streakHistory: { date: string; active: boolean }[];
-  nextMilestone: number;
-  rewardPending: number;
-}
 
-export interface PostAnalytics {
-  postId: string;
-  views: number;
-  reach: number;
-  impressions: number;
-  likes: number;
-  comments: number;
-  shares: number;
-  saves: number;
-  reactions: PostReactions;
-  audienceDemographics: AudienceDemographics;
-  watchTime?: number;
-  engagementRate: number;
-  topReferrers: string[];
-  peakHour: number;
-  dateRange: { from: Date; to: Date };
-}
 
-export interface AudienceDemographics {
-  ageRanges: Record<string, number>;
-  genders: Record<string, number>;
-  countries: Record<string, number>;
-  cities: Record<string, number>;
-  devices: Record<string, number>;
-}
 
-export interface CreatorAnalytics {
-  userId: string;
-  totalFollowers: number;
-  followersGained: number;
-  followersLost: number;
-  totalPosts: number;
-  totalViews: number;
-  totalLikes: number;
-  totalComments: number;
-  totalShares: number;
-  totalSaves: number;
-  engagementRate: number;
-  topPosts: string[];
-  dailyActiveAudience: number;
-  watchTime: number;
-  revenue: number;
-  revenueCurrency: 'USD' | 'BDT'; // BDT for backwards compatibility
-  tipsReceived: number;
-  subscriptionsCount: number;
-  growthChart: { date: string; followers: number; views: number }[];
-}
 
 export interface AdminDashboardStats {
   totalUsers: number;
@@ -839,7 +438,6 @@ export interface AdminDashboardStats {
   weeklyActiveUsers: number;
   monthlyActiveUsers: number;
   newUsersToday: number;
-  totalPosts: number;
   totalMessages: number;
   totalCalls: number;
   totalTransactions: number;
@@ -856,32 +454,7 @@ export interface AdminDashboardStats {
   growthRate: number;
 }
 
-export interface SavedPostRecord {
-  id: string;
-  userId: string;
-  postId: string;
-  collectionId?: string;
-  timestamp: Date;
-  post?: TimelinePost;
-}
 
-export interface FeedFilter {
-  type: 'all' | 'photos' | 'videos' | 'text' | 'polls' | 'reels' | 'stories' | 'live' | 'marketplace' | 'events';
-  sortBy: 'newest' | 'oldest' | 'popular' | 'most_liked' | 'most_commented' | 'most_shared' | 'trending' | 'nearby' | 'recommended';
-  timeRange?: 'today' | 'week' | 'month' | 'year' | 'all';
-  location?: { lat: number; lng: number; radius: number };
-  hashtags?: string[];
-  fromUsers?: string[];
-  excludeUsers?: string[];
-  onlyFriends?: boolean;
-  onlyFollowing?: boolean;
-  onlyVerified?: boolean;
-  onlyPremium?: boolean;
-  includeReposts?: boolean;
-  minLikes?: number;
-  nsfw?: boolean;
-  language?: string;
-}
 
 export interface QRProfileData {
   userId: string;

@@ -21,10 +21,10 @@ interface AIMessage {
 }
 
 const SUGGESTED_PROMPTS = [
-  { icon: Lightbulb, text: 'Give me a creative post idea' },
+  { icon: Lightbulb, text: 'Give me a fun conversation starter' },
   { icon: HelpCircle, text: 'How do I make more friends on GaGa?' },
-  { icon: Wand2, text: 'Write a funny caption for my reel' },
-  { icon: Zap, text: 'What are trending topics today?' },
+  { icon: Wand2, text: 'Write a friendly greeting message' },
+  { icon: Zap, text: 'How do I start a group chat?' },
   { icon: ImageIcon, text: 'Describe a fun photo idea' },
   { icon: Sparkles, text: 'Motivate me with a quote' },
 ];

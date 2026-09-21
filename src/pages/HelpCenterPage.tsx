@@ -13,7 +13,7 @@ const FAQS = [
     items: [
       {
         q: 'What is GaGa Chat?',
-        a: 'GaGa Chat is a global messaging and social platform. It includes chat, voice/video calls, timeline, marketplace, events, and a built-in wallet with rewards.',
+        a: 'GaGa Chat is a global messaging platform. It includes chat, voice/video calls, group chats, broadcast lists, and a built-in wallet with rewards.',
       },
       {
         q: 'How do I add friends?',
@@ -63,11 +63,11 @@ const FAQS = [
     items: [
       {
         q: 'What are Gaga Coins?',
-        a: 'Gaga Coins are our in-app currency. You earn them by using the app, referring friends, and completing daily streaks. Use them for premium features, tips, and marketplace purchases.',
+        a: 'Gaga Coins are our in-app currency. You earn them by using the app, referring friends, and completing daily streaks. Use them for premium features and rewards.',
       },
       {
         q: 'How do I earn coins?',
-        a: 'Earn coins through daily check-ins, referring friends, posting on the timeline, receiving tips, and staking your existing coins.',
+        a: 'Earn coins through daily check-ins, referring friends, and staking your existing coins.',
       },
       {
         q: 'Is my wallet secure?',

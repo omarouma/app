@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Eye, Lock, UserX, Users, Ban, Clock, Phone, Image, Camera } from 'lucide-react';
+import { ArrowLeft, Eye, Lock, UserX, Users, Ban, Clock, Phone, Image } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { useUserSettings } from '@/store/useSettingsStore';
 import { useAuthStore } from '@/store/useAuthStore';
@@ -10,7 +10,6 @@ import type { ThemeSettings } from '@/types';
 type PrivacyOpts = ThemeSettings['privacy'];
 type FriendRequestOpt = 'everyone' | 'friends_of_friends' | 'nobody';
 type OnlineOpt = 'everyone' | 'friends' | 'nobody';
-type StoryOpt = 'everyone' | 'friends' | 'close_friends';
 
 export default function PrivacyPage() {
   const navigate = useNavigate();
@@ -150,30 +149,6 @@ export default function PrivacyPage() {
                 }`}
             >
               {option}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Story Privacy */}
-      <div className="mt-4 bg-white border-y border-[#EBEBEB] p-4">
-        <div className="flex items-center gap-3 mb-3">
-          <Camera size={18} className="text-[#111111]" />
-          <div>
-            <p className="text-[#111111] text-sm font-medium">Story Privacy</p>
-            <p className="text-[#8D8D8D] text-xs">Who can see your stories</p>
-          </div>
-        </div>
-        <div className="flex gap-2">
-          {(['everyone', 'friends', 'close_friends'] as StoryOpt[]).map(option => (
-            <button type="button" key={option}
-              onClick={() => updateSettings({ privacy: { ...privacy, storyPrivacy: option } })}
-              className={`flex-1 py-2 rounded-lg text-xs font-medium capitalize transition-colors ${privacy.storyPrivacy === option
-                ? 'bg-[#00C300] text-white'
-                : 'bg-[#F5F5F5] text-[#8D8D8D]'
-                }`}
-            >
-              {option === 'close_friends' ? 'Close Friends' : option}
             </button>
           ))}
         </div>

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronLeft, ChevronRight, MessageCircle, Phone, Play, Coins, ShoppingBag, Mic } from 'lucide-react';
+import { ChevronLeft, ChevronRight, MessageCircle, Phone, Coins } from 'lucide-react';
 
 const slides = [
   {
@@ -16,20 +16,8 @@ const slides = [
     preview: null, isCall: true,
   },
   {
-    color: '#FF4081', icon: Play, title: 'Reels', subtitle: 'Short Videos & Stories',
-    preview: null, isReels: true,
-  },
-  {
     color: '#FF9800', icon: Coins, title: 'Gaga Coins', subtitle: 'Earn & Send Money',
     preview: null, isWallet: true,
-  },
-  {
-    color: '#9C27B0', icon: Mic, title: 'Voice Rooms', subtitle: 'Live Audio Spaces',
-    preview: null, isVoice: true,
-  },
-  {
-    color: '#00BCD4', icon: ShoppingBag, title: 'Marketplace', subtitle: 'Buy & Sell Locally',
-    preview: null, isMarket: true,
   },
 ];
 
@@ -141,33 +129,6 @@ export default function DeviceMockupCarousel() {
                 </div>
               )}
 
-              {/* Reels screen */}
-              {slide.isReels && (
-                <div className="w-full">
-                  <div className="rounded-xl overflow-hidden mb-2 relative" style={{ background: `linear-gradient(135deg, ${slide.color}30, #111 80%)`, height: 120 }}>
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
-                        <Play size={18} className="text-white ml-0.5" />
-                      </div>
-                    </div>
-                    <div className="absolute bottom-2 left-2 right-2 flex items-end justify-between">
-                      <div>
-                        <p className="text-white text-[9px] font-bold">@creator_bd</p>
-                        <p className="text-white/70 text-[8px]">Trending in Bangladesh 🔥</p>
-                      </div>
-                      <div className="flex flex-col items-center gap-1">
-                        <div className="text-white text-[8px] text-center">❤️<br/><span>12K</span></div>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex gap-1 overflow-hidden">
-                    {['#viral', '#bd', '#fun'].map(tag => (
-                      <span key={tag} className="text-[8px] px-2 py-0.5 rounded-full" style={{ backgroundColor: `${slide.color}20`, color: slide.color }}>{tag}</span>
-                    ))}
-                  </div>
-                </div>
-              )}
-
               {/* Wallet screen */}
               {slide.isWallet && (
                 <div className="w-full">
@@ -193,48 +154,6 @@ export default function DeviceMockupCarousel() {
                 </div>
               )}
 
-              {/* Voice room */}
-              {slide.isVoice && (
-                <div className="w-full text-center">
-                  <p className="text-[10px] font-bold text-[#111] mb-3">🎙️ Tech Talk BD</p>
-                  <div className="flex justify-center gap-2 mb-3">
-                    {['AK', 'SR', 'NJ', 'MH'].map((u, i) => (
-                      <motion.div key={u} className="w-9 h-9 rounded-full flex items-center justify-center text-white text-[9px] font-bold"
-                        style={{ backgroundColor: ['#00C300', '#2196F3', '#FF4081', '#FF9800'][i] }}
-                        animate={i === 0 ? { scale: [1, 1.1, 1], boxShadow: ['0 0 0 0px #9C27B040', '0 0 0 6px #9C27B040', '0 0 0 0px #9C27B040'] } : {}}
-                        transition={{ repeat: Infinity, duration: 1.5 }}>
-                        {u}
-                      </motion.div>
-                    ))}
-                  </div>
-                  <p className="text-[9px] text-[#8D8D8D] mb-2">4 speakers • 128 listeners</p>
-                  <div className="flex justify-center gap-2">
-                    <div className="px-3 py-1.5 rounded-full text-white text-[9px] font-bold" style={{ backgroundColor: slide.color }}>
-                      🎤 Raise Hand
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Marketplace */}
-              {slide.isMarket && (
-                <div className="w-full">
-                  <div className="grid grid-cols-2 gap-1.5">
-                    {[
-                      { name: 'iPhone 14', price: '৳85,000', emoji: '📱' },
-                      { name: 'Laptop', price: '৳55,000', emoji: '💻' },
-                      { name: 'Headphones', price: '৳3,500', emoji: '🎧' },
-                      { name: 'Camera', price: '৳42,000', emoji: '📷' },
-                    ].map(item => (
-                      <div key={item.name} className="bg-[#F5F5F5] rounded-xl p-2 text-center">
-                        <p className="text-xl mb-1">{item.emoji}</p>
-                        <p className="text-[9px] font-medium text-[#111] leading-tight">{item.name}</p>
-                        <p className="text-[9px] font-bold" style={{ color: slide.color }}>{item.price}</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
             </div>
 
             {/* Bottom nav dots */}

@@ -108,7 +108,6 @@ interface ProfileSounds {
   messageSent: () => void;
   notification: () => void;
   friendRequest: () => void;
-  timeline: () => void;
   error: () => void;
 }
 
@@ -132,10 +131,6 @@ const profiles: Record<SoundProfile, ProfileSounds> = {
       playTone({ freq: 880, duration: 0.1, volume: 0.2, type: 'sine', delay: 0.08 });
       playTone({ freq: 1100, duration: 0.15, volume: 0.18, type: 'sine', delay: 0.16 });
     },
-    timeline: () => {
-      playTone({ freq: 800, duration: 0.06, volume: 0.18, type: 'sine' });
-      playTone({ freq: 1000, duration: 0.08, volume: 0.15, type: 'sine', delay: 0.05 });
-    },
     error: () => {
       playTone({ freq: 200, duration: 0.2, volume: 0.2, type: 'sawtooth' });
     },
@@ -157,10 +152,6 @@ const profiles: Record<SoundProfile, ProfileSounds> = {
       playTone({ freq: 659, duration: 0.3, volume: 0.25, type: 'sine', delay: 0.2 });
       playTone({ freq: 784, duration: 0.3, volume: 0.25, type: 'sine', delay: 0.4 });
     },
-    timeline: () => {
-      playTone({ freq: 750, duration: 0.15, volume: 0.2, type: 'sine' });
-      playTone({ freq: 750, duration: 0.15, volume: 0.2, type: 'sine', delay: 0.2 });
-    },
     error: () => {
       playTone({ freq: 150, duration: 0.3, volume: 0.25, type: 'sawtooth' });
       playTone({ freq: 150, duration: 0.3, volume: 0.25, type: 'sawtooth', delay: 0.35 });
@@ -178,9 +169,6 @@ const profiles: Record<SoundProfile, ProfileSounds> = {
     },
     friendRequest: () => {
       playTone({ freq: 800, duration: 0.08, volume: 0.15, type: 'sine' });
-    },
-    timeline: () => {
-      playTone({ freq: 750, duration: 0.04, volume: 0.12, type: 'sine' });
     },
     error: () => {
       playTone({ freq: 250, duration: 0.1, volume: 0.15, type: 'sawtooth' });
@@ -206,10 +194,6 @@ const profiles: Record<SoundProfile, ProfileSounds> = {
       playTone({ freq: 1200, duration: 0.08, volume: 0.2, type: 'sine', delay: 0.06 });
       playTone({ freq: 1500, duration: 0.1, volume: 0.18, type: 'sine', delay: 0.14 });
       playTone({ freq: 1800, duration: 0.12, volume: 0.15, type: 'sine', delay: 0.22 });
-    },
-    timeline: () => {
-      playTone({ freq: 1100, duration: 0.05, volume: 0.18, type: 'sine' });
-      playTone({ freq: 1400, duration: 0.06, volume: 0.15, type: 'sine', delay: 0.04 });
     },
     error: () => {
       playTone({ freq: 300, duration: 0.12, volume: 0.2, type: 'sawtooth' });
@@ -572,9 +556,6 @@ export function playFriendRequest() {
   getProfileSounds().friendRequest();
 }
 
-export function playTimelineNotification() {
-  getProfileSounds().timeline();
-}
 
 export function playErrorSound() {
   getProfileSounds().error();

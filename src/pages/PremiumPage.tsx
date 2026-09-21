@@ -148,7 +148,7 @@ export default function PremiumPage() {
     free: <Star size={20} />,
     premium: <Sparkles size={20} />,
     vip: <Crown size={20} />,
-    creator: <Zap size={20} />,
+    business: <Zap size={20} />,
   };
 
   return (
@@ -192,7 +192,7 @@ export default function PremiumPage() {
             <p className="text-white/90 text-sm max-w-xs">
               {isSubscribed
                 ? `Enjoy your ${currentTier} benefits. Your subscription renews automatically.`
-                : 'Get verified, go ad-free, and unlock exclusive features for creators and power users.'}
+                : 'Get verified, go ad-free, and unlock exclusive features for power users and teams.'}
             </p>
             {isSubscribed && subscription && (
               <div className="mt-3 text-xs text-white/70">
@@ -320,8 +320,8 @@ export default function PremiumPage() {
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
             {[
               { icon: Shield, title: 'Verified Badge', desc: 'Get the blue checkmark' },
-              { icon: Megaphone, title: 'Ad-Free', desc: 'No ads in your feed' },
-              { icon: Clock, title: 'Scheduled Posts', desc: 'Plan content ahead' },
+              { icon: Megaphone, title: 'Ad-Free', desc: 'No ads anywhere in the app' },
+              { icon: Clock, title: 'Scheduled Messages', desc: 'Plan messages ahead' },
               { icon: BarChart3, title: 'Analytics', desc: 'Track your growth' },
               { icon: Headphones, title: 'Priority Support', desc: 'Faster responses' },
               { icon: Palette, title: 'Custom Themes', desc: 'Personalize your app' },

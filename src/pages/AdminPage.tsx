@@ -4,20 +4,20 @@ import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   ArrowLeft, Shield, AlertTriangle, Check, X, Ban, UserCheck,
-  Loader, RefreshCw, Eye, Search, Filter, Users, FileText, BarChart3,
-  UserX, UserPlus, Crown, Trash2, MessageSquare, Heart, Flag, TrendingUp,
+  Loader, RefreshCw, Eye, Search, Filter, Users, BarChart3,
+  UserX, UserPlus, Crown, Flag, TrendingUp,
   Activity, MessageCircle, MousePointerClick, ChevronRight
 } from 'lucide-react';
 import { useAuthStore } from '@/store/useAuthStore';
 import {
-  isFirestoreAvailable, queryCollection, updateDocById, deleteDocById,
+  isFirestoreAvailable, queryCollection, updateDocById,
   COLLECTIONS, subscribeToCollection
 } from '@/lib/firestore';
 import { toast } from 'sonner';
 import { where, orderBy, limit } from '@/lib/firestore';
-import type { User, TimelinePost, UserReport, AdminDashboardStats } from '@/types';
+import type { User, UserReport, AdminDashboardStats } from '@/types';
 
-type Tab = 'reports' | 'users' | 'content' | 'analytics';
+type Tab = 'reports' | 'users' | 'analytics';
 type UserFilter = 'all' | 'verified' | 'suspended' | 'banned' | 'admins';
 type RawDoc = Record<string, unknown>;
 
@@ -40,18 +40,10 @@ export default function AdminPage() {
   const [userFilter, setUserFilter] = useState<UserFilter>('all');
   const [processingUserId, setProcessingUserId] = useState<string | null>(null);
 
-  // Content state
-  const [posts, setPosts] = useState<TimelinePost[]>([]);
-  const [contentLoading, setContentLoading] = useState(false);
-  const [contentSearch, setContentSearch] = useState('');
-  const [processingPostId, setProcessingPostId] = useState<string | null>(null);
-  const [reportedComments, setReportedComments] = useState<{ id: string; userId: string; content: string; postId: string; timestamp: Date; reports: number; reportIds: string[] }[]>([]);
-
   // Analytics state
   const [stats, setStats] = useState<AdminDashboardStats | null>(null);
   const [analyticsLoading, setAnalyticsLoading] = useState(false);
   const [userGrowth, setUserGrowth] = useState<{ day: string; count: number }[]>([]);
-  const [postActivity, setPostActivity] = useState<{ day: string; count: number }[]>([]);
 
   // Route guard: non-admins get booted
   useEffect(() => {
@@ -228,136 +220,12 @@ export default function AdminPage() {
     return list;
   }, [users, userSearch, userFilter]);
 
-  // ─── Content ───
-  const fetchContent = async () => {
-    if (!isFirestoreAvailable() || !user?.isAdmin) return;
-    setContentLoading(true);
-    try {
-      const postsData = await queryCollection(COLLECTIONS.POSTS, [orderBy('timestamp', 'desc'), limit(50)]);
-      const postsList: TimelinePost[] = (postsData || []).map((d: RawDoc) => ({
-        id: d.id as string,
-        userId: (d.userId || '') as string,
-        content: (d.content || '') as string,
-        images: (d.images || []) as string[],
-        likes: (d.likes || []) as string[],
-        comments: (d.comments || []) as TimelinePost['comments'],
-        shares: (d.shares || []) as string[],
-        timestamp: new Date((d.timestamp || d.createdAt) as string),
-        visibility: (d.visibility || 'public') as TimelinePost['visibility'],
-        userName: (d.userName || '') as string,
-        userAvatar: (d.userAvatar || '') as string,
-        mediaType: (d.mediaType || 'text') as TimelinePost['mediaType'],
-      }));
-      setPosts(postsList);
-
-      // Build reported comments from reports
-      const reportsData = await queryCollection(COLLECTIONS.REPORTS, [
-        where('contentType', '==', 'comment'),
-        where('status', '==', 'pending'),
-      ]);
-      const commentMap = new Map<string, { id: string; userId: string; content: string; postId: string; timestamp: Date; reports: number; reportIds: string[] }>();
-      (reportsData || []).forEach((r: RawDoc) => {
-        const key = (r.commentId || r.contentId || r.id) as string;
-        const postId = (r.postId || r.contentId || '') as string;
-        const sourcePost = postsList.find((post) => post.id === postId);
-        const sourceComment = sourcePost?.comments.find((comment) => comment.id === key);
-        if (commentMap.has(key)) {
-          const existing = commentMap.get(key)!;
-          existing.reports += 1;
-          existing.reportIds.push(r.id as string);
-        } else {
-          commentMap.set(key, {
-            id: key,
-            userId: (sourceComment?.userId || r.reportedId || '') as string,
-            content: (sourceComment?.content || r.details || 'No content') as string,
-            postId,
-            timestamp: new Date((r.timestamp || r.createdAt) as string),
-            reports: 1,
-            reportIds: [r.id as string],
-          });
-        }
-      });
-      setReportedComments(Array.from(commentMap.values()));
-    } catch (err) {
-      console.error(err);
-    }
-    setContentLoading(false);
-  };
-
-  useEffect(() => {
-    if (activeTab === 'content') queueMicrotask(() => fetchContent());
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab]);
-
-  const deletePost = async (postId: string) => {
-    if (!isFirestoreAvailable() || !user?.isAdmin) return;
-    setProcessingPostId(postId);
-    try {
-      await deleteDocById(COLLECTIONS.POSTS, postId);
-      toast.success('Post deleted');
-      fetchContent();
-    } catch {
-      toast.error('Failed to delete post');
-    }
-    setProcessingPostId(null);
-  };
-
-  const moderateComment = async (comment: typeof reportedComments[number], remove: boolean) => {
-    if (!isFirestoreAvailable() || !user?.isAdmin) return;
-    setProcessingPostId(comment.id);
-    try {
-      if (remove) {
-        const post = posts.find((item) => item.id === comment.postId);
-        if (!post) throw new Error('Post not found');
-        await updateDocById(COLLECTIONS.POSTS, post.id, {
-          comments: post.comments.filter((item) => item.id !== comment.id),
-        });
-      }
-      await Promise.all(comment.reportIds.map((reportId) => updateDocById(COLLECTIONS.REPORTS, reportId, {
-        status: remove ? 'resolved' : 'dismissed',
-        reviewedBy: user.id,
-        reviewedAt: new Date().toISOString(),
-        actionTaken: remove ? 'Comment removed' : 'No action taken',
-      })));
-      toast.success(remove ? 'Comment removed' : 'Comment dismissed');
-      fetchContent();
-    } catch {
-      toast.error(remove ? 'Failed to remove comment' : 'Failed to dismiss comment');
-    } finally {
-      setProcessingPostId(null);
-    }
-  };
-
-  const hidePost = async (post: TimelinePost) => {
-    if (!isFirestoreAvailable() || !user?.isAdmin) return;
-    setProcessingPostId(post.id);
-    try {
-      await updateDocById(COLLECTIONS.POSTS, post.id, { visibility: 'private' });
-      toast.success('Post hidden');
-      fetchContent();
-    } catch {
-      toast.error('Failed to hide post');
-    }
-    setProcessingPostId(null);
-  };
-
-  const filteredPosts = useMemo(() => {
-    if (!contentSearch) return posts;
-    const q = contentSearch.toLowerCase();
-    return posts.filter((p) =>
-      (p.content || '').toLowerCase().includes(q) ||
-      (p.userName || '').toLowerCase().includes(q) ||
-      (p.userId || '').toLowerCase().includes(q)
-    );
-  }, [posts, contentSearch]);
-
   // ─── Analytics ───
   const fetchAnalytics = async () => {
     if (!isFirestoreAvailable() || !user?.isAdmin) return;
     setAnalyticsLoading(true);
     try {
       const allUsers = await queryCollection(COLLECTIONS.USERS, []);
-      const allPosts = await queryCollection(COLLECTIONS.POSTS, []);
       const allMessages = await queryCollection(COLLECTIONS.MESSAGES, [limit(1000)]);
       const pendingReports = await queryCollection(COLLECTIONS.REPORTS, [where('status', '==', 'pending')]);
 
@@ -379,7 +247,6 @@ export default function AdminPage() {
         weeklyActiveUsers: 0,
         monthlyActiveUsers: 0,
         newUsersToday,
-        totalPosts: allPosts.length,
         totalMessages: allMessages.length,
         totalCalls: 0,
         totalTransactions: 0,
@@ -412,22 +279,6 @@ export default function AdminPage() {
         days.push({ day: d.toLocaleDateString('en', { weekday: 'short' }), count });
       }
       setUserGrowth(days);
-
-      // Post activity last 7 days
-      const postDays: { day: string; count: number }[] = [];
-      for (let i = 6; i >= 0; i--) {
-        const d = new Date();
-        d.setDate(d.getDate() - i);
-        d.setHours(0, 0, 0, 0);
-        const next = new Date(d);
-        next.setDate(next.getDate() + 1);
-        const count = (allPosts || []).filter((p: RawDoc) => {
-          const cd = p.timestamp ? new Date(p.timestamp as string) : null;
-          return cd && cd >= d && cd < next;
-        }).length;
-        postDays.push({ day: d.toLocaleDateString('en', { weekday: 'short' }), count });
-      }
-      setPostActivity(postDays);
     } catch (err) {
       console.error(err);
     }
@@ -481,12 +332,10 @@ export default function AdminPage() {
   const tabs: { key: Tab; label: string; icon: React.ElementType }[] = [
     { key: 'reports', label: 'Reports', icon: AlertTriangle },
     { key: 'users', label: 'Users', icon: Users },
-    { key: 'content', label: 'Content', icon: FileText },
     { key: 'analytics', label: 'Analytics', icon: BarChart3 },
   ];
 
   const maxUserGrowth = Math.max(...userGrowth.map((d) => d.count), 1);
-  const maxPostActivity = Math.max(...postActivity.map((d) => d.count), 1);
 
   return (
     <div className="min-h-[100dvh] bg-[#F5F5F5]">
@@ -504,7 +353,6 @@ export default function AdminPage() {
             <button type="button" onClick={() => {
                 if (activeTab === 'reports') fetchReports();
                 if (activeTab === 'users') fetchUsers();
-                if (activeTab === 'content') fetchContent();
                 if (activeTab === 'analytics') fetchAnalytics();
               }}
               className="p-2 text-[#8D8D8D] hover:text-[#00C300] active:bg-[#F5F5F5] rounded-full transition-colors"
@@ -881,167 +729,6 @@ export default function AdminPage() {
           </motion.div>
         )}
 
-        {/* ================= CONTENT TAB ================= */}
-        {activeTab === 'content' && (
-          <motion.div
-            key="content"
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            transition={{ duration: 0.2 }}
-          >
-            <div className="px-4 pt-4 pb-3">
-              <div className="flex gap-2 mb-3">
-                <div className="relative flex-1">
-                  <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8D8D8D]" />
-                  <input
-                    value={contentSearch}
-                    onChange={(e) => setContentSearch(e.target.value)}
-                    placeholder="Search posts..."
-                    className="w-full bg-white border border-[#EBEBEB] rounded-xl pl-9 pr-4 py-2.5 text-[#111111] text-sm focus:outline-none focus:ring-2 focus:ring-[#00C300] placeholder:text-[#8D8D8D]"
-                  />
-                </div>
-              </div>
-            </div>
-
-            <div className="px-4 pb-4">
-              <p className="text-[#111111] text-sm font-bold mb-2">Recent Posts</p>
-              {contentLoading ? (
-                <div className="flex justify-center py-12">
-                  <Loader size={24} className="text-[#00C300] animate-spin" />
-                </div>
-              ) : filteredPosts.length === 0 ? (
-                <div className="text-center py-8">
-                  <FileText size={32} className="text-[#EBEBEB] mx-auto mb-2" />
-                  <p className="text-[#8D8D8D] text-sm font-medium">No posts found</p>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {filteredPosts.map((post, i) => (
-                    <motion.div
-                      key={post.id}
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: i * 0.03 }}
-                      className="bg-white rounded-xl border border-[#EBEBEB] p-4"
-                    >
-                      <div className="flex items-start gap-3 mb-3">
-                        <div className="w-9 h-9 rounded-full bg-[#F5F5F5] flex items-center justify-center shrink-0 overflow-hidden">
-                          {post.userAvatar ? (
-                            <img src={post.userAvatar} alt="User avatar" className="w-full h-full object-cover" />
-                          ) : (
-                            <Users size={16} className="text-[#8D8D8D]" />
-                          )}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-[#111111] text-sm font-medium">{post.userName || 'Unknown'}</p>
-                          <p className="text-[#8D8D8D] text-[10px]">
-                            {post.timestamp.toLocaleDateString()} · {post.visibility}
-                          </p>
-                        </div>
-                        {processingPostId === post.id ? (
-                          <Loader size={16} className="text-[#00C300] animate-spin shrink-0" />
-                        ) : (
-                          <div className="flex gap-1.5 shrink-0">
-                            <button type="button" onClick={() => hidePost(post)}
-                              className="p-1.5 rounded-lg bg-[#FF9800]/10 text-[#FF9800] hover:bg-[#FF9800]/20 transition-colors"
-                              title="Hide"
-                            >
-                              <Eye size={14} />
-                            </button>
-                            <button type="button" onClick={() => deletePost(post.id)}
-                              className="p-1.5 rounded-lg bg-[#FF3B30]/10 text-[#FF3B30] hover:bg-[#FF3B30]/20 transition-colors"
-                              title="Delete"
-                            >
-                              <Trash2 size={14} />
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                      <p className="text-[#111111] text-sm mb-3 line-clamp-3">{post.content}</p>
-                      {post.images.length > 0 && (
-                        <div className="grid grid-cols-3 gap-1 mb-3">
-                          {post.images.slice(0, 3).map((img, idx) => (
-                            <div key={idx} className="aspect-square rounded-lg bg-[#F5F5F5] overflow-hidden">
-                              <img src={img} alt="Cover image" className="w-full h-full object-cover" />
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                      <div className="flex items-center gap-4 text-xs text-[#8D8D8D]">
-                        <span className="flex items-center gap-1">
-                          <Heart size={12} /> {post.likes.length}
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <MessageSquare size={12} /> {post.comments.length}
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <Flag size={12} /> 0
-                        </span>
-                      </div>
-                    </motion.div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Reported Comments */}
-            <div className="px-4 pb-20">
-              <p className="text-[#111111] text-sm font-bold mb-2">Reported Comments</p>
-              {contentLoading ? (
-                <div className="flex justify-center py-8">
-                  <Loader size={24} className="text-[#00C300] animate-spin" />
-                </div>
-              ) : reportedComments.length === 0 ? (
-                <div className="text-center py-8">
-                  <MessageCircle size={32} className="text-[#EBEBEB] mx-auto mb-2" />
-                  <p className="text-[#8D8D8D] text-sm font-medium">No reported comments</p>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {reportedComments.map((c, i) => (
-                    <motion.div
-                      key={c.id}
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: i * 0.03 }}
-                      className="bg-white rounded-xl border border-[#EBEBEB] p-4"
-                    >
-                      <div className="flex items-start gap-2 mb-2">
-                        <div className="w-7 h-7 rounded-full bg-[#F5F5F5] flex items-center justify-center shrink-0">
-                          <Users size={12} className="text-[#8D8D8D]" />
-                        </div>
-                        <div className="flex-1">
-                          <p className="text-[#111111] text-xs font-medium">{c.userId.slice(0, 16)}</p>
-                          <p className="text-[#8D8D8D] text-[10px]">{c.timestamp.toLocaleDateString()}</p>
-                        </div>
-                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#FF3B30]/10 text-[#FF3B30] font-medium">
-                          {c.reports} reports
-                        </span>
-                      </div>
-                      <p className="text-[#111111] text-sm bg-[#F5F5F5] rounded-lg p-2 mb-2">{c.content}</p>
-                      <div className="flex gap-2">
-                        <button type="button" onClick={() => moderateComment(c, false)}
-                          disabled={processingPostId === c.id}
-                          className="px-3 py-1.5 bg-[#F5F5F5] text-[#8D8D8D] text-xs rounded-full font-medium"
-                        >
-                          Dismiss
-                        </button>
-                        <button type="button" onClick={() => moderateComment(c, true)}
-                          disabled={processingPostId === c.id}
-                          className="px-3 py-1.5 bg-[#FF3B30]/10 text-[#FF3B30] text-xs rounded-full font-medium"
-                        >
-                          Remove
-                        </button>
-                      </div>
-                    </motion.div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </motion.div>
-        )}
-
         {/* ================= ANALYTICS TAB ================= */}
         {activeTab === 'analytics' && (
           <motion.div
@@ -1068,7 +755,6 @@ export default function AdminPage() {
                     {[
                       { label: 'Total Users', value: stats.totalUsers, icon: Users, color: 'text-[#00C300]' },
                       { label: 'DAU Today', value: stats.dailyActiveUsers, icon: Activity, color: 'text-[#2196F3]' },
-                      { label: 'Total Posts', value: stats.totalPosts, icon: FileText, color: 'text-[#FF9800]' },
                       { label: 'Total Messages', value: stats.totalMessages, icon: MessageCircle, color: 'text-[#8D8D8D]' },
                       { label: 'New Users Today', value: stats.newUsersToday, icon: TrendingUp, color: 'text-[#00C300]' },
                       { label: 'Pending Reports', value: stats.pendingReports, icon: Flag, color: 'text-[#FF3B30]' },
@@ -1149,37 +835,6 @@ export default function AdminPage() {
                     )}
                   </div>
 
-                  {/* Post Activity Chart */}
-                  <div className="bg-white rounded-xl border border-[#EBEBEB] p-4 mb-4">
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center gap-2">
-                        <FileText size={14} className="text-[#FF9800]" />
-                        <p className="text-[#111111] text-sm font-bold">Post Activity</p>
-                      </div>
-                      <span className="text-[#8D8D8D] text-[10px]">Last 7 days</span>
-                    </div>
-                    {postActivity.length === 0 ? (
-                      <p className="text-[#8D8D8D] text-xs text-center py-4">No data</p>
-                    ) : (
-                      <div className="space-y-2">
-                        {postActivity.map((d) => (
-                          <div key={d.day} className="flex items-center gap-2">
-                            <span className="text-[#8D8D8D] text-[10px] w-8 shrink-0">{d.day}</span>
-                            <div className="flex-1 h-6 bg-[#F5F5F5] rounded-md overflow-hidden relative">
-                              <div
-                                className="h-full bg-[#FF9800]/20 rounded-md transition-all"
-                                style={{ width: `${Math.round((d.count / maxPostActivity) * 100)}%` }}
-                              />
-                              <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[#111111] text-[10px] font-medium">
-                                {d.count}
-                              </span>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
                   {/* Quick Links */}
                   <div className="bg-white rounded-xl border border-[#EBEBEB] p-4">
                     <p className="text-[#111111] text-sm font-bold mb-3">Quick Actions</p>
@@ -1199,15 +854,6 @@ export default function AdminPage() {
                         <div className="flex items-center gap-2">
                           <Users size={14} className="text-[#00C300]" />
                           <span className="text-[#111111] text-sm">Manage Users</span>
-                        </div>
-                        <ChevronRight size={14} className="text-[#8D8D8D]" />
-                      </button>
-                      <button type="button" onClick={() => setActiveTab('content')}
-                        className="w-full flex items-center justify-between p-3 rounded-lg bg-[#F5F5F5] hover:bg-[#EBEBEB] transition-colors"
-                      >
-                        <div className="flex items-center gap-2">
-                          <FileText size={14} className="text-[#FF9800]" />
-                          <span className="text-[#111111] text-sm">Moderate Content</span>
                         </div>
                         <ChevronRight size={14} className="text-[#8D8D8D]" />
                       </button>
