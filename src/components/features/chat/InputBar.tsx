@@ -133,18 +133,18 @@ export function InputBar({
       </AnimatePresence>
 
       {/* Input */}
-      <div className="shrink-0 bg-muted px-3 py-2.5 flex items-end gap-3 z-20">
+      <div className="shrink-0 bg-background border-t border-border px-3 py-2.5 flex items-end gap-2 z-20">
         <button
           type="button"
           onClick={onToggleAttachments}
-          className={`p-1.5 mb-0.5 rounded-full transition-colors ${showAttachments ? 'bg-gray-300 text-foreground' : 'text-muted-foreground hover:bg-gray-200'}`}
+          className={`p-2 mb-0.5 rounded-full transition-all tap-scale ${showAttachments ? 'bg-[#00C300] text-white rotate-45' : 'bg-muted text-muted-foreground hover:text-foreground'}`}
           aria-label="Toggle attachments"
         >
-          <Plus size={24} strokeWidth={1.5} />
+          <Plus size={22} strokeWidth={2} />
         </button>
 
 {isRecording ? (
-          <div className="flex-1 bg-background rounded-2xl border border-[#FF3B30] flex items-center px-4 min-h-[40px] gap-3">
+          <div className="flex-1 bg-background rounded-3xl border border-[#FF3B30] flex items-center px-4 min-h-[44px] gap-3 shadow-sm">
             <div className="w-3 h-3 rounded-full bg-[#FF3B30] animate-pulse shrink-0" />
             <span className="text-[#FF3B30] text-sm font-medium shrink-0">{Math.floor(duration / 60)}:{(duration % 60).toString().padStart(2, '0')}</span>
             <RecordingWaveform duration={duration} barColor="#00C300" />
@@ -153,7 +153,7 @@ export function InputBar({
             </button>
           </div>
         ) : (
-          <div className="flex-1 bg-background rounded-2xl border border-border flex items-center px-3 min-h-[40px] max-h-[128px]">
+          <div className="flex-1 bg-muted rounded-3xl flex items-center px-3 min-h-[44px] max-h-[128px]">
             <textarea
               ref={inputRef}
               value={input}
@@ -169,17 +169,17 @@ export function InputBar({
               onBlur={onStopTyping}
               onClick={() => { if (showAttachments) onToggleAttachments(); }}
               aria-label="Type a message"
-              placeholder="Aa"
-              className="flex-1 py-2 text-[15px] focus:outline-none bg-transparent text-foreground placeholder:text-muted-foreground resize-none overflow-y-auto"
+              placeholder="Message"
+              className="flex-1 py-2.5 text-[15px] focus:outline-none bg-transparent text-foreground placeholder:text-muted-foreground resize-none overflow-y-auto"
             />
-            <button type="button" className={`p-1 transition-colors ${showStickerPicker ? 'text-[#00C300]' : 'text-muted-foreground hover:text-muted-foreground'}`} onClick={() => { setShowStickerPicker(p => !p); if (showEmojiPicker) onToggleEmojiPicker(); }} aria-label="Open sticker picker">
+            <button type="button" className={`p-1.5 transition-colors ${showStickerPicker ? 'text-[#00C300]' : 'text-muted-foreground hover:text-foreground'}`} onClick={() => { setShowStickerPicker(p => !p); if (showEmojiPicker) onToggleEmojiPicker(); }} aria-label="Open sticker picker">
               <Sticker size={20} strokeWidth={1.5} />
             </button>
-            <button type="button" className={`p-1 transition-colors mx-1 ${showEmojiPicker ? 'text-[#00C300]' : 'text-muted-foreground hover:text-muted-foreground'}`} onClick={() => { onToggleEmojiPicker(); setShowStickerPicker(false); }} aria-label="Open emoji picker">
+            <button type="button" className={`p-1.5 transition-colors ${showEmojiPicker ? 'text-[#00C300]' : 'text-muted-foreground hover:text-foreground'}`} onClick={() => { onToggleEmojiPicker(); setShowStickerPicker(false); }} aria-label="Open emoji picker">
               <Smile size={20} strokeWidth={1.5} />
             </button>
             {!input.trim() && (
-              <button type="button" className="text-muted-foreground p-1 hover:text-muted-foreground transition-colors" onClick={onStartRecording} aria-label="Toggle voice recording">
+              <button type="button" className="text-muted-foreground p-1.5 hover:text-foreground transition-colors" onClick={onStartRecording} aria-label="Toggle voice recording">
                 <Mic size={20} strokeWidth={1.5} />
               </button>
             )}
@@ -187,21 +187,21 @@ export function InputBar({
         )}
 
         {isRecording ? (
-          <button type="button" onClick={onVoiceSend} className="mb-1 p-1.5 text-white bg-[#FF3B30] rounded-full active:scale-95 transition-transform shadow-sm" aria-label="Send voice message">
+          <button type="button" onClick={onVoiceSend} className="mb-0.5 p-2.5 text-white bg-[#FF3B30] rounded-full active:scale-95 transition-transform shadow-md" aria-label="Send voice message">
             <Send size={18} />
           </button>
         ) : input.trim() ? (
           <div className="flex items-center gap-1">
-            <button type="button" onClick={onSchedule} className="mb-0.5 p-1.5 text-muted-foreground hover:bg-gray-200 rounded-full transition-colors" title="Schedule message">
-              <Clock size={22} strokeWidth={1.5} />
+            <button type="button" onClick={onSchedule} className="mb-0.5 p-2 text-muted-foreground hover:text-foreground rounded-full transition-colors" title="Schedule message">
+              <Clock size={20} strokeWidth={1.5} />
             </button>
-            <button type="button" onClick={onSend} className="mb-1 p-1.5 text-white bg-[#00C300] rounded-full active:scale-95 transition-transform shadow-sm" aria-label="Send message">
+            <button type="button" onClick={onSend} className="mb-0.5 p-2.5 text-white bg-[#00C300] rounded-full active:scale-95 transition-transform shadow-md" aria-label="Send message">
               <Send size={18} />
             </button>
           </div>
         ) : (
-          <button type="button" className="mb-0.5 p-1.5 text-muted-foreground hover:bg-gray-200 rounded-full transition-colors" onClick={onSchedule} aria-label="Schedule message">
-            <Clock size={24} strokeWidth={1.5} />
+          <button type="button" className="mb-0.5 p-2 text-muted-foreground hover:text-foreground rounded-full transition-colors" onClick={onSchedule} aria-label="Schedule message">
+            <Clock size={22} strokeWidth={1.5} />
           </button>
         )}
       </div>

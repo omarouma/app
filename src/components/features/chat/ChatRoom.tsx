@@ -675,7 +675,7 @@ export default function ChatRoom({ chatId, userId, onBack }: {
           )}
           components={{
             Header: () => (
-              <div className="p-4">
+              <div className="p-4 flex justify-center">
                 {hasMore && (
                   <button
                     onClick={async () => {
@@ -684,9 +684,9 @@ export default function ChatRoom({ chatId, userId, onBack }: {
                       setLoadingOlder(false);
                     }}
                     disabled={loadingOlder}
-                    className="text-[#00C300] text-sm disabled:opacity-50"
+                    className="px-4 py-2 rounded-full bg-muted text-[#00C300] text-xs font-semibold disabled:opacity-50 active:scale-95 transition-transform"
                   >
-                    {loadingOlder ? 'Loading...' : 'Load older messages'}
+                    {loadingOlder ? 'Loading…' : 'Load older messages'}
                   </button>
                 )}
               </div>
@@ -697,9 +697,10 @@ export default function ChatRoom({ chatId, userId, onBack }: {
         {!isAtBottom && (
           <button
             onClick={scrollToBottom}
-            className="absolute bottom-4 right-4 bg-background rounded-full p-2 shadow-md z-10"
+            className="absolute bottom-4 right-4 bg-background rounded-full p-2.5 shadow-lg border border-border z-10 active:scale-95 transition-transform"
+            aria-label="Scroll to latest"
           >
-            <ChevronDown size={24} />
+            <ChevronDown size={22} className="text-foreground" />
           </button>
         )}
       </div>

@@ -132,10 +132,10 @@ export const MessageItem = memo(function MessageItem(props: MessageItemProps) {
   const failed = msg.deliveryStatus === 'failed' && !!onRetry;
 
   return (
-    <div>
+    <div className="px-1">
       {showDate && (
         <div className="flex justify-center my-4">
-          <span className="bg-[#E4E6EB] text-muted-foreground text-[11px] px-3 py-1 rounded-full font-medium">
+          <span className="bg-muted text-muted-foreground text-[11px] px-3 py-1 rounded-full font-medium shadow-sm">
             {msgDate}
           </span>
         </div>
@@ -158,9 +158,9 @@ export const MessageItem = memo(function MessageItem(props: MessageItemProps) {
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          className={`flex ${isMe ? 'justify-end' : 'justify-start'} ${isSelected ? 'opacity-70' : ''} ${
-            failed ? 'cursor-pointer' : ''
-          }`}
+          className={`flex items-end ${isMe ? 'justify-end' : 'justify-start'} ${showAvatar ? 'mt-2.5' : 'mt-0.5'} ${
+            isSelected ? 'opacity-70' : ''
+          } ${failed ? 'cursor-pointer' : ''}`}
           onContextMenu={(e: React.MouseEvent) => {
             if (msg.type !== 'deleted') onContextMenu(e, msg);
           }}
@@ -175,7 +175,7 @@ export const MessageItem = memo(function MessageItem(props: MessageItemProps) {
         >
           {avatarEl}
           <div
-            className={`max-w-[70%] relative ${!isMe && !showAvatar ? 'ml-10' : ''} ${
+            className={`max-w-[75%] relative ${!isMe && !showAvatar ? 'ml-10' : ''} ${
               failed ? 'active:bg-[#FF3B30]/5 rounded-xl' : ''
             }`}
             onClick={(e) => {
@@ -187,18 +187,20 @@ export const MessageItem = memo(function MessageItem(props: MessageItemProps) {
           >
             {msg.replyTo && (
               <div
-                className="bg-black/10 rounded-t-2xl px-3 py-1.5 mb-0.5 cursor-pointer hover:opacity-80 transition-opacity"
+                className={`rounded-t-2xl px-3 py-1.5 mb-0.5 cursor-pointer hover:opacity-80 transition-opacity border-l-2 ${
+                  isMe ? 'bg-black/15 border-white/60' : 'bg-muted border-[#00C300]'
+                }`}
                 onClick={(e) => {
                   e.stopPropagation();
                   if (repliedInfo?.message) onSetReplyingTo(repliedInfo.message);
                 }}
               >
                 {repliedInfo?.senderName && (
-                  <p className={`text-[10px] font-medium mb-0.5 truncate ${isMe ? 'text-white/70' : 'text-[#00C300]'}`}>
-                    Replying to {repliedInfo.senderName}
+                  <p className={`text-[10px] font-semibold mb-0.5 truncate ${isMe ? 'text-white/80' : 'text-[#00C300]'}`}>
+                    {repliedInfo.senderName}
                   </p>
                 )}
-                <p className={`text-[11px] truncate ${isMe ? 'text-white/60' : 'text-muted-foreground'}`}>
+                <p className={`text-[11px] truncate ${isMe ? 'text-white/70' : 'text-muted-foreground'}`}>
                   {repliedInfo?.preview || 'Replying to message'}
                 </p>
               </div>
@@ -207,8 +209,8 @@ export const MessageItem = memo(function MessageItem(props: MessageItemProps) {
             {renderMessageContent()}
 
             {(translatedText || isTranslating) && !isEditing && msg.type === 'text' && (
-              <div className={`mt-1 px-3 py-1.5 rounded-xl text-[12px] border ${isMe ? 'bg-white/20 border-white/20 text-white/90' : 'bg-[#F0F9FF] border-[#2196F3]/20 text-foreground'}`}>
-                <p className={`text-[9px] font-medium mb-0.5 ${isMe ? 'text-white/60' : 'text-[#2196F3]'}`}>Translation</p>
+              <div className={`mt-1 px-3 py-1.5 rounded-xl text-[12px] border ${isMe ? 'bg-white/20 border-white/20 text-white/90' : 'bg-info/10 border-info/20 text-foreground'}`}>
+                <p className={`text-[9px] font-medium mb-0.5 ${isMe ? 'text-white/60' : 'text-info'}`}>Translation</p>
                 {isTranslating ? <span className="opacity-60">Translating...</span> : <span>{translatedText}</span>}
               </div>
             )}

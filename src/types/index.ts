@@ -7,6 +7,7 @@ export interface User {
   phone?: string;
   avatar?: string;
   coverImage?: string;
+  coverVideo?: string;
   status?: string;
   statusMessage?: string;
   lastSeen?: Date | null;

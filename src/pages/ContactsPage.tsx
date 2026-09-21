@@ -3,14 +3,12 @@ import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Users, Search, UserPlus, Star, StarOff, Trash2, Phone, Video,
-  MessageCircle, Ban, X, Share2, Globe, QrCode, MapPin, User as UserIcon, Smartphone,
-  Contact2, RefreshCw, ChevronDown, ChevronUp, Loader, Download, MoreVertical
+  MessageCircle, Ban, X, Share2, Globe, QrCode, MapPin, User as UserIcon, MoreVertical
 } from 'lucide-react';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useFriendStore } from '@/store/useFriendStore';
 import { useFilteredOnline } from '@/hooks/usePresence';
 import { useChatStore } from '@/store/useChatStore';
-import { usePhoneContacts } from '@/hooks/usePhoneContacts';
 import EmptyState from '@/components/EmptyState';
 import LoadingSkeleton from '@/components/LoadingSkeleton';
 import ContactPreviewSheet from '@/components/features/contacts/ContactPreviewSheet';
@@ -37,10 +35,9 @@ export default function ContactsPage() {
   } = useFriendStore();
   const { createDirectChat } = useChatStore();
   const { filtered: visibleOnline } = useFilteredOnline(user?.id || '', friends);
-  const phone = usePhoneContacts(user?.id);
 
   const [search, setSearch] = useState('');
-  const [tab, setTab] = useState<'all' | 'favorites' | 'requests' | 'sent' | 'blocked' | 'contacts'>('all');
+  const [tab, setTab] = useState<'all' | 'favorites' | 'requests' | 'sent' | 'blocked'>('all');
   const [showOnlineOnly, setShowOnlineOnly] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [actionMenu, setActionMenu] = useState<string | null>(null);
@@ -48,23 +45,8 @@ export default function ContactsPage() {
   const userIdRef = useRef(user?.id);
   useEffect(() => { userIdRef.current = user?.id; }, [user?.id]);
 
-  const [showContactSection, setShowContactSection] = useState(true);
   const [previewUser, setPreviewUser] = useState<User | null>(null);
   const [recentContacts, setRecentContacts] = useState<User[]>([]);
-
-  const {
-    phoneContacts,
-    matchedContacts,
-    unmatchedContacts,
-    loadingContactMatch,
-    contactsLoading,
-    contactsSupported,
-    syncTime,
-    findContactsOnGaga,
-    syncContacts: handleSyncContacts,
-    clearContacts,
-    refreshMatches,
-  } = phone;
 
   // Subscribe to friends, sent requests, and blocked users (all real-time)
   useEffect(() => {
@@ -93,9 +75,8 @@ export default function ContactsPage() {
   const handleRefresh = useCallback(() => {
     if (!userIdRef.current || refreshing) return;
     setRefreshing(true);
-    refreshMatches();
     refreshTimeoutRef.current = setTimeout(() => setRefreshing(false), 1200);
-  }, [refreshing, refreshMatches]);
+  }, [refreshing]);
 
   const handleMessage = async (friendId: string) => {
     if (!user?.id) return;
@@ -113,36 +94,6 @@ export default function ContactsPage() {
       }
     } catch { /* user cancelled */ }
   };
-
-  const prevFriendKeyRef = useRef('');
-  useEffect(() => {
-    const key = friends.map((f) => f.id).sort().join(',');
-    if (key !== prevFriendKeyRef.current && phoneContacts.length > 0) {
-      prevFriendKeyRef.current = key;
-      queueMicrotask(() => { void findContactsOnGaga(); });
-    }
-  }, [friends, phoneContacts.length, findContactsOnGaga]);
-
-  const handleClearContacts = () => {
-    clearContacts();
-  };
-
-  const handleAddFromContact = async (matchedUserId: string) => {
-    if (!user?.id) return;
-    try {
-      await sendRequest(matchedUserId, user.id);
-      toast.success('Friend request sent');
-    } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : 'Failed to send request');
-    }
-  };
-
-  const handleMessageFromContact = async (matchedUserId: string) => {
-    if (!user?.id) return;
-    await createDirectChat(matchedUserId, user.id);
-    navigate(`/chat/${matchedUserId}`);
-  };
-
 
   // ─── Filtering ───
 
@@ -280,10 +231,7 @@ export default function ContactsPage() {
     requests: `Requests (${sortedRequests.length})`,
     sent: `Sent (${sentRequests.length})`,
     blocked: `Blocked (${blockedUsers.length})`,
-    contacts: `Contacts (${phoneContacts.length})`,
   };
-
-  const hasContactData = phoneContacts.length > 0;
 
   // Group friends alphabetically for A-Z sidebar
   const groupedFriends = useMemo(() => {
@@ -401,204 +349,6 @@ export default function ContactsPage() {
             </div>
           </div>
         )}
-
-        {/* === PHONE CONTACTS SECTION === */}
-        <div className="mb-4">
-          <button
-            type="button"
-            onClick={() => setShowContactSection(!showContactSection)}
-            className="w-full flex items-center justify-between py-2 mb-2"
-          >
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-full bg-[#00C300]/10 flex items-center justify-center">
-                <Contact2 size={16} className="text-[#00C300]" />
-              </div>
-              <div className="text-left">
-                <h3 className="text-[15px] font-semibold text-foreground">Phone Contacts</h3>
-                {syncTime && (
-                  <p className="text-[11px] text-muted-foreground">Synced {syncTime}</p>
-                )}
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              {hasContactData && (
-                <button
-                  type="button"
-                  onClick={(e) => { e.stopPropagation(); handleClearContacts(); }}
-                  className="text-muted-foreground text-xs hover:text-[#FF3B30] transition-colors px-2 py-1"
-                >
-                  Clear
-                </button>
-              )}
-              {showContactSection ? <ChevronUp size={18} className="text-muted-foreground" /> : <ChevronDown size={18} className="text-muted-foreground" />}
-            </div>
-          </button>
-
-          <AnimatePresence>
-            {showContactSection && (
-              <motion.div
-                initial={{ height: 0, opacity: 0 }}
-                animate={{ height: 'auto', opacity: 1 }}
-                exit={{ height: 0, opacity: 0 }}
-                className="overflow-hidden"
-              >
-                {/* Import Button */}
-                {!hasContactData && !contactsLoading && (
-                  <div className="bg-muted rounded-xl p-4 mb-3 text-center">
-                    <div className="w-12 h-12 rounded-full bg-[#00C300]/10 flex items-center justify-center mx-auto mb-2">
-                      <Smartphone size={24} className="text-[#00C300]" />
-                    </div>
-                    <p className="text-foreground font-medium text-sm mb-1">Find friends from your phone</p>
-                    <p className="text-muted-foreground text-xs mb-3">Sync your contacts to see who's already on GaGa Chat</p>
-                    <button
-                      type="button"
-                      onClick={handleSyncContacts}
-                      className="flex items-center gap-2 mx-auto px-4 py-2 bg-[#00C300] text-white text-sm font-medium rounded-full active:bg-[#00A300] transition-colors"
-                    >
-                      <Download size={16} />
-                      Import Contacts
-                    </button>
-                    {!contactsSupported && (
-                      <p className="text-[#FF9800] text-[10px] mt-2">Contact import not supported on this browser. Try Chrome on Android.</p>
-                    )}
-                  </div>
-                )}
-
-                {/* Loading */}
-                {contactsLoading && (
-                  <div className="flex flex-col items-center py-4 mb-3">
-                    <motion.div
-                      animate={{ rotate: 360 }}
-                      transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
-                      className="w-6 h-6 border-2 border-[#00C300] border-t-transparent rounded-full mb-2"
-                    />
-                    <p className="text-muted-foreground text-xs">Importing contacts...</p>
-                  </div>
-                )}
-
-                {/* Loading contact match */}
-                {loadingContactMatch && (
-                  <div className="flex items-center justify-center py-3 mb-2">
-                    <Loader size={16} className="animate-spin text-[#00C300] mr-2" />
-                    <p className="text-muted-foreground text-xs">Finding friends on GaGa Chat...</p>
-                  </div>
-                )}
-
-                {/* On GaGa Chat */}
-                {matchedContacts.length > 0 && (
-                  <div className="mb-3">
-                    <div className="flex items-center justify-between mb-2">
-                      <p className="text-xs font-semibold text-[#00C300] uppercase tracking-wider">On GaGa Chat</p>
-                      <span className="text-muted-foreground text-xs">{matchedContacts.length}</span>
-                    </div>
-                    <div className="space-y-1">
-                      {matchedContacts.map(({ contact, user: matchedUser }) => {
-                        const isOnline = visibleOnline[matchedUser.id];
-                        const friendStatus = friends.find((f: User) => f.id === matchedUser.id);
-                        const isFriend = !!friendStatus;
-                        return (
-                          <motion.div
-                            key={matchedUser.id}
-                            initial={{ opacity: 0, y: 5 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            className="flex items-center gap-3 p-2.5 bg-[#00C300]/5 rounded-xl"
-                          >
-                            <div className="relative">
-                              <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center overflow-hidden">
-                                {sanitizeMediaUrl(matchedUser.avatar) ? (
-                                  <img src={sanitizeMediaUrl(matchedUser.avatar)} className="w-full h-full object-cover" alt="User avatar" />
-                                ) : (
-                                  <img src={getDefaultAvatar(matchedUser.id || matchedUser.name || contact.name)} className="w-full h-full object-cover" alt="User avatar" />
-                                )}
-                              </div>
-                              {isOnline && (
-                                <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-[#00C300] rounded-full border-2 border-white" />
-                              )}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-foreground text-sm font-medium truncate">{contact.name}</p>
-                              <p className="text-muted-foreground text-xs truncate">{matchedUser.phone || matchedUser.email || matchedUser.username || '@user'}</p>
-                            </div>
-                            <div className="flex items-center gap-1.5">
-                              {isFriend ? (
-                                <button
-                                  type="button"
-                                  onClick={() => handleMessageFromContact(matchedUser.id)}
-                                  className="px-3 py-1.5 bg-[#00C300] text-white text-xs rounded-full font-medium active:bg-[#00A300] transition-colors"
-                                >
-                                  Message
-                                </button>
-                              ) : (
-                                <button
-                                  type="button"
-                                  onClick={() => handleAddFromContact(matchedUser.id)}
-                                  className="px-3 py-1.5 bg-[#00C300] text-white text-xs rounded-full font-medium active:bg-[#00A300] transition-colors"
-                                >
-                                  Add
-                                </button>
-                              )}
-                            </div>
-                          </motion.div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-
-                {/* Invite Friends */}
-                {unmatchedContacts.length > 0 && (
-                  <div className="mb-3">
-                    <div className="flex items-center justify-between mb-2">
-                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Invite to GaGa Chat</p>
-                      <span className="text-muted-foreground text-xs">{unmatchedContacts.length}</span>
-                    </div>
-                    <div className="space-y-1">
-                      {unmatchedContacts.slice(0, 10).map((contact) => (
-                        <motion.div
-                          key={contact.id}
-                          initial={{ opacity: 0, y: 5 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          className="flex items-center gap-3 p-2.5 bg-muted rounded-xl"
-                        >
-                          <div className="w-10 h-10 rounded-full bg-[#E8F5E9] flex items-center justify-center">
-                            <UserIcon size={18} className="text-[#00C300]" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-foreground text-sm font-medium truncate">{contact.name}</p>
-                            <p className="text-muted-foreground text-xs truncate">{contact.phone || contact.email || 'No contact info'}</p>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => handleInvite(contact.name)}
-                            className="flex items-center gap-1 px-3 py-1.5 bg-background text-[#00C300] text-xs rounded-full font-medium active:bg-muted transition-colors border border-[#00C300]/20"
-                          >
-                            <Share2 size={12} /> Invite
-                          </button>
-                        </motion.div>
-                      ))}
-                      {unmatchedContacts.length > 10 && (
-                        <p className="text-center text-muted-foreground text-xs py-1">
-                          +{unmatchedContacts.length - 10} more contacts
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {/* Re-sync button when contacts exist */}
-                {hasContactData && !contactsLoading && !loadingContactMatch && (
-                  <button
-                    type="button"
-                    onClick={handleSyncContacts}
-                    className="w-full flex items-center justify-center gap-2 py-2.5 bg-muted rounded-xl text-muted-foreground text-xs font-medium hover:text-foreground transition-colors mb-2"
-                  >
-                    <RefreshCw size={14} /> Re-sync contacts
-                  </button>
-                )}
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
 
         <div className="border-t border-border my-2" />
 

@@ -2,9 +2,12 @@
 // Never silently fall back to demo credentials during runtime. Missing config is
 // a valid failure state that should surface a clear UI message instead of a
 // dead "Connecting…" loop.
-const VITE_ENV = typeof import.meta !== 'undefined' && import.meta && 'env' in import.meta
-    ? import.meta.env ?? {}
-    : {} as Record<string, string | boolean | undefined>;
+// Vite statically replaces `import.meta.env` with the resolved env object at
+// build time. Do NOT guard it with a runtime check like `'env' in import.meta`
+// — in the production bundle `import.meta` has no `env` key, so that guard
+// evaluates to false and silently blanks out ALL ZEGO config (which made calls
+// report "ZEGO Cloud is not configured").
+const VITE_ENV = (import.meta.env ?? {}) as Record<string, string | boolean | undefined>;
 
 function readEnvNumber(key: string, fallback: number): number {
     const raw = VITE_ENV[key];

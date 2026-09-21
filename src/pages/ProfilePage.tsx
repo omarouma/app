@@ -5,7 +5,7 @@ import {
   ArrowLeft, Settings, Edit3, Share2, Camera, Check, X,
   MapPin, Link2, Mail, Phone, Users, Heart, MessageCircle, BadgeCheck,
   Copy, QrCode, Loader, MoreHorizontal, Video, Flag, Ban, Bell, BellOff,
-  Image as ImageIcon, Briefcase, Clock, Globe, UserPlus, UserCheck, UserX,
+  Image as ImageIcon, Briefcase, Clock, Globe, UserPlus, UserCheck, UserX, Trash2,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useFriendStore } from '@/store/useFriendStore';
@@ -86,10 +86,12 @@ export default function ProfilePage() {
   const [saving, setSaving] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [uploadingCover, setUploadingCover] = useState(false);
+  const [uploadingCoverVideo, setUploadingCoverVideo] = useState(false);
   const [showShareSheet, setShowShareSheet] = useState(false);
 
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const coverInputRef = useRef<HTMLInputElement>(null);
+  const coverVideoInputRef = useRef<HTMLInputElement>(null);
   const profileUrl = displayUser ? buildGagaChatWebUrl(displayUser.id) : '';
 
   // ── Relationship memos (other-user view) ──
@@ -205,14 +207,46 @@ export default function ProfilePage() {
       // instead of the avatars bucket. 'posts' kind supports image uploads.
       const url = await uploadMediaBlob({ kind: 'covers', file, mimeType: file.type, userId: user.id });
       if (!url) throw new Error('Upload failed');
-      await updateDocById(COLLECTIONS.USERS, user.id, { coverImage: url });
-      setUser({ ...user, coverImage: url });
+      await updateDocById(COLLECTIONS.USERS, user.id, { coverImage: url, coverVideo: '' });
+      setUser({ ...user, coverImage: url, coverVideo: '' });
       toast.success('Cover image updated');
     } catch {
       toast.error('Failed to upload cover image');
     } finally {
       setUploadingCover(false);
       if (coverInputRef.current) coverInputRef.current.value = '';
+    }
+  }, [user, setUser]);
+
+  const handleCoverVideoUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !user?.id) return;
+    if (!file.type.startsWith('video/')) { toast.error('Please select a video file'); return; }
+    if (file.size > 50 * 1024 * 1024) { toast.error('Video must be under 50MB'); return; }
+    setUploadingCoverVideo(true);
+    try {
+      const { uploadMediaBlob } = await import('@/lib/storage');
+      const url = await uploadMediaBlob({ kind: 'covers', file, mimeType: file.type, userId: user.id });
+      if (!url) throw new Error('Upload failed');
+      await updateDocById(COLLECTIONS.USERS, user.id, { coverVideo: url, coverImage: '' });
+      setUser({ ...user, coverVideo: url, coverImage: '' });
+      toast.success('Cover video updated');
+    } catch {
+      toast.error('Failed to upload cover video');
+    } finally {
+      setUploadingCoverVideo(false);
+      if (coverVideoInputRef.current) coverVideoInputRef.current.value = '';
+    }
+  }, [user, setUser]);
+
+  const handleRemoveCover = useCallback(async () => {
+    if (!user?.id) return;
+    try {
+      await updateDocById(COLLECTIONS.USERS, user.id, { coverImage: '', coverVideo: '' });
+      setUser({ ...user, coverImage: '', coverVideo: '' });
+      toast.success('Cover removed');
+    } catch {
+      toast.error('Failed to remove cover');
     }
   }, [user, setUser]);
 
@@ -352,7 +386,7 @@ export default function ProfilePage() {
       Boolean(displayUser?.name),
       Boolean(displayUser?.bio),
       Boolean(displayUser?.avatar),
-      Boolean(displayUser?.coverImage),
+      Boolean(displayUser?.coverImage) || Boolean(displayUser?.coverVideo),
       Boolean(displayUser?.location),
       Boolean(displayUser?.website),
     ];
@@ -420,26 +454,56 @@ export default function ProfilePage() {
       <div className="max-w-2xl mx-auto px-4 py-4 space-y-3 pb-16">
         {/* Avatar + Name card */}
         <div className="bg-background rounded-2xl shadow-sm overflow-hidden">
-          {/* Cover image */}
+          {/* Cover image / video */}
           <div className="relative h-32 sm:h-40 w-full bg-gradient-to-r from-[#00C300]/20 to-[#2196F3]/20">
-            {sanitizeMediaUrl(displayUser.coverImage) && (
+            {sanitizeMediaUrl(displayUser.coverVideo) ? (
+              <video
+                src={sanitizeMediaUrl(displayUser.coverVideo)}
+                className="w-full h-full object-cover"
+                autoPlay
+                muted
+                loop
+                playsInline
+              />
+            ) : sanitizeMediaUrl(displayUser.coverImage) ? (
               <img
                 src={sanitizeMediaUrl(displayUser.coverImage)}
                 alt={`${displayUser.name}'s cover`}
                 className="w-full h-full object-cover"
               />
-            )}
+            ) : null}
             {isOwnProfile && (
               <>
-                <button
-                  type="button"
-                  onClick={() => coverInputRef.current?.click()}
-                  className="absolute bottom-2 right-2 flex items-center gap-1.5 px-3 py-1.5 bg-black/50 backdrop-blur-sm text-white rounded-full text-xs font-medium hover:bg-black/70 transition-colors"
-                  aria-label="Change cover image"
-                >
-                  <Camera size={14} />
-                  {uploadingCover ? 'Uploading…' : (displayUser.coverImage ? 'Change' : 'Add')}
-                </button>
+                <div className="absolute bottom-2 right-2 flex items-center gap-1.5">
+                  {(displayUser.coverImage || displayUser.coverVideo) && (
+                    <button
+                      type="button"
+                      onClick={handleRemoveCover}
+                      className="flex items-center gap-1 px-2.5 py-1.5 bg-black/50 backdrop-blur-sm text-white rounded-full text-xs font-medium hover:bg-black/70 transition-colors"
+                      aria-label="Remove cover"
+                    >
+                      <Trash2 size={13} />
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => coverInputRef.current?.click()}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-black/50 backdrop-blur-sm text-white rounded-full text-xs font-medium hover:bg-black/70 transition-colors"
+                    aria-label="Change cover photo"
+                  >
+                    <Camera size={14} />
+                    {uploadingCover ? 'Uploading…' : 'Photo'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => coverVideoInputRef.current?.click()}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-black/50 backdrop-blur-sm text-white rounded-full text-xs font-medium hover:bg-black/70 transition-colors"
+                    aria-label="Change cover video"
+                  >
+                    <Video size={14} />
+                    {uploadingCoverVideo ? 'Uploading…' : 'Video'}
+                  </button>
+                </div>
                 <input
                   ref={coverInputRef}
                   type="file"
@@ -448,9 +512,17 @@ export default function ProfilePage() {
                   onChange={handleCoverUpload}
                   aria-label="Upload cover image"
                 />
+                <input
+                  ref={coverVideoInputRef}
+                  type="file"
+                  accept="video/*"
+                  className="hidden"
+                  onChange={handleCoverVideoUpload}
+                  aria-label="Upload cover video"
+                />
               </>
             )}
-            {uploadingCover && (
+            {(uploadingCover || uploadingCoverVideo) && (
               <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
                 <div className="w-7 h-7 border-2 border-white border-t-transparent rounded-full animate-spin" />
               </div>
