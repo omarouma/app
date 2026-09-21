@@ -147,6 +147,8 @@ const TermsPage = lazy(() => import('@/pages/TermsPage'));
 const NotFound = lazy(() => import('@/pages/NotFound'));
 const CreateGroupPage = lazy(() => import('@/pages/CreateGroupPage'));
 const GroupChatPage = lazy(() => import('@/pages/GroupChatPage'));
+const GroupInfoPage = lazy(() => import('@/pages/GroupInfoPage'));
+const JoinGroupPage = lazy(() => import('@/pages/JoinGroupPage'));
 const GagaRewardsPage = lazy(() => import('@/pages/GagaRewardsPage'));
 const SentRequestsPage = lazy(() => import('@/pages/SentRequestsPage'));
 const BlockedUsersPage = lazy(() => import('@/pages/BlockedUsersPage'));
@@ -187,7 +189,7 @@ const desktopNavItems = [
 ];
 
 // Routes where BottomNav should be hidden on mobile (full-screen experiences)
-const HIDE_BOTTOM_NAV_PATHS = ['/chat/', '/group/', '/onboarding', '/auth', '/qr-scanner'];
+const HIDE_BOTTOM_NAV_PATHS = ['/chat/', '/group/', '/group-info/', '/join/', '/onboarding', '/auth', '/qr-scanner'];
 
 function shouldHideBottomNav(pathname: string): boolean {
   return pathname === '/call' || HIDE_BOTTOM_NAV_PATHS.some((path) => pathname.startsWith(path));
@@ -206,7 +208,7 @@ const DESKTOP_PUBLIC_PATHS = [
 ];
 
 const MOBILE_PROTECTED_ROUTE_PATHS: string[] = [
-  '/chats', '/chat/:userId', '/group/:groupId', '/create-group', '/calls', '/call',
+  '/chats', '/chat/:userId', '/group/:groupId', '/group-info/:groupId', '/join/:code', '/create-group', '/calls', '/call',
   '/contacts', '/profile', '/profile/:userId', '/settings', '/notifications',
   '/qr-scanner', '/wallet', '/rewards', '/add-friends', '/sent-requests', '/blocked-users',
   '/chat-info/:chatId', '/saved-messages', '/premium', '/more', '/share',
@@ -218,6 +220,8 @@ function getMobileRouteElement(path: string) {
     case '/chats': return <ErrorBoundary key="chats"><ChatsPage /></ErrorBoundary>;
     case '/chat/:userId': return <ErrorBoundary key="chat"><ChatRoomPage /></ErrorBoundary>;
     case '/group/:groupId': return <ErrorBoundary key="group"><GroupChatPage /></ErrorBoundary>;
+    case '/group-info/:groupId': return <ErrorBoundary key="group-info"><GroupInfoPage /></ErrorBoundary>;
+    case '/join/:code': return <ErrorBoundary key="join"><JoinGroupPage /></ErrorBoundary>;
     case '/calls': return <ErrorBoundary key="calls"><CallsPage /></ErrorBoundary>;
     case '/call': return <ErrorBoundary key="call"><CallPage /></ErrorBoundary>;
     case '/create-group': return <ErrorBoundary key="create-group"><CreateGroupPage /></ErrorBoundary>;
@@ -547,6 +551,8 @@ function AppContent() {
                         <Route path="chats" element={<DesktopChatView />} />
                         <Route path="chat/:userId" element={<DesktopChatView />} />
                         <Route path="group/:groupId" element={<GroupChatPage />} />
+                        <Route path="group-info/:groupId" element={<GroupInfoPage />} />
+                        <Route path="join/:code" element={<JoinGroupPage />} />
                         <Route path="create-group" element={<CreateGroupPage />} />
                         <Route path="calls" element={<DesktopCallsView />} />
                         <Route path="contacts" element={<DesktopContactsView />} />

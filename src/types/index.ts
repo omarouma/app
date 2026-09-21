@@ -68,6 +68,12 @@ export interface Chat {
   pinned?: boolean;
   pinnedMessages?: PinnedMessage[];
   description?: string;
+  inviteCode?: string;
+  settings?: {
+    onlyAdminsCanPost?: boolean;
+    onlyAdminsCanAdd?: boolean;
+    isPublic?: boolean;
+  };
   disappearingMessages?: number; // seconds, 0 = off
   chatLocked?: boolean;
   lockType?: 'pin' | 'biometric';

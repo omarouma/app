@@ -34,7 +34,7 @@ export default function GroupChatPage() {
     const { settings } = useUserSettings();
     const {
         groups, groupMessages, subscribeGroupMessages, sendGroupMessage, leaveGroup,
-        deleteGroupMessage, deleteGroupMessageForEveryone
+        deleteGroupMessage, deleteGroupMessageForEveryone, toggleGroupMute
     } = useGroupStore();
     const { friends } = useFriendStore();
     const { isRecording, duration, startRecording, stopRecording, cancelRecording } = useVoiceRecorder();
@@ -67,6 +67,8 @@ export default function GroupChatPage() {
     const group = useMemo(() => groups.find(g => g.id === groupId), [groups, groupId]);
     const msgs = useMemo(() => groupId ? (groupMessages[groupId] || []) : [], [groupMessages, groupId]);
     const memberCount = useMemo(() => group?.participants.length || 0, [group]);
+    const isAdmin = !!currentUser && !!group?.admins?.includes(currentUser.id);
+    const canPost = !group?.settings?.onlyAdminsCanPost || isAdmin;
 
     // Lookup map for resolving real member names/avatars in the group call picker.
     const memberInfo = useMemo<Record<string, { name: string; avatar?: string }>>(() => {
@@ -112,6 +114,7 @@ export default function GroupChatPage() {
 
     const handleSend = useCallback(async () => {
         if (!input.trim() || !currentUser || !groupId) return;
+        if (!canPost) { toast.error('Only admins can send messages in this group'); return; }
         stopTyping();
         if (!isOnline()) {
             queueMessage({ type: 'group', chatId: groupId, senderId: currentUser.id, content: input.trim(), replyTo: replyingTo?.id });
@@ -126,7 +129,7 @@ export default function GroupChatPage() {
         } catch {
             toast.error('Failed to send message');
         }
-    }, [input, currentUser, groupId, stopTyping, queueMessage, replyingTo?.id, sendGroupMessage]);
+    }, [input, currentUser, groupId, stopTyping, queueMessage, replyingTo?.id, sendGroupMessage, canPost]);
 
     const handleMediaUpload = async (e: React.ChangeEvent<HTMLInputElement>, mediaType: string) => {
         const inputElement = e.currentTarget;
@@ -263,6 +266,7 @@ export default function GroupChatPage() {
                 filteredMsgsLength={filteredMsgs.length}
                 leaveGroup={leaveGroup}
                 setShowMembersModal={setShowMembersModal}
+                onToggleMute={() => { if (group) toggleGroupMute(group.id, !group.isMuted); }}
                 memberInfo={memberInfo}
             />
             <GroupChatMessageList
@@ -293,7 +297,15 @@ export default function GroupChatPage() {
                 handleLocationShare={handleLocationShare}
                 handleContactShare={handleContactShare}
                 onTyping={sendTyping}
+                members={group.participants
+                    .filter((id: string) => id !== currentUser?.id)
+                    .map((id: string) => ({ id, name: memberInfo[id]?.name || 'Member' }))}
             />
+            {!canPost && (
+                <div className="shrink-0 bg-[#FFF8E1] border-t border-[#FFE082] px-4 py-2 text-center text-xs text-[#8D6E00]">
+                    Only admins can send messages in this group.
+                </div>
+            )}
 
             {/* Context Menu */}
             <AnimatePresence>

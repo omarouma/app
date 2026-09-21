@@ -2,7 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     ChevronLeft, MoreHorizontal, Users, Phone, UserPlus, Settings, LogOut,
-    Search, X, Video
+    Search, X, Video, Volume2, VolumeX
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import type { Chat, User } from '@/types';
@@ -25,6 +25,7 @@ interface GroupChatHeaderProps {
     filteredMsgsLength: number;
     leaveGroup: (groupId: string, userId: string) => void;
     setShowMembersModal: (show: boolean) => void;
+    onToggleMute?: () => void;
     // Lookup map for resolving real member names/avatars in the call picker.
     memberInfo?: Record<string, GroupMemberInfo>;
 }
@@ -42,6 +43,7 @@ export function GroupChatHeader({
     filteredMsgsLength,
     leaveGroup,
     setShowMembersModal,
+    onToggleMute,
     memberInfo
 }: GroupChatHeaderProps) {
     const navigate = useNavigate();
@@ -63,7 +65,8 @@ export function GroupChatHeader({
     const menuItems = [
         { icon: UserPlus, label: 'Add Member', action: () => { navigate(`/add-friends`); setShowMenu(false); } },
         { icon: Users, label: 'View Members', action: () => { setShowMembersModal(true); setShowMenu(false); } },
-        { icon: Settings, label: 'Group Settings', action: () => { if (group.id) { navigate(`/group-info/${group.id}`); setShowMenu(false); } } },
+        { icon: group.isMuted ? Volume2 : VolumeX, label: group.isMuted ? 'Unmute' : 'Mute', action: () => { onToggleMute?.(); setShowMenu(false); } },
+        { icon: Settings, label: 'Group Info', action: () => { if (group.id) { navigate(`/group-info/${group.id}`); setShowMenu(false); } } },
         { icon: LogOut, label: 'Leave Group', action: () => { if (group.id && currentUser) { leaveGroup(group.id, currentUser.id); navigate('/chats'); setShowMenu(false); } } },
     ];
 

@@ -34,6 +34,23 @@ function formatDateSeparator(date: unknown) {
     return d.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
 }
 
+/** Render message text with @mentions visually highlighted. */
+function renderWithMentions(text: string, isMe: boolean) {
+    const parts = text.split(/(@[\w.-]+)/g);
+    return parts.map((part, i) =>
+        part.startsWith('@') ? (
+            <span
+                key={i}
+                className={`font-semibold rounded px-0.5 ${isMe ? 'bg-white/25 text-white' : 'bg-[#00C300]/15 text-[#00A300]'}`}
+            >
+                {part.replace(/_/g, ' ')}
+            </span>
+        ) : (
+            <span key={i}>{part}</span>
+        )
+    );
+}
+
 export function GroupChatMessageList({
     group,
     filteredMsgs,
@@ -125,7 +142,7 @@ export function GroupChatMessageList({
                                             if (mediaUrl && msg.type === 'location') {
                                                 return <a href={mediaUrl} target="_blank" rel="noopener noreferrer" className="underline">{msg.content || 'Open location'}</a>;
                                             }
-                                            return <span className="whitespace-pre-wrap break-words">{msg.content}</span>;
+                                            return <span className="whitespace-pre-wrap break-words">{renderWithMentions(msg.content, isMe)}</span>;
                                         })()}
                                         <span className="text-[10px] ml-2 float-right mt-1.5 opacity-70">{formatTime(msg.timestamp)}</span>
                                         {hasReactions && (

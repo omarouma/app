@@ -23,6 +23,8 @@ interface GroupChatInputProps {
     handleLocationShare: () => void;
     handleContactShare: () => void;
     onTyping: () => void;
+    /** Group members available for @mention autocomplete. */
+    members?: Array<{ id: string; name: string }>;
 }
 
 const attachmentOptions = [
@@ -37,14 +39,37 @@ const attachmentOptions = [
 
 export function GroupChatInput({
     input, setInput, handleSend, isRecording, startRecording, cancelRecording, handleVoiceSend, duration,
-    replyingTo, setReplyingTo, handleMediaUpload, handleFileUpload, handleLocationShare, handleContactShare, onTyping
+    replyingTo, setReplyingTo, handleMediaUpload, handleFileUpload, handleLocationShare, handleContactShare, onTyping,
+    members = []
 }: GroupChatInputProps) {
     const [showAttachments, setShowAttachments] = useState(false);
     const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+    const [mentionQuery, setMentionQuery] = useState<string | null>(null);
     const photoInputRef = useRef<HTMLInputElement>(null);
     const cameraInputRef = useRef<HTMLInputElement>(null);
     const videoInputRef = useRef<HTMLInputElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
+
+    // Detect an in-progress @mention token at the end of the current input.
+    const handleInputChange = (value: string) => {
+        setInput(value);
+        onTyping();
+        const match = value.match(/(?:^|\s)@([\w.-]*)$/);
+        setMentionQuery(match ? match[1] : null);
+    };
+
+    const mentionSuggestions = mentionQuery !== null
+        ? members.filter(m => m.name.toLowerCase().includes(mentionQuery.toLowerCase())).slice(0, 6)
+        : [];
+
+    const applyMention = (name: string) => {
+        const next = input.replace(/(?:^|\s)@([\w.-]*)$/, (full) => {
+            const prefix = full.startsWith(' ') ? ' ' : '';
+            return `${prefix}@${name.replace(/\s+/g, '_')} `;
+        });
+        setInput(next);
+        setMentionQuery(null);
+    };
 
     const handleAttachmentClick = (action: string) => {
         setShowAttachments(false);
@@ -107,9 +132,33 @@ export function GroupChatInput({
                 </button>
 
                 <div className="flex-1 relative">
+                    <AnimatePresence>
+                        {mentionSuggestions.length > 0 && (
+                            <motion.div
+                                initial={{ opacity: 0, y: 6 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, y: 6 }}
+                                className="absolute bottom-full left-0 mb-2 w-full max-h-48 overflow-y-auto bg-white rounded-xl shadow-lg border border-[#EBEBEB] z-30"
+                            >
+                                {mentionSuggestions.map(m => (
+                                    <button
+                                        key={m.id}
+                                        type="button"
+                                        onClick={() => applyMention(m.name)}
+                                        className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-[#F5F5F5] active:bg-gray-100"
+                                    >
+                                        <span className="w-7 h-7 rounded-full bg-[#00C300]/10 flex items-center justify-center text-[#00C300] text-xs font-bold shrink-0">
+                                            {(m.name || 'U')[0].toUpperCase()}
+                                        </span>
+                                        <span className="text-sm text-[#111111] truncate">{m.name}</span>
+                                    </button>
+                                ))}
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
                     <input
                         value={input}
-                        onChange={(e) => { setInput(e.target.value); onTyping(); }}
+                        onChange={(e) => handleInputChange(e.target.value)}
                         onKeyDown={(e) => e.key === 'Enter' && handleSend()}
                         placeholder="Type a message..."
                         className="w-full bg-[#F5F5F5] rounded-xl pl-4 pr-10 py-2.5 text-sm text-[#111111] focus:outline-none focus:ring-2 focus:ring-[#00C300] placeholder:text-[#8D8D8D]"
