@@ -20,18 +20,13 @@ const features = [
   { icon: Crown, titleKey: 'premiumFeatures', descKey: 'premiumFeaturesDesc' },
 ];
 
-const testimonials = [
-  { name: 'Elena Petrova', role: 'Marketing Manager, Tech Startup', text: 'GaGa Chat has revolutionized our team’s communication. The voice quality is exceptional for our international calls, and the file sharing is seamless. It’s the most reliable platform we’ve used.' },
-  { name: 'Johnathan Lee', role: 'Freelance Designer', text: 'As a freelancer, secure and fast communication with clients is key. GaGa Chat delivers on all fronts. The group calls and file sharing are also a huge plus for my workflow.' },
-  { name: 'Aisha Diallo', role: 'Community Organizer', text: 'We use GaGa Chat to organize local events and stay connected with our community. It’s incredibly user-friendly and works flawlessly even in low-bandwidth areas. A real game-changer for us.' },
-  { name: 'Mateo Rossi', role: 'University Student', text: 'Studying abroad, GaGa Chat is my lifeline to family and friends back home. It’s free, easy to use, and I never have to worry about call drops or poor video quality. Plus, no VPN needed!' },
-];
-
-const testimonialAvatars = [
-  { name: 'Elena Petrova', src: 'https://i.pravatar.cc/150?u=a042581f4e29026704d' },
-  { name: 'Johnathan Lee', src: 'https://i.pravatar.cc/150?u=a042581f4e29026704e' },
-  { name: 'Aisha Diallo', src: 'https://i.pravatar.cc/150?u=a042581f4e29026704f' },
-  { name: 'Mateo Rossi', src: 'https://i.pravatar.cc/150?u=a042581f4e29026704g' },
+// Honest, verifiable product highlights (no fabricated testimonials or
+// third-party avatar services — PDF §17 build & dependency hygiene).
+const trustHighlights = [
+  { icon: Lock, title: 'Private by design', text: 'Your conversations are protected with row-level security and encrypted transport, so your data stays yours.' },
+  { icon: Zap, title: 'Built for speed', text: 'Local-first rendering and real-time sync keep chats instant, even on slower networks.' },
+  { icon: Globe, title: 'Truly global', text: 'Free messaging plus HD voice and video calls that work across 190+ countries — no VPN required.' },
+  { icon: Shield, title: 'You stay in control', text: 'Granular privacy controls for read receipts, last seen, and who can message or call you.' },
 ];
 
 const stats = [
@@ -565,26 +560,16 @@ export default function LandingView() {
             <p className="text-[#8D8D8D] max-w-lg mx-auto">{t('testimonialsDesc')}</p>
           </motion.div>
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {testimonials.map((testimonial, i) => {
-              const avatar = testimonialAvatars[i];
+            {trustHighlights.map((item, i) => {
+              const Icon = item.icon;
               return (
-                <motion.div key={testimonial.name} initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: i * 0.1 }}
+                <motion.div key={item.title} initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: i * 0.1 }}
                   className="bg-[#F5F5F5] border border-[#EBEBEB] rounded-2xl p-6 hover:border-[#00C300]/30 transition-all hover:shadow-lg hover:-translate-y-1">
-                  <div className="flex gap-0.5 mb-4">
-                    {[1, 2, 3, 4, 5].map(s => <span key={s} className="text-[#00C300] text-sm">★</span>)}
+                  <div className="w-10 h-10 rounded-full flex items-center justify-center bg-[#00C300]/10 mb-4">
+                    <Icon size={20} className="text-[#00C300]" />
                   </div>
-                  <p className="text-[#111111] text-sm leading-relaxed mb-5">&ldquo;{testimonial.text}&rdquo;</p>
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full flex items-center justify-center overflow-hidden bg-[#00C300]">
-                      {avatar?.src
-                        ? <img src={avatar.src} alt={avatar.name} className="w-full h-full object-cover" />
-                        : <span className="text-white text-xs font-bold">{avatar?.name?.charAt(0) ?? '?'}</span>}
-                    </div>
-                    <div>
-                      <p className="text-[#111111] font-medium text-sm">{testimonial.name}</p>
-                      <p className="text-[#8D8D8D] text-xs">{testimonial.role}</p>
-                    </div>
-                  </div>
+                  <p className="text-[#111111] font-bold text-sm mb-2">{item.title}</p>
+                  <p className="text-[#8D8D8D] text-sm leading-relaxed">{item.text}</p>
                 </motion.div>
               );
             })}

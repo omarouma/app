@@ -423,7 +423,6 @@ export const usePremiumStore = create<PremiumStoreState & PremiumStoreActions>((
       // NOTE: Referral rewards are now awarded server-side via admin_award_coins.
       // This requires server-side verification that the referral is legitimate.
       // For now, referral rewards are disabled pending backend implementation.
-      console.info('[usePremiumStore.redeemReferral] Referral rewards require server-side verification');
 
       // Update referrer count
       await updateDocById(COLLECTIONS.USERS, referrer.id, {

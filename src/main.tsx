@@ -17,6 +17,17 @@ declare global {
   }
 }
 
+// ── Production logging hygiene (PDF §17) ────────────────────────────────────
+// Verbose logging (log/debug/info) is silenced in production builds so the
+// shipped APK never emits debug output. Warnings and errors are preserved
+// because they surface real, actionable failures.
+if (import.meta.env.PROD) {
+  const noop = () => {};
+  console.log = noop;
+  console.debug = noop;
+  console.info = noop;
+}
+
 const BLOCKED_BINANCE_TON_BRIDGE_URL = /wallet\.binance\.com\/tonbridge\/bridge\/events|tonbridge\/bridge\/events/i;
 
 function isBlockedBinanceTonBridgeUrl(url: string): boolean {

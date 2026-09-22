@@ -124,7 +124,6 @@ export default function WalletPage() {
     if (!user || !depositAmount || !depositMethod) return;
     // NOTE: Deposits are being processed server-side.
     // Temporarily disabled pending integration with payment gateway and admin RPC.
-    console.info('[WalletPage] Deposits require server-side payment verification (disabled for security)');
     setShowDeposit(false);
     setDepositAmount('');
     setDepositMethod('');

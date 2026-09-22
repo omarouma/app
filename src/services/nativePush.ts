@@ -52,10 +52,11 @@ async function persistToken(userId: string, token: string, platform: 'android' |
       .update({ push_subscription: JSON.stringify({ kind: 'fcm', platform, token }) })
       .eq('id', userId);
     if (error && error.code !== 'PGRST204') {
-      console.debug('[NativePush] token persist skipped:', error.message);
+      // Non-critical: token persist skipped (column may not be migrated yet).
     }
   } catch (err) {
-    console.debug('[NativePush] token persist failed (non-critical):', err);
+    // Non-critical: token persist failed.
+    void err;
   }
 }
 
@@ -102,9 +103,8 @@ export async function registerNativePush(
       resolvers.forEach((r) => r(null));
     });
 
-    await PushNotifications.addListener('pushNotificationReceived', (notification) => {
+    await PushNotifications.addListener('pushNotificationReceived', () => {
       // Foreground delivery — the in-app notification layer handles the UI.
-      console.debug('[NativePush] foreground notification:', notification?.title);
     });
 
     await PushNotifications.addListener('pushNotificationActionPerformed', (action) => {
@@ -129,7 +129,6 @@ export async function registerNativePush(
       perm = await PushNotifications.requestPermissions();
     }
     if (perm.receive !== 'granted') {
-      console.debug('[NativePush] permission not granted:', perm.receive);
       return null;
     }
   } catch (err) {

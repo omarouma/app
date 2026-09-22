@@ -1,8 +1,8 @@
-# GaGa Chat — Android Release Build
+# GaGa — Android Release Build
 
 **Version:** 1.0.0 (versionCode 1)
 **Package:** `gagachat.app`
-**App label:** GaGa Chat
+**App label:** GaGa
 **Build date:** 2026-09-22
 **minSdk:** 22 (Android 5.1+) · **targetSdk:** 34 (Android 14)
 
@@ -10,14 +10,14 @@
 
 | File | Size | Purpose |
 |---|---|---|
-| `GaGa-Chat-v1.0.0-release.apk` | 27.2 MB | Direct install / sideload / testing |
-| `GaGa-Chat-v1.0.0-release.aab` | 26.8 MB | Google Play Store upload |
+| `GaGa-v1.0.0-release.apk` | 26.0 MB | Direct install / sideload / testing |
+| `GaGa-v1.0.0-release.aab` | 25.6 MB | Google Play Store upload |
 
 ## Checksums (SHA-256)
 
 ```
-d581663f676040c6b61ebe2b4b2999afcf87cdec4537e49c73d743e6100ba640  GaGa-Chat-v1.0.0-release.apk
-a5942f62a72d70623ae193dccb5d4a630fc9f2285ff0b10189d8c63aa77c255d  GaGa-Chat-v1.0.0-release.aab
+9294f6086f1fbc3e1a6d9b0267459f9467de22486fc3590e777e5f79c3cc8408  GaGa-v1.0.0-release.apk
+942e34a37757b94b0b9ba6f879abbf9d616553a3965090d925a80192d2874d7a  GaGa-v1.0.0-release.aab
 ```
 
 ## Signing certificate
@@ -28,193 +28,69 @@ SHA-256: F6:E9:5A:C8:B0:D2:6B:6D:B9:32:3B:7F:C4:7D:5B:C7:36:DD:1B:AB:37:91:F9:92
 SHA-1:   4B:4B:64:61:E6:31:30:0B:B9:A7:B1:9C:0A:E7:50:72:B0:86:CE:E9
 ```
 
-> **NOTE — signing key changed.** The original release keystore was not present in
-> this build environment, so a fresh keystore (`android/gaga-release.jks`) was
-> generated. This APK therefore has a **different signature** than the previous
-> v1.0.0 build. Devices with the old build installed must uninstall it before
-> installing this one. Before publishing to Google Play, keep this keystore safe —
-> all future updates must be signed with the same key.
+Signature schemes verified: **v1 (JAR) ✓ · v2 ✓ · v3 ✓**
+
+> **NOTE — signing key.** The release keystore (`android/gaga-release.jks`) was
+> generated in this build environment. Keep it safe — all future updates must be
+> signed with the same key. Devices with a differently-signed build installed must
+> uninstall it before installing this one.
 
 ## What's included in this build
 
-### Attachment / Share screen (this milestone)
-1. **Redesigned attachment sheet** — a proper bottom sheet with backdrop, drag
-   handle, spring animation, drag-to-close, safe-area padding and a 4-column
-   grid. Fixed the low-contrast glyph bug (green glyph on green tint).
-2. **Media preview before send** — pick one or many photos/videos/files, review
-   thumbnails, remove items, add a caption, and choose original vs. compressed
-   quality. Total size is shown; photos are compressed client-side unless the
-   user opts for original quality.
-3. **In-app camera** — full-screen `getUserMedia` capture with front/rear switch,
-   torch toggle (where supported), and a review/retake step — no app switching.
-4. **Voice messages** — hold-to-record with slide-left-to-cancel, then a preview
-   bar (play/pause, waveform, duration) with Discard / Send before anything is
-   uploaded.
-5. **Contact sharing** — pick from GaGa friends (searchable), the device address
-   book (Contact Picker API), or a manually typed contact, with a confirmation
-   preview before sending.
-6. **Location** — one-time location share plus **Live Location** with a duration
-   picker (15 min / 1 h / 8 h / until turned off), a 30-second refresh loop, an
-   active-sharing banner with a Stop button, and auto-stop at expiry.
-7. **File messages** — file cards now probe the real size (HEAD request), show a
-   spinner while downloading, and save via a blob download that works inside the
-   Android WebView.
-8. **Upload resilience** — a Cancel button on the upload progress bar, plus a
-   Retry / Dismiss bar for any attachments that fail to upload.
-9. **Permissions** — added `ACCESS_FINE_LOCATION`, `ACCESS_COARSE_LOCATION` and
-   `READ_CONTACTS`; a native `GaGaNative.openAppSettings()` bridge opens the OS
-   app-settings screen when a permission is permanently denied.
-10. **Navigation fix** — push-notification taps now route through the real React
-    Router (`navigateTo`) instead of `window.location.hash`, which does nothing
-    under `BrowserRouter`.
+### 1. App renamed to "GaGa"
+- Launcher label (`strings.xml` `app_name` / `title_activity_main`) → **GaGa**
+- Capacitor `appName` → **GaGa**
+- `index.html` `<title>` + `application-name` → **GaGa**
+- `manifest.json` `name` / `short_name` → **GaGa**
+- `package.json` name → `gaga`
+- In-app Logo wordmark → **GaGa**
+- Localized `appName` (en/es/fr/bn/ar/zh) → **GaGa**
+- Deliverable filenames → `GaGa-v1.0.0-release.apk` / `.aab`
 
-### Chat screen (previous milestone)
-1. **Group chat parity with direct chat** — the group conversation screen reuses
-   the same generic `MessageItem` renderer + virtualized list as 1:1 chat.
-2. **Enriched message actions** — Reply, React, Copy, Select, Edit, Forward,
-   Pin/Unpin, Save/Unsave, Translate, Info, Delete (for me / for everyone).
-3. **Mobile gestures** — long-press to multi-select, double-tap to reply,
-   swipe-to-reply.
-4. **Reaction picker, image lightbox, scroll-to-bottom button, typing indicator,
-   unread separator** in group chats.
-5. **Advanced group features** — forward modal, multi-select mode, scheduled send,
-   polls, sticker/GIF picker, chat background picker, pinned-message banner,
-   jump-to-match search navigation.
+### 2. Real data implemented (PDF §17 — Build & Dependency Hygiene)
+- **Gaga Rewards** — removed the simulated check-in streak ("mark previous days
+  for demo"); the 7-day streak now reflects the real backend `users.streak_days`
+  (exposed via `public_profiles`). Removed fabricated mission progress; missions
+  now derive from real account data only (streak + coin balance).
+- **Landing page** — removed fabricated testimonials (fake names + third-party
+  `i.pravatar.cc` avatars); replaced with honest, verifiable product highlights.
+- **Default avatars** — replaced the external `api.dicebear.com` dependency with
+  a self-contained inline-SVG generator (deterministic color + initial). Works
+  offline, no third-party calls, no identifier leakage.
+- **Logging hygiene** — removed all `console.log/debug/info` from production
+  source and added a production guard in `main.tsx` that silences verbose logging
+  in release builds. `console.warn/error` retained for real error reporting.
+- **No dev endpoints / localhost / sample datasets** found in `src/`.
 
-### Contacts screen (this milestone)
-6. **Design consistency (E1)** — dark-mode-safe sticky section headers
-   (`bg-background/95`), semantic active-tab color, and every action surface
-   unified to the single GaGa-green accent (mobile + desktop contacts views).
-7. **Report user** — full reason picker (spam, harassment, hate speech, violence,
-   nudity, false info, other) + optional details, wired to `reportUser`.
-8. **Confirmation dialogs** — Remove friend and Block now require confirmation;
-   Block accepts an optional reason.
-9. **Copy username / Share contact** — copy `@handle` or share a profile link via
-   native share sheet.
-10. **Close-friend toggle** — mark/unmark close friends from the action menu and
-    the preview sheet.
-11. **Sort options** — Name (A–Z), Recently active, Online first.
-12. **Multi-select mode** — bulk Remove / Block with a selection header bar.
+### 3. Production / responsive fixes (PDF §2)
+- Viewport meta now includes `maximum-scale=1` per the PDF's recommended
+  configuration (`width=device-width, initial-scale=1, maximum-scale=1,
+  viewport-fit=cover`).
 
-### User profile screen (this milestone)
-13. **Design consistency (E1)** — dark-mode-safe sticky header (`bg-background/95`),
-    cover gradient and every badge/action surface unified to the single GaGa-green
-    accent (business, favorite, request, connect, voice/video, mute, media, share,
-    share-sheet, completeness badges). Premium gold branding retained intentionally.
-14. **Block with confirmation + reason** — blocking now opens a confirm dialog with
-    an optional reason passed to `blockUser`; unblocking stays immediate.
-15. **Remove-friend confirmation** — removing a friend now requires confirmation.
-16. **Copy username** — copy the `@handle` to the clipboard in one tap.
-17. **Close-friend toggle** — add/remove close friends directly from the profile.
-18. **Follow / Unfollow** — real follow graph via `followUser`/`unfollowUser`.
-19. **Real follower/following counts** — loaded live via `getFollowers`/`getFollowing`
-    instead of stale embedded arrays.
-20. **Business profile editing** — business accounts can edit name, category,
-    description, address, hours, website, email, and phone inline.
+### 4. Security gate (PDF §14)
+- Verified the shipped bundle contains **only public keys** (Supabase anon key,
+  Firebase API key, ZEGO App ID, Web Push public key). No `service_role` /
+  private keys are bundled.
 
-### Settings screen (this milestone)
-21. **Correct app version** — the About row now shows the real `1.0.0` (was a
-    hardcoded `2.0.0`).
-22. **Native permission guidance** — the notification tip now points to Android
-    system settings instead of web-browser instructions.
-23. **Real "Clear Cache"** — clears the Cache API plus non-essential
-    `localStorage`/`sessionStorage` keys (auth/session keys preserved) and reports
-    the reclaimed size.
-24. **Live "Storage Usage"** — reads `navigator.storage.estimate()` and renders a
-    real usage bar with used / quota figures.
-25. **New "Data & Storage" section** — auto-download media, data saver,
-    auto-play videos, auto-play reels, and media-quality selector, all backed by
-    the settings store.
-26. **New "Accessibility" section** — reduced motion, high contrast, haptic
-    feedback, and enter-to-send toggles.
-27. **New "Security" section** — biometric lock, security alerts, screen-lock
-    timeout selector, change password, two-step verification, and linked devices.
-28. **Expanded notifications** — added group sound, mentions, reactions, and quiet
-    hours (with start/end time pickers).
-29. **Change password flow** — re-authenticates with the current password then
-    calls `supabase.auth.updateUser({ password })`.
-30. **Design consistency (E1)** — fixed the Privacy page data-protection notice
-    from blue (`#2196F3`) to the single GaGa-green accent (`#00C300`).
-
-### Platform
-31. **Real-time calling** — ZEGO App ID `372536818` + Supabase token server baked in.
-32. **GaGa branding** — icon, splash, app name, colors (#00C300), manifest, logo.
-
-### Chat & Contacts performance + UI (this milestone)
-33. **Chat list smoothness** — removed the per-row staggered entrance animation
-    (a major source of jank on long lists) so rows render instantly.
-34. **Chat list efficiency** — removed the redundant per-row `useFilteredOnline`
-    hook (previously N window listeners + N async privacy queries for N rows);
-    online state now flows down from the parent as a single prop.
-35. **Message list smoothness** — removed the per-message `motion` entrance
-    animation that ran on every row inside the virtualized list.
-36. **Virtualized list tuning** — `Virtuoso` now uses `computeItemKey`,
-    `increaseViewportBy`, `overscan`, `atBottomThreshold`, `defaultItemHeight`,
-    and a smarter `followOutput` (only auto-follows when already at the bottom).
-37. **Chat search fast-path** — the chat-list filter skips per-row name/preview
-    resolution entirely when the search box is empty.
-38. **User ID always visible** — the `@handle` (or a short `#id` fallback) now
-    shows in every chat-list row, in the 1:1 chat header, and in every contact row.
-39. **Faster photo sending** — photos are now compressed client-side (downscaled
-    to ≤1600px, JPEG q0.82) before upload, dramatically cutting upload time and
-    mobile-data use while keeping quality high. GIF/SVG and already-small images
-    pass through untouched.
-40. **Design consistency (E1)** — unified every remaining competing color in the
-    chat surface to the single GaGa-green accent: chat-list group avatar (indigo),
-    mute/archive swipe actions (amber/gray), draft/pending chips (orange), file
-    cards (multi-color extension map), poll bubbles/options (purple), text
-    links/mentions (blue), and the "New Messages" separator (red).
-
-### Android 10 / 11 / 12 / 13 compatibility (this milestone)
-
-The previous build rendered a **blank screen** on Android 10–13 because the web
-bundle used features that older Android **WebViews** cannot parse or render. The
-app is a Capacitor WebView app, so its real "minimum OS" is the device's WebView
-version, not the Android version. Fixed:
-
-41. **ES2020 syntax removed from the bundle** — the JS shipped optional chaining
-    (`?.`) and nullish coalescing (`??`), which throw a `SyntaxError` on WebView
-    < 80 (Android 10 ships WebView 74) → instant blank screen. The Vite build
-    target was lowered from `es2020` to **`es2017`**, so esbuild now transpiles
-    all ES2018–ES2020 syntax down to code every WebView ≥ 55 can parse.
-42. **`dvh` viewport units removed** — `100dvh` requires WebView 108 (Android 10–12
-    stock WebViews are older), and an unsupported `height:100dvh` collapses the
-    layout to zero height. Every `dvh` (57 occurrences across 38 files + CSS) was
-    replaced with universally-supported `vh`, with `vh` fallbacks kept in the
-    stylesheet.
-43. **`inset` shorthand removed** — Tailwind's `inset-0` (70 usages: modals, call
-    overlay, image placeholders) emits `inset:0`, which requires WebView 87. All
-    were converted to longhand `top-0 right-0 bottom-0 left-0`.
-44. **`max()` safe-area fallbacks** — `padding: max(12px, env(safe-area-inset-*))`
-    requires WebView 79; plain-value fallbacks were added before each.
-45. **Runtime polyfills** — an ES5 polyfill block in `index.html` now provides
-    `Promise.allSettled`, `Promise.any`, `queueMicrotask`, `requestIdleCallback`,
-    `globalThis`, `Array.prototype.at/flat/flatMap/findLast`, `Object.fromEntries`,
-    `Object.hasOwn`, `String.prototype.replaceAll`, `structuredClone`, and
-    `Element.prototype.replaceChildren` for WebViews that lack them.
-46. **Install-time feature fix** — the `BLUETOOTH` permission made Android infer
-    `android.hardware.bluetooth` as a **required** feature, blocking installation
-    on some devices. It (plus bluetooth_le, telephony, location, gps, touchscreen)
-    is now explicitly `required="false"`.
-47. **Signature schemes** — the APK is now signed with **v1 + v2 + v3** (previously
-    v1 + v2) for the widest verification coverage.
-48. **Native hardening** — `android:largeHeap="true"`,
-    `android:hardwareAccelerated="true"`, and
-    `android:requestLegacyExternalStorage="true"` (helps file access on Android 10).
-
-Result: the APK installs and runs on **Android 5.1 (API 22) through Android 14
-(API 34)**, including Android 10, 11, 12 and 13.
+### 5. Carried over from the previous milestone
+- Attachment/Share screen overhaul (bottom-sheet picker, media preview, camera
+  capture, contact picker, live location, voice preview, file download).
+- Native permission bridge (`GaGaNative.openAppSettings`).
+- Android 10–13 WebView compatibility polyfills.
 
 ## Build pipeline
 
 ```
-npx tsc -b
-npx vite build
+./node_modules/.bin/tsc -b
+NODE_OPTIONS="--max-old-space-size=1536" npx vite build
 npx cap sync android
 node scripts/strip-native-web-assets.mjs
 cd android && ./gradlew assembleRelease bundleRelease
 ```
 
-## Publishing note
+## Backend (production)
 
-ZEGOCLOUD free plan caps at 100 MAU — upgrade before a large public launch.
+- **Supabase** project `fcjgbbmfqdkucfpqjxae` (ap-northeast-2) — Postgres + RLS +
+  Realtime + Storage + Edge Functions. `public_profiles` is a view over `users`.
+- **Firebase** project `oumagachat` — Auth + FCM.
+- **ZEGOCLOUD** App ID `372536818` — voice/video calling.

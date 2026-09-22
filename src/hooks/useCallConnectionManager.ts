@@ -44,7 +44,6 @@ export function useCallConnectionManager() {
                 clearTimeout(connectionTimeoutRef.current);
                 connectionTimeoutRef.current = null;
             }
-            console.log('[Call] Connected successfully');
             return;
         }
 

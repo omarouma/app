@@ -52,15 +52,12 @@ export default function GagaRewardsPage() {
   const coins = wallet?.coins || 0;
   const dailyInterest = getDailyInterestAmount(user?.id || '');
 
-  // Check-in streak data (simulated - would come from backend)
+  // Real check-in streak from the backend (users.streak_days, exposed via public_profiles).
   const today = new Date().getDay(); // 0 = Sunday
   const adjustedToday = today === 0 ? 6 : today - 1; // Convert to 0=Monday
-  const [checkInDays, _setCheckInDays] = useState<boolean[]>(() => {
-    const days = Array(7).fill(false);
-    // Mark previous days as checked in for demo
-    for (let i = 0; i < adjustedToday; i++) days[i] = true;
-    return days;
-  });
+  const streakDays = Math.max(0, Math.min(7, user?.streakDays ?? 0));
+  // Represent the live streak: the trailing `streakDays` days are checked in.
+  const checkInDays: boolean[] = Array.from({ length: 7 }, (_, i) => i >= 7 - streakDays);
 
   const checkInRewards = [5, 5, 10, 5, 5, 15, 25];
 
@@ -70,7 +67,6 @@ export default function GagaRewardsPage() {
     // Temporarily disabled pending admin RPC implementation.
     setClaimedAmount(0);
     setShowClaimed(true);
-    console.info('[GagaRewardsPage] Check-in rewards require server-side verification (disabled for security)');
     if (timeoutRef.current) clearTimeout(timeoutRef.current);
     timeoutRef.current = setTimeout(() => setShowClaimed(false), 2000);
   };
@@ -88,20 +84,21 @@ export default function GagaRewardsPage() {
     }
   };
 
-  const [missions, _setMissions] = useState<Mission[]>([
-    { id: '1', title: 'Send a Message', description: 'Send 5 messages to friends', reward: 5, icon: Zap, color: 'text-[#00C300]', completed: false, progress: 3, maxProgress: 5 },
-    { id: '2', title: 'Make a Voice Call', description: 'Complete 1 voice call', reward: 10, icon: Users, color: 'text-[#2196F3]', completed: false, progress: 0, maxProgress: 1 },
-    { id: '3', title: 'Start a Group Chat', description: 'Create 1 group chat', reward: 15, icon: Star, color: 'text-[#FF9800]', completed: false, progress: 0, maxProgress: 1 },
-    { id: '4', title: 'Refer a Friend', description: 'Invite 1 friend to GaGa Chat', reward: 50, icon: Users, color: 'text-[#8B5CF6]', completed: false, progress: 0, maxProgress: 1 },
-    { id: '5', title: 'Daily Login Streak', description: 'Login for 3 days in a row', reward: 20, icon: Flame, color: 'text-[#FF3B30]', completed: false, progress: 2, maxProgress: 3 },
+  // Missions are derived from real account data only. Progress that cannot be
+  // verified server-side stays at 0 rather than showing fabricated numbers.
+  const missions: Mission[] = [
+    { id: '1', title: 'Send a Message', description: 'Send 5 messages to friends', reward: 5, icon: Zap, color: 'text-[#00C300]', completed: false, progress: 0, maxProgress: 5 },
+    { id: '2', title: 'Make a Voice Call', description: 'Complete 1 voice call', reward: 10, icon: Users, color: 'text-[#00C300]', completed: false, progress: 0, maxProgress: 1 },
+    { id: '3', title: 'Start a Group Chat', description: 'Create 1 group chat', reward: 15, icon: Star, color: 'text-[#00C300]', completed: false, progress: 0, maxProgress: 1 },
+    { id: '4', title: 'Refer a Friend', description: 'Invite 1 friend to GaGa', reward: 50, icon: Users, color: 'text-[#00C300]', completed: false, progress: 0, maxProgress: 1 },
+    { id: '5', title: 'Daily Login Streak', description: 'Login for 3 days in a row', reward: 20, icon: Flame, color: 'text-[#00C300]', completed: streakDays >= 3, progress: Math.min(streakDays, 3), maxProgress: 3 },
     { id: '6', title: 'Save 100 Gaga Coins', description: 'Keep a balance of 100+ GAGA', reward: 25, icon: TrendingUp, color: 'text-[#00C300]', completed: coins >= 100, progress: Math.min(coins, 100), maxProgress: 100 },
-  ]);
+  ];
 
   const handleClaimMission = async (mission: Mission) => {
     if (!user || mission.completed) return;
     // NOTE: Mission rewards are being processed server-side.
     // Temporarily disabled pending admin RPC implementation.
-    console.info('[GagaRewardsPage] Mission rewards require server-side verification (disabled for security)');
     setClaimedAmount(0);
     setShowClaimed(true);
     if (timeoutRef.current) clearTimeout(timeoutRef.current);

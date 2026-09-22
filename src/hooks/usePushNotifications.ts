@@ -21,15 +21,10 @@ async function savePushSubscription(userId: string, sub: PushSubscription) {
 
     if (error) {
       // Non-critical error - push notifications will still work, just won't be saved to DB
-      if (error.code === 'PGRST204') {
-        console.debug('Push subscription column not yet migrated in database - this is expected during deployment');
-      } else {
-        console.debug('Push notification subscription save skipped:', error.message);
-      }
     }
   } catch (err) {
     // Silently ignore - push notifications are non-critical
-    console.debug('Error saving push subscription (non-critical):', err instanceof Error ? err.message : String(err));
+    void err;
   }
 }
 
@@ -51,9 +46,7 @@ export function usePushNotifications() {
     // ── Native (Android/iOS) path: FCM via Capacitor PushNotifications ──
     if (isNativePlatform()) {
       setNativePushUser(user.id);
-      void registerNativePush(user.id, true).then((reg) => {
-        if (reg) console.debug('[Push] Native FCM token registered.');
-      });
+      void registerNativePush(user.id, true);
       return;
     }
 

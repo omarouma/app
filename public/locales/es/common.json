@@ -1,6 +1,6 @@
 {
   "welcome": "Bienvenido a GaGa Chat",
-  "appName": "GaGa Chat",
+  "appName": "GaGa",
   "tagline": "Conecta. Comparte. Pertenece.",
   "getStarted": "Empezar",
   "learnMore": "Saber más",
@@ -56,8 +56,8 @@
   "foundersTitle": "Fundador y CEO",
   "foundersNote": "Una nota de nuestro fundador",
   "foundersMessage": "Comenzamos GaGa Chat con una idea simple: todo el mundo merece una comunicación rápida, privada y hermosa — sin importar dónde se encuentre.",
-  "earlyUserFeedback": "Lo que dicen nuestros primeros usuarios",
-  "testimonialsDesc": "Únete a miles de personas que usan GaGa Chat todos los días.",
+  "earlyUserFeedback": "Por qué la gente elige GaGa",
+  "testimonialsDesc": "Funciones reales, creadas para la comunicación diaria.",
   "signIn": "Iniciar sesión",
   "signUp": "Registrarse",
   "createAccount": "Crear cuenta",

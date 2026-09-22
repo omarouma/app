@@ -195,7 +195,6 @@ export function useZimCallInvitation(): ZimCallInvitationApi {
           const store = useCallStore.getState();
           if (store.currentCall && getZimCallId(store.currentCall.id) === callId) {
             // Leave the Supabase row to be reconciled; just stop the local ring.
-            console.info('[ZIM] Callee rejected the call invitation.');
           }
         }
       },

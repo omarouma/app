@@ -115,7 +115,6 @@ const parseAndValidateEnv = () => {
     // In test mode, return a best-effort object so importing modules
     // that load env.ts don't crash the test suite.
     if (import.meta.env.MODE === 'test') {
-      console.debug('[env] Skipping env validation in test mode');
       return import.meta.env as unknown as never;
     }
     if (error instanceof z.ZodError) {

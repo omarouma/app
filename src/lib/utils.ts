@@ -9,8 +9,27 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+/**
+ * Deterministic, self-contained default avatar.
+ *
+ * Generates an inline SVG data-URI (colored circle + initial) from the seed so
+ * the app never depends on an external avatar service. This keeps avatars
+ * working offline, avoids leaking user identifiers to third parties, and
+ * removes a runtime network dependency (PDF §17 build & dependency hygiene).
+ */
 export function getDefaultAvatar(seed: string): string {
-  return `https://api.dicebear.com/8.x/thumbs/svg?seed=${encodeURIComponent(seed)}`;
+  const s = (seed || 'U').trim() || 'U';
+  let hash = 0;
+  for (let i = 0; i < s.length; i++) hash = (hash * 31 + s.charCodeAt(i)) >>> 0;
+  const hue = hash % 360;
+  const rawInitial = s.charAt(0).toUpperCase();
+  const initial = /[A-Za-z0-9]/.test(rawInitial) ? rawInitial : 'U';
+  const svg =
+    `<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">` +
+    `<rect width="128" height="128" rx="64" fill="hsl(${hue},65%,45%)"/>` +
+    `<text x="50%" y="50%" dy="0.35em" text-anchor="middle" font-family="Inter,Arial,sans-serif" ` +
+    `font-size="56" font-weight="700" fill="#ffffff">${initial}</text></svg>`;
+  return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
 }
 
 export function sanitizeMediaUrl(url: string | undefined | null): string {

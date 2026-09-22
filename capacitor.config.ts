@@ -2,7 +2,7 @@ import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
   appId: 'gagachat.app',
-  appName: 'GaGa Chat',
+  appName: 'GaGa',
   webDir: 'dist',
   android: {
     allowMixedContent: false,

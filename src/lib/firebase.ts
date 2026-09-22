@@ -100,9 +100,6 @@ export function initFirebase() {
     // Kick off background loading of service submodules (non-blocking)
     void loadServices(app);
 
-    if (env.DEV) {
-      console.log('[Firebase] Initialized successfully (services loading in background)');
-    }
   } catch {
     console.error('[Firebase] Initialization failed');
   }
