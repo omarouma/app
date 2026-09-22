@@ -10,6 +10,7 @@ import { useSavedMessages } from '@/hooks/useSavedMessages';
 import { useScheduledMessages } from '@/hooks/useScheduledMessages';
 import { useChatEffects } from '@/hooks/useChatEffects';
 import { uploadMediaBlob, compressImage, validateFileSize, validateFileType } from '@/lib/storage';
+import { getMediaDuration } from '@/lib/utils';
 import { handleError } from '@/lib/errorLogger';
 import { toast } from 'sonner';
 import type { Message, User } from '@/types';
@@ -94,7 +95,7 @@ export const useChatRoom = (chatId: string, userId: string) => {
   const [lastSeen, setLastSeen] = useState<string | null>(null);
   const [lightboxImage, setLightboxImage] = useState<string | null>(null);
   // Upload progress for the current media batch: { name, percent } | null
-  const [uploadProgress, setUploadProgress] = useState<{ name: string; percent: number } | null>(null);
+  const [uploadProgress, setUploadProgress] = useState<{ name: string; percent: number; stage: 'preparing' | 'uploading' } | null>(null);
   // Uploads that failed and can be retried by the user.
   const [failedUploads, setFailedUploads] = useState<Array<{
     id: string;
@@ -216,17 +217,20 @@ export const useChatRoom = (chatId: string, userId: string) => {
         continue;
       }
       try {
-        setUploadProgress({ name: file.name, percent: 0 });
+        setUploadProgress({ name: file.name, percent: 0, stage: 'preparing' });
         const isImage = file.type.startsWith('image/');
         // Compress photos client-side before upload so sending is much faster
         // and uses far less mobile data — unless the user chose original quality.
         const toUpload = isImage && !originalQuality ? await compressImage(file) : file;
+        // Compression is done — switch to the real upload stage so the bar no
+        // longer looks frozen at 0%.
+        setUploadProgress({ name: file.name, percent: 0, stage: 'uploading' });
         const url = await uploadMediaBlob(toUpload, {
           userId: currentUser.id,
           kind: 'chats',
           fileName: file.name,
           contentType: toUpload.type || file.type,
-          onProgress: (percent) => setUploadProgress({ name: file.name, percent }),
+          onProgress: (percent) => setUploadProgress({ name: file.name, percent, stage: 'uploading' }),
         });
         const type = file.type.startsWith('image/') ? 'image' : file.type.startsWith('video/') ? 'video' : 'file';
         if (!url) {
@@ -236,7 +240,10 @@ export const useChatRoom = (chatId: string, userId: string) => {
         }
         // Attach the caption to the first item of the batch.
         const content = i === 0 && caption ? caption : file.name;
-        await sendMessage(chatId, currentUser.id, content, type, url);
+        // Persist real media duration for videos so the bubble can render it
+        // without re-deriving from streaming metadata.
+        const mediaDuration = type === 'video' ? await getMediaDuration(file) : undefined;
+        await sendMessage(chatId, currentUser.id, content, type, url, undefined, mediaDuration);
       } catch (error) {
         handleError(error, `Failed to upload ${file.name}.`);
         setFailedUploads((prev) => [...prev, { id: `${Date.now()}-${i}`, file, caption, originalQuality }]);

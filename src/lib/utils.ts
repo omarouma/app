@@ -78,6 +78,52 @@ export function stopStreamTracks(stream: MediaStream | null) {
   stream.getTracks().forEach(track => track.stop());
 }
 
+/**
+ * Resolve the real duration (in whole seconds) of a local media File.
+ * Returns `undefined` when the duration cannot be determined or is not finite
+ * (streaming containers can report Infinity/NaN). Never throws.
+ */
+export function getMediaDuration(file: File): Promise<number | undefined> {
+  return new Promise((resolve) => {
+    let settled = false;
+    const done = (value: number | undefined) => {
+      if (settled) return;
+      settled = true;
+      resolve(value);
+    };
+    try {
+      const url = URL.createObjectURL(file);
+      const el = document.createElement('video');
+      el.preload = 'metadata';
+      const cleanup = () => {
+        el.removeEventListener('loadedmetadata', onLoaded);
+        el.removeEventListener('error', onError);
+        el.src = '';
+        URL.revokeObjectURL(url);
+      };
+      const onLoaded = () => {
+        const d = el.duration;
+        cleanup();
+        done(Number.isFinite(d) && d > 0 ? Math.round(d) : undefined);
+      };
+      const onError = () => {
+        cleanup();
+        done(undefined);
+      };
+      el.addEventListener('loadedmetadata', onLoaded);
+      el.addEventListener('error', onError);
+      el.src = url;
+      // Safety timeout so a stuck probe never blocks the send pipeline.
+      setTimeout(() => {
+        cleanup();
+        done(undefined);
+      }, 8000);
+    } catch {
+      done(undefined);
+    }
+  });
+}
+
 export function sanitizeForLog(input: string): string {
   return input.replace(/[\r\n]/g, ' ').slice(0, 500);
 }

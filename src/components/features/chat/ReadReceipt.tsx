@@ -39,7 +39,7 @@ export const ReadReceipt = memo(function ReadReceipt({
 }: ReadReceiptProps) {
   if (!isMe) {
     return (
-      <div className="text-[10px] mt-1 text-muted-foreground">
+      <div className="text-[10px] text-muted-foreground">
         <span>{formatTime(timestamp)}</span>
         {edited && <span className="ml-1 text-[9px] italic">edited</span>}
       </div>
@@ -80,7 +80,7 @@ export const ReadReceipt = memo(function ReadReceipt({
 
   return (
     <div
-      className={`text-[10px] mt-1 text-right ${statusColor} ${highlightFailed ? 'rounded-md px-1.5 py-0.5 border border-[#FF3B30]/40 bg-[#FF3B30]/5' : ''
+      className={`text-[10px] text-right ${statusColor} ${highlightFailed ? 'rounded-md px-1.5 py-0.5 border border-[#FF3B30]/40 bg-[#FF3B30]/5' : ''
         }`}
     >
       <span className="inline-flex items-center gap-0.5" role="img" aria-label={deliveryStatus}>

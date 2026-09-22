@@ -99,7 +99,7 @@ export const FileMessage = memo(function FileMessage(props: FileMessageProps) {
 
   if (!safeUrl) {
     return (
-      <div className="flex items-center gap-2 bg-black/10 rounded-xl px-3 py-2 mb-1 max-w-full">
+      <div className={`flex items-center gap-2 rounded-xl px-3 py-2 mb-1 max-w-full ${isMe ? 'bg-[#00C300]' : 'bg-background border border-border'}`}>
         <FileText size={18} className={`shrink-0 ${isMe ? 'text-white' : 'text-foreground'}`} />
         <span className={`text-sm truncate ${isMe ? 'text-white' : 'text-foreground'}`}>
           File unavailable
@@ -113,7 +113,7 @@ export const FileMessage = memo(function FileMessage(props: FileMessageProps) {
 
   return (
     <div
-      className="flex items-center gap-2 bg-black/10 rounded-xl px-3 py-2 mb-1 max-w-full hover:bg-black/20 transition-colors cursor-pointer"
+      className={`flex items-center gap-2 rounded-xl px-3 py-2 mb-1 max-w-full transition-colors cursor-pointer ${isMe ? 'bg-[#00C300] hover:bg-[#00B300]' : 'bg-background border border-border hover:bg-muted'}`}
       onClick={handleDownload}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {
@@ -125,7 +125,7 @@ export const FileMessage = memo(function FileMessage(props: FileMessageProps) {
       tabIndex={0}
       aria-label={`Download ${fileName}`}
     >
-      <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${colorClass}`}>
+      <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${isMe ? 'bg-white/20 text-white' : colorClass}`}>
         <FileText size={18} />
       </div>
       <div className="flex-1 min-w-0">

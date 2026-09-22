@@ -22,6 +22,10 @@ export const VoiceWaveform = memo(function VoiceWaveform({
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const draggingRef = useRef(false);
 
+  // Guard against non-finite / negative durations (streaming WebM/Opus audio can
+  // report `Infinity` or `NaN`, which previously rendered as "Infinity:NaN").
+  const safeDuration = Number.isFinite(duration) && duration > 0 ? duration : 0;
+
   const { register, unregister, notifyPlaying } = useVoicePlayer();
 
   const bars = useMemo(() => {
@@ -53,7 +57,13 @@ export const VoiceWaveform = memo(function VoiceWaveform({
     audioRef.current = audio;
     register(audioUrl, audio);
 
-    const onLoadedMetadata = () => setDuration(audio.duration);
+    const onLoadedMetadata = () => {
+      // Only trust a finite, positive duration. Streaming audio (WebM/Opus)
+      // frequently reports Infinity/NaN here; keep the prop duration instead.
+      if (Number.isFinite(audio.duration) && audio.duration > 0) {
+        setDuration(audio.duration);
+      }
+    };
     const onTimeUpdate = () => {
       if (!draggingRef.current) setCurrentTime(audio.currentTime);
     };
@@ -118,15 +128,15 @@ export const VoiceWaveform = memo(function VoiceWaveform({
 
   const seekToPercent = useCallback(
     (clientX: number, containerEl: HTMLElement) => {
-      if (!audioRef.current || !duration) return;
+      if (!audioRef.current || !safeDuration) return;
       const rect = containerEl.getBoundingClientRect();
       const x = Math.max(0, Math.min(rect.width, clientX - rect.left));
       const percent = x / rect.width;
-      const next = percent * duration;
+      const next = percent * safeDuration;
       audioRef.current.currentTime = next;
       setCurrentTime(next);
     },
-    [duration],
+    [safeDuration],
   );
 
   const onWaveClick = useCallback(
@@ -163,12 +173,17 @@ export const VoiceWaveform = memo(function VoiceWaveform({
   }, [seekToPercent]);
 
   const formatTime = (seconds: number) => {
-    const m = Math.floor(seconds / 60);
-    const s = Math.floor(seconds % 60);
+    // Guard against non-finite / negative values (streaming WebM/Opus audio can
+    // report `Infinity` or `NaN` for duration, which previously rendered as
+    // "Infinity:NaN" — a release blocker).
+    if (!Number.isFinite(seconds) || seconds < 0) return '0:00';
+    const total = Math.floor(seconds);
+    const m = Math.floor(total / 60);
+    const s = total % 60;
     return `${m}:${s.toString().padStart(2, '0')}`;
   };
 
-  const progress = duration > 0 ? (currentTime / duration) * 100 : 0;
+  const progress = safeDuration > 0 ? Math.min(100, Math.max(0, (currentTime / safeDuration) * 100)) : 0;
 
   const cyclePlaybackRate = () => {
     const rates = VOICE_PLAYBACK_RATES;
@@ -210,13 +225,13 @@ export const VoiceWaveform = memo(function VoiceWaveform({
         role="slider"
         tabIndex={0}
         onKeyDown={(e) => {
-          if (!duration) return;
+          if (!safeDuration) return;
           if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') {
             e.preventDefault();
-            seekToPercent(Math.max(0, (currentTime - 5) / duration * e.currentTarget.clientWidth), e.currentTarget);
+            seekToPercent(Math.max(0, (currentTime - 5) / safeDuration * e.currentTarget.clientWidth), e.currentTarget);
           } else if (e.key === 'ArrowRight' || e.key === 'ArrowUp') {
             e.preventDefault();
-            seekToPercent(Math.min(e.currentTarget.clientWidth, (currentTime + 5) / duration * e.currentTarget.clientWidth), e.currentTarget);
+            seekToPercent(Math.min(e.currentTarget.clientWidth, (currentTime + 5) / safeDuration * e.currentTarget.clientWidth), e.currentTarget);
           } else if (e.key === 'Home') {
             e.preventDefault();
             seekToPercent(0, e.currentTarget);
@@ -227,7 +242,7 @@ export const VoiceWaveform = memo(function VoiceWaveform({
         }}
         aria-label="Seek voice message"
         aria-valuemin={0}
-        aria-valuemax={Math.round(duration)}
+        aria-valuemax={Math.round(safeDuration)}
         aria-valuenow={Math.round(currentTime)}
       >
         {bars.map((height, i) => {

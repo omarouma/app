@@ -150,6 +150,7 @@ export const SendMessageParamsSchema = z.object({
     type: MessageTypeSchema.default('text'),
     mediaUrl: z.string().url().optional(),
     replyTo: z.string().or(MessageSchema).optional(),
+    duration: z.number().nonnegative().optional(),
 });
 
 export const SendMessageResultSchema = z.object({

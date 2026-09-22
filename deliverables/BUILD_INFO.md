@@ -16,8 +16,8 @@
 ## Checksums (SHA-256)
 
 ```
-9294f6086f1fbc3e1a6d9b0267459f9467de22486fc3590e777e5f79c3cc8408  GaGa-v1.0.0-release.apk
-942e34a37757b94b0b9ba6f879abbf9d616553a3965090d925a80192d2874d7a  GaGa-v1.0.0-release.aab
+32b0ac683504036c5c48b9170796ff4567175fb906b7406190e04b2a10824f01  GaGa-v1.0.0-release.apk
+702e9460e73db440e4954aedb95e69bd524e31ceaada28f297f0beb858f77941  GaGa-v1.0.0-release.aab
 ```
 
 ## Signing certificate
@@ -37,46 +37,63 @@ Signature schemes verified: **v1 (JAR) ✓ · v2 ✓ · v3 ✓**
 
 ## What's included in this build
 
-### 1. App renamed to "GaGa"
-- Launcher label (`strings.xml` `app_name` / `title_activity_main`) → **GaGa**
-- Capacitor `appName` → **GaGa**
-- `index.html` `<title>` + `application-name` → **GaGa**
-- `manifest.json` `name` / `short_name` → **GaGa**
-- `package.json` name → `gaga`
-- In-app Logo wordmark → **GaGa**
-- Localized `appName` (en/es/fr/bn/ar/zh) → **GaGa**
-- Deliverable filenames → `GaGa-v1.0.0-release.apk` / `.aab`
+### Chat-room production hardening (Messenger/WhatsApp-class pass)
 
-### 2. Real data implemented (PDF §17 — Build & Dependency Hygiene)
-- **Gaga Rewards** — removed the simulated check-in streak ("mark previous days
-  for demo"); the 7-day streak now reflects the real backend `users.streak_days`
-  (exposed via `public_profiles`). Removed fabricated mission progress; missions
-  now derive from real account data only (streak + coin balance).
-- **Landing page** — removed fabricated testimonials (fake names + third-party
-  `i.pravatar.cc` avatars); replaced with honest, verifiable product highlights.
-- **Default avatars** — replaced the external `api.dicebear.com` dependency with
-  a self-contained inline-SVG generator (deterministic color + initial). Works
-  offline, no third-party calls, no identifier leakage.
-- **Logging hygiene** — removed all `console.log/debug/info` from production
-  source and added a production guard in `main.tsx` that silences verbose logging
-  in release builds. `console.warn/error` retained for real error reporting.
-- **No dev endpoints / localhost / sample datasets** found in `src/`.
+**Release blockers**
+- **Voice message `Infinity:NaN` duration — FIXED.** `VoiceWaveform` now guards
+  every duration value (`Number.isFinite && > 0`) before formatting, and the
+  recording duration is persisted end-to-end (`Message.duration` → validation
+  schema → `chatApi` → store → `VoiceMessage`/`VoiceWaveform`) so the UI never
+  re-derives it from streaming WebM/Opus metadata (which reports `Infinity`/`NaN`).
+- **Frozen "Uploading … 0%" — FIXED.** Uploads now report a real `preparing`
+  (compression) → `uploading` stage, and Supabase Storage uploads use an
+  `XMLHttpRequest` with `xhr.upload.onprogress` for genuine byte-level progress
+  (the previous `supabase-js` path emitted no progress events).
 
-### 3. Production / responsive fixes (PDF §2)
-- Viewport meta now includes `maximum-scale=1` per the PDF's recommended
-  configuration (`width=device-width, initial-scale=1, maximum-scale=1,
-  viewport-fit=cover`).
+**Message rendering (§31 mandatory fixes)**
+- **Document text visibility — FIXED.** File cards used a translucent
+  `bg-black/10` background with white text for sent messages (invisible on the
+  light chat canvas). Cards now use the GaGa green bubble for sent messages and a
+  light bordered card for received messages, so text is always legible.
+- **Location card text visibility — FIXED** (same root cause as documents).
+- **Double timestamps — FIXED.** `PollMessage` and `ContactCardMessage` rendered
+  their own `ReadReceipt` *and* `MessageItem` rendered another below the bubble.
+  The redundant receipts were removed so every message shows exactly one,
+  consistent timestamp.
+- **Excessive spacing / avatar positioning — FIXED.** The timestamp now renders
+  in its own row below the bubble, so the avatar aligns with the bubble (not the
+  timestamp) and grouped messages are tighter.
+- **Live location sync — FIXED.** `LocationMessage` now parses coordinates from
+  the message *content* first (which live-location sessions refresh every 30s)
+  instead of the stale `mediaUrl`, so the map preview actually moves.
+- **Location map reliability — FIXED.** Replaced the unreliable
+  `staticmap.openstreetmap.de` preview with standard OpenStreetMap tiles plus a
+  graceful fallback background.
 
-### 4. Security gate (PDF §14)
-- Verified the shipped bundle contains **only public keys** (Supabase anon key,
-  Firebase API key, ZEGO App ID, Web Push public key). No `service_role` /
-  private keys are bundled.
+**Calling (§22–§25)**
+- **Black video placeholder — FIXED.** ZEGO UI now sets `showNonVideoUser` /
+  `showOnlyAudioUser` so a participant's avatar is shown when their camera is
+  off (never a giant black tile), and `videoScreenConfig.objectFit: 'cover'`
+  fills the screen without letterbox bars.
+- **Broken gray call background — FIXED.** The legacy call backdrop is a clean
+  `#0b141a`; remote/local `<video>` elements only mount when a stream exists.
+- **Call avatar fallback — FIXED.** The caller's real name/avatar resolve from
+  the friends store first (instant), then the DB; the generic "User"/"U"
+  fallback is replaced with "Unknown".
+- **Call-state sync — FIXED.** Pressing ZEGO's own End button now closes the
+  call record (`onRoomEnded` → `endCallInStore`), so the call is never stuck.
 
-### 5. Carried over from the previous milestone
+### Carried over from the previous milestone
+- App renamed to **GaGa** (launcher label, Capacitor `appName`, `index.html`,
+  `manifest.json`, `package.json`, in-app wordmark, localized names).
+- Real data implemented (PDF §17): real check-in streak, honest landing page,
+  self-contained inline-SVG default avatars, production logging hygiene.
 - Attachment/Share screen overhaul (bottom-sheet picker, media preview, camera
   capture, contact picker, live location, voice preview, file download).
 - Native permission bridge (`GaGaNative.openAppSettings`).
 - Android 10–13 WebView compatibility polyfills.
+- Security gate (PDF §14): only public keys bundled (Supabase anon, Firebase API,
+  ZEGO App ID, Web Push public key).
 
 ## Build pipeline
 

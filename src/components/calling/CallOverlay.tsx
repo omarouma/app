@@ -96,18 +96,36 @@ export default function CallOverlay() {
       setOtherUser(null);
       return;
     }
+    let cancelled = false;
+    // 1) Resolve immediately from the friend store so the caller's real name and
+    //    avatar appear instantly (never a generic "User"/"U" fallback).
+    const friend = friends.find((f) => f.id === otherUserId);
+    if (friend) {
+      setOtherUser({ id: otherUserId, name: friend.name || 'Unknown', avatar: friend.avatar || undefined });
+    }
+    // 2) Then confirm/enrich from the database.
     import('@/lib/firestore').then(({ getDocById, COLLECTIONS }) => {
       getDocById(COLLECTIONS.USERS, otherUserId)
         .then((data) => {
-          setOtherUser({
+          if (cancelled) return;
+          const name = (data?.name as string) || (data?.displayName as string) || (data?.username as string) || '';
+          const avatar = (data?.avatar as string) || undefined;
+          setOtherUser((prev) => ({
             id: otherUserId,
-            name: (data?.name as string) || (data?.displayName as string) || 'User',
-            avatar: (data?.avatar as string) || undefined,
-          });
+            name: name || prev?.name || 'Unknown',
+            avatar: avatar || prev?.avatar,
+          }));
         })
-        .catch(() => setOtherUser({ id: otherUserId, name: 'User' }));
-    }).catch(() => setOtherUser({ id: otherUserId, name: 'User' }));
-  }, [otherUserId]);
+        .catch(() => {
+          if (cancelled) return;
+          setOtherUser((prev) => prev ?? { id: otherUserId, name: 'Unknown' });
+        });
+    }).catch(() => {
+      if (cancelled) return;
+      setOtherUser((prev) => prev ?? { id: otherUserId, name: 'Unknown' });
+    });
+    return () => { cancelled = true; };
+  }, [otherUserId, friends]);
 
   useEffect(() => {
     const el = remoteVideoRef.current;
@@ -242,7 +260,7 @@ export default function CallOverlay() {
         {activeCall && !isGroup && (
           <div
             ref={zegocontainerRef}
-            className="absolute top-0 right-0 bottom-0 left-0 bg-black"
+            className="absolute top-0 right-0 bottom-0 left-0 bg-[#0b141a]"
           />
         )}
         {/* Hide the legacy call UI when ZEGO's prebuilt UI is active */}
@@ -256,10 +274,12 @@ export default function CallOverlay() {
                 ))}
                 {remoteParticipants.length === 1 && <div className="hidden" />}
               </div>
-            ) : isVideo && !isIncoming ? (
+            ) : isVideo && !isIncoming && remoteStream ? (
               <video ref={remoteVideoRef} autoPlay playsInline className="absolute top-0 right-0 bottom-0 left-0 w-full h-full object-cover" />
             ) : (
-              <div className="absolute top-0 right-0 bottom-0 left-0 bg-gradient-to-b from-[#1a1a2e] via-[#16213e] to-[#0f3460]" />
+              /* No remote video yet (or voice call): show a clean GaGa-branded
+                 backdrop with the caller's avatar — never a black placeholder. */
+              <div className="absolute top-0 right-0 bottom-0 left-0 bg-[#0b141a]" />
             )}
             {/* Subtle overlay for readability */}
             <div className="absolute top-0 right-0 bottom-0 left-0 bg-black/30" />
@@ -267,11 +287,13 @@ export default function CallOverlay() {
             {/* Local video PiP */}
             {isVideo && !isIncoming && (
               <>
-                <video
-                  ref={localVideoRef}
-                  autoPlay muted playsInline
-                  className="absolute top-16 right-4 w-28 h-36 rounded-2xl object-cover shadow-xl bg-black/50 z-20 border border-white/10"
-                />
+                {localStream && (
+                  <video
+                    ref={localVideoRef}
+                    autoPlay muted playsInline
+                    className="absolute top-16 right-4 w-28 h-36 rounded-2xl object-cover shadow-xl bg-black/50 z-20 border border-white/10"
+                  />
+                )}
                 <button
                   type="button"
                   onClick={flipCamera}

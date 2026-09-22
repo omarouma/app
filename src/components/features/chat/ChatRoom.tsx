@@ -231,13 +231,21 @@ export default function ChatRoom({ chatId, userId, onBack }: {
       const blob = getPreviewBlob();
       if (!blob) return;
       const url = await uploadMediaBlob(blob, { userId: currentUser.id, kind: 'voice', contentType: 'audio/webm' });
-      if (url) await useChatStore.getState().sendMessage(chatId, currentUser.id, 'Voice message', 'voice', url);
+      if (url) {
+        // Persist the real recorded duration so the bubble never has to derive
+        // it from streaming metadata (which can be Infinity/NaN).
+        const recordedDuration =
+          typeof voicePreviewDuration === 'number' && Number.isFinite(voicePreviewDuration) && voicePreviewDuration > 0
+            ? Math.round(voicePreviewDuration)
+            : undefined;
+        await useChatStore.getState().sendMessage(chatId, currentUser.id, 'Voice message', 'voice', url, undefined, recordedDuration);
+      }
       clearVoicePreview();
       scrollToBottom();
     } catch {
       toast.error('Failed to send voice message.');
     }
-  }, [chatId, currentUser, scrollToBottom, getPreviewBlob, clearVoicePreview]);
+  }, [chatId, currentUser, scrollToBottom, getPreviewBlob, clearVoicePreview, voicePreviewDuration]);
 
   // Release the mic: stopRecording() finalises the clip and drops it into the
   // preview bar (it does NOT send). The user then taps Send or Discard.
@@ -808,9 +816,13 @@ export default function ChatRoom({ chatId, userId, onBack }: {
             className="shrink-0 bg-background border-t border-border px-4 py-2"
           >
             <div className="flex items-center justify-between text-[11px] text-muted-foreground mb-1">
-              <span className="truncate max-w-[70%]">Uploading {uploadProgress.name}…</span>
+              <span className="truncate max-w-[70%]">
+                {uploadProgress.stage === 'preparing'
+                  ? `Preparing ${uploadProgress.name}…`
+                  : `Uploading ${uploadProgress.name}…`}
+              </span>
               <span className="flex items-center gap-2">
-                <span>{uploadProgress.percent}%</span>
+                <span>{uploadProgress.stage === 'preparing' ? '…' : `${uploadProgress.percent}%`}</span>
                 <button
                   type="button"
                   onClick={cancelUpload}
@@ -822,8 +834,8 @@ export default function ChatRoom({ chatId, userId, onBack }: {
             </div>
             <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
               <div
-                className="h-full bg-[#00C300] transition-all duration-200"
-                style={{ width: `${uploadProgress.percent}%` }}
+                className={`h-full bg-[#00C300] transition-all duration-200 ${uploadProgress.stage === 'preparing' ? 'animate-pulse' : ''}`}
+                style={{ width: uploadProgress.stage === 'preparing' ? '100%' : `${uploadProgress.percent}%` }}
               />
             </div>
           </motion.div>

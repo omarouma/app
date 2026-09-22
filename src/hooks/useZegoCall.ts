@@ -211,6 +211,17 @@ export function useZegoCall(): ZegoCallController {
                 maxUsers: isGroup ? 9 : 2,
                 layout: isGroup ? 'Grid' : 'Auto',
                 showLayoutButton: isGroup,
+                // Show the participant's avatar (never a giant black tile) when
+                // their camera is off, and fill the screen with the video so
+                // there are no black letterbox bars.
+                showNonVideoUser: true,
+                showOnlyAudioUser: true,
+                showRoomTimer: true,
+                showLeavingView: false,
+                videoScreenConfig: {
+                    objectFit: 'cover',
+                    localMirror: true,
+                },
                 onJoinRoom: () => {
                     setIsJoined(true);
                     setIsConnected(hasRemoteRef.current || false);

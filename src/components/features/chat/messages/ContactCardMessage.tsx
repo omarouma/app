@@ -1,6 +1,5 @@
 import { memo } from 'react';
 import { getDefaultAvatar, sanitizeMediaUrl } from '@/lib/utils';
-import { ReadReceipt } from '../ReadReceipt';
 import { MessageCircle, Phone, UserRound } from 'lucide-react';
 import type { Message } from '@/types';
 
@@ -20,7 +19,6 @@ export const ContactCardMessage = memo(function ContactCardMessage(props: Contac
         <div className={`inline-block px-4 py-3 rounded-2xl ${isMe ? 'bg-[#00C300] text-white rounded-br-none' : 'bg-background text-foreground rounded-bl-none'} shadow-sm`}>
           <p className="text-sm opacity-70">Contact unavailable</p>
         </div>
-        <ReadReceipt isMe={isMe} timestamp={msg.timestamp} deliveryStatus={msg.deliveryStatus ?? (msg.read ? 'read' : 'sent')} edited={msg.edited} />
       </div>
     );
   }
@@ -75,7 +73,6 @@ export const ContactCardMessage = memo(function ContactCardMessage(props: Contac
           </div>
         )}
       </div>
-      <ReadReceipt isMe={isMe} timestamp={msg.timestamp} deliveryStatus={msg.deliveryStatus ?? (msg.read ? 'read' : 'sent')} edited={msg.edited} />
     </div>
   );
 });

@@ -100,6 +100,9 @@ export interface Message {
   content: string;
   type: MessageType;
   mediaUrl?: string;
+  /** Duration in seconds for voice/video messages (persisted so the UI never
+   *  has to re-derive it from streaming metadata, which can be Infinity/NaN). */
+  duration?: number;
   timestamp: Date;
   read?: boolean;
   edited?: boolean;

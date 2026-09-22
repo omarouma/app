@@ -11,8 +11,14 @@ export interface VoiceMessageProps {
 
 export const VoiceMessage = memo(function VoiceMessage(props: VoiceMessageProps) {
   const { msg, isMe } = props;
-  const [duration, setDuration] = useState<number | null>(null);
-  const [loading, setLoading] = useState(true);
+  // Prefer the duration persisted with the message (authoritative, recorded on
+  // the sender device). Only fall back to metadata probing when it is absent.
+  const persistedDuration =
+    typeof msg.duration === 'number' && Number.isFinite(msg.duration) && msg.duration > 0
+      ? msg.duration
+      : null;
+  const [duration, setDuration] = useState<number | null>(persistedDuration);
+  const [loading, setLoading] = useState(persistedDuration === null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const safeUrl = sanitizeMediaUrl(msg.mediaUrl);
@@ -25,10 +31,10 @@ export const VoiceMessage = memo(function VoiceMessage(props: VoiceMessageProps)
     let cancelled = false;
     queueMicrotask(() => {
       if (cancelled) return;
-      setLoading(true);
-      setDuration(null);
+      setLoading(persistedDuration === null);
+      setDuration(persistedDuration);
     });
-    if (!safeUrl) {
+    if (persistedDuration !== null || !safeUrl) {
       queueMicrotask(() => {
         if (!cancelled) setLoading(false);
       });
@@ -39,7 +45,10 @@ export const VoiceMessage = memo(function VoiceMessage(props: VoiceMessageProps)
     audio.preload = 'metadata';
     const onLoaded = () => {
       if (cancelled) return;
-      setDuration(audio.duration);
+      // Streaming WebM/Opus audio can report Infinity/NaN — never trust it.
+      if (Number.isFinite(audio.duration) && audio.duration > 0) {
+        setDuration(audio.duration);
+      }
       setLoading(false);
     };
     const onError = () => {
@@ -62,7 +71,7 @@ export const VoiceMessage = memo(function VoiceMessage(props: VoiceMessageProps)
       audio.src = '';
       audioRef.current = null;
     };
-  }, [safeUrl]);
+  }, [safeUrl, persistedDuration]);
 
   const formatDuration = useCallback((secs: number | null) => {
     if (secs === null || !isFinite(secs)) return '0:00';
@@ -88,7 +97,11 @@ export const VoiceMessage = memo(function VoiceMessage(props: VoiceMessageProps)
         </div>
       ) : (
         <>
-          <VoiceWaveform audioUrl={safeUrl} isOwnMessage={isMe} />
+          <VoiceWaveform
+            audioUrl={safeUrl}
+            isOwnMessage={isMe}
+            duration={duration ?? persistedDuration ?? undefined}
+          />
           <div className={`flex items-center justify-between mt-1 ${isMe ? 'text-white/70' : 'text-muted-foreground'}`}>
             <span className="text-[10px]">{formatDuration(duration)}</span>
             <span className="text-[10px]">Voice message</span>

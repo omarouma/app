@@ -61,7 +61,7 @@ interface ChatStore {
   addMessage: (message: Message) => void;
   subscribeChats: (userId: string) => () => void;
   subscribeMessages: (chatId: string, limit?: number) => () => void;
-  sendMessage: (chatId: string, senderId: string, content: string, type?: string, mediaUrl?: string, replyTo?: Message | string) => Promise<{ success: boolean; id: string }>;
+  sendMessage: (chatId: string, senderId: string, content: string, type?: string, mediaUrl?: string, replyTo?: Message | string, duration?: number) => Promise<{ success: boolean; id: string }>;
   retryFailedMessage: (chatId: string, localId: string) => Promise<{ success: boolean; id: string }>;
   editMessage: (chatId: string, messageId: string, content: string) => Promise<void>;
   deleteMessage: (chatId: string, messageId: string) => Promise<void>;
@@ -265,7 +265,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     );
   },
 
-  sendMessage: async (chatId, senderId, content, type = 'text', mediaUrl, replyTo) => {
+  sendMessage: async (chatId, senderId, content, type = 'text', mediaUrl, replyTo, duration) => {
     if (!isFirestoreAvailable()) { return { success: false, id: '' }; }
 
     const cleanedContent = sanitizeText(content ?? '').trim();
@@ -290,6 +290,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       content: cleanedContent || '',
       type: type as MessageType,
       mediaUrl,
+      duration: typeof duration === 'number' && Number.isFinite(duration) ? duration : undefined,
       timestamp: new Date(now),
       deliveryStatus: 'sending',
       replyTo: replyToId,
@@ -329,6 +330,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
           type,
           mediaUrl,
           replyTo: replyToId,
+          duration,
         }),
         2,
         500,

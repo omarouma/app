@@ -169,10 +169,9 @@ export const MessageItem = memo(function MessageItem(props: MessageItemProps) {
           <MoneyTransferMessage msg={msg} currentUserId={currentUserId} />
         </div>
       ) : (
+        <div className={`${showAvatar ? 'mt-2' : 'mt-0.5'} ${isSelected ? 'opacity-70' : ''}`}>
         <div
-          className={`flex items-end ${isMe ? 'justify-end' : 'justify-start'} ${showAvatar ? 'mt-2.5' : 'mt-0.5'} ${
-            isSelected ? 'opacity-70' : ''
-          } ${failed ? 'cursor-pointer' : ''}`}
+          className={`flex items-end ${isMe ? 'justify-end' : 'justify-start'} ${failed ? 'cursor-pointer' : ''}`}
           onContextMenu={(e: React.MouseEvent) => {
             if (msg.type !== 'deleted') onContextMenu(e, msg);
           }}
@@ -257,23 +256,25 @@ export const MessageItem = memo(function MessageItem(props: MessageItemProps) {
               </div>
             )}
 
-            <div
-              onClick={(e) => {
-                if (failed && onRetry) {
-                  e.stopPropagation();
-                  onRetry(msg);
-                }
-              }}
-              style={failed ? { cursor: 'pointer' } : undefined}
-            >
-              <ReadReceipt
-                isMe={isMe}
-                timestamp={msg.timestamp}
-                deliveryStatus={msg.deliveryStatus}
-                edited={msg.edited}
-                highlightFailed={failed}
-              />
-            </div>
+          </div>
+          </div>
+          <div
+            className={`mt-0.5 ${isMe ? 'text-right pr-1' : 'text-left pl-10'}`}
+            onClick={(e) => {
+              if (failed && onRetry) {
+                e.stopPropagation();
+                onRetry(msg);
+              }
+            }}
+            style={failed ? { cursor: 'pointer' } : undefined}
+          >
+            <ReadReceipt
+              isMe={isMe}
+              timestamp={msg.timestamp}
+              deliveryStatus={msg.deliveryStatus}
+              edited={msg.edited}
+              highlightFailed={failed}
+            />
           </div>
         </div>
       )}

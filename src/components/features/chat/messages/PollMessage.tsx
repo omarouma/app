@@ -1,6 +1,5 @@
 import { memo, useMemo } from 'react';
 import { BarChart3 } from 'lucide-react';
-import { ReadReceipt } from '../ReadReceipt';
 import type { Message, PollOption } from '@/types';
 
 export interface PollMessageProps {
@@ -38,7 +37,6 @@ export const PollMessage = memo(function PollMessage(props: PollMessageProps) {
             <span className="text-xs font-medium">Poll</span>
           </div>
           <p className="text-sm opacity-70">Poll unavailable</p>
-          <ReadReceipt isMe={isMe} timestamp={msg.timestamp} deliveryStatus={msg.deliveryStatus} edited={msg.edited} />
         </div>
       </div>
     );
@@ -88,7 +86,6 @@ export const PollMessage = memo(function PollMessage(props: PollMessageProps) {
             );
           })}
         </div>
-        <ReadReceipt isMe={isMe} timestamp={msg.timestamp} deliveryStatus={msg.deliveryStatus} edited={msg.edited} />
       </div>
     </div>
   );

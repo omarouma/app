@@ -52,6 +52,7 @@ export interface SendMessageParams {
     type?: string;
     mediaUrl?: string;
     replyTo?: Message | string;
+    duration?: number;
 }
 
 export interface SendMessageResult {
@@ -118,6 +119,7 @@ export const mapMessage = (d: Record<string, unknown> & { id?: string }): Messag
         readAt: d.readAt ? toDateFromDb(d.readAt) : undefined,
         retryCount: (d.retryCount as number) || undefined,
         localId: (d.localId as string) || undefined,
+        duration: typeof d.duration === 'number' && Number.isFinite(d.duration) ? d.duration : undefined,
     };
 };
 
@@ -597,7 +599,7 @@ export const chatApi = {
             return { success: false, id: '', error: rateErr };
         }
 
-        const { chatId, senderId, content, type = 'text', mediaUrl, replyTo } = validation.data;
+        const { chatId, senderId, content, type = 'text', mediaUrl, replyTo, duration } = validation.data;
         const tempId = uuidv4();
         const replyToId: string | undefined = typeof replyTo === 'string' ? replyTo : replyTo?.id;
 
@@ -615,6 +617,7 @@ export const chatApi = {
                 type: type as MessageType,
                 mediaUrl,
                 replyTo: replyToId,
+                duration: typeof duration === 'number' && Number.isFinite(duration) ? duration : undefined,
                 timestamp: serverTimestamp(),
                 localId: tempId,
                 deliveryStatus: 'sent',

@@ -547,7 +547,7 @@ async function uploadWithFallback(
       covers: 'avatars',
     };
     const bucket = bucketByKind[opts.kind || ''] || 'chat-media';
-    const supabaseUrl = await uploadToSupabaseStorage(bucket, `${folder}/${fileName}`, file, opts.contentType);
+    const supabaseUrl = await uploadToSupabaseStorage(bucket, `${folder}/${fileName}`, file, opts.contentType, opts.onProgress);
     return supabaseUrl;
   } catch (err) {
     errors.push(`Supabase: ${err instanceof Error ? err.message : String(err)}`);
