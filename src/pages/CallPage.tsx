@@ -156,7 +156,7 @@ export default function CallPage() {
 
   if (!userId || !currentUser) {
     return (
-      <div className="h-[100dvh] bg-background flex flex-col items-center justify-center p-6 text-center">
+      <div className="h-[100vh] bg-background flex flex-col items-center justify-center p-6 text-center">
         <p className="text-foreground text-lg font-semibold mb-2">No contact selected</p>
         <p className="text-muted-foreground text-sm max-w-sm mb-4">Choose a contact from chats or contacts before starting a call.</p>
         <button
@@ -175,7 +175,7 @@ export default function CallPage() {
   // 如果媒体访问失败，显示清晰的错误并提供重试选项，而不是卡在连接界面
   if (error) {
     return (
-      <div className="h-[100dvh] bg-[#111111] flex flex-col items-center justify-center gap-4 p-6 text-center">
+      <div className="h-[100vh] bg-[#111111] flex flex-col items-center justify-center gap-4 p-6 text-center">
         <div className="w-16 h-16 rounded-full bg-red-500/20 flex items-center justify-center mb-1">
           <ShieldAlert size={28} className="text-red-400" />
         </div>
@@ -200,7 +200,7 @@ export default function CallPage() {
 
   // 回退通话界面——在 CallOverlay 挂载前展示全部通话控制按钮
   return (
-    <div className="h-[100dvh] bg-[#111111] flex flex-col items-center justify-center gap-6 p-6">
+    <div className="h-[100vh] bg-[#111111] flex flex-col items-center justify-center gap-6 p-6">
       {/* 通话联系人与状态 */}
       <p className="text-white/50 text-sm">
         {currentCall?.status === 'connected' ? 'Call active' : 'Connecting…'}

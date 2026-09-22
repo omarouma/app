@@ -555,7 +555,7 @@ export default function AddFriendsPage() {
   // ─── Render ───
 
   return (
-    <div className="min-h-[100dvh] bg-muted">
+    <div className="min-h-[100vh] bg-muted">
       {/* Header */}
       <div className="bg-background border-b border-border flex items-center gap-3 p-4">
         <button type="button" onClick={() => navigate(-1)} className="p-2 -ml-2 active:bg-muted rounded-full text-foreground">
@@ -946,7 +946,7 @@ export default function AddFriendsPage() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4"
+            className="fixed top-0 right-0 bottom-0 left-0 bg-black/60 z-50 flex items-center justify-center p-4"
             onClick={() => setShowQrModal(false)}
           >
             <motion.div

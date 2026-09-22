@@ -171,7 +171,7 @@ export default function OnboardingPage() {
   const isCustomStep = current.kind !== 'intro';
 
   return (
-    <div className="h-[100dvh] w-screen bg-background flex flex-col overflow-hidden">
+    <div className="h-[100vh] w-screen bg-background flex flex-col overflow-hidden">
       {/* Header */}
       <div className="shrink-0 flex items-center justify-between px-6 py-4">
         <div className="flex items-center gap-2">

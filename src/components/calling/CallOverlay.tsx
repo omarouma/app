@@ -230,7 +230,7 @@ export default function CallOverlay() {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="fixed inset-0 z-[70] flex flex-col overflow-hidden"
+        className="fixed top-0 right-0 bottom-0 left-0 z-[70] flex flex-col overflow-hidden"
       >
         {/* ZEGO prebuilt UI container — full 1:1 call UI (video, controls, chat).
             IMPORTANT: This container MUST be mounted for as long as ANY call is
@@ -242,7 +242,7 @@ export default function CallOverlay() {
         {activeCall && !isGroup && (
           <div
             ref={zegocontainerRef}
-            className="absolute inset-0 bg-black"
+            className="absolute top-0 right-0 bottom-0 left-0 bg-black"
           />
         )}
         {/* Hide the legacy call UI when ZEGO's prebuilt UI is active */}
@@ -250,19 +250,19 @@ export default function CallOverlay() {
           <>
             {/* Background / video grid */}
             {isVideo && !isIncoming && isGroup && remoteParticipants.length > 0 ? (
-              <div className="absolute inset-0 grid grid-cols-2 gap-1 p-1 bg-black">
+              <div className="absolute top-0 right-0 bottom-0 left-0 grid grid-cols-2 gap-1 p-1 bg-black">
                 {remoteParticipants.map((p) => (
                   <GroupRemoteVideo key={String(p.id)} stream={p.stream} />
                 ))}
                 {remoteParticipants.length === 1 && <div className="hidden" />}
               </div>
             ) : isVideo && !isIncoming ? (
-              <video ref={remoteVideoRef} autoPlay playsInline className="absolute inset-0 w-full h-full object-cover" />
+              <video ref={remoteVideoRef} autoPlay playsInline className="absolute top-0 right-0 bottom-0 left-0 w-full h-full object-cover" />
             ) : (
-              <div className="absolute inset-0 bg-gradient-to-b from-[#1a1a2e] via-[#16213e] to-[#0f3460]" />
+              <div className="absolute top-0 right-0 bottom-0 left-0 bg-gradient-to-b from-[#1a1a2e] via-[#16213e] to-[#0f3460]" />
             )}
             {/* Subtle overlay for readability */}
-            <div className="absolute inset-0 bg-black/30" />
+            <div className="absolute top-0 right-0 bottom-0 left-0 bg-black/30" />
 
             {/* Local video PiP */}
             {isVideo && !isIncoming && (
@@ -352,7 +352,7 @@ export default function CallOverlay() {
                   {/* Pulse ring when ringing */}
                   {!isConnected && (
                     <motion.div
-                      className="absolute inset-0 rounded-full border-4 border-white/30"
+                      className="absolute top-0 right-0 bottom-0 left-0 rounded-full border-4 border-white/30"
                       animate={{ scale: [1, 1.3, 1], opacity: [0.6, 0, 0.6] }}
                       transition={{ duration: 2, repeat: Infinity }}
                     />

@@ -32,6 +32,13 @@ android {
                 storePassword keystoreProps['storePassword']
                 keyAlias keystoreProps['keyAlias']
                 keyPassword keystoreProps['keyPassword']
+                // Sign with every scheme so the APK verifies on the widest range
+                // of Android versions: v1 (JAR) for Android 5-6, v2 for Android
+                // 7+, v3 for Android 9+. v1+v2 already cover all versions; v3 is
+                // added for completeness and future-proofing.
+                enableV1Signing true
+                enableV2Signing true
+                enableV3Signing true
             }
         }
     }

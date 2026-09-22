@@ -23,7 +23,7 @@ export default function AboutPage() {
     ];
 
     return (
-        <div className="min-h-[100dvh] bg-muted">
+        <div className="min-h-[100vh] bg-muted">
             <div className="bg-background border-b border-border flex items-center gap-3 p-4">
                 <button type="button" onClick={() => navigate(-1)} className="p-2 -ml-2 rounded-full text-foreground hover:bg-muted">
                     <ArrowLeft size={22} />

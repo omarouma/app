@@ -92,7 +92,7 @@ export default function ShareTargetPage() {
 
   if (loading) {
     return (
-      <div className="h-[100dvh] bg-background flex items-center justify-center">
+      <div className="h-[100vh] bg-background flex items-center justify-center">
         <div className="text-center">
           <Share size={40} className="mx-auto mb-3 text-[#00C300]" />
           <p className="text-muted-foreground text-sm">Loading shared content...</p>
@@ -102,7 +102,7 @@ export default function ShareTargetPage() {
   }
 
   return (
-    <div className="h-[100dvh] bg-background flex flex-col">
+    <div className="h-[100vh] bg-background flex flex-col">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-border">
         <div className="flex items-center gap-2">
@@ -255,7 +255,7 @@ export default function ShareTargetPage() {
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          className="fixed inset-0 z-50 bg-black/50 flex items-end"
+          className="fixed top-0 right-0 bottom-0 left-0 z-50 bg-black/50 flex items-end"
           onClick={() => setShowChatPicker(false)}
         >
           <motion.div

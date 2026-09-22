@@ -149,7 +149,7 @@ function CameraQRScanner({ onScan, onClose }: { onScan: (data: string) => void; 
           muted
         />
         {/* Overlay */}
-        <div className="absolute inset-0 pointer-events-none">
+        <div className="absolute top-0 right-0 bottom-0 left-0 pointer-events-none">
           {/* Corner brackets */}
           <div className="absolute top-8 left-8 w-12 h-12 border-t-4 border-l-4 border-[#00C300] rounded-tl-2xl" />
           <div className="absolute top-8 right-8 w-12 h-12 border-t-4 border-r-4 border-[#00C300] rounded-tr-2xl" />
@@ -165,7 +165,7 @@ function CameraQRScanner({ onScan, onClose }: { onScan: (data: string) => void; 
           )}
           {/* Center text */}
           {!scanning && !error && (
-            <div className="absolute inset-0 flex items-center justify-center">
+            <div className="absolute top-0 right-0 bottom-0 left-0 flex items-center justify-center">
               <Loader size={32} className="text-white animate-spin" />
             </div>
           )}
@@ -463,7 +463,7 @@ export default function QRScannerPage() {
   };
 
   return (
-    <div className="min-h-[100dvh] bg-[#0d0d0d] text-white">
+    <div className="min-h-[100vh] bg-[#0d0d0d] text-white">
       {/* Header */}
       <div className="flex items-center gap-3 p-4">
         <button type="button" onClick={() => navigate(-1)} className="p-2 -ml-2 active:bg-white/10 rounded-full text-white transition-colors">
@@ -555,7 +555,7 @@ export default function QRScannerPage() {
                 <div className="w-full h-full">
                   <QRCodeSVG data={getQrData()} size={200} />
                 </div>
-                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                <div className="absolute top-0 right-0 bottom-0 left-0 flex items-center justify-center pointer-events-none">
                   <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center border-2 border-[#00C300] shadow-lg">
                     <Logo size={28} />
                   </div>
@@ -634,12 +634,12 @@ export default function QRScannerPage() {
               <div className="text-center">
                 {/* Start Camera Button */}
                 <div className="w-64 h-64 mx-auto mb-6 relative">
-                  <div className="absolute inset-0 border-2 border-[#00C300]/40 rounded-3xl" />
+                  <div className="absolute top-0 right-0 bottom-0 left-0 border-2 border-[#00C300]/40 rounded-3xl" />
                   <div className="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-[#00C300] rounded-tl-2xl" />
                   <div className="absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 border-[#00C300] rounded-tr-2xl" />
                   <div className="absolute bottom-0 left-0 w-8 h-8 border-b-4 border-l-4 border-[#00C300] rounded-bl-2xl" />
                   <div className="absolute bottom-0 right-0 w-8 h-8 border-b-4 border-r-4 border-[#00C300] rounded-br-2xl" />
-                  <div className="absolute inset-0 flex flex-col items-center justify-center">
+                  <div className="absolute top-0 right-0 bottom-0 left-0 flex flex-col items-center justify-center">
                     <Camera size={40} className="text-white/40 mb-3" />
                     <button type="button" onClick={() => setShowCamera(true)}
                       className="px-6 py-3 bg-[#00C300] text-white rounded-full text-sm font-bold flex items-center gap-2 hover:bg-[#00A300] transition-colors"

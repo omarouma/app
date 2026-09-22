@@ -58,7 +58,7 @@ export const VideoMessage = memo(function VideoMessage(props: VideoMessageProps)
   return (
     <div className="relative max-w-full min-h-[128px]">
       {!loaded && (
-        <div className="absolute inset-0 rounded-2xl mb-1 bg-muted dark:bg-white/5 animate-pulse flex items-center justify-center z-[1]">
+        <div className="absolute top-0 right-0 bottom-0 left-0 rounded-2xl mb-1 bg-muted dark:bg-white/5 animate-pulse flex items-center justify-center z-[1]">
           <Loader size={20} className="animate-spin text-muted-foreground" />
         </div>
       )}

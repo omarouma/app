@@ -95,7 +95,7 @@ export const ImageMessage = memo(function ImageMessage(props: ImageMessageProps)
     <div className="relative intro max-w-full group min-h-[160px]">
       {/* Skeleton overlay — sits ON TOP of the image, never hides it. */}
       {!loaded && (
-        <div className="absolute inset-0 rounded-2xl mb-1 bg-muted dark:bg-white/5 animate-pulse flex items-center justify-center z-[1]">
+        <div className="absolute top-0 right-0 bottom-0 left-0 rounded-2xl mb-1 bg-muted dark:bg-white/5 animate-pulse flex items-center justify-center z-[1]">
           <span className="text-xs text-muted-foreground">Loading image…</span>
         </div>
       )}

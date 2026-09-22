@@ -99,7 +99,7 @@ export default function BroadcastListsPage() {
   });
 
   return (
-    <div className="h-[100dvh] bg-muted flex flex-col">
+    <div className="h-[100vh] bg-muted flex flex-col">
       {/* Header */}
       <div className="bg-background border-b border-border shrink-0">
         <div className="flex items-center gap-3 p-4">
@@ -178,7 +178,7 @@ export default function BroadcastListsPage() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4"
+            className="fixed top-0 right-0 bottom-0 left-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4"
             onClick={() => setShowCreate(false)}
           >
             <motion.div
@@ -283,7 +283,7 @@ export default function BroadcastListsPage() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4"
+            className="fixed top-0 right-0 bottom-0 left-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4"
             onClick={() => setShowSend(false)}
           >
             <motion.div
@@ -347,7 +347,7 @@ export default function BroadcastListsPage() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+            className="fixed top-0 right-0 bottom-0 left-0 bg-black/50 z-50 flex items-center justify-center p-4"
             onClick={() => setDeleteConfirm(null)}
           >
             <motion.div

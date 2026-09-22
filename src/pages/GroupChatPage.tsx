@@ -599,7 +599,7 @@ export default function GroupChatPage() {
 
     if (!group) {
         return (
-            <div className={`h-[100dvh] ${chatBgClass} flex items-center justify-center`}>
+            <div className={`h-[100vh] ${chatBgClass} flex items-center justify-center`}>
                 <div className={isDarkChat ? 'text-center text-white' : 'text-center text-foreground'}>
                     <Users size={48} className="mx-auto mb-4 opacity-50" />
                     <p className="text-lg font-medium">Group not found</p>
@@ -892,7 +892,7 @@ export default function GroupChatPage() {
             <AnimatePresence>
                 {showForwardModal && (
                     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                        className="fixed inset-0 bg-black/50 z-50 flex items-end justify-center"
+                        className="fixed top-0 right-0 bottom-0 left-0 bg-black/50 z-50 flex items-end justify-center"
                         onClick={resetForwardModal}
                     >
                         <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
@@ -944,7 +944,7 @@ export default function GroupChatPage() {
             <AnimatePresence>
                 {showPollModal && (
                     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                        className="fixed inset-0 bg-black/50 z-50 flex items-end justify-center"
+                        className="fixed top-0 right-0 bottom-0 left-0 bg-black/50 z-50 flex items-end justify-center"
                         onClick={() => setShowPollModal(false)}
                     >
                         <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
@@ -996,7 +996,7 @@ export default function GroupChatPage() {
             <AnimatePresence>
                 {showSchedulePicker && (
                     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                        className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+                        className="fixed top-0 right-0 bottom-0 left-0 bg-black/50 z-50 flex items-center justify-center p-4"
                         onClick={() => setShowSchedulePicker(false)}
                     >
                         <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }}
@@ -1026,7 +1026,7 @@ export default function GroupChatPage() {
             <AnimatePresence>
                 {showDeleteSelectedConfirm && (
                     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                        className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+                        className="fixed top-0 right-0 bottom-0 left-0 bg-black/50 z-50 flex items-center justify-center p-4"
                         onClick={() => setShowDeleteSelectedConfirm(false)}
                     >
                         <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }}

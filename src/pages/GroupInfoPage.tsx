@@ -90,7 +90,7 @@ export default function GroupInfoPage() {
 
   if (!group) {
     return (
-      <div className="min-h-[100dvh] bg-muted flex items-center justify-center">
+      <div className="min-h-[100vh] bg-muted flex items-center justify-center">
         <div className="text-center text-foreground">
           <Users size={48} className="mx-auto mb-4 opacity-50" />
           <p className="text-lg font-medium">Group not found</p>
@@ -204,7 +204,7 @@ export default function GroupInfoPage() {
   };
 
   return (
-    <div className="min-h-[100dvh] bg-muted flex flex-col">
+    <div className="min-h-[100vh] bg-muted flex flex-col">
       {/* Header */}
       <div className="shrink-0 flex items-center gap-3 px-4 py-3 bg-background border-b border-border">
         <button type="button" onClick={() => navigate(-1)} className="p-2 -ml-2 active:bg-muted rounded-full text-foreground">
@@ -393,13 +393,13 @@ export default function GroupInfoPage() {
         {showAddMembers && (
           <motion.div
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 bg-black/50 flex items-end sm:items-center justify-center"
+            className="fixed top-0 right-0 bottom-0 left-0 z-50 bg-black/50 flex items-end sm:items-center justify-center"
             onClick={() => setShowAddMembers(false)}
           >
             <motion.div
               initial={{ y: 40, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 40, opacity: 0 }}
               transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-              className="w-full sm:max-w-md bg-background rounded-t-2xl sm:rounded-2xl max-h-[80dvh] flex flex-col"
+              className="w-full sm:max-w-md bg-background rounded-t-2xl sm:rounded-2xl max-h-[80vh] flex flex-col"
               onClick={e => e.stopPropagation()}
             >
               <div className="flex items-center justify-between px-4 py-3 border-b border-border">
@@ -446,7 +446,7 @@ export default function GroupInfoPage() {
         {showInviteModal && (
           <motion.div
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4"
+            className="fixed top-0 right-0 bottom-0 left-0 z-50 bg-black/50 flex items-center justify-center p-4"
             onClick={() => setShowInviteModal(false)}
           >
             <motion.div
@@ -491,7 +491,7 @@ export default function GroupInfoPage() {
         {showLeaveConfirm && (
           <motion.div
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4"
+            className="fixed top-0 right-0 bottom-0 left-0 z-50 bg-black/50 flex items-center justify-center p-4"
             onClick={() => setShowLeaveConfirm(false)}
           >
             <motion.div

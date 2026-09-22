@@ -114,7 +114,7 @@ export default function AIChatPage() {
   };
 
   return (
-    <div className="h-[100dvh] bg-[#0a0a0a] text-white flex flex-col">
+    <div className="h-[100vh] bg-[#0a0a0a] text-white flex flex-col">
       {/* Header */}
       <div className="shrink-0 px-4 py-3 border-b border-[#1a1a1a] flex items-center justify-between">
         <div className="flex items-center gap-2">

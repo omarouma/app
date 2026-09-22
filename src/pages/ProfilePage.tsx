@@ -525,7 +525,7 @@ export default function ProfilePage() {
 
   if (!displayUser) {
     return (
-      <div className="min-h-[100dvh] bg-muted flex items-center justify-center">
+      <div className="min-h-[100vh] bg-muted flex items-center justify-center">
         {loadingOther
           ? <Loader size={28} className="animate-spin text-[#00C300]" />
           : <p className="text-muted-foreground text-sm">Profile not found</p>}
@@ -646,7 +646,7 @@ export default function ProfilePage() {
               </>
             )}
             {(uploadingCover || uploadingCoverVideo) && (
-              <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
+              <div className="absolute top-0 right-0 bottom-0 left-0 bg-black/30 flex items-center justify-center">
                 <div className="w-7 h-7 border-2 border-white border-t-transparent rounded-full animate-spin" />
               </div>
             )}
@@ -665,7 +665,7 @@ export default function ProfilePage() {
                         alt={`${displayUser.name}'s avatar`}
                       />
                       {uploadingAvatar && (
-                        <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                        <div className="absolute top-0 right-0 bottom-0 left-0 bg-black/40 flex items-center justify-center">
                           <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
                         </div>
                       )}
@@ -1358,7 +1358,7 @@ export default function ProfilePage() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 z-50 flex items-end justify-center"
+            className="fixed top-0 right-0 bottom-0 left-0 bg-black/50 z-50 flex items-end justify-center"
             onClick={() => setShowShareSheet(false)}
           >
             <motion.div
@@ -1434,7 +1434,7 @@ export default function ProfilePage() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+            className="fixed top-0 right-0 bottom-0 left-0 bg-black/50 z-50 flex items-center justify-center p-4"
             onClick={() => { setConfirmDialog(null); setBlockReason(''); }}
           >
             <motion.div

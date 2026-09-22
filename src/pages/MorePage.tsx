@@ -129,7 +129,7 @@ export default function MorePage() {
   ];
 
   return (
-    <div className="h-[100dvh] bg-background flex flex-col">
+    <div className="h-[100vh] bg-background flex flex-col">
       {/* Profile Header */}
       <div className="shrink-0 p-5">
         <h1 className="text-2xl font-bold text-foreground mb-4">More</h1>
@@ -207,7 +207,7 @@ onClick={() => {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+          className="fixed top-0 right-0 bottom-0 left-0 bg-black/50 z-50 flex items-center justify-center p-4"
           onClick={() => setShowAbout(false)}
         >
           <motion.div

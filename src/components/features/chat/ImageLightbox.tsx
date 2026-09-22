@@ -144,7 +144,7 @@ export const ImageLightbox = memo(function ImageLightbox({ url, onClose }: Image
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 z-[100] bg-black/95 flex flex-col select-none"
+          className="fixed top-0 right-0 bottom-0 left-0 z-[100] bg-black/95 flex flex-col select-none"
           onClick={onClose}
         >
           {/* Top bar */}

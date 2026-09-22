@@ -91,7 +91,7 @@ export default function ContactPreviewSheet({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 bg-black/50 z-50 flex items-end justify-center"
+          className="fixed top-0 right-0 bottom-0 left-0 bg-black/50 z-50 flex items-end justify-center"
           onClick={onClose}
         >
           <motion.div
@@ -99,7 +99,7 @@ export default function ContactPreviewSheet({
             animate={{ y: 0 }}
             exit={{ y: '100%' }}
             transition={{ type: 'spring', damping: 26, stiffness: 300 }}
-            className="bg-background rounded-t-3xl w-full max-w-lg pb-[max(16px,env(safe-area-inset-bottom))] max-h-[90dvh] overflow-y-auto"
+            className="bg-background rounded-t-3xl w-full max-w-lg pb-[max(16px,env(safe-area-inset-bottom))] max-h-[90vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="w-10 h-1 bg-muted rounded-full mx-auto mt-3 mb-4" />

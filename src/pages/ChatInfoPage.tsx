@@ -253,7 +253,7 @@ export default function ChatInfoPage() {
 
   if (!chat) {
     return (
-      <div className="min-h-[100dvh] bg-muted flex items-center justify-center">
+      <div className="min-h-[100vh] bg-muted flex items-center justify-center">
         <div className="text-center">
           <Loader size={32} className="animate-spin text-[#00C300] mx-auto mb-2" />
           <p className="text-muted-foreground text-sm">Loading chat info...</p>
@@ -263,7 +263,7 @@ export default function ChatInfoPage() {
   }
 
   return (
-    <div className="min-h-[100dvh] bg-muted">
+    <div className="min-h-[100vh] bg-muted">
       {/* Header */}
       <div className="bg-background border-b border-border sticky top-0 z-10">
         <div className="flex items-center gap-3 p-4">
@@ -568,7 +568,7 @@ export default function ChatInfoPage() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+            className="fixed top-0 right-0 bottom-0 left-0 bg-black/50 z-50 flex items-center justify-center p-4"
             onClick={() => setShowClearConfirm(false)}
           >
             <motion.div
@@ -604,7 +604,7 @@ export default function ChatInfoPage() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+            className="fixed top-0 right-0 bottom-0 left-0 bg-black/50 z-50 flex items-center justify-center p-4"
             onClick={() => setShowDisappearingPicker(false)}
           >
             <motion.div
@@ -656,7 +656,7 @@ export default function ChatInfoPage() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+            className="fixed top-0 right-0 bottom-0 left-0 bg-black/50 z-50 flex items-center justify-center p-4"
             onClick={() => setShowLockConfirm(false)}
           >
             <motion.div
@@ -708,7 +708,7 @@ export default function ChatInfoPage() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+            className="fixed top-0 right-0 bottom-0 left-0 bg-black/50 z-50 flex items-center justify-center p-4"
             onClick={() => setShowUnlockConfirm(false)}
           >
             <motion.div

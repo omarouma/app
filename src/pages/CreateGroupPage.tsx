@@ -58,7 +58,7 @@ export default function CreateGroupPage() {
   };
 
   return (
-    <div className="min-h-[100dvh] bg-muted flex flex-col">
+    <div className="min-h-[100vh] bg-muted flex flex-col">
       {/* Header */}
       <div className="shrink-0 flex items-center justify-between px-4 py-3 bg-background border-b border-border">
         <div className="flex items-center gap-3">

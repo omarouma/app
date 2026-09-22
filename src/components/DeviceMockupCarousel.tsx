@@ -44,7 +44,7 @@ export default function DeviceMockupCarousel() {
   return (
     <div className="relative">
       {/* Glow */}
-      <div className="absolute inset-0 rounded-[3rem] blur-3xl opacity-20 transition-all duration-700"
+      <div className="absolute top-0 right-0 bottom-0 left-0 rounded-[3rem] blur-3xl opacity-20 transition-all duration-700"
         style={{ backgroundColor: slide.color }} />
 
       {/* Phone Frame */}
@@ -54,7 +54,7 @@ export default function DeviceMockupCarousel() {
           <span className="text-[9px] font-semibold text-[#111]">9:41</span>
           <div className="absolute top-0 left-1/2 -translate-x-1/2 w-20 h-5 bg-muted rounded-b-xl" />
           <div className="flex items-center gap-1">
-            <div className="w-3 h-2 border border-[#111] rounded-[2px] relative"><div className="absolute inset-[1px] right-[2px] bg-[#111] rounded-[1px]" /></div>
+            <div className="w-3 h-2 border border-[#111] rounded-[2px] relative"><div className="absolute top-[1px] right-[1px] bottom-[1px] left-[1px] right-[2px] bg-[#111] rounded-[1px]" /></div>
           </div>
         </div>
 

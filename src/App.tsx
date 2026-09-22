@@ -527,7 +527,7 @@ function AppContent() {
     location.pathname !== '/';
 
   return (
-    <div className="w-full max-w-[100vw] bg-white" style={{ minHeight: '100dvh' }}>
+    <div className="w-full max-w-[100vw] bg-white" style={{ minHeight: '100vh' }}>
       <Suspense fallback={<PageLoader />}>
         <Routes location={location}>
           {/* Public routes */}

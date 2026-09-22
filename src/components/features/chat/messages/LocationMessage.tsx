@@ -75,7 +75,7 @@ export const LocationMessage = memo(function LocationMessage(props: LocationMess
           loading="lazy"
           onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
         />
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+        <div className="absolute top-0 right-0 bottom-0 left-0 flex items-center justify-center pointer-events-none">
           <MapPin size={28} className="text-[#FF3B30] drop-shadow-lg -translate-y-2" fill="#FF3B30" />
         </div>
       </a>

@@ -92,7 +92,7 @@ export default function ChatRoomLoader({ userId, onRetry }: ChatRoomLoaderProps)
 
   if (!userId) {
     return (
-      <div className="h-[100dvh] bg-background flex flex-col items-center justify-center p-6">
+      <div className="h-[100vh] bg-background flex flex-col items-center justify-center p-6">
         <p className="text-[#FF3B30] text-sm font-medium mb-2">Chat not available</p>
         <p className="text-muted-foreground text-xs text-center mb-4">The selected conversation is missing a valid user reference.</p>
         <button
@@ -108,7 +108,7 @@ export default function ChatRoomLoader({ userId, onRetry }: ChatRoomLoaderProps)
 
   if (isSelfChat) {
     return (
-      <div className="h-[100dvh] bg-background flex flex-col items-center justify-center p-6">
+      <div className="h-[100vh] bg-background flex flex-col items-center justify-center p-6">
         <p className="text-[#FF3B30] text-sm font-medium mb-2">You cannot chat with yourself</p>
         <p className="text-muted-foreground text-xs text-center mb-4">Please select a different user to start a conversation.</p>
         <button
@@ -124,7 +124,7 @@ export default function ChatRoomLoader({ userId, onRetry }: ChatRoomLoaderProps)
 
   if (loading) {
     return (
-      <div className="h-[100dvh] bg-background flex flex-col items-center justify-center">
+      <div className="h-[100vh] bg-background flex flex-col items-center justify-center">
         <motion.div
           initial={{ scale: 0.8, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
@@ -141,7 +141,7 @@ export default function ChatRoomLoader({ userId, onRetry }: ChatRoomLoaderProps)
 
   if (error || !chatId) {
     return (
-      <div className="h-[100dvh] bg-background flex flex-col items-center justify-center p-6">
+      <div className="h-[100vh] bg-background flex flex-col items-center justify-center p-6">
         <p className="text-[#FF3B30] text-sm font-medium mb-2">Could not start chat</p>
         <p className="text-muted-foreground text-xs text-center mb-4">
           {isOnline
@@ -177,7 +177,7 @@ export default function ChatRoomLoader({ userId, onRetry }: ChatRoomLoaderProps)
   }
 
   return (
-    <div className="h-[100dvh] bg-background">
+    <div className="h-[100vh] bg-background">
       <ChatRoom chatId={chatId} userId={userId} onBack={() => navigate(-1)} />
     </div>
   );

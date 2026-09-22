@@ -113,7 +113,7 @@ export default function GagaRewardsPage() {
   const stakingAPY = useWalletStore((s) => s.getStakingAPY());
 
   return (
-    <div className="min-h-[100dvh] bg-muted">
+    <div className="min-h-[100vh] bg-muted">
       {/* Header */}
       <div className="bg-gradient-to-br from-[#00C300] to-[#00A300] text-white">
         <div className="flex items-center gap-3 p-4">

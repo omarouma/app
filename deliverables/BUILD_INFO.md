@@ -134,6 +134,46 @@ SHA-1:   7A:FF:20:8D:7D:55:4E:18:40:65:BC:46:4A:1A:80:CE:E4:20:2C:D9
     cards (multi-color extension map), poll bubbles/options (purple), text
     links/mentions (blue), and the "New Messages" separator (red).
 
+### Android 10 / 11 / 12 / 13 compatibility (this milestone)
+
+The previous build rendered a **blank screen** on Android 10–13 because the web
+bundle used features that older Android **WebViews** cannot parse or render. The
+app is a Capacitor WebView app, so its real "minimum OS" is the device's WebView
+version, not the Android version. Fixed:
+
+41. **ES2020 syntax removed from the bundle** — the JS shipped optional chaining
+    (`?.`) and nullish coalescing (`??`), which throw a `SyntaxError` on WebView
+    < 80 (Android 10 ships WebView 74) → instant blank screen. The Vite build
+    target was lowered from `es2020` to **`es2017`**, so esbuild now transpiles
+    all ES2018–ES2020 syntax down to code every WebView ≥ 55 can parse.
+42. **`dvh` viewport units removed** — `100dvh` requires WebView 108 (Android 10–12
+    stock WebViews are older), and an unsupported `height:100dvh` collapses the
+    layout to zero height. Every `dvh` (57 occurrences across 38 files + CSS) was
+    replaced with universally-supported `vh`, with `vh` fallbacks kept in the
+    stylesheet.
+43. **`inset` shorthand removed** — Tailwind's `inset-0` (70 usages: modals, call
+    overlay, image placeholders) emits `inset:0`, which requires WebView 87. All
+    were converted to longhand `top-0 right-0 bottom-0 left-0`.
+44. **`max()` safe-area fallbacks** — `padding: max(12px, env(safe-area-inset-*))`
+    requires WebView 79; plain-value fallbacks were added before each.
+45. **Runtime polyfills** — an ES5 polyfill block in `index.html` now provides
+    `Promise.allSettled`, `Promise.any`, `queueMicrotask`, `requestIdleCallback`,
+    `globalThis`, `Array.prototype.at/flat/flatMap/findLast`, `Object.fromEntries`,
+    `Object.hasOwn`, `String.prototype.replaceAll`, `structuredClone`, and
+    `Element.prototype.replaceChildren` for WebViews that lack them.
+46. **Install-time feature fix** — the `BLUETOOTH` permission made Android infer
+    `android.hardware.bluetooth` as a **required** feature, blocking installation
+    on some devices. It (plus bluetooth_le, telephony, location, gps, touchscreen)
+    is now explicitly `required="false"`.
+47. **Signature schemes** — the APK is now signed with **v1 + v2 + v3** (previously
+    v1 + v2) for the widest verification coverage.
+48. **Native hardening** — `android:largeHeap="true"`,
+    `android:hardwareAccelerated="true"`, and
+    `android:requestLegacyExternalStorage="true"` (helps file access on Android 10).
+
+Result: the APK installs and runs on **Android 5.1 (API 22) through Android 14
+(API 34)**, including Android 10, 11, 12 and 13.
+
 ## Build pipeline
 
 ```

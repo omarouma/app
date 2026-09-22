@@ -152,7 +152,7 @@ export default function PremiumPage() {
   };
 
   return (
-    <div className="min-h-[100dvh] bg-muted pb-20">
+    <div className="min-h-[100vh] bg-muted pb-20">
       {/* Header */}
       <div className="sticky top-0 z-30 bg-white/80 backdrop-blur-md border-b border-border">
         <div className="max-w-3xl mx-auto px-4 h-14 flex items-center justify-between">
@@ -436,7 +436,7 @@ export default function PremiumPage() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center"
+            className="fixed top-0 right-0 bottom-0 left-0 z-50 bg-black/40 flex items-center justify-center"
           >
             <motion.div
               initial={{ scale: 0.9 }}

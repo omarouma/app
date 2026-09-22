@@ -97,7 +97,7 @@ export default function PWAPrompt() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[110] flex items-end justify-center bg-black/60 backdrop-blur-sm"
+            className="fixed top-0 right-0 bottom-0 left-0 z-[110] flex items-end justify-center bg-black/60 backdrop-blur-sm"
             onClick={() => setShowIosGuide(false)}
           >
             <motion.div

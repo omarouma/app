@@ -604,7 +604,7 @@ export default function ChatRoom({ chatId, userId, onBack }: {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="absolute inset-0 bg-black/50 backdrop-blur-sm z-30 flex flex-col items-center justify-center p-4"
+              className="absolute top-0 right-0 bottom-0 left-0 bg-black/50 backdrop-blur-sm z-30 flex flex-col items-center justify-center p-4"
             >
               <Lock size={48} className="text-white mb-4" />
               <h3 className="text-white text-lg font-bold">Chat Locked</h3>
@@ -876,7 +876,7 @@ export default function ChatRoom({ chatId, userId, onBack }: {
       <AnimatePresence>
         {showForwardModal && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 z-50 flex items-end justify-center"
+            className="fixed top-0 right-0 bottom-0 left-0 bg-black/50 z-50 flex items-end justify-center"
             onClick={resetForwardModal}
           >
             <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
@@ -932,7 +932,7 @@ export default function ChatRoom({ chatId, userId, onBack }: {
       <AnimatePresence>
         {showDeleteForEveryoneConfirm && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+            className="fixed top-0 right-0 bottom-0 left-0 bg-black/50 z-50 flex items-center justify-center p-4"
             onClick={() => setShowDeleteForEveryoneConfirm(null)}
           >
             <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }}
@@ -958,7 +958,7 @@ export default function ChatRoom({ chatId, userId, onBack }: {
       <AnimatePresence>
         {showReportModal && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+            className="fixed top-0 right-0 bottom-0 left-0 bg-black/50 z-50 flex items-center justify-center p-4"
             onClick={() => setShowReportModal(false)}
           >
             <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }}
@@ -997,7 +997,7 @@ export default function ChatRoom({ chatId, userId, onBack }: {
       <AnimatePresence>
         {showPollModal && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 z-50 flex items-end justify-center"
+            className="fixed top-0 right-0 bottom-0 left-0 bg-black/50 z-50 flex items-end justify-center"
             onClick={() => setShowPollModal(false)}
           >
             <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
@@ -1049,7 +1049,7 @@ export default function ChatRoom({ chatId, userId, onBack }: {
       <AnimatePresence>
         {showSchedulePicker && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+            className="fixed top-0 right-0 bottom-0 left-0 bg-black/50 z-50 flex items-center justify-center p-4"
             onClick={() => setShowSchedulePicker(false)}
           >
             <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }}
@@ -1078,7 +1078,7 @@ export default function ChatRoom({ chatId, userId, onBack }: {
       <AnimatePresence>
         {showDeleteSelectedConfirm && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+            className="fixed top-0 right-0 bottom-0 left-0 bg-black/50 z-50 flex items-center justify-center p-4"
             onClick={() => setShowDeleteSelectedConfirm(false)}
           >
             <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }}

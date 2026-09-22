@@ -876,7 +876,7 @@ export default function SettingsPage() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="fixed inset-0 z-[90] flex items-end justify-center bg-black/50 p-4 sm:items-center"
+              className="fixed top-0 right-0 bottom-0 left-0 z-[90] flex items-end justify-center bg-black/50 p-4 sm:items-center"
               onClick={() => setShowLicenses(false)}
             >
               <motion.div
@@ -917,7 +917,7 @@ export default function SettingsPage() {
         {/* Change Password Modal */}
         <AnimatePresence>
           {showChangePassword && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" onClick={() => setShowChangePassword(false)}>
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed top-0 right-0 bottom-0 left-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" onClick={() => setShowChangePassword(false)}>
               <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 20 }}
                 transition={{ type: 'spring', damping: 25, stiffness: 300 }}
                 className="bg-popover rounded-2xl sm:rounded-3xl p-6 sm:p-8 max-w-sm w-full shadow-float border border-border"
@@ -969,7 +969,7 @@ export default function SettingsPage() {
         {/* Delete Confirm Modal */}
         <AnimatePresence>
           {showDeleteConfirm && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed top-0 right-0 bottom-0 left-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
               <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 20 }}
                 transition={{ type: 'spring', damping: 25, stiffness: 300 }}
                 className="bg-popover rounded-2xl sm:rounded-3xl p-6 sm:p-8 max-w-sm w-full shadow-float border border-border">

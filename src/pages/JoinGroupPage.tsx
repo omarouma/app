@@ -35,7 +35,7 @@ export default function JoinGroupPage() {
   }, [code, user, joinGroupByInvite, navigate]);
 
   return (
-    <div className="min-h-[100dvh] bg-muted flex items-center justify-center p-6">
+    <div className="min-h-[100vh] bg-muted flex items-center justify-center p-6">
       <div className="text-center max-w-xs">
         {status === 'joining' ? (
           <>

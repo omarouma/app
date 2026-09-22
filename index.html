@@ -37,6 +37,148 @@
       } catch (e) { }
     })();
   </script>
+
+  <!--
+    Legacy WebView polyfills (Android 5-12 / WebView < 108).
+    Written in plain ES5 so it parses on the oldest engines and runs before the
+    app bundle. Provides modern runtime APIs the app (and its dependencies) rely
+    on but which older WebViews do not ship natively.
+  -->
+  <script>
+    (function () {
+      'use strict';
+      var g = typeof globalThis !== 'undefined' ? globalThis
+        : typeof window !== 'undefined' ? window
+          : typeof self !== 'undefined' ? self : this;
+      if (typeof g.globalThis === 'undefined') { try { g.globalThis = g; } catch (e) { } }
+
+      if (typeof g.queueMicrotask !== 'function') {
+        g.queueMicrotask = function (cb) {
+          Promise.resolve().then(cb).catch(function (err) { setTimeout(function () { throw err; }, 0); });
+        };
+      }
+
+      if (typeof g.requestIdleCallback !== 'function') {
+        g.requestIdleCallback = function (cb) {
+          var start = Date.now();
+          return setTimeout(function () {
+            cb({ didTimeout: false, timeRemaining: function () { return Math.max(0, 50 - (Date.now() - start)); } });
+          }, 1);
+        };
+      }
+      if (typeof g.cancelIdleCallback !== 'function') {
+        g.cancelIdleCallback = function (id) { clearTimeout(id); };
+      }
+
+      if (typeof Promise !== 'undefined' && typeof Promise.allSettled !== 'function') {
+        Promise.allSettled = function (iterable) {
+          var arr = Array.prototype.slice.call(iterable);
+          return Promise.all(arr.map(function (p) {
+            return Promise.resolve(p).then(
+              function (value) { return { status: 'fulfilled', value: value }; },
+              function (reason) { return { status: 'rejected', reason: reason }; }
+            );
+          }));
+        };
+      }
+      if (typeof Promise !== 'undefined' && typeof Promise.any !== 'function') {
+        Promise.any = function (iterable) {
+          var arr = Array.prototype.slice.call(iterable);
+          return new Promise(function (resolve, reject) {
+            var errors = [], pending = arr.length;
+            if (!pending) { reject(new Error('All promises were rejected')); return; }
+            arr.forEach(function (p, i) {
+              Promise.resolve(p).then(resolve, function (e) {
+                errors[i] = e;
+                if (--pending === 0) reject(new Error('All promises were rejected'));
+              });
+            });
+          });
+        };
+      }
+
+      if (!Array.prototype.at) {
+        Array.prototype.at = function (n) {
+          n = Math.trunc(n) || 0;
+          if (n < 0) n += this.length;
+          return (n < 0 || n >= this.length) ? undefined : this[n];
+        };
+      }
+      if (!String.prototype.at) {
+        String.prototype.at = function (n) {
+          n = Math.trunc(n) || 0;
+          if (n < 0) n += this.length;
+          return (n < 0 || n >= this.length) ? undefined : this[n];
+        };
+      }
+      if (!Array.prototype.flat) {
+        Array.prototype.flat = function (depth) {
+          depth = depth === undefined ? 1 : Math.trunc(depth);
+          var out = [];
+          (function flatten(a, d) {
+            for (var i = 0; i < a.length; i++) {
+              if (Array.isArray(a[i]) && d > 0) flatten(a[i], d - 1); else out.push(a[i]);
+            }
+          })(this, depth);
+          return out;
+        };
+      }
+      if (!Array.prototype.flatMap) {
+        Array.prototype.flatMap = function (fn, thisArg) { return this.map(fn, thisArg).flat(1); };
+      }
+      if (!Array.prototype.findLast) {
+        Array.prototype.findLast = function (fn, thisArg) {
+          for (var i = this.length - 1; i >= 0; i--) { if (fn.call(thisArg, this[i], i, this)) return this[i]; }
+          return undefined;
+        };
+      }
+      if (!Array.prototype.findLastIndex) {
+        Array.prototype.findLastIndex = function (fn, thisArg) {
+          for (var i = this.length - 1; i >= 0; i--) { if (fn.call(thisArg, this[i], i, this)) return i; }
+          return -1;
+        };
+      }
+
+      if (!Object.fromEntries) {
+        Object.fromEntries = function (entries) {
+          var o = {};
+          if (entries && typeof Symbol !== 'undefined' && entries[Symbol.iterator]) {
+            var it = entries[Symbol.iterator](), r;
+            while (!(r = it.next()).done) { o[r.value[0]] = r.value[1]; }
+          } else {
+            for (var i = 0; i < entries.length; i++) { o[entries[i][0]] = entries[i][1]; }
+          }
+          return o;
+        };
+      }
+      if (!Object.hasOwn) {
+        Object.hasOwn = function (obj, prop) { return Object.prototype.hasOwnProperty.call(obj, prop); };
+      }
+
+      if (!String.prototype.replaceAll) {
+        String.prototype.replaceAll = function (search, replacement) {
+          if (search instanceof RegExp) {
+            if (!search.global) throw new TypeError('replaceAll must be called with a global RegExp');
+            return this.replace(search, replacement);
+          }
+          return this.split(search).join(replacement);
+        };
+      }
+
+      if (typeof g.structuredClone !== 'function') {
+        g.structuredClone = function (obj) {
+          try { return JSON.parse(JSON.stringify(obj)); } catch (e) { return obj; }
+        };
+      }
+
+      if (typeof Element !== 'undefined' && !Element.prototype.replaceChildren) {
+        Element.prototype.replaceChildren = function () {
+          while (this.firstChild) this.removeChild(this.firstChild);
+          for (var i = 0; i < arguments.length; i++) this.appendChild(arguments[i]);
+        };
+      }
+    })();
+  </script>
   <title>GaGa Chat</title>
 </head>
 

@@ -12,7 +12,7 @@ export default function ChatRoomPage() {
 
   if (!normalizedUserId) {
     return (
-      <div className="h-dvh bg-background flex items-center justify-center px-6">
+      <div className="h-screen bg-background flex items-center justify-center px-6">
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -43,7 +43,7 @@ export default function ChatRoomPage() {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.15 }}
-      className="h-dvh"
+      className="h-screen"
     >
       <ChatRoomLoader
         userId={normalizedUserId}

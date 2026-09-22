@@ -7,7 +7,7 @@ export default function NotFound() {
   const navigate = useNavigate();
 
   return (
-    <div className="min-h-[100dvh] bg-gradient-to-b from-white to-[#F5F5F5] flex items-center justify-center p-4">
+    <div className="min-h-[100vh] bg-gradient-to-b from-white to-[#F5F5F5] flex items-center justify-center p-4">
       <motion.div
         initial={{ opacity: 0, y: 30, scale: 0.95 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}

@@ -72,7 +72,7 @@ export default function LandingView() {
   }, [location.hash]);
 
   return (
-    <div className="bg-background text-foreground min-h-[100dvh]">
+    <div className="bg-background text-foreground min-h-[100vh]">
       <Navbar />
 
       {/* Hero */}
@@ -706,7 +706,7 @@ export default function LandingView() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-4"
+            className="fixed top-0 right-0 bottom-0 left-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-4"
             onClick={dismissIOSGuide}
           >
             <motion.div

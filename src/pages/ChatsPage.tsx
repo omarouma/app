@@ -332,7 +332,7 @@ export default function ChatsPage() {
 
       {/* Dismiss context menu on backdrop tap */}
       {contextMenu && (
-        <div className="fixed inset-0 z-40" onClick={() => setContextMenu(null)} />
+        <div className="fixed top-0 right-0 bottom-0 left-0 z-40" onClick={() => setContextMenu(null)} />
       )}
     </div>
   );

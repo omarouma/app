@@ -114,7 +114,7 @@ export default function CallsPage() {
   };
 
   return (
-    <div className="h-[100dvh] flex flex-col bg-secondary/40 page-enter">
+    <div className="h-[100vh] flex flex-col bg-secondary/40 page-enter">
       <header className="page-header flex-col !items-stretch !gap-3">
         <div className="flex items-center justify-between">
           <div className="min-w-0">

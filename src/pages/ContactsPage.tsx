@@ -435,7 +435,7 @@ export default function ContactsPage() {
   const alphabetLetters = useMemo(() => groupedFriends.map(([letter]) => letter), [groupedFriends]);
 
   return (
-    <div className="h-[100dvh] bg-background flex flex-col page-enter">
+    <div className="h-[100vh] bg-background flex flex-col page-enter">
       {/* Header */}
       {selectionMode ? (
         <div className="shrink-0 px-5 pt-5 pb-3 flex justify-between items-center bg-[#00C300]/5">
@@ -621,7 +621,7 @@ export default function ContactsPage() {
                 <AnimatePresence>
                   {showSortMenu && (
                     <>
-                      <div className="fixed inset-0 z-40" onClick={() => setShowSortMenu(false)} />
+                      <div className="fixed top-0 right-0 bottom-0 left-0 z-40" onClick={() => setShowSortMenu(false)} />
                       <motion.div
                         initial={{ opacity: 0, y: -6, scale: 0.96 }}
                         animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -1069,7 +1069,7 @@ export default function ContactsPage() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 px-6"
+            className="fixed top-0 right-0 bottom-0 left-0 z-[100] flex items-center justify-center bg-black/50 px-6"
             onClick={() => { if (!busyAction) { setConfirmDialog(null); setBlockReason(''); } }}
           >
             <motion.div
@@ -1134,7 +1134,7 @@ export default function ContactsPage() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/50"
+            className="fixed top-0 right-0 bottom-0 left-0 z-[100] flex items-end sm:items-center justify-center bg-black/50"
             onClick={() => { if (!busyAction) { setReportTarget(null); setReportReason(''); setReportDetails(''); } }}
           >
             <motion.div
@@ -1142,7 +1142,7 @@ export default function ContactsPage() {
               animate={{ y: 0, opacity: 1 }}
               exit={{ y: '100%', opacity: 0 }}
               transition={{ type: 'spring', damping: 28, stiffness: 320 }}
-              className="w-full sm:max-w-md bg-card rounded-t-3xl sm:rounded-3xl p-5 shadow-2xl max-h-[85dvh] overflow-y-auto"
+              className="w-full sm:max-w-md bg-card rounded-t-3xl sm:rounded-3xl p-5 shadow-2xl max-h-[85vh] overflow-y-auto"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-center justify-between mb-4">

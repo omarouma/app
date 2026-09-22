@@ -114,7 +114,11 @@ export default defineConfig(({ mode }) => {
       // useful warnings for unexpectedly larger application chunks.
       chunkSizeWarningLimit: 5500,
       minify: 'esbuild',
-      target: 'es2020',
+      // Target es2017 so esbuild transpiles ES2018-ES2020 syntax (optional
+      // chaining `?.`, nullish coalescing `??`, etc.) down to code that older
+      // Android WebViews (Android 10 ships WebView 74) can parse. Without this
+      // the bundle throws a SyntaxError on launch -> blank screen.
+      target: 'es2017',
       reportCompressedSize: true,
       cssCodeSplit: true,
       rollupOptions: {

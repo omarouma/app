@@ -34,7 +34,7 @@ export default function SavedMessagesPage() {
   };
 
   return (
-    <div className="min-h-[100dvh] bg-muted">
+    <div className="min-h-[100vh] bg-muted">
       {/* Header */}
       <div className="bg-background border-b border-border sticky top-0 z-10">
         <div className="flex items-center gap-3 p-4">
@@ -127,7 +127,7 @@ export default function SavedMessagesPage() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+            className="fixed top-0 right-0 bottom-0 left-0 bg-black/50 z-50 flex items-center justify-center p-4"
             onClick={() => setShowConfirm(false)}
           >
             <motion.div

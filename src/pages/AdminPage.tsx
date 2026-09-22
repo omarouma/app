@@ -338,7 +338,7 @@ export default function AdminPage() {
   const maxUserGrowth = Math.max(...userGrowth.map((d) => d.count), 1);
 
   return (
-    <div className="min-h-[100dvh] bg-muted">
+    <div className="min-h-[100vh] bg-muted">
       {/* Header */}
       <div className="sticky top-0 z-10 bg-white/90 backdrop-blur-md border-b border-border">
         <div className="flex items-center gap-3 p-4">

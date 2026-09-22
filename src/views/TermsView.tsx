@@ -5,7 +5,7 @@ import Footer from '@/components/Footer';
 
 export default function TermsView() {
   return (
-    <div className="bg-white min-h-[100dvh]">
+    <div className="bg-white min-h-[100vh]">
       <Navbar />
       <div className="max-w-3xl mx-auto px-4 pt-24 pb-16">
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>

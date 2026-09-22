@@ -206,7 +206,7 @@ export const ChatListItem = memo(function ChatListItem({
           type="button"
           style={{ opacity: muteOpacity }}
           onClick={() => { onToggleMute(chat.id); closeSwipe(); }}
-          className="absolute inset-y-0 left-0 w-24 flex flex-col items-center justify-center gap-1 bg-[#00C300] text-white text-[11px] font-semibold"
+          className="absolute top-0 bottom-0 left-0 w-24 flex flex-col items-center justify-center gap-1 bg-[#00C300] text-white text-[11px] font-semibold"
           aria-label={chat.isMuted ? 'Unmute chat' : 'Mute chat'}
         >
           {chat.isMuted ? <Volume2 size={18} /> : <VolumeX size={18} />}
@@ -219,7 +219,7 @@ export const ChatListItem = memo(function ChatListItem({
           type="button"
           style={{ opacity: archiveOpacity }}
           onClick={() => { onArchive(chat.id, !!chat.archived); closeSwipe(); }}
-          className="absolute inset-y-0 right-0 w-24 flex flex-col items-center justify-center gap-1 bg-muted-foreground text-white text-[11px] font-semibold"
+          className="absolute top-0 bottom-0 right-0 w-24 flex flex-col items-center justify-center gap-1 bg-muted-foreground text-white text-[11px] font-semibold"
           aria-label={chat.archived ? 'Unarchive chat' : 'Archive chat'}
         >
           <Archive size={18} />
