@@ -31,6 +31,14 @@ export interface MessageItemProps {
   msgIdMap?: Map<string, Message>;
   translatedText?: string;
   isTranslating?: boolean;
+  /** Per-message sender info (used by group chat where each message has a
+   *  different author). When provided it overrides `displayUser` for the
+   *  avatar and reply-preview fallback name. */
+  senderInfo?: { id: string; name: string; avatar?: string };
+  /** Show the sender's name above the bubble (group chat, non-me messages). */
+  showSenderName?: boolean;
+  /** Resolve a senderId to a display name (group chat reply previews). */
+  resolveSenderName?: (senderId: string) => string;
 
   onContextMenu: (e: React.MouseEvent, msg: Message) => void;
   onTouchStart: (e: React.TouchEvent) => void;
@@ -73,18 +81,20 @@ export const MessageItem = memo(function MessageItem(props: MessageItemProps) {
     msg, isMe, showAvatar, showDate, msgDate, showUnreadSeparator, isSelected,
     editingMessageId, editInput, selectionMode: _selectionMode, selectedReactionMsg,
     displayUser, otherUserName, userId, currentUserId, msgIdMap,
-    translatedText, isTranslating,
+    translatedText, isTranslating, senderInfo, showSenderName, resolveSenderName,
     onContextMenu, onTouchStart, onTouchMove, onTouchEnd, onMouseDown, onMouseUp,
     onMouseLeave, onClick, onDoubleClick, onReact, onEditInputChange,
     onEditSave, onEditCancel, onSetReplyingTo, onSetLightbox, onVotePoll, onNavigate, onRetry, chatId,
   } = props;
 
+  const avatarSrc = senderInfo ? senderInfo.avatar : displayUser?.avatar;
+  const avatarId = senderInfo ? senderInfo.id : (displayUser?.id || userId || displayUser?.name || 'U');
   const avatarEl = showAvatar ? (
     <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center mr-2 self-end shrink-0 overflow-hidden">
-      {sanitizeMediaUrl(displayUser?.avatar) ? (
-        <img src={sanitizeMediaUrl(displayUser?.avatar)} className="w-full h-full object-cover" alt="" />
+      {sanitizeMediaUrl(avatarSrc) ? (
+        <img src={sanitizeMediaUrl(avatarSrc)} className="w-full h-full object-cover" alt="" />
       ) : (
-        <img src={getDefaultAvatar(displayUser?.id || userId || displayUser?.name || 'U')} className="w-full h-full object-cover" alt="" />
+        <img src={getDefaultAvatar(avatarId)} className="w-full h-full object-cover" alt="" />
       )}
     </div>
   ) : null;
@@ -101,15 +111,19 @@ export const MessageItem = memo(function MessageItem(props: MessageItemProps) {
     if (!r) return null;
     const senderIsMe = r.senderId === currentUserId;
     const senderIsSystem = r.senderId === 'system';
-    const fallbackName = otherUserName ?? displayUser?.name ?? 'Chat';
-    const senderName = senderIsMe ? 'You' : senderIsSystem ? 'System' : fallbackName;
+    const fallbackName = otherUserName ?? senderInfo?.name ?? displayUser?.name ?? 'Chat';
+    const senderName = senderIsMe
+      ? 'You'
+      : senderIsSystem
+        ? 'System'
+        : (resolveSenderName ? resolveSenderName(r.senderId) : fallbackName);
     const previewText = typeof r.content === 'string' ? r.content : '';
     return {
       message: r,
       preview: previewText.length > 60 ? `${previewText.slice(0, 60)}...` : previewText,
       senderName,
     };
-  }, [msg.replyTo, msgIdMap, currentUserId, otherUserName, displayUser?.name]);
+  }, [msg.replyTo, msgIdMap, currentUserId, otherUserName, displayUser?.name, senderInfo?.name, resolveSenderName]);
 
   const renderMessageContent = () => {
     const componentProps = {
@@ -185,6 +199,10 @@ export const MessageItem = memo(function MessageItem(props: MessageItemProps) {
               }
             }}
           >
+            {showSenderName && !isMe && senderInfo?.name && (
+              <p className="text-[11px] font-medium text-muted-foreground mb-0.5 ml-1 truncate">{senderInfo.name}</p>
+            )}
+
             {msg.replyTo && (
               <div
                 className={`rounded-t-2xl px-3 py-1.5 mb-0.5 cursor-pointer hover:opacity-80 transition-opacity border-l-2 ${
@@ -219,7 +237,8 @@ export const MessageItem = memo(function MessageItem(props: MessageItemProps) {
               <div className={`flex gap-1 mt-1 ${isMe ? 'justify-end' : 'justify-start'} flex-wrap`}>
                 {Object.entries(reactions).map(([reaction, users]) => {
                   if ((users as string[]).length === 0) return null;
-                  const rc = reactionEmojis.find((r: ReactionEmoji) => r.label === reaction);
+                  const rc = reactionEmojis.find((r: ReactionEmoji) => r.label === reaction)
+                    ?? reactionEmojis.find((r: ReactionEmoji) => r.emoji === reaction);
                   if (!rc) return null;
                   const isMeReacted = (users as string[]).includes(currentUserId);
                   return (

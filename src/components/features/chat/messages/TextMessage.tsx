@@ -66,7 +66,7 @@ export const TextMessage = memo(function TextMessage(props: TextMessageProps) {
   return (
     <>
       {isEditing ? (
-        <div className={`inline-block px-3.5 py-2 rounded-2xl text-[15px] w-full shadow-sm ${isMe ? 'bg-[#00C300] text-white rounded-br-md' : 'bg-background text-foreground rounded-bl-md border border-border/60'}`}>
+        <div className={`inline-block px-3 py-2 rounded-2xl text-[15px] w-full ${isMe ? 'bg-[#00C300] text-white rounded-br-none' : 'bg-background text-foreground rounded-bl-none'}`}>
           <input
             value={editInput}
             onChange={(e) => onEditInputChange(e.target.value)}

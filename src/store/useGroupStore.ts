@@ -18,7 +18,7 @@ import {
   serverTimestamp,
   increment,
 } from '@/lib/firestore';
-import type { Chat, Message, GroupData } from '@/types';
+import type { Chat, Message, GroupData, PollData, PinnedMessage } from '@/types';
 import { where, orderBy, limit } from '@/lib/firestore';
 import { enqueueOfflineMessage, isOnline } from '@/lib/offlineQueue';
 
@@ -56,6 +56,11 @@ interface GroupStore {
   deleteGroupMessageForEveryone: (groupId: string, messageId: string) => Promise<void>;
   editGroupMessage: (groupId: string, messageId: string, content: string) => Promise<void>;
   addGroupReaction: (groupId: string, messageId: string, emoji: string, userId: string) => Promise<void>;
+  pinGroupMessage: (groupId: string, messageId: string, content: string, pinnedBy: string) => Promise<void>;
+  unpinGroupMessage: (groupId: string, messageId: string) => Promise<void>;
+  sendGroupPoll: (groupId: string, senderId: string, question: string, options: string[]) => Promise<void>;
+  voteGroupPoll: (groupId: string, messageId: string, optionIndex: number, userId: string) => Promise<void>;
+  forwardGroupMessage: (groupId: string, senderId: string, original: Message) => Promise<void>;
   deleteGroup: (groupId: string) => Promise<void>;
 }
 
@@ -97,6 +102,7 @@ export const useGroupStore = create<GroupStore>((set) => ({
             description: (d.description as string) || '',
             inviteCode: (d.inviteCode as string) || undefined,
             settings: (d.settings as Chat['settings']) || undefined,
+            pinnedMessages: (d.pinnedMessages as Chat['pinnedMessages']) || [],
           }));
           set({ groups, loading: false });
 
@@ -491,6 +497,122 @@ sent = true;
       }
     } catch {
       return;
+    }
+  },
+
+  pinGroupMessage: async (_groupId, messageId, content, pinnedBy) => {
+    if (!isFirestoreAvailable()) { return; }
+    try {
+      const chat = await getDocById(COLLECTIONS.CHATS, _groupId);
+      if (!chat) return;
+      const existing = (chat.pinnedMessages as PinnedMessage[]) || [];
+      if (existing.some((p) => (p.messageId || p.message_id) === messageId)) return;
+      const entry: PinnedMessage = {
+        message_id: messageId,
+        messageId,
+        content,
+        pinned_by: pinnedBy,
+        pinnedBy,
+        pinned_at: new Date().toISOString(),
+        pinnedAt: new Date().toISOString(),
+      };
+      await updateDocById(COLLECTIONS.CHATS, _groupId, { pinnedMessages: [...existing, entry] });
+    } catch {
+      return;
+    }
+  },
+
+  unpinGroupMessage: async (_groupId, messageId) => {
+    if (!isFirestoreAvailable()) { return; }
+    try {
+      const chat = await getDocById(COLLECTIONS.CHATS, _groupId);
+      if (!chat) return;
+      const existing = (chat.pinnedMessages as PinnedMessage[]) || [];
+      const next = existing.filter((p) => (p.messageId || p.message_id) !== messageId);
+      await updateDocById(COLLECTIONS.CHATS, _groupId, { pinnedMessages: next });
+    } catch {
+      return;
+    }
+  },
+
+  sendGroupPoll: async (groupId, senderId, question, options) => {
+    if (!isFirestoreAvailable() || !groupId || !senderId) return;
+    const cleanQuestion = question.trim();
+    const cleanOptions = options.map((o) => o.trim()).filter(Boolean);
+    if (!cleanQuestion || cleanOptions.length < 2) {
+      toast.error('A poll needs a question and at least two options.');
+      return;
+    }
+    try {
+      const pollData: PollData = {
+        question: cleanQuestion,
+        options: cleanOptions.map((text) => ({ text, votes: [] })),
+        totalVotes: 0,
+      };
+      await addDocToSubcollection(COLLECTIONS.CHATS, groupId, COLLECTIONS.MESSAGES, {
+        chatId: groupId,
+        senderId,
+        content: `Poll: ${cleanQuestion}`,
+        type: 'poll',
+        pollData,
+        timestamp: serverTimestamp(),
+        createdAt: serverTimestamp(),
+      });
+      await updateDocById(COLLECTIONS.CHATS, groupId, {
+        lastMessage: `Poll: ${cleanQuestion}`,
+        updatedAt: serverTimestamp(),
+      });
+      toast.success('Poll sent.');
+    } catch {
+      toast.error('Failed to send poll.');
+    }
+  },
+
+  voteGroupPoll: async (groupId, messageId, optionIndex, userId) => {
+    if (!isFirestoreAvailable() || !groupId || !messageId || !userId) return;
+    try {
+      const found = await getDocById(`${COLLECTIONS.CHATS}/${groupId}/${COLLECTIONS.MESSAGES}`, messageId);
+      if (!found) return;
+      const pollData = found.pollData as PollData | undefined;
+      if (!pollData || !pollData.options[optionIndex]) return;
+      const options = pollData.options.map((opt, idx) => {
+        const votes = (opt.votes || []).filter((v) => v !== userId);
+        if (idx === optionIndex) votes.push(userId);
+        return { ...opt, votes };
+      });
+      const totalVotes = options.reduce((sum, opt) => sum + (opt.votes?.length || 0), 0);
+      await updateSubcollectionDoc(COLLECTIONS.CHATS, groupId, COLLECTIONS.MESSAGES, messageId, {
+        pollData: { ...pollData, options, totalVotes },
+      });
+    } catch {
+      return;
+    }
+  },
+
+  forwardGroupMessage: async (groupId, senderId, original) => {
+    if (!isFirestoreAvailable() || !groupId || !senderId) return;
+    try {
+      const msgData: Record<string, unknown> = {
+        chatId: groupId,
+        senderId,
+        content: original.content,
+        type: original.type,
+        timestamp: serverTimestamp(),
+        createdAt: serverTimestamp(),
+        read: false,
+        forwardedFrom: original.senderId,
+      };
+      if (original.mediaUrl) msgData.mediaUrl = original.mediaUrl;
+      if (original.pollData) msgData.pollData = original.pollData;
+      if (original.contactCard) msgData.contactCard = original.contactCard;
+      await addDocToSubcollection(COLLECTIONS.CHATS, groupId, COLLECTIONS.MESSAGES, msgData);
+      await updateDocById(COLLECTIONS.CHATS, groupId, {
+        lastMessage: typeof original.content === 'string' ? original.content.slice(0, 4000) : '',
+        updatedAt: serverTimestamp(),
+      });
+      toast.success('Message forwarded.');
+    } catch {
+      toast.error('Failed to forward message.');
     }
   },
 

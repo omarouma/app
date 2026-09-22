@@ -1,7 +1,8 @@
 import { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-    Mic, Send, Smile, Plus, Camera, ImageIcon, MapPin, FileIcon, Phone, User, X, Video
+    Mic, Send, Smile, Plus, Camera, ImageIcon, MapPin, FileIcon, Phone, User, X, Video,
+    BarChart3, CalendarClock, Sticker
 } from 'lucide-react';
 import type { Message } from '@/types';
 import { EmojiPicker } from './EmojiPicker';
@@ -25,22 +26,38 @@ interface GroupChatInputProps {
     onTyping: () => void;
     /** Group members available for @mention autocomplete. */
     members?: Array<{ id: string; name: string }>;
+    /** Open the poll composer. */
+    onPollOpen?: () => void;
+    /** Open the schedule-send picker. */
+    onSchedule?: () => void;
+    /** Toggle the sticker/GIF picker. */
+    onStickerToggle?: () => void;
+    /** Whether the sticker picker is currently open. */
+    showStickerPicker?: boolean;
 }
 
+// Design-system rule (E1): ONE primary GaGa accent. Every attachment action
+// uses the same GaGa green accent rendered as a soft tinted circle with a
+// green glyph — no competing green/blue/purple/orange/pink buttons.
+const GAGA_ACCENT_SURFACE = 'bg-[#00C300]/10 dark:bg-[#00C300]/15';
+const GAGA_ACCENT_ICON = 'text-[#00C300]';
+
 const attachmentOptions = [
-    { icon: <ImageIcon size={28} strokeWidth={1.5} />, label: 'Photos', color: 'bg-[#4CAF50]', action: 'photo' },
-    { icon: <Camera size={28} strokeWidth={1.5} />, label: 'Camera', color: 'bg-[#2196F3]', action: 'camera' },
-    { icon: <Video size={28} strokeWidth={1.5} />, label: 'Video', color: 'bg-[#9C27B0]', action: 'video' },
-    { icon: <Phone size={28} strokeWidth={1.5} />, label: 'Audio', color: 'bg-[#00C300]', action: 'audio' },
-    { icon: <User size={28} strokeWidth={1.5} />, label: 'Contact', color: 'bg-[#FF9800]', action: 'contact' },
-    { icon: <MapPin size={28} strokeWidth={1.5} />, label: 'Location', color: 'bg-[#E91E63]', action: 'location' },
-    { icon: <FileIcon size={28} strokeWidth={1.5} />, label: 'File', color: 'bg-[#673AB7]', action: 'file' },
+    { icon: <ImageIcon size={24} strokeWidth={1.5} />, label: 'Photos', action: 'photo' },
+    { icon: <Camera size={24} strokeWidth={1.5} />, label: 'Camera', action: 'camera' },
+    { icon: <Video size={24} strokeWidth={1.5} />, label: 'Video', action: 'video' },
+    { icon: <Phone size={24} strokeWidth={1.5} />, label: 'Audio', action: 'audio' },
+    { icon: <User size={24} strokeWidth={1.5} />, label: 'Contact', action: 'contact' },
+    { icon: <MapPin size={24} strokeWidth={1.5} />, label: 'Location', action: 'location' },
+    { icon: <FileIcon size={24} strokeWidth={1.5} />, label: 'File', action: 'file' },
+    { icon: <BarChart3 size={24} strokeWidth={1.5} />, label: 'Poll', action: 'poll' },
+    { icon: <CalendarClock size={24} strokeWidth={1.5} />, label: 'Schedule', action: 'schedule' },
 ];
 
 export function GroupChatInput({
     input, setInput, handleSend, isRecording, startRecording, cancelRecording, handleVoiceSend, duration,
     replyingTo, setReplyingTo, handleMediaUpload, handleFileUpload, handleLocationShare, handleContactShare, onTyping,
-    members = []
+    members = [], onPollOpen, onSchedule, onStickerToggle, showStickerPicker = false
 }: GroupChatInputProps) {
     const [showAttachments, setShowAttachments] = useState(false);
     const [showEmojiPicker, setShowEmojiPicker] = useState(false);
@@ -81,6 +98,8 @@ export function GroupChatInput({
             case 'location': handleLocationShare(); break;
             case 'contact': handleContactShare(); break;
             case 'audio': startRecording(); break;
+            case 'poll': onPollOpen?.(); break;
+            case 'schedule': onSchedule?.(); break;
             default: break;
         }
     };
@@ -119,7 +138,7 @@ export function GroupChatInput({
                         >
                             {attachmentOptions.map(opt => (
                                 <button key={opt.label} type="button" onClick={() => handleAttachmentClick(opt.action)} className="flex flex-col items-center gap-2 text-center">
-                                    <div className={`w-12 h-12 rounded-full flex items-center justify-center text-white ${opt.color}`}>{opt.icon}</div>
+                                    <div className={`w-12 h-12 rounded-full flex items-center justify-center ${GAGA_ACCENT_SURFACE} ${GAGA_ACCENT_ICON}`}>{opt.icon}</div>
                                     <span className="text-xs text-muted-foreground">{opt.label}</span>
                                 </button>
                             ))}
@@ -161,8 +180,11 @@ export function GroupChatInput({
                         onChange={(e) => handleInputChange(e.target.value)}
                         onKeyDown={(e) => e.key === 'Enter' && handleSend()}
                         placeholder="Type a message..."
-                        className="w-full bg-muted rounded-xl pl-4 pr-10 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-[#00C300] placeholder:text-muted-foreground"
+                        className="w-full bg-muted rounded-xl pl-4 pr-20 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-[#00C300] placeholder:text-muted-foreground"
                     />
+                    <button type="button" onClick={() => onStickerToggle?.()} className={`absolute right-10 top-1/2 -translate-y-1/2 min-w-10 min-h-10 flex items-center justify-center transition-colors ${showStickerPicker ? 'text-[#00C300]' : 'text-muted-foreground'}`} aria-label="Open sticker picker">
+                        <Sticker size={20} />
+                    </button>
                     <button type="button" onClick={() => setShowEmojiPicker(p => !p)} className={`absolute right-2 top-1/2 -translate-y-1/2 min-w-10 min-h-10 flex items-center justify-center transition-colors ${showEmojiPicker ? 'text-[#00C300]' : 'text-muted-foreground'}`} aria-label="Open emoji picker">
                         <Smile size={20} />
                     </button>

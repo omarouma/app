@@ -2,7 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     ChevronLeft, MoreHorizontal, Users, Phone, UserPlus, Settings, LogOut,
-    Search, X, Video, Volume2, VolumeX
+    Search, X, Video, Volume2, VolumeX, Copy, Forward, Trash2, Palette
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import type { Chat, User } from '@/types';
@@ -28,6 +28,17 @@ interface GroupChatHeaderProps {
     onToggleMute?: () => void;
     // Lookup map for resolving real member names/avatars in the call picker.
     memberInfo?: Record<string, GroupMemberInfo>;
+    /** Names of members currently typing (group chat). */
+    activeTypingUsers?: string[];
+    /** Multi-select mode state + actions. */
+    selectionMode?: boolean;
+    selectedCount?: number;
+    onCopySelected?: () => void;
+    onForwardSelected?: () => void;
+    onDeleteSelected?: () => void;
+    onExitSelection?: () => void;
+    /** Toggle the chat background picker. */
+    onToggleBgPicker?: () => void;
 }
 
 export function GroupChatHeader({
@@ -44,7 +55,15 @@ export function GroupChatHeader({
     leaveGroup,
     setShowMembersModal,
     onToggleMute,
-    memberInfo
+    memberInfo,
+    activeTypingUsers = [],
+    selectionMode = false,
+    selectedCount = 0,
+    onCopySelected,
+    onForwardSelected,
+    onDeleteSelected,
+    onExitSelection,
+    onToggleBgPicker,
 }: GroupChatHeaderProps) {
     const navigate = useNavigate();
     const menuRef = useRef<HTMLDivElement>(null);
@@ -65,6 +84,7 @@ export function GroupChatHeader({
     const menuItems = [
         { icon: UserPlus, label: 'Add Member', action: () => { navigate(`/add-friends`); setShowMenu(false); } },
         { icon: Users, label: 'View Members', action: () => { setShowMembersModal(true); setShowMenu(false); } },
+        { icon: Palette, label: 'Chat Background', action: () => { onToggleBgPicker?.(); setShowMenu(false); } },
         { icon: group.isMuted ? Volume2 : VolumeX, label: group.isMuted ? 'Unmute' : 'Mute', action: () => { onToggleMute?.(); setShowMenu(false); } },
         { icon: Settings, label: 'Group Info', action: () => { if (group.id) { navigate(`/group-info/${group.id}`); setShowMenu(false); } } },
         { icon: LogOut, label: 'Leave Group', action: () => { if (group.id && currentUser) { leaveGroup(group.id, currentUser.id); navigate('/chats'); setShowMenu(false); } } },
@@ -72,6 +92,21 @@ export function GroupChatHeader({
 
     return (
         <>
+            {selectionMode ? (
+                <div className="shrink-0 flex items-center justify-between px-2 py-3 bg-background border-b border-border z-10">
+                    <div className="flex items-center gap-2">
+                        <button type="button" onClick={() => onExitSelection?.()} className="p-2 -ml-2 active:bg-muted rounded-full text-foreground" aria-label="Exit selection">
+                            <X size={24} strokeWidth={1.5} />
+                        </button>
+                        <span className="text-base font-bold text-foreground">{selectedCount} selected</span>
+                    </div>
+                    <div className="flex items-center gap-1 pr-2 text-foreground">
+                        <button type="button" onClick={() => onCopySelected?.()} className="p-2.5 active:bg-muted rounded-full" aria-label="Copy selected"><Copy size={20} strokeWidth={1.5} /></button>
+                        <button type="button" onClick={() => onForwardSelected?.()} className="p-2.5 active:bg-muted rounded-full" aria-label="Forward selected"><Forward size={20} strokeWidth={1.5} /></button>
+                        <button type="button" onClick={() => onDeleteSelected?.()} className="p-2.5 active:bg-muted rounded-full text-[#FF3B30]" aria-label="Delete selected"><Trash2 size={20} strokeWidth={1.5} /></button>
+                    </div>
+                </div>
+            ) : (
             <div className="shrink-0 relative flex justify-between items-center px-2 py-3 bg-background border-b border-border z-10">
                 <div className="flex items-center gap-2">
                     <button type="button" onClick={() => navigate(-1)} className="p-2 -ml-2 active:bg-muted rounded-full text-foreground">
@@ -86,7 +121,15 @@ export function GroupChatHeader({
                     </div>
                     <div>
                         <h3 className="text-base font-bold text-foreground leading-tight">{group.name || 'Group'}</h3>
-                        <p className="text-[11px] text-muted-foreground">{memberCount} members</p>
+                        {activeTypingUsers.length > 0 ? (
+                            <p className="text-[11px] text-[#00C300] font-medium truncate max-w-[160px]">
+                                {activeTypingUsers.length === 1
+                                    ? `${activeTypingUsers[0]} is typing…`
+                                    : `${activeTypingUsers.slice(0, 2).join(', ')}${activeTypingUsers.length > 2 ? ` +${activeTypingUsers.length - 2}` : ''} are typing…`}
+                            </p>
+                        ) : (
+                            <p className="text-[11px] text-muted-foreground">{memberCount} members</p>
+                        )}
                     </div>
                 </div>
                 <div className="flex items-center gap-4 pr-3 text-foreground">
@@ -121,6 +164,7 @@ export function GroupChatHeader({
                     </div>
                 </div>
             </div>
+            )}
 
             <AnimatePresence>
                 {showSearch && (
