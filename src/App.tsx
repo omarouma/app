@@ -32,6 +32,7 @@ import { isNative } from '@/lib/platform';
 import { initAudioOnInteraction } from '@/lib/sounds';
 import { startOfflineQueueSync } from '@/lib/offlineSync';
 import { getPostAuthPath } from '@/lib/onboarding';
+import { registerNavigate } from '@/lib/navigation';
 import { safeGetBooleanStorageItem, safeGetStorageItem, safeSetStorageItem } from '@/lib/safeStorage';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import ScrollToTop from '@/components/ScrollToTop';
@@ -322,6 +323,13 @@ const DesktopNav = memo(function DesktopNav() {
 
 function useServiceWorker() {
   const navigate = useNavigate();
+
+  // Expose the router's navigate() to non-React modules (push handlers, native
+  // deep links) so they can route without relying on window.location.hash,
+  // which does not work with BrowserRouter.
+  useEffect(() => {
+    registerNavigate(navigate as NavigateFunction);
+  }, [navigate]);
 
   useEffect(() => {
     // Service workers are a web-only concern. Registering one inside the

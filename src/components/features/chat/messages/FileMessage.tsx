@@ -1,5 +1,5 @@
-import { memo, useState, useCallback } from 'react';
-import { FileText, Download, Check } from 'lucide-react';
+import { memo, useState, useCallback, useEffect } from 'react';
+import { FileText, Download, Check, Loader } from 'lucide-react';
 import type { Message } from '@/types';
 import { sanitizeMediaUrl } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -21,34 +21,81 @@ function getFileColor(_ext: string): string {
   return 'bg-[#00C300]/10 text-[#00C300]';
 }
 
+/** Human-readable byte size, e.g. 1.4 MB. */
+function formatBytes(bytes: number): string {
+  if (!bytes || bytes <= 0) return '';
+  const units = ['B', 'KB', 'MB', 'GB'];
+  const i = Math.min(units.length - 1, Math.floor(Math.log(bytes) / Math.log(1024)));
+  const value = bytes / Math.pow(1024, i);
+  return `${value >= 10 || i === 0 ? Math.round(value) : value.toFixed(1)} ${units[i]}`;
+}
+
 export const FileMessage = memo(function FileMessage(props: FileMessageProps) {
   const { msg, isMe } = props;
   const [downloaded, setDownloaded] = useState(false);
+  const [downloading, setDownloading] = useState(false);
+  const [size, setSize] = useState<number | null>(null);
 
   const safeUrl = sanitizeMediaUrl(msg.mediaUrl);
   const fileName = msg.content.replace('📁 ', '') || 'File';
   const ext = getFileExtension(fileName);
   const colorClass = getFileColor(ext);
 
+  // Probe the file size with a lightweight HEAD request so the card can show
+  // "PDF · 2.3 MB" instead of just the extension. Best-effort: many storage
+  // backends omit Content-Length, in which case we simply show the extension.
+  useEffect(() => {
+    if (!safeUrl) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(safeUrl, { method: 'HEAD' });
+        const len = res.headers.get('content-length');
+        if (!cancelled && len) setSize(Number(len));
+      } catch {
+        /* best-effort */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [safeUrl]);
+
   const handleDownload = useCallback(async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    if (!safeUrl) return;
+    if (!safeUrl || downloading) return;
+    setDownloading(true);
     try {
+      // Fetch as a blob and save via an object URL. This works reliably inside
+      // the Android WebView where a plain anchor with target="_blank" often
+      // fails to trigger a real download.
+      const res = await fetch(safeUrl);
+      if (!res.ok) throw new Error('bad status');
+      const blob = await res.blob();
+      const objectUrl = URL.createObjectURL(blob);
       const a = document.createElement('a');
-      a.href = safeUrl;
+      a.href = objectUrl;
       a.download = fileName;
-      a.target = '_blank';
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(objectUrl), 10_000);
       setDownloaded(true);
       toast.success('Download started');
       setTimeout(() => setDownloaded(false), 2000);
     } catch {
-      toast.error('Download failed');
+      // Fallback: open the raw URL in a new tab.
+      try {
+        window.open(safeUrl, '_blank');
+        toast.success('Opening file…');
+      } catch {
+        toast.error('Download failed');
+      }
+    } finally {
+      setDownloading(false);
     }
-  }, [safeUrl, fileName]);
+  }, [safeUrl, fileName, downloading]);
 
   if (!safeUrl) {
     return (
@@ -60,6 +107,9 @@ export const FileMessage = memo(function FileMessage(props: FileMessageProps) {
       </div>
     );
   }
+
+  const sizeLabel = size ? formatBytes(size) : '';
+  const meta = sizeLabel ? `${ext} · ${sizeLabel}` : `${ext} file`;
 
   return (
     <div
@@ -80,9 +130,11 @@ export const FileMessage = memo(function FileMessage(props: FileMessageProps) {
       </div>
       <div className="flex-1 min-w-0">
         <p className={`text-sm font-medium truncate ${isMe ? 'text-white' : 'text-foreground'}`}>{fileName}</p>
-        <p className={`text-[10px] ${isMe ? 'text-white/60' : 'text-muted-foreground'}`}>{ext} file</p>
+        <p className={`text-[10px] ${isMe ? 'text-white/60' : 'text-muted-foreground'}`}>{meta}</p>
       </div>
-      {downloaded ? (
+      {downloading ? (
+        <Loader size={16} className={`shrink-0 animate-spin ${isMe ? 'text-white' : 'text-[#00C300]'}`} />
+      ) : downloaded ? (
         <Check size={16} className={`shrink-0 ${isMe ? 'text-white' : 'text-[#00C300]'}`} />
       ) : (
         <Download size={16} className={`shrink-0 ${isMe ? 'text-white/70' : 'text-muted-foreground'}`} />

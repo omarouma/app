@@ -2,11 +2,15 @@ package gagachat.app;
 
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
+import android.content.Intent;
 import android.media.AudioAttributes;
 import android.media.RingtoneManager;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.provider.Settings;
+import android.webkit.JavascriptInterface;
+import android.webkit.WebView;
 
 import com.getcapacitor.BridgeActivity;
 
@@ -21,6 +25,41 @@ public class MainActivity extends BridgeActivity {
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         createNotificationChannels();
+        registerNativeBridge();
+    }
+
+    /**
+     * Exposes a tiny native bridge to the web layer as `window.GaGaNative`.
+     * Currently used to open the OS app-settings screen so the user can grant a
+     * permission that was permanently denied (the WebView cannot re-prompt once
+     * "Don't ask again" has been chosen).
+     */
+    private void registerNativeBridge() {
+        try {
+            WebView webView = this.bridge.getWebView();
+            if (webView != null) {
+                webView.addJavascriptInterface(new GaGaNative(), "GaGaNative");
+            }
+        } catch (Exception ignored) {
+            // Non-fatal: the web layer falls back to a toast if the bridge is absent.
+        }
+    }
+
+    /** Native methods callable from JavaScript via window.GaGaNative.* */
+    public class GaGaNative {
+        @JavascriptInterface
+        public void openAppSettings() {
+            runOnUiThread(() -> {
+                try {
+                    Intent intent = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
+                    intent.setData(Uri.fromParts("package", getPackageName(), null));
+                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                    startActivity(intent);
+                } catch (Exception ignored) {
+                    // Nothing else we can do; the user can open Settings manually.
+                }
+            });
+        }
     }
 
     /**

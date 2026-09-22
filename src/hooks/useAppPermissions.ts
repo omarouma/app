@@ -171,6 +171,25 @@ async function requestAudio(): Promise<PermissionStatus> {
 
 /* ─── Registry ─────────────────────────────────────────── */
 
+/**
+ * Opens the OS app-settings screen so the user can grant a permission that was
+ * permanently denied (the WebView cannot re-prompt once "Don't ask again" has
+ * been chosen). Uses the native `window.GaGaNative` bridge exposed by
+ * MainActivity; falls back to an informative toast on the web.
+ */
+export function openAppSettings(): void {
+    const native = (window as unknown as { GaGaNative?: { openAppSettings?: () => void } }).GaGaNative;
+    if (native && typeof native.openAppSettings === 'function') {
+        try {
+            native.openAppSettings();
+            return;
+        } catch { /* fall through to toast */ }
+    }
+    toast.info('Open Settings → Apps → GaGa Chat → Permissions to grant access.', {
+        duration: 6000,
+    });
+}
+
 export const APP_PERMISSIONS: AppPermission[] = [
     {
         id: 'camera', label: 'Camera', icon: '📷',
@@ -178,6 +197,7 @@ export const APP_PERMISSIONS: AppPermission[] = [
         requiresUserGesture: true,
         isSupported: () => typeof navigator !== 'undefined' && !!navigator.mediaDevices?.getUserMedia,
         request: () => requestMedia('video'), check: () => checkMedia('video'),
+        openSettings: openAppSettings,
     },
     {
         id: 'microphone', label: 'Microphone', icon: '🎙️',
@@ -185,6 +205,7 @@ export const APP_PERMISSIONS: AppPermission[] = [
         requiresUserGesture: true,
         isSupported: () => typeof navigator !== 'undefined' && !!navigator.mediaDevices?.getUserMedia,
         request: () => requestMedia('audio'), check: () => checkMedia('audio'),
+        openSettings: openAppSettings,
     },
     {
         id: 'notifications', label: 'Notifications', icon: '🔔',
@@ -209,6 +230,7 @@ export const APP_PERMISSIONS: AppPermission[] = [
             return !!(navigator as unknown as { contacts?: { select?: unknown } }).contacts?.select;
         },
         request: requestContacts, check: checkContacts,
+        openSettings: openAppSettings,
     },
     {
         id: 'photos', label: 'Photos & Videos', icon: '🖼️',
@@ -216,6 +238,7 @@ export const APP_PERMISSIONS: AppPermission[] = [
         requiresUserGesture: true,
         isSupported: () => typeof window !== 'undefined' && !!window.isSecureContext,
         request: async () => 'granted', check: checkPhotos,
+        openSettings: openAppSettings,
     },
     {
         id: 'phone', label: 'Phone', icon: '📱',

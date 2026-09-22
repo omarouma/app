@@ -9,7 +9,7 @@ import { useMessagePin } from '@/hooks/useMessagePin';
 import { useSavedMessages } from '@/hooks/useSavedMessages';
 import { useScheduledMessages } from '@/hooks/useScheduledMessages';
 import { useChatEffects } from '@/hooks/useChatEffects';
-import { uploadMediaBlob, compressImage } from '@/lib/storage';
+import { uploadMediaBlob, compressImage, validateFileSize, validateFileType } from '@/lib/storage';
 import { handleError } from '@/lib/errorLogger';
 import { toast } from 'sonner';
 import type { Message, User } from '@/types';
@@ -95,6 +95,14 @@ export const useChatRoom = (chatId: string, userId: string) => {
   const [lightboxImage, setLightboxImage] = useState<string | null>(null);
   // Upload progress for the current media batch: { name, percent } | null
   const [uploadProgress, setUploadProgress] = useState<{ name: string; percent: number } | null>(null);
+  // Uploads that failed and can be retried by the user.
+  const [failedUploads, setFailedUploads] = useState<Array<{
+    id: string;
+    file: File;
+    caption: string;
+    originalQuality: boolean;
+  }>>([]);
+  const uploadCancelledRef = useRef(false);
   const [translations, setTranslations] = useState<Record<string, string>>({});
   const [translatingIds, setTranslatingIds] = useState<Set<string>>(new Set());
   const [chatBg, setChatBg] = useState('');
@@ -184,16 +192,35 @@ export const useChatRoom = (chatId: string, userId: string) => {
     }
   }, [chatId, currentUser, input, editingMessageId, replyingTo, sendMessage, queueMessage, stopTyping, handleEditSave, isOnline, iBlockedUser]);
 
-  const handleMediaUpload = useCallback(async (files: File[]) => {
+  const handleMediaUpload = useCallback(async (
+    files: File[],
+    opts: { caption?: string; originalQuality?: boolean } = {},
+  ) => {
     if (!currentUser) return;
+    const { caption = '', originalQuality = false } = opts;
     setShowAttachments(false);
-    for (const file of files) {
+    uploadCancelledRef.current = false;
+    const batch = files.filter(Boolean);
+    for (let i = 0; i < batch.length; i++) {
+      if (uploadCancelledRef.current) break;
+      const file = batch[i];
+      // Security: reject executables / installers before doing any work.
+      const typeError = validateFileType(file);
+      if (typeError) {
+        toast.error(typeError);
+        continue;
+      }
+      const sizeError = validateFileSize(file, 'chats');
+      if (sizeError) {
+        toast.error(sizeError);
+        continue;
+      }
       try {
         setUploadProgress({ name: file.name, percent: 0 });
         const isImage = file.type.startsWith('image/');
         // Compress photos client-side before upload so sending is much faster
-        // and uses far less mobile data. Non-images pass through untouched.
-        const toUpload = isImage ? await compressImage(file) : file;
+        // and uses far less mobile data — unless the user chose original quality.
+        const toUpload = isImage && !originalQuality ? await compressImage(file) : file;
         const url = await uploadMediaBlob(toUpload, {
           userId: currentUser.id,
           kind: 'chats',
@@ -204,16 +231,39 @@ export const useChatRoom = (chatId: string, userId: string) => {
         const type = file.type.startsWith('image/') ? 'image' : file.type.startsWith('video/') ? 'video' : 'file';
         if (!url) {
           toast.error(`Failed to upload ${file.name}.`);
+          setFailedUploads((prev) => [...prev, { id: `${Date.now()}-${i}`, file, caption, originalQuality }]);
           continue;
         }
-        await sendMessage(chatId, currentUser.id, file.name, type, url);
+        // Attach the caption to the first item of the batch.
+        const content = i === 0 && caption ? caption : file.name;
+        await sendMessage(chatId, currentUser.id, content, type, url);
       } catch (error) {
         handleError(error, `Failed to upload ${file.name}.`);
+        setFailedUploads((prev) => [...prev, { id: `${Date.now()}-${i}`, file, caption, originalQuality }]);
       } finally {
         setUploadProgress(null);
       }
     }
   }, [chatId, currentUser, sendMessage]);
+
+  /** Aborts the remaining files in the current upload batch. */
+  const cancelUpload = useCallback(() => {
+    uploadCancelledRef.current = true;
+    setUploadProgress(null);
+  }, []);
+
+  /** Retries a previously failed upload. */
+  const retryUpload = useCallback(async (id: string) => {
+    const item = failedUploads.find((f) => f.id === id);
+    if (!item) return;
+    setFailedUploads((prev) => prev.filter((f) => f.id !== id));
+    await handleMediaUpload([item.file], { caption: item.caption, originalQuality: item.originalQuality });
+  }, [failedUploads, handleMediaUpload]);
+
+  /** Dismisses a failed upload without retrying. */
+  const dismissFailedUpload = useCallback((id: string) => {
+    setFailedUploads((prev) => prev.filter((f) => f.id !== id));
+  }, []);
 
   const handleDelete = useCallback(async (msgId: string) => {
     try {
@@ -469,14 +519,14 @@ export const useChatRoom = (chatId: string, userId: string) => {
     friendStatus, setFriendStatus, showReportModal, setShowReportModal,
     reportReason, setReportReason, reportDetails, setReportDetails,
     processingAction, lastSeen, setLastSeen, lightboxImage, setLightboxImage,
-    uploadProgress, iBlockedUser,
+    uploadProgress, failedUploads, iBlockedUser,
     showDeleteForEveryoneConfirm, setShowDeleteForEveryoneConfirm,
     showRemoveFriendConfirm, setShowRemoveFriendConfirm,
     showBlockConfirm, setShowBlockConfirm,
     translations, setTranslations, translatingIds, setTranslatingIds,
     showBgPicker, setShowBgPicker, chatBg, setChatBg,
     loadingOlder, setLoadingOlder,
-    handleEditSave, handleSend, handleMediaUpload, handleDelete,
+    handleEditSave, handleSend, handleMediaUpload, cancelUpload, retryUpload, dismissFailedUpload, handleDelete,
     handleDeleteForEveryone, handleForward, handleSaveMessage, handlePin,
     handleRecall, handleReport, handleAddFriend, handleCancelRequest,
     handleAcceptRequest, handleRejectRequest, handleRemoveFriend,

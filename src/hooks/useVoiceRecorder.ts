@@ -11,6 +11,10 @@ interface VoiceRecorderState {
   error: string | null;
   /** True when the recording was auto-stopped by hitting MAX_VOICE_DURATION. */
   limitReached: boolean;
+  /** Object URL of the just-recorded clip awaiting send/discard (preview). */
+  previewUrl: string | null;
+  /** Duration (seconds) of the clip currently in preview. */
+  previewDuration: number;
 }
 
 export function useVoiceRecorder() {
@@ -20,6 +24,8 @@ export function useVoiceRecorder() {
     duration: 0,
     error: null,
     limitReached: false,
+    previewUrl: null,
+    previewDuration: 0,
   });
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
@@ -27,6 +33,16 @@ export function useVoiceRecorder() {
   const startTimeRef = useRef<number>(0);
   const isRecordingRef = useRef(false);
   const limitReachedRef = useRef(false);
+  const previewBlobRef = useRef<Blob | null>(null);
+  const previewUrlRef = useRef<string | null>(null);
+
+  const revokePreview = useCallback(() => {
+    if (previewUrlRef.current) {
+      try { URL.revokeObjectURL(previewUrlRef.current); } catch { /* noop */ }
+    }
+    previewUrlRef.current = null;
+    previewBlobRef.current = null;
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -41,18 +57,21 @@ export function useVoiceRecorder() {
         }
       }
       isRecordingRef.current = false;
+      revokePreview();
     };
-  }, []);
+  }, [revokePreview]);
 
   const startRecording = useCallback(async () => {
     if (!isMounted) return;
     // Guard against double-start (e.g. rapid taps on the mic button).
     if (isRecordingRef.current) return;
+    // Starting a new recording discards any clip still in preview.
+    revokePreview();
 
     try {
       const result = await navigator.permissions.query({ name: 'microphone' as PermissionName });
       if (result.state === 'denied') {
-        setState({ isRecording: false, duration: 0, error: 'Microphone access denied. Enable it in browser settings.', limitReached: false });
+        setState({ isRecording: false, duration: 0, error: 'Microphone access denied. Enable it in browser settings.', limitReached: false, previewUrl: null, previewDuration: 0 });
         return;
       }
     } catch {
@@ -82,7 +101,7 @@ export function useVoiceRecorder() {
         const elapsed = Math.floor((Date.now() - startTimeRef.current) / 1000);
         if (elapsed >= MAX_VOICE_DURATION) {
           limitReachedRef.current = true;
-          setState({ isRecording: false, duration: elapsed, error: null, limitReached: true });
+          setState((s) => ({ ...s, isRecording: false, duration: elapsed, error: null, limitReached: true }));
           if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
             try { mediaRecorderRef.current.stop(); } catch { /* noop */ }
           }
@@ -91,11 +110,11 @@ export function useVoiceRecorder() {
         setState((s) => ({ ...s, duration: elapsed, isRecording: true, limitReached: false }));
       }, 1000);
 
-      setState({ isRecording: true, duration: 0, error: null, limitReached: false });
+      setState((s) => ({ ...s, isRecording: true, duration: 0, error: null, limitReached: false, previewUrl: null, previewDuration: 0 }));
     } catch {
-      setState({ isRecording: false, duration: 0, error: 'Microphone access denied', limitReached: false });
+      setState((s) => ({ ...s, isRecording: false, duration: 0, error: 'Microphone access denied', limitReached: false }));
     }
-  }, [isMounted]);
+  }, [isMounted, revokePreview]);
 
   const isSendingRef = useRef(false);
 
@@ -117,23 +136,39 @@ export function useVoiceRecorder() {
         isRecordingRef.current = false;
         isSendingRef.current = false;
 
-        const finalDuration = limitReachedRef.current
-          ? Math.min(MAX_VOICE_DURATION, Math.max(0, Math.floor((Date.now() - startTimeRef.current) / 1000)))
-          : 0;
+        const finalDuration = Math.min(
+          MAX_VOICE_DURATION,
+          Math.max(0, Math.floor((Date.now() - startTimeRef.current) / 1000)),
+        );
 
         // Production guard: reject empty recordings and blobs over the voice cap.
         if (blob.size === 0) {
-          setState({ isRecording: false, duration: finalDuration, error: 'Recording was empty. Please try again.', limitReached: limitReachedRef.current });
+          setState((s) => ({ ...s, isRecording: false, duration: finalDuration, error: 'Recording was empty. Please try again.', limitReached: limitReachedRef.current }));
           resolve(null);
           return;
         }
         if (blob.size > MAX_VOICE_SIZE) {
-          setState({ isRecording: false, duration: finalDuration, error: 'Voice message is too large. Please keep it under 5MB.', limitReached: limitReachedRef.current });
+          setState((s) => ({ ...s, isRecording: false, duration: finalDuration, error: 'Voice message is too large. Please keep it under 5MB.', limitReached: limitReachedRef.current }));
           resolve(null);
           return;
         }
 
-        setState({ isRecording: false, duration: finalDuration, error: null, limitReached: limitReachedRef.current });
+        // Enter preview state: keep the blob + an object URL so the composer can
+        // show a playable preview bar before the user commits to sending.
+        previewBlobRef.current = blob;
+        let url: string | null = null;
+        try { url = URL.createObjectURL(blob); } catch { url = null; }
+        previewUrlRef.current = url;
+
+        setState((s) => ({
+          ...s,
+          isRecording: false,
+          duration: finalDuration,
+          error: null,
+          limitReached: limitReachedRef.current,
+          previewUrl: url,
+          previewDuration: finalDuration,
+        }));
         resolve(blob);
       };
 
@@ -161,13 +196,30 @@ export function useVoiceRecorder() {
     isRecordingRef.current = false;
     isSendingRef.current = false;
     limitReachedRef.current = false;
-    setState({ isRecording: false, duration: 0, error: null, limitReached: false });
+    setState((s) => ({ ...s, isRecording: false, duration: 0, error: null, limitReached: false }));
   }, []);
+
+  /** Clears the preview clip (revokes its object URL). */
+  const clearPreview = useCallback(() => {
+    revokePreview();
+    setState((s) => ({ ...s, previewUrl: null, previewDuration: 0 }));
+  }, [revokePreview]);
+
+  /** Discards the preview clip without sending it. */
+  const discardPreview = useCallback(() => {
+    clearPreview();
+  }, [clearPreview]);
+
+  /** Returns the blob currently held in preview (or null). */
+  const getPreviewBlob = useCallback((): Blob | null => previewBlobRef.current, []);
 
   return {
     ...state,
     startRecording,
     stopRecording,
     cancelRecording,
+    clearPreview,
+    discardPreview,
+    getPreviewBlob,
   };
 }

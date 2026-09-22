@@ -16,16 +16,16 @@
 ## Checksums (SHA-256)
 
 ```
-8c635b852720ea891aa5a19940a4ea49198713500c1686af18489f4229af028f  GaGa-Chat-v1.0.0-release.apk
-09328628869ca9e971ef54672891865f189e1200df5ffd857222f9cfc62fc149  GaGa-Chat-v1.0.0-release.aab
+d581663f676040c6b61ebe2b4b2999afcf87cdec4537e49c73d743e6100ba640  GaGa-Chat-v1.0.0-release.apk
+a5942f62a72d70623ae193dccb5d4a630fc9f2285ff0b10189d8c63aa77c255d  GaGa-Chat-v1.0.0-release.aab
 ```
 
 ## Signing certificate
 
 ```
 DN: CN=GaGa Chat, OU=Mobile, O=GaGa, L=Dhaka, ST=Dhaka, C=BD
-SHA-256: 3E:6E:F7:7D:EE:4B:A0:11:14:4B:2F:68:C5:FB:43:E9:EF:7B:F7:7C:D9:2C:EE:C1:7C:54:69:51:37:0D:34:83
-SHA-1:   7A:FF:20:8D:7D:55:4E:18:40:65:BC:46:4A:1A:80:CE:E4:20:2C:D9
+SHA-256: F6:E9:5A:C8:B0:D2:6B:6D:B9:32:3B:7F:C4:7D:5B:C7:36:DD:1B:AB:37:91:F9:92:E9:86:88:61:21:E7:E4:D1
+SHA-1:   4B:4B:64:61:E6:31:30:0B:B9:A7:B1:9C:0A:E7:50:72:B0:86:CE:E9
 ```
 
 > **NOTE — signing key changed.** The original release keystore was not present in
@@ -36,6 +36,37 @@ SHA-1:   7A:FF:20:8D:7D:55:4E:18:40:65:BC:46:4A:1A:80:CE:E4:20:2C:D9
 > all future updates must be signed with the same key.
 
 ## What's included in this build
+
+### Attachment / Share screen (this milestone)
+1. **Redesigned attachment sheet** — a proper bottom sheet with backdrop, drag
+   handle, spring animation, drag-to-close, safe-area padding and a 4-column
+   grid. Fixed the low-contrast glyph bug (green glyph on green tint).
+2. **Media preview before send** — pick one or many photos/videos/files, review
+   thumbnails, remove items, add a caption, and choose original vs. compressed
+   quality. Total size is shown; photos are compressed client-side unless the
+   user opts for original quality.
+3. **In-app camera** — full-screen `getUserMedia` capture with front/rear switch,
+   torch toggle (where supported), and a review/retake step — no app switching.
+4. **Voice messages** — hold-to-record with slide-left-to-cancel, then a preview
+   bar (play/pause, waveform, duration) with Discard / Send before anything is
+   uploaded.
+5. **Contact sharing** — pick from GaGa friends (searchable), the device address
+   book (Contact Picker API), or a manually typed contact, with a confirmation
+   preview before sending.
+6. **Location** — one-time location share plus **Live Location** with a duration
+   picker (15 min / 1 h / 8 h / until turned off), a 30-second refresh loop, an
+   active-sharing banner with a Stop button, and auto-stop at expiry.
+7. **File messages** — file cards now probe the real size (HEAD request), show a
+   spinner while downloading, and save via a blob download that works inside the
+   Android WebView.
+8. **Upload resilience** — a Cancel button on the upload progress bar, plus a
+   Retry / Dismiss bar for any attachments that fail to upload.
+9. **Permissions** — added `ACCESS_FINE_LOCATION`, `ACCESS_COARSE_LOCATION` and
+   `READ_CONTACTS`; a native `GaGaNative.openAppSettings()` bridge opens the OS
+   app-settings screen when a permission is permanently denied.
+10. **Navigation fix** — push-notification taps now route through the real React
+    Router (`navigateTo`) instead of `window.location.hash`, which does nothing
+    under `BrowserRouter`.
 
 ### Chat screen (previous milestone)
 1. **Group chat parity with direct chat** — the group conversation screen reuses

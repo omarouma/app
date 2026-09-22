@@ -56,6 +56,56 @@ export function validateFileSize(file: Blob | File, kind?: string): string | nul
 }
 
 /**
+ * Executable / script extensions that must never be uploaded or shared.
+ * Defence-in-depth: the server also rejects these, but blocking client-side
+ * gives instant feedback and avoids wasting the user's data.
+ */
+export const BLOCKED_EXTENSIONS = new Set([
+  'exe', 'msi', 'bat', 'cmd', 'com', 'scr', 'pif', 'cpl', 'jar', 'vbs', 'vbe',
+  'js', 'jse', 'ws', 'wsf', 'wsc', 'wsh', 'ps1', 'ps1xml', 'ps2', 'ps2xml',
+  'psc1', 'psc2', 'msh', 'msh1', 'msh2', 'mshxml', 'msh1xml', 'msh2xml',
+  'apk', 'app', 'dmg', 'pkg', 'deb', 'rpm', 'sh', 'bash', 'zsh', 'run', 'bin',
+  'dll', 'so', 'dylib', 'gadget', 'hta', 'lnk', 'reg', 'inf', 'scf', 'url',
+  'iso', 'img', 'vhd', 'vhdx', 'ade', 'adp', 'msp', 'mst', 'crt', 'ins', 'isp',
+]);
+
+/** MIME types that are never allowed (executables / installers). */
+export const BLOCKED_MIME = new Set([
+  'application/x-msdownload',
+  'application/x-msdos-program',
+  'application/x-executable',
+  'application/x-dosexec',
+  'application/vnd.android.package-archive',
+  'application/x-apple-diskimage',
+  'application/x-sh',
+  'application/x-shellscript',
+  'application/x-httpd-php',
+  'application/java-archive',
+  'application/x-msi',
+  'application/x-ms-installer',
+]);
+
+/**
+ * Validates a file's type against the blocked extension / MIME lists.
+ * Returns null when the file is acceptable, or a human-readable error string.
+ */
+export function validateFileType(file: File | Blob): string | null {
+  const name = (file as File).name || '';
+  const dot = name.lastIndexOf('.');
+  if (dot >= 0) {
+    const ext = name.slice(dot + 1).toLowerCase();
+    if (BLOCKED_EXTENSIONS.has(ext)) {
+      return `Files of type ".${ext}" can't be shared for security reasons.`;
+    }
+  }
+  const mime = (file.type || '').toLowerCase();
+  if (mime && BLOCKED_MIME.has(mime)) {
+    return 'This file type can\'t be shared for security reasons.';
+  }
+  return null;
+}
+
+/**
  * Client-side image compression.
  *
  * Downscales large photos and re-encodes them as JPEG before upload so that

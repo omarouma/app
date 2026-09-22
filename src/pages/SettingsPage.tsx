@@ -15,7 +15,7 @@ import {
   MonitorSmartphone, Accessibility, Contrast, Vibrate, CornerDownLeft,
   Video as VideoIcon, DownloadCloud, LockKeyhole, MessageCircle, Heart
 } from 'lucide-react';
-import { useAppPermissions, type PermissionType, type PermissionStatus } from '@/hooks/useAppPermissions';
+import { useAppPermissions, openAppSettings, type PermissionType, type PermissionStatus } from '@/hooks/useAppPermissions';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useAuth } from '@/context/AuthContext';
 import { useUserSettings } from '@/store/useSettingsStore';
@@ -465,7 +465,7 @@ export default function SettingsPage() {
                         ) : statuses[p.id] === 'denied' ? (
                           <button
                             type="button"
-                            onClick={() => requestPermission(p.id as PermissionType)}
+                            onClick={() => (p.openSettings ?? openAppSettings)()}
                             disabled={!!requesting[p.id]}
                             className="shrink-0 text-[11px] font-semibold px-3 py-1.5 rounded-full bg-red-500 text-white disabled:opacity-50"
                           >

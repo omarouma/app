@@ -12,15 +12,22 @@ export const REPORT_OPTIONS = [
   'Other',
 ] as const;
 
+/**
+ * Reaction emojis.
+ *
+ * Design-system rule (E1): ONE primary GaGa accent. The reaction glyphs all
+ * share the GaGa green accent so the picker reads as a single calm surface
+ * rather than a rainbow of competing colours.
+ */
 export const reactionEmojis = [
-  { emoji: '👍', label: 'like', color: 'text-[#2196F3]' },
-  { emoji: '❤️', label: 'love', color: 'text-[#FF3B30]' },
-  { emoji: '😂', label: 'laugh', color: 'text-[#FF9800]' },
-  { emoji: '😮', label: 'wow', color: 'text-[#8B5CF6]' },
-  { emoji: '😢', label: 'sad', color: 'text-[#2196F3]' },
-  { emoji: '😡', label: 'angry', color: 'text-[#FF3B30]' },
-  { emoji: '🎉', label: 'celebrate', color: 'text-[#FF9800]' },
-  { emoji: '🔥', label: 'fire', color: 'text-[#FF5722]' },
+  { emoji: '👍', label: 'like', color: 'text-[#00C300]' },
+  { emoji: '❤️', label: 'love', color: 'text-[#00C300]' },
+  { emoji: '😂', label: 'laugh', color: 'text-[#00C300]' },
+  { emoji: '😮', label: 'wow', color: 'text-[#00C300]' },
+  { emoji: '😢', label: 'sad', color: 'text-[#00C300]' },
+  { emoji: '😡', label: 'angry', color: 'text-[#00C300]' },
+  { emoji: '🎉', label: 'celebrate', color: 'text-[#00C300]' },
+  { emoji: '🔥', label: 'fire', color: 'text-[#00C300]' },
 ] as const;
 
 export type ReactionEmoji = (typeof reactionEmojis)[number];
@@ -52,9 +59,21 @@ export const attachmentOptions: AttachmentOption[] = [
   { iconKey: 'phone', label: 'Audio', color: GAGA_ACCENT_SURFACE, iconColor: GAGA_ACCENT_ICON },
   { iconKey: 'user', label: 'Contact', color: GAGA_ACCENT_SURFACE, iconColor: GAGA_ACCENT_ICON },
   { iconKey: 'map', label: 'Location', color: GAGA_ACCENT_SURFACE, iconColor: GAGA_ACCENT_ICON },
+  { iconKey: 'navigation', label: 'Live Location', color: GAGA_ACCENT_SURFACE, iconColor: GAGA_ACCENT_ICON },
   { iconKey: 'file', label: 'File', color: GAGA_ACCENT_SURFACE, iconColor: GAGA_ACCENT_ICON },
   { iconKey: 'poll', label: 'Poll', color: GAGA_ACCENT_SURFACE, iconColor: GAGA_ACCENT_ICON },
 ] as const;
+
+/**
+ * Live-location sharing durations (in minutes). `0` means "until I turn it off".
+ * Mirrors the WhatsApp/Telegram model so users recognise the choices instantly.
+ */
+export const LIVE_LOCATION_DURATIONS: Array<{ minutes: number; label: string }> = [
+  { minutes: 15, label: '15 minutes' },
+  { minutes: 60, label: '1 hour' },
+  { minutes: 480, label: '8 hours' },
+  { minutes: 0, label: 'Until I turn it off' },
+];
 
 /** Currency symbol / suffix map for money-transfer rendering. */
 export const CURRENCY_FORMAT: Record<string, { prefix?: string; suffix?: string }> = {

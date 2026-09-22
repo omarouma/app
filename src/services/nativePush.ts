@@ -12,6 +12,7 @@
  */
 import { Capacitor } from '@capacitor/core';
 import { getSupabaseSafe } from '@/lib/supabase';
+import { navigateTo } from '@/lib/navigation';
 
 export interface NativePushRegistration {
   token: string;
@@ -113,9 +114,9 @@ export async function registerNativePush(
       try {
         const type = data.type as string | undefined;
         if (type === 'call' && data.callId) {
-          window.location.hash = `#/calls`;
+          navigateTo('/calls');
         } else if (type === 'message' && data.chatId) {
-          window.location.hash = `#/chat/${data.chatId}`;
+          navigateTo(`/chat/${data.chatId}`);
         }
       } catch { /* ignore */ }
     });

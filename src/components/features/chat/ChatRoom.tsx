@@ -3,7 +3,7 @@ import type { ReactElement } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  ChevronDown, Loader, Lock, Ban,
+  ChevronDown, Loader, Lock, Ban, AlertCircle, Navigation,
 } from 'lucide-react';
 
 import { useFilteredOnline, useOnlineUsers } from '@/hooks/usePresence';
@@ -20,6 +20,12 @@ import { ChatHeader } from './ChatHeader';
 import { MessageItem } from './MessageItem';
 import { MessageSearch } from './MessageSearch';
 import { InputBar } from './InputBar';
+import { MediaPreviewSheet } from './MediaPreviewSheet';
+import { CameraCaptureSheet } from './CameraCaptureSheet';
+import { ContactPickerSheet } from './ContactPickerSheet';
+import type { ContactCard } from './ContactPickerSheet';
+import { LiveLocationSheet } from './LiveLocationSheet';
+import { useLiveLocation } from '@/hooks/useLiveLocation';
 import { ImageLightbox } from './ImageLightbox';
 import TransferModal from '@/components/TransferModal';
 import { Virtuoso } from 'react-virtuoso';
@@ -131,6 +137,10 @@ export default function ChatRoom({ chatId, userId, onBack }: {
     handleEditSave,
     handleSend,
     handleMediaUpload,
+    failedUploads,
+    cancelUpload,
+    retryUpload,
+    dismissFailedUpload,
     handleDelete,
     handleDeleteForEveryone,
     handleForward,
@@ -160,7 +170,12 @@ export default function ChatRoom({ chatId, userId, onBack }: {
 
   const { chats } = useChatStore();
 
-  const { isRecording, duration, startRecording, stopRecording, cancelRecording } = useVoiceRecorder();
+  const {
+    isRecording, duration, startRecording, stopRecording, cancelRecording,
+    previewUrl: voicePreviewUrl, previewDuration: voicePreviewDuration,
+    clearPreview: clearVoicePreview, discardPreview: discardVoicePreview, getPreviewBlob,
+  } = useVoiceRecorder();
+  const liveLocation = useLiveLocation(chatId, userId);
   useFilteredOnline(currentUser?.id || '', friends);
   const { onlineUsers } = useOnlineUsers();
   const callCtx = useCallContext();
@@ -184,6 +199,12 @@ export default function ChatRoom({ chatId, userId, onBack }: {
   const [selectedMessages, setSelectedMessages] = useState<Set<string>>(new Set());
   const [showTransfer, setShowTransfer] = useState(false);
   const [showDeleteSelectedConfirm, setShowDeleteSelectedConfirm] = useState(false);
+  // Attachment flow: files staged for review before sending.
+  const [pendingMedia, setPendingMedia] = useState<File[]>([]);
+  const [showCamera, setShowCamera] = useState(false);
+  const [showContactPicker, setShowContactPicker] = useState(false);
+  const [showLiveLocation, setShowLiveLocation] = useState(false);
+  const [liveLocationStarting, setLiveLocationStarting] = useState(false);
   const longPressTimerRef = useRef<NodeJS.Timeout | null>(null);
   const touchStartXRef = useRef(0);
   const touchCurrentXRef = useRef(0);
@@ -205,17 +226,75 @@ export default function ChatRoom({ chatId, userId, onBack }: {
   const handleVoiceSend = useCallback(async () => {
     if (!currentUser) return;
     try {
-      const blob = await stopRecording();
+      // The clip was already recorded and is sitting in the preview bar; grab
+      // its blob, upload once with the correct 'voice' kind, then send.
+      const blob = getPreviewBlob();
       if (!blob) return;
-      // Single upload path (no double-upload) with the correct 'voice' kind,
-      // then send as a typed 'voice' message.
       const url = await uploadMediaBlob(blob, { userId: currentUser.id, kind: 'voice', contentType: 'audio/webm' });
       if (url) await useChatStore.getState().sendMessage(chatId, currentUser.id, 'Voice message', 'voice', url);
+      clearVoicePreview();
       scrollToBottom();
     } catch {
       toast.error('Failed to send voice message.');
     }
-  }, [chatId, currentUser, scrollToBottom, stopRecording]);
+  }, [chatId, currentUser, scrollToBottom, getPreviewBlob, clearVoicePreview]);
+
+  // Release the mic: stopRecording() finalises the clip and drops it into the
+  // preview bar (it does NOT send). The user then taps Send or Discard.
+  const handleStopRecording = useCallback(() => {
+    void stopRecording();
+  }, [stopRecording]);
+
+  const handleVoiceDiscard = useCallback(() => {
+    discardVoicePreview();
+  }, [discardVoicePreview]);
+
+  // Stage picked files for review in the MediaPreviewSheet instead of
+  // uploading immediately, so the user can add a caption / remove items.
+  const stageMedia = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length) setPendingMedia((prev) => [...prev, ...files]);
+    e.target.value = '';
+  }, []);
+
+  const handleMediaSend = useCallback(
+    (files: File[], opts: { caption: string; originalQuality: boolean }) => {
+      setPendingMedia([]);
+      void handleMediaUpload(files, opts);
+    },
+    [handleMediaUpload],
+  );
+
+  const handleCameraCapture = useCallback((file: File) => {
+    setShowCamera(false);
+    setPendingMedia((prev) => [...prev, file]);
+  }, []);
+
+  const handleContactSend = useCallback(
+    (contact: ContactCard) => {
+      setShowContactPicker(false);
+      void handleSendContact(contact);
+    },
+    [handleSendContact],
+  );
+
+  const handleStartLiveLocation = useCallback(
+    async (minutes: number) => {
+      setLiveLocationStarting(true);
+      try {
+        const ok = await liveLocation.start(minutes);
+        if (ok) {
+          setShowLiveLocation(false);
+          scrollToBottom();
+        } else {
+          toast.error('Could not get your location. Check permissions.');
+        }
+      } finally {
+        setLiveLocationStarting(false);
+      }
+    },
+    [liveLocation, scrollToBottom],
+  );
 
   // Retry a failed message send. The failed optimistic copy is removed from
   // the store first, then sendMessage re-adds a fresh 'sending' optimistic
@@ -730,7 +809,16 @@ export default function ChatRoom({ chatId, userId, onBack }: {
           >
             <div className="flex items-center justify-between text-[11px] text-muted-foreground mb-1">
               <span className="truncate max-w-[70%]">Uploading {uploadProgress.name}…</span>
-              <span>{uploadProgress.percent}%</span>
+              <span className="flex items-center gap-2">
+                <span>{uploadProgress.percent}%</span>
+                <button
+                  type="button"
+                  onClick={cancelUpload}
+                  className="font-semibold text-[#00C300] hover:underline"
+                >
+                  Cancel
+                </button>
+              </span>
             </div>
             <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
               <div
@@ -738,6 +826,68 @@ export default function ChatRoom({ chatId, userId, onBack }: {
                 style={{ width: `${uploadProgress.percent}%` }}
               />
             </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Live location active banner */}
+      <AnimatePresence>
+        {liveLocation.active && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            className="shrink-0 bg-[#00C300]/10 dark:bg-[#00C300]/15 border-t border-[#00C300]/20 px-4 py-2 flex items-center gap-2"
+          >
+            <Navigation size={16} className="text-[#00C300] shrink-0 animate-pulse" />
+            <span className="text-xs text-foreground flex-1 truncate">
+              Sharing live location
+              {liveLocation.expiresAt
+                ? ` \u00b7 ends ${new Date(liveLocation.expiresAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+                : ' \u00b7 until you stop'}
+            </span>
+            <button
+              type="button"
+              onClick={() => liveLocation.stop('manual')}
+              className="text-xs font-semibold text-[#00C300] hover:underline shrink-0"
+            >
+              Stop
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Failed uploads \u2014 retry / dismiss */}
+      <AnimatePresence>
+        {failedUploads.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            className="shrink-0 bg-[#FF3B30]/10 border-t border-[#FF3B30]/20 px-4 py-2 space-y-1.5"
+          >
+            {failedUploads.map((f) => (
+              <div key={f.id} className="flex items-center gap-2">
+                <AlertCircle size={15} className="text-[#FF3B30] shrink-0" />
+                <span className="text-xs text-foreground flex-1 truncate">
+                  Couldn&apos;t send {f.file.name}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => retryUpload(f.id)}
+                  className="text-xs font-semibold text-[#00C300] hover:underline shrink-0"
+                >
+                  Retry
+                </button>
+                <button
+                  type="button"
+                  onClick={() => dismissFailedUpload(f.id)}
+                  className="text-xs font-semibold text-muted-foreground hover:underline shrink-0"
+                >
+                  Dismiss
+                </button>
+              </div>
+            ))}
           </motion.div>
         )}
       </AnimatePresence>
@@ -767,20 +917,24 @@ export default function ChatRoom({ chatId, userId, onBack }: {
         onToggleEmojiPicker={() => setShowEmojiPicker(!showEmojiPicker)}
         isRecording={isRecording}
         duration={duration}
+        voicePreviewUrl={voicePreviewUrl}
+        voicePreviewDuration={voicePreviewDuration}
         onSend={() => handleSend()}
         onTyping={() => sendTyping()}
         onStopTyping={stopTyping}
         onEmojiSelect={(emoji) => setInput(input + emoji)}
         onStartRecording={startRecording}
+        onStopRecording={handleStopRecording}
         onCancelRecording={cancelRecording}
         onVoiceSend={handleVoiceSend}
-        onPhotoUpload={(e) => handleMediaUpload(Array.from(e.target.files || []))}
-        onVideoUpload={(e) => handleMediaUpload(Array.from(e.target.files || []))}
-        onFileUpload={(e) => handleMediaUpload(Array.from(e.target.files || []))}
+        onVoiceDiscard={handleVoiceDiscard}
+        onPhotoUpload={stageMedia}
+        onVideoUpload={stageMedia}
+        onFileUpload={stageMedia}
+        onCameraCapture={() => setShowCamera(true)}
+        onLiveLocation={() => setShowLiveLocation(true)}
         onSchedule={() => setShowSchedulePicker(true)}
-        onContactShare={() => {
-          if (currentUser) handleSendContact({ userId: currentUser.id, name: currentUser.name || 'User', phone: currentUser.phone, email: currentUser.email, avatar: currentUser.avatar, username: currentUser.username });
-        }}
+        onContactShare={() => setShowContactPicker(true)}
         onLocationShare={async () => {
           if (!navigator?.geolocation) {
             toast.error('Location sharing is not supported by this browser.');
@@ -1104,6 +1258,38 @@ export default function ChatRoom({ chatId, userId, onBack }: {
 
       {/* Full-screen image viewer */}
       <ImageLightbox url={lightboxImage} onClose={() => setLightboxImage(null)} />
+
+      {/* Attachment review sheet */}
+      <MediaPreviewSheet
+        open={pendingMedia.length > 0}
+        files={pendingMedia}
+        onClose={() => setPendingMedia([])}
+        onRemove={(index) => setPendingMedia((prev) => prev.filter((_, i) => i !== index))}
+        onSend={handleMediaSend}
+      />
+
+      {/* In-app camera */}
+      <CameraCaptureSheet
+        open={showCamera}
+        onClose={() => setShowCamera(false)}
+        onCapture={handleCameraCapture}
+      />
+
+      {/* Contact picker */}
+      <ContactPickerSheet
+        open={showContactPicker}
+        onClose={() => setShowContactPicker(false)}
+        friends={friends as Array<{ id: string; name?: string; username?: string; avatar?: string; phone?: string; email?: string; bio?: string }>}
+        onSend={handleContactSend}
+      />
+
+      {/* Live location duration picker */}
+      <LiveLocationSheet
+        open={showLiveLocation}
+        onClose={() => setShowLiveLocation(false)}
+        onStart={handleStartLiveLocation}
+        starting={liveLocationStarting}
+      />
     </div>
   );
 }
