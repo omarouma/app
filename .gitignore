@@ -49,3 +49,10 @@ backend-*.log
 firebase-debug.log
 lint-output.log"deployed_index.html"  
 "supabase/.temp/"  
+
+# Release signing keystore (secret)
+keystore/
+*.keystore
+
+# Vite bundle visualizer output (build artifact)
+stats.html

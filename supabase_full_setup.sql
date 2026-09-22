@@ -690,11 +690,14 @@ CREATE TABLE IF NOT EXISTS call_history (
   duration INTEGER DEFAULT 0,
   signaling JSONB,
   created_at TIMESTAMPTZ DEFAULT now(),
-  ended_at TIMESTAMPTZ
+  ended_at TIMESTAMPTZ,
+  participant_ids TEXT[] DEFAULT '{}',
+  deleted_by TEXT[] DEFAULT '{}'
 );
 
 CREATE INDEX IF NOT EXISTS idx_call_history_caller ON call_history (caller_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_call_history_callee ON call_history (callee_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_call_history_deleted_by ON call_history USING GIN (deleted_by);
 
 ALTER TABLE call_history ENABLE ROW LEVEL SECURITY;
 

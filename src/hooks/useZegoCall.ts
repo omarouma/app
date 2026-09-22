@@ -5,10 +5,8 @@ import {
     ZEGO_SERVER_SECRET,
     getZegoUIKit,
     getZegoCallConfig,
-    getZegoTokenServerUrl,
 } from '@/lib/zego';
-import env from '@/config/env';
-import { getSupabaseSafe } from '@/lib/supabase';
+import { fetchZegoKitToken } from '@/lib/zegoToken';
 
 export type ZegoCallQuality = 'good' | 'poor' | 'reconnecting';
 
@@ -23,7 +21,7 @@ export interface ZegoCallController {
     localStream: MediaStream | null;
     containerRef: React.RefObject<HTMLDivElement | null>;
 
-    join: (roomID: string, userID: string, userName: string, isVideo: boolean) => Promise<void>;
+    join: (roomID: string, userID: string, userName: string, isVideo: boolean, isGroup?: boolean) => Promise<void>;
     leave: () => void;
     toggleMute: () => void;
     toggleVideo: () => void;
@@ -59,6 +57,8 @@ export interface ZegoUIKitInstance {
         unmuteCamera?: () => void;
         useFrontCamera?: (front?: boolean) => void;
         isCameraFront?: () => boolean;
+        on?: (event: string, listener: (...args: unknown[]) => void) => void;
+        off?: (event: string, listener?: (...args: unknown[]) => void) => void;
     };
     localStream?: MediaStream;
 }
@@ -123,53 +123,18 @@ export function useZegoCall(): ZegoCallController {
         };
     }, []);
 
-    // ─── Server-side token acquisition ──────────────────────────────────────
-    // When VITE_ZEGO_TOKEN_SERVER_URL is configured, we mint tokens from the
-    // serverless endpoint (functions/src/index.ts GET /api/zego-token) so the
-    // ZEGO server secret NEVER ships in the client bundle. Falls back to the
-    // test generator for local dev / existing deployments.
+    // ─── Server-side token acquisition ───────────────────────────────────────
+    // Tokens are minted by the `zego-token` Supabase Edge Function so the ZEGO
+    // ServerSecret NEVER ships in the client bundle. The edge function returns a
+    // proper token04-based UI Kit token (`04<binary>#<base64 meta>`), which is
+    // exactly what ZegoUIKitPrebuilt.create() requires. Falls back to the test
+    // generator only during local development.
     const fetchServerToken = useCallback(async (
         roomID: string,
         userID: string,
+        userName?: string,
     ): Promise<string | null> => {
-        const tokenServerUrl = getZegoTokenServerUrl() || env.VITE_ZEGO_TOKEN_SERVER_URL;
-        if (!tokenServerUrl) return null;
-
-        const supabase = getSupabaseSafe();
-        const session = supabase ? await supabase.auth.getSession().catch(() => null) : null;
-        const accessToken = session?.data?.session?.access_token;
-        if (!accessToken) {
-            console.warn('[ZEGO] No auth session available for server token request.');
-            return null;
-        }
-
-        try {
-            const url = new URL(
-                tokenServerUrl.startsWith('/')
-                    ? `${window.location.origin}${tokenServerUrl}`
-                    : tokenServerUrl,
-                window.location.origin,
-            );
-            url.searchParams.set('room', roomID);
-            url.searchParams.set('user', userID);
-
-            const response = await fetch(url.toString(), {
-                headers: { Authorization: `Bearer ${accessToken}` },
-            });
-            if (!response.ok) {
-                console.warn(`[ZEGO] Token server responded ${response.status}.`);
-                return null;
-            }
-            const data = (await response.json()) as { token?: string };
-            if (!data.token) {
-                console.warn('[ZEGO] Token server response missing `token`.');
-                return null;
-            }
-            return data.token;
-        } catch (err) {
-            console.warn('[ZEGO] Token server fetch failed.', err);
-            return null;
-        }
+        return fetchZegoKitToken(roomID, userID, userName);
     }, []);
 
     const join = useCallback(async (
@@ -177,6 +142,7 @@ export function useZegoCall(): ZegoCallController {
         userID: string,
         userName: string,
         isVideo: boolean,
+        isGroup = false,
     ) => {
         // Do not destroy the active instance before we know the new room is about
         // to be created. The existing implementation could tear down the current
@@ -207,7 +173,7 @@ export function useZegoCall(): ZegoCallController {
             // Prefer the server-issued token. The client-side test secret is
             // allowed only during local development and must never be used by
             // a production build when the token endpoint is unavailable.
-            let kitToken = await fetchServerToken(roomID, userID);
+            let kitToken = await fetchServerToken(roomID, userID, userName);
             if (!kitToken && import.meta.env.DEV && ZEGO_SERVER_SECRET) {
                 kitToken = ZegoUIKitPrebuilt.generateKitTokenForTest(
                     ZEGO_APP_ID,
@@ -225,12 +191,12 @@ export function useZegoCall(): ZegoCallController {
             const zp = ZegoUIKitPrebuilt.create(kitToken);
             instanceRef.current = zp;
 
-            const base = getZegoCallConfig() as Partial<ZegoCloudRoomConfig>;
+            const base = getZegoCallConfig(isGroup) as Partial<ZegoCloudRoomConfig>;
             const roomConfig: ZegoCloudRoomConfig = {
                 ...base,
                 container: containerRef.current!,
                 scenario: {
-                    mode: ZegoUIKitPrebuilt.OneONoneCall,
+                    mode: isGroup ? ZegoUIKitPrebuilt.GroupCall : ZegoUIKitPrebuilt.OneONoneCall,
                     config: { role: ZegoUIKitPrebuilt.Host },
                 },
                 showPreJoinView: false,
@@ -242,9 +208,9 @@ export function useZegoCall(): ZegoCallController {
                 showScreenSharingButton: isVideo,
                 showTextChat: true,
                 showUserList: true,
-                maxUsers: 2,
-                layout: 'Auto',
-                showLayoutButton: false,
+                maxUsers: isGroup ? 9 : 2,
+                layout: isGroup ? 'Grid' : 'Auto',
+                showLayoutButton: isGroup,
                 onJoinRoom: () => {
                     setIsJoined(true);
                     setIsConnected(hasRemoteRef.current || false);
@@ -304,7 +270,31 @@ export function useZegoCall(): ZegoCallController {
                 console.error('[ZEGO] joinRoom failed:', joinErr);
                 setError(msg);
                 leave();
+                return;
             }
+
+            // Subscribe to the Express engine's network-quality signal so the
+            // UI can show "Poor signal" / "Reconnecting…" badges (C6).
+            try {
+                const expr = (zp as unknown as ZegoUIKitInstance).express;
+                if (expr?.on) {
+                    expr.on('networkQuality', (...args: unknown[]) => {
+                        // ZEGO emits { level, ... } where level 1=Excellent,
+                        // 2=Good, 3=Medium, 4=Bad, 5=VeryBad, 6=Down.
+                        const payload = args[0] as { level?: number } | undefined;
+                        const level = payload?.level ?? 1;
+                        if (level >= 5) setQuality('reconnecting');
+                        else if (level >= 3) setQuality('poor');
+                        else setQuality('good');
+                    });
+                    expr.on('roomStateChanged', (...args: unknown[]) => {
+                        const payload = args[0] as { state?: string } | undefined;
+                        const state = payload?.state;
+                        if (state === 'RECONNECTING') setQuality('reconnecting');
+                        else if (state === 'CONNECTED') setQuality('good');
+                    });
+                }
+            } catch { /* quality monitoring is best-effort */ }
         } catch (e) {
             const msg = e instanceof Error ? e.message : 'Failed to start the ZEGO call.';
             setError(msg);

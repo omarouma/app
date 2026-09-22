@@ -15,18 +15,17 @@ import { where, orderBy, limit } from '@/lib/firestore';
 import type { PremiumPlan, PremiumSubscription, ReferralRecord, TipRecord } from '@/types';
 import { toast } from 'sonner';
 
-export type PremiumTier = 'free' | 'premium' | 'vip' | 'creator';
+export type PremiumTier = 'free' | 'premium' | 'vip' | 'business';
 
 /**
  * Premium collection names — sourced from the backend adapter's COLLECTIONS map
  * so the correct table name is used for whichever backend is active
- * (Supabase uses snake_case `creator_subscriptions`; Firestore uses `creatorSubscriptions`).
+ * so the correct table name is used for whichever backend is active.
  */
 export const PREMIUM_COLLECTIONS = {
   SUBSCRIPTIONS: COLLECTIONS.SUBSCRIPTIONS,
   REFERRALS: COLLECTIONS.REFERRALS,
   TIPS: COLLECTIONS.TIPS,
-  CREATOR_SUBS: COLLECTIONS.CREATOR_SUBSCRIPTIONS,
 } as const;
 
 export const PREMIUM_PLANS: PremiumPlan[] = [
@@ -40,8 +39,7 @@ export const PREMIUM_PLANS: PremiumPlan[] = [
     features: [
       'Unlimited messaging',
       'Voice & video calls',
-      'Basic stories & posts',
-      '5 scheduled posts/month',
+      'Group chats & broadcast lists',
       'Standard support',
     ],
     badge: 'Free',
@@ -58,7 +56,7 @@ export const PREMIUM_PLANS: PremiumPlan[] = [
       'Everything in Free',
       'Verified badge',
       'Ad-free experience',
-      '20 scheduled posts/month',
+      'Larger group chats',
       'Priority support',
       'Custom themes',
       'Premium stickers',
@@ -78,7 +76,7 @@ export const PREMIUM_PLANS: PremiumPlan[] = [
     features: [
       'Everything in Premium',
       'Unlimited scheduled posts',
-      'Post analytics dashboard',
+      'Chat analytics dashboard',
       'Ghost mode (hide views)',
       'Exclusive VIP badge',
       'Faster media uploads',
@@ -89,24 +87,22 @@ export const PREMIUM_PLANS: PremiumPlan[] = [
     color: '#7B61FF',
   },
   {
-    id: 'creator',
-    name: 'Creator',
-    description: 'Monetize your content & grow',
+    id: 'business',
+    name: 'Business',
+    description: 'For teams and organizations',
     price: 9.99,
     currency: 'USD',
     duration: 'monthly',
     features: [
       'Everything in VIP',
-      'Creator analytics dashboard',
-      'Fan subscriptions enabled',
-      'Tip / donation support',
-      'Sponsored content tools',
-      'Revenue sharing on ads',
+      'Business analytics dashboard',
+      'Larger group capacity',
+      'Broadcast lists & announcements',
       'Priority verification',
       'Dedicated account manager',
-      'API access for bots',
+      'API access for integrations',
     ],
-    badge: 'Creator',
+    badge: 'Business',
     color: '#FF9500',
   },
 ];
@@ -115,14 +111,14 @@ export const PLAN_PRICING_USD: Record<string, number> = {
   free: 0,
   premium: 1.99,
   vip: 4.99,
-  creator: 9.99,
+  business: 9.99,
 };
 
 export const PLAN_PRICING_COINS: Record<string, number> = {
   free: 0,
   premium: 2500,
   vip: 6500,
-  creator: 14000,
+  business: 14000,
 };
 
 export const TIP_PRESETS = [10, 25, 50, 100, 250, 500];
@@ -141,8 +137,6 @@ interface PremiumStoreState {
   referralEarnings: number;
   tipsSent: TipRecord[];
   tipsReceived: TipRecord[];
-  creatorSubscribers: number;
-  creatorRevenue: number;
   activePlan: string | null;
   plans: PremiumPlan[];
   isPremium: boolean;
@@ -156,7 +150,7 @@ interface PremiumStoreActions {
   generateReferralCode: (userId: string) => string;
   applyReferralCode: (userId: string, code: string, referredByName?: string) => Promise<boolean>;
   getReferralStats: (userId: string) => Promise<{ count: number; earnings: number }>;
-  sendTip: (fromUserId: string, fromUserName: string, toUserId: string, toUserName: string, amount: number, currency: 'coins' | 'BDT' | 'USD', message?: string, contentId?: string, contentType?: 'post' | 'reel' | 'live' | 'story') => Promise<boolean>;
+  sendTip: (fromUserId: string, fromUserName: string, toUserId: string, toUserName: string, amount: number, currency: 'coins' | 'BDT' | 'USD', message?: string, contentId?: string, contentType?: 'chat' | 'call') => Promise<boolean>;
   fetchTips: (userId: string) => Promise<void>;
   getTierColor: (tier: PremiumTier) => string;
   getTierFeatures: (tier: PremiumTier) => string[];
@@ -176,8 +170,6 @@ export const usePremiumStore = create<PremiumStoreState & PremiumStoreActions>((
   referralEarnings: 0,
   tipsSent: [],
   tipsReceived: [],
-  creatorSubscribers: 0,
-  creatorRevenue: 0,
   activePlan: null,
   plans: PREMIUM_PLANS,
   isPremium: false,

@@ -1,5 +1,6 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import env from '@/config/env';
+import { createAuthStorage } from '@/lib/authStorage';
 
 const supabaseUrl = env.VITE_SUPABASE_URL;
 const supabaseAnonKey = env.VITE_SUPABASE_ANON_KEY;
@@ -31,6 +32,9 @@ export function getSupabase(): SupabaseClient {
         detectSessionInUrl: true,
         storageKey: 'gaga-auth-token',
         flowType: 'pkce',
+        // Native Android → Capacitor Preferences (app-private SharedPreferences);
+        // Web → localStorage. Keeps the session out of plain web storage on device.
+        storage: createAuthStorage(),
       },
       global: {
         headers: { 'x-app-version': typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '2.0.0' },

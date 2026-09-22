@@ -10,6 +10,7 @@ import {
   addDocToCollection,
   addDocToSubcollection,
   querySubcollection,
+  queryCollection,
   updateSubcollectionDoc,
   deleteSubcollectionDoc,
   subscribeToCollection,
@@ -38,11 +39,17 @@ interface GroupStore {
   loading: boolean;
   subscribeGroups: (userId: string) => () => void;
   createGroup: (name: string, description: string, participantIds: string[], createdBy: string) => Promise<string | null>;
-  addParticipant: (groupId: string, userId: string) => Promise<void>;
-  removeParticipant: (groupId: string, userId: string) => Promise<void>;
+  addParticipant: (groupId: string, userId: string, actorId?: string) => Promise<void>;
+  removeParticipant: (groupId: string, userId: string, actorId?: string) => Promise<void>;
   promoteAdmin: (groupId: string, userId: string) => Promise<void>;
+  demoteAdmin: (groupId: string, userId: string) => Promise<boolean>;
   leaveGroup: (groupId: string, userId: string) => Promise<void>;
-  updateGroup: (groupId: string, data: Partial<GroupData>) => Promise<void>;
+  updateGroup: (groupId: string, data: Partial<GroupData>, actorId?: string) => Promise<void>;
+  toggleGroupMute: (groupId: string, muted: boolean) => Promise<void>;
+  updateGroupSettings: (groupId: string, settings: NonNullable<GroupData['settings']>) => Promise<void>;
+  createInviteLink: (groupId: string) => Promise<string | null>;
+  revokeInviteLink: (groupId: string) => Promise<void>;
+  joinGroupByInvite: (code: string, userId: string) => Promise<string | null>;
   sendGroupMessage: (groupId: string, senderId: string, content: string, type?: string, mediaUrl?: string, replyTo?: string) => Promise<void>;
   subscribeGroupMessages: (groupId: string) => () => void;
   deleteGroupMessage: (groupId: string, messageId: string) => Promise<void>;
@@ -88,8 +95,24 @@ export const useGroupStore = create<GroupStore>((set) => ({
             admins: (d.admins as string[]) || [],
             createdBy: (d.createdBy as string) || '',
             description: (d.description as string) || '',
+            inviteCode: (d.inviteCode as string) || undefined,
+            settings: (d.settings as Chat['settings']) || undefined,
           }));
           set({ groups, loading: false });
+
+          // Overlay authoritative per-user unread counts (server RPC).
+          void (async () => {
+            try {
+              const { chatApi } = await import('@/services/chatApi');
+              const unreadMap = await chatApi.fetchUnreadCounts(userId);
+              if (!unreadMap || Object.keys(unreadMap).length === 0) return;
+              set((s) => ({
+                groups: s.groups.map((g) =>
+                  unreadMap[g.id] !== undefined ? { ...g, unreadCount: unreadMap[g.id] } : g
+                ),
+              }));
+            } catch { /* unread overlay is best-effort */ }
+          })();
         },
       );
     } catch {
@@ -129,18 +152,26 @@ export const useGroupStore = create<GroupStore>((set) => ({
     }
   },
 
-  addParticipant: async (groupId, userId) => {
+  addParticipant: async (groupId, userId, actorId) => {
     if (!isFirestoreAvailable()) { return; }
     try {
       const chat = await getDocById(COLLECTIONS.CHATS, groupId);
-      const participants = [...new Set([...(chat?.participants || []), userId])];
+      if (!chat) return;
+      const participants = [...new Set([...(chat.participants || []), userId])];
       await updateDocById(COLLECTIONS.CHATS, groupId, { participants, updatedAt: serverTimestamp() });
+      await addDocToSubcollection(COLLECTIONS.CHATS, groupId, COLLECTIONS.MESSAGES, {
+        chatId: groupId,
+        senderId: 'system',
+        content: actorId ? 'A member was added to the group' : 'A member joined the group',
+        type: 'system',
+        timestamp: serverTimestamp(),
+      });
     } catch {
       return;
     }
   },
 
-  removeParticipant: async (groupId, userId) => {
+  removeParticipant: async (groupId, userId, actorId) => {
     if (!isFirestoreAvailable()) { return; }
     try {
       const chat = await getDocById(COLLECTIONS.CHATS, groupId);
@@ -148,6 +179,13 @@ export const useGroupStore = create<GroupStore>((set) => ({
       const participants = (chat.participants || []).filter((p: string) => p !== userId);
       const admins = (chat.admins || []).filter((a: string) => a !== userId);
       await updateDocById(COLLECTIONS.CHATS, groupId, { participants, admins, updatedAt: serverTimestamp() });
+      await addDocToSubcollection(COLLECTIONS.CHATS, groupId, COLLECTIONS.MESSAGES, {
+        chatId: groupId,
+        senderId: 'system',
+        content: actorId ? 'A member was removed from the group' : 'A member left the group',
+        type: 'system',
+        timestamp: serverTimestamp(),
+      });
     } catch {
       return;
     }
@@ -159,8 +197,40 @@ export const useGroupStore = create<GroupStore>((set) => ({
       const chat = await getDocById(COLLECTIONS.CHATS, groupId);
       const admins = [...new Set([...(chat?.admins || []), userId])];
       await updateDocById(COLLECTIONS.CHATS, groupId, { admins, updatedAt: serverTimestamp() });
+      await addDocToSubcollection(COLLECTIONS.CHATS, groupId, COLLECTIONS.MESSAGES, {
+        chatId: groupId,
+        senderId: 'system',
+        content: 'A member was promoted to admin',
+        type: 'system',
+        timestamp: serverTimestamp(),
+      });
     } catch {
       return;
+    }
+  },
+
+  demoteAdmin: async (groupId, userId) => {
+    if (!isFirestoreAvailable()) { return false; }
+    try {
+      const chat = await getDocById(COLLECTIONS.CHATS, groupId);
+      if (!chat) return false;
+      const admins = (chat.admins || []) as string[];
+      // Ownership rule: the group creator can never be demoted, and the last
+      // remaining admin cannot be demoted (a group must always have an admin).
+      if (userId === chat.createdBy) return false;
+      if (admins.length <= 1) return false;
+      const nextAdmins = admins.filter((a) => a !== userId);
+      await updateDocById(COLLECTIONS.CHATS, groupId, { admins: nextAdmins, updatedAt: serverTimestamp() });
+      await addDocToSubcollection(COLLECTIONS.CHATS, groupId, COLLECTIONS.MESSAGES, {
+        chatId: groupId,
+        senderId: 'system',
+        content: 'A member is no longer an admin',
+        type: 'system',
+        timestamp: serverTimestamp(),
+      });
+      return true;
+    } catch {
+      return false;
     }
   },
 
@@ -170,7 +240,7 @@ export const useGroupStore = create<GroupStore>((set) => ({
       const chat = await getDocById(COLLECTIONS.CHATS, groupId);
       if (!chat) return;
       const participants = (chat.participants || []).filter((p: string) => p !== userId);
-      const admins = (chat.admins || []).filter((a: string) => a !== userId);
+      let admins = (chat.admins || []).filter((a: string) => a !== userId);
 
       if (participants.length === 0) {
         const msgs = await querySubcollection(COLLECTIONS.CHATS, groupId, COLLECTIONS.MESSAGES, []);
@@ -178,24 +248,31 @@ export const useGroupStore = create<GroupStore>((set) => ({
           deleteDocById(COLLECTIONS.CHATS, groupId),
           ...msgs.map((msg) => deleteSubcollectionDoc(COLLECTIONS.CHATS, groupId, COLLECTIONS.MESSAGES, msg.id)),
         ]);
-      } else {
-        await Promise.all([
-          updateDocById(COLLECTIONS.CHATS, groupId, { participants, admins, updatedAt: serverTimestamp() }),
-          addDocToSubcollection(COLLECTIONS.CHATS, groupId, COLLECTIONS.MESSAGES, {
-            chatId: groupId,
-            senderId: 'system',
-            content: 'A member left the group',
-            type: 'system',
-            timestamp: serverTimestamp(),
-          }),
-        ]);
+        return;
       }
+
+      // Ownership rule: if the last admin leaves, promote the longest-standing
+      // remaining member so the group is never left without an admin.
+      if (admins.length === 0) {
+        admins = [participants[0]];
+      }
+
+      await Promise.all([
+        updateDocById(COLLECTIONS.CHATS, groupId, { participants, admins, updatedAt: serverTimestamp() }),
+        addDocToSubcollection(COLLECTIONS.CHATS, groupId, COLLECTIONS.MESSAGES, {
+          chatId: groupId,
+          senderId: 'system',
+          content: 'A member left the group',
+          type: 'system',
+          timestamp: serverTimestamp(),
+        }),
+      ]);
     } catch {
       return;
     }
   },
 
-  updateGroup: async (groupId, data) => {
+  updateGroup: async (groupId, data, actorId) => {
     if (!isFirestoreAvailable()) { return; }
     try {
       const payload: Record<string, unknown> = {};
@@ -204,8 +281,82 @@ export const useGroupStore = create<GroupStore>((set) => ({
       if (data.avatar !== undefined) payload.avatar = data.avatar;
       payload.updatedAt = serverTimestamp();
       await updateDocById(COLLECTIONS.CHATS, groupId, payload);
+
+      // Emit a system message describing what changed (name / photo / description).
+      let change = '';
+      if (data.name !== undefined) change = 'Group name was changed';
+      else if (data.avatar !== undefined) change = 'Group photo was changed';
+      else if (data.description !== undefined) change = 'Group description was updated';
+      if (change && actorId) {
+        await addDocToSubcollection(COLLECTIONS.CHATS, groupId, COLLECTIONS.MESSAGES, {
+          chatId: groupId,
+          senderId: 'system',
+          content: change,
+          type: 'system',
+          timestamp: serverTimestamp(),
+        });
+      }
     } catch {
       return;
+    }
+  },
+
+  toggleGroupMute: async (groupId, muted) => {
+    if (!isFirestoreAvailable()) { return; }
+    try {
+      await updateDocById(COLLECTIONS.CHATS, groupId, { isMuted: muted });
+    } catch {
+      return;
+    }
+  },
+
+  updateGroupSettings: async (groupId, settings) => {
+    if (!isFirestoreAvailable()) { return; }
+    try {
+      await updateDocById(COLLECTIONS.CHATS, groupId, { settings, updatedAt: serverTimestamp() });
+    } catch {
+      return;
+    }
+  },
+
+  createInviteLink: async (groupId) => {
+    if (!isFirestoreAvailable()) { return null; }
+    try {
+      const code = `${groupId.slice(0, 8)}${Math.random().toString(36).slice(2, 10)}`;
+      await updateDocById(COLLECTIONS.CHATS, groupId, { inviteCode: code, updatedAt: serverTimestamp() });
+      return code;
+    } catch {
+      return null;
+    }
+  },
+
+  revokeInviteLink: async (groupId) => {
+    if (!isFirestoreAvailable()) { return; }
+    try {
+      await updateDocById(COLLECTIONS.CHATS, groupId, { inviteCode: null, updatedAt: serverTimestamp() });
+    } catch {
+      return;
+    }
+  },
+
+  joinGroupByInvite: async (code, userId) => {
+    if (!isFirestoreAvailable() || !code) { return null; }
+    try {
+      const results = await queryCollection<Chat>(COLLECTIONS.CHATS, [where('inviteCode', '==', code), limit(1)]);
+      const group = results?.[0];
+      if (!group) return null;
+      const participants = [...new Set([...(group.participants || []), userId])];
+      await updateDocById(COLLECTIONS.CHATS, group.id, { participants, updatedAt: serverTimestamp() });
+      await addDocToSubcollection(COLLECTIONS.CHATS, group.id, COLLECTIONS.MESSAGES, {
+        chatId: group.id,
+        senderId: 'system',
+        content: 'A member joined via invite link',
+        type: 'system',
+        timestamp: serverTimestamp(),
+      });
+      return group.id;
+    } catch {
+      return null;
     }
   },
 

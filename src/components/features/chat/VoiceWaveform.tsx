@@ -180,7 +180,7 @@ export const VoiceWaveform = memo(function VoiceWaveform({
   if (loadError) {
     return (
       <div
-        className={`flex items-center gap-2 py-1 text-xs ${isOwnMessage ? 'text-white/70' : 'text-[#8D8D8D]'}`}
+        className={`flex items-center gap-2 py-1 text-xs ${isOwnMessage ? 'text-white/70' : 'text-muted-foreground'}`}
         role="alert"
       >
         Audio unavailable
@@ -189,7 +189,7 @@ export const VoiceWaveform = memo(function VoiceWaveform({
   }
 
   return (
-    <div className={`flex items-center gap-2 min-w-[200px] max-w-full py-1 ${isOwnMessage ? 'text-white' : 'text-[#111111]'}`}>
+    <div className={`flex items-center gap-2 min-w-[200px] max-w-full py-1 ${isOwnMessage ? 'text-white' : 'text-foreground'}`}>
       <button
         type="button"
         onClick={togglePlayPause}
@@ -257,13 +257,13 @@ export const VoiceWaveform = memo(function VoiceWaveform({
       </div>
 
       <div className="flex flex-col items-end gap-0.5 shrink-0">
-        <span className={`text-[10px] font-medium ${isOwnMessage ? 'text-white/80' : 'text-[#8D8D8D]'}`}>
+        <span className={`text-[10px] font-medium ${isOwnMessage ? 'text-white/80' : 'text-muted-foreground'}`}>
           {formatTime(currentTime)} / {formatTime(duration)}
         </span>
         <button
           type="button"
           onClick={cyclePlaybackRate}
-          className={`text-[9px] px-1 py-0.5 rounded font-bold transition-colors ${isOwnMessage ? 'bg-white/20 text-white/90 hover:bg-white/30' : 'bg-[#F5F5F5] text-[#8D8D8D] hover:bg-[#EBEBEB]'
+          className={`text-[9px] px-1 py-0.5 rounded font-bold transition-colors ${isOwnMessage ? 'bg-white/20 text-white/90 hover:bg-white/30' : 'bg-muted text-muted-foreground hover:bg-muted'
             }`}
           aria-label={`Playback speed ${playbackRate}x`}
         >

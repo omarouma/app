@@ -38,13 +38,13 @@ describe('storage', () => {
 
         it('allows videos within the 50MB limit', () => {
             const validVideo = new Blob(['x'.repeat(40 * 1024 * 1024)], { type: 'video/mp4' });
-            const error = validateFileSize(validVideo, 'posts');
+            const error = validateFileSize(validVideo, 'chats');
             expect(error).toBeNull();
         });
 
         it('rejects videos exceeding 50MB', () => {
             const oversizedVideo = new Blob(['x'.repeat(60 * 1024 * 1024)], { type: 'video/mp4' });
-            const error = validateFileSize(oversizedVideo, 'posts');
+            const error = validateFileSize(oversizedVideo, 'chats');
             expect(error).toBeTruthy();
             expect(error).toMatch(/too large/i);
         });
@@ -52,7 +52,7 @@ describe('storage', () => {
         it('prioritizes kind-specific limits over global limits', () => {
             // A 30MB file would fail the old 25MB global cap but passes the 50MB video cap
             const video = new Blob(['x'.repeat(30 * 1024 * 1024)], { type: 'video/mp4' });
-            const error = validateFileSize(video, 'reels');
+            const error = validateFileSize(video, 'chats');
             expect(error).toBeNull();
         });
 

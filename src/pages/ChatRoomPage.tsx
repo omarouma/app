@@ -12,17 +12,17 @@ export default function ChatRoomPage() {
 
   if (!normalizedUserId) {
     return (
-      <div className="h-dvh bg-white flex items-center justify-center px-6">
+      <div className="h-dvh bg-background flex items-center justify-center px-6">
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           className="max-w-sm text-center"
         >
-          <div className="mx-auto mb-3 h-12 w-12 rounded-full bg-gray-100 flex items-center justify-center">
-            <ArrowLeft size={20} className="text-gray-400" />
+          <div className="mx-auto mb-3 h-12 w-12 rounded-full bg-muted flex items-center justify-center">
+            <ArrowLeft size={20} className="text-muted-foreground" />
           </div>
-          <p className="text-base font-medium text-gray-900">This chat is unavailable</p>
-          <p className="mt-2 text-sm text-gray-500">
+          <p className="text-base font-medium text-foreground">This chat is unavailable</p>
+          <p className="mt-2 text-sm text-muted-foreground">
             The requested conversation could not be loaded. Please go back and try again.
           </p>
           <button

@@ -14,6 +14,7 @@ import { isFirestoreAvailable } from '@/lib/firestore';
 import { getDefaultAvatar, sanitizeMediaUrl } from '@/lib/utils';
 import { toast } from 'sonner';
 import { safeGetStorageItem, safeSetStorageItem } from '@/lib/safeStorage';
+import { ImageLightbox } from '@/components/features/chat/ImageLightbox';
 import type { Message, User } from '@/types';
 
 export default function ChatInfoPage() {
@@ -32,6 +33,7 @@ export default function ChatInfoPage() {
   const [showFullParticipants, setShowFullParticipants] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [showSearch, setShowSearch] = useState(false);
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const [disappearingTimer, setDisappearingTimer] = useState<number>(0);
   const [showDisappearingPicker, setShowDisappearingPicker] = useState(false);
   const [isChatLocked, setIsChatLocked] = useState(false);
@@ -251,26 +253,26 @@ export default function ChatInfoPage() {
 
   if (!chat) {
     return (
-      <div className="min-h-[100dvh] bg-[#F5F5F5] flex items-center justify-center">
+      <div className="min-h-[100dvh] bg-muted flex items-center justify-center">
         <div className="text-center">
           <Loader size={32} className="animate-spin text-[#00C300] mx-auto mb-2" />
-          <p className="text-[#8D8D8D] text-sm">Loading chat info...</p>
+          <p className="text-muted-foreground text-sm">Loading chat info...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-[100dvh] bg-[#F5F5F5]">
+    <div className="min-h-[100dvh] bg-muted">
       {/* Header */}
-      <div className="bg-white border-b border-[#EBEBEB] sticky top-0 z-10">
+      <div className="bg-background border-b border-border sticky top-0 z-10">
         <div className="flex items-center gap-3 p-4">
-          <button type="button" onClick={() => navigate(-1)} aria-label="Go back" className="p-2 -ml-2 hover:bg-[#F5F5F5] rounded-full text-[#111111]">
+          <button type="button" onClick={() => navigate(-1)} aria-label="Go back" className="p-2 -ml-2 hover:bg-muted rounded-full text-foreground">
             <ArrowLeft size={22} />
           </button>
-          <h1 className="text-lg font-bold text-[#111111] flex-1">Chat Info</h1>
+          <h1 className="text-lg font-bold text-foreground flex-1">Chat Info</h1>
           <button type="button" onClick={() => setShowSearch(!showSearch)} aria-label={showSearch ? 'Close search' : 'Open search'}
-            className="p-2 hover:bg-[#F5F5F5] rounded-full text-[#8D8D8D]"
+            className="p-2 hover:bg-muted rounded-full text-muted-foreground"
           >
             {showSearch ? <X size={20} /> : <Search size={20} />}
           </button>
@@ -282,7 +284,7 @@ export default function ChatInfoPage() {
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search participants..."
               autoFocus
-              className="w-full bg-[#F5F5F5] rounded-xl px-4 py-2.5 text-sm text-[#111111] focus:outline-none focus:ring-2 focus:ring-[#00C300] placeholder:text-[#8D8D8D]"
+              className="w-full bg-muted rounded-xl px-4 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-[#00C300] placeholder:text-muted-foreground"
             />
           </motion.div>
         )}
@@ -293,9 +295,9 @@ export default function ChatInfoPage() {
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-white rounded-2xl border border-[#EBEBEB] p-6 text-center"
+          className="bg-background rounded-2xl border border-border p-6 text-center"
         >
-          <div className="w-20 h-20 rounded-full bg-[#F5F5F5] mx-auto mb-3 overflow-hidden flex items-center justify-center">
+          <div className="w-20 h-20 rounded-full bg-muted mx-auto mb-3 overflow-hidden flex items-center justify-center">
             {isDirect && otherUser ? (
               sanitizeMediaUrl(otherUser.avatar) ? (
                 <img src={sanitizeMediaUrl(otherUser.avatar)} className="w-full h-full object-cover" alt="User avatar" />
@@ -305,19 +307,19 @@ export default function ChatInfoPage() {
             ) : chat.avatar ? (
               <img src={sanitizeMediaUrl(chat.avatar)} className="w-full h-full object-cover" alt="User avatar" />
             ) : (
-              <Users size={32} className="text-[#8D8D8D]" />
+              <Users size={32} className="text-muted-foreground" />
             )}
           </div>
-          <h2 className="text-xl font-bold text-[#111111]">
+          <h2 className="text-xl font-bold text-foreground">
             {isDirect && otherUser ? otherUser.name : chat.name || 'Chat'}
           </h2>
-          <p className="text-[#8D8D8D] text-sm mt-1">
+          <p className="text-muted-foreground text-sm mt-1">
             {isDirect && otherUser
               ? (otherUser.statusMessage || 'Direct Message')
               : `${participants.length} members · ${isGroup ? 'Group' : 'Direct'}`}
           </p>
           {isDirect && otherUser?.username && (
-            <p className="text-[#8D8D8D] text-xs mt-0.5">@{otherUser.username}</p>
+            <p className="text-muted-foreground text-xs mt-0.5">@{otherUser.username}</p>
           )}
           {isDirect && otherUser && (
             <button
@@ -325,7 +327,7 @@ export default function ChatInfoPage() {
               onClick={handleToggleFavorite}
               className={`mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${isFavorited
                 ? 'bg-yellow-100 text-yellow-700 hover:bg-yellow-200'
-                : 'bg-[#F5F5F5] text-[#8D8D8D] hover:bg-[#EBEBEB]'
+                : 'bg-muted text-muted-foreground hover:bg-muted'
                 }`}
             >
               <Star size={14} className={isFavorited ? 'fill-yellow-500 text-yellow-500' : ''} />
@@ -339,25 +341,25 @@ export default function ChatInfoPage() {
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          className="bg-white rounded-2xl border border-[#EBEBEB] overflow-hidden"
+          className="bg-background rounded-2xl border border-border overflow-hidden"
         >
-          <div className="flex items-center justify-between p-4 border-b border-[#EBEBEB]">
+          <div className="flex items-center justify-between p-4 border-b border-border">
             <div className="flex items-center gap-2">
               <Users size={18} className="text-[#00C300]" />
-              <h3 className="text-[#111111] font-semibold text-sm">Participants</h3>
+              <h3 className="text-foreground font-semibold text-sm">Participants</h3>
             </div>
-            <span className="text-[#8D8D8D] text-xs">{participants.length}</span>
+            <span className="text-muted-foreground text-xs">{participants.length}</span>
           </div>
-          <div className="divide-y divide-[#EBEBEB]">
+          <div className="divide-y divide-border">
             {(showFullParticipants ? filteredParticipants : filteredParticipants.slice(0, 5)).map(p => (
               <button type="button" key={p.id}
                 onClick={() => {
                   if (p.id === currentUser?.id) navigate('/profile');
                   else navigate(`/profile/${p.id}`);
                 }}
-                className="w-full flex items-center gap-3 p-3 hover:bg-[#F5F5F5] transition-colors text-left"
+                className="w-full flex items-center gap-3 p-3 hover:bg-muted transition-colors text-left"
               >
-                <div className="w-10 h-10 rounded-full bg-[#F5F5F5] overflow-hidden flex items-center justify-center shrink-0">
+                <div className="w-10 h-10 rounded-full bg-muted overflow-hidden flex items-center justify-center shrink-0">
                   {sanitizeMediaUrl(p.avatar) ? (
                     <img src={sanitizeMediaUrl(p.avatar)} className="w-full h-full object-cover" alt="User avatar" />
                   ) : (
@@ -365,21 +367,21 @@ export default function ChatInfoPage() {
                   )}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-[#111111] text-sm font-medium truncate">
-                    {p.name} {p.id === currentUser?.id && <span className="text-[#8D8D8D] text-xs">(You)</span>}
+                  <p className="text-foreground text-sm font-medium truncate">
+                    {p.name} {p.id === currentUser?.id && <span className="text-muted-foreground text-xs">(You)</span>}
                   </p>
-                  <p className="text-[#8D8D8D] text-xs truncate">@{p.username || 'user'}</p>
+                  <p className="text-muted-foreground text-xs truncate">@{p.username || 'user'}</p>
                 </div>
                 {p.id === currentUser?.id && (
                   <span className="text-[10px] bg-[#00C300]/10 text-[#00C300] px-2 py-0.5 rounded-full font-medium">Admin</span>
                 )}
-                <ChevronRight size={16} className="text-[#C7C7CC] shrink-0" />
+                <ChevronRight size={16} className="text-muted-foreground shrink-0" />
               </button>
             ))}
           </div>
           {filteredParticipants.length > 5 && (
             <button type="button" onClick={() => setShowFullParticipants(!showFullParticipants)}
-              className="w-full py-3 text-[#00C300] text-sm font-medium hover:bg-[#F5F5F5] transition-colors"
+              className="w-full py-3 text-[#00C300] text-sm font-medium hover:bg-muted transition-colors"
             >
               {showFullParticipants ? 'Show Less' : `Show All (${filteredParticipants.length})`}
             </button>
@@ -391,10 +393,10 @@ export default function ChatInfoPage() {
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
-          className="bg-white rounded-2xl border border-[#EBEBEB] overflow-hidden"
+          className="bg-background rounded-2xl border border-border overflow-hidden"
         >
           {/* Tabs */}
-          <div className="flex border-b border-[#EBEBEB]">
+          <div className="flex border-b border-border">
             {([
               { key: 'media' as const, label: 'Media', icon: ImageIcon, count: mediaMessages.length },
               { key: 'files' as const, label: 'Files', icon: FileText, count: fileMessages.length },
@@ -402,7 +404,7 @@ export default function ChatInfoPage() {
             ]).map(t => (
               <button type="button" key={t.key}
                 onClick={() => setActiveMediaTab(t.key)}
-                className={`flex-1 flex items-center justify-center gap-1.5 py-3 text-xs font-medium transition-colors ${activeMediaTab === t.key ? 'text-[#00C300] border-b-2 border-[#00C300]' : 'text-[#8D8D8D]'
+                className={`flex-1 flex items-center justify-center gap-1.5 py-3 text-xs font-medium transition-colors ${activeMediaTab === t.key ? 'text-[#00C300] border-b-2 border-[#00C300]' : 'text-muted-foreground'
                   }`}
               >
                 <t.icon size={14} /> {t.label} ({t.count})
@@ -417,23 +419,31 @@ export default function ChatInfoPage() {
               </div>
             ) : activeMediaTab === 'media' ? (
               mediaMessages.length === 0 ? (
-                <p className="text-[#8D8D8D] text-sm text-center py-6">No shared media</p>
+                <p className="text-muted-foreground text-sm text-center py-6">No shared media</p>
               ) : (
                 <div className="grid grid-cols-3 gap-1">
                   {mediaMessages.map(m => (
-                    <a key={m.id} href={m.mediaUrl} target="_blank" rel="noopener noreferrer" className="aspect-square bg-[#F5F5F5] rounded-lg overflow-hidden hover:opacity-90 transition-opacity">
-                      {m.type === 'image' ? (
-                        <img src={m.mediaUrl} className="w-full h-full object-cover" alt="Shared image" />
-                      ) : (
+                    m.type === 'image' ? (
+                      <button
+                        key={m.id}
+                        type="button"
+                        onClick={() => setLightboxUrl(sanitizeMediaUrl(m.mediaUrl) ?? null)}
+                        className="aspect-square bg-muted rounded-lg overflow-hidden hover:opacity-90 transition-opacity"
+                        aria-label="View shared image"
+                      >
+                        <img src={sanitizeMediaUrl(m.mediaUrl)} className="w-full h-full object-cover" alt="Shared image" loading="lazy" />
+                      </button>
+                    ) : (
+                      <a key={m.id} href={m.mediaUrl} target="_blank" rel="noopener noreferrer" className="aspect-square bg-muted rounded-lg overflow-hidden hover:opacity-90 transition-opacity">
                         <video src={m.mediaUrl} className="w-full h-full object-cover" />
-                      )}
-                    </a>
+                      </a>
+                    )
                   ))}
                 </div>
               )
             ) : activeMediaTab === 'files' ? (
               fileMessages.length === 0 ? (
-                <p className="text-[#8D8D8D] text-sm text-center py-6">No shared files</p>
+                <p className="text-muted-foreground text-sm text-center py-6">No shared files</p>
               ) : (
                 <div className="space-y-1">
                   {fileMessages.map(m => (
@@ -442,17 +452,17 @@ export default function ChatInfoPage() {
                       href={m.mediaUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-[#F5F5F5] transition-colors"
+                      className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-muted transition-colors"
                     >
                       <FileText size={18} className="text-[#8B5CF6] shrink-0" />
-                      <span className="text-[#111111] text-sm truncate">{m.content.replace('📁 ', '')}</span>
+                      <span className="text-foreground text-sm truncate">{m.content.replace('📁 ', '')}</span>
                     </a>
                   ))}
                 </div>
               )
             ) : (
               linkMessages.length === 0 ? (
-                <p className="text-[#8D8D8D] text-sm text-center py-6">No shared links</p>
+                <p className="text-muted-foreground text-sm text-center py-6">No shared links</p>
               ) : (
                 <div className="space-y-1">
                   {linkMessages.map(m => {
@@ -463,10 +473,10 @@ export default function ChatInfoPage() {
                         href={url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-[#F5F5F5] transition-colors"
+                        className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-muted transition-colors"
                       >
                         <Link size={18} className="text-[#2196F3] shrink-0" />
-                        <span className="text-[#111111] text-sm truncate">{url}</span>
+                        <span className="text-foreground text-sm truncate">{url}</span>
                       </a>
                     );
                   })}
@@ -481,44 +491,44 @@ export default function ChatInfoPage() {
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3 }}
-          className="bg-white rounded-2xl border border-[#EBEBEB] overflow-hidden"
+          className="bg-background rounded-2xl border border-border overflow-hidden"
         >
-          <div className="p-4 border-b border-[#EBEBEB]">
-            <h3 className="text-[#111111] font-semibold text-sm">Chat Settings</h3>
+          <div className="p-4 border-b border-border">
+            <h3 className="text-foreground font-semibold text-sm">Chat Settings</h3>
           </div>
-          <div className="divide-y divide-[#EBEBEB]">
-            <button type="button" onClick={() => setShowDisappearingPicker(true)} className="w-full flex items-center gap-3 p-4 hover:bg-[#F5F5F5] transition-colors text-left">
+          <div className="divide-y divide-border">
+            <button type="button" onClick={() => setShowDisappearingPicker(true)} className="w-full flex items-center gap-3 p-4 hover:bg-muted transition-colors text-left">
               <Clock size={18} className="text-[#FF9800]" />
               <div className="flex-1">
-                <p className="text-[#111111] text-sm font-medium">Disappearing Messages</p>
-                <p className="text-[#8D8D8D] text-xs">
+                <p className="text-foreground text-sm font-medium">Disappearing Messages</p>
+                <p className="text-muted-foreground text-xs">
                   {disappearingTimer === 0 ? 'Off' : disappearingTimer === 86400 ? '24 hours' : disappearingTimer === 604800 ? '7 days' : '90 days'}
                 </p>
               </div>
             </button>
-            <button type="button" onClick={handleToggleChatLock} className="w-full flex items-center gap-3 p-4 hover:bg-[#F5F5F5] transition-colors text-left">
-              {isChatLocked ? <Lock size={18} className="text-[#FF3B30]" /> : <Unlock size={18} className="text-[#8D8D8D]" />}
+            <button type="button" onClick={handleToggleChatLock} className="w-full flex items-center gap-3 p-4 hover:bg-muted transition-colors text-left">
+              {isChatLocked ? <Lock size={18} className="text-[#FF3B30]" /> : <Unlock size={18} className="text-muted-foreground" />}
               <div className="flex-1">
-                <p className="text-[#111111] text-sm font-medium">{isChatLocked ? 'Chat Locked' : 'Lock Chat'}</p>
-                <p className="text-[#8D8D8D] text-xs">{isChatLocked ? 'Requires PIN to open' : 'Protect with a PIN'}</p>
+                <p className="text-foreground text-sm font-medium">{isChatLocked ? 'Chat Locked' : 'Lock Chat'}</p>
+                <p className="text-muted-foreground text-xs">{isChatLocked ? 'Requires PIN to open' : 'Protect with a PIN'}</p>
               </div>
             </button>
             <button type="button" onClick={handleToggleMute}
-              className="w-full flex items-center gap-3 p-4 hover:bg-[#F5F5F5] transition-colors text-left"
+              className="w-full flex items-center gap-3 p-4 hover:bg-muted transition-colors text-left"
             >
               {isMuted ? <VolumeX size={18} className="text-[#FF3B30]" /> : <Volume2 size={18} className="text-[#00C300]" />}
               <div className="flex-1">
-                <p className="text-[#111111] text-sm font-medium">{isMuted ? 'Unmute Notifications' : 'Mute Notifications'}</p>
-                <p className="text-[#8D8D8D] text-xs">{isMuted ? 'Notifications are muted' : 'Tap to mute this chat'}</p>
+                <p className="text-foreground text-sm font-medium">{isMuted ? 'Unmute Notifications' : 'Mute Notifications'}</p>
+                <p className="text-muted-foreground text-xs">{isMuted ? 'Notifications are muted' : 'Tap to mute this chat'}</p>
               </div>
             </button>
             <button type="button" onClick={handleExportChat}
-              className="w-full flex items-center gap-3 p-4 hover:bg-[#F5F5F5] transition-colors text-left"
+              className="w-full flex items-center gap-3 p-4 hover:bg-muted transition-colors text-left"
             >
               <Download size={18} className="text-[#2196F3]" />
               <div className="flex-1">
-                <p className="text-[#111111] text-sm font-medium">Export Chat</p>
-                <p className="text-[#8D8D8D] text-xs">Download chat history as JSON</p>
+                <p className="text-foreground text-sm font-medium">Export Chat</p>
+                <p className="text-muted-foreground text-xs">Download chat history as JSON</p>
               </div>
             </button>
             <button type="button" onClick={() => {
@@ -530,21 +540,21 @@ export default function ChatInfoPage() {
                 toast.success('Chat archived');
               }
             }}
-              className="w-full flex items-center gap-3 p-4 hover:bg-[#F5F5F5] transition-colors text-left"
+              className="w-full flex items-center gap-3 p-4 hover:bg-muted transition-colors text-left"
             >
-              {chat?.archived ? <RotateCcw size={18} className="text-[#00C300]" /> : <Archive size={18} className="text-[#8D8D8D]" />}
+              {chat?.archived ? <RotateCcw size={18} className="text-[#00C300]" /> : <Archive size={18} className="text-muted-foreground" />}
               <div className="flex-1">
-                <p className="text-[#111111] text-sm font-medium">{chat?.archived ? 'Unarchive Chat' : 'Archive Chat'}</p>
-                <p className="text-[#8D8D8D] text-xs">{chat?.archived ? 'Restore this chat to your main list' : 'Hide this chat from your main list'}</p>
+                <p className="text-foreground text-sm font-medium">{chat?.archived ? 'Unarchive Chat' : 'Archive Chat'}</p>
+                <p className="text-muted-foreground text-xs">{chat?.archived ? 'Restore this chat to your main list' : 'Hide this chat from your main list'}</p>
               </div>
             </button>
             <button type="button" onClick={() => setShowClearConfirm(true)}
-              className="w-full flex items-center gap-3 p-4 hover:bg-[#F5F5F5] transition-colors text-left"
+              className="w-full flex items-center gap-3 p-4 hover:bg-muted transition-colors text-left"
             >
               <Trash2 size={18} className="text-[#FF3B30]" />
               <div className="flex-1">
-                <p className="text-[#111111] text-sm font-medium">Clear Chat</p>
-                <p className="text-[#8D8D8D] text-xs">Delete all messages in this chat</p>
+                <p className="text-foreground text-sm font-medium">Clear Chat</p>
+                <p className="text-muted-foreground text-xs">Delete all messages in this chat</p>
               </div>
             </button>
           </div>
@@ -565,14 +575,14 @@ export default function ChatInfoPage() {
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-white rounded-2xl p-6 max-w-sm w-full"
+              className="bg-background rounded-2xl p-6 max-w-sm w-full"
               onClick={e => e.stopPropagation()}
             >
-              <h3 className="text-lg font-bold text-[#111111] mb-2">Clear Chat?</h3>
-              <p className="text-[#8D8D8D] text-sm mb-4">This will permanently delete all messages in this chat. This action cannot be undone.</p>
+              <h3 className="text-lg font-bold text-foreground mb-2">Clear Chat?</h3>
+              <p className="text-muted-foreground text-sm mb-4">This will permanently delete all messages in this chat. This action cannot be undone.</p>
               <div className="flex gap-2">
                 <button type="button" onClick={() => setShowClearConfirm(false)}
-                  className="flex-1 py-3 bg-[#F5F5F5] text-[#111111] rounded-xl text-sm font-bold"
+                  className="flex-1 py-3 bg-muted text-foreground rounded-xl text-sm font-bold"
                 >
                   Cancel
                 </button>
@@ -601,10 +611,10 @@ export default function ChatInfoPage() {
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-white rounded-2xl p-6 max-w-sm w-full"
+              className="bg-background rounded-2xl p-6 max-w-sm w-full"
               onClick={e => e.stopPropagation()}
             >
-              <h3 className="text-lg font-bold text-[#111111] mb-4">Disappearing Messages</h3>
+              <h3 className="text-lg font-bold text-foreground mb-4">Disappearing Messages</h3>
               <div className="space-y-2 mb-4">
                 {([
                   { label: 'Off', value: 0, desc: 'Messages never disappear' },
@@ -616,21 +626,21 @@ export default function ChatInfoPage() {
                     type="button"
                     key={opt.value}
                     onClick={() => handleSetDisappearing(opt.value)}
-                    className={`w-full flex items-center gap-3 p-3 rounded-xl text-left transition-colors ${disappearingTimer === opt.value ? 'bg-[#00C300]/10 border border-[#00C300]/30' : 'hover:bg-[#F5F5F5]'
+                    className={`w-full flex items-center gap-3 p-3 rounded-xl text-left transition-colors ${disappearingTimer === opt.value ? 'bg-[#00C300]/10 border border-[#00C300]/30' : 'hover:bg-muted'
                       }`}
                   >
                     <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${disappearingTimer === opt.value ? 'border-[#00C300]' : 'border-[#C7C7CC]'}`}>
                       {disappearingTimer === opt.value && <div className="w-2.5 h-2.5 rounded-full bg-[#00C300]" />}
                     </div>
                     <div className="flex-1">
-                      <p className="text-[#111111] text-sm font-medium">{opt.label}</p>
-                      <p className="text-[#8D8D8D] text-xs">{opt.desc}</p>
+                      <p className="text-foreground text-sm font-medium">{opt.label}</p>
+                      <p className="text-muted-foreground text-xs">{opt.desc}</p>
                     </div>
                   </button>
                 ))}
               </div>
               <button type="button" onClick={() => setShowDisappearingPicker(false)}
-                className="w-full py-3 bg-[#F5F5F5] text-[#111111] rounded-xl text-sm font-bold"
+                className="w-full py-3 bg-muted text-foreground rounded-xl text-sm font-bold"
               >
                 Cancel
               </button>
@@ -653,11 +663,11 @@ export default function ChatInfoPage() {
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-white rounded-2xl p-6 max-w-sm w-full"
+              className="bg-background rounded-2xl p-6 max-w-sm w-full"
               onClick={e => e.stopPropagation()}
             >
-              <h3 className="text-lg font-bold text-[#111111] mb-2">Lock Chat</h3>
-              <p className="text-[#8D8D8D] text-sm mb-4">Set a 4-digit PIN to protect this chat.</p>
+              <h3 className="text-lg font-bold text-foreground mb-2">Lock Chat</h3>
+              <p className="text-muted-foreground text-sm mb-4">Set a 4-digit PIN to protect this chat.</p>
               <input
                 type="password"
                 inputMode="numeric"
@@ -665,11 +675,11 @@ export default function ChatInfoPage() {
                 value={lockPinInput}
                 onChange={(e) => setLockPinInput(e.target.value.replace(/\D/g, '').slice(0, 4))}
                 placeholder="Enter 4-digit PIN"
-                className="w-full bg-[#F5F5F5] rounded-xl px-4 py-3 text-center text-lg font-bold tracking-[0.5em] text-[#111111] focus:outline-none focus:ring-2 focus:ring-[#00C300] placeholder:text-[#8D8D8D] placeholder:tracking-normal placeholder:text-sm mb-4"
+                className="w-full bg-muted rounded-xl px-4 py-3 text-center text-lg font-bold tracking-[0.5em] text-foreground focus:outline-none focus:ring-2 focus:ring-[#00C300] placeholder:text-muted-foreground placeholder:tracking-normal placeholder:text-sm mb-4"
               />
               <div className="flex gap-2">
                 <button type="button" onClick={() => setShowLockConfirm(false)}
-                  className="flex-1 py-3 bg-[#F5F5F5] text-[#111111] rounded-xl text-sm font-bold"
+                  className="flex-1 py-3 bg-muted text-foreground rounded-xl text-sm font-bold"
                 >
                   Cancel
                 </button>
@@ -705,11 +715,11 @@ export default function ChatInfoPage() {
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-white rounded-2xl p-6 max-w-sm w-full"
+              className="bg-background rounded-2xl p-6 max-w-sm w-full"
               onClick={e => e.stopPropagation()}
             >
-              <h3 className="text-lg font-bold text-[#111111] mb-2">Unlock Chat</h3>
-              <p className="text-[#8D8D8D] text-sm mb-4">Enter your 4-digit PIN to unlock this chat.</p>
+              <h3 className="text-lg font-bold text-foreground mb-2">Unlock Chat</h3>
+              <p className="text-muted-foreground text-sm mb-4">Enter your 4-digit PIN to unlock this chat.</p>
               <input
                 type="password"
                 inputMode="numeric"
@@ -717,12 +727,12 @@ export default function ChatInfoPage() {
                 value={unlockPinInput}
                 onChange={(e) => { setUnlockPinInput(e.target.value.replace(/\D/g, '').slice(0, 4)); setUnlockPinError(''); }}
                 placeholder="Enter 4-digit PIN"
-                className="w-full bg-[#F5F5F5] rounded-xl px-4 py-3 text-center text-lg font-bold tracking-[0.5em] text-[#111111] focus:outline-none focus:ring-2 focus:ring-[#00C300] placeholder:text-[#8D8D8D] placeholder:tracking-normal placeholder:text-sm mb-2"
+                className="w-full bg-muted rounded-xl px-4 py-3 text-center text-lg font-bold tracking-[0.5em] text-foreground focus:outline-none focus:ring-2 focus:ring-[#00C300] placeholder:text-muted-foreground placeholder:tracking-normal placeholder:text-sm mb-2"
               />
               {unlockPinError && <p className="text-[#FF3B30] text-xs mb-3">{unlockPinError}</p>}
               <div className="flex gap-2 mt-2">
                 <button type="button" onClick={() => setShowUnlockConfirm(false)}
-                  className="flex-1 py-3 bg-[#F5F5F5] text-[#111111] rounded-xl text-sm font-bold"
+                  className="flex-1 py-3 bg-muted text-foreground rounded-xl text-sm font-bold"
                 >
                   Cancel
                 </button>
@@ -738,6 +748,9 @@ export default function ChatInfoPage() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Full-screen image viewer */}
+      <ImageLightbox url={lightboxUrl} onClose={() => setLightboxUrl(null)} />
     </div>
   );
 }

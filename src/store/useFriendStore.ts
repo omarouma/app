@@ -132,6 +132,15 @@ const mapUser = (u: Record<string, unknown>): User => ({
   chatLockPins: (u.chatLockPins as Record<string, string>) || {},
   broadcastLists: (u.broadcastLists as string[]) || [],
   contactsOnlyInApp: (u.contactsOnlyInApp as string[]) || [],
+  isBusiness: (u.isBusiness as boolean) || false,
+  businessName: (u.businessName as string) || '',
+  businessCategory: (u.businessCategory as string) || '',
+  businessDescription: (u.businessDescription as string) || '',
+  businessAddress: (u.businessAddress as string) || '',
+  businessHours: (u.businessHours as string) || '',
+  businessWebsite: (u.businessWebsite as string) || '',
+  businessEmail: (u.businessEmail as string) || '',
+  businessPhone: (u.businessPhone as string) || '',
 });
 
 // Module-level batch fetch — reused by subscribe callbacks and one-shot getters

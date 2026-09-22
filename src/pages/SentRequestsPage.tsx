@@ -36,14 +36,14 @@ export default function SentRequestsPage() {
   };
 
   return (
-    <div className="min-h-[100dvh] bg-[#F5F5F5] flex flex-col">
+    <div className="min-h-[100dvh] bg-muted flex flex-col">
       {/* Header */}
-      <div className="bg-white border-b border-[#EBEBEB] flex items-center gap-3 p-4 sticky top-0 z-10">
-        <button type="button" onClick={() => navigate(-1)} className="p-2 -ml-2 active:bg-gray-100 rounded-full text-[#111111]">
+      <div className="bg-background border-b border-border flex items-center gap-3 p-4 sticky top-0 z-10">
+        <button type="button" onClick={() => navigate(-1)} className="p-2 -ml-2 active:bg-muted rounded-full text-foreground">
           <ArrowLeft size={22} />
         </button>
-        <h1 className="text-lg font-bold text-[#111111]">Sent Requests</h1>
-        <span className="ml-auto text-xs text-[#8D8D8D] font-medium">{sentRequests.length} pending</span>
+        <h1 className="text-lg font-bold text-foreground">Sent Requests</h1>
+        <span className="ml-auto text-xs text-muted-foreground font-medium">{sentRequests.length} pending</span>
       </div>
 
       <div className="flex-1 p-4 space-y-3">
@@ -85,9 +85,9 @@ export default function SentRequestsPage() {
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: i * 0.05 }}
-                  className="bg-white border border-[#EBEBEB] rounded-xl p-4 flex items-center gap-3"
+                  className="bg-background border border-border rounded-xl p-4 flex items-center gap-3"
                 >
-                  <div className="w-12 h-12 rounded-full bg-[#F5F5F5] flex items-center justify-center overflow-hidden shrink-0">
+                  <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center overflow-hidden shrink-0">
                     {sanitizeMediaUrl(req.toUser?.avatar) ? (
                       <img src={sanitizeMediaUrl(req.toUser?.avatar)} className="w-full h-full object-cover" alt="User avatar" />
                     ) : (
@@ -95,13 +95,13 @@ export default function SentRequestsPage() {
                     )}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-[#111111] text-sm font-medium">{req.toUser?.name || 'User'}</p>
-                    <p className="text-[#8D8D8D] text-xs">@{req.toUser?.username || req.toUserId.slice(0, 8)}</p>
-                    {req.toUser?.bio && <p className="text-[#8D8D8D] text-[11px] mt-0.5 truncate">{req.toUser.bio}</p>}
-                    <p className="text-[#8D8D8D] text-[10px] mt-0.5">Sent {formatTime(req.timestamp)}</p>
+                    <p className="text-foreground text-sm font-medium">{req.toUser?.name || 'User'}</p>
+                    <p className="text-muted-foreground text-xs">@{req.toUser?.username || req.toUserId.slice(0, 8)}</p>
+                    {req.toUser?.bio && <p className="text-muted-foreground text-[11px] mt-0.5 truncate">{req.toUser.bio}</p>}
+                    <p className="text-muted-foreground text-[10px] mt-0.5">Sent {formatTime(req.timestamp)}</p>
                   </div>
                   <button type="button" onClick={() => handleCancel(req.id)}
-                    className="flex items-center gap-1 px-3 py-1.5 bg-[#F5F5F5] text-[#FF3B30] text-xs rounded-full font-medium active:bg-gray-100 transition-colors"
+                    className="flex items-center gap-1 px-3 py-1.5 bg-muted text-[#FF3B30] text-xs rounded-full font-medium active:bg-muted transition-colors"
                   >
                     <X size={12} /> Cancel
                   </button>

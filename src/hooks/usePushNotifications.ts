@@ -1,5 +1,11 @@
 import { useEffect, useCallback } from 'react';
 import { pushNotificationService } from '@/services/pushNotificationService';
+import {
+  registerNativePush,
+  unregisterNativePush,
+  setNativePushUser,
+  isNativePlatform,
+} from '@/services/nativePush';
 import { useAuthStore } from '@/store/useAuthStore';
 import { getSupabaseSafe } from '@/lib/supabase';
 
@@ -35,7 +41,23 @@ export function usePushNotifications() {
   }, []);
 
   useEffect(() => {
-    if (!user?.id) return;
+    if (!user?.id) {
+      // Sign-out: drop the native push registration.
+      setNativePushUser(null);
+      void unregisterNativePush();
+      return;
+    }
+
+    // ── Native (Android/iOS) path: FCM via Capacitor PushNotifications ──
+    if (isNativePlatform()) {
+      setNativePushUser(user.id);
+      void registerNativePush(user.id, true).then((reg) => {
+        if (reg) console.debug('[Push] Native FCM token registered.');
+      });
+      return;
+    }
+
+    // ── Web path: Web Push (VAPID) ──
     init().then(async () => {
       if (Notification.permission !== 'granted') return;
       const sub = await pushNotificationService.subscribeToPush();
@@ -44,6 +66,11 @@ export function usePushNotifications() {
   }, [user?.id, init]);
 
   const requestPermission = useCallback(async () => {
+    // Native: prompt via the OS dialog through the plugin.
+    if (isNativePlatform() && user?.id) {
+      const reg = await registerNativePush(user.id, true);
+      return !!reg;
+    }
     const granted = await pushNotificationService.requestPermission();
     if (granted && user?.id) {
       const sub = await pushNotificationService.subscribeToPush();
@@ -55,8 +82,8 @@ export function usePushNotifications() {
 
   return {
     requestPermission,
-    isSupported: pushNotificationService.isSupported(),
-    canSend: pushNotificationService.canSend(),
+    isSupported: isNativePlatform() || pushNotificationService.isSupported(),
+    canSend: isNativePlatform() || pushNotificationService.canSend(),
   };
 }
 

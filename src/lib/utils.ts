@@ -69,3 +69,28 @@ export function sanitizeText(input: string | undefined | null): string {
 }
 
 export const BD_TK_RATE = 0.85;
+
+/**
+ * Human-readable preview text for a message, used in the chat list.
+ * Media messages store empty content, so we substitute a type label.
+ */
+export function getMessagePreview(
+  type: string | undefined,
+  content: string | undefined | null,
+): string {
+  const text = (content ?? '').trim();
+  if (text) return text;
+  switch (type) {
+    case 'image': return '📷 Photo';
+    case 'video': return '🎥 Video';
+    case 'voice': return '🎤 Voice message';
+    case 'file': return '📎 File';
+    case 'sticker': return '🩵 Sticker';
+    case 'location': return '📍 Location';
+    case 'contact_card': return '👤 Contact';
+    case 'money_transfer': return '💸 Money transfer';
+    case 'poll': return '📊 Poll';
+    case 'deleted': return 'This message was deleted';
+    default: return '';
+  }
+}

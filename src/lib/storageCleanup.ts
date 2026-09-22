@@ -20,14 +20,6 @@ export function runStorageCleanup(): void {
       draftKeys.slice(0, draftKeys.length - 50).forEach((k: string) => safeRemoveStorageItem(k));
     }
 
-    // Remove expired reel draft (older than 1 day)
-    try {
-      const reelDraft = safeGetStorageItem('gaga_reel_draft');
-      if (reelDraft) {
-        const parsed = JSON.parse(reelDraft) as { savedAt?: number };
-        if (parsed.savedAt && now - parsed.savedAt > DAY) safeRemoveStorageItem('gaga_reel_draft');
-      }
-    } catch { /* ignore */ }
 
     // Remove scheduled messages older than 7 days
     // Key matches useScheduledMessages.ts: 'gaga_scheduled_messages'

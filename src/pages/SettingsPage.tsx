@@ -23,7 +23,7 @@ import type { LangCode } from '@/lib/i18n';
 import type { ThemeSettings } from '@/types';
 import Logo from '@/components/Logo';
 import { previewSound, type SoundProfile, isVibrationSupported } from '@/lib/sounds';
-import { deleteAccount } from '@/lib/supabaseAuth';
+import { deleteAccount, reauthenticate } from '@/lib/supabaseAuth';
 import { toast } from 'sonner';
 
 const accentColors = [
@@ -99,6 +99,7 @@ export default function SettingsPage() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showLicenses, setShowLicenses] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
+  const [deletePassword, setDeletePassword] = useState('');
 
   const [tempSettings, setTempSettings] = useState<Partial<ThemeSettings>>({});
   const [tempLang, setTempLang] = useState<LangCode>(settings.language as LangCode || 'en');
@@ -133,12 +134,12 @@ export default function SettingsPage() {
       const { getSupabaseSafe } = await import('@/lib/supabase');
       const supabase = getSupabaseSafe();
       if (!supabase || !user?.id) throw new Error('Not authenticated');
-      const [{ data: profile }, { data: messages }, { data: posts }] = await Promise.all([
+      const [{ data: profile }, { data: messages }, { data: chats }] = await Promise.all([
         supabase.from('public_profiles').select('*').eq('id', user.id).single(),
         supabase.from('messages').select('id,content,type,created_at').eq('sender_id', user.id).limit(500),
-        supabase.from('posts').select('id,content,created_at').eq('user_id', user.id).limit(200),
+        supabase.from('chats').select('id,type,created_at,updated_at').contains('participants', [user.id]).limit(200),
       ]);
-      const exportData = { exportedAt: new Date().toISOString(), profile, messages: messages ?? [], posts: posts ?? [] };
+      const exportData = { exportedAt: new Date().toISOString(), profile, messages: messages ?? [], chats: chats ?? [] };
       const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -161,8 +162,18 @@ export default function SettingsPage() {
       toast.error('Please type DELETE to confirm');
       return;
     }
+    if (!deletePassword) {
+      toast.error('Please enter your password to confirm');
+      return;
+    }
     setLoading(true);
     try {
+      // Security gate: re-authenticate before a destructive, irreversible action.
+      const reauth = await reauthenticate(deletePassword);
+      if (!reauth.success) {
+        toast.error(reauth.error || 'Re-authentication failed');
+        return;
+      }
       await deleteAccount();
       toast.success('Account deleted');
       await logout();
@@ -171,7 +182,7 @@ export default function SettingsPage() {
     } finally {
       setLoading(false);
     }
-  }, [deleteConfirmText, logout]);
+  }, [deleteConfirmText, deletePassword, logout]);
 
   const currentTheme = settings.theme || 'light';
   const currentAccent = settings.accentColor || '#00C300';
@@ -513,7 +524,7 @@ export default function SettingsPage() {
                       className={`w-11 h-6 rounded-full transition-colors relative shrink-0 ${settings.notifications.callSound ? 'bg-primary' : 'bg-muted'}`}
                       aria-pressed={settings.notifications.callSound}
                     >
-                      <div className={`w-4 h-4 rounded-full bg-white absolute top-1 transition-all ${settings.notifications.callSound ? 'left-5' : 'left-1'}`} />
+                      <div className={`w-4 h-4 rounded-full bg-background absolute top-1 transition-all ${settings.notifications.callSound ? 'left-5' : 'left-1'}`} />
                     </button>
                   ))}
                   {isVibrationSupported() && settingItem('Vibration', Smartphone, (
@@ -690,21 +701,29 @@ export default function SettingsPage() {
                   <AlertTriangle size={28} className="text-red-500" />
                 </div>
                 <h3 className="text-lg sm:text-xl font-bold text-foreground text-center mb-2">Delete Account?</h3>
-                <p className="text-sm text-muted-foreground text-center mb-6 leading-relaxed">This will permanently delete your account and all data. Type DELETE to confirm.</p>
+                <p className="text-sm text-muted-foreground text-center mb-6 leading-relaxed">This will permanently delete your account and all data. This action cannot be undone. Type DELETE and enter your password to confirm.</p>
                 <input
                   type="text"
                   value={deleteConfirmText}
                   onChange={e => setDeleteConfirmText(e.target.value)}
                   placeholder="DELETE"
-                  className="w-full px-4 py-3 rounded-xl input-surface text-sm mb-5 tracking-widest text-center font-bold"
+                  className="w-full px-4 py-3 rounded-xl input-surface text-sm mb-3 tracking-widest text-center font-bold"
                   autoFocus
                 />
+                <input
+                  type="password"
+                  value={deletePassword}
+                  onChange={e => setDeletePassword(e.target.value)}
+                  placeholder="Your password"
+                  autoComplete="current-password"
+                  className="w-full px-4 py-3 rounded-xl input-surface text-sm mb-5 text-center"
+                />
                 <div className="flex gap-3">
-                  <button type="button" onClick={() => setShowDeleteConfirm(false)}
+                  <button type="button" onClick={() => { setShowDeleteConfirm(false); setDeletePassword(''); setDeleteConfirmText(''); }}
                     className="flex-1 py-2.5 sm:py-3 rounded-xl bg-accent text-sm font-semibold text-foreground press-card">
                     Cancel
                   </button>
-                  <button type="button" onClick={handleDeleteAccount} disabled={loading || deleteConfirmText !== 'DELETE'}
+                  <button type="button" onClick={handleDeleteAccount} disabled={loading || deleteConfirmText !== 'DELETE' || !deletePassword}
                     className="flex-1 py-2.5 sm:py-3 rounded-xl bg-red-500 hover:bg-red-600 text-sm font-semibold text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
                     {loading ? 'Deleting...' : 'Delete'}
                   </button>

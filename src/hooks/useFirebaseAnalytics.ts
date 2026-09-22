@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { isNative } from '@/lib/platform';
 import { useLocation } from 'react-router-dom';
 import {
   getFirebaseAnalytics,
@@ -12,6 +13,7 @@ export function usePageTracking() {
   const location = useLocation();
 
   useEffect(() => {
+    if (isNative()) return;
     const analytics = getFirebaseAnalytics();
     if (!analytics) return;
     const pagePath = location.pathname + location.search;
@@ -25,6 +27,7 @@ export function useEngagementTracking() {
   const startTime = useRef<number>(0);
 
   useEffect(() => {
+    if (isNative()) return;
     startTime.current = Date.now();
   }, []);
 

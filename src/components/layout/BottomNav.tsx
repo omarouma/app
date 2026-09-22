@@ -1,6 +1,6 @@
 import { NavLink } from 'react-router-dom';
 import { memo, useMemo } from 'react';
-import { MessageCircle, Users, User, Flame, Search } from 'lucide-react';
+import { MessageCircle, Users, User, Phone } from 'lucide-react';
 import { useChatStore } from '@/store/useChatStore';
 import { useGroupStore } from '@/store/useGroupStore';
 import { useNotificationStore } from '@/store/useNotificationStore';
@@ -8,9 +8,8 @@ import { useIsMounted, useIsSmallPhone, useIsTablet } from '@/hooks/use-mobile';
 
 const tabDefs = [
   { to: '/contacts', label: 'People', icon: Users },
-  { to: '/chats', label: 'Chat', icon: MessageCircle },
-  { to: '/timeline', label: 'Feed', icon: Flame, highlight: true },
-  { to: '/search', label: 'Search', icon: Search },
+  { to: '/chats', label: 'Chat', icon: MessageCircle, highlight: true },
+  { to: '/calls', label: 'Calls', icon: Phone },
   { to: '/profile', label: 'Profile', icon: User },
 ];
 
@@ -59,7 +58,7 @@ const BottomNav = memo(function BottomNav() {
                       <div className={`w-11 h-11 rounded-full flex items-center justify-center shadow-md transition-all ${
                         isActive ? 'scale-105' : ''
                       }`}
-                           style={{ backgroundColor: isActive ? '#FF4081' : 'rgba(255, 64, 129, 0.85)' }}>
+                           style={{ backgroundColor: isActive ? 'hsl(var(--primary))' : 'hsl(var(--primary) / 0.85)' }}>
                         <Icon size={21} className="text-white" strokeWidth={2.5} />
                       </div>
                     ) : (
@@ -122,7 +121,7 @@ const BottomNav = memo(function BottomNav() {
                     <div className={`${isSmallPhone ? 'w-10 h-10' : 'w-11 h-11'} rounded-full flex items-center justify-center shadow-md transition-transform ${
                       isActive ? 'scale-105' : ''
                     }`}
-                         style={{ backgroundColor: isActive ? '#FF4081' : 'rgba(255, 64, 129, 0.85)' }}>
+                         style={{ backgroundColor: isActive ? 'hsl(var(--primary))' : 'hsl(var(--primary) / 0.85)' }}>
                       <Icon size={isSmallPhone ? 19 : 21} className="text-white" strokeWidth={2.5} />
                     </div>
                   ) : (

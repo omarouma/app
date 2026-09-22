@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, lazy, Suspense, useRef, memo, type ReactElement } from 'react';
+import { useEffect, useLayoutEffect, useState, lazy, Suspense, useRef, memo, type ReactElement } from 'react';
 
 import { Routes, Route, Navigate, useLocation, useNavigate, type NavigateFunction } from 'react-router-dom';
 
@@ -14,8 +14,12 @@ import { useGATracking } from '@/hooks/useGATracking';
 import { useForegroundNotifications } from '@/hooks/useForegroundNotifications';
 import { useIncomingCallNotifications } from '@/hooks/useIncomingCallNotifications';
 import { useMessageNotifications } from '@/hooks/useMessageNotifications';
+import { useZimCallInvitation } from '@/hooks/useZimCallInvitation';
 import { useTrackPresence } from '@/hooks/usePresence';
-import { MessageCircle, Phone, Users, Flame, Settings } from 'lucide-react';
+import { useSessionGuard } from '@/hooks/useSessionGuard';
+import { useNativeBootstrap } from '@/hooks/useNativeBootstrap';
+import { useNativeNavigation } from '@/hooks/useNativeNavigation';
+import { MessageCircle, Phone, Users, Settings } from 'lucide-react';
 import { Toaster } from '@/components/ui/sonner';
 import { CallProvider } from '@/context/CallContext';
 import { VoicePlayerProvider } from '@/context/VoicePlayerContext';
@@ -24,6 +28,7 @@ import PWAPrompt from '@/components/PWAPrompt';
 import Logo from '@/components/Logo';
 import { toast } from 'sonner';
 import { getDefaultAvatar, sanitizeMediaUrl } from '@/lib/utils';
+import { isNative } from '@/lib/platform';
 import { initAudioOnInteraction } from '@/lib/sounds';
 import { startOfflineQueueSync } from '@/lib/offlineSync';
 import { getPostAuthPath } from '@/lib/onboarding';
@@ -127,7 +132,6 @@ const AuthView = lazy(() => import('@/views/AuthView'));
 const DesktopChatView = lazy(() => import('@/views/DesktopChatView'));
 const DesktopCallsView = lazy(() => import('@/views/DesktopCallsView'));
 const DesktopContactsView = lazy(() => import('@/views/DesktopContactsView'));
-const DesktopTimelineView = lazy(() => import('@/views/DesktopTimelineView'));
 const PrivacyView = lazy(() => import('@/views/PrivacyView'));
 const TermsView = lazy(() => import('@/views/TermsView'));
 
@@ -137,7 +141,6 @@ const ChatRoomPage = lazy(() => import('@/pages/ChatRoomPage'));
 const CallsPage = lazy(() => import('@/pages/CallsPage'));
 const CallPage = lazy(() => import('@/pages/CallPage'));
 const ContactsPage = lazy(() => import('@/pages/ContactsPage'));
-const TimelinePage = lazy(() => import('@/pages/TimelinePage'));
 const ProfilePage = lazy(() => import('@/pages/ProfilePage'));
 const NotificationsPage = lazy(() => import('@/pages/NotificationsPage'));
 const QRScannerPage = lazy(() => import('@/pages/QRScannerPage'));
@@ -148,6 +151,8 @@ const TermsPage = lazy(() => import('@/pages/TermsPage'));
 const NotFound = lazy(() => import('@/pages/NotFound'));
 const CreateGroupPage = lazy(() => import('@/pages/CreateGroupPage'));
 const GroupChatPage = lazy(() => import('@/pages/GroupChatPage'));
+const GroupInfoPage = lazy(() => import('@/pages/GroupInfoPage'));
+const JoinGroupPage = lazy(() => import('@/pages/JoinGroupPage'));
 const GagaRewardsPage = lazy(() => import('@/pages/GagaRewardsPage'));
 const SentRequestsPage = lazy(() => import('@/pages/SentRequestsPage'));
 const BlockedUsersPage = lazy(() => import('@/pages/BlockedUsersPage'));
@@ -155,56 +160,65 @@ const AdminPage = lazy(() => import('@/pages/AdminPage'));
 const ChatInfoPage = lazy(() => import('@/pages/ChatInfoPage'));
 const SavedMessagesPage = lazy(() => import('@/pages/SavedMessagesPage'));
 const PremiumPage = lazy(() => import('@/pages/PremiumPage'));
-const EventsPage = lazy(() => import('@/pages/EventsPage'));
-const MarketplacePage = lazy(() => import('@/pages/MarketplacePage'));
-const BookmarksPage = lazy(() => import('@/pages/BookmarksPage'));
-const HashtagsPage = lazy(() => import('@/pages/HashtagsPage'));
-const AnalyticsPage = lazy(() => import('@/pages/AnalyticsPage'));
 const SearchPage = lazy(() => import('@/pages/SearchPage'));
-const PostPage = lazy(() => import('@/pages/PostPage'));
 const HelpCenterPage = lazy(() => import('@/pages/HelpCenterPage'));
 const SettingsPage = lazy(() => import('@/pages/SettingsPage'));
-const CreatorCenterPage = lazy(() => import('@/pages/CreatorCenterPage'));
 const OnboardingPage = lazy(() => import('@/pages/OnboardingPage'));
 const AboutPage = lazy(() => import('@/pages/AboutPage'));
 const BlogPage = lazy(() => import('@/pages/BlogPage'));
 const CareersPage = lazy(() => import('@/pages/CareersPage'));
 const BroadcastListsPage = lazy(() => import('@/pages/BroadcastListsPage'));
-const CreateReelsPage = lazy(() => import('@/pages/CreateReelsPage'));
 const CookiePolicyPage = lazy(() => import('@/pages/CookiePolicyPage'));
 const CommunityGuidelinesPage = lazy(() => import('@/pages/CommunityGuidelinesPage'));
 const MorePage = lazy(() => import('@/pages/MorePage'));
-const ReelsPage = lazy(() => import('@/pages/ReelsPage'));
 const ShareTargetPage = lazy(() => import('@/pages/ShareTargetPage'));
-const VoiceRoomsPage = lazy(() => import('@/pages/VoiceRoomsPage'));
-const VoiceRoomPage = lazy(() => import('@/pages/VoiceRoomPage'));
-const DailyChallengesPage = lazy(() => import('@/pages/DailyChallengesPage'));
 const AIChatPage = lazy(() => import('@/pages/AIChatPage'));
-const LiveStreamsPage = lazy(() => import('@/pages/LiveStreamsPage'));
-const LiveStreamPage = lazy(() => import('@/pages/LiveStreamPage'));
-const CreatorDashboardPage = lazy(() => import('@/pages/CreatorDashboardPage'));
 
-const PageLoader = () => (
-  <div className="h-screen w-screen bg-white flex items-center justify-center">
-    <div className="text-center animate-pulse">
-      <div className="mx-auto mb-4">
-        <Logo size={72} />
+/**
+ * Full-screen startup loader.
+ *
+ * Self-healing: if the app is still on this screen after a few seconds it
+ * offers a "Continue" affordance so the user is never trapped by a stalled
+ * startup (e.g. a slow session recovery on a poor connection).
+ */
+const PageLoader = () => {
+  const [showEscape, setShowEscape] = useState(false);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setShowEscape(true), 8000);
+    return () => window.clearTimeout(timer);
+  }, []);
+
+  return (
+    <div className="h-screen w-screen bg-white flex items-center justify-center">
+      <div className="text-center animate-pulse">
+        <div className="mx-auto mb-4">
+          <Logo size={72} />
+        </div>
+        <p className="text-[#8D8D8D] text-sm">Loading...</p>
+        {showEscape && (
+          <button
+            type="button"
+            onClick={() => useAuthStore.getState().setLoading(false)}
+            className="mt-6 px-6 py-2.5 rounded-full bg-[#00C300] text-white text-sm font-bold active:bg-[#00A300] transition-colors"
+          >
+            Continue
+          </button>
+        )}
       </div>
-      <p className="text-[#8D8D8D] text-sm">Loading...</p>
     </div>
-  </div>
-);
+  );
+};
 
 const desktopNavItems = [
   { to: '/chat', icon: MessageCircle, label: 'Chats' },
   { to: '/calls', icon: Phone, label: 'Calls' },
   { to: '/contacts', icon: Users, label: 'People' },
-  { to: '/timeline', icon: Flame, label: 'Feed' },
   { to: '/settings', icon: Settings, label: 'Settings' },
 ];
 
 // Routes where BottomNav should be hidden on mobile (full-screen experiences)
-const HIDE_BOTTOM_NAV_PATHS = ['/chat/', '/group/', '/onboarding', '/auth', '/qr-scanner', '/live/', '/voice-room/'];
+const HIDE_BOTTOM_NAV_PATHS = ['/chat/', '/group/', '/group-info/', '/join/', '/onboarding', '/auth', '/qr-scanner'];
 
 function shouldHideBottomNav(pathname: string): boolean {
   return pathname === '/call' || HIDE_BOTTOM_NAV_PATHS.some((path) => pathname.startsWith(path));
@@ -223,14 +237,11 @@ const DESKTOP_PUBLIC_PATHS = [
 ];
 
 const MOBILE_PROTECTED_ROUTE_PATHS: string[] = [
-  '/chats', '/chat/:userId', '/group/:groupId', '/create-group', '/calls', '/call',
-  '/contacts', '/timeline', '/profile', '/profile/:userId', '/settings', '/notifications',
+  '/chats', '/chat/:userId', '/group/:groupId', '/group-info/:groupId', '/join/:code', '/create-group', '/calls', '/call',
+  '/contacts', '/profile', '/profile/:userId', '/settings', '/notifications',
   '/qr-scanner', '/wallet', '/rewards', '/add-friends', '/sent-requests', '/blocked-users',
-  '/chat-info/:chatId', '/saved-messages', '/premium', '/reels', '/more', '/share',
-  '/events', '/marketplace', '/bookmarks', '/hashtags', '/analytics', '/search',
-  '/broadcast-lists', '/create-reel', '/creators', '/voice-rooms', '/voice-room/:roomId',
-  '/challenges', '/ai-chat', '/live-streams', '/live/:streamId', '/creator-dashboard',
-  '/post/:postId',
+  '/chat-info/:chatId', '/saved-messages', '/premium', '/more', '/share',
+  '/search', '/broadcast-lists', '/ai-chat',
 ];
 
 function getMobileRouteElement(path: string) {
@@ -238,11 +249,10 @@ function getMobileRouteElement(path: string) {
     case '/chats': return <ErrorBoundary key="chats"><ChatsPage /></ErrorBoundary>;
     case '/chat/:userId': return <ErrorBoundary key="chat"><ChatRoomPage /></ErrorBoundary>;
     case '/group/:groupId': return <ErrorBoundary key="group"><GroupChatPage /></ErrorBoundary>;
+    case '/group-info/:groupId': return <ErrorBoundary key="group-info"><GroupInfoPage /></ErrorBoundary>;
+    case '/join/:code': return <ErrorBoundary key="join"><JoinGroupPage /></ErrorBoundary>;
     case '/calls': return <ErrorBoundary key="calls"><CallsPage /></ErrorBoundary>;
     case '/call': return <ErrorBoundary key="call"><CallPage /></ErrorBoundary>;
-    case '/timeline': return <ErrorBoundary key="timeline"><TimelinePage /></ErrorBoundary>;
-    case '/voice-room/:roomId': return <ErrorBoundary key="voice-room"><VoiceRoomPage /></ErrorBoundary>;
-    case '/live/:streamId': return <ErrorBoundary key="live"><LiveStreamPage /></ErrorBoundary>;
     case '/create-group': return <ErrorBoundary key="create-group"><CreateGroupPage /></ErrorBoundary>;
     case '/contacts': return <ErrorBoundary key="contacts"><ContactsPage /></ErrorBoundary>;
     case '/profile': return <ErrorBoundary key="profile"><ProfilePage /></ErrorBoundary>;
@@ -258,25 +268,12 @@ function getMobileRouteElement(path: string) {
     case '/chat-info/:chatId': return <ErrorBoundary key="chat-info"><ChatInfoPage /></ErrorBoundary>;
     case '/saved-messages': return <ErrorBoundary key="saved-messages"><SavedMessagesPage /></ErrorBoundary>;
     case '/premium': return <ErrorBoundary key="premium"><PremiumPage /></ErrorBoundary>;
-    case '/reels': return <ErrorBoundary key="reels"><ReelsPage /></ErrorBoundary>;
     case '/more': return <ErrorBoundary key="more"><MorePage /></ErrorBoundary>;
     case '/share': return <ErrorBoundary key="share"><ShareTargetPage /></ErrorBoundary>;
-    case '/events': return <ErrorBoundary key="events"><EventsPage /></ErrorBoundary>;
-    case '/marketplace': return <ErrorBoundary key="marketplace"><MarketplacePage /></ErrorBoundary>;
-    case '/bookmarks': return <ErrorBoundary key="bookmarks"><BookmarksPage /></ErrorBoundary>;
-    case '/hashtags': return <ErrorBoundary key="hashtags"><HashtagsPage /></ErrorBoundary>;
-    case '/analytics': return <ErrorBoundary key="analytics"><AnalyticsPage /></ErrorBoundary>;
     case '/search': return <ErrorBoundary key="search"><SearchPage /></ErrorBoundary>;
-    case '/post/:postId': return <ErrorBoundary key="post"><PostPage /></ErrorBoundary>;
     case '/help': return <ErrorBoundary key="help"><HelpCenterPage /></ErrorBoundary>;
     case '/broadcast-lists': return <ErrorBoundary key="broadcast-lists"><BroadcastListsPage /></ErrorBoundary>;
-    case '/create-reel': return <ErrorBoundary key="create-reel"><CreateReelsPage /></ErrorBoundary>;
-    case '/creators': return <ErrorBoundary key="creators"><CreatorCenterPage /></ErrorBoundary>;
-    case '/voice-rooms': return <ErrorBoundary key="voice-rooms"><VoiceRoomsPage /></ErrorBoundary>;
-    case '/challenges': return <ErrorBoundary key="challenges"><DailyChallengesPage /></ErrorBoundary>;
     case '/ai-chat': return <ErrorBoundary key="ai-chat"><AIChatPage /></ErrorBoundary>;
-    case '/live-streams': return <ErrorBoundary key="live-streams"><LiveStreamsPage /></ErrorBoundary>;
-    case '/creator-dashboard': return <ErrorBoundary key="creator-dashboard"><CreatorDashboardPage /></ErrorBoundary>;
     default: return <NotFound />;
   }
 }
@@ -327,6 +324,10 @@ function useServiceWorker() {
   const navigate = useNavigate();
 
   useEffect(() => {
+    // Service workers are a web-only concern. Registering one inside the
+    // native WebView can intercept navigations and wedge the app, so skip
+    // entirely on native.
+    if (isNative()) return;
     if (!('serviceWorker' in navigator)) return;
 
     let registration: ServiceWorkerRegistration | null = null;
@@ -414,11 +415,18 @@ function AppContent() {
   const didOnboardingRedirectRef = useRef(false);
   const navigate = useNavigate();
 
+  // Detect revoked/expired sessions and redirect safely to login.
+  useSessionGuard();
+
+  // Native shell bootstrap: status bar + splash-screen hide (no-op on web).
+  useNativeBootstrap();
+  useNativeNavigation();
+
   useEffect(() => {
     const publicSeo: Record<string, { title: string; description: string }> = {
       '/': {
         title: 'GaGa Chat - Free Global Messaging, HD Voice & Video Calls',
-        description: 'GaGa Chat is a free global messaging app with secure chat, HD voice and video calls, group chat, live streaming, reels, and more.',
+        description: 'GaGa Chat is a free global messaging app with secure chat, HD voice and video calls, group chat, and media sharing.',
       },
       '/about': { title: 'About GaGa Chat - Global Messaging and Community', description: 'Learn about GaGa Chat, a global messaging and community platform for secure conversations, calls, and social sharing.' },
       '/blog': { title: 'GaGa Chat Blog - Messaging, Community, and Safety', description: 'Read the latest GaGa Chat news, product updates, messaging tips, and community guidance.' },
@@ -460,6 +468,7 @@ function AppContent() {
   useForegroundNotifications();
   useIncomingCallNotifications();  // NEW: Handle incoming call notifications & sounds
   useMessageNotifications();       // NEW: WeChat-style message sounds + background notifications
+  useZimCallInvitation();          // NEW: ZEGOCLOUD ZIM call-invitation signalling (ring/accept/reject/cancel)
 
   useEffect(() => {
     // These public pages must be visible even when onboarding is incomplete
@@ -580,10 +589,11 @@ function AppContent() {
                         <Route path="chats" element={<DesktopChatView />} />
                         <Route path="chat/:userId" element={<DesktopChatView />} />
                         <Route path="group/:groupId" element={<GroupChatPage />} />
+                        <Route path="group-info/:groupId" element={<GroupInfoPage />} />
+                        <Route path="join/:code" element={<JoinGroupPage />} />
                         <Route path="create-group" element={<CreateGroupPage />} />
                         <Route path="calls" element={<DesktopCallsView />} />
                         <Route path="contacts" element={<DesktopContactsView />} />
-                        <Route path="timeline" element={<DesktopTimelineView />} />
                         <Route path="call" element={<CallPage />} />
                         <Route path="profile" element={<ProfilePage />} />
                         <Route path="profile/:userId" element={<ProfilePage />} />
@@ -596,30 +606,15 @@ function AppContent() {
                         <Route path="admin" element={user?.isAdmin ? <AdminPage /> : <Navigate to="/" replace />} />
                         <Route path="rewards" element={<GagaRewardsPage />} />
                         <Route path="more" element={<MorePage />} />
-                        <Route path="reels" element={<ReelsPage />} />
                         <Route path="share" element={<ShareTargetPage />} />
                         <Route path="settings" element={<SettingsPage />} />
                         <Route path="chat-info/:chatId" element={<ChatInfoPage />} />
                         <Route path="saved-messages" element={<SavedMessagesPage />} />
                         <Route path="premium" element={<PremiumPage />} />
-                        <Route path="events" element={<EventsPage />} />
-                        <Route path="marketplace" element={<MarketplacePage />} />
-                        <Route path="bookmarks" element={<BookmarksPage />} />
-                        <Route path="hashtags" element={<HashtagsPage />} />
-                        <Route path="analytics" element={<AnalyticsPage />} />
                         <Route path="search" element={<SearchPage />} />
-                        <Route path="post/:postId" element={<PostPage />} />
                         <Route path="help" element={<HelpCenterPage />} />
                         <Route path="broadcast-lists" element={<BroadcastListsPage />} />
-                        <Route path="creators" element={<CreatorCenterPage />} />
-                        <Route path="voice-rooms" element={<VoiceRoomsPage />} />
-                        <Route path="voice-room/:roomId" element={<VoiceRoomPage />} />
-                        <Route path="challenges" element={<DailyChallengesPage />} />
                         <Route path="ai-chat" element={<AIChatPage />} />
-                        <Route path="live-streams" element={<LiveStreamsPage />} />
-                        <Route path="live/:streamId" element={<LiveStreamPage />} />
-                        <Route path="creator-dashboard" element={<CreatorDashboardPage />} />
-                        <Route path="create-reel" element={<CreateReelsPage />} />
                         <Route path="cookies" element={<CookiePolicyPage />} />
                         <Route path="community-guidelines" element={<CommunityGuidelinesPage />} />
                         <Route path="*" element={<NotFound />} />
@@ -638,7 +633,8 @@ function AppContent() {
       {showBottomNav && <BottomNav />}
       <ScrollToTop />
       <CallOverlay />
-      <PWAPrompt />
+      {/* Web-only PWA install prompt — never shown inside the native app. */}
+      {!isNative() && <PWAPrompt />}
       <Toaster position="top-center" />
     </div>
   );

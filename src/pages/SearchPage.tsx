@@ -2,25 +2,21 @@ import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
-  Search, X, User, Hash, MessageSquare, Calendar, ShoppingBag, Users, Loader,
+  Search, X, User, MessageSquare, Users, Loader,
   ArrowRight, TrendingUp, Clock, SlidersHorizontal
 } from 'lucide-react';
-import { useEnhancedTimelineStore } from '@/store/useEnhancedTimelineStore';
-import { useEventStore } from '@/store/useEventStore';
-import { useMarketplaceStore } from '@/store/useMarketplaceStore';
 import { useGroupStore } from '@/store/useGroupStore';
-import { isFirestoreAvailable, queryCollection, COLLECTIONS, where, orderBy, limit } from '@/lib/firestore';
+import { useChatStore } from '@/store/useChatStore';
+import { useFriendStore } from '@/store/useFriendStore';
+import { isFirestoreAvailable, queryCollection, COLLECTIONS, where, limit } from '@/lib/firestore';
 import { safeGetStorageItem, safeRemoveStorageItem, safeSetStorageItem } from '@/lib/safeStorage';
-import { getDefaultAvatar, formatTime } from '@/lib/utils';
-import type { Chat, TimelinePost, User as UserType, EventData, MarketplaceItem, Hashtag } from '@/types';
+import { getDefaultAvatar } from '@/lib/utils';
+import type { Chat, User as UserType } from '@/types';
 
 const TABS = [
   { key: 'all', label: 'All', icon: Search },
   { key: 'users', label: 'People', icon: User },
-  { key: 'posts', label: 'Posts', icon: MessageSquare },
-  { key: 'hashtags', label: 'Tags', icon: Hash },
-  { key: 'events', label: 'Events', icon: Calendar },
-  { key: 'marketplace', label: 'Market', icon: ShoppingBag },
+  { key: 'chats', label: 'Chats', icon: MessageSquare },
   { key: 'groups', label: 'Groups', icon: Users },
 ] as const;
 
@@ -33,15 +29,14 @@ interface SearchResult {
   subtitle: string;
   image?: string;
   meta?: string;
-  data: UserType | TimelinePost | EventData | MarketplaceItem | Chat | Hashtag;
+  data: UserType | Chat;
 }
 
 export default function SearchPage() {
   const navigate = useNavigate();
-  const { searchHashtags } = useEnhancedTimelineStore();
-  const { events } = useEventStore();
-  const { listings } = useMarketplaceStore();
   const { groups } = useGroupStore();
+  const { chats } = useChatStore();
+  const { blockedUsers } = useFriendStore();
 
   const [query, setQuery] = useState('');
   const [activeTab, setActiveTab] = useState<TabKey>('all');
@@ -49,7 +44,7 @@ export default function SearchPage() {
   const [loading, setLoading] = useState(false);
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
   const [trendingSearches] = useState([
-    'gagachat', 'tech', 'gaming', 'music', 'food', 'travel', 'photography', 'memes', 'coding', 'fitness',
+    'gagachat', 'friends', 'family', 'work', 'team', 'community', 'support', 'news',
   ]);
 
   // Load recent searches from localStorage
@@ -103,7 +98,10 @@ export default function SearchPage() {
           const userMap = new Map<string, UserType>();
           (nameData || []).forEach((u) => userMap.set(u.id, u));
           (usernameData || []).forEach((u) => userMap.set(u.id, u));
+          // Block enforcement: hide users the current user has blocked from search.
+          const blockedIds = new Set(blockedUsers.map((b) => b.blockedId));
           userMap.forEach((u) => {
+            if (blockedIds.has(u.id)) return;
             all.push({
               id: u.id,
               type: 'users',
@@ -117,79 +115,23 @@ export default function SearchPage() {
         }
       }
 
-      // Search posts
-      if (activeTab === 'all' || activeTab === 'posts') {
-        if (isFirestoreAvailable()) {
-          const postData = await queryCollection<TimelinePost>(COLLECTIONS.POSTS, [
-            where('content', '>=', term),
-            where('content', '<=', term + '\uf8ff'),
-            orderBy('createdAt', 'desc'),
-            limit(20),
-          ]);
-          (postData || []).forEach((p) => {
-            all.push({
-              id: p.id,
-              type: 'posts',
-              title: p.content?.slice(0, 60) || 'Post',
-              subtitle: p.userName || 'User',
-              image: p.images?.[0] || undefined,
-              meta: p.timestamp ? formatTime(p.timestamp) : '',
-              data: p,
-            });
-          });
-        }
-      }
-
-      // Search hashtags
-      if (activeTab === 'all' || activeTab === 'hashtags') {
-        const hashtags = await searchHashtags(term);
-        hashtags.forEach((h: Hashtag) => {
-          all.push({
-            id: h.id,
-            type: 'hashtags',
-            title: '#' + h.tag,
-            subtitle: `${h.postCount.toLocaleString()} posts`,
-            meta: h.trending ? 'Trending' : '',
-            data: h,
-          });
-        });
-      }
-
-      // Search events
-      if (activeTab === 'all' || activeTab === 'events') {
-        const eventResults = events.filter(e =>
-          e.title.toLowerCase().includes(term) ||
-          e.description.toLowerCase().includes(term) ||
-          e.location.toLowerCase().includes(term)
+      // Search existing 1:1 chats by contact name
+      if (activeTab === 'all' || activeTab === 'chats') {
+        const chatResults = chats.filter((c: Chat) =>
+          c.type !== 'group' &&
+          ((c.name || '').toLowerCase().includes(term) ||
+            (typeof c.lastMessage === 'string' ? c.lastMessage : c.lastMessage?.content || '').toLowerCase().includes(term))
         );
-        eventResults.forEach((e: EventData) => {
+        chatResults.forEach((c) => {
+          const lastMsg = typeof c.lastMessage === 'string' ? c.lastMessage : c.lastMessage?.content || '';
           all.push({
-            id: e.id,
-            type: 'events',
-            title: e.title,
-            subtitle: `${e.location} · ${e.startDate.toLocaleDateString()}`,
-            meta: `${e.attendees.length} going`,
-            data: e,
-          });
-        });
-      }
-
-      // Search marketplace
-      if (activeTab === 'all' || activeTab === 'marketplace') {
-        const marketResults = listings.filter(l =>
-          l.title.toLowerCase().includes(term) ||
-          l.description.toLowerCase().includes(term) ||
-          l.category.toLowerCase().includes(term)
-        );
-        marketResults.forEach((l: MarketplaceItem) => {
-          all.push({
-            id: l.id,
-            type: 'marketplace',
-            title: l.title,
-            subtitle: `৳${l.price.toLocaleString()} · ${l.condition}`,
-            image: l.images?.[0] || undefined,
-            meta: l.status,
-            data: l,
+            id: c.id,
+            type: 'chats',
+            title: c.name || 'Chat',
+            subtitle: lastMsg || 'No messages yet',
+            image: c.avatar || getDefaultAvatar(c.name || 'C'),
+            meta: 'Chat',
+            data: c,
           });
         });
       }
@@ -206,6 +148,7 @@ export default function SearchPage() {
             type: 'groups',
             title: g.name || 'Group',
             subtitle: `${g.participants.length} members`,
+            image: g.avatar || undefined,
             meta: 'Group',
             data: g,
           });
@@ -217,7 +160,7 @@ export default function SearchPage() {
 
     setResults(all);
     setLoading(false);
-  }, [activeTab, events, listings, groups, searchHashtags]);
+  }, [activeTab, groups, chats, blockedUsers]);
 
   // Debounced search
   useEffect(() => {
@@ -233,21 +176,8 @@ export default function SearchPage() {
       case 'users':
         navigate('/profile/' + result.id);
         break;
-      case 'posts':
-        navigate('/timeline', { state: { highlightPostId: result.id } });
-        break;
-      case 'hashtags':
-        if ('tag' in result.data) {
-          navigate('/hashtags', { state: { tag: result.data.tag } });
-        } else {
-          navigate('/hashtags');
-        }
-        break;
-      case 'events':
-        navigate('/events', { state: { highlightEventId: result.id } });
-        break;
-      case 'marketplace':
-        navigate('/marketplace', { state: { highlightItemId: result.id } });
+      case 'chats':
+        navigate('/chat/' + result.id);
         break;
       case 'groups':
         navigate(`/group/${result.id}`);
@@ -265,26 +195,26 @@ export default function SearchPage() {
       {/* Header */}
       <div className="shrink-0 px-4 py-3 border-b border-[#1a1a1a]">
         <div className="flex items-center gap-3">
-          <button type="button" onClick={() => navigate(-1)} className="p-1.5 rounded-lg hover:bg-[#1a1a1a] text-[#8D8D8D]">
+          <button type="button" onClick={() => navigate(-1)} className="p-1.5 rounded-lg hover:bg-[#1a1a1a] text-muted-foreground">
             <X size={20} />
           </button>
           <div className="relative flex-1">
-            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8D8D8D]" />
+            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
             <input
               type="text"
               value={query}
               onChange={e => setQuery(e.target.value)}
-              placeholder="Search people, posts, tags, events..."
-              className="w-full bg-[#1a1a1a] text-white pl-10 pr-10 py-2.5 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#00C300] placeholder:text-[#8D8D8D]"
+              placeholder="Search people, chats, groups..."
+              className="w-full bg-[#1a1a1a] text-white pl-10 pr-10 py-2.5 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#00C300] placeholder:text-muted-foreground"
               autoFocus
             />
             {query && (
-              <button type="button" onClick={() => setQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8D8D8D]">
+              <button type="button" onClick={() => setQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">
                 <X size={14} />
               </button>
             )}
           </div>
-          <button type="button" className="p-2 rounded-lg hover:bg-[#1a1a1a] text-[#8D8D8D]">
+          <button type="button" className="p-2 rounded-lg hover:bg-[#1a1a1a] text-muted-foreground">
             <SlidersHorizontal size={18} />
           </button>
         </div>
@@ -295,7 +225,7 @@ export default function SearchPage() {
             <button type="button" key={tab.key}
               onClick={() => setActiveTab(tab.key)}
               className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${
-                activeTab === tab.key ? 'bg-[#00C300] text-black' : 'bg-[#1a1a1a] text-[#8D8D8D]'
+                activeTab === tab.key ? 'bg-[#00C300] text-black' : 'bg-[#1a1a1a] text-muted-foreground'
               }`}
             >
               <tab.icon size={12} /> {tab.label}
@@ -312,14 +242,14 @@ export default function SearchPage() {
             {recentSearches.length > 0 && (
               <div className="mb-6">
                 <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-xs font-semibold text-[#8D8D8D] uppercase tracking-wider">Recent</h3>
+                  <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Recent</h3>
                   <button type="button" onClick={clearRecents} className="text-xs text-[#FF3B30]">Clear</button>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {recentSearches.map((s, i) => (
                     <button type="button" key={i}
                       onClick={() => setQuery(s)}
-                      className="flex items-center gap-1 px-3 py-1.5 rounded-full bg-[#1a1a1a] text-[#8D8D8D] text-xs hover:bg-[#2a2a2a]"
+                      className="flex items-center gap-1 px-3 py-1.5 rounded-full bg-[#1a1a1a] text-muted-foreground text-xs hover:bg-[#2a2a2a]"
                     >
                       <Clock size={10} /> {s}
                     </button>
@@ -330,7 +260,7 @@ export default function SearchPage() {
 
             {/* Trending searches */}
             <div>
-              <h3 className="text-xs font-semibold text-[#8D8D8D] uppercase tracking-wider mb-2">Trending</h3>
+              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Trending</h3>
               <div className="flex flex-wrap gap-2">
                 {trendingSearches.map((s, i) => (
                   <button type="button" key={i}
@@ -356,8 +286,8 @@ export default function SearchPage() {
         {!loading && query && results.length === 0 && (
           <div className="text-center py-16">
             <Search size={48} className="mx-auto text-[#2a2a2a] mb-4" />
-            <p className="text-[#8D8D8D] font-medium">No results found</p>
-            <p className="text-[#8D8D8D]/60 text-sm mt-1">Try different keywords</p>
+            <p className="text-muted-foreground font-medium">No results found</p>
+            <p className="text-muted-foreground/60 text-sm mt-1">Try different keywords</p>
           </div>
         )}
 
@@ -378,19 +308,19 @@ export default function SearchPage() {
                   <div className="w-12 h-12 rounded-xl bg-[#2a2a2a] flex items-center justify-center shrink-0">
                     {(() => {
                       const TabIcon = TABS.find(t => t.key === result.type)?.icon || Search;
-                      return <TabIcon size={20} className="text-[#8D8D8D]" />;
+                      return <TabIcon size={20} className="text-muted-foreground" />;
                     })()}
                   </div>
                 )}
                 <div className="flex-1 min-w-0">
                   <p className="text-white text-sm font-medium truncate">{result.title}</p>
-                  <p className="text-[#8D8D8D] text-xs truncate">{result.subtitle}</p>
+                  <p className="text-muted-foreground text-xs truncate">{result.subtitle}</p>
                 </div>
                 <div className="text-right shrink-0">
                   {result.meta && (
                     <span className="text-[10px] text-[#00C300] bg-[#00C300]/10 px-2 py-0.5 rounded-full">{result.meta}</span>
                   )}
-                  <ArrowRight size={14} className="text-[#8D8D8D] mt-1 ml-auto" />
+                  <ArrowRight size={14} className="text-muted-foreground mt-1 ml-auto" />
                 </div>
               </motion.button>
             ))}

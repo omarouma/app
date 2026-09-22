@@ -1,6 +1,6 @@
 ﻿import { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { ArrowRight, MessageCircle, Phone, Shield, Zap, Users, Globe, Download, Play, Calendar, ShoppingBag, TrendingUp, Crown, Bookmark, Share, X, CheckCircle, ChevronDown, MessageSquare, Lock, Wifi, Smartphone } from 'lucide-react';
+import { ArrowRight, MessageCircle, Phone, Shield, Zap, Users, Globe, Download, Crown, Share, X, CheckCircle, ChevronDown, MessageSquare, Lock, Wifi, Smartphone } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
@@ -13,21 +13,16 @@ import { usePwaInstall } from '@/hooks/usePwaInstall';
 const features = [
   { icon: MessageCircle, titleKey: 'freeMessaging', descKey: 'freeMessagingDesc' },
   { icon: Phone, titleKey: 'voiceVideoCalls', descKey: 'voiceVideoCallsDesc' },
-  { icon: Play, titleKey: 'reelsShorts', descKey: 'reelsShortsDesc' },
-  { icon: Calendar, titleKey: 'events', descKey: 'eventsDesc' },
-  { icon: ShoppingBag, titleKey: 'marketplace', descKey: 'marketplaceDesc' },
   { icon: Shield, titleKey: 'secure', descKey: 'secureDesc' },
   { icon: Users, titleKey: 'groupChat', descKey: 'groupChatDesc' },
   { icon: Zap, titleKey: 'lightningFast', descKey: 'lightningFastDesc' },
   { icon: Globe, titleKey: 'globalReach', descKey: 'globalReachDesc' },
   { icon: Crown, titleKey: 'premiumFeatures', descKey: 'premiumFeaturesDesc' },
-  { icon: TrendingUp, titleKey: 'creatorAnalytics', descKey: 'creatorAnalyticsDesc' },
-  { icon: Bookmark, titleKey: 'bookmarks', descKey: 'bookmarksDesc' },
 ];
 
 const testimonials = [
   { name: 'Elena Petrova', role: 'Marketing Manager, Tech Startup', text: 'GaGa Chat has revolutionized our team’s communication. The voice quality is exceptional for our international calls, and the file sharing is seamless. It’s the most reliable platform we’ve used.' },
-  { name: 'Johnathan Lee', role: 'Freelance Designer', text: 'As a freelancer, secure and fast communication with clients is key. GaGa Chat delivers on all fronts. The creator tools are also a huge plus for showcasing my portfolio.' },
+  { name: 'Johnathan Lee', role: 'Freelance Designer', text: 'As a freelancer, secure and fast communication with clients is key. GaGa Chat delivers on all fronts. The group calls and file sharing are also a huge plus for my workflow.' },
   { name: 'Aisha Diallo', role: 'Community Organizer', text: 'We use GaGa Chat to organize local events and stay connected with our community. It’s incredibly user-friendly and works flawlessly even in low-bandwidth areas. A real game-changer for us.' },
   { name: 'Mateo Rossi', role: 'University Student', text: 'Studying abroad, GaGa Chat is my lifeline to family and friends back home. It’s free, easy to use, and I never have to worry about call drops or poor video quality. Plus, no VPN needed!' },
 ];
@@ -49,7 +44,7 @@ const stats = [
 const highlights = [
   'Private by design',
   'No VPN required',
-  'Creator monetization',
+  'Group chats & calls',
 ];
 
 export default function LandingView() {
@@ -231,7 +226,7 @@ export default function LandingView() {
               <span className="text-[#00C300] text-sm font-medium">Everything you need in one place</span>
             </div>
             <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-4">{t('features')}</h2>
-            <p className="text-gray-600 max-w-2xl mx-auto">From private conversation to creator monetization, every experience is designed to feel polished, fast, and effortless.</p>
+            <p className="text-gray-600 max-w-2xl mx-auto">From private conversations to group calls, every experience is designed to feel polished, fast, and effortless.</p>
           </motion.div>
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {features.map((f, i) => (
@@ -241,7 +236,7 @@ export default function LandingView() {
         </div>
       </section>
 
-      {/* Creator Center Promo */}
+      {/* Group Calling Promo */}
       <section className="py-24 border-y border-gray-200 bg-gradient-to-b from-white to-gray-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid lg:grid-cols-2 gap-12 items-center">
@@ -251,21 +246,21 @@ export default function LandingView() {
               viewport={{ once: true }}
             >
               <div className="inline-flex items-center gap-2 bg-[#00C300]/10 border border-[#00C300]/20 rounded-full px-4 py-1.5 mb-5">
-                <Crown size={14} className="text-[#00C300]" />
-                <span className="text-[#00C300] text-sm font-medium">For Creators</span>
+                <Phone size={14} className="text-[#00C300]" />
+                <span className="text-[#00C300] text-sm font-medium">Crystal-Clear Calls</span>
               </div>
               <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-4">
-                Turn Followers Into Income
+                Talk Face to Face, Anywhere
               </h2>
               <p className="text-gray-600 mb-6 leading-relaxed">
-                GaGa Chat Creator Center gives you the tools to grow, monetize, and engage your audience. From tips and subscriptions to brand deals and analytics — everything you need to succeed as a creator worldwide.
+                GaGa Chat brings you reliable one-to-one and group voice and video calls with global connectivity. Powered by ZEGOCLOUD, calls stay smooth even on low-bandwidth networks.
               </p>
               <div className="grid grid-cols-2 gap-4 mb-8">
                 {[
-                  { label: 'Tips & Gifts', desc: 'Earn from fans directly' },
-                  { label: 'Subscriptions', desc: 'Recurring monthly income' },
-                  { label: 'Live Streaming', desc: 'Go live and interact' },
-                  { label: 'Analytics', desc: 'Track growth & revenue' },
+                  { label: 'Voice Calls', desc: 'Crisp audio, low latency' },
+                  { label: 'Video Calls', desc: 'HD video, one-to-one or group' },
+                  { label: 'Group Calls', desc: 'Bring the whole team together' },
+                  { label: 'Global Reach', desc: 'Works in 190+ countries' },
                 ].map((item) => (
                   <div key={item.label} className="flex items-start gap-2">
                     <CheckCircle size={18} className="text-[#00C300] shrink-0 mt-0.5" />
@@ -277,15 +272,15 @@ export default function LandingView() {
                 ))}
               </div>
               <div className="flex flex-col sm:flex-row gap-3">
-                <button type="button" onClick={() => navigate('/creators')}
+                <button type="button" onClick={() => navigate('/auth')}
                   className="bg-[#00C300] hover:bg-[#00A300] text-white rounded-full px-8 py-3 text-sm font-bold transition-colors inline-flex items-center justify-center gap-2"
                 >
-                  Explore Creator Center <ArrowRight size={16} />
+                  Start Calling <ArrowRight size={16} />
                 </button>
                 <button type="button" onClick={() => navigate('/auth')}
                   className="bg-white border-2 border-gray-200 hover:border-[#00C300] text-gray-900 rounded-full px-8 py-3 text-sm font-bold transition-colors inline-flex items-center justify-center gap-2"
                 >
-                  Become a Creator
+                  Get Started Free
                 </button>
               </div>
             </motion.div>
@@ -301,18 +296,18 @@ export default function LandingView() {
                     <Logo size={32} />
                   </div>
                   <div>
-                    <p className="font-bold text-gray-900">Creator Dashboard</p>
+                    <p className="font-bold text-gray-900">Group Call</p>
                     <p className="text-[#00C300] text-xs flex items-center gap-1">
-                      <TrendingUp size={10} /> +124% this month
+                      <Phone size={10} /> 00:42:18
                     </p>
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-3 py-4">
                   {[
-                    { label: 'Followers', value: '12.5K', color: '#00C300' },
-                    { label: 'Earnings', value: '$45,200', color: '#F59E0B' },
-                    { label: 'Views', value: '482K', color: '#10B981' },
-                    { label: 'Engagement', value: '8.4%', color: '#8B5CF6' },
+                    { label: 'Participants', value: '8', color: '#00C300' },
+                    { label: 'Quality', value: 'HD', color: '#F59E0B' },
+                    { label: 'Latency', value: 'Low', color: '#10B981' },
+                    { label: 'Uptime', value: '99.9%', color: '#8B5CF6' },
                   ].map((stat) => (
                     <div key={stat.label} className="bg-gray-100 rounded-xl p-3 text-center">
                       <p className="font-bold text-gray-900 text-lg">{stat.value}</p>
@@ -321,7 +316,7 @@ export default function LandingView() {
                   ))}
                 </div>
                 <div className="bg-gray-100 rounded-xl p-3">
-                  <p className="text-gray-600 text-xs mb-2">Audience Growth</p>
+                  <p className="text-gray-600 text-xs mb-2">Call Quality</p>
                   <div className="h-16 flex items-end gap-1">
                     {[40, 55, 45, 70, 60, 85, 95].map((h, i) => (
                       <div
@@ -382,8 +377,8 @@ export default function LandingView() {
               { q: 'Do I need a VPN to use GaGa Chat?', a: 'No. GaGa Chat works everywhere without a VPN. Our infrastructure is designed to be accessible globally, including regions where other messaging apps may be blocked.' },
               { q: 'Is my data secure on GaGa Chat?', a: 'Absolutely. We use end-to-end encryption for messages, secure authentication, and industry-standard security practices. We never sell your data to third parties.' },
               { q: 'Can I use GaGa Chat on my computer?', a: 'Yes! GaGa Chat works on any device with a web browser. It is a Progressive Web App (PWA), so you can install it on desktop, tablet, and mobile devices.' },
-              { q: 'How is GaGa Chat different from WhatsApp or Telegram?', a: 'GaGa Chat combines the best of all worlds: free messaging, voice/video calls, reels, stories, events, marketplace, and creator tools — all in one platform. No VPN needed, and it works in 190+ countries.' },
-              { q: 'How do creators earn money on GaGa Chat?', a: 'Creators can earn through tips from fans, subscriptions, brand partnerships, and live streaming. Our Creator Center provides analytics and monetization tools to help you grow.' },
+              { q: 'How is GaGa Chat different from WhatsApp or Telegram?', a: 'GaGa Chat combines the best of all worlds: free messaging, voice/video calls, group chats, and broadcast lists — all in one platform. No VPN needed, and it works in 190+ countries.' },
+              { q: 'Can I make group calls on GaGa Chat?', a: 'Yes! GaGa Chat supports one-to-one and group voice and video calls with reliable global connectivity, powered by ZEGOCLOUD.' },
             ].map((faq, i) => (
               <motion.div key={i} initial={{ opacity: 0, y: 10 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: i * 0.05 }}>
                 <button
@@ -447,15 +442,10 @@ export default function LandingView() {
                 { feature: 'Free Messaging', gaga: true, wa: true, tg: true },
                 { feature: 'Voice/Video Calls', gaga: true, wa: true, tg: true },
                 { feature: 'Works Without VPN', gaga: true, wa: false, tg: false },
-                { feature: 'Reels / Shorts', gaga: true, wa: false, tg: false },
-                { feature: 'Stories', gaga: true, wa: true, tg: false },
-                { feature: 'Events', gaga: true, wa: false, tg: false },
-                { feature: 'Marketplace', gaga: true, wa: false, tg: false },
-                { feature: 'Creator Monetization', gaga: true, wa: false, tg: false },
                 { feature: 'Open Source Ready', gaga: true, wa: false, tg: true },
                 { feature: 'No Phone Number Required', gaga: true, wa: false, tg: true },
                 { feature: 'Group Calls (8+ people)', gaga: true, wa: false, tg: true },
-                { feature: 'Web App (No Install)', gaga: true, wa: true, tg: true },
+                { feature: 'Broadcast Lists', gaga: true, wa: false, tg: false },
               ].map((row, i) => (
                 <motion.div key={row.feature} initial={{ opacity: 0, x: -10 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }} transition={{ delay: i * 0.03 }}
                   className={`grid grid-cols-4 gap-3 items-center ${i % 2 === 0 ? 'bg-white' : 'bg-[#F5F5F5]'} rounded-xl p-3 mb-1`}

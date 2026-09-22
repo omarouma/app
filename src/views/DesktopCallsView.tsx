@@ -1,14 +1,22 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { Phone, Video, PhoneOutgoing, PhoneIncoming, PhoneMissed, Search, Trash2 } from 'lucide-react';
+import { Phone, Search, Trash2 } from 'lucide-react';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useCallStore } from '@/store/useCallStore';
 import { useFriendStore } from '@/store/useFriendStore';
 import { useNavigate } from 'react-router-dom';
 import EmptyState from '@/components/EmptyState';
-import { formatTime, getDefaultAvatar, sanitizeMediaUrl } from '@/lib/utils';
+import { CallListItem } from '@/components/features/calls/CallListItem';
+import { getCallDirection, getOtherParticipantId, groupCallsByDate } from '@/lib/callUtils';
 import { toast } from 'sonner';
 import type { CallRecord } from '@/types';
+
+type CallWithDetails = CallRecord & {
+  otherId: string;
+  name: string;
+  avatar?: string;
+  direction: 'outgoing' | 'incoming';
+};
 
 export default function DesktopCallsView() {
   const { user } = useAuthStore();
@@ -26,8 +34,39 @@ export default function DesktopCallsView() {
     return () => { clearTimeout(timeout); unsub(); };
   }, [user?.id, subscribeToCallHistory]);
 
+  const friendMap = useMemo(() => new Map(friends.map((f) => [f.id, f])), [friends]);
+
+  const callsWithDetails = useMemo((): CallWithDetails[] => {
+    return history
+      .map((call) => {
+        const otherId = getOtherParticipantId(call, user?.id);
+        const friend = friendMap.get(otherId);
+        return {
+          ...call,
+          otherId,
+          name: friend?.name || 'Unknown User',
+          avatar: friend?.avatar,
+          direction: getCallDirection(call, user?.id),
+        };
+      })
+      .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+  }, [history, user?.id, friendMap]);
+
+  const filtered = useMemo(() => {
+    let calls = callsWithDetails;
+    if (filter === 'missed') {
+      calls = calls.filter((c) => c.status === 'missed' && c.direction === 'incoming');
+    }
+    if (search) {
+      const q = search.toLowerCase();
+      calls = calls.filter((c) => c.name.toLowerCase().includes(q));
+    }
+    return calls.slice(0, 50);
+  }, [callsWithDetails, filter, search]);
+
   const handleDelete = (callId: string) => {
-    toast.promise(deleteCall(callId), {
+    if (!user?.id) return;
+    toast.promise(deleteCall(callId, user.id), {
       loading: 'Deleting…',
       success: 'Call deleted',
       error: 'Failed to delete',
@@ -43,28 +82,9 @@ export default function DesktopCallsView() {
     });
   };
 
-  const getCallIcon = (call: CallRecord) => {
-    if (call.status === 'missed') return <PhoneMissed size={16} className="text-[#FF3B30]" />;
-    if (call.initiatorId === user?.id) return <PhoneOutgoing size={16} className="text-[#00C300]" />;
-    return <PhoneIncoming size={16} className="text-[#00C300]" />;
+  const handleInitiateCall = (type: 'voice' | 'video', userId: string) => {
+    navigate('/call', { state: { userId, mode: type, isOutgoing: true } });
   };
-
-  const formatDuration = (s: number) => {
-    if (!s) return '';
-    const m = Math.floor(s / 60);
-    const sec = s % 60;
-    return `${m}:${sec.toString().padStart(2, '0')}`;
-  };
-
-  const filtered = history
-    .filter(c => {
-      const otherId = c.participantIds.find(id => id !== user?.id);
-      const friend = friends.find(f => f.id === otherId);
-      if (search && !friend?.name?.toLowerCase().includes(search.toLowerCase())) return false;
-      if (filter === 'missed' && c.status !== 'missed') return false;
-      return true;
-    })
-    .slice(0, 50);
 
   return (
     <div className="h-full flex flex-col bg-white">
@@ -125,59 +145,32 @@ export default function DesktopCallsView() {
             description="Calls you make or receive will appear here"
           />
         ) : (
-          filtered.map((call, i) => {
-            const otherId = call.participantIds.find(id => id !== user?.id);
-            const friend = friends.find(f => f.id === otherId);
-            return (
-              <motion.div
-                key={call.id}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: i * 0.03 }}
-                className="flex items-center gap-3 p-4 hover:bg-[#F5F5F5] transition-colors"
-              >
-                <div className="w-10 h-10 rounded-full bg-[#F5F5F5] flex items-center justify-center overflow-hidden shrink-0">
-                  {sanitizeMediaUrl(friend?.avatar) ? (
-                    <img src={sanitizeMediaUrl(friend?.avatar)} className="w-full h-full object-cover" alt="User avatar" />
-                  ) : (
-                    <img src={getDefaultAvatar(friend?.id || friend?.name || 'U')} className="w-full h-full object-cover" alt="User avatar" />
-                  )}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    {getCallIcon(call)}
-                    <p className={`text-sm font-medium truncate ${call.status === 'missed' ? 'text-[#FF3B30]' : 'text-[#111111]'}`}>
-                      {friend?.name || 'Unknown'}
-                    </p>
-                  </div>
-                  <p className="text-[#8D8D8D] text-xs">
-                    {call.type === 'video' ? 'Video' : 'Voice'} call &bull; {formatTime(call.timestamp)}
-                    {call.duration ? ` \u2022 ${formatDuration(call.duration)}` : ''}
-                  </p>
-                </div>
-                <div className="flex items-center gap-1">
-                  <button type="button" onClick={() => navigate('/call', { state: { userId: otherId, mode: 'voice' } })}
-                    className="p-2 rounded-full hover:bg-[#00C300]/10 text-[#8D8D8D] hover:text-[#00C300] transition-colors"
-                    title="Voice call"
+          <div className="pb-4">
+            {groupCallsByDate(filtered).map((group) => (
+              <div key={group.key}>
+                <h2 className="px-4 pt-3 pb-1 text-[11px] font-semibold uppercase tracking-wider text-[#8D8D8D]">
+                  {group.label}
+                </h2>
+                {group.items.map((call, i) => (
+                  <motion.div
+                    key={call.id}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: i * 0.03 }}
                   >
-                    <Phone size={16} />
-                  </button>
-                  <button type="button" onClick={() => navigate('/call', { state: { userId: otherId, mode: 'video' } })}
-                    className="p-2 rounded-full hover:bg-[#00C300]/10 text-[#8D8D8D] hover:text-[#00C300] transition-colors"
-                    title="Video call"
-                  >
-                    <Video size={16} />
-                  </button>
-                  <button type="button" onClick={() => handleDelete(call.id)}
-                    className="p-2 rounded-full hover:bg-red-50 text-[#8D8D8D] hover:text-[#FF3B30] transition-colors"
-                    title="Delete"
-                  >
-                    <Trash2 size={16} />
-                  </button>
-                </div>
-              </motion.div>
-            );
-          })
+                    <CallListItem
+                      call={call}
+                      userName={call.name}
+                      userAvatar={call.avatar}
+                      currentUserId={user?.id}
+                      onCall={handleInitiateCall}
+                      onDelete={handleDelete}
+                    />
+                  </motion.div>
+                ))}
+              </div>
+            ))}
+          </div>
         )}
       </div>
     </div>

@@ -29,7 +29,7 @@ export const useChatRoom = (chatId: string, userId: string) => {
   const {
     friends, getFriendStatus, getUserById, sendRequest, cancelRequest,
     acceptRequest, rejectRequest, blockUser, unblockUser, reportUser,
-    removeFriend, sentRequests, requests,
+    removeFriend, sentRequests, requests, blockedUsers,
   } = useFriendStore();
   const { typingUsers, sendTyping, stopTyping } = useTyping(chatId);
   const { queueMessage } = useOfflineQueue();
@@ -93,6 +93,8 @@ export const useChatRoom = (chatId: string, userId: string) => {
   // ── Misc ─────────────────────────────────────────────────────────────────
   const [lastSeen, setLastSeen] = useState<string | null>(null);
   const [lightboxImage, setLightboxImage] = useState<string | null>(null);
+  // Upload progress for the current media batch: { name, percent } | null
+  const [uploadProgress, setUploadProgress] = useState<{ name: string; percent: number } | null>(null);
   const [translations, setTranslations] = useState<Record<string, string>>({});
   const [translatingIds, setTranslatingIds] = useState<Set<string>>(new Set());
   const [chatBg, setChatBg] = useState('');
@@ -106,6 +108,14 @@ export const useChatRoom = (chatId: string, userId: string) => {
     [userId, friends, resolvedDisplayUser],
   );
   const chat = useMemo(() => chats.find(c => c.id === chatId), [chatId, chats]);
+
+  // Block enforcement: true when the current user has blocked the other party.
+  // The DB also enforces this (messages_participant_insert), but we surface a
+  // clear UI state and prevent the optimistic send.
+  const iBlockedUser = useMemo(
+    () => blockedUsers.some((b) => b.blockedId === userId),
+    [blockedUsers, userId],
+  );
 
   // ── Effects ──────────────────────────────────────────────────────────────
 
@@ -154,6 +164,10 @@ export const useChatRoom = (chatId: string, userId: string) => {
     if (editingMessageId) { await handleEditSave(editingMessageId); return; }
     const content = (contentOverride ?? input).trim();
     if (!content) return;
+    if (iBlockedUser) {
+      toast.error('You blocked this user. Unblock to send messages.');
+      return;
+    }
     try {
       if (isOnline) {
         await sendMessage(chatId, currentUser.id, content, 'text', undefined, replyingTo?.id);
@@ -168,14 +182,21 @@ export const useChatRoom = (chatId: string, userId: string) => {
       stopTyping();
       handleError(error, 'Failed to send message.');
     }
-  }, [chatId, currentUser, input, editingMessageId, replyingTo, sendMessage, queueMessage, stopTyping, handleEditSave, isOnline]);
+  }, [chatId, currentUser, input, editingMessageId, replyingTo, sendMessage, queueMessage, stopTyping, handleEditSave, isOnline, iBlockedUser]);
 
   const handleMediaUpload = useCallback(async (files: File[]) => {
     if (!currentUser) return;
     setShowAttachments(false);
     for (const file of files) {
       try {
-        const url = await uploadMediaBlob(file, { userId: currentUser.id, kind: 'chats', fileName: file.name, contentType: file.type });
+        setUploadProgress({ name: file.name, percent: 0 });
+        const url = await uploadMediaBlob(file, {
+          userId: currentUser.id,
+          kind: 'chats',
+          fileName: file.name,
+          contentType: file.type,
+          onProgress: (percent) => setUploadProgress({ name: file.name, percent }),
+        });
         const type = file.type.startsWith('image/') ? 'image' : file.type.startsWith('video/') ? 'video' : 'file';
         if (!url) {
           toast.error(`Failed to upload ${file.name}.`);
@@ -184,6 +205,8 @@ export const useChatRoom = (chatId: string, userId: string) => {
         await sendMessage(chatId, currentUser.id, file.name, type, url);
       } catch (error) {
         handleError(error, `Failed to upload ${file.name}.`);
+      } finally {
+        setUploadProgress(null);
       }
     }
   }, [chatId, currentUser, sendMessage]);
@@ -277,7 +300,7 @@ export const useChatRoom = (chatId: string, userId: string) => {
     if (!currentUser?.id || !userId) return;
     setProcessingAction(true);
     try {
-      await sendRequest(currentUser.id, userId);
+      await sendRequest(userId, currentUser.id);
       setFriendStatus('request_sent');
       toast.success('Friend request sent!');
     } catch (error) {
@@ -343,7 +366,7 @@ export const useChatRoom = (chatId: string, userId: string) => {
     if (!currentUser?.id || !userId) return;
     setProcessingAction(true);
     try {
-      await removeFriend(currentUser.id, userId);
+      await removeFriend(userId, currentUser.id);
       setFriendStatus('not_friends');
       toast.success('Friend removed.');
     } catch (error) {
@@ -359,7 +382,7 @@ export const useChatRoom = (chatId: string, userId: string) => {
     if (!currentUser?.id || !userId) return;
     setProcessingAction(true);
     try {
-      await blockUser(currentUser.id, userId);
+      await blockUser(userId, currentUser.id);
       setFriendStatus('blocked');
       toast.success('User blocked.');
     } catch (error) {
@@ -374,7 +397,7 @@ export const useChatRoom = (chatId: string, userId: string) => {
     if (!currentUser?.id || !userId) return;
     setProcessingAction(true);
     try {
-      await unblockUser(currentUser.id, userId);
+      await unblockUser(userId, currentUser.id);
       const status = await getFriendStatus(currentUser.id, userId);
       setFriendStatus(status);
       toast.success('User unblocked.');
@@ -442,6 +465,7 @@ export const useChatRoom = (chatId: string, userId: string) => {
     friendStatus, setFriendStatus, showReportModal, setShowReportModal,
     reportReason, setReportReason, reportDetails, setReportDetails,
     processingAction, lastSeen, setLastSeen, lightboxImage, setLightboxImage,
+    uploadProgress, iBlockedUser,
     showDeleteForEveryoneConfirm, setShowDeleteForEveryoneConfirm,
     showRemoveFriendConfirm, setShowRemoveFriendConfirm,
     showBlockConfirm, setShowBlockConfirm,

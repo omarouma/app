@@ -49,8 +49,13 @@ export const VoiceMessage = memo(function VoiceMessage(props: VoiceMessageProps)
     };
     audio.addEventListener('loadedmetadata', onLoaded);
     audio.addEventListener('error', onError);
+    // Never leave the user stuck in a permanent "Loading..." state.
+    const timeout = setTimeout(() => {
+      if (!cancelled) setLoading(false);
+    }, 15000);
     return () => {
       cancelled = true;
+      clearTimeout(timeout);
       audio.removeEventListener('loadedmetadata', onLoaded);
       audio.removeEventListener('error', onError);
       audio.pause();
@@ -68,23 +73,23 @@ export const VoiceMessage = memo(function VoiceMessage(props: VoiceMessageProps)
 
   if (!safeUrl) {
     return (
-      <div className={`rounded-2xl mb-1 px-3 py-2 ${isMe ? 'bg-[#00C300]' : 'bg-white'}`}>
-        <span className={`text-xs ${isMe ? 'text-white/70' : 'text-[#8D8D8D]'}`}>Voice unavailable</span>
+      <div className={`rounded-2xl mb-1 px-3 py-2 ${isMe ? 'bg-[#00C300]' : 'bg-background'}`}>
+        <span className={`text-xs ${isMe ? 'text-white/70' : 'text-muted-foreground'}`}>Voice unavailable</span>
       </div>
     );
   }
 
   return (
-    <div className={`rounded-2xl mb-1 px-3 py-2 ${isMe ? 'bg-[#00C300]' : 'bg-white'}`}>
+    <div className={`rounded-2xl mb-1 px-3 py-2 ${isMe ? 'bg-[#00C300]' : 'bg-background'}`}>
       {loading ? (
         <div className="flex items-center gap-2">
-          <Loader size={16} className={`animate-spin ${isMe ? 'text-white/70' : 'text-[#8D8D8D]'}`} />
-          <span className={`text-xs ${isMe ? 'text-white/70' : 'text-[#8D8D8D]'}`}>Loading...</span>
+          <Loader size={16} className={`animate-spin ${isMe ? 'text-white/70' : 'text-muted-foreground'}`} />
+          <span className={`text-xs ${isMe ? 'text-white/70' : 'text-muted-foreground'}`}>Loading...</span>
         </div>
       ) : (
         <>
           <VoiceWaveform audioUrl={safeUrl} isOwnMessage={isMe} />
-          <div className={`flex items-center justify-between mt-1 ${isMe ? 'text-white/70' : 'text-[#8D8D8D]'}`}>
+          <div className={`flex items-center justify-between mt-1 ${isMe ? 'text-white/70' : 'text-muted-foreground'}`}>
             <span className="text-[10px]">{formatDuration(duration)}</span>
             <span className="text-[10px]">Voice message</span>
           </div>

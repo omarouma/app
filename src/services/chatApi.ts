@@ -37,6 +37,7 @@ import { checkMessageRateLimit } from '@/hooks/useMessageRateLimiter';
 import { isOnline } from '@/lib/offlineQueue';
 import { toDateFromDb } from '@/lib/timeUtils';
 import { sanitizeText } from '@/lib/sanitize';
+import { getMessagePreview } from '@/lib/utils';
 import { logStoreError } from '@/lib/errorLogger';
 import { validateSendMessageParams, validateVotePoll, validateSendContactCard, validateSendPollParams } from '@/lib/validation';
 
@@ -268,6 +269,22 @@ export const chatApi = {
             await updateDocById(COLLECTIONS.CHATS, chatId, { isMuted });
         } catch (error) {
             logStoreError('chatApi.toggleMuteChat', error, { chatId, isMuted });
+            throw error;
+        }
+    },
+
+    /**
+     * Pin/unpin a chat
+     */
+    async togglePinChat(chatId: string, pinned: boolean): Promise<void> {
+        if (!isFirestoreAvailable() || !chatId) {
+            return;
+        }
+
+        try {
+            await updateDocById(COLLECTIONS.CHATS, chatId, { pinned });
+        } catch (error) {
+            logStoreError('chatApi.togglePinChat', error, { chatId, pinned });
             throw error;
         }
     },
@@ -606,7 +623,7 @@ export const chatApi = {
 
             // Update chat metadata
             await updateDocById(COLLECTIONS.CHATS, chatId, {
-                lastMessage: content,
+                lastMessage: getMessagePreview(type, content),
                 lastMessageSenderId: senderId,
                 updatedAt: serverTimestamp(),
             });
@@ -805,6 +822,31 @@ export const chatApi = {
     },
 
     /**
+     * Fetch per-user unread counts for every chat the user participates in.
+     * Backed by the server-side public.get_chat_unread_counts() RPC, which
+     * compares each chat's messages against the caller's chat_reads.last_read_at.
+     * Returns a map of chatId -> unread count.
+     */
+    async fetchUnreadCounts(userId: string): Promise<Record<string, number>> {
+        if (!isFirestoreAvailable() || !userId) return {};
+        try {
+            const { getSupabaseSafe } = await import('@/lib/supabase');
+            const supabase = getSupabaseSafe();
+            if (!supabase) return {};
+            const { data, error } = await supabase.rpc('get_chat_unread_counts', { p_user_id: userId });
+            if (error || !data) return {};
+            const map: Record<string, number> = {};
+            for (const row of data as Array<{ chat_id: string; unread_count: number }>) {
+                map[row.chat_id] = row.unread_count ?? 0;
+            }
+            return map;
+        } catch (error) {
+            logStoreError('chatApi.fetchUnreadCounts', error, { userId });
+            return {};
+        }
+    },
+
+    /**
      * Mark messages as read
      */
     async markAsRead(chatId: string, currentUserId: string): Promise<void> {
@@ -813,7 +855,18 @@ export const chatApi = {
         }
 
         try {
-            // Update chat unread count
+            // Per-user read marker (drives get_chat_unread_counts).
+            try {
+                const { getSupabaseSafe } = await import('@/lib/supabase');
+                const supabase = getSupabaseSafe();
+                if (supabase) {
+                    await supabase.rpc('mark_chat_read', { p_chat_id: chatId });
+                }
+            } catch (rpcError) {
+                logStoreError('chatApi.markAsRead.rpc', rpcError, { chatId });
+            }
+
+            // Update chat unread count (legacy shared counter)
             await updateDocById(COLLECTIONS.CHATS, chatId, { unreadCount: 0 });
 
             // Get all unread messages from other users
@@ -1049,7 +1102,11 @@ export const chatApi = {
      * Get shared media in a chat
      */
     async getSharedMedia(chatId: string, mediaType?: string): Promise<Message[]> {
-        if (!isFirestoreAvailable() || !chatId) {
+        // Supabase is the app's PRIMARY database. `querySubcollection` routes to
+        // Supabase when available and only falls back to Firestore otherwise, so
+        // we must NOT gate on `isFirestoreAvailable()` here — doing so made the
+        // Chat Info media/files/links gallery permanently empty in production.
+        if (!chatId) {
             return [];
         }
 

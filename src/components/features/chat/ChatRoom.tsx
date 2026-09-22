@@ -3,7 +3,7 @@ import type { ReactElement } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  ChevronDown, Loader, Lock,
+  ChevronDown, Loader, Lock, Ban,
 } from 'lucide-react';
 
 import { useFilteredOnline, useOnlineUsers } from '@/hooks/usePresence';
@@ -20,6 +20,7 @@ import { ChatHeader } from './ChatHeader';
 import { MessageItem } from './MessageItem';
 import { MessageSearch } from './MessageSearch';
 import { InputBar } from './InputBar';
+import { ImageLightbox } from './ImageLightbox';
 import TransferModal from '@/components/TransferModal';
 import { Virtuoso } from 'react-virtuoso';
 import { toast } from 'sonner';
@@ -108,7 +109,9 @@ export default function ChatRoom({ chatId, userId, onBack }: {
     setReportDetails,
     processingAction,
     lastSeen,
+    lightboxImage,
     setLightboxImage,
+    uploadProgress,
     editingMessageId,
     setEditingMessageId,
     showDeleteForEveryoneConfirm,
@@ -152,6 +155,7 @@ export default function ChatRoom({ chatId, userId, onBack }: {
     sendTyping,
     stopTyping,
     unlockChat,
+    iBlockedUser,
   } = useChatRoom(chatId, userId);
 
   const { chats } = useChatStore();
@@ -498,7 +502,7 @@ export default function ChatRoom({ chatId, userId, onBack }: {
   }, [selectionMode]);
 
   return (
-    <div className="flex flex-col h-full bg-white" style={{ backgroundImage: chatBg }}>
+    <div className="flex flex-col h-full bg-background" style={{ backgroundImage: chatBg }}>
       <ChatHeader
         displayUser={resolvedDisplayUser}
         userId={userId}
@@ -535,10 +539,10 @@ export default function ChatRoom({ chatId, userId, onBack }: {
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            className="shrink-0 bg-white border-b border-[#EBEBEB] overflow-hidden"
+            className="shrink-0 bg-background border-b border-border overflow-hidden"
           >
             <div className="flex items-center gap-2 px-4 py-2.5">
-              <span className="text-xs font-semibold text-[#8D8D8D] mr-1">Background:</span>
+              <span className="text-xs font-semibold text-muted-foreground mr-1">Background:</span>
               {[
                 { label: 'Default', value: '' },
                 { label: 'Mint', value: 'linear-gradient(180deg, #E7F9E7 0%, #D0F0D0 100%)' },
@@ -552,7 +556,7 @@ export default function ChatRoom({ chatId, userId, onBack }: {
                   onClick={() => setChatBg(opt.value)}
                   className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${chatBg === opt.value
                     ? 'bg-[#00C300] text-white'
-                    : 'bg-[#F5F5F5] text-[#111111] hover:bg-[#EBEBEB]'
+                    : 'bg-muted text-foreground hover:bg-muted'
                     }`}
                 >
                   {opt.label}
@@ -671,7 +675,7 @@ export default function ChatRoom({ chatId, userId, onBack }: {
           )}
           components={{
             Header: () => (
-              <div className="p-4">
+              <div className="p-4 flex justify-center">
                 {hasMore && (
                   <button
                     onClick={async () => {
@@ -680,9 +684,9 @@ export default function ChatRoom({ chatId, userId, onBack }: {
                       setLoadingOlder(false);
                     }}
                     disabled={loadingOlder}
-                    className="text-[#00C300] text-sm disabled:opacity-50"
+                    className="px-4 py-2 rounded-full bg-muted text-[#00C300] text-xs font-semibold disabled:opacity-50 active:scale-95 transition-transform"
                   >
-                    {loadingOlder ? 'Loading...' : 'Load older messages'}
+                    {loadingOlder ? 'Loading…' : 'Load older messages'}
                   </button>
                 )}
               </div>
@@ -693,14 +697,51 @@ export default function ChatRoom({ chatId, userId, onBack }: {
         {!isAtBottom && (
           <button
             onClick={scrollToBottom}
-            className="absolute bottom-4 right-4 bg-white rounded-full p-2 shadow-md z-10"
+            className="absolute bottom-4 right-4 bg-background rounded-full p-2.5 shadow-lg border border-border z-10 active:scale-95 transition-transform"
+            aria-label="Scroll to latest"
           >
-            <ChevronDown size={24} />
+            <ChevronDown size={22} className="text-foreground" />
           </button>
         )}
       </div>
 
+      {/* Upload progress */}
+      <AnimatePresence>
+        {uploadProgress && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            className="shrink-0 bg-background border-t border-border px-4 py-2"
+          >
+            <div className="flex items-center justify-between text-[11px] text-muted-foreground mb-1">
+              <span className="truncate max-w-[70%]">Uploading {uploadProgress.name}…</span>
+              <span>{uploadProgress.percent}%</span>
+            </div>
+            <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
+              <div
+                className="h-full bg-[#00C300] transition-all duration-200"
+                style={{ width: `${uploadProgress.percent}%` }}
+              />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Input bar */}
+      {iBlockedUser ? (
+        <div className="shrink-0 px-4 py-3 border-t border-border bg-muted flex items-center justify-center gap-2">
+          <Ban size={16} className="text-[#FF3B30]" />
+          <span className="text-sm text-muted-foreground">You blocked this user.</span>
+          <button
+            type="button"
+            onClick={handleUnblockUser}
+            className="text-sm font-semibold text-[#00C300] hover:underline"
+          >
+            Unblock
+          </button>
+        </div>
+      ) : (
       <InputBar
         input={input}
         onInputChange={setInput}
@@ -772,6 +813,7 @@ export default function ChatRoom({ chatId, userId, onBack }: {
           }
         }}
       />
+      )}
 
       {/* Context Menu */}
       <AnimatePresence>
@@ -780,7 +822,7 @@ export default function ChatRoom({ chatId, userId, onBack }: {
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.9 }}
-            className="fixed bg-white rounded-xl shadow-xl border border-gray-100 z-50 py-1 min-w-[160px] max-w-[220px]"
+            className="fixed bg-background rounded-xl shadow-xl border border-border z-50 py-1 min-w-[160px] max-w-[220px]"
             style={{
               top: Math.min(contextMenu.position?.y ?? 0, window.innerHeight - 320),
               left: Math.max(8, Math.min(contextMenu.position?.x ?? 0, window.innerWidth - 228))
@@ -790,6 +832,7 @@ export default function ChatRoom({ chatId, userId, onBack }: {
             {[
               { label: 'Reply', action: () => { setReplyingTo(contextMenu.msg); setContextMenu(null); } },
               { label: 'Copy', action: async () => { const ok = await copyToClipboard(contextMenu.msg.content); if (ok) toast.success('Copied'); else toast.error('Unable to copy in this browser'); setContextMenu(null); } },
+              { label: 'Select', action: () => { setSelectionMode(true); setSelectedMessages(new Set([contextMenu.msg.id])); setContextMenu(null); } },
               ...(contextMenu.msg.senderId === currentUser?.id ? [
                 { label: 'Edit', action: () => handleEditStart(contextMenu.msg as Message) },
                 { label: 'Recall', action: () => handleRecall(contextMenu.msg.id) },
@@ -806,7 +849,7 @@ export default function ChatRoom({ chatId, userId, onBack }: {
                 key={label}
                 type="button"
                 onClick={action}
-                className={`w-full text-left px-4 py-2.5 text-sm hover:bg-gray-50 transition-colors ${label === 'Delete for everyone' || label === 'Delete for me' ? 'text-red-500' : 'text-gray-800'
+                className={`w-full text-left px-4 py-2.5 text-sm hover:bg-muted transition-colors ${label === 'Delete for everyone' || label === 'Delete for me' ? 'text-red-500' : 'text-foreground'
                   }`}
               >
                 {label}
@@ -824,11 +867,11 @@ export default function ChatRoom({ chatId, userId, onBack }: {
           >
             <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
               transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-              className="bg-white rounded-t-3xl p-5 w-full max-w-lg max-h-[70vh] flex flex-col"
+              className="bg-background rounded-t-3xl p-5 w-full max-w-lg max-h-[70vh] flex flex-col"
               onClick={e => e.stopPropagation()}
             >
               <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-4" />
-              <h3 className="text-base font-bold text-[#111111] mb-3">Forward to…</h3>
+              <h3 className="text-base font-bold text-foreground mb-3">Forward to…</h3>
               <div className="flex-1 overflow-y-auto space-y-1">
                 {chats.filter(c => c.id !== chatId).map(target => {
                   const otherId = target.participants?.find(p => p !== currentUser?.id);
@@ -844,9 +887,9 @@ export default function ChatRoom({ chatId, userId, onBack }: {
                       key={target.id}
                       type="button"
                       onClick={() => handleForward(target.id)}
-                      className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-[#F5F5F5] rounded-xl transition-colors text-left"
+                      className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-muted rounded-xl transition-colors text-left"
                     >
-                      <div className="w-10 h-10 rounded-full bg-[#F5F5F5] flex items-center justify-center overflow-hidden shrink-0">
+                      <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center overflow-hidden shrink-0">
                         {sanitizeMediaUrl(avatar) ? (
                           <img src={sanitizeMediaUrl(avatar)} className="w-full h-full object-cover" alt="" />
                         ) : (
@@ -855,16 +898,16 @@ export default function ChatRoom({ chatId, userId, onBack }: {
                           </div>
                         )}
                       </div>
-                      <span className="text-sm font-medium text-[#111111] truncate">{name || 'Chat'}</span>
+                      <span className="text-sm font-medium text-foreground truncate">{name || 'Chat'}</span>
                     </button>
                   );
                 })}
                 {chats.filter(c => c.id !== chatId).length === 0 && (
-                  <p className="text-sm text-[#8D8D8D] px-3 py-4 text-center">No other chats to forward to.</p>
+                  <p className="text-sm text-muted-foreground px-3 py-4 text-center">No other chats to forward to.</p>
                 )}
               </div>
               <button type="button" onClick={resetForwardModal}
-                className="mt-3 w-full py-3 bg-[#F5F5F5] text-[#111111] rounded-xl text-sm font-bold"
+                className="mt-3 w-full py-3 bg-muted text-foreground rounded-xl text-sm font-bold"
               >Cancel</button>
             </motion.div>
           </motion.div>
@@ -879,14 +922,14 @@ export default function ChatRoom({ chatId, userId, onBack }: {
             onClick={() => setShowDeleteForEveryoneConfirm(null)}
           >
             <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-white rounded-2xl p-6 max-w-sm w-full"
+              className="bg-background rounded-2xl p-6 max-w-sm w-full"
               onClick={e => e.stopPropagation()}
             >
-              <h3 className="text-lg font-bold text-[#111111] mb-2">Delete for Everyone?</h3>
-              <p className="text-[#8D8D8D] text-sm mb-4">This message will be removed for all participants.</p>
+              <h3 className="text-lg font-bold text-foreground mb-2">Delete for Everyone?</h3>
+              <p className="text-muted-foreground text-sm mb-4">This message will be removed for all participants.</p>
               <div className="flex gap-2">
                 <button type="button" onClick={() => setShowDeleteForEveryoneConfirm(null)}
-                  className="flex-1 py-3 bg-[#F5F5F5] text-[#111111] rounded-xl text-sm font-bold"
+                  className="flex-1 py-3 bg-muted text-foreground rounded-xl text-sm font-bold"
                 >Cancel</button>
                 <button type="button" onClick={() => { if (showDeleteForEveryoneConfirm) handleDeleteForEveryone(showDeleteForEveryoneConfirm); }}
                   className="flex-1 py-3 bg-[#FF3B30] text-white rounded-xl text-sm font-bold"
@@ -905,15 +948,15 @@ export default function ChatRoom({ chatId, userId, onBack }: {
             onClick={() => setShowReportModal(false)}
           >
             <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-white rounded-2xl p-6 max-w-sm w-full"
+              className="bg-background rounded-2xl p-6 max-w-sm w-full"
               onClick={e => e.stopPropagation()}
             >
-              <h3 className="text-lg font-bold text-[#111111] mb-3">Report Message</h3>
+              <h3 className="text-lg font-bold text-foreground mb-3">Report Message</h3>
               <div className="space-y-2 mb-4">
                 {['Spam', 'Harassment', 'Hate speech', 'Violence', 'Other'].map(reason => (
                   <button key={reason} type="button"
                     onClick={() => { setReportReason(reportReason === reason ? '' : reason); }}
-                    className={`w-full text-left px-4 py-2.5 rounded-xl text-sm transition-colors ${reportReason === reason ? 'bg-[#00C300]/10 text-[#00C300] font-medium' : 'bg-[#F5F5F5] text-[#111111] hover:bg-[#EBEBEB]'
+                    className={`w-full text-left px-4 py-2.5 rounded-xl text-sm transition-colors ${reportReason === reason ? 'bg-[#00C300]/10 text-[#00C300] font-medium' : 'bg-muted text-foreground hover:bg-muted'
                       }`}
                   >{reason}</button>
                 ))}
@@ -921,11 +964,11 @@ export default function ChatRoom({ chatId, userId, onBack }: {
               <textarea value={reportDetails} onChange={e => setReportDetails(e.target.value)}
                 placeholder="Additional details (optional)"
                 rows={2}
-                className="w-full bg-[#F5F5F5] rounded-xl px-3 py-2 text-sm text-[#111111] resize-none focus:outline-none focus:ring-2 focus:ring-[#00C300] mb-4"
+                className="w-full bg-muted rounded-xl px-3 py-2 text-sm text-foreground resize-none focus:outline-none focus:ring-2 focus:ring-[#00C300] mb-4"
               />
               <div className="flex gap-2">
                 <button type="button" onClick={() => setShowReportModal(false)}
-                  className="flex-1 py-3 bg-[#F5F5F5] text-[#111111] rounded-xl text-sm font-bold"
+                  className="flex-1 py-3 bg-muted text-foreground rounded-xl text-sm font-bold"
                 >Cancel</button>
                 <button type="button" onClick={() => { handleReport(); setShowReportModal(false); }} disabled={!reportReason}
                   className="flex-1 py-3 bg-[#FF3B30] text-white rounded-xl text-sm font-bold disabled:opacity-50"
@@ -945,21 +988,21 @@ export default function ChatRoom({ chatId, userId, onBack }: {
           >
             <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
               transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-              className="bg-white rounded-t-3xl p-5 w-full max-w-lg"
+              className="bg-background rounded-t-3xl p-5 w-full max-w-lg"
               onClick={e => e.stopPropagation()}
             >
               <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-4" />
-              <h3 className="text-base font-bold text-[#111111] mb-3">Create Poll</h3>
+              <h3 className="text-base font-bold text-foreground mb-3">Create Poll</h3>
               <input value={pollQuestion} onChange={e => setPollQuestion(e.target.value)}
                 placeholder="Ask a question…"
-                className="w-full bg-[#F5F5F5] rounded-xl px-4 py-2.5 text-sm text-[#111111] focus:outline-none focus:ring-2 focus:ring-[#00C300] mb-3"
+                className="w-full bg-muted rounded-xl px-4 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-[#00C300] mb-3"
               />
               <div className="space-y-2 mb-3">
                 {pollOptions.map((opt, i) => (
                   <div key={i} className="flex gap-2">
                     <input value={opt} onChange={e => { const o = [...pollOptions]; o[i] = e.target.value; setPollOptions(o); }}
                       placeholder={`Option ${i + 1}`}
-                      className="flex-1 bg-[#F5F5F5] rounded-xl px-4 py-2.5 text-sm text-[#111111] focus:outline-none focus:ring-2 focus:ring-[#00C300]"
+                      className="flex-1 bg-muted rounded-xl px-4 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-[#00C300]"
                     />
                     {pollOptions.length > 2 && (
                       <button type="button" onClick={() => setPollOptions(pollOptions.filter((_, j) => j !== i))}
@@ -976,7 +1019,7 @@ export default function ChatRoom({ chatId, userId, onBack }: {
               )}
               <div className="flex gap-2">
                 <button type="button" onClick={() => setShowPollModal(false)}
-                  className="flex-1 py-3 bg-[#F5F5F5] text-[#111111] rounded-xl text-sm font-bold"
+                  className="flex-1 py-3 bg-muted text-foreground rounded-xl text-sm font-bold"
                 >Cancel</button>
                 <button type="button" onClick={handleSendPoll}
                   disabled={!pollQuestion.trim() || pollOptions.some(o => !o.trim())}
@@ -996,18 +1039,18 @@ export default function ChatRoom({ chatId, userId, onBack }: {
             onClick={() => setShowSchedulePicker(false)}
           >
             <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-white rounded-2xl p-6 max-w-sm w-full"
+              className="bg-background rounded-2xl p-6 max-w-sm w-full"
               onClick={e => e.stopPropagation()}
             >
-              <h3 className="text-lg font-bold text-[#111111] mb-3">Schedule Message</h3>
-              <p className="text-[#8D8D8D] text-sm mb-3">Message: <span className="text-[#111111] font-medium">{input || '(current input)'}</span></p>
+              <h3 className="text-lg font-bold text-foreground mb-3">Schedule Message</h3>
+              <p className="text-muted-foreground text-sm mb-3">Message: <span className="text-foreground font-medium">{input || '(current input)'}</span></p>
               <input type="datetime-local" value={scheduleDate} onChange={e => setScheduleDate(e.target.value)}
                 min={new Date(Date.now() + 60000).toISOString().slice(0, 16)}
-                className="w-full bg-[#F5F5F5] rounded-xl px-4 py-2.5 text-sm text-[#111111] focus:outline-none focus:ring-2 focus:ring-[#00C300] mb-4"
+                className="w-full bg-muted rounded-xl px-4 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-[#00C300] mb-4"
               />
               <div className="flex gap-2">
                 <button type="button" onClick={() => setShowSchedulePicker(false)}
-                  className="flex-1 py-3 bg-[#F5F5F5] text-[#111111] rounded-xl text-sm font-bold"
+                  className="flex-1 py-3 bg-muted text-foreground rounded-xl text-sm font-bold"
                 >Cancel</button>
                 <button type="button" onClick={handleScheduleSend} disabled={!scheduleDate || !input.trim()}
                   className="flex-1 py-3 bg-[#00C300] text-white rounded-xl text-sm font-bold disabled:opacity-50"
@@ -1025,16 +1068,16 @@ export default function ChatRoom({ chatId, userId, onBack }: {
             onClick={() => setShowDeleteSelectedConfirm(false)}
           >
             <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-white rounded-2xl p-6 max-w-sm w-full"
+              className="bg-background rounded-2xl p-6 max-w-sm w-full"
               onClick={e => e.stopPropagation()}
             >
-              <h3 className="text-lg font-bold text-[#111111] mb-2">Delete Messages?</h3>
-              <p className="text-[#8D8D8D] text-sm mb-4">
+              <h3 className="text-lg font-bold text-foreground mb-2">Delete Messages?</h3>
+              <p className="text-muted-foreground text-sm mb-4">
                 Delete {selectedMessages.size} selected message{selectedMessages.size !== 1 ? 's' : ''} for you?
               </p>
               <div className="flex gap-2">
                 <button type="button" onClick={() => setShowDeleteSelectedConfirm(false)}
-                  className="flex-1 py-3 bg-[#F5F5F5] text-[#111111] rounded-xl text-sm font-bold"
+                  className="flex-1 py-3 bg-muted text-foreground rounded-xl text-sm font-bold"
                 >Cancel</button>
                 <button type="button" onClick={confirmDeleteSelected}
                   className="flex-1 py-3 bg-[#FF3B30] text-white rounded-xl text-sm font-bold"
@@ -1044,6 +1087,9 @@ export default function ChatRoom({ chatId, userId, onBack }: {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Full-screen image viewer */}
+      <ImageLightbox url={lightboxImage} onClose={() => setLightboxImage(null)} />
     </div>
   );
 }

@@ -11,6 +11,19 @@ import {
 import type { CallRecord } from '@/types';
 import { where, orderBy, limit } from '@/lib/firestore';
 import { subscribeDeduped } from '@/lib/subscriptionManager';
+import { useAuthStore } from '@/store/useAuthStore';
+import { buildZegoRoomID } from '@/lib/zego';
+import {
+  isZimConfigured,
+  zimInviteCall,
+  zimAcceptCall,
+  zimRejectCall,
+  zimCancelCall,
+  zimEndCall,
+  rememberZimCallId,
+  getZimCallId,
+  forgetZimCallId,
+} from '@/lib/zim';
 
 interface CallStore {
   currentCall: CallRecord | null;
@@ -30,7 +43,7 @@ interface CallStore {
   subscribeCalls: (userId: string) => () => void;
   subscribeToCallHistory: (userId: string) => () => void;
   clearCallHistory: (userId: string) => Promise<void>;
-  deleteCall: (callId: string) => Promise<void>;
+  deleteCall: (callId: string, userId: string) => Promise<void>;
   cancelCallIfStale: () => void;
 }
 
@@ -47,6 +60,11 @@ const mapCall = (d: Record<string, unknown>): CallRecord => {
   const participantIds: string[] = storedParticipants.length > 0
     ? Array.from(new Set([...storedParticipants, caller, callee].filter(Boolean) as string[]))
     : [caller, callee].filter(Boolean) as string[];
+  const deletedBy = Array.isArray((d as any).deletedBy)
+    ? ((d as any).deletedBy as string[]).filter(Boolean)
+    : Array.isArray((d as any).deleted_by)
+      ? ((d as any).deleted_by as string[]).filter(Boolean)
+      : [];
   return {
     id: d.id as string,
     initiatorId: caller,
@@ -57,6 +75,7 @@ const mapCall = (d: Record<string, unknown>): CallRecord => {
       ? (d.createdAt as { toDate(): Date }).toDate()
       : d.createdAt ? new Date(d.createdAt as string) : new Date(),
     duration: (d.duration as number) || 0,
+    deletedBy,
   };
 };
 
@@ -132,6 +151,8 @@ const processCallData = (
     const call = mapCall(d);
     const isParticipant = call.participantIds.includes(currentUserId);
     if (!isParticipant) continue;
+    // Per-user soft delete: hide calls this user removed from their own log.
+    if (call.deletedBy?.includes(currentUserId)) continue;
 
     if (['ended', 'rejected', 'missed'].includes(call.status)) {
       history.push(call);
@@ -169,6 +190,48 @@ const processCallData = (
   }
 };
 
+/**
+ * Sends a ZIM call invitation (the "ring") for a freshly-created call_history
+ * row. Best-effort: if ZIM is not configured or the invite fails, the call
+ * still proceeds via the Supabase realtime subscription (the callee's app will
+ * pick up the `calling` row). Returns the ZIM callID when available.
+ */
+async function sendZimInvitation(params: {
+  callId: string;
+  callerId: string;
+  inviteeIds: string[];
+  type: CallRecord['type'];
+}): Promise<string | null> {
+  if (!isZimConfigured()) return null;
+  const { callId, callerId, inviteeIds, type } = params;
+  if (!callId || inviteeIds.length === 0) return null;
+
+  const caller = useAuthStore.getState().user;
+  const isVideo = type === 'video' || type === 'group_video';
+  const callerName = caller?.displayName || caller?.name || 'Someone';
+
+  const zimCallId = await zimInviteCall(
+    inviteeIds,
+    {
+      callId,
+      callerId,
+      type,
+      callerName,
+      callerAvatar: caller?.avatar,
+      roomId: buildZegoRoomID(callId),
+    },
+    {
+      timeoutSeconds: 60,
+      advanced: type === 'group_voice' || type === 'group_video',
+      pushTitle: isVideo ? 'Incoming video call' : 'Incoming voice call',
+      pushContent: `${callerName} is calling you…`,
+    },
+  );
+
+  if (zimCallId) rememberZimCallId(callId, zimCallId);
+  return zimCallId;
+}
+
 export const useCallStore = create<CallStore>((set, get) => ({
   currentCall: null,
   incomingCall: null,
@@ -196,6 +259,17 @@ export const useCallStore = create<CallStore>((set, get) => ({
         invitedUserId,
       ]));
       await updateDocById(COLLECTIONS.CALL_HISTORY, currentCallId, { participantIds: merged });
+
+      // Ring the newly-invited participant via ZIM so their device shows the
+      // incoming-call UI (best-effort; Supabase realtime is the fallback).
+      if (currentCall) {
+        void sendZimInvitation({
+          callId: currentCallId,
+          callerId: currentUserId,
+          inviteeIds: [invitedUserId],
+          type: currentCall.type,
+        });
+      }
     } catch {
       // ignore
     }
@@ -249,18 +323,23 @@ export const useCallStore = create<CallStore>((set, get) => ({
       return;
     }
     const { history } = get();
+    // Per-user soft delete: mark every visible call as deleted for this user
+    // only. The rows are retained for the other participant(s).
     try {
-      const { deleteDocById } = await import('@/lib/firestore');
-      await Promise.allSettled(history.map((c) => deleteDocById(COLLECTIONS.CALL_HISTORY, c.id)));
+      const { updateDocById: updateDoc, arrayUnion: union } = await import('@/lib/firestore');
+      await Promise.allSettled(
+        history.map((c) => updateDoc(COLLECTIONS.CALL_HISTORY, c.id, { deletedBy: union(userId) })),
+      );
     } catch { /* ignore individual failures */ }
     set({ history: [] });
   },
 
-  deleteCall: async (callId: string) => {
-    if (!isFirestoreAvailable() || !callId) return;
+  deleteCall: async (callId: string, userId: string) => {
+    if (!isFirestoreAvailable() || !callId || !userId) return;
     try {
-      const { deleteDocById } = await import('@/lib/firestore');
-      await deleteDocById(COLLECTIONS.CALL_HISTORY, callId);
+      const { updateDocById: updateDoc, arrayUnion: union } = await import('@/lib/firestore');
+      // Soft delete for the acting user only — never remove the shared row.
+      await updateDoc(COLLECTIONS.CALL_HISTORY, callId, { deletedBy: union(userId) });
       set({ history: get().history.filter((c) => c.id !== callId) });
     } catch {
       // ignore
@@ -305,10 +384,26 @@ export const useCallStore = create<CallStore>((set, get) => ({
 
         set({ currentCall: call, connectedAt: null });
 
+        // Ring the callee via ZIM (best-effort; Supabase realtime is the
+        // fallback). Fire-and-forget so a signalling hiccup never blocks the
+        // call from starting.
+        void sendZimInvitation({
+          callId,
+          callerId: currentUserId,
+          inviteeIds: [userId],
+          type,
+        });
+
         // Set call timeout: if call is not accepted within 60 seconds, auto-end it
         const timeoutId = setTimeout(async () => {
           const { currentCall: stillPending } = get();
           if (stillPending?.id === callId && stillPending.status === 'calling') {
+            // Cancel the ZIM ring so the callee's device stops ringing.
+            const zimCallId = getZimCallId(callId);
+            if (zimCallId) {
+              void zimCancelCall(zimCallId, [userId]);
+              forgetZimCallId(callId);
+            }
             try {
               await updateDocById(COLLECTIONS.CALL_HISTORY, callId, {
                 status: 'ended',
@@ -363,6 +458,19 @@ export const useCallStore = create<CallStore>((set, get) => ({
     }
 
     if (currentCall) {
+      // Notify the other party via ZIM: cancel the ring if still ringing, or
+      // end the call if it was already connected.
+      const zimCallId = getZimCallId(currentCall.id);
+      if (zimCallId) {
+        const wasConnected = currentCall.status === 'connected';
+        const others = currentCall.participantIds.filter((p) => p !== currentCall.initiatorId);
+        if (wasConnected) {
+          void zimEndCall(zimCallId);
+        } else {
+          void zimCancelCall(zimCallId, others);
+        }
+        forgetZimCallId(currentCall.id);
+      }
       try {
         const duration = connectedAt ? Math.floor((Date.now() - connectedAt.getTime()) / 1000) : 0;
         await updateDocById(COLLECTIONS.CALL_HISTORY, currentCall.id, {
@@ -412,6 +520,11 @@ export const useCallStore = create<CallStore>((set, get) => ({
       return;
     }
 
+    // Tell the caller (via ZIM) that we accepted, so their UI transitions to
+    // the in-call screen immediately.
+    const zimCallId = getZimCallId(incomingCall.id);
+    if (zimCallId) void zimAcceptCall(zimCallId);
+
     const now = new Date();
     set({
       currentCall: { ...incomingCall, status: 'connected' },
@@ -427,6 +540,12 @@ export const useCallStore = create<CallStore>((set, get) => ({
     }
     const { incomingCall } = get();
     if (incomingCall) {
+      // Tell the caller (via ZIM) that we rejected, so their UI stops ringing.
+      const zimCallId = getZimCallId(incomingCall.id);
+      if (zimCallId) {
+        void zimRejectCall(zimCallId);
+        forgetZimCallId(incomingCall.id);
+      }
       try {
         await updateDocById(COLLECTIONS.CALL_HISTORY, incomingCall.id, {
           status: 'rejected',

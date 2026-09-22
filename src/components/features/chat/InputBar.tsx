@@ -73,13 +73,13 @@ export function InputBar({
             initial={{ height: 0 }}
             animate={{ height: 'auto' }}
             exit={{ height: 0 }}
-            className="shrink-0 bg-white border-t border-[#EBEBEB] px-4 py-2 flex items-center gap-2"
+            className="shrink-0 bg-background border-t border-border px-4 py-2 flex items-center gap-2"
           >
             <div className="flex-1 min-w-0">
               <p className="text-[10px] text-[#00C300] font-medium">Replying to</p>
-              <p className="text-[#8D8D8D] text-xs truncate">{replyingTo.content}</p>
+              <p className="text-muted-foreground text-xs truncate">{replyingTo.content}</p>
             </div>
-            <button type="button" onClick={onCancelReply} aria-label="Cancel reply" className="text-[#8D8D8D] hover:text-[#111111]">
+            <button type="button" onClick={onCancelReply} aria-label="Cancel reply" className="text-muted-foreground hover:text-foreground">
               <X size={16} />
             </button>
           </motion.div>
@@ -93,7 +93,7 @@ export function InputBar({
             initial={{ height: 0 }}
             animate={{ height: 220 }}
             exit={{ height: 0 }}
-            className="shrink-0 bg-[#F5F5F5] border-t border-gray-200 overflow-hidden z-10"
+            className="shrink-0 bg-muted dark:bg-[#111111] border-t border-border dark:border-white/10 overflow-hidden z-10"
           >
             <div className="grid grid-cols-3 sm:grid-cols-4 gap-y-5 px-6 pt-5 pb-8">
               {attachmentOptions.map((item, i) => {
@@ -119,7 +119,7 @@ export function InputBar({
                     >
                       {IconComponent ? <IconComponent size={28} strokeWidth={1.5} /> : null}
                     </button>
-                    <span className="text-[11px] text-[#111111]">{item.label}</span>
+                    <span className="text-[11px] text-foreground">{item.label}</span>
                   </div>
                 );
               })}
@@ -133,27 +133,27 @@ export function InputBar({
       </AnimatePresence>
 
       {/* Input */}
-      <div className="shrink-0 bg-[#F5F5F5] px-3 py-2.5 flex items-end gap-3 z-20">
+      <div className="shrink-0 bg-background border-t border-border px-3 py-2.5 flex items-end gap-2 z-20">
         <button
           type="button"
           onClick={onToggleAttachments}
-          className={`p-1.5 mb-0.5 rounded-full transition-colors ${showAttachments ? 'bg-gray-300 text-gray-700' : 'text-gray-500 hover:bg-gray-200'}`}
+          className={`p-2 mb-0.5 rounded-full transition-all tap-scale ${showAttachments ? 'bg-[#00C300] text-white rotate-45' : 'bg-muted text-muted-foreground hover:text-foreground'}`}
           aria-label="Toggle attachments"
         >
-          <Plus size={24} strokeWidth={1.5} />
+          <Plus size={22} strokeWidth={2} />
         </button>
 
 {isRecording ? (
-          <div className="flex-1 bg-white rounded-2xl border border-[#FF3B30] flex items-center px-4 min-h-[40px] gap-3">
+          <div className="flex-1 bg-background rounded-3xl border border-[#FF3B30] flex items-center px-4 min-h-[44px] gap-3 shadow-sm">
             <div className="w-3 h-3 rounded-full bg-[#FF3B30] animate-pulse shrink-0" />
             <span className="text-[#FF3B30] text-sm font-medium shrink-0">{Math.floor(duration / 60)}:{(duration % 60).toString().padStart(2, '0')}</span>
             <RecordingWaveform duration={duration} barColor="#00C300" />
-            <button type="button" onClick={onCancelRecording} aria-label="Cancel recording" className="ml-1 text-[#8D8D8D] hover:text-[#111111] shrink-0">
+            <button type="button" onClick={onCancelRecording} aria-label="Cancel recording" className="ml-1 text-muted-foreground hover:text-foreground shrink-0">
               <X size={18} />
             </button>
           </div>
         ) : (
-          <div className="flex-1 bg-white rounded-2xl border border-gray-200 flex items-center px-3 min-h-[40px] max-h-[128px]">
+          <div className="flex-1 bg-muted rounded-3xl flex items-center px-3 min-h-[44px] max-h-[128px]">
             <textarea
               ref={inputRef}
               value={input}
@@ -169,17 +169,17 @@ export function InputBar({
               onBlur={onStopTyping}
               onClick={() => { if (showAttachments) onToggleAttachments(); }}
               aria-label="Type a message"
-              placeholder="Aa"
-              className="flex-1 py-2 text-[15px] focus:outline-none bg-transparent text-[#111111] placeholder:text-[#8D8D8D] resize-none overflow-y-auto"
+              placeholder="Message"
+              className="flex-1 py-2.5 text-[15px] focus:outline-none bg-transparent text-foreground placeholder:text-muted-foreground resize-none overflow-y-auto"
             />
-            <button type="button" className={`p-1 transition-colors ${showStickerPicker ? 'text-[#00C300]' : 'text-gray-400 hover:text-gray-600'}`} onClick={() => { setShowStickerPicker(p => !p); if (showEmojiPicker) onToggleEmojiPicker(); }} aria-label="Open sticker picker">
+            <button type="button" className={`p-1.5 transition-colors ${showStickerPicker ? 'text-[#00C300]' : 'text-muted-foreground hover:text-foreground'}`} onClick={() => { setShowStickerPicker(p => !p); if (showEmojiPicker) onToggleEmojiPicker(); }} aria-label="Open sticker picker">
               <Sticker size={20} strokeWidth={1.5} />
             </button>
-            <button type="button" className={`p-1 transition-colors mx-1 ${showEmojiPicker ? 'text-[#00C300]' : 'text-gray-400 hover:text-gray-600'}`} onClick={() => { onToggleEmojiPicker(); setShowStickerPicker(false); }} aria-label="Open emoji picker">
+            <button type="button" className={`p-1.5 transition-colors ${showEmojiPicker ? 'text-[#00C300]' : 'text-muted-foreground hover:text-foreground'}`} onClick={() => { onToggleEmojiPicker(); setShowStickerPicker(false); }} aria-label="Open emoji picker">
               <Smile size={20} strokeWidth={1.5} />
             </button>
             {!input.trim() && (
-              <button type="button" className="text-gray-400 p-1 hover:text-gray-600 transition-colors" onClick={onStartRecording} aria-label="Toggle voice recording">
+              <button type="button" className="text-muted-foreground p-1.5 hover:text-foreground transition-colors" onClick={onStartRecording} aria-label="Toggle voice recording">
                 <Mic size={20} strokeWidth={1.5} />
               </button>
             )}
@@ -187,21 +187,21 @@ export function InputBar({
         )}
 
         {isRecording ? (
-          <button type="button" onClick={onVoiceSend} className="mb-1 p-1.5 text-white bg-[#FF3B30] rounded-full active:scale-95 transition-transform shadow-sm" aria-label="Send voice message">
+          <button type="button" onClick={onVoiceSend} className="mb-0.5 p-2.5 text-white bg-[#FF3B30] rounded-full active:scale-95 transition-transform shadow-md" aria-label="Send voice message">
             <Send size={18} />
           </button>
         ) : input.trim() ? (
           <div className="flex items-center gap-1">
-            <button type="button" onClick={onSchedule} className="mb-0.5 p-1.5 text-gray-500 hover:bg-gray-200 rounded-full transition-colors" title="Schedule message">
-              <Clock size={22} strokeWidth={1.5} />
+            <button type="button" onClick={onSchedule} className="mb-0.5 p-2 text-muted-foreground hover:text-foreground rounded-full transition-colors" title="Schedule message">
+              <Clock size={20} strokeWidth={1.5} />
             </button>
-            <button type="button" onClick={onSend} className="mb-1 p-1.5 text-white bg-[#00C300] rounded-full active:scale-95 transition-transform shadow-sm" aria-label="Send message">
+            <button type="button" onClick={onSend} className="mb-0.5 p-2.5 text-white bg-[#00C300] rounded-full active:scale-95 transition-transform shadow-md" aria-label="Send message">
               <Send size={18} />
             </button>
           </div>
         ) : (
-          <button type="button" className="mb-0.5 p-1.5 text-gray-500 hover:bg-gray-200 rounded-full transition-colors" onClick={onSchedule} aria-label="Schedule message">
-            <Clock size={24} strokeWidth={1.5} />
+          <button type="button" className="mb-0.5 p-2 text-muted-foreground hover:text-foreground rounded-full transition-colors" onClick={onSchedule} aria-label="Schedule message">
+            <Clock size={22} strokeWidth={1.5} />
           </button>
         )}
       </div>
@@ -213,7 +213,7 @@ export function InputBar({
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            className="shrink-0 z-20 bg-white border-t border-[#EBEBEB] px-3 py-2 overflow-hidden"
+            className="shrink-0 z-20 bg-background border-t border-border px-3 py-2 overflow-hidden"
           >
             <EmojiPicker onEmojiSelect={(emoji) => { onEmojiSelect(emoji); onToggleEmojiPicker(); }} />
           </motion.div>

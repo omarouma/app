@@ -2,9 +2,12 @@
 // Never silently fall back to demo credentials during runtime. Missing config is
 // a valid failure state that should surface a clear UI message instead of a
 // dead "Connecting…" loop.
-const VITE_ENV = typeof import.meta !== 'undefined' && import.meta && 'env' in import.meta
-    ? import.meta.env ?? {}
-    : {} as Record<string, string | boolean | undefined>;
+// Vite statically replaces `import.meta.env` with the resolved env object at
+// build time. Do NOT guard it with a runtime check like `'env' in import.meta`
+// — in the production bundle `import.meta` has no `env` key, so that guard
+// evaluates to false and silently blanks out ALL ZEGO config (which made calls
+// report "ZEGO Cloud is not configured").
+const VITE_ENV = (import.meta.env ?? {}) as Record<string, string | boolean | undefined>;
 
 function readEnvNumber(key: string, fallback: number): number {
     const raw = VITE_ENV[key];
@@ -95,10 +98,13 @@ export function getZegoUIKit(): Promise<typeof import('@zegocloud/zego-uikit-pre
 }
 
 /**
- * Default ZEGO call room configuration for 1:1 calls.
+ * Default ZEGO call room configuration.
  * Matches the exact configuration provided in ZEGOCLOUD/WEB_UIKITS.html.
+ *
+ * @param isGroup When true, configures a multi-party (conference) room instead
+ *                of a strict 1:1 room, so "Add participant" / group calls work.
  */
-export function getZegoCallConfig(): Record<string, unknown> {
+export function getZegoCallConfig(isGroup = false): Record<string, unknown> {
     const config: Record<string, unknown> = {
         turnOnMicrophoneWhenJoining: true,
         turnOnCameraWhenJoining: true,
@@ -108,11 +114,11 @@ export function getZegoCallConfig(): Record<string, unknown> {
         showScreenSharingButton: true,
         showTextChat: true,
         showUserList: true,
-        maxUsers: 2,
-        layout: 'Auto',
-        showLayoutButton: false,
+        maxUsers: isGroup ? 9 : 2,
+        layout: isGroup ? 'Grid' : 'Auto',
+        showLayoutButton: isGroup,
         scenario: {
-            mode: 'OneONoneCall',
+            mode: isGroup ? 'GroupCall' : 'OneONoneCall',
             config: {
                 role: 'Host',
             },

@@ -16,7 +16,7 @@ import { v4 as uuidv4 } from 'uuid';
 
 export type CloudinaryUploadOpts = {
   userId?: string;
-  kind?: string; // 'chats' | 'voice' | 'avatars' | 'posts' | 'stories' | 'reels'
+  kind?: string; // 'chats' | 'voice' | 'avatars' | 'covers'
   folder?: string;
   fileName?: string;
   contentType?: string;
@@ -33,7 +33,7 @@ export const MAX_UPLOAD_SIZE = 25 * 1024 * 1024; // 25 MB
 export const MAX_IMAGE_SIZE = 10 * 1024 * 1024; // 10 MB
 export const MAX_VIDEO_SIZE = 50 * 1024 * 1024; // 50 MB
 export const MAX_VOICE_SIZE = 5 * 1024 * 1024;  // 5 MB
-export type UploadKind = 'chats' | 'voice' | 'avatars' | 'posts' | 'stories' | 'reels' | 'covers';
+export type UploadKind = 'chats' | 'voice' | 'avatars' | 'covers';
 
 /** Validates file size against upload limits. Returns null if valid, or an error string. */
 export function validateFileSize(file: Blob | File, kind?: string): string | null {
@@ -41,13 +41,12 @@ export function validateFileSize(file: Blob | File, kind?: string): string | nul
 
   // Check kind-specific limits FIRST so the stricter per-kind caps (avatars 10MB,
   // voice 5MB) are enforced before the relaxed global video cap. This ensures a
-  // 30MB reel video passes here (50MB video cap) even though the old global 25MB
   // cap would have wrongly rejected it.
   if (kind === 'avatars' && file.size > MAX_IMAGE_SIZE)
     return `Image too large (${(file.size / 1024 / 1024).toFixed(1)}MB). Maximum is ${MAX_IMAGE_SIZE / 1024 / 1024}MB.`;
   if (kind === 'voice' && file.size > MAX_VOICE_SIZE)
     return `Voice message too large (${(file.size / 1024 / 1024).toFixed(1)}MB). Maximum is ${MAX_VOICE_SIZE / 1024 / 1024}MB.`;
-  if ((kind === 'posts' || kind === 'reels') && file.size > MAX_VIDEO_SIZE)
+  if (kind === 'chats' && file.size > MAX_VIDEO_SIZE)
     return `Video too large (${(file.size / 1024 / 1024).toFixed(1)}MB). Maximum is ${MAX_VIDEO_SIZE / 1024 / 1024}MB.`;
   // Global cap aligned with the largest allowed upload (videos) so it never
   // rejects a file that a specific kind already permits.
@@ -113,15 +112,9 @@ const MAX_FALLBACK_SIZE = 2 * 1024 * 1024;
 const KIND_TO_STORAGE_ROOT: Record<string, string> = {
   avatars: 'avatars',
   covers: 'covers',
-  posts: 'posts',
-  stories: 'stories',
-  reels: 'reels',
   chats: 'messages',
   voice: 'messages',
-  marketplace: 'marketplace',
-  events: 'events',
   groups: 'groups',
-  live: 'live',
 };
 
 function buildDynamicFolder(opts: CloudinaryUploadOpts): string {
@@ -451,9 +444,6 @@ async function uploadWithFallback(
       voice: 'voice-messages',
       avatars: 'avatars',
       covers: 'avatars',
-      posts: 'posts',
-      stories: 'stories',
-      reels: 'reels',
     };
     const bucket = bucketByKind[opts.kind || ''] || 'chat-media';
     const supabaseUrl = await uploadToSupabaseStorage(bucket, `${folder}/${fileName}`, file, opts.contentType);

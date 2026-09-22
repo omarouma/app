@@ -132,23 +132,7 @@ class PushNotificationService {
     });
   }
 
-  async showPostLikeNotification(likerName: string, postId: string): Promise<void> {
-    await this.sendNotification({
-      title: 'New Like',
-      body: `${likerName} liked your post`,
-      tag: `like_${postId}`,
-      data: { type: 'timeline', postId },
-    });
-  }
 
-  async showCommentNotification(commenterName: string, postId: string, comment: string): Promise<void> {
-    await this.sendNotification({
-      title: 'New Comment',
-      body: `${commenterName}: ${comment.slice(0, 80)}${comment.length > 80 ? '...' : ''}`,
-      tag: `comment_${postId}`,
-      data: { type: 'timeline', postId },
-    });
-  }
 
   async showTipNotification(senderName: string, amount: number, currency: string): Promise<void> {
     await this.sendNotification({

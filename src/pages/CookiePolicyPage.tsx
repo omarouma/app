@@ -5,27 +5,27 @@ export default function CookiePolicyPage() {
   const navigate = useNavigate();
 
   return (
-    <div className="min-h-[100dvh] bg-[#F5F5F5]">
-      <div className="bg-white border-b border-[#EBEBEB] flex items-center gap-3 p-4">
-        <button type="button" onClick={() => navigate(-1)} className="p-2 -ml-2 active:bg-gray-100 rounded-full text-[#111111]">
+    <div className="min-h-[100dvh] bg-muted">
+      <div className="bg-background border-b border-border flex items-center gap-3 p-4">
+        <button type="button" onClick={() => navigate(-1)} className="p-2 -ml-2 active:bg-muted rounded-full text-foreground">
           <ArrowLeft size={22} />
         </button>
-        <h1 className="text-lg font-bold text-[#111111]">Cookie Policy</h1>
+        <h1 className="text-lg font-bold text-foreground">Cookie Policy</h1>
       </div>
 
       <div className="p-4 space-y-4">
-        <div className="bg-white border border-[#EBEBEB] rounded-2xl p-6">
+        <div className="bg-background border border-border rounded-2xl p-6">
           <div className="w-12 h-12 rounded-full bg-[#FF9800]/10 flex items-center justify-center mb-4">
             <Cookie size={24} className="text-[#FF9800]" />
           </div>
-          <h2 className="text-[#111111] font-semibold mb-2">About Cookies</h2>
-          <p className="text-[#8D8D8D] text-sm leading-relaxed">
+          <h2 className="text-foreground font-semibold mb-2">About Cookies</h2>
+          <p className="text-muted-foreground text-sm leading-relaxed">
             GaGa Chat uses cookies and similar technologies to provide, protect, and improve our services. This policy explains what cookies are, how we use them, and your choices regarding their use.
           </p>
-          <p className="text-[#8D8D8D] text-xs mt-2">Last updated: January 2026</p>
+          <p className="text-muted-foreground text-xs mt-2">Last updated: January 2026</p>
         </div>
 
-        <div className="bg-white border border-[#EBEBEB] rounded-2xl p-4 space-y-4">
+        <div className="bg-background border border-border rounded-2xl p-4 space-y-4">
           {[
             { title: '1. What Are Cookies', text: 'Cookies are small text files stored on your device when you visit a website. They help us recognize your device, remember your preferences, and understand how you use our services.' },
             { title: '2. Types of Cookies We Use', text: 'Essential cookies: Required for the app to function (authentication, security). Performance cookies: Help us understand usage patterns and improve performance. Preference cookies: Remember your settings like language and theme. Analytics cookies: Help us understand how users interact with GaGa Chat.' },
@@ -36,9 +36,9 @@ export default function CookiePolicyPage() {
             { title: '7. Changes to This Policy', text: 'We may update this Cookie Policy from time to time. We will notify you of any changes by posting the new policy on this page and updating the "Last updated" date.' },
             { title: '8. Contact Us', text: 'If you have questions about this Cookie Policy, contact us at privacy@gagachat.app' },
           ].map((section) => (
-            <div key={section.title} className="pb-4 border-b border-[#EBEBEB] last:border-0 last:pb-0">
-              <h3 className="text-[#111111] font-medium text-sm mb-1">{section.title}</h3>
-              <p className="text-[#8D8D8D] text-sm leading-relaxed">{section.text}</p>
+            <div key={section.title} className="pb-4 border-b border-border last:border-0 last:pb-0">
+              <h3 className="text-foreground font-medium text-sm mb-1">{section.title}</h3>
+              <p className="text-muted-foreground text-sm leading-relaxed">{section.text}</p>
             </div>
           ))}
         </div>

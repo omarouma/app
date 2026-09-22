@@ -13,7 +13,7 @@ const FAQS = [
     items: [
       {
         q: 'What is GaGa Chat?',
-        a: 'GaGa Chat is a global messaging and social platform. It includes chat, voice/video calls, timeline, marketplace, events, and a built-in wallet with rewards.',
+        a: 'GaGa Chat is a global messaging platform. It includes chat, voice/video calls, group chats, broadcast lists, and a built-in wallet with rewards.',
       },
       {
         q: 'How do I add friends?',
@@ -63,11 +63,11 @@ const FAQS = [
     items: [
       {
         q: 'What are Gaga Coins?',
-        a: 'Gaga Coins are our in-app currency. You earn them by using the app, referring friends, and completing daily streaks. Use them for premium features, tips, and marketplace purchases.',
+        a: 'Gaga Coins are our in-app currency. You earn them by using the app, referring friends, and completing daily streaks. Use them for premium features and rewards.',
       },
       {
         q: 'How do I earn coins?',
-        a: 'Earn coins through daily check-ins, referring friends, posting on the timeline, receiving tips, and staking your existing coins.',
+        a: 'Earn coins through daily check-ins, referring friends, and staking your existing coins.',
       },
       {
         q: 'Is my wallet secure?',
@@ -118,19 +118,19 @@ export default function HelpCenterPage() {
   };
 
   return (
-    <div className="h-full flex flex-col bg-white">
+    <div className="h-full flex flex-col bg-background">
       {/* Header */}
-      <div className="shrink-0 px-4 py-3 border-b border-[#EBEBEB] flex items-center gap-3">
-        <button type="button" onClick={() => navigate(-1)} className="p-1.5 rounded-lg hover:bg-[#F5F5F5] text-[#8D8D8D]">
+      <div className="shrink-0 px-4 py-3 border-b border-border flex items-center gap-3">
+        <button type="button" onClick={() => navigate(-1)} className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground">
           <ArrowLeft size={20} />
         </button>
-        <h1 className="text-lg font-bold text-[#111111]">Help Center</h1>
+        <h1 className="text-lg font-bold text-foreground">Help Center</h1>
       </div>
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto">
         <div className="p-4">
-          <p className="text-[#8D8D8D] text-sm mb-6">
+          <p className="text-muted-foreground text-sm mb-6">
             Find answers to common questions below. If you need more help, contact us at{' '}
             <a href="mailto:support@gagachat.app" className="text-[#00C300] underline">support@gagachat.app</a>
           </p>
@@ -138,10 +138,10 @@ export default function HelpCenterPage() {
           {FAQS.map((category, ci) => (
             <div key={category.category} className="mb-6">
               <div className="flex items-center gap-2 mb-3">
-                <div className="w-8 h-8 rounded-lg bg-[#F5F5F5] flex items-center justify-center">
+                <div className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center">
                   <category.icon size={16} className="text-[#00C300]" />
                 </div>
-                <h2 className="text-sm font-bold text-[#111111]">{category.category}</h2>
+                <h2 className="text-sm font-bold text-foreground">{category.category}</h2>
               </div>
 
               <div className="space-y-2">
@@ -149,14 +149,14 @@ export default function HelpCenterPage() {
                   const key = `${ci}-${ii}`;
                   const isOpen = openItem === key;
                   return (
-                    <div key={key} className="border border-[#EBEBEB] rounded-xl overflow-hidden">
+                    <div key={key} className="border border-border rounded-xl overflow-hidden">
                       <button type="button" onClick={() => toggleItem(key)}
-                        className="w-full flex items-center justify-between p-3 text-left hover:bg-[#F5F5F5] transition-colors"
+                        className="w-full flex items-center justify-between p-3 text-left hover:bg-muted transition-colors"
                       >
-                        <span className="text-sm font-medium text-[#111111] pr-4">{item.q}</span>
+                        <span className="text-sm font-medium text-foreground pr-4">{item.q}</span>
                         <ChevronDown
                           size={16}
-                          className={`text-[#8D8D8D] shrink-0 transition-transform ${isOpen ? 'rotate-180' : ''}`}
+                          className={`text-muted-foreground shrink-0 transition-transform ${isOpen ? 'rotate-180' : ''}`}
                         />
                       </button>
                       <AnimatePresence>
@@ -168,7 +168,7 @@ export default function HelpCenterPage() {
                             transition={{ duration: 0.2 }}
                             className="overflow-hidden"
                           >
-                            <p className="px-3 pb-3 text-sm text-[#8D8D8D] leading-relaxed">{item.a}</p>
+                            <p className="px-3 pb-3 text-sm text-muted-foreground leading-relaxed">{item.a}</p>
                           </motion.div>
                         )}
                       </AnimatePresence>
@@ -180,8 +180,8 @@ export default function HelpCenterPage() {
           ))}
 
           {/* Contact section */}
-          <div className="bg-[#F5F5F5] rounded-xl p-4 mt-4">
-            <h3 className="text-sm font-bold text-[#111111] mb-2">Still need help?</h3>
+          <div className="bg-muted rounded-xl p-4 mt-4">
+            <h3 className="text-sm font-bold text-foreground mb-2">Still need help?</h3>
             <div className="space-y-2">
               <a
                 href="mailto:support@gagachat.app"
@@ -189,7 +189,7 @@ export default function HelpCenterPage() {
               >
                 <Mail size={14} /> support@gagachat.app
               </a>
-              <p className="text-xs text-[#8D8D8D]">
+              <p className="text-xs text-muted-foreground">
                 We typically respond within 24 hours.
               </p>
             </div>

@@ -24,7 +24,7 @@ export default function CallPage() {
   const userId = navState.userId;
   const mode = navState.mode ?? navState.callType;
   const { user: currentUser } = useAuthStore();
-  const { friends } = useFriendStore();
+  const { friends, blockedUsers } = useFriendStore();
   const { startCall, currentCall, cancelCallIfStale } = useCallStore();
   const { ensureCallPermissions } = useAppPermissions();
   const initiatedRef = useRef(false);
@@ -55,6 +55,12 @@ export default function CallPage() {
   useEffect(() => {
     if (!userId || !currentUser) return;
     if (initiatedRef.current) return;
+    // Block enforcement: never initiate a call to a user you have blocked.
+    if (blockedUsers.some((b) => b.blockedId === userId)) {
+      initiatedRef.current = true;
+      setError('You blocked this user. Unblock them to start a call.');
+      return;
+    }
     // 如果已有活跃通话但呼叫的不是当前用户，先结束再拨打新电话
     if (currentCall && !currentCall.participantIds.includes(userId)) {
       switchingToUserIdRef.current = userId;
@@ -150,9 +156,9 @@ export default function CallPage() {
 
   if (!userId || !currentUser) {
     return (
-      <div className="h-[100dvh] bg-white flex flex-col items-center justify-center p-6 text-center">
-        <p className="text-[#111111] text-lg font-semibold mb-2">No contact selected</p>
-        <p className="text-[#8D8D8D] text-sm max-w-sm mb-4">Choose a contact from chats or contacts before starting a call.</p>
+      <div className="h-[100dvh] bg-background flex flex-col items-center justify-center p-6 text-center">
+        <p className="text-foreground text-lg font-semibold mb-2">No contact selected</p>
+        <p className="text-muted-foreground text-sm max-w-sm mb-4">Choose a contact from chats or contacts before starting a call.</p>
         <button
           type="button"
           onClick={() => navigate('/chats')}

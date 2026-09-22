@@ -1,16 +1,32 @@
-import { useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   MessageCircle, Users, Video, Wallet, Sparkles,
-  ArrowRight, Check, Shield, Settings2
+  ArrowRight, Check, Shield, Settings2, Globe, UserCog, FileText,
 } from 'lucide-react';
 import Logo from '@/components/Logo';
 import PermissionsStep from '@/components/onboarding/PermissionsStep';
-import { markOnboardingComplete } from '@/lib/onboarding';
+import ProfileSetupStep, { type ProfileSetupHandle } from '@/components/onboarding/ProfileSetupStep';
+import TermsStep from '@/components/onboarding/TermsStep';
+import LanguageStep from '@/components/onboarding/LanguageStep';
+import { markOnboardingComplete, acceptTerms } from '@/lib/onboarding';
+import { toast } from 'sonner';
 
-const STEPS = [
+type StepKind = 'intro' | 'profile' | 'terms' | 'language' | 'permissions';
+
+interface Step {
+  kind: StepKind;
+  icon: typeof Sparkles;
+  title: string;
+  description: string;
+  color: string;
+  bg: string;
+}
+
+const STEPS: Step[] = [
   {
+    kind: 'intro',
     icon: Sparkles,
     title: 'Welcome to GaGa Chat',
     description: 'The free messaging app for everyone. Chat, call, share, and earn — all in one place. No VPN needed, supports all languages.',
@@ -18,13 +34,15 @@ const STEPS = [
     bg: 'bg-[#00C300]/10',
   },
   {
+    kind: 'intro',
     icon: Users,
     title: 'Find Your Friends',
-    description: 'Add friends by username, phone number, or scan their QR code. See who\'s online and start chatting instantly.',
+    description: "Add friends by username, phone number, or scan their QR code. See who's online and start chatting instantly.",
     color: 'text-[#2196F3]',
     bg: 'bg-[#2196F3]/10',
   },
   {
+    kind: 'intro',
     icon: MessageCircle,
     title: 'Rich Messaging',
     description: 'Send text, photos, videos, voice messages, and files. React with emojis, reply to messages, and forward to anyone.',
@@ -32,6 +50,7 @@ const STEPS = [
     bg: 'bg-[#FF9800]/10',
   },
   {
+    kind: 'intro',
     icon: Video,
     title: 'Voice & Video Calls',
     description: 'Crystal-clear voice and video calls with your friends. Free, unlimited, and built right into the app.',
@@ -39,6 +58,7 @@ const STEPS = [
     bg: 'bg-[#8B5CF6]/10',
   },
   {
+    kind: 'intro',
     icon: Wallet,
     title: 'Wallet & Rewards',
     description: 'Earn Gaga Coins by using the app, referring friends, and staking. Use coins for premium features and tips.',
@@ -46,20 +66,45 @@ const STEPS = [
     bg: 'bg-[#FFD700]/10',
   },
   {
+    kind: 'intro',
     icon: Shield,
     title: 'Privacy First',
     description: 'Your messages are private. Control who can see your profile, last seen status, and friend list. Built with security in mind.',
     color: 'text-[#00C3C3]',
     bg: 'bg-[#00C3C3]/10',
   },
-  // Final step renders the interactive permissions setup (custom layout)
+  // Required setup steps
   {
+    kind: 'profile',
+    icon: UserCog,
+    title: 'Set up your profile',
+    description: '',
+    color: 'text-[#00C300]',
+    bg: 'bg-[#00C300]/10',
+  },
+  {
+    kind: 'terms',
+    icon: FileText,
+    title: 'Privacy & Terms',
+    description: '',
+    color: 'text-[#00C3C3]',
+    bg: 'bg-[#00C3C3]/10',
+  },
+  {
+    kind: 'language',
+    icon: Globe,
+    title: 'Choose your language',
+    description: '',
+    color: 'text-[#2196F3]',
+    bg: 'bg-[#2196F3]/10',
+  },
+  {
+    kind: 'permissions',
     icon: Settings2,
     title: 'App Permissions',
     description: '',
     color: 'text-[#00C300]',
     bg: 'bg-[#00C300]/10',
-    isPermissions: true,
   },
 ];
 
@@ -67,50 +112,79 @@ export default function OnboardingPage() {
   const navigate = useNavigate();
   const [step, setStep] = useState(0);
   const [direction, setDirection] = useState(1);
+  const [profileValid, setProfileValid] = useState(false);
+  const [termsAccepted, setTermsAccepted] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const profileRef = useRef<ProfileSetupHandle>(null);
 
-  const goNext = () => {
-    if (step < STEPS.length - 1) {
-      setDirection(1);
-      setStep(s => s + 1);
-    } else {
-      completeOnboarding();
+  const current = STEPS[step];
+  const isLast = step === STEPS.length - 1;
+
+  const completeOnboarding = useCallback(() => {
+    markOnboardingComplete();
+    navigate('/contacts');
+  }, [navigate]);
+
+  const goNext = useCallback(async () => {
+    // Gate the profile step: persist before advancing.
+    if (current.kind === 'profile') {
+      if (!profileValid) {
+        toast.error('Please choose a display name and an available username');
+        return;
+      }
+      setSaving(true);
+      const ok = await profileRef.current?.save();
+      setSaving(false);
+      if (!ok) return;
     }
-  };
+    if (current.kind === 'terms') {
+      if (!termsAccepted) {
+        toast.error('Please accept the Terms and Privacy Policy to continue');
+        return;
+      }
+      acceptTerms();
+    }
+    if (isLast) {
+      completeOnboarding();
+      return;
+    }
+    setDirection(1);
+    setStep((s) => s + 1);
+  }, [current.kind, profileValid, termsAccepted, isLast, completeOnboarding]);
 
   const goBack = () => {
     if (step > 0) {
       setDirection(-1);
-      setStep(s => s - 1);
+      setStep((s) => s - 1);
     }
   };
 
-  const completeOnboarding = () => {
-    markOnboardingComplete();
-    navigate('/contacts');
-  };
-
+  // Skipping is only allowed on the intro carousel — required setup cannot be skipped.
+  const canSkip = current.kind === 'intro';
   const skip = () => {
-    markOnboardingComplete();
-    navigate('/contacts');
+    // Jump straight to the required profile step.
+    setDirection(1);
+    setStep(STEPS.findIndex((s) => s.kind === 'profile'));
   };
 
-  const current = STEPS[step];
   const Icon = current.icon;
-  const isPermissionsStep = 'isPermissions' in current && current.isPermissions;
+  const isCustomStep = current.kind !== 'intro';
 
   return (
-    <div className="h-[100dvh] w-screen bg-white flex flex-col overflow-hidden">
+    <div className="h-[100dvh] w-screen bg-background flex flex-col overflow-hidden">
       {/* Header */}
       <div className="shrink-0 flex items-center justify-between px-6 py-4">
         <div className="flex items-center gap-2">
           <Logo size={32} />
-          <span className="text-[#111111] font-bold text-sm">GaGa Chat</span>
+          <span className="text-foreground font-bold text-sm">GaGa Chat</span>
         </div>
-        <button type="button" onClick={skip}
-          className="text-[#8D8D8D] text-sm font-medium hover:text-[#111111] transition-colors"
-        >
-          Skip
-        </button>
+        {canSkip && (
+          <button type="button" onClick={skip}
+            className="text-muted-foreground text-sm font-medium hover:text-foreground transition-colors"
+          >
+            Skip
+          </button>
+        )}
       </div>
 
       {/* Progress */}
@@ -120,7 +194,7 @@ export default function OnboardingPage() {
             <div
               key={i}
               className={`h-1 rounded-full transition-all duration-300 ${
-                i <= step ? 'bg-[#00C300] flex-1' : 'bg-[#EBEBEB] flex-1'
+                i <= step ? 'bg-[#00C300] flex-1' : 'bg-muted flex-1'
               }`}
             />
           ))}
@@ -128,7 +202,7 @@ export default function OnboardingPage() {
       </div>
 
       {/* Content */}
-      <div className={`flex-1 px-6 relative ${isPermissionsStep ? 'overflow-y-auto py-4' : 'flex items-center justify-center'}`}>
+      <div className={`flex-1 px-6 relative ${isCustomStep ? 'overflow-y-auto py-4' : 'flex items-center justify-center'}`}>
         <AnimatePresence mode="wait" custom={direction}>
           <motion.div
             key={step}
@@ -137,17 +211,21 @@ export default function OnboardingPage() {
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: direction * -50 }}
             transition={{ duration: 0.3, ease: 'easeInOut' }}
-            className={isPermissionsStep ? 'w-full' : 'text-center max-w-sm mx-auto'}
+            className={isCustomStep ? 'w-full' : 'text-center max-w-sm mx-auto'}
           >
-            {isPermissionsStep ? (
-              <PermissionsStep />
-            ) : (
+            {current.kind === 'profile' && (
+              <ProfileSetupStep ref={profileRef} onValidityChange={setProfileValid} />
+            )}
+            {current.kind === 'terms' && <TermsStep onValidityChange={setTermsAccepted} />}
+            {current.kind === 'language' && <LanguageStep />}
+            {current.kind === 'permissions' && <PermissionsStep />}
+            {current.kind === 'intro' && (
               <>
                 <div className={`w-24 h-24 rounded-3xl ${current.bg} flex items-center justify-center mx-auto mb-6`}>
                   <Icon size={40} className={current.color} />
                 </div>
-                <h2 className="text-2xl font-bold text-[#111111] mb-3">{current.title}</h2>
-                <p className="text-[#8D8D8D] text-base leading-relaxed">{current.description}</p>
+                <h2 className="text-2xl font-bold text-foreground mb-3">{current.title}</h2>
+                <p className="text-muted-foreground text-base leading-relaxed">{current.description}</p>
               </>
             )}
           </motion.div>
@@ -159,26 +237,26 @@ export default function OnboardingPage() {
         <div className="flex items-center gap-3">
           {step > 0 && (
             <button type="button" onClick={goBack}
-              className="px-4 py-3 rounded-xl bg-[#F5F5F5] text-[#111111] text-sm font-medium hover:bg-[#EBEBEB] transition-colors"
+              className="px-4 py-3 rounded-xl bg-muted text-foreground text-sm font-medium hover:bg-muted transition-colors"
             >
               Back
             </button>
           )}
-          <button type="button" onClick={goNext}
-            className="flex-1 py-3 rounded-xl bg-[#00C300] text-white text-sm font-bold hover:bg-[#00A300] transition-colors flex items-center justify-center gap-2"
+          <button type="button" onClick={goNext} disabled={saving}
+            className="flex-1 py-3 rounded-xl bg-[#00C300] text-white text-sm font-bold hover:bg-[#00A300] transition-colors flex items-center justify-center gap-2 disabled:opacity-60"
           >
-            {step === STEPS.length - 1 ? (
+            {isLast ? (
               <>
                 Get Started <Check size={16} />
               </>
             ) : (
               <>
-                Next <ArrowRight size={16} />
+                {saving ? 'Saving…' : 'Next'} <ArrowRight size={16} />
               </>
             )}
           </button>
         </div>
-        <p className="text-center text-[#8D8D8D] text-xs mt-4">
+        <p className="text-center text-muted-foreground text-xs mt-4">
           Step {step + 1} of {STEPS.length}
         </p>
       </div>

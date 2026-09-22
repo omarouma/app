@@ -143,35 +143,19 @@ export const COLLECTIONS = {
   CHATS: 'chats',
   MESSAGES: 'messages',
   USERS: 'users',
-  POSTS: 'posts',
-  STORIES: 'stories',
-  REELS: 'reels',
-  LIVE_STREAMS: 'live_streams',
   FRIENDSHIPS: 'friendships',
   FRIEND_REQUESTS: 'friend_requests',
   BLOCKED_USERS: 'blocked_users',
   NOTIFICATIONS: 'notifications',
-  ANALYTICS: 'analytics',
   SUBSCRIPTIONS: 'subscriptions',
   REFERRALS: 'referrals',
   TIPS: 'tips',
-  CREATOR_SUBSCRIPTIONS: 'creator_subscriptions',
-  ADS: 'ads',
-  ACHIEVEMENTS: 'achievements',
-  STREAKS: 'streaks',
-  POST_VIEWS: 'post_views',
-  STORY_HIGHLIGHTS: 'story_highlights',
-  BOOKMARKS: 'bookmarks',
-  BOOKMARK_COLLECTIONS: 'bookmark_collections',
   CALL_HISTORY: 'call_history',
-  HASHTAGS: 'hashtags',
-  POLLS: 'polls',
   WALLETS: 'wallets',
   PRESENCE: 'presence',
   TYPING: 'typing',
   REPORTS: 'reports',
   GROUPS: 'groups',
-  VOICE_ROOMS: 'voice_rooms',
   BROADCAST_LISTS: 'broadcast_lists',
   USER_REPORTS: 'user_reports',
 } as const;
@@ -480,6 +464,22 @@ async function resolveAtomics(
 
 // ─── CRUD ──────────────────────────────────────────────────────────────
 
+/**
+ * Resolve the currently authenticated user id from the local session.
+ * `getSession()` reads from the persisted session (no network round-trip),
+ * so this is cheap enough to call on every own-profile read/write.
+ */
+async function currentAuthUserId(): Promise<string | null> {
+  const supabase = getDb();
+  if (!supabase) return null;
+  try {
+    const { data } = await supabase.auth.getSession();
+    return data.session?.user?.id ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export async function getDocById<T = any>(
   table: string,
   id: string,
@@ -487,20 +487,27 @@ export async function getDocById<T = any>(
   const supabase = getDb();
   if (!supabase || !id) return null;
 
-  // Use cache for user profile lookups (most frequently queried)
-  if (table === COLLECTIONS.USERS) {
+  // Own profile must be read from the base `users` table (RLS: users_select_own)
+  // because the `public_profiles` view intentionally omits private columns such
+  // as `settings`, `friend_request_privacy`, `hide_friend_list`, etc.
+  const isOwnUser = table === COLLECTIONS.USERS && id === (await currentAuthUserId());
+
+  // Use cache for *other* user profile lookups (most frequently queried).
+  // Own profile is never cached so settings/privacy edits are always fresh.
+  if (table === COLLECTIONS.USERS && !isOwnUser) {
     const cacheKey = cacheKeys.user(id);
     const cached = getCached<T & { id: string }>(cacheKey);
     if (cached !== null) return cached;
   }
 
-  // For users table, use public_profiles view to avoid exposing sensitive columns (email, phone, balances, admin)
-  const queryTable = table === COLLECTIONS.USERS ? 'public_profiles' : table;
+  // For other users, use public_profiles view to avoid exposing sensitive
+  // columns (email, phone, balances, admin). For own user, use `users`.
+  const queryTable = table === COLLECTIONS.USERS ? (isOwnUser ? 'users' : 'public_profiles') : table;
   const { data, error } = await supabase.from(queryTable).select('*').eq('id', id).single();
   if (error || !data) return null;
   const mapped = { ...toCamel(data), id: data.id } as T & { id: string };
 
-  if (table === COLLECTIONS.USERS) {
+  if (table === COLLECTIONS.USERS && !isOwnUser) {
     setCached(cacheKeys.user(id), mapped, 30_000); // 30s TTL for user profiles
   }
 
@@ -515,8 +522,11 @@ export async function setDocById(
 ): Promise<void> {
   const supabase = getDb();
   if (!supabase) throw new Error('Supabase not available');
+  // Own-user writes must target the base `users` table (RLS: users_update_own).
+  // The `public_profiles` view is not updatable and omits private columns.
+  const targetTable = table === COLLECTIONS.USERS ? 'users' : table;
   const payload = { ...toSnake(data), id };
-  const result = await upsertWithFallback(table, payload);
+  const result = await upsertWithFallback(targetTable, payload);
   if (result.error) throw result.error;
 }
 
@@ -568,25 +578,8 @@ const FK_COLUMN: Record<string, Record<string, string>> = {
   [COLLECTIONS.CHATS]: {
     [COLLECTIONS.MESSAGES]: 'chat_id',
   },
-  [COLLECTIONS.POSTS]: {
-    comments: 'post_id',
-  },
-  [COLLECTIONS.REELS]: {
-    comments: 'reel_id',
-  },
-  [COLLECTIONS.STORIES]: {
-    viewers: 'story_id',
-  },
   [COLLECTIONS.GROUPS]: {
     members: 'group_id',
-  },
-  [COLLECTIONS.LIVE_STREAMS]: {
-    comments: 'stream_id',
-    gifts: 'stream_id',
-    signals: 'stream_id',
-  },
-  [COLLECTIONS.VOICE_ROOMS]: {
-    signals: 'room_id',
   },
 };
 
