@@ -220,12 +220,12 @@ export default function PrivacyPage() {
       {/* Data Protection Notice */}
       <div className="mt-4 mx-4 bg-background border border-border rounded-2xl p-4">
         <div className="flex items-center gap-3 mb-3">
-          <div className="w-10 h-10 rounded-full bg-[#2196F3]/10 flex items-center justify-center">
-            <Lock size={18} className="text-[#2196F3]" />
+          <div className="w-10 h-10 rounded-full bg-[#00C300]/10 flex items-center justify-center">
+            <Lock size={18} className="text-[#00C300]" />
           </div>
           <div>
             <p className="text-foreground text-sm font-medium">Data Protection (applicable jurisdiction)</p>
-            <p className="text-[#2196F3] text-xs">Compliant</p>
+            <p className="text-[#00C300] text-xs">Compliant</p>
           </div>
         </div>
         <p className="text-muted-foreground text-xs leading-relaxed">

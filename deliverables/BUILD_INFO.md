@@ -16,8 +16,8 @@
 ## Checksums (SHA-256)
 
 ```
-87d0f928d2597cdc5b321fb9af6224765e583300959fce26178ba4ba8eec4c4a  GaGa-Chat-v1.0.0-release.apk
-8580291737912e433abb8c6f3f40f449f12740542646cf560d06d5de16f852da  GaGa-Chat-v1.0.0-release.aab
+c67475877b2a66831b914b0b6a5a22c4ea322206f21ea6462b3c20d2ac2b044b  GaGa-Chat-v1.0.0-release.apk
+9750419251238b9c37b6b7b288a596cf7793be5b554b0862d71197aa003430ed  GaGa-Chat-v1.0.0-release.aab
 ```
 
 ## Signing certificate
@@ -81,9 +81,33 @@ SHA-1:   7A:FF:20:8D:7D:55:4E:18:40:65:BC:46:4A:1A:80:CE:E4:20:2C:D9
 20. **Business profile editing** — business accounts can edit name, category,
     description, address, hours, website, email, and phone inline.
 
+### Settings screen (this milestone)
+21. **Correct app version** — the About row now shows the real `1.0.0` (was a
+    hardcoded `2.0.0`).
+22. **Native permission guidance** — the notification tip now points to Android
+    system settings instead of web-browser instructions.
+23. **Real "Clear Cache"** — clears the Cache API plus non-essential
+    `localStorage`/`sessionStorage` keys (auth/session keys preserved) and reports
+    the reclaimed size.
+24. **Live "Storage Usage"** — reads `navigator.storage.estimate()` and renders a
+    real usage bar with used / quota figures.
+25. **New "Data & Storage" section** — auto-download media, data saver,
+    auto-play videos, auto-play reels, and media-quality selector, all backed by
+    the settings store.
+26. **New "Accessibility" section** — reduced motion, high contrast, haptic
+    feedback, and enter-to-send toggles.
+27. **New "Security" section** — biometric lock, security alerts, screen-lock
+    timeout selector, change password, two-step verification, and linked devices.
+28. **Expanded notifications** — added group sound, mentions, reactions, and quiet
+    hours (with start/end time pickers).
+29. **Change password flow** — re-authenticates with the current password then
+    calls `supabase.auth.updateUser({ password })`.
+30. **Design consistency (E1)** — fixed the Privacy page data-protection notice
+    from blue (`#2196F3`) to the single GaGa-green accent (`#00C300`).
+
 ### Platform
-21. **Real-time calling** — ZEGO App ID `372536818` + Supabase token server baked in.
-14. **GaGa branding** — icon, splash, app name, colors (#00C300), manifest, logo.
+31. **Real-time calling** — ZEGO App ID `372536818` + Supabase token server baked in.
+32. **GaGa branding** — icon, splash, app name, colors (#00C300), manifest, logo.
 
 ## Build pipeline
 

@@ -10,7 +10,10 @@ import {
   Mail, MoonStar, Eraser,
   FileText, Crown,
   Clock, Bug, LifeBuoy, FileQuestion, ArrowLeft,
-  KeyRound, HardDrive, ShieldCheck, RefreshCw
+  KeyRound, ShieldCheck, RefreshCw,
+  Gauge, Fingerprint, Sparkles, Zap,
+  MonitorSmartphone, Accessibility, Contrast, Vibrate, CornerDownLeft,
+  Video as VideoIcon, DownloadCloud, LockKeyhole, MessageCircle, Heart
 } from 'lucide-react';
 import { useAppPermissions, type PermissionType, type PermissionStatus } from '@/hooks/useAppPermissions';
 import { useAuthStore } from '@/store/useAuthStore';
@@ -25,6 +28,8 @@ import Logo from '@/components/Logo';
 import { previewSound, type SoundProfile, isVibrationSupported } from '@/lib/sounds';
 import { deleteAccount, reauthenticate } from '@/lib/supabaseAuth';
 import { toast } from 'sonner';
+
+const APP_VERSION = '1.0.0';
 
 const accentColors = [
   { name: 'GaGa Green', value: '#00C300', class: 'bg-[#00C300]' },
@@ -100,6 +105,11 @@ export default function SettingsPage() {
   const [showLicenses, setShowLicenses] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const [deletePassword, setDeletePassword] = useState('');
+  const [storageUsage, setStorageUsage] = useState<{ usedMB: string; totalMB: string } | null>(null);
+  const [showChangePassword, setShowChangePassword] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmNewPassword, setConfirmNewPassword] = useState('');
 
   const [tempSettings, setTempSettings] = useState<Partial<ThemeSettings>>({});
   const [tempLang, setTempLang] = useState<LangCode>(settings.language as LangCode || 'en');
@@ -184,6 +194,77 @@ export default function SettingsPage() {
     }
   }, [deleteConfirmText, deletePassword, logout]);
 
+  const handleClearCache = useCallback(async () => {
+    setLoading(true);
+    try {
+      let cleared = 0;
+      // 1. Clear the Cache Storage API (service-worker / fetch caches).
+      if ('caches' in window) {
+        const keys = await caches.keys();
+        await Promise.all(keys.map(k => caches.delete(k)));
+        cleared += keys.length;
+      }
+      // 2. Clear non-essential localStorage keys (keep auth + settings).
+      const keep = ['gaga-auth', 'gaga-settings', 'supabase.auth.token'];
+      const toRemove: string[] = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && !keep.some(k => key.startsWith(k))) toRemove.push(key);
+      }
+      toRemove.forEach(k => localStorage.removeItem(k));
+      // 3. Clear sessionStorage entirely.
+      sessionStorage.clear();
+      toast.success(cleared > 0 ? `Cache cleared (${cleared} cache${cleared === 1 ? '' : 's'})` : 'Cache cleared');
+    } catch {
+      toast.error('Failed to clear cache');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const handleCheckStorage = useCallback(async () => {
+    try {
+      if ('storage' in navigator && 'estimate' in navigator.storage) {
+        const { usage = 0, quota = 0 } = await navigator.storage.estimate();
+        setStorageUsage({
+          usedMB: (usage / 1024 / 1024).toFixed(1),
+          totalMB: (quota / 1024 / 1024).toFixed(0),
+        });
+      } else {
+        toast.info('Storage info not available on this device');
+      }
+    } catch {
+      toast.error('Unable to read storage usage');
+    }
+  }, []);
+
+  useEffect(() => {
+    if (section === 'storage' && !storageUsage) void handleCheckStorage();
+  }, [section, storageUsage, handleCheckStorage]);
+
+  const handleChangePassword = useCallback(async () => {
+    if (!currentPassword) { toast.error('Enter your current password'); return; }
+    if (newPassword.length < 6) { toast.error('New password must be at least 6 characters'); return; }
+    if (newPassword !== confirmNewPassword) { toast.error('New passwords do not match'); return; }
+    setLoading(true);
+    try {
+      const reauth = await reauthenticate(currentPassword);
+      if (!reauth.success) { toast.error(reauth.error || 'Current password is incorrect'); return; }
+      const { getSupabaseSafe } = await import('@/lib/supabase');
+      const supabase = getSupabaseSafe();
+      if (!supabase) throw new Error('Not authenticated');
+      const { error } = await supabase.auth.updateUser({ password: newPassword });
+      if (error) throw error;
+      toast.success('Password updated');
+      setShowChangePassword(false);
+      setCurrentPassword(''); setNewPassword(''); setConfirmNewPassword('');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to update password');
+    } finally {
+      setLoading(false);
+    }
+  }, [currentPassword, newPassword, confirmNewPassword]);
+
   const currentTheme = settings.theme || 'light';
   const currentAccent = settings.accentColor || '#00C300';
   const currentFont = settings.fontSize || 'medium';
@@ -194,7 +275,9 @@ export default function SettingsPage() {
     { id: 'appearance', label: 'Appearance', icon: Palette, desc: 'Theme, colors, fonts' },
     { id: 'notifications', label: 'Notifications', icon: Bell, desc: 'Sounds, alerts, previews' },
     { id: 'privacy', label: 'Privacy', icon: Shield, desc: 'Last seen, read receipts, blocked' },
-    { id: 'storage', label: 'Storage', icon: Database, desc: 'Cache, downloads, media' },
+    { id: 'security', label: 'Security', icon: LockKeyhole, desc: 'App lock, password, alerts' },
+    { id: 'storage', label: 'Data & Storage', icon: Database, desc: 'Auto-download, quality, cache' },
+    { id: 'accessibility', label: 'Accessibility', icon: Accessibility, desc: 'Motion, contrast, haptics' },
     { id: 'language', label: 'Language', icon: Globe, desc: 'App language and region' },
     { id: 'help', label: 'Help', icon: HelpCircle, desc: 'FAQ, support, report' },
     { id: 'about', label: 'About', icon: Info, desc: 'Version, terms, credits' },
@@ -215,6 +298,39 @@ export default function SettingsPage() {
       {right && <div className="flex items-center shrink-0">{right}</div>}
       {!right && onClick && <ChevronRight size={16} className="text-muted-foreground shrink-0" />}
     </button>
+  );
+
+  const toggleSwitch = (on: boolean, onToggle: () => void, label: string) => (
+    <button
+      type="button"
+      onClick={onToggle}
+      className={`w-11 h-6 rounded-full transition-colors relative shrink-0 ${on ? 'bg-primary' : 'bg-muted'}`}
+      aria-pressed={on}
+      aria-label={label}
+    >
+      <div className={`w-5 h-5 rounded-full bg-card absolute top-0.5 shadow-sm transition-all ${on ? 'left-5' : 'left-0.5'}`} />
+    </button>
+  );
+
+  const segmented = <T extends string>(
+    options: { value: T; label: string }[],
+    current: T,
+    onSelect: (v: T) => void,
+  ) => (
+    <div className="flex gap-1.5">
+      {options.map(o => (
+        <button
+          key={o.value}
+          type="button"
+          onClick={() => onSelect(o.value)}
+          className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${current === o.value
+            ? 'bg-primary text-primary-foreground shadow-sm'
+            : 'bg-accent text-foreground hover:bg-accent/80'}`}
+        >
+          {o.label}
+        </button>
+      ))}
+    </div>
   );
 
   return (
@@ -395,9 +511,8 @@ export default function SettingsPage() {
                   </div>
 
                   <p className="text-[11px] text-muted-foreground px-2 leading-relaxed">
-                    💡 Tip: Permissions are managed by your browser. If a permission is denied,
-                    click the lock icon in the address bar to change it. Camera and microphone
-                    are required for voice & video calls.
+                    💡 Tip: If a permission is denied, tap “Open Settings” to grant it from your
+                    device settings. Camera and microphone are required for voice &amp; video calls.
                   </p>
                 </div>
               )}
@@ -571,16 +686,40 @@ export default function SettingsPage() {
                       <Music size={14} /> Preview Tone
                     </button>
                   </div>
-                  {settingItem('Show Preview', Eye, (
-                    <button
-                      type="button"
-                      onClick={() => updateSettings({ notifications: { ...settings.notifications, showPreview: !settings.notifications.showPreview } })}
-                      className={`w-11 h-6 rounded-full transition-colors relative shrink-0 ${settings.notifications.showPreview ? 'bg-primary' : 'bg-muted'}`}
-                      aria-pressed={settings.notifications.showPreview}
-                    >
-                      <div className={`w-5 h-5 rounded-full bg-card absolute top-0.5 shadow-sm transition-all ${settings.notifications.showPreview ? 'left-5' : 'left-0.5'}`} />
-                    </button>
-                  ))}
+                  {settingItem('Show Preview', Eye,
+                    toggleSwitch(settings.notifications.showPreview, () => updateSettings({ notifications: { ...settings.notifications, showPreview: !settings.notifications.showPreview } }), 'Show preview'))}
+                  {settingItem('Group message sound', Users,
+                    toggleSwitch(settings.notifications.groupSound, () => updateSettings({ notifications: { ...settings.notifications, groupSound: !settings.notifications.groupSound } }), 'Group sound'))}
+                  {settingItem('Mentions', MessageCircle,
+                    toggleSwitch(settings.notifications.mentions, () => updateSettings({ notifications: { ...settings.notifications, mentions: !settings.notifications.mentions } }), 'Mentions'))}
+                  {settingItem('Reactions', Heart,
+                    toggleSwitch(settings.notifications.reactions, () => updateSettings({ notifications: { ...settings.notifications, reactions: !settings.notifications.reactions } }), 'Reactions'))}
+                  {settingItem('Quiet hours', MoonStar,
+                    toggleSwitch(settings.notifications.quietHours, () => updateSettings({ notifications: { ...settings.notifications, quietHours: !settings.notifications.quietHours } }), 'Quiet hours'))}
+                  {settings.notifications.quietHours && (
+                    <div className="flex items-center gap-3 px-3 sm:px-4 py-3">
+                      <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-accent flex items-center justify-center text-foreground shrink-0">
+                        <Clock size={18} />
+                      </div>
+                      <div className="flex-1 flex items-center gap-2">
+                        <input
+                          type="time"
+                          value={settings.notifications.quietHoursStart}
+                          onChange={e => updateSettings({ notifications: { ...settings.notifications, quietHoursStart: e.target.value } })}
+                          className="flex-1 bg-muted rounded-lg px-2 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                          aria-label="Quiet hours start"
+                        />
+                        <span className="text-xs text-muted-foreground">to</span>
+                        <input
+                          type="time"
+                          value={settings.notifications.quietHoursEnd}
+                          onChange={e => updateSettings({ notifications: { ...settings.notifications, quietHoursEnd: e.target.value } })}
+                          className="flex-1 bg-muted rounded-lg px-2 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                          aria-label="Quiet hours end"
+                        />
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -595,19 +734,104 @@ export default function SettingsPage() {
               )}
 
               {section === 'storage' && (
+                <div className="space-y-4">
+                  {/* Storage usage */}
+                  <div className="card-surface p-4 sm:p-5">
+                    <div className="flex items-center justify-between mb-3">
+                      <div>
+                        <p className="text-sm font-semibold text-foreground">Storage Usage</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          {storageUsage ? `${storageUsage.usedMB} MB of ${storageUsage.totalMB} MB used` : 'Calculating…'}
+                        </p>
+                      </div>
+                      <button type="button" onClick={handleCheckStorage} className="icon-btn w-9 h-9 bg-accent/50" aria-label="Refresh storage usage">
+                        <RefreshCw size={16} />
+                      </button>
+                    </div>
+                    <div className="h-2 bg-muted rounded-full overflow-hidden">
+                      <div
+                        className="h-full rounded-full bg-primary transition-all"
+                        style={{ width: storageUsage ? `${Math.min(100, (parseFloat(storageUsage.usedMB) / Math.max(1, parseFloat(storageUsage.totalMB))) * 100)}%` : '0%' }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Auto-download */}
+                  <div className="card-surface p-3 sm:p-4 space-y-1">
+                    {settingItem('Auto-download media', DownloadCloud,
+                      toggleSwitch(settings.data.autoDownloadMedia, () => handleUpdate('data', { ...settings.data, autoDownloadMedia: !settings.data.autoDownloadMedia }), 'Auto-download media'))}
+                    {settingItem('Data saver', Gauge,
+                      toggleSwitch(settings.data.dataSaver, () => handleUpdate('data', { ...settings.data, dataSaver: !settings.data.dataSaver }), 'Data saver'))}
+                    {settingItem('Auto-play videos', VideoIcon,
+                      toggleSwitch(settings.data.autoPlayVideos, () => handleUpdate('data', { ...settings.data, autoPlayVideos: !settings.data.autoPlayVideos }), 'Auto-play videos'))}
+                    {settingItem('Auto-play reels', Sparkles,
+                      toggleSwitch(settings.data.autoPlayReels, () => handleUpdate('data', { ...settings.data, autoPlayReels: !settings.data.autoPlayReels }), 'Auto-play reels'))}
+                  </div>
+
+                  {/* Media quality */}
+                  <div className="card-surface p-4 sm:p-5">
+                    <p className="text-sm font-semibold text-foreground mb-3">Media upload quality</p>
+                    {segmented(
+                      [
+                        { value: 'auto' as const, label: 'Auto' },
+                        { value: 'high' as const, label: 'High' },
+                        { value: 'medium' as const, label: 'Medium' },
+                        { value: 'low' as const, label: 'Low' },
+                      ],
+                      settings.data.mediaQuality,
+                      (v) => handleUpdate('data', { ...settings.data, mediaQuality: v }),
+                    )}
+                  </div>
+
+                  {/* Cache actions */}
+                  <div className="card-surface p-3 sm:p-4 space-y-1">
+                    {settingItem('Clear Cache', Eraser, undefined, handleClearCache)}
+                    {settingItem('Download my data', Download, undefined, handleExportData)}
+                  </div>
+                </div>
+              )}
+
+              {section === 'accessibility' && (
                 <div className="card-surface p-3 sm:p-4 space-y-1">
-                  {settingItem('Clear Cache', Eraser, undefined, () => { toast.success('Cache cleared'); })}
-                  {settingItem('Download Media', Download, undefined, handleExportData)}
-                  {settingItem('Storage Usage', HardDrive, <span className="text-sm text-muted-foreground">Calculating...</span>, async () => {
-                    if ('storage' in navigator && 'estimate' in navigator.storage) {
-                      const { usage = 0, quota = 0 } = await navigator.storage.estimate();
-                      const usedMB = (usage / 1024 / 1024).toFixed(1);
-                      const totalMB = (quota / 1024 / 1024).toFixed(0);
-                      toast.info(`Using ${usedMB} MB of ${totalMB} MB`);
-                    } else {
-                      toast.info('Storage info not available on this device');
-                    }
-                  })}
+                  {settingItem('Reduce motion', Zap,
+                    toggleSwitch(settings.accessibility.reducedMotion, () => handleUpdate('accessibility', { ...settings.accessibility, reducedMotion: !settings.accessibility.reducedMotion }), 'Reduce motion'))}
+                  {settingItem('High contrast', Contrast,
+                    toggleSwitch(settings.accessibility.highContrast, () => handleUpdate('accessibility', { ...settings.accessibility, highContrast: !settings.accessibility.highContrast }), 'High contrast'))}
+                  {settingItem('Haptic feedback', Vibrate,
+                    toggleSwitch(settings.accessibility.hapticFeedback, () => handleUpdate('accessibility', { ...settings.accessibility, hapticFeedback: !settings.accessibility.hapticFeedback }), 'Haptic feedback'))}
+                  {settingItem('Enter key sends message', CornerDownLeft,
+                    toggleSwitch(settings.accessibility.enterToSend, () => handleUpdate('accessibility', { ...settings.accessibility, enterToSend: !settings.accessibility.enterToSend }), 'Enter to send'))}
+                </div>
+              )}
+
+              {section === 'security' && (
+                <div className="space-y-4">
+                  <div className="card-surface p-3 sm:p-4 space-y-1">
+                    {settingItem('App lock (biometric)', Fingerprint,
+                      toggleSwitch(settings.security.biometricLock, () => handleUpdate('security', { ...settings.security, biometricLock: !settings.security.biometricLock }), 'App lock'))}
+                    {settingItem('Security alerts', ShieldCheck,
+                      toggleSwitch(settings.security.showSecurityAlerts, () => handleUpdate('security', { ...settings.security, showSecurityAlerts: !settings.security.showSecurityAlerts }), 'Security alerts'))}
+                  </div>
+
+                  <div className="card-surface p-4 sm:p-5">
+                    <p className="text-sm font-semibold text-foreground mb-3">Auto-lock after</p>
+                    {segmented(
+                      [
+                        { value: '0' as const, label: 'Immediately' },
+                        { value: '1' as const, label: '1 min' },
+                        { value: '5' as const, label: '5 min' },
+                        { value: '30' as const, label: '30 min' },
+                      ],
+                      String(settings.security.screenLockTimeout) as '0' | '1' | '5' | '30',
+                      (v) => handleUpdate('security', { ...settings.security, screenLockTimeout: Number(v) }),
+                    )}
+                  </div>
+
+                  <div className="card-surface p-3 sm:p-4 space-y-1">
+                    {settingItem('Change password', KeyRound, undefined, () => setShowChangePassword(true))}
+                    {settingItem('Two-step verification', Lock, undefined, () => navigate('/privacy'))}
+                    {settingItem('Linked devices', MonitorSmartphone, undefined, () => toast.info('No other devices are linked to this account'))}
+                  </div>
                 </div>
               )}
 
@@ -634,7 +858,7 @@ export default function SettingsPage() {
                     <Logo size={32} />
                     <div className="min-w-0">
                       <p className="text-sm font-semibold text-foreground">GaGa Chat</p>
-                      <p className="text-xs text-muted-foreground">Version 2.0.0</p>
+                      <p className="text-xs text-muted-foreground">Version {APP_VERSION}</p>
                     </div>
                   </div>
                   {settingItem('Terms of Service', FileText, undefined, () => navigate('/terms'))}
@@ -684,6 +908,58 @@ export default function SettingsPage() {
                 </div>
                 <div className="border-t border-border p-4">
                   <button type="button" onClick={() => setShowLicenses(false)} className="w-full rounded-xl bg-primary py-3 text-sm font-semibold text-primary-foreground">Done</button>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Change Password Modal */}
+        <AnimatePresence>
+          {showChangePassword && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" onClick={() => setShowChangePassword(false)}>
+              <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 20 }}
+                transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+                className="bg-popover rounded-2xl sm:rounded-3xl p-6 sm:p-8 max-w-sm w-full shadow-float border border-border"
+                onClick={e => e.stopPropagation()}>
+                <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-5">
+                  <KeyRound size={26} className="text-primary" />
+                </div>
+                <h3 className="text-lg sm:text-xl font-bold text-foreground text-center mb-2">Change Password</h3>
+                <p className="text-sm text-muted-foreground text-center mb-5 leading-relaxed">Enter your current password, then choose a new one (at least 6 characters).</p>
+                <input
+                  type="password"
+                  value={currentPassword}
+                  onChange={e => setCurrentPassword(e.target.value)}
+                  placeholder="Current password"
+                  autoComplete="current-password"
+                  className="w-full px-4 py-3 rounded-xl input-surface text-sm mb-3"
+                />
+                <input
+                  type="password"
+                  value={newPassword}
+                  onChange={e => setNewPassword(e.target.value)}
+                  placeholder="New password"
+                  autoComplete="new-password"
+                  className="w-full px-4 py-3 rounded-xl input-surface text-sm mb-3"
+                />
+                <input
+                  type="password"
+                  value={confirmNewPassword}
+                  onChange={e => setConfirmNewPassword(e.target.value)}
+                  placeholder="Confirm new password"
+                  autoComplete="new-password"
+                  className="w-full px-4 py-3 rounded-xl input-surface text-sm mb-5"
+                />
+                <div className="flex gap-3">
+                  <button type="button" onClick={() => { setShowChangePassword(false); setCurrentPassword(''); setNewPassword(''); setConfirmNewPassword(''); }}
+                    className="flex-1 py-2.5 sm:py-3 rounded-xl bg-accent text-sm font-semibold text-foreground press-card">
+                    Cancel
+                  </button>
+                  <button type="button" onClick={handleChangePassword} disabled={loading || !currentPassword || !newPassword || !confirmNewPassword}
+                    className="flex-1 py-2.5 sm:py-3 rounded-xl bg-primary text-sm font-semibold text-primary-foreground disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+                    {loading ? 'Updating…' : 'Update'}
+                  </button>
                 </div>
               </motion.div>
             </motion.div>
