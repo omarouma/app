@@ -29,6 +29,7 @@ export default function ProfilePage() {
     friends, blockedUsers, requests, sentRequests,
     blockUser, unblockUser, sendRequest, acceptRequest, cancelRequest,
     removeFriend, getMutualFriendsCount,
+    followUser, unfollowUser, toggleCloseFriend, getFollowers, getFollowing,
   } = useFriendStore();
   const { chats, createDirectChat, muteChat } = useChatStore();
   const { groups, subscribeGroups } = useGroupStore();
@@ -39,6 +40,11 @@ export default function ProfilePage() {
   const [mutualCount, setMutualCount] = useState(0);
   const [showReportSheet, setShowReportSheet] = useState(false);
   const [actionBusy, setActionBusy] = useState(false);
+  const [confirmDialog, setConfirmDialog] = useState<{ type: 'block' | 'remove' } | null>(null);
+  const [blockReason, setBlockReason] = useState('');
+  const [followersCount, setFollowersCount] = useState<number | null>(null);
+  const [followingCount, setFollowingCount] = useState<number | null>(null);
+  const [isFollowing, setIsFollowing] = useState(false);
 
   usePageTitle(isOwnProfile ? 'My Profile' : 'Profile');
 
@@ -83,6 +89,14 @@ export default function ProfilePage() {
   const [editBio, setEditBio] = useState(user?.bio || '');
   const [editLocation, setEditLocation] = useState(user?.location || '');
   const [editWebsite, setEditWebsite] = useState(user?.website || '');
+  const [editBusinessName, setEditBusinessName] = useState(user?.businessName || '');
+  const [editBusinessCategory, setEditBusinessCategory] = useState(user?.businessCategory || '');
+  const [editBusinessDescription, setEditBusinessDescription] = useState(user?.businessDescription || '');
+  const [editBusinessAddress, setEditBusinessAddress] = useState(user?.businessAddress || '');
+  const [editBusinessHours, setEditBusinessHours] = useState(user?.businessHours || '');
+  const [editBusinessWebsite, setEditBusinessWebsite] = useState(user?.businessWebsite || '');
+  const [editBusinessEmail, setEditBusinessEmail] = useState(user?.businessEmail || '');
+  const [editBusinessPhone, setEditBusinessPhone] = useState(user?.businessPhone || '');
   const [saving, setSaving] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [uploadingCover, setUploadingCover] = useState(false);
@@ -123,6 +137,34 @@ export default function ProfilePage() {
     if (!otherUser || !user?.id) return [];
     return groups.filter(g => g.participants.includes(user.id) && g.participants.includes(otherUser.id));
   }, [otherUser, user?.id, groups]);
+  const isCloseFriend = useMemo(
+    () => (otherUser ? !!user?.closeFriends?.includes(otherUser.id) : false),
+    [otherUser, user?.closeFriends],
+  );
+
+  // Load real follower/following counts (and follow status) from the store.
+  useEffect(() => {
+    const targetId = isOwnProfile ? user?.id : otherUser?.id;
+    if (!targetId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const [followers, following] = await Promise.all([
+          getFollowers(targetId),
+          getFollowing(targetId),
+        ]);
+        if (cancelled) return;
+        setFollowersCount(followers.length);
+        setFollowingCount(following.length);
+        if (!isOwnProfile && user?.id) {
+          setIsFollowing(followers.some(f => f.id === user.id));
+        }
+      } catch {
+        if (!cancelled) { setFollowersCount(0); setFollowingCount(0); }
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [isOwnProfile, user?.id, otherUser?.id, getFollowers, getFollowing]);
 
   // ── Visibility enforcement (respect the viewed user's privacy settings) ──
   const canSeeFriendList = isOwnProfile || !displayUser?.hideFriendList;
@@ -133,6 +175,14 @@ export default function ProfilePage() {
     setEditBio(user?.bio || '');
     setEditLocation(user?.location || '');
     setEditWebsite(user?.website || '');
+    setEditBusinessName(user?.businessName || '');
+    setEditBusinessCategory(user?.businessCategory || '');
+    setEditBusinessDescription(user?.businessDescription || '');
+    setEditBusinessAddress(user?.businessAddress || '');
+    setEditBusinessHours(user?.businessHours || '');
+    setEditBusinessWebsite(user?.businessWebsite || '');
+    setEditBusinessEmail(user?.businessEmail || '');
+    setEditBusinessPhone(user?.businessPhone || '');
     setEditing(true);
   }, [user]);
 
@@ -156,13 +206,23 @@ export default function ProfilePage() {
           return;
         }
       }
-      const updates = {
+      const updates: Record<string, unknown> = {
         name: editName.trim(),
         username: normalizedUsername,
         bio: editBio.trim(),
         location: editLocation.trim(),
         website: editWebsite.trim(),
       };
+      if (user.isBusiness) {
+        updates.businessName = editBusinessName.trim();
+        updates.businessCategory = editBusinessCategory.trim();
+        updates.businessDescription = editBusinessDescription.trim();
+        updates.businessAddress = editBusinessAddress.trim();
+        updates.businessHours = editBusinessHours.trim();
+        updates.businessWebsite = editBusinessWebsite.trim();
+        updates.businessEmail = editBusinessEmail.trim();
+        updates.businessPhone = editBusinessPhone.trim();
+      }
       await updateDocById(COLLECTIONS.USERS, user.id, updates);
       setUser({ ...user, ...updates });
       setEditing(false);
@@ -172,7 +232,9 @@ export default function ProfilePage() {
     } finally {
       setSaving(false);
     }
-  }, [user, editName, editUsername, editBio, editLocation, editWebsite, setUser]);
+  }, [user, editName, editUsername, editBio, editLocation, editWebsite,
+      editBusinessName, editBusinessCategory, editBusinessDescription, editBusinessAddress,
+      editBusinessHours, editBusinessWebsite, editBusinessEmail, editBusinessPhone, setUser]);
 
   const handleAvatarUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -294,21 +356,76 @@ export default function ProfilePage() {
 
   const handleToggleBlock = useCallback(async () => {
     if (!user?.id || !otherUser) return;
+    // Unblocking is immediate; blocking asks for confirmation + optional reason.
+    if (!isBlocked) { setConfirmDialog({ type: 'block' }); return; }
     setActionBusy(true);
     try {
-      if (isBlocked) {
-        await unblockUser(otherUser.id, user.id);
-        toast.success('User unblocked');
+      await unblockUser(otherUser.id, user.id);
+      toast.success('User unblocked');
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Action failed');
+    } finally {
+      setActionBusy(false);
+    }
+  }, [user?.id, otherUser, isBlocked, unblockUser]);
+
+  const confirmBlock = useCallback(async () => {
+    if (!user?.id || !otherUser) return;
+    setActionBusy(true);
+    try {
+      await blockUser(otherUser.id, user.id, blockReason.trim() || undefined);
+      toast.success('User blocked');
+      setConfirmDialog(null);
+      setBlockReason('');
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Action failed');
+    } finally {
+      setActionBusy(false);
+    }
+  }, [user?.id, otherUser, blockUser, blockReason]);
+
+  const handleCopyUsername = useCallback(async () => {
+    const handle = displayUser?.username ? `@${displayUser.username}` : (displayUser?.name || '');
+    if (!handle) return;
+    const ok = await copyToClipboard(handle);
+    if (ok) toast.success('Username copied');
+    else toast.error('Unable to copy');
+  }, [displayUser?.username, displayUser?.name]);
+
+  const handleToggleCloseFriend = useCallback(async () => {
+    if (!user?.id || !otherUser) return;
+    setActionBusy(true);
+    try {
+      await toggleCloseFriend(otherUser.id, user.id, user.closeFriends || []);
+      toast.success(isCloseFriend ? 'Removed from close friends' : 'Added to close friends');
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Action failed');
+    } finally {
+      setActionBusy(false);
+    }
+  }, [user?.id, user, otherUser, isCloseFriend, toggleCloseFriend]);
+
+  const handleToggleFollow = useCallback(async () => {
+    if (!user?.id || !otherUser) return;
+    setActionBusy(true);
+    try {
+      if (isFollowing) {
+        await unfollowUser(otherUser.id, user.id);
+        setIsFollowing(false);
+        setFollowersCount(c => (c ?? 1) - 1);
+        toast.success('Unfollowed');
       } else {
-        await blockUser(otherUser.id, user.id);
-        toast.success('User blocked');
+        await followUser(otherUser.id, user.id);
+        setIsFollowing(true);
+        setFollowersCount(c => (c ?? 0) + 1);
+        toast.success('Following');
       }
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : 'Action failed');
     } finally {
       setActionBusy(false);
     }
-  }, [user?.id, otherUser, isBlocked, blockUser, unblockUser]);
+  }, [user?.id, otherUser, isFollowing, followUser, unfollowUser]);
 
   const handleAddFriend = useCallback(async () => {
     if (!user?.id || !otherUser) return;
@@ -350,12 +467,18 @@ export default function ProfilePage() {
     }
   }, [user?.id, otherUser, sentRequests, cancelRequest]);
 
-  const handleRemoveFriend = useCallback(async () => {
+  const handleRemoveFriend = useCallback(() => {
+    if (!user?.id || !otherUser) return;
+    setConfirmDialog({ type: 'remove' });
+  }, [user?.id, otherUser]);
+
+  const confirmRemoveFriend = useCallback(async () => {
     if (!user?.id || !otherUser) return;
     setActionBusy(true);
     try {
       await removeFriend(otherUser.id, user.id);
       toast.success('Removed from friends');
+      setConfirmDialog(null);
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : 'Failed to remove friend');
     } finally {
@@ -396,8 +519,8 @@ export default function ProfilePage() {
 
   const stats = [
     { label: 'Friends', value: canSeeFriendList ? (displayUser?.friends?.length ?? (isOwnProfile ? friends.length : 0)) : null },
-    { label: 'Followers', value: displayUser?.followers?.length ?? 0 },
-    { label: 'Following', value: displayUser?.following?.length ?? 0 },
+    { label: 'Followers', value: followersCount ?? (displayUser?.followers?.length ?? 0) },
+    { label: 'Following', value: followingCount ?? (displayUser?.following?.length ?? 0) },
   ];
 
   if (!displayUser) {
@@ -415,7 +538,7 @@ export default function ProfilePage() {
   return (
     <div className="min-h-screen-safe bg-muted">
       {/* Header */}
-      <div className="sticky top-0 z-20 bg-white/95 backdrop-blur-sm border-b border-border px-4 flex items-center justify-between" style={{ paddingTop: 'max(12px, env(safe-area-inset-top, 0px))', paddingBottom: '12px' }}>
+      <div className="sticky top-0 z-20 bg-background/95 backdrop-blur-sm border-b border-border px-4 flex items-center justify-between" style={{ paddingTop: 'max(12px, env(safe-area-inset-top, 0px))', paddingBottom: '12px' }}>
         <button
           type="button"
           onClick={() => navigate(-1)}
@@ -455,7 +578,7 @@ export default function ProfilePage() {
         {/* Avatar + Name card */}
         <div className="bg-background rounded-2xl shadow-sm overflow-hidden">
           {/* Cover image / video */}
-          <div className="relative h-32 sm:h-40 w-full bg-gradient-to-r from-[#00C300]/20 to-[#2196F3]/20">
+          <div className="relative h-32 sm:h-40 w-full bg-gradient-to-r from-[#00C300]/20 to-[#00C300]/5">
             {sanitizeMediaUrl(displayUser.coverVideo) ? (
               <video
                 src={sanitizeMediaUrl(displayUser.coverVideo)}
@@ -593,7 +716,7 @@ export default function ProfilePage() {
                     </span>
                   )}
                   {displayUser.isBusiness && (
-                    <span className="text-[10px] bg-[#2196F3]/10 text-[#2196F3] px-2 py-0.5 rounded-full font-bold">
+                    <span className="text-[10px] bg-[#00C300]/10 text-[#00C300] px-2 py-0.5 rounded-full font-bold">
                       BUSINESS
                     </span>
                   )}
@@ -608,13 +731,16 @@ export default function ProfilePage() {
                     <span className="text-[10px] font-medium bg-[#00C300]/10 text-[#00C300] px-2 py-0.5 rounded-full">Friend</span>
                   )}
                   {isFavorite && (
-                    <span className="text-[10px] font-medium bg-[#FF9800]/10 text-[#FF9800] px-2 py-0.5 rounded-full">Favorite</span>
+                    <span className="text-[10px] font-medium bg-[#00C300]/10 text-[#00C300] px-2 py-0.5 rounded-full">Favorite</span>
+                  )}
+                  {isCloseFriend && (
+                    <span className="text-[10px] font-medium bg-[#00C300]/10 text-[#00C300] px-2 py-0.5 rounded-full">Close friend</span>
                   )}
                   {requestSent && (
-                    <span className="text-[10px] font-medium bg-[#2196F3]/10 text-[#2196F3] px-2 py-0.5 rounded-full">Request sent</span>
+                    <span className="text-[10px] font-medium bg-[#00C300]/10 text-[#00C300] px-2 py-0.5 rounded-full">Request sent</span>
                   )}
                   {incomingRequest && (
-                    <span className="text-[10px] font-medium bg-[#9C27B0]/10 text-[#9C27B0] px-2 py-0.5 rounded-full">Wants to connect</span>
+                    <span className="text-[10px] font-medium bg-[#00C300]/10 text-[#00C300] px-2 py-0.5 rounded-full">Wants to connect</span>
                   )}
                   {isBlocked && (
                     <span className="text-[10px] font-medium bg-[#FF3B30]/10 text-[#FF3B30] px-2 py-0.5 rounded-full">Blocked</span>
@@ -689,6 +815,98 @@ export default function ProfilePage() {
                       placeholder="Website"
                       aria-label="Edit website"
                       maxLength={100}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Business fields (edit mode, business accounts only) */}
+              {editing && user?.isBusiness && (
+                <div className="w-full max-w-xs space-y-2 mb-3">
+                  <div className="flex items-center gap-2 bg-muted rounded-xl px-3 py-2">
+                    <Briefcase size={14} className="text-muted-foreground shrink-0" />
+                    <input
+                      value={editBusinessName}
+                      onChange={e => setEditBusinessName(e.target.value)}
+                      className="flex-1 bg-transparent text-sm text-foreground focus:outline-none"
+                      placeholder="Business name"
+                      aria-label="Edit business name"
+                      maxLength={80}
+                    />
+                  </div>
+                  <div className="flex items-center gap-2 bg-muted rounded-xl px-3 py-2">
+                    <Briefcase size={14} className="text-muted-foreground shrink-0" />
+                    <input
+                      value={editBusinessCategory}
+                      onChange={e => setEditBusinessCategory(e.target.value)}
+                      className="flex-1 bg-transparent text-sm text-foreground focus:outline-none"
+                      placeholder="Category (e.g. Retail)"
+                      aria-label="Edit business category"
+                      maxLength={40}
+                    />
+                  </div>
+                  <textarea
+                    value={editBusinessDescription}
+                    onChange={e => setEditBusinessDescription(e.target.value)}
+                    className="w-full bg-muted rounded-xl px-3 py-2 text-sm text-foreground resize-none focus:outline-none focus:ring-2 focus:ring-[#00C300]"
+                    placeholder="Business description"
+                    rows={2}
+                    maxLength={300}
+                    aria-label="Edit business description"
+                  />
+                  <div className="flex items-center gap-2 bg-muted rounded-xl px-3 py-2">
+                    <MapPin size={14} className="text-muted-foreground shrink-0" />
+                    <input
+                      value={editBusinessAddress}
+                      onChange={e => setEditBusinessAddress(e.target.value)}
+                      className="flex-1 bg-transparent text-sm text-foreground focus:outline-none"
+                      placeholder="Business address"
+                      aria-label="Edit business address"
+                      maxLength={120}
+                    />
+                  </div>
+                  <div className="flex items-center gap-2 bg-muted rounded-xl px-3 py-2">
+                    <Clock size={14} className="text-muted-foreground shrink-0" />
+                    <input
+                      value={editBusinessHours}
+                      onChange={e => setEditBusinessHours(e.target.value)}
+                      className="flex-1 bg-transparent text-sm text-foreground focus:outline-none"
+                      placeholder="Business hours (e.g. 9am–5pm)"
+                      aria-label="Edit business hours"
+                      maxLength={80}
+                    />
+                  </div>
+                  <div className="flex items-center gap-2 bg-muted rounded-xl px-3 py-2">
+                    <Globe size={14} className="text-muted-foreground shrink-0" />
+                    <input
+                      value={editBusinessWebsite}
+                      onChange={e => setEditBusinessWebsite(e.target.value)}
+                      className="flex-1 bg-transparent text-sm text-foreground focus:outline-none"
+                      placeholder="Business website"
+                      aria-label="Edit business website"
+                      maxLength={100}
+                    />
+                  </div>
+                  <div className="flex items-center gap-2 bg-muted rounded-xl px-3 py-2">
+                    <Mail size={14} className="text-muted-foreground shrink-0" />
+                    <input
+                      value={editBusinessEmail}
+                      onChange={e => setEditBusinessEmail(e.target.value)}
+                      className="flex-1 bg-transparent text-sm text-foreground focus:outline-none"
+                      placeholder="Business email"
+                      aria-label="Edit business email"
+                      maxLength={100}
+                    />
+                  </div>
+                  <div className="flex items-center gap-2 bg-muted rounded-xl px-3 py-2">
+                    <Phone size={14} className="text-muted-foreground shrink-0" />
+                    <input
+                      value={editBusinessPhone}
+                      onChange={e => setEditBusinessPhone(e.target.value)}
+                      className="flex-1 bg-transparent text-sm text-foreground focus:outline-none"
+                      placeholder="Business phone"
+                      aria-label="Edit business phone"
+                      maxLength={30}
                     />
                   </div>
                 </div>
@@ -790,7 +1008,7 @@ export default function ProfilePage() {
                 type="button"
                 disabled={actionBusy || isBlocked}
                 onClick={handleVoiceCall}
-                className="flex flex-col items-center gap-1.5 py-3 rounded-2xl bg-[#2196F3]/10 text-[#2196F3] font-medium text-xs active:bg-[#2196F3]/20 transition-colors disabled:opacity-40"
+                className="flex flex-col items-center gap-1.5 py-3 rounded-2xl bg-[#00C300]/10 text-[#00C300] font-medium text-xs active:bg-[#00C300]/20 transition-colors disabled:opacity-40"
                 aria-label="Voice call user"
               >
                 <Phone size={20} /> Voice
@@ -799,7 +1017,7 @@ export default function ProfilePage() {
                 type="button"
                 disabled={actionBusy || isBlocked}
                 onClick={handleVideoCall}
-                className="flex flex-col items-center gap-1.5 py-3 rounded-2xl bg-[#9C27B0]/10 text-[#9C27B0] font-medium text-xs active:bg-[#9C27B0]/20 transition-colors disabled:opacity-40"
+                className="flex flex-col items-center gap-1.5 py-3 rounded-2xl bg-[#00C300]/10 text-[#00C300] font-medium text-xs active:bg-[#00C300]/20 transition-colors disabled:opacity-40"
                 aria-label="Video call user"
               >
                 <Video size={20} /> Video
@@ -850,6 +1068,41 @@ export default function ProfilePage() {
                 </button>
               )}
 
+              {!isBlocked && (
+                <button
+                  type="button"
+                  disabled={actionBusy}
+                  onClick={handleToggleFollow}
+                  className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-muted transition-colors text-left disabled:opacity-40"
+                >
+                  {isFollowing
+                    ? <><UserCheck size={18} className="text-[#00C300]" /><span className="text-sm font-medium text-foreground">Following</span></>
+                    : <><UserPlus size={18} className="text-[#00C300]" /><span className="text-sm font-medium text-foreground">Follow</span></>}
+                </button>
+              )}
+
+              {isFriend && (
+                <button
+                  type="button"
+                  disabled={actionBusy}
+                  onClick={handleToggleCloseFriend}
+                  className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-muted transition-colors text-left disabled:opacity-40"
+                >
+                  <Heart size={18} className={isCloseFriend ? 'text-[#00C300] fill-[#00C300]' : 'text-[#00C300]'} />
+                  <span className="text-sm font-medium text-foreground">{isCloseFriend ? 'Remove from close friends' : 'Add to close friends'}</span>
+                </button>
+              )}
+
+              <button
+                type="button"
+                disabled={actionBusy}
+                onClick={handleCopyUsername}
+                className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-muted transition-colors text-left disabled:opacity-40"
+              >
+                <Copy size={18} className="text-[#00C300]" />
+                <span className="text-sm font-medium text-foreground">Copy username</span>
+              </button>
+
               <button
                 type="button"
                 disabled={actionBusy}
@@ -857,8 +1110,8 @@ export default function ProfilePage() {
                 className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-muted transition-colors text-left disabled:opacity-40"
               >
                 {directChat?.isMuted
-                  ? <><Bell size={18} className="text-[#FF9800]" /><span className="text-sm font-medium text-foreground">Unmute notifications</span></>
-                  : <><BellOff size={18} className="text-[#FF9800]" /><span className="text-sm font-medium text-foreground">Mute notifications</span></>}
+                  ? <><Bell size={18} className="text-[#00C300]" /><span className="text-sm font-medium text-foreground">Unmute notifications</span></>
+                  : <><BellOff size={18} className="text-[#00C300]" /><span className="text-sm font-medium text-foreground">Mute notifications</span></>}
               </button>
 
               <button
@@ -867,7 +1120,7 @@ export default function ProfilePage() {
                 onClick={handleOpenSharedMedia}
                 className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-muted transition-colors text-left disabled:opacity-40"
               >
-                <ImageIcon size={18} className="text-[#2196F3]" />
+                <ImageIcon size={18} className="text-[#00C300]" />
                 <span className="text-sm font-medium text-foreground">Shared media</span>
               </button>
 
@@ -877,7 +1130,7 @@ export default function ProfilePage() {
                 onClick={() => setShowShareSheet(true)}
                 className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-muted transition-colors text-left disabled:opacity-40"
               >
-                <Share2 size={18} className="text-[#8B5CF6]" />
+                <Share2 size={18} className="text-[#00C300]" />
                 <span className="text-sm font-medium text-foreground">Share profile</span>
               </button>
 
@@ -939,7 +1192,7 @@ export default function ProfilePage() {
             </div>
             <div className="mt-3 flex flex-wrap gap-2">
               {user?.hideOnlineStatus ? <span className="rounded-full bg-muted px-2.5 py-1 text-[10px] font-medium text-foreground">Online status hidden</span> : <span className="rounded-full bg-[#00C300]/10 px-2.5 py-1 text-[10px] font-medium text-[#00C300]">Online status visible</span>}
-              {user?.hideFriendList ? <span className="rounded-full bg-muted px-2.5 py-1 text-[10px] font-medium text-foreground">Friend list hidden</span> : <span className="rounded-full bg-[#2196F3]/10 px-2.5 py-1 text-[10px] font-medium text-[#2196F3]">Friend list visible</span>}
+              {user?.hideFriendList ? <span className="rounded-full bg-muted px-2.5 py-1 text-[10px] font-medium text-foreground">Friend list hidden</span> : <span className="rounded-full bg-[#00C300]/10 px-2.5 py-1 text-[10px] font-medium text-[#00C300]">Friend list visible</span>}
             </div>
           </div>
         )}
@@ -1139,8 +1392,8 @@ export default function ProfilePage() {
                   className="w-full flex items-center gap-3 p-3.5 rounded-xl hover:bg-muted transition-colors text-left"
                   aria-label="Copy profile link"
                 >
-                  <div className="w-10 h-10 rounded-xl bg-[#2196F3]/10 flex items-center justify-center shrink-0">
-                    <Copy size={18} className="text-[#2196F3]" />
+                  <div className="w-10 h-10 rounded-xl bg-[#00C300]/10 flex items-center justify-center shrink-0">
+                    <Copy size={18} className="text-[#00C300]" />
                   </div>
                   <div>
                     <p className="text-sm font-medium text-foreground">Copy Link</p>
@@ -1153,8 +1406,8 @@ export default function ProfilePage() {
                   className="w-full flex items-center gap-3 p-3.5 rounded-xl hover:bg-muted transition-colors text-left"
                   aria-label="Show QR code"
                 >
-                  <div className="w-10 h-10 rounded-xl bg-[#8B5CF6]/10 flex items-center justify-center shrink-0">
-                    <QrCode size={18} className="text-[#8B5CF6]" />
+                  <div className="w-10 h-10 rounded-xl bg-[#00C300]/10 flex items-center justify-center shrink-0">
+                    <QrCode size={18} className="text-[#00C300]" />
                   </div>
                   <div>
                     <p className="text-sm font-medium text-foreground">Show QR Code</p>
@@ -1169,6 +1422,64 @@ export default function ProfilePage() {
               >
                 Cancel
               </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Confirm dialog (block / remove friend) */}
+      <AnimatePresence>
+        {confirmDialog && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+            onClick={() => { setConfirmDialog(null); setBlockReason(''); }}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-background rounded-2xl p-5 w-full max-w-sm"
+              onClick={e => e.stopPropagation()}
+            >
+              <h3 className="text-base font-bold text-foreground mb-1">
+                {confirmDialog.type === 'block' ? `Block ${otherUser?.name || 'this user'}?` : `Remove ${otherUser?.name || 'this user'}?`}
+              </h3>
+              <p className="text-sm text-muted-foreground mb-3">
+                {confirmDialog.type === 'block'
+                  ? 'They will no longer be able to message you or see your profile.'
+                  : 'They will be removed from your friends list. You can add them again later.'}
+              </p>
+              {confirmDialog.type === 'block' && (
+                <textarea
+                  value={blockReason}
+                  onChange={e => setBlockReason(e.target.value)}
+                  className="w-full bg-muted rounded-xl px-3 py-2 text-sm text-foreground resize-none focus:outline-none focus:ring-2 focus:ring-[#00C300] mb-3"
+                  placeholder="Reason (optional)"
+                  rows={2}
+                  maxLength={200}
+                  aria-label="Block reason"
+                />
+              )}
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => { setConfirmDialog(null); setBlockReason(''); }}
+                  className="flex-1 py-2.5 bg-muted text-foreground rounded-xl text-sm font-bold"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={actionBusy}
+                  onClick={confirmDialog.type === 'block' ? confirmBlock : confirmRemoveFriend}
+                  className="flex-1 py-2.5 bg-[#FF3B30] text-white rounded-xl text-sm font-bold disabled:opacity-50"
+                >
+                  {actionBusy ? 'Working…' : confirmDialog.type === 'block' ? 'Block' : 'Remove'}
+                </button>
+              </div>
             </motion.div>
           </motion.div>
         )}

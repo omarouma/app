@@ -16,8 +16,8 @@
 ## Checksums (SHA-256)
 
 ```
-016c528ed1323ac207a35bbf8d960a50516d2d58a181c29e36ead04972d6b3e6  GaGa-Chat-v1.0.0-release.apk
-d18ad441d32867e82c7ce63304f291f49f2b97fdd73c1372cd1b02de49b79f49  GaGa-Chat-v1.0.0-release.aab
+87d0f928d2597cdc5b321fb9af6224765e583300959fce26178ba4ba8eec4c4a  GaGa-Chat-v1.0.0-release.apk
+8580291737912e433abb8c6f3f40f449f12740542646cf560d06d5de16f852da  GaGa-Chat-v1.0.0-release.aab
 ```
 
 ## Signing certificate
@@ -65,8 +65,24 @@ SHA-1:   7A:FF:20:8D:7D:55:4E:18:40:65:BC:46:4A:1A:80:CE:E4:20:2C:D9
 11. **Sort options** — Name (A–Z), Recently active, Online first.
 12. **Multi-select mode** — bulk Remove / Block with a selection header bar.
 
+### User profile screen (this milestone)
+13. **Design consistency (E1)** — dark-mode-safe sticky header (`bg-background/95`),
+    cover gradient and every badge/action surface unified to the single GaGa-green
+    accent (business, favorite, request, connect, voice/video, mute, media, share,
+    share-sheet, completeness badges). Premium gold branding retained intentionally.
+14. **Block with confirmation + reason** — blocking now opens a confirm dialog with
+    an optional reason passed to `blockUser`; unblocking stays immediate.
+15. **Remove-friend confirmation** — removing a friend now requires confirmation.
+16. **Copy username** — copy the `@handle` to the clipboard in one tap.
+17. **Close-friend toggle** — add/remove close friends directly from the profile.
+18. **Follow / Unfollow** — real follow graph via `followUser`/`unfollowUser`.
+19. **Real follower/following counts** — loaded live via `getFollowers`/`getFollowing`
+    instead of stale embedded arrays.
+20. **Business profile editing** — business accounts can edit name, category,
+    description, address, hours, website, email, and phone inline.
+
 ### Platform
-13. **Real-time calling** — ZEGO App ID `372536818` + Supabase token server baked in.
+21. **Real-time calling** — ZEGO App ID `372536818` + Supabase token server baked in.
 14. **GaGa branding** — icon, splash, app name, colors (#00C300), manifest, logo.
 
 ## Build pipeline
