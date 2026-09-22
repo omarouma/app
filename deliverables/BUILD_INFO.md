@@ -16,8 +16,8 @@
 ## Checksums (SHA-256)
 
 ```
-70fcbf1af6843f67f0372406be472cb72757af4440f84f88ca96deba6ef28eb5  GaGa-Chat-v1.0.0-release.apk
-abeab411405b057bda2ec60aef39b57c38cc5d656abae6121ee6bbf6c14c6317  GaGa-Chat-v1.0.0-release.aab
+016c528ed1323ac207a35bbf8d960a50516d2d58a181c29e36ead04972d6b3e6  GaGa-Chat-v1.0.0-release.apk
+d18ad441d32867e82c7ce63304f291f49f2b97fdd73c1372cd1b02de49b79f49  GaGa-Chat-v1.0.0-release.aab
 ```
 
 ## Signing certificate
@@ -37,8 +37,9 @@ SHA-1:   7A:FF:20:8D:7D:55:4E:18:40:65:BC:46:4A:1A:80:CE:E4:20:2C:D9
 
 ## What's included in this build
 
-1. **Group chat parity with direct chat** — the group conversation screen now
-   reuses the same generic `MessageItem` renderer + virtualized list as 1:1 chat.
+### Chat screen (previous milestone)
+1. **Group chat parity with direct chat** — the group conversation screen reuses
+   the same generic `MessageItem` renderer + virtualized list as 1:1 chat.
 2. **Enriched message actions** — Reply, React, Copy, Select, Edit, Forward,
    Pin/Unpin, Save/Unsave, Translate, Info, Delete (for me / for everyone).
 3. **Mobile gestures** — long-press to multi-select, double-tap to reply,
@@ -48,10 +49,25 @@ SHA-1:   7A:FF:20:8D:7D:55:4E:18:40:65:BC:46:4A:1A:80:CE:E4:20:2C:D9
 5. **Advanced group features** — forward modal, multi-select mode, scheduled send,
    polls, sticker/GIF picker, chat background picker, pinned-message banner,
    jump-to-match search navigation.
-6. **Consistency fixes** — unified edit-bubble styling; all attachment actions use
-   the single GaGa-green accent.
-7. **Real-time calling** — ZEGO App ID `372536818` + Supabase token server baked in.
-8. **GaGa branding** — icon, splash, app name, colors (#00C300), manifest, logo.
+
+### Contacts screen (this milestone)
+6. **Design consistency (E1)** — dark-mode-safe sticky section headers
+   (`bg-background/95`), semantic active-tab color, and every action surface
+   unified to the single GaGa-green accent (mobile + desktop contacts views).
+7. **Report user** — full reason picker (spam, harassment, hate speech, violence,
+   nudity, false info, other) + optional details, wired to `reportUser`.
+8. **Confirmation dialogs** — Remove friend and Block now require confirmation;
+   Block accepts an optional reason.
+9. **Copy username / Share contact** — copy `@handle` or share a profile link via
+   native share sheet.
+10. **Close-friend toggle** — mark/unmark close friends from the action menu and
+    the preview sheet.
+11. **Sort options** — Name (A–Z), Recently active, Online first.
+12. **Multi-select mode** — bulk Remove / Block with a selection header bar.
+
+### Platform
+13. **Real-time calling** — ZEGO App ID `372536818` + Supabase token server baked in.
+14. **GaGa branding** — icon, splash, app name, colors (#00C300), manifest, logo.
 
 ## Build pipeline
 

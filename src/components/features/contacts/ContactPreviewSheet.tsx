@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   MessageCircle, Phone, Video, Ban, UserPlus, Star, StarOff,
-  User as UserIcon, BadgeCheck, X, Loader,
+  User as UserIcon, BadgeCheck, X, Loader, UserCheck, Copy, Share2, Flag,
 } from 'lucide-react';
 import { getDefaultAvatar, sanitizeMediaUrl } from '@/lib/utils';
 import type { User } from '@/types';
@@ -16,6 +16,8 @@ export interface ContactPreviewSheetProps {
   isFavorite: boolean;
   /** Whether the current user has blocked this user. */
   isBlocked: boolean;
+  /** Whether the previewed user is a close friend of the current user. */
+  isCloseFriend?: boolean;
   /** Whether the current user has a pending outgoing request to this user. */
   requestSent?: boolean;
   /** Whether the current user has an incoming request from this user. */
@@ -25,6 +27,10 @@ export interface ContactPreviewSheetProps {
   onVoiceCall: (userId: string) => void;
   onVideoCall: (userId: string) => void;
   onToggleFavorite: (userId: string) => void;
+  onToggleCloseFriend?: (userId: string) => void;
+  onCopy?: (userId: string) => void;
+  onShare?: (userId: string) => void;
+  onReport?: (userId: string) => void;
   onBlock: (userId: string) => void;
   onUnblock: (userId: string) => void;
   onAddFriend: (userId: string) => void;
@@ -35,12 +41,15 @@ export interface ContactPreviewSheetProps {
  * Bottom-sheet contact preview shown before starting a chat. Gives the user a
  * quick look at who they are about to message plus the primary actions
  * (Message / Voice / Video / Star / Block / Add friend).
+ *
+ * Design rule (E1): every action surface uses the single GaGa-green accent.
  */
 export default function ContactPreviewSheet({
   user,
   isFriend,
   isFavorite,
   isBlocked,
+  isCloseFriend,
   requestSent,
   requestReceived,
   onClose,
@@ -48,6 +57,10 @@ export default function ContactPreviewSheet({
   onVoiceCall,
   onVideoCall,
   onToggleFavorite,
+  onToggleCloseFriend,
+  onCopy,
+  onShare,
+  onReport,
   onBlock,
   onUnblock,
   onAddFriend,
@@ -86,7 +99,7 @@ export default function ContactPreviewSheet({
             animate={{ y: 0 }}
             exit={{ y: '100%' }}
             transition={{ type: 'spring', damping: 26, stiffness: 300 }}
-            className="bg-background rounded-t-3xl w-full max-w-lg pb-[max(16px,env(safe-area-inset-bottom))]"
+            className="bg-background rounded-t-3xl w-full max-w-lg pb-[max(16px,env(safe-area-inset-bottom))] max-h-[90dvh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="w-10 h-1 bg-muted rounded-full mx-auto mt-3 mb-4" />
@@ -114,14 +127,17 @@ export default function ContactPreviewSheet({
                     {isFriend && (
                       <span className="text-[10px] font-medium bg-[#00C300]/10 text-[#00C300] px-2 py-0.5 rounded-full">Friend</span>
                     )}
+                    {isCloseFriend && (
+                      <span className="text-[10px] font-medium bg-[#00C300]/10 text-[#00C300] px-2 py-0.5 rounded-full">Close friend</span>
+                    )}
                     {isFavorite && (
-                      <span className="text-[10px] font-medium bg-[#FF9800]/10 text-[#FF9800] px-2 py-0.5 rounded-full">Favorite</span>
+                      <span className="text-[10px] font-medium bg-[#00C300]/10 text-[#00C300] px-2 py-0.5 rounded-full">Favorite</span>
                     )}
                     {requestSent && (
-                      <span className="text-[10px] font-medium bg-[#2196F3]/10 text-[#2196F3] px-2 py-0.5 rounded-full">Request sent</span>
+                      <span className="text-[10px] font-medium bg-[#00C300]/10 text-[#00C300] px-2 py-0.5 rounded-full">Request sent</span>
                     )}
                     {requestReceived && (
-                      <span className="text-[10px] font-medium bg-[#9C27B0]/10 text-[#9C27B0] px-2 py-0.5 rounded-full">Wants to connect</span>
+                      <span className="text-[10px] font-medium bg-[#00C300]/10 text-[#00C300] px-2 py-0.5 rounded-full">Wants to connect</span>
                     )}
                     {isBlocked && (
                       <span className="text-[10px] font-medium bg-[#FF3B30]/10 text-[#FF3B30] px-2 py-0.5 rounded-full">Blocked</span>
@@ -152,7 +168,7 @@ export default function ContactPreviewSheet({
                   type="button"
                   disabled={busy || isBlocked}
                   onClick={() => run(() => onVoiceCall(user.id))}
-                  className="flex flex-col items-center gap-1.5 py-3 rounded-2xl bg-[#2196F3]/10 text-[#2196F3] font-medium text-xs active:bg-[#2196F3]/20 transition-colors disabled:opacity-40"
+                  className="flex flex-col items-center gap-1.5 py-3 rounded-2xl bg-[#00C300]/10 text-[#00C300] font-medium text-xs active:bg-[#00C300]/20 transition-colors disabled:opacity-40"
                 >
                   <Phone size={20} /> Voice
                 </button>
@@ -160,7 +176,7 @@ export default function ContactPreviewSheet({
                   type="button"
                   disabled={busy || isBlocked}
                   onClick={() => run(() => onVideoCall(user.id))}
-                  className="flex flex-col items-center gap-1.5 py-3 rounded-2xl bg-[#9C27B0]/10 text-[#9C27B0] font-medium text-xs active:bg-[#9C27B0]/20 transition-colors disabled:opacity-40"
+                  className="flex flex-col items-center gap-1.5 py-3 rounded-2xl bg-[#00C300]/10 text-[#00C300] font-medium text-xs active:bg-[#00C300]/20 transition-colors disabled:opacity-40"
                 >
                   <Video size={20} /> Video
                 </button>
@@ -186,18 +202,64 @@ export default function ContactPreviewSheet({
                   className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-muted transition-colors text-left disabled:opacity-40"
                 >
                   {isFavorite
-                    ? <><StarOff size={18} className="text-[#FF9800]" /><span className="text-sm font-medium text-foreground">Remove from favorites</span></>
-                    : <><Star size={18} className="text-[#FF9800]" /><span className="text-sm font-medium text-foreground">Add to favorites</span></>}
+                    ? <><StarOff size={18} className="text-[#00C300]" /><span className="text-sm font-medium text-foreground">Remove from favorites</span></>
+                    : <><Star size={18} className="text-[#00C300]" /><span className="text-sm font-medium text-foreground">Add to favorites</span></>}
                 </button>
+                {isFriend && onToggleCloseFriend && (
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => run(() => onToggleCloseFriend(user.id))}
+                    className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-muted transition-colors text-left disabled:opacity-40"
+                  >
+                    <UserCheck size={18} className="text-[#00C300]" />
+                    <span className="text-sm font-medium text-foreground">
+                      {isCloseFriend ? 'Remove from close friends' : 'Add to close friends'}
+                    </span>
+                  </button>
+                )}
+                {onCopy && (
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => run(() => onCopy(user.id))}
+                    className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-muted transition-colors text-left disabled:opacity-40"
+                  >
+                    <Copy size={18} className="text-[#00C300]" />
+                    <span className="text-sm font-medium text-foreground">Copy username</span>
+                  </button>
+                )}
+                {onShare && (
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => run(() => onShare(user.id))}
+                    className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-muted transition-colors text-left disabled:opacity-40"
+                  >
+                    <Share2 size={18} className="text-[#00C300]" />
+                    <span className="text-sm font-medium text-foreground">Share contact</span>
+                  </button>
+                )}
                 <button
                   type="button"
                   disabled={busy}
                   onClick={() => run(() => onViewProfile(user.id))}
                   className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-muted transition-colors text-left disabled:opacity-40"
                 >
-                  <UserIcon size={18} className="text-[#2196F3]" />
+                  <UserIcon size={18} className="text-[#00C300]" />
                   <span className="text-sm font-medium text-foreground">View full profile</span>
                 </button>
+                {onReport && !isBlocked && (
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => run(() => onReport(user.id))}
+                    className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-muted transition-colors text-left disabled:opacity-40"
+                  >
+                    <Flag size={18} className="text-[#00C300]" />
+                    <span className="text-sm font-medium text-foreground">Report user</span>
+                  </button>
+                )}
                 {isBlocked ? (
                   <button
                     type="button"

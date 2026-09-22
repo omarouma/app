@@ -377,17 +377,17 @@ const handleUnblock = useCallback(async (blockedId: string) => {
                                 <MessageCircle size={12} /> Message
                               </button>
                               <button type="button" onClick={(e) => { e.stopPropagation(); navigate('/call', { state: { userId: friend.id, mode: 'voice' } }); }}
-                                className="flex items-center gap-1 px-3 py-1.5 bg-[#2196F3]/10 text-[#2196F3] text-xs rounded-full font-medium hover:bg-[#2196F3]/20 transition-colors"
+                                className="flex items-center gap-1 px-3 py-1.5 bg-[#00C300]/10 text-[#00C300] text-xs rounded-full font-medium hover:bg-[#00C300]/20 transition-colors"
                               >
                                 <Phone size={12} /> Voice
                               </button>
                               <button type="button" onClick={(e) => { e.stopPropagation(); navigate('/call', { state: { userId: friend.id, mode: 'video' } }); }}
-                                className="flex items-center gap-1 px-3 py-1.5 bg-[#8B5CF6]/10 text-[#8B5CF6] text-xs rounded-full font-medium hover:bg-[#8B5CF6]/20 transition-colors"
+                                className="flex items-center gap-1 px-3 py-1.5 bg-[#00C300]/10 text-[#00C300] text-xs rounded-full font-medium hover:bg-[#00C300]/20 transition-colors"
                               >
                                 <Video size={12} /> Video
                               </button>
                               <button type="button" onClick={(e) => { e.stopPropagation(); handleToggleFavorite(friend.id); }}
-                                className="flex items-center gap-1 px-3 py-1.5 bg-[#FF9800]/10 text-[#FF9800] text-xs rounded-full font-medium hover:bg-[#FF9800]/20 transition-colors"
+                                className="flex items-center gap-1 px-3 py-1.5 bg-[#00C300]/10 text-[#00C300] text-xs rounded-full font-medium hover:bg-[#00C300]/20 transition-colors"
                               >
                                 {isFav ? <><StarOff size={12} /> Unstar</> : <><Star size={12} /> Star</>}
                               </button>
