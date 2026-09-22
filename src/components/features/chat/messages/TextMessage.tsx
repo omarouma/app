@@ -45,7 +45,7 @@ function renderRichText(content: string, isMe: boolean) {
       );
     } else if (token.startsWith('@')) {
       parts.push(
-        <span key={key++} className={`font-medium ${isMe ? 'text-white/90' : 'text-[#2196F3]'}`}>
+        <span key={key++} className={`font-medium ${isMe ? 'text-white/90' : 'text-[#00C300]'}`}>
           {token}
         </span>
       );

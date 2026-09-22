@@ -32,7 +32,7 @@ export const PollMessage = memo(function PollMessage(props: PollMessageProps) {
   if (!pollData) {
     return (
       <div className={`max-w-[70%]`}>
-        <div className={`inline-block px-4 py-3 rounded-2xl ${isMe ? 'bg-[#8B5CF6] text-white rounded-br-none' : 'bg-background text-foreground rounded-bl-none'}`}>
+        <div className={`inline-block px-4 py-3 rounded-2xl ${isMe ? 'bg-[#00C300] text-white rounded-br-none' : 'bg-background text-foreground rounded-bl-none'}`}>
           <div className="flex items-center gap-1.5 mb-2">
             <BarChart3 size={14} />
             <span className="text-xs font-medium">Poll</span>
@@ -46,7 +46,7 @@ export const PollMessage = memo(function PollMessage(props: PollMessageProps) {
 
   return (
     <div className={`max-w-[70%]`}>
-      <div className={`inline-block px-4 py-3 rounded-2xl ${isMe ? 'bg-[#8B5CF6] text-white rounded-br-none' : 'bg-background text-foreground rounded-bl-none'}`}>
+      <div className={`inline-block px-4 py-3 rounded-2xl ${isMe ? 'bg-[#00C300] text-white rounded-br-none' : 'bg-background text-foreground rounded-bl-none'}`}>
         <div className="flex items-center gap-1.5 mb-2">
           <BarChart3 size={14} />
           <span className="text-xs font-medium">Poll</span>
@@ -67,7 +67,7 @@ export const PollMessage = memo(function PollMessage(props: PollMessageProps) {
                 className={`w-full text-left px-3 py-2 rounded-xl text-sm transition-all relative overflow-hidden ${isVoted
                   ? isMe
                     ? 'bg-white/30 text-white'
-                    : 'bg-[#8B5CF6]/10 text-[#8B5CF6]'
+                    : 'bg-[#00C300]/10 text-[#00C300]'
                   : isMe
                     ? 'bg-white/10 text-white/90 hover:bg-white/20'
                     : 'bg-muted text-foreground hover:bg-muted'
@@ -76,7 +76,7 @@ export const PollMessage = memo(function PollMessage(props: PollMessageProps) {
                 {hasVoted && (
                   <div
                     aria-hidden="true"
-                    className={`absolute left-0 top-0 h-full rounded-xl overflow-hidden ${isMe ? 'bg-white/20' : 'bg-[#8B5CF6]/10'}`}
+                    className={`absolute left-0 top-0 h-full rounded-xl overflow-hidden ${isMe ? 'bg-white/20' : 'bg-[#00C300]/10'}`}
                     style={{ width: `${percent}%` }}
                   />
                 )}

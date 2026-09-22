@@ -157,21 +157,19 @@ export const MessageItem = memo(function MessageItem(props: MessageItemProps) {
 
       {showUnreadSeparator && (
         <div className="flex justify-center my-3">
-          <div className="flex items-center gap-2 px-4 py-1.5 bg-[#FF3B30]/10 rounded-full">
-            <span className="w-2 h-2 bg-[#FF3B30] rounded-full" />
-            <span className="text-[#FF3B30] text-[11px] font-medium">New Messages</span>
+          <div className="flex items-center gap-2 px-4 py-1.5 bg-[#00C300]/10 rounded-full">
+            <span className="w-2 h-2 bg-[#00C300] rounded-full" />
+            <span className="text-[#00C300] text-[11px] font-medium">New Messages</span>
           </div>
         </div>
       )}
 
       {msg.type === 'money_transfer' ? (
-        <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="flex justify-center my-3">
+        <div className="flex justify-center my-3">
           <MoneyTransferMessage msg={msg} currentUserId={currentUserId} />
-        </motion.div>
+        </div>
       ) : (
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
+        <div
           className={`flex items-end ${isMe ? 'justify-end' : 'justify-start'} ${showAvatar ? 'mt-2.5' : 'mt-0.5'} ${
             isSelected ? 'opacity-70' : ''
           } ${failed ? 'cursor-pointer' : ''}`}
@@ -277,7 +275,7 @@ export const MessageItem = memo(function MessageItem(props: MessageItemProps) {
               />
             </div>
           </div>
-        </motion.div>
+        </div>
       )}
 
       <AnimatePresence>

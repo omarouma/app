@@ -14,22 +14,11 @@ function getFileExtension(name: string): string {
   return match ? match[1].toUpperCase() : 'FILE';
 }
 
-function getFileColor(ext: string): string {
-  const map: Record<string, string> = {
-    PDF: 'bg-red-500/10 text-red-500',
-    DOC: 'bg-blue-500/10 text-blue-500',
-    DOCX: 'bg-blue-500/10 text-blue-500',
-    XLS: 'bg-green-500/10 text-green-500',
-    XLSX: 'bg-green-500/10 text-green-500',
-    PPT: 'bg-orange-500/10 text-orange-500',
-    PPTX: 'bg-orange-500/10 text-orange-500',
-    ZIP: 'bg-purple-500/10 text-purple-500',
-    RAR: 'bg-purple-500/10 text-purple-500',
-    MP3: 'bg-pink-500/10 text-pink-500',
-    MP4: 'bg-cyan-500/10 text-cyan-500',
-    TXT: 'bg-gray-500/10 text-muted-foreground',
-  };
-  return map[ext] || 'bg-[#00C300]/10 text-[#00C300]';
+function getFileColor(_ext: string): string {
+  // Design-system rule (E1): ONE primary GaGa accent. File cards use the same
+  // soft green tint + green glyph regardless of extension so the chat stays
+  // calm and premium (no competing red/blue/orange/purple/pink/cyan chips).
+  return 'bg-[#00C300]/10 text-[#00C300]';
 }
 
 export const FileMessage = memo(function FileMessage(props: FileMessageProps) {

@@ -7,11 +7,9 @@ import { formatTime, getDefaultAvatar, sanitizeMediaUrl, getMessagePreview } fro
 import { safeGetStorageItem } from '@/lib/safeStorage';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useFriendStore } from '@/store/useFriendStore';
-import { useFilteredOnline } from '@/hooks/usePresence';
 
 interface ChatListItemProps {
   chat: Chat;
-  index: number;
   userId?: string;
   isFriend?: boolean;
   isOnline?: boolean;
@@ -25,7 +23,6 @@ interface ChatListItemProps {
 
 export const ChatListItem = memo(function ChatListItem({
   chat,
-  index,
   userId: propUserId,
   isFriend: propIsFriend,
   isOnline: propIsOnline,
@@ -44,7 +41,6 @@ export const ChatListItem = memo(function ChatListItem({
   const muteOpacity = useTransform(x, [0, 40, 120], [0, 0.6, 1]);
   const { user } = useAuthStore();
   const { friends, requests, sentRequests } = useFriendStore();
-  const { filtered: visibleOnline } = useFilteredOnline(user?.id || '', friends);
 
   const userId = propUserId ?? user?.id ?? '';
   const isGroup = chat.type === 'group';
@@ -58,7 +54,15 @@ export const ChatListItem = memo(function ChatListItem({
 
   const name = propName ?? (isGroup ? (chat.name || 'Group') : (friend?.name || 'Chat'));
   const avatar = propAvatar ?? (isGroup ? (chat.avatar || '') : (friend?.avatar || ''));
-  const isOnline = propIsOnline ?? (!isGroup && !!visibleOnline[otherId]);
+  // Always-visible identity: prefer the @handle, fall back to a short user id.
+  const handle = isGroup
+    ? ''
+    : friend?.username
+      ? `@${friend.username}`
+      : otherId
+        ? `#${otherId.slice(0, 8)}`
+        : '';
+  const isOnline = propIsOnline ?? false;
   const lastMsgPreview = useMemo(() => {
     if (typingName) return `${typingName} is typing...`;
     const lm = chat.lastMessage;
@@ -110,10 +114,7 @@ export const ChatListItem = memo(function ChatListItem({
   }, [x, onArchive, onToggleMute, closeSwipe]);
 
   const item = (
-    <motion.div
-      initial={{ opacity: 0, y: 6 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: Math.min(index * 0.03, 0.3) }}
+    <div
       onClick={() => {
         if (revealed) { closeSwipe(); return; }
         navigate(isGroup ? `/group/${chat.id}` : `/chat/${otherId || chat.id}`);
@@ -126,8 +127,8 @@ export const ChatListItem = memo(function ChatListItem({
             avatar ? (
               <img src={avatarSrc} className="w-full h-full object-cover" alt={name} />
             ) : (
-              <div className="w-full h-full bg-indigo-100 flex items-center justify-center">
-                <Users size={22} className="text-indigo-500" />
+              <div className="w-full h-full bg-[#00C300]/10 flex items-center justify-center">
+                <Users size={22} className="text-[#00C300]" />
               </div>
             )
           ) : (
@@ -135,7 +136,7 @@ export const ChatListItem = memo(function ChatListItem({
           )}
         </div>
         {isOnline && (
-          <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white rounded-full" />
+          <span className="absolute bottom-0 right-0 w-3 h-3 bg-[#00C300] border-2 border-background rounded-full" />
         )}
       </div>
 
@@ -144,6 +145,11 @@ export const ChatListItem = memo(function ChatListItem({
           <div className="flex items-center gap-1 min-w-0">
             {chat.pinned && <Pin size={11} className="text-muted-foreground shrink-0" />}
             <p className="text-sm font-semibold text-foreground truncate">{name}</p>
+            {handle && (
+              <span className="shrink-0 text-[10px] font-medium text-muted-foreground/80 truncate max-w-[90px]">
+                {handle}
+              </span>
+            )}
           </div>
           <div className="flex items-center gap-2 shrink-0">
             {showAddFriend && onAddFriend && (
@@ -158,7 +164,7 @@ export const ChatListItem = memo(function ChatListItem({
               </button>
             )}
             {hasIncoming && (
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[#FF9800]/15 text-[#FF9800]">
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-muted text-muted-foreground">
                 Pending
               </span>
             )}
@@ -175,9 +181,9 @@ export const ChatListItem = memo(function ChatListItem({
           </div>
         </div>
         <div className="flex items-center justify-between gap-2 mt-0.5">
-          <p className={`text-xs truncate ${typingName ? 'text-[#00C300] font-medium' : draft ? 'text-[#FF9800]' : 'text-muted-foreground'}`}>
+          <p className={`text-xs truncate ${typingName ? 'text-[#00C300] font-medium' : draft ? 'text-[#00C300]' : 'text-muted-foreground'}`}>
             {draft ? (
-              <><span className="font-semibold text-[#FF9800]">Draft: </span>{draft}</>
+              <><span className="font-semibold text-[#00C300]">Draft: </span>{draft}</>
             ) : lastMsgPreview}
           </p>
           {(chat.unreadCount ?? 0) > 0 && (
@@ -187,7 +193,7 @@ export const ChatListItem = memo(function ChatListItem({
           )}
         </div>
       </div>
-    </motion.div>
+    </div>
   );
 
   if (!swipeEnabled) return item;
@@ -200,7 +206,7 @@ export const ChatListItem = memo(function ChatListItem({
           type="button"
           style={{ opacity: muteOpacity }}
           onClick={() => { onToggleMute(chat.id); closeSwipe(); }}
-          className="absolute inset-y-0 left-0 w-24 flex flex-col items-center justify-center gap-1 bg-amber-500 text-white text-[11px] font-semibold"
+          className="absolute inset-y-0 left-0 w-24 flex flex-col items-center justify-center gap-1 bg-[#00C300] text-white text-[11px] font-semibold"
           aria-label={chat.isMuted ? 'Unmute chat' : 'Mute chat'}
         >
           {chat.isMuted ? <Volume2 size={18} /> : <VolumeX size={18} />}
@@ -213,7 +219,7 @@ export const ChatListItem = memo(function ChatListItem({
           type="button"
           style={{ opacity: archiveOpacity }}
           onClick={() => { onArchive(chat.id, !!chat.archived); closeSwipe(); }}
-          className="absolute inset-y-0 right-0 w-24 flex flex-col items-center justify-center gap-1 bg-gray-500 text-white text-[11px] font-semibold"
+          className="absolute inset-y-0 right-0 w-24 flex flex-col items-center justify-center gap-1 bg-muted-foreground text-white text-[11px] font-semibold"
           aria-label={chat.archived ? 'Unarchive chat' : 'Archive chat'}
         >
           <Archive size={18} />

@@ -341,8 +341,16 @@ export default function ChatRoom({ chatId, userId, onBack }: {
         id: (displayUser as { id: string; name: string; avatar?: string }).id,
         name: (displayUser as { id: string; name: string }).name || '',
         avatar: (displayUser as { id: string; avatar?: string }).avatar || '',
+        username: (displayUser as { username?: string }).username || '',
       }
-      : { id: userId, name: '', avatar: '' };
+      : { id: userId, name: '', avatar: '', username: '' };
+
+  // Always-visible identity: prefer the @handle, fall back to a short user id.
+  const displayHandle = resolvedDisplayUser.username
+    ? `@${resolvedDisplayUser.username}`
+    : resolvedDisplayUser.id
+      ? `#${resolvedDisplayUser.id.slice(0, 8)}`
+      : '';
 
   const handleSearchNavigate = useCallback((direction: 'up' | 'down') => {
     if (searchResults.length === 0) return;
@@ -505,6 +513,7 @@ export default function ChatRoom({ chatId, userId, onBack }: {
     <div className="flex flex-col h-full bg-background" style={{ backgroundImage: chatBg }}>
       <ChatHeader
         displayUser={resolvedDisplayUser}
+        handle={displayHandle}
         userId={userId}
         isUserOnline={isUserOnline}
         activeTypingUsers={activeTypingUsers}
@@ -623,9 +632,14 @@ export default function ChatRoom({ chatId, userId, onBack }: {
         <Virtuoso
           ref={virtuoso}
           data={msgs}
+          computeItemKey={(_, msg) => msg.id}
           initialTopMostItemIndex={msgs.length > 0 ? msgs.length - 1 : 0}
           atBottomStateChange={handleAtBottomStateChange}
-          followOutput={'auto'}
+          atBottomThreshold={80}
+          increaseViewportBy={{ top: 600, bottom: 600 }}
+          overscan={{ main: 400, reverse: 400 }}
+          defaultItemHeight={64}
+          followOutput={(isAtBottom) => (isAtBottom ? 'smooth' : false)}
           itemContent={(index, msg) => (
             <MessageItem
               key={msg.id}

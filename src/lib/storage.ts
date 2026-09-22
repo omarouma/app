@@ -55,6 +55,57 @@ export function validateFileSize(file: Blob | File, kind?: string): string | nul
   return null;
 }
 
+/**
+ * Client-side image compression.
+ *
+ * Downscales large photos and re-encodes them as JPEG before upload so that
+ * sending a photo is dramatically faster and uses far less mobile data, while
+ * keeping visual quality high. Falls back to the original file whenever the
+ * browser cannot decode the image, the format should not be re-encoded
+ * (animated GIF / vector SVG), or the result would not actually be smaller.
+ */
+export async function compressImage(
+  file: File | Blob,
+  opts: { maxDimension?: number; quality?: number; maxBytes?: number } = {},
+): Promise<Blob> {
+  const { maxDimension = 1600, quality = 0.82, maxBytes = 1_500_000 } = opts;
+  try {
+    if (typeof document === 'undefined' || typeof createImageBitmap !== 'function') return file;
+    const type = (file as File).type || '';
+    if (!type.startsWith('image/')) return file;
+    // Keep animation (GIF) and vector (SVG) intact.
+    if (type === 'image/gif' || type === 'image/svg+xml') return file;
+    // Already small enough — no need to re-encode.
+    if (file.size <= maxBytes) return file;
+
+    const bitmap = await createImageBitmap(file);
+    const { width, height } = bitmap;
+    const scale = Math.min(1, maxDimension / Math.max(width, height));
+    const targetW = Math.max(1, Math.round(width * scale));
+    const targetH = Math.max(1, Math.round(height * scale));
+
+    const canvas = document.createElement('canvas');
+    canvas.width = targetW;
+    canvas.height = targetH;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) {
+      bitmap.close?.();
+      return file;
+    }
+    ctx.drawImage(bitmap, 0, 0, targetW, targetH);
+    bitmap.close?.();
+
+    const blob: Blob | null = await new Promise((resolve) =>
+      canvas.toBlob((b) => resolve(b), 'image/jpeg', quality),
+    );
+    if (!blob) return file;
+    // Only use the compressed version when it is actually smaller.
+    return blob.size < file.size ? blob : file;
+  } catch {
+    return file;
+  }
+}
+
 // ── IndexedDB fallback (preferred over localStorage for binary data) ──
 const IDB_DB_NAME = 'gaga_media';
 const IDB_STORE_NAME = 'blobs';

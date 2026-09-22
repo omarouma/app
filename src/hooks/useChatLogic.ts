@@ -103,7 +103,11 @@ export function useChatLogic() {
       return previewText.toLowerCase().includes(q);
     };
 
-    return base.filter(filterFunctions[activeTab]).filter(searchFilter);
+    const tabFiltered = base.filter(filterFunctions[activeTab]);
+    // Fast path: when there is no search term we skip the (relatively costly)
+    // per-row name/preview resolution entirely.
+    if (!search) return tabFiltered;
+    return tabFiltered.filter(searchFilter);
   }, [activeTab, search, archivedChats, pinnedChats, unpinnedChats, activeChats, friends, nonFriendNames, user?.id]);
 
   const totalUnread = useMemo(

@@ -906,12 +906,17 @@ export default function ContactsPage() {
                               )}
                             </div>
                             <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-1">
-                                <h3 className="text-[16px] font-medium text-foreground">{friend.name || 'User'}</h3>
-                                {isFav && <Star size={12} className="text-[#00C300] fill-current" />}
-                                {isClose && <UserCheck size={12} className="text-[#00C300]" />}
+                              <div className="flex items-center gap-1 min-w-0">
+                                <h3 className="text-[16px] font-medium text-foreground truncate">{friend.name || 'User'}</h3>
+                                {isFav && <Star size={12} className="text-[#00C300] fill-current shrink-0" />}
+                                {isClose && <UserCheck size={12} className="text-[#00C300] shrink-0" />}
                                 {isDeleted && (
-                                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground font-medium">Deleted</span>
+                                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground font-medium shrink-0">Deleted</span>
+                                )}
+                                {!isDeleted && (
+                                  <span className="shrink-0 text-[10px] font-medium text-muted-foreground/80 truncate max-w-[110px]">
+                                    {friend.username ? `@${friend.username}` : `#${friend.id.slice(0, 8)}`}
+                                  </span>
                                 )}
                               </div>
                               <p className="text-[12px] text-muted-foreground truncate">

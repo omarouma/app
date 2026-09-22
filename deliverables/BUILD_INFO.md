@@ -16,8 +16,8 @@
 ## Checksums (SHA-256)
 
 ```
-c67475877b2a66831b914b0b6a5a22c4ea322206f21ea6462b3c20d2ac2b044b  GaGa-Chat-v1.0.0-release.apk
-9750419251238b9c37b6b7b288a596cf7793be5b554b0862d71197aa003430ed  GaGa-Chat-v1.0.0-release.aab
+8c635b852720ea891aa5a19940a4ea49198713500c1686af18489f4229af028f  GaGa-Chat-v1.0.0-release.apk
+09328628869ca9e971ef54672891865f189e1200df5ffd857222f9cfc62fc149  GaGa-Chat-v1.0.0-release.aab
 ```
 
 ## Signing certificate
@@ -108,6 +108,31 @@ SHA-1:   7A:FF:20:8D:7D:55:4E:18:40:65:BC:46:4A:1A:80:CE:E4:20:2C:D9
 ### Platform
 31. **Real-time calling** — ZEGO App ID `372536818` + Supabase token server baked in.
 32. **GaGa branding** — icon, splash, app name, colors (#00C300), manifest, logo.
+
+### Chat & Contacts performance + UI (this milestone)
+33. **Chat list smoothness** — removed the per-row staggered entrance animation
+    (a major source of jank on long lists) so rows render instantly.
+34. **Chat list efficiency** — removed the redundant per-row `useFilteredOnline`
+    hook (previously N window listeners + N async privacy queries for N rows);
+    online state now flows down from the parent as a single prop.
+35. **Message list smoothness** — removed the per-message `motion` entrance
+    animation that ran on every row inside the virtualized list.
+36. **Virtualized list tuning** — `Virtuoso` now uses `computeItemKey`,
+    `increaseViewportBy`, `overscan`, `atBottomThreshold`, `defaultItemHeight`,
+    and a smarter `followOutput` (only auto-follows when already at the bottom).
+37. **Chat search fast-path** — the chat-list filter skips per-row name/preview
+    resolution entirely when the search box is empty.
+38. **User ID always visible** — the `@handle` (or a short `#id` fallback) now
+    shows in every chat-list row, in the 1:1 chat header, and in every contact row.
+39. **Faster photo sending** — photos are now compressed client-side (downscaled
+    to ≤1600px, JPEG q0.82) before upload, dramatically cutting upload time and
+    mobile-data use while keeping quality high. GIF/SVG and already-small images
+    pass through untouched.
+40. **Design consistency (E1)** — unified every remaining competing color in the
+    chat surface to the single GaGa-green accent: chat-list group avatar (indigo),
+    mute/archive swipe actions (amber/gray), draft/pending chips (orange), file
+    cards (multi-color extension map), poll bubbles/options (purple), text
+    links/mentions (blue), and the "New Messages" separator (red).
 
 ## Build pipeline
 

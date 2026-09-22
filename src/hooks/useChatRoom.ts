@@ -9,7 +9,7 @@ import { useMessagePin } from '@/hooks/useMessagePin';
 import { useSavedMessages } from '@/hooks/useSavedMessages';
 import { useScheduledMessages } from '@/hooks/useScheduledMessages';
 import { useChatEffects } from '@/hooks/useChatEffects';
-import { uploadMediaBlob } from '@/lib/storage';
+import { uploadMediaBlob, compressImage } from '@/lib/storage';
 import { handleError } from '@/lib/errorLogger';
 import { toast } from 'sonner';
 import type { Message, User } from '@/types';
@@ -190,11 +190,15 @@ export const useChatRoom = (chatId: string, userId: string) => {
     for (const file of files) {
       try {
         setUploadProgress({ name: file.name, percent: 0 });
-        const url = await uploadMediaBlob(file, {
+        const isImage = file.type.startsWith('image/');
+        // Compress photos client-side before upload so sending is much faster
+        // and uses far less mobile data. Non-images pass through untouched.
+        const toUpload = isImage ? await compressImage(file) : file;
+        const url = await uploadMediaBlob(toUpload, {
           userId: currentUser.id,
           kind: 'chats',
           fileName: file.name,
-          contentType: file.type,
+          contentType: toUpload.type || file.type,
           onProgress: (percent) => setUploadProgress({ name: file.name, percent }),
         });
         const type = file.type.startsWith('image/') ? 'image' : file.type.startsWith('video/') ? 'video' : 'file';

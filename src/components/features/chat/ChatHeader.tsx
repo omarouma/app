@@ -8,6 +8,7 @@ import { sanitizeMediaUrl, getDefaultAvatar } from '@/lib/utils';
 
 interface ChatHeaderProps {
   displayUser: { name: string; avatar: string; id: string };
+  handle?: string;
   userId: string;
   isUserOnline: boolean;
   lastSeen: string | null;
@@ -111,7 +112,12 @@ export const ChatHeader = memo(function ChatHeader(props: ChatHeaderProps) {
           )}
         </button>
         <div className="min-w-0">
-          <h3 className="text-[16px] font-bold text-foreground leading-tight truncate">{props.displayUser?.name || 'Chat'}</h3>
+          <div className="flex items-center gap-1.5 min-w-0">
+            <h3 className="text-[16px] font-bold text-foreground leading-tight truncate">{props.displayUser?.name || 'Chat'}</h3>
+            {props.handle && (
+              <span className="shrink-0 text-[10px] font-medium text-muted-foreground/80 truncate max-w-[110px]">{props.handle}</span>
+            )}
+          </div>
           <p className={`text-[11px] truncate ${props.activeTypingUsers.length > 0 ? 'text-[#00C300] font-medium' : props.isUserOnline ? 'text-[#00C300]' : 'text-muted-foreground'}`}>
             {props.activeTypingUsers.length > 0
               ? renderTypingText(props.activeTypingUsers)

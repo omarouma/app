@@ -51,7 +51,7 @@ export const ChatList = memo(({
 
   return (
     <div>
-      {chats.map((chat, i) => {
+      {chats.map((chat) => {
         const isGroup = chat.type === 'group';
         const otherId = isGroup ? '' : (chat.participants.find(p => p !== userId) || '');
         const friend = friends.find(fr => fr.id === otherId);
@@ -81,7 +81,6 @@ export const ChatList = memo(({
           >
             <ChatListItem
               chat={chat}
-              index={i}
               userId={userId}
               isFriend={isFriend}
               isOnline={isOnline}
