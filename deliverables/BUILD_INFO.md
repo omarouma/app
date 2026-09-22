@@ -16,26 +16,42 @@
 ## Checksums (SHA-256)
 
 ```
-5649733508916e008216c86916e902d51d3070e3365ff79760265ee4db7864c0  GaGa-Chat-v1.0.0-release.apk
-c4af5269e87202f99cac92624409e0f3a9519bf0e5744a1b0c1667fef4d9427d  GaGa-Chat-v1.0.0-release.aab
+70fcbf1af6843f67f0372406be472cb72757af4440f84f88ca96deba6ef28eb5  GaGa-Chat-v1.0.0-release.apk
+abeab411405b057bda2ec60aef39b57c38cc5d656abae6121ee6bbf6c14c6317  GaGa-Chat-v1.0.0-release.aab
 ```
 
 ## Signing certificate
 
 ```
 DN: CN=GaGa Chat, OU=Mobile, O=GaGa, L=Dhaka, ST=Dhaka, C=BD
-SHA-256: 64bb1bf364f0b8cff85a2aaceb0c30eeebb291a4644ab937f04538d9d2b56d20
-SHA-1:   6e3e8359af9ba7473a56a6ee64c5e03c956bb373
+SHA-256: 3E:6E:F7:7D:EE:4B:A0:11:14:4B:2F:68:C5:FB:43:E9:EF:7B:F7:7C:D9:2C:EE:C1:7C:54:69:51:37:0D:34:83
+SHA-1:   7A:FF:20:8D:7D:55:4E:18:40:65:BC:46:4A:1A:80:CE:E4:20:2C:D9
 ```
+
+> **NOTE — signing key changed.** The original release keystore was not present in
+> this build environment, so a fresh keystore (`android/gaga-release.jks`) was
+> generated. This APK therefore has a **different signature** than the previous
+> v1.0.0 build. Devices with the old build installed must uninstall it before
+> installing this one. Before publishing to Google Play, keep this keystore safe —
+> all future updates must be signed with the same key.
 
 ## What's included in this build
 
-1. **Real-time calling fixed** — ZEGO App ID `372536818` + token server baked into the bundle; ZIM + RTC token flow verified.
-2. **Profile cover video upload** — photo OR video (≤50 MB), autoplay/muted/loop.
-3. **Phone contacts removed** — no contact permissions requested.
-4. **Search removed from bottom nav** — People · Chat · Calls · Profile.
-5. **Chat room UI polish** — bubbles, reply previews, input bar, header, scroll controls.
-6. **GaGa branding** — icon, splash, app name, colors (#00C300), manifest, in-app logo.
+1. **Group chat parity with direct chat** — the group conversation screen now
+   reuses the same generic `MessageItem` renderer + virtualized list as 1:1 chat.
+2. **Enriched message actions** — Reply, React, Copy, Select, Edit, Forward,
+   Pin/Unpin, Save/Unsave, Translate, Info, Delete (for me / for everyone).
+3. **Mobile gestures** — long-press to multi-select, double-tap to reply,
+   swipe-to-reply.
+4. **Reaction picker, image lightbox, scroll-to-bottom button, typing indicator,
+   unread separator** in group chats.
+5. **Advanced group features** — forward modal, multi-select mode, scheduled send,
+   polls, sticker/GIF picker, chat background picker, pinned-message banner,
+   jump-to-match search navigation.
+6. **Consistency fixes** — unified edit-bubble styling; all attachment actions use
+   the single GaGa-green accent.
+7. **Real-time calling** — ZEGO App ID `372536818` + Supabase token server baked in.
+8. **GaGa branding** — icon, splash, app name, colors (#00C300), manifest, logo.
 
 ## Build pipeline
 
