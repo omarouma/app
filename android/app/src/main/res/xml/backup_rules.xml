@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Android 11 and below auto-backup rules.
+
+  The Supabase auth session (JWT + refresh token) and the last-known profile
+  cache are stored in the `CapacitorStorage` SharedPreferences file. These must
+  NEVER be included in a cloud backup or device-to-device transfer: a restored
+  token on another device would grant access to the user's account.
+
+  Everything else (non-sensitive app state) is still backed up.
+-->
+<full-backup-content>
+    <exclude domain="sharedpref" path="CapacitorStorage.xml" />
+    <exclude domain="sharedpref" path="CapacitorStorage" />
+    <exclude domain="sharedpref" path="gaga-auth-token" />
+</full-backup-content>

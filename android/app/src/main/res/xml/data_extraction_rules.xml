@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Android 12+ (API 31+) data-extraction rules.
+
+  Applies to both cloud backup and device-to-device transfer. The Supabase auth
+  session and profile cache (stored in the `CapacitorStorage` SharedPreferences
+  file) are excluded so a session token can never be restored onto another
+  device. All other app data is backed up / transferred normally.
+-->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="sharedpref" path="CapacitorStorage.xml" />
+        <exclude domain="sharedpref" path="CapacitorStorage" />
+        <exclude domain="sharedpref" path="gaga-auth-token" />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="sharedpref" path="CapacitorStorage.xml" />
+        <exclude domain="sharedpref" path="CapacitorStorage" />
+        <exclude domain="sharedpref" path="gaga-auth-token" />
+    </device-transfer>
+</data-extraction-rules>

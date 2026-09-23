@@ -25,6 +25,38 @@ import { useWalletStore } from '@/store/useWalletStore';
 import { usePremiumStore, PREMIUM_PLANS } from '@/store/usePremiumStore';
 import { useUserSettings, defaultSettings } from '@/store/useSettingsStore';
 import { EXCHANGE_RATES } from '@/store/useWalletStore';
+import { clearQueue } from '@/lib/offlineQueue';
+import { safeGetAllStorageKeys, safeRemoveStorageItem } from '@/lib/safeStorage';
+
+/**
+ * localStorage keys that hold *user content* (not device preferences) and must
+ * therefore be wiped on sign-out so they never leak into the next account.
+ * Device-level keys (PWA prompt dismissal, service-worker version, etc.) are
+ * intentionally left untouched.
+ */
+const USER_SCOPED_KEY_PREFIXES = [
+  'draft_',                 // per-chat composer drafts
+  'chat_draft_',            // legacy per-chat drafts
+  'gaga-message-queue',     // offline send queue
+  'gaga-muted-notif-types', // per-user muted notification types
+  'gaga-recent-searches',   // recent in-app searches
+  'gaga_recent_gifs',       // recently used GIFs
+  'gaga_scheduled_messages',// scheduled messages
+  'emoji_recent',           // recently used emojis
+];
+
+/** Remove every user-scoped localStorage entry. Best-effort. */
+function clearUserScopedStorage(): void {
+  try {
+    for (const key of safeGetAllStorageKeys()) {
+      if (USER_SCOPED_KEY_PREFIXES.some((prefix) => key.startsWith(prefix))) {
+        safeRemoveStorageItem(key);
+      }
+    }
+  } catch {
+    /* best-effort */
+  }
+}
 
 /** Reset every user-scoped data store to its initial state. */
 export function resetUserStores(): void {
@@ -133,4 +165,11 @@ export function resetUserStores(): void {
   // Settings (persisted) — return to defaults so account B never inherits
   // account A's theme / privacy / notification preferences.
   safe(() => useUserSettings.setState({ settings: defaultSettings }));
+
+  // Offline message queue — drop any messages queued by the previous account so
+  // they can never be flushed under the next account's session.
+  safe(() => clearQueue());
+
+  // User-scoped localStorage (drafts, recents, scheduled messages, muted types).
+  safe(() => clearUserScopedStorage());
 }

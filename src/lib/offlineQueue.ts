@@ -1,5 +1,5 @@
 import { v4 as uuidv4 } from 'uuid';
-import { safeGetStorageItem, safeSetStorageItem } from '@/lib/safeStorage';
+import { safeGetStorageItem, safeSetStorageItem, safeRemoveStorageItem } from '@/lib/safeStorage';
 
 export type SyncStatus = 'synced' | 'pending' | 'sending' | 'failed';
 
@@ -29,6 +29,20 @@ export function getQueue(): QueuedMessage[] {
 
 export function saveQueue(queue: QueuedMessage[]) {
   safeSetStorageItem(QUEUE_KEY, JSON.stringify(queue));
+}
+
+/**
+ * Drop every queued message.
+ *
+ * Called on sign-out so a queued message from account A can never be flushed
+ * under account B's session (never mix cached data between accounts).
+ */
+export function clearQueue() {
+  try {
+    safeRemoveStorageItem(QUEUE_KEY);
+  } catch {
+    /* best-effort */
+  }
 }
 
 export function addToQueue(msg: Omit<QueuedMessage, 'id' | 'timestamp' | 'syncStatus'> & { id?: string; timestamp?: number; syncStatus?: SyncStatus }): QueuedMessage {

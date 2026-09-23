@@ -3,7 +3,7 @@
 **Version:** 1.0.0 (versionCode 1)
 **Package:** `gagachat.app`
 **App label:** GaGa
-**Build date:** 2026-09-23 (full re-audit + missing-items pass 4)
+**Build date:** 2026-09-23 (full re-audit + missing-items pass 5 — security & session hygiene)
 **minSdk:** 22 (Android 5.1+) · **targetSdk:** 34 (Android 14)
 
 ## Artifacts
@@ -16,8 +16,8 @@
 ## Checksums (SHA-256)
 
 ```
-803c3c3f6bffaa660453adb0c83644f59f5e3e94e46e602db9b5732fcec06ffc  GaGa-v1.0.0-release.apk
-86023b65553644c9df6a1e2efaaee4bbf6d5effa6b2f18dcd2961de6f402c1b3  GaGa-v1.0.0-release.aab
+39379a8a1a24d075523a47a3fc2f13cf5991e694bd8a63e24471d24f742db867  GaGa-v1.0.0-release.apk
+102037273534f9981f8ca7b82d79acf475496577407392fd92a4a1ab69fdabd7  GaGa-v1.0.0-release.aab
 ```
 
 ## Signing certificate
@@ -39,6 +39,38 @@ Signature schemes verified: **v1 (JAR) ✓ · v2 ✓ · v3 ✓**
 > all future updates must be signed with the same key.
 
 ## What's included in this build
+
+### Security & session-hygiene pass (P0/P1)
+
+A further improvement/fix pass focused on **device security, session hygiene and
+deep-link reliability**:
+
+1. **Auth tokens excluded from Android cloud backup / device transfer (security).**
+   Android's Auto Backup could previously copy the app's private storage —
+   including the persisted Supabase session (`CapacitorStorage.xml`) — to the
+   user's Google Drive and restore it onto a *different* device, which is a
+   session-hijack risk. Added `android/app/src/main/res/xml/backup_rules.xml`
+   (Android 11 and below) and `data_extraction_rules.xml` (Android 12+), both
+   excluding `CapacitorStorage.xml`, `CapacitorStorage` and `gaga-auth-token`
+   from cloud backup **and** device-to-device transfer, and referenced them from
+   `<application>` via `android:fullBackupContent` and
+   `android:dataExtractionRules`. Verified present in the compiled manifest
+   (`fullBackupContent=@0x7f110000`, `dataExtractionRules=@0x7f110002`).
+2. **Offline message queue cleared on logout.** The pending outbound-message
+   queue (`gaga-message-queue`) is now cleared on sign-out via a new
+   `clearQueue()` in `src/lib/offlineQueue.ts`, so a queued message composed by
+   one account can never be flushed under a different account after a switch.
+3. **User-scoped local storage cleared on logout.** `resetStores.ts` now also
+   purges user-scoped `localStorage` keys on sign-out — message/chat drafts
+   (`draft_`, `chat_draft_`), the offline queue, muted-notification types,
+   recent searches, recent GIFs, scheduled messages and recent emoji — so no
+   residue of the previous account survives a logout (req #30, "never mix cached
+   data between accounts").
+4. **Android App Links auto-verification.** Added
+   `public/.well-known/assetlinks.json` declaring package `gagachat.app` with the
+   release signing certificate SHA-256, so `https://gagachat.app/…` links open
+   directly in the app (verified App Links) instead of a browser chooser. The
+   file is shipped in the web bundle and preserved through `cap sync`.
 
 ### Full re-audit pass — missing items implemented (P0)
 
