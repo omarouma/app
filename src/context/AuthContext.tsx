@@ -2,6 +2,8 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import { useAuthStore } from '@/store/useAuthStore';
 import { resetPresenceState } from '@/hooks/usePresence';
+import { resetUserStores } from '@/lib/resetStores';
+import { clearCachedUserProfile } from '@/lib/profileCache';
 import {
   signIn, signInWithPhone,
   signUp, signUpWithPhone,
@@ -87,12 +89,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = async () => {
     resetPresenceState();
+    // Drop the cached profile for the signing-out user (shared-device safety).
+    const signingOutId = useAuthStore.getState().user?.id;
+    if (signingOutId) { try { await clearCachedUserProfile(signingOutId); } catch { /* ignore */ } }
     if (isSupabaseConfigured()) { try { await signOut(); } catch { /* ignore */ } }
     // `signOut()` above triggers `onAuthStateChange` (SIGNED_OUT) in the store's
     // `init()`, which tears down the real-time profile subscription and clears
     // the user. The explicit `setUser(null)` below is a safety net for cases
     // where the auth listener doesn't fire (e.g. offline / unconfigured).
     useAuthStore.getState().setUser(null);
+    // Never mix cached data between accounts: wipe every user-scoped store so a
+    // subsequent sign-in as a different account starts from a clean slate.
+    resetUserStores();
   };
 
   return (

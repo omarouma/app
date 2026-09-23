@@ -1,6 +1,7 @@
 import { getSupabaseSafe } from './supabase';
 import { normalizeUsername, validateUsername } from './validation';
 import { withTimeout } from './platform';
+import { cacheUserProfile, getCachedUserProfile } from './profileCache';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { User } from '@/types';
 
@@ -89,13 +90,24 @@ async function fetchUserProfileUnbounded(userId: string): Promise<User | null> {
  *
  * Never rejects and never hangs: on timeout or error it resolves to `null`, so
  * callers on the startup path always make progress.
+ *
+ * Offline resilience: on a successful fetch the profile is written to a
+ * per-user cache; when the network fetch fails (e.g. offline startup) the
+ * last-known cached profile is returned instead, so a user with a valid
+ * persisted session still lands on Home rather than being bounced to login.
  */
 export async function fetchUserProfile(userId: string): Promise<User | null> {
   if (!userId) return null;
   try {
-    return await withTimeout(fetchUserProfileUnbounded(userId), PROFILE_FETCH_TIMEOUT_MS, null);
+    const fresh = await withTimeout(fetchUserProfileUnbounded(userId), PROFILE_FETCH_TIMEOUT_MS, null);
+    if (fresh) {
+      void cacheUserProfile(fresh);
+      return fresh;
+    }
+    // Network fetch failed/timed out — fall back to the last-known profile.
+    return await getCachedUserProfile(userId);
   } catch {
-    return null;
+    return await getCachedUserProfile(userId);
   }
 }
 
@@ -184,16 +196,36 @@ export async function getSession() {
  * Verifies the current session against the server. Returns false when the
  * session has been revoked or the refresh token is no longer valid, so the
  * caller can safely redirect to login.
+ *
+ * IMPORTANT: a *transient* failure (no network, server unreachable, timeout)
+ * must NOT be treated as an invalid session — otherwise a brief connectivity
+ * blip would log the user out. Only a definitive auth rejection (HTTP 4xx from
+ * the auth endpoint) returns false; network/unknown errors return true so the
+ * session is preserved and re-checked later.
  */
 export async function isSessionValid(): Promise<boolean> {
   const supabase = getSupabaseSafe();
   if (!supabase) return false;
   try {
     const { data, error } = await supabase.auth.getUser();
-    if (error) return false;
+    if (error) {
+      const status = (error as { status?: number }).status;
+      const name = (error as { name?: string }).name;
+      const offline = typeof navigator !== 'undefined' && navigator.onLine === false;
+      const isTransient =
+        offline ||
+        name === 'AuthRetryableFetchError' ||
+        status === 0 ||
+        status === undefined;
+      // Transient → keep the session (do not sign out).
+      if (isTransient) return true;
+      // Definitive auth rejection (401/403/…) → session is invalid.
+      return false;
+    }
     return !!data.user;
   } catch {
-    return false;
+    // Thrown fetch error → transient; keep the session.
+    return true;
   }
 }
 

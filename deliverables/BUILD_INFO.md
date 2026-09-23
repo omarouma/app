@@ -3,7 +3,7 @@
 **Version:** 1.0.0 (versionCode 1)
 **Package:** `gagachat.app`
 **App label:** GaGa
-**Build date:** 2026-09-23 (startup/auth flow + chat-room UI/UX pass 3)
+**Build date:** 2026-09-23 (full re-audit + missing-items pass 4)
 **minSdk:** 22 (Android 5.1+) · **targetSdk:** 34 (Android 14)
 
 ## Artifacts
@@ -16,8 +16,8 @@
 ## Checksums (SHA-256)
 
 ```
-8009e202982762634d7fa248be034bbb72c52ab5952cce35be26fe261b665d05  GaGa-v1.0.0-release.apk
-95f88809b5a58b03bb352d6cf69104b12ddc6db0eb104a7e04bc95fd0e7c4b02  GaGa-v1.0.0-release.aab
+803c3c3f6bffaa660453adb0c83644f59f5e3e94e46e602db9b5732fcec06ffc  GaGa-v1.0.0-release.apk
+86023b65553644c9df6a1e2efaaee4bbf6d5effa6b2f18dcd2961de6f402c1b3  GaGa-v1.0.0-release.aab
 ```
 
 ## Signing certificate
@@ -39,6 +39,35 @@ Signature schemes verified: **v1 (JAR) ✓ · v2 ✓ · v3 ✓**
 > all future updates must be signed with the same key.
 
 ## What's included in this build
+
+### Full re-audit pass — missing items implemented (P0)
+
+A complete re-audit of every previously-stated requirement (Startup/Auth Flow +
+Chat-Room UI/UX §33–§76) was performed and the following gaps were found and
+fixed:
+
+1. **Never mix cached data between accounts (req #30).** Signing out previously
+   left every user-scoped Zustand store populated, so signing in as a different
+   account could briefly show the previous account's chats, friends, groups,
+   calls, notifications, wallet, premium status and settings. Added
+   `src/lib/resetStores.ts` (`resetUserStores()`) which returns all data stores
+   to their pristine initial state, wired into both the explicit `logout()` path
+   (`AuthContext`) and the `SIGNED_OUT` branch of `useAuthStore.init()` (covers
+   session revocation / account deletion).
+2. **Offline startup → cached Home.** Previously, launching without a network
+   connection made the profile fetch fail, which was treated as "signed out" and
+   bounced the user to the login screen despite a valid persisted session. Added
+   `src/lib/profileCache.ts` (per-user, app-private storage) and made
+   `fetchUserProfile()` write on success and fall back to the last-known cached
+   profile on failure. The cache is cleared on sign-out for shared-device safety.
+3. **Temporary network loss must not log the user out.** `isSessionValid()` (used
+   by the periodic session guard) treated *any* `getUser()` error as an invalid
+   session. It now distinguishes a definitive auth rejection (HTTP 4xx) from a
+   transient network/timeout error — only the former signs the user out.
+4. **Cold-start deep links.** `App.getLaunchUrl()` is now handled in
+   `useNativeNavigation` so a `gagachat://…` / `https://gagachat.app/…` link that
+   launches the app cold still lands on the requested destination (previously
+   only the `appUrlOpen` event, which does not fire on cold start, was handled).
 
 ### Startup & Authentication Flow — no Landing View on native (P0)
 

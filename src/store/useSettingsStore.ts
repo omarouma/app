@@ -14,7 +14,7 @@ interface SettingsStore {
   syncSettings: (userId: string) => Promise<void>;
 }
 
-const defaultSettings: ThemeSettings = {
+export const defaultSettings: ThemeSettings = {
   theme: 'gaga',
   fontSize: 'medium',
   language: 'en',

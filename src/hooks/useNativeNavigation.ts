@@ -51,10 +51,10 @@ export function useNativeNavigation() {
         listeners.push(backListener);
 
         // ── Deep links ──────────────────────────────────────────────────
-        const urlListener = await App.addListener('appUrlOpen', (event) => {
+        const handleUrl = (rawUrl: string) => {
           try {
-            const url = new URL(event.url);
-            // gagachat://path?x=y  →  host is the first segment
+            const url = new URL(rawUrl);
+            // gagachat://path?x=y  ->  host is the first segment
             const isCustomScheme = url.protocol === 'gagachat:';
             const path = isCustomScheme
               ? `/${url.host}${url.pathname}`
@@ -62,10 +62,25 @@ export function useNativeNavigation() {
             const target = `${path}${url.search}${url.hash}`;
             if (target && target !== '/') navigate(target);
           } catch {
-            /* malformed deep link — ignore */
+            /* malformed deep link - ignore */
           }
+        };
+
+        const urlListener = await App.addListener('appUrlOpen', (event) => {
+          handleUrl(event.url);
         });
         listeners.push(urlListener);
+
+        // Cold start: when the app is launched *from* a deep link (rather than
+        // already running), Android delivers the URL via getLaunchUrl() and the
+        // `appUrlOpen` event does not fire. Handle it explicitly so a link that
+        // opens the app cold still lands on the requested destination.
+        try {
+          const launch = await App.getLaunchUrl();
+          if (launch?.url) handleUrl(launch.url);
+        } catch {
+          /* getLaunchUrl unavailable - ignore */
+        }
       } catch {
         /* @capacitor/app unavailable — ignore */
       }

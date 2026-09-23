@@ -97,6 +97,13 @@ export const useAuthStore = create<AuthStore>((set) => ({
         void import('@/store/useSettingsStore')
           .then(({ useUserSettings }) => useUserSettings.getState().syncSettings(user.id))
           .catch(() => { /* settings sync is best-effort */ });
+      } else {
+        // Signed out / session revoked / account deleted: wipe every
+        // user-scoped data store so cached data never leaks into the next
+        // account. Dynamic import avoids a circular dependency.
+        void import('@/lib/resetStores')
+          .then(({ resetUserStores }) => resetUserStores())
+          .catch(() => { /* best-effort */ });
       }
 
       applyAuthUser(user, set);
