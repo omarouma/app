@@ -12,7 +12,7 @@
  */
 import { Capacitor } from '@capacitor/core';
 import { getSupabaseSafe } from '@/lib/supabase';
-import { navigateTo } from '@/lib/navigation';
+import { handleNotificationTap, type NotificationTapData } from '@/lib/notificationRouter';
 
 export interface NativePushRegistration {
   token: string;
@@ -61,29 +61,28 @@ async function persistToken(userId: string, token: string, platform: 'android' |
 }
 
 /**
- * Registers for native push and resolves with the FCM token.
+ * Attaches the FCM listeners **once**, as early as possible.
  *
- * @param userId The signed-in user's id (token is persisted to their row).
- * @param requestPermission When true, prompts the OS permission dialog.
+ * This MUST run before (or independently of) sign-in: when the app is
+ * cold-started by tapping a notification, the tap action is delivered to the
+ * plugin before the user session is restored. If we only attached the listener
+ * after login, cold-start taps would be lost. Capacitor buffers the action
+ * until a listener is registered, so attaching early guarantees delivery.
  */
-export async function registerNativePush(
-  userId: string,
-  requestPermission = true,
-): Promise<NativePushRegistration | null> {
-  if (!isNativePlatform() || !userId) return null;
+export async function initNativePushListeners(): Promise<void> {
+  if (!isNativePlatform() || listenersAttached) return;
 
   let PushNotifications: typeof import('@capacitor/push-notifications').PushNotifications;
   try {
     ({ PushNotifications } = await import('@capacitor/push-notifications'));
   } catch (err) {
     console.warn('[NativePush] PushNotifications plugin unavailable:', err);
-    return null;
+    return;
   }
 
-  // Attach listeners exactly once.
-  if (!listenersAttached) {
-    listenersAttached = true;
+  listenersAttached = true;
 
+  try {
     await PushNotifications.addListener('registration', (token) => {
       currentToken = token.value;
       const platform = Capacitor.getPlatform() === 'ios' ? 'ios' : 'android';
@@ -103,23 +102,50 @@ export async function registerNativePush(
       resolvers.forEach((r) => r(null));
     });
 
-    await PushNotifications.addListener('pushNotificationReceived', () => {
-      // Foreground delivery — the in-app notification layer handles the UI.
+    await PushNotifications.addListener('pushNotificationReceived', (notification) => {
+      // Foreground delivery. Android does not auto-display FCM notification
+      // messages while the app is in the foreground, so the in-app layer
+      // (useMessageNotifications / useIncomingCallNotifications) handles the
+      // sound + local notification. For calls we additionally seed the ring UI
+      // so a foreground call push is never missed.
+      const data = notification?.data as NotificationTapData | undefined;
+      if (data?.type === 'call') {
+        handleNotificationTap(data);
+      }
     });
 
     await PushNotifications.addListener('pushNotificationActionPerformed', (action) => {
       // User tapped a notification — deep-link into the relevant screen.
-      const data = action?.notification?.data as Record<string, unknown> | undefined;
-      if (!data) return;
-      try {
-        const type = data.type as string | undefined;
-        if (type === 'call' && data.callId) {
-          navigateTo('/calls');
-        } else if (type === 'message' && data.chatId) {
-          navigateTo(`/chat/${data.chatId}`);
-        }
-      } catch { /* ignore */ }
+      const data = action?.notification?.data as NotificationTapData | undefined;
+      handleNotificationTap(data);
     });
+  } catch (err) {
+    console.warn('[NativePush] failed to attach listeners:', err);
+    listenersAttached = false;
+  }
+}
+
+/**
+ * Registers for native push and resolves with the FCM token.
+ *
+ * @param userId The signed-in user's id (token is persisted to their row).
+ * @param requestPermission When true, prompts the OS permission dialog.
+ */
+export async function registerNativePush(
+  userId: string,
+  requestPermission = true,
+): Promise<NativePushRegistration | null> {
+  if (!isNativePlatform() || !userId) return null;
+
+  // Ensure the (early) listeners are attached before registering.
+  await initNativePushListeners();
+
+  let PushNotifications: typeof import('@capacitor/push-notifications').PushNotifications;
+  try {
+    ({ PushNotifications } = await import('@capacitor/push-notifications'));
+  } catch (err) {
+    console.warn('[NativePush] PushNotifications plugin unavailable:', err);
+    return null;
   }
 
   // Permission

@@ -2,6 +2,8 @@ import { useEffect, useRef } from 'react';
 import { useNotificationStore } from '@/store/useNotificationStore';
 import { useAuthStore } from '@/store/useAuthStore';
 import { safePlay, vibrateNotification, playNotification } from '@/lib/sounds';
+import { showNativeNotification } from '@/services/nativeNotifications';
+import { isNative } from '@/lib/platform';
 import { getActiveChatId } from '@/lib/activeChat';
 import { safeGetJsonStorageItem } from '@/lib/safeStorage';
 
@@ -51,12 +53,28 @@ export function useForegroundNotifications() {
       return;
     }
 
-    // Background: show native browser notification via service worker
+    // Background: show an OS notification so the user sees it outside the app.
+    // Sanitize display strings — strip HTML tags and limit length
+    const safeTitle = String(newest.title || 'GaGa').replace(/<[^>]*>/g, '').slice(0, 100);
+    const safeBody = String(newest.body || 'You have a new notification').replace(/<[^>]*>/g, '').slice(0, 200);
+    const safeChatId = String(newest.data?.chatId || '').replace(/[^a-zA-Z0-9_-]/g, '');
+
+    // Native: local-notifications plugin (the SW-based path is a no-op in the
+    // Capacitor WebView).
+    if (isNative()) {
+      void showNativeNotification({
+        title: safeTitle,
+        body: safeBody,
+        data: {
+          type: 'message',
+          chatId: safeChatId,
+          userId: String(newest.data?.userId || ''),
+        },
+      });
+      return;
+    }
+
     if ('serviceWorker' in navigator && Notification.permission === 'granted') {
-      // Sanitize display strings — strip HTML tags and limit length
-      const safeTitle = String(newest.title || 'GaGa').replace(/<[^>]*>/g, '').slice(0, 100);
-      const safeBody = String(newest.body || 'You have a new notification').replace(/<[^>]*>/g, '').slice(0, 200);
-      const safeChatId = String(newest.data?.chatId || '').replace(/[^a-zA-Z0-9_-]/g, '');
       navigator.serviceWorker.ready
         .then((registration) => {
           registration.showNotification(safeTitle, {

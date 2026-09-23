@@ -33,6 +33,7 @@ import { initAudioOnInteraction } from '@/lib/sounds';
 import { startOfflineQueueSync } from '@/lib/offlineSync';
 import { getPostAuthPath } from '@/lib/onboarding';
 import { registerNavigate } from '@/lib/navigation';
+import { markNotificationRouterReady } from '@/lib/notificationRouter';
 import { safeGetBooleanStorageItem, safeGetStorageItem, safeSetStorageItem } from '@/lib/safeStorage';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import ScrollToTop from '@/components/ScrollToTop';
@@ -329,6 +330,9 @@ function useServiceWorker() {
   // which does not work with BrowserRouter.
   useEffect(() => {
     registerNavigate(navigate as NavigateFunction);
+    // Flush any notification tap that arrived before the router was ready
+    // (e.g. the app was cold-started by tapping a notification).
+    markNotificationRouterReady();
   }, [navigate]);
 
   useEffect(() => {

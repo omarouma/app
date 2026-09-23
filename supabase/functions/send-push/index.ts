@@ -305,11 +305,14 @@ Deno.serve(async (req: Request) => {
     if (!senderId || !chatId) return json({ skipped: true, reason: 'missing sender/chat' });
 
     // Find the chat's other participants (direct chats store participants array)
-    const chatRows = await sbGet(`chats?id=eq.${encodeURIComponent(chatId)}&select=participants,type`);
+    const chatRows = await sbGet(`chats?id=eq.${encodeURIComponent(chatId)}&select=participants,type,name`);
     const chat = Array.isArray(chatRows) && chatRows.length > 0 ? chatRows[0] : null;
     const participants: string[] = Array.isArray(chat?.participants) ? chat.participants : [];
     const recipients = participants.filter((p) => p && p !== senderId);
     if (recipients.length === 0) return json({ skipped: true, reason: 'no recipients' });
+
+    const isGroup = chat?.type === 'group';
+    const groupName: string = chat?.name ?? 'Group';
 
     const sender = await getUser(senderId);
     const senderName: string = sender?.name ?? 'New message';
@@ -320,10 +323,17 @@ Deno.serve(async (req: Request) => {
     const results: Record<string, string> = {};
     for (const rid of recipients) {
       results[rid] = await sendPushToUser(rid, {
-        title: senderName,
-        body: preview,
+        title: isGroup ? groupName : senderName,
+        body: isGroup ? `${senderName}: ${preview}` : preview,
         tag: `msg_${chatId}`,
-        data: { type: 'message', chatId, userId: senderId, senderName },
+        data: {
+          type: 'message',
+          chatId,
+          userId: senderId,
+          senderName,
+          isGroup: isGroup ? 'true' : 'false',
+          groupId: isGroup ? chatId : '',
+        },
       });
     }
     return json({ ok: true, kind: 'message', results });

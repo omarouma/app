@@ -3,7 +3,7 @@
 **Version:** 1.0.0 (versionCode 1)
 **Package:** `gagachat.app`
 **App label:** GaGa
-**Build date:** 2026-09-23 (performance pass 9 — dead-weight removal + lazy media)
+**Build date:** 2026-09-23 (bug fix — native notification responsiveness)
 **minSdk:** 22 (Android 5.1+) · **targetSdk:** 34 (Android 14)
 
 ## Artifacts
@@ -19,8 +19,8 @@
 ## Checksums (SHA-256)
 
 ```
-0aa8d0a94e181b1bd968f37451bf6c2c2cc3926cd8ccd8edc136df01a5ae3aa1  GaGa-v1.0.0-release.apk
-926adb52fd01ffb7d16a68d5e21c239f0625a79418915a77cbfb47a707c9fc35  GaGa-v1.0.0-release.aab
+5d1357827a287cc7972552f1afa224faafa6ee916644aa33d9a9d27104ce2bed  GaGa-v1.0.0-release.apk
+57f10feff5cc7affafab9c793d26f357a375a3c5eed857b34fe1c65c1891a906  GaGa-v1.0.0-release.aab
 ```
 
 > The APK checksum changes on every build because APK signing embeds a
@@ -43,6 +43,61 @@ Signature schemes verified: **v1 (JAR) ✓ · v2 ✓ · v3 ✓**
 > Devices that already have a build signed with the previous key installed must
 > **uninstall it first** before installing this build. Keep this keystore safe:
 > all future updates must be signed with the same key.
+
+## Bug fix — native notification responsiveness
+
+**Reported:** *"During users outside of the app, or after installation of the app,
+when opening the app there are message/notification sounds, but there is no
+response for message notifications, calling service, etc."*
+
+**Symptom:** on native Android the app played message/call **sounds** but never
+showed an OS notification, and tapping a notification did nothing.
+
+**Root causes (all fixed):**
+
+1. **Web-only notification layer.** `pushNotificationService` is built on the
+   Web Push API + a Service Worker. Neither exists inside the Capacitor WebView,
+   so `canSend()` was always `false` on native and **no OS notification was ever
+   posted**.
+2. **No native display path.** There was no local-notifications plugin, so the
+   JS layer had no way to render a notification on Android.
+3. **Cold-start taps lost.** The FCM tap listener was attached only *after*
+   sign-in, so a tap that cold-started the app was dropped.
+4. **Channels never created.** The `gaga_messages` / `gaga_calls` Android
+   notification channels did not exist, so alerts could not be shown with the
+   right importance.
+5. **Call taps didn't ring.** Tapping a call notification only navigated to
+   `/calls`; it never seeded the incoming-call state, so the ring UI never
+   appeared.
+
+**Fixes:**
+
+- Added `@capacitor/local-notifications@6.1.3` and a new
+  `src/services/nativeNotifications.ts` that requests permission, creates the
+  `gaga_messages` (importance HIGH) and `gaga_calls` (importance MAX) channels,
+  and posts message / incoming-call / missed-call notifications with the
+  `ic_stat_gaga` status-bar icon and brand tint.
+- New `src/lib/notificationRouter.ts` — a tap router with a **cold-start queue**:
+  taps received before React Router mounts are buffered and flushed once the
+  router is ready (`markNotificationRouterReady()` in `App.tsx`). Call taps seed
+  `useCallStore.incomingCall` so the ring UI appears immediately, then navigate.
+- `src/services/nativePush.ts` now attaches the FCM listeners **once, early**
+  (before sign-in) so cold-start taps are captured, and routes every tap through
+  the router.
+- `usePushNotifications`, `useMessageNotifications`,
+  `useIncomingCallNotifications`, and `useForegroundNotifications` now take a
+  **native OS-notification path** (local notifications) instead of the
+  service-worker path when running on device.
+- `AndroidManifest.xml`: added `USE_FULL_SCREEN_INTENT` (Android 14+ full-screen
+  call alerts) and `RECEIVE_BOOT_COMPLETED`, plus FCM default-notification
+  metadata (icon `ic_stat_gaga`, color `gaga_brand`, channel `gaga_messages`).
+- `supabase/functions/send-push`: message pushes now carry group context
+  (`isGroup`, `groupId`) and use the group name as the title, so group-message
+  taps open the right conversation.
+
+**Result:** message and call notifications now appear in the status bar / as
+heads-up banners while the app is backgrounded or closed, and tapping them opens
+the correct screen (chat, group, or the ringing call UI).
 
 ## Global compatibility
 

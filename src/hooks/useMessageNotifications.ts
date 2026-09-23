@@ -27,6 +27,8 @@ import {
     isQuietHours,
 } from '@/lib/sounds';
 import { pushNotificationService } from '@/services/pushNotificationService';
+import { showNativeMessageNotification } from '@/services/nativeNotifications';
+import { isNative } from '@/lib/platform';
 import { getActiveChatId } from '@/lib/activeChat';
 
 function previewText(content: string): string {
@@ -94,13 +96,26 @@ export function useMessageNotifications() {
 
             // 2. Background (tab hidden / minimized): OS notification so the
             //    user sees it outside the app — tapping opens the chat.
-            if (!tabVisible && pushNotificationService.canSend()) {
-                void pushNotificationService.sendNotification({
-                    title: senderName,
-                    body,
-                    tag: `msg_${chat.id}`,
-                    data: { type: 'message', chatId: chat.id, userId: senderId, senderName },
-                });
+            //    Native uses the local-notifications plugin (the SW-based
+            //    service is a no-op inside the Capacitor WebView).
+            if (!tabVisible) {
+                if (isNative()) {
+                    void showNativeMessageNotification({
+                        title: senderName,
+                        body,
+                        chatId: chat.id,
+                        senderId,
+                        senderName,
+                        isGroup,
+                    });
+                } else if (pushNotificationService.canSend()) {
+                    void pushNotificationService.sendNotification({
+                        title: senderName,
+                        body,
+                        tag: `msg_${chat.id}`,
+                        data: { type: 'message', chatId: chat.id, userId: senderId, senderName },
+                    });
+                }
             }
         }
     }, [chats, user?.id, friends]);

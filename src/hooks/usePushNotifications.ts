@@ -5,7 +5,9 @@ import {
   unregisterNativePush,
   setNativePushUser,
   isNativePlatform,
+  initNativePushListeners,
 } from '@/services/nativePush';
+import { initNativeNotifications } from '@/services/nativeNotifications';
 import { useAuthStore } from '@/store/useAuthStore';
 import { getSupabaseSafe } from '@/lib/supabase';
 
@@ -35,6 +37,17 @@ export function usePushNotifications() {
     await pushNotificationService.init();
   }, []);
 
+  // ── Native: attach FCM listeners + init local notifications ASAP ──────────
+  // This runs on mount, *before* sign-in completes, so a cold-start tap on a
+  // notification is captured (Capacitor buffers the action until a listener is
+  // attached). It also creates the Android notification channels so message and
+  // call alerts display with the right importance.
+  useEffect(() => {
+    if (!isNativePlatform()) return;
+    void initNativePushListeners();
+    void initNativeNotifications(false);
+  }, []);
+
   useEffect(() => {
     if (!user?.id) {
       // Sign-out: drop the native push registration.
@@ -46,7 +59,7 @@ export function usePushNotifications() {
     // ── Native (Android/iOS) path: FCM via Capacitor PushNotifications ──
     if (isNativePlatform()) {
       setNativePushUser(user.id);
-      void registerNativePush(user.id, true);
+      void initNativeNotifications(true).then(() => registerNativePush(user.id, true));
       return;
     }
 
@@ -61,6 +74,7 @@ export function usePushNotifications() {
   const requestPermission = useCallback(async () => {
     // Native: prompt via the OS dialog through the plugin.
     if (isNativePlatform() && user?.id) {
+      await initNativeNotifications(true);
       const reg = await registerNativePush(user.id, true);
       return !!reg;
     }

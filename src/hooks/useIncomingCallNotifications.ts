@@ -16,6 +16,8 @@ import {
     initAudioOnInteraction,
 } from '@/lib/sounds';
 import { pushNotificationService } from '@/services/pushNotificationService';
+import { showNativeCallNotification, showNativeNotification, cancelAllNativeNotifications } from '@/services/nativeNotifications';
+import { isNative } from '@/lib/platform';
 import { getDocById, COLLECTIONS } from '@/lib/firestore';
 
 /** Close any OS-level notifications shown for a call (by tag). */
@@ -97,11 +99,18 @@ export function useIncomingCallNotifications() {
             if (wasRinging) {
                 lastIncomingRef.current = null;
                 void closeCallNotifications(wasRinging.id);
+                if (isNative()) void cancelAllNativeNotifications();
                 const answered = !!useCallStore.getState().currentCall;
                 if (!answered) {
                     // WeChat-style missed call feedback: alert tone + persistent notification
                     playMissedCall();
-                    if (pushNotificationService.canSend()) {
+                    if (isNative()) {
+                        void showNativeNotification({
+                            title: 'Missed call',
+                            body: `${wasRinging.name} tried to ${wasRinging.type === 'video' ? 'video ' : ''}call you`,
+                            data: { type: 'call', callId: wasRinging.id },
+                        });
+                    } else if (pushNotificationService.canSend()) {
                         void pushNotificationService.sendNotification({
                             title: 'Missed call',
                             body: `${wasRinging.name} tried to ${wasRinging.type === 'video' ? 'video ' : ''}call you`,
@@ -146,7 +155,21 @@ export function useIncomingCallNotifications() {
                     lastIncomingRef.current = { id: incomingCall.id, name: callerInfo.name, type: callType };
                 }
 
-                // Initialize push notification service if not already done
+                // Native: show a high-priority local notification (the SW-based
+                // service is a no-op inside the Capacitor WebView).
+                if (isNative()) {
+                    if (callerInfo) {
+                        await showNativeCallNotification({
+                            callerName: callerInfo.name,
+                            callType,
+                            callId: incomingCall.id,
+                            callerId: incomingCall.initiatorId,
+                        });
+                    }
+                    return;
+                }
+
+                // Web: initialize push notification service if not already done
                 const isSupported = pushNotificationService.isSupported();
                 if (isSupported && callerInfo) {
                     // Try to get permission if not granted

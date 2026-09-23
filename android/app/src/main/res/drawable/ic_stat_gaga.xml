@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Monochrome status-bar notification icon for GaGa.
+  Android renders small icons as a white silhouette, so this is a solid white
+  chat bubble on a transparent background (colour is ignored by the system).
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M12,3C6.98,3 3,6.58 3,11c0,2.4 1.2,4.55 3.1,6.02L5.5,21l4.2,-2.1c0.74,0.16 1.51,0.25 2.3,0.25c5.02,0 9,-3.58 9,-8S17.02,3 12,3zM8,12.25c-0.69,0 -1.25,-0.56 -1.25,-1.25S7.31,9.75 8,9.75s1.25,0.56 1.25,1.25S8.69,12.25 8,12.25zM12,12.25c-0.69,0 -1.25,-0.56 -1.25,-1.25S11.31,9.75 12,9.75s1.25,0.56 1.25,1.25S12.69,12.25 12,12.25zM16,12.25c-0.69,0 -1.25,-0.56 -1.25,-1.25s0.56,-1.25 1.25,-1.25s1.25,0.56 1.25,1.25S16.69,12.25 16,12.25z" />
+</vector>
