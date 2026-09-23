@@ -66,6 +66,8 @@ const CallListItemComponent = ({ call, userName, userAvatar, currentUserId, onCa
           src={avatarSrc || getDefaultAvatar(otherUserId || userName || 'U')}
           className="w-full h-full object-cover"
           alt={userName}
+          loading="lazy"
+          decoding="async"
         />
       </div>
 

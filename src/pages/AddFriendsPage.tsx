@@ -232,7 +232,7 @@ function UserCard({ user, status = 'not_friends', mutualCount = 0, distance, sug
     >
       <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center overflow-hidden shrink-0">
         {user.avatar ? (
-          <img src={user.avatar} className="w-full h-full object-cover" alt="User avatar" />
+          <img src={user.avatar} loading="lazy" decoding="async" className="w-full h-full object-cover" alt="User avatar" />
         ) : (
           <span className="text-muted-foreground font-bold text-sm">{(user.name || 'U')[0]}</span>
         )}
@@ -763,7 +763,7 @@ export default function AddFriendsPage() {
                           onClick={() => sender && navigate(`/profile/${sender.id}`)}
                         >
                           {sender?.avatar ? (
-                            <img src={sender.avatar} className="w-full h-full object-cover" alt="User avatar" />
+                            <img src={sender.avatar} loading="lazy" decoding="async" className="w-full h-full object-cover" alt="User avatar" />
                           ) : (
                             <UserPlus size={20} className="text-muted-foreground" />
                           )}
@@ -840,7 +840,7 @@ export default function AddFriendsPage() {
                           onClick={() => receiver && navigate(`/profile/${receiver.id}`)}
                         >
                           {receiver?.avatar ? (
-                            <img src={receiver.avatar} className="w-full h-full object-cover" alt="User avatar" />
+                            <img src={receiver.avatar} loading="lazy" decoding="async" className="w-full h-full object-cover" alt="User avatar" />
                           ) : (
                             <Send size={18} className="text-muted-foreground" />
                           )}

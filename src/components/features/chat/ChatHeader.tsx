@@ -102,9 +102,9 @@ export const ChatHeader = memo(function ChatHeader(props: ChatHeaderProps) {
         >
           <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center overflow-hidden">
             {sanitizeMediaUrl(props.displayUser?.avatar) ? (
-              <img src={sanitizeMediaUrl(props.displayUser?.avatar)} className="w-full h-full object-cover" alt="User avatar" />
+              <img src={sanitizeMediaUrl(props.displayUser?.avatar)} loading="lazy" decoding="async" className="w-full h-full object-cover" alt="User avatar" />
             ) : (
-              <img src={getDefaultAvatar(props.displayUser?.id || props.userId || props.displayUser?.name || 'U')} className="w-full h-full object-cover" alt="User avatar" />
+              <img src={getDefaultAvatar(props.displayUser?.id || props.userId || props.displayUser?.name || 'U')} loading="lazy" decoding="async" className="w-full h-full object-cover" alt="User avatar" />
             )}
           </div>
           {props.isUserOnline && (

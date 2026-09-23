@@ -81,9 +81,9 @@ export default function BlockedUsersPage() {
               >
                 <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center overflow-hidden shrink-0">
                   {sanitizeMediaUrl(record.blockedUser?.avatar) ? (
-                    <img src={sanitizeMediaUrl(record.blockedUser?.avatar)} className="w-full h-full object-cover" alt="User avatar" />
+                    <img src={sanitizeMediaUrl(record.blockedUser?.avatar)} loading="lazy" decoding="async" className="w-full h-full object-cover" alt="User avatar" />
                   ) : (
-                    <img src={getDefaultAvatar(record.blockedUser?.id || record.blockedUser?.name || 'U')} className="w-full h-full object-cover" alt="User avatar" />
+                    <img src={getDefaultAvatar(record.blockedUser?.id || record.blockedUser?.name || 'U')} loading="lazy" decoding="async" className="w-full h-full object-cover" alt="User avatar" />
                   )}
                 </div>
                 <div className="flex-1 min-w-0">

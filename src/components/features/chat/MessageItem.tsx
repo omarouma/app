@@ -94,9 +94,9 @@ export const MessageItem = memo(function MessageItem(props: MessageItemProps) {
   const avatarEl = showAvatar ? (
     <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center mr-2 self-end shrink-0 overflow-hidden">
       {sanitizeMediaUrl(avatarSrc) ? (
-        <img src={sanitizeMediaUrl(avatarSrc)} className="w-full h-full object-cover" alt="" />
+        <img src={sanitizeMediaUrl(avatarSrc)} className="w-full h-full object-cover" alt="" loading="lazy" decoding="async" />
       ) : (
-        <img src={getDefaultAvatar(avatarId)} className="w-full h-full object-cover" alt="" />
+        <img src={getDefaultAvatar(avatarId)} className="w-full h-full object-cover" alt="" loading="lazy" decoding="async" />
       )}
     </div>
   ) : null;

@@ -86,7 +86,7 @@ export default function CreateGroupPage() {
               {uploadingAvatar ? (
                 <Loader size={20} className="animate-spin text-[#00C300]" />
               ) : avatarUrl ? (
-                <img src={avatarUrl} className="w-full h-full object-cover" alt="User avatar" />
+                <img src={avatarUrl} loading="lazy" decoding="async" className="w-full h-full object-cover" alt="User avatar" />
               ) : (
                 <Camera size={24} strokeWidth={1.5} />
               )}

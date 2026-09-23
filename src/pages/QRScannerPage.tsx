@@ -518,9 +518,9 @@ export default function QRScannerPage() {
               <div className="flex items-center gap-3 mb-6">
                 <div className="w-14 h-14 rounded-full bg-[#F5F5F5] flex items-center justify-center overflow-hidden">
                   {sanitizeMediaUrl(user?.avatar) ? (
-                    <img src={sanitizeMediaUrl(user?.avatar)} className="w-full h-full object-cover" alt="User avatar" />
+                    <img src={sanitizeMediaUrl(user?.avatar)} loading="lazy" decoding="async" className="w-full h-full object-cover" alt="User avatar" />
                   ) : (
-                    <img src={getDefaultAvatar(user?.id || user?.name || 'user')} className="w-full h-full object-cover" alt="User avatar" />
+                    <img src={getDefaultAvatar(user?.id || user?.name || 'user')} loading="lazy" decoding="async" className="w-full h-full object-cover" alt="User avatar" />
                   )}
                 </div>
                 <div>
@@ -695,9 +695,9 @@ export default function QRScannerPage() {
               <>
                 <div className="w-16 h-16 rounded-full bg-[#F5F5F5] flex items-center justify-center mx-auto mb-3 overflow-hidden">
                   {sanitizeMediaUrl(scannedUser?.avatar) ? (
-                    <img src={sanitizeMediaUrl(scannedUser?.avatar)} className="w-full h-full object-cover" alt="User avatar" />
+                    <img src={sanitizeMediaUrl(scannedUser?.avatar)} loading="lazy" decoding="async" className="w-full h-full object-cover" alt="User avatar" />
                   ) : (
-                    <img src={getDefaultAvatar(scannedUser?.id || scannedUser?.name || 'friend')} className="w-full h-full object-cover" alt="User avatar" />
+                    <img src={getDefaultAvatar(scannedUser?.id || scannedUser?.name || 'friend')} loading="lazy" decoding="async" className="w-full h-full object-cover" alt="User avatar" />
                   )}
                 </div>
                 <p className="text-[#111111] font-bold text-lg">{scannedUser?.name || 'New Friend'}</p>
@@ -730,9 +730,9 @@ export default function QRScannerPage() {
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-full bg-[#F5F5F5] flex items-center justify-center overflow-hidden">
                 {sanitizeMediaUrl(scannedUser?.avatar) ? (
-                  <img src={sanitizeMediaUrl(scannedUser?.avatar)} className="w-full h-full object-cover" alt="User avatar" />
+                  <img src={sanitizeMediaUrl(scannedUser?.avatar)} loading="lazy" decoding="async" className="w-full h-full object-cover" alt="User avatar" />
                 ) : (
-                  <img src={getDefaultAvatar(scannedUser?.id || scannedUser?.name || 'friend')} className="w-full h-full object-cover" alt="User avatar" />
+                  <img src={getDefaultAvatar(scannedUser?.id || scannedUser?.name || 'friend')} loading="lazy" decoding="async" className="w-full h-full object-cover" alt="User avatar" />
                 )}
               </div>
               <div>

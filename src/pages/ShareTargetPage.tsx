@@ -211,7 +211,7 @@ export default function ShareTargetPage() {
                         <img
                           src={mediaObjectUrls[i] ?? ''}
                           alt=""
-                          className="w-20 h-20 object-cover rounded-xl"
+                          loading="lazy" decoding="async" className="w-20 h-20 object-cover rounded-xl"
                         />
                       ) : (
                         <div className="w-20 h-20 bg-[#111111] rounded-xl flex items-center justify-center">

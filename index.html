@@ -7,6 +7,13 @@
   <!-- Performance: early connection hint for the primary backend origin. -->
   <link rel="preconnect" href="https://fcjgbbmfqdkucfpqjxae.supabase.co" crossorigin />
   <link rel="dns-prefetch" href="https://fcjgbbmfqdkucfpqjxae.supabase.co" />
+  <!-- Secondary origins resolved in the background so the first auth / storage /
+       push request does not pay a DNS round-trip. dns-prefetch is cheap and does
+       not open sockets, so it is safe to hint several origins. -->
+  <link rel="dns-prefetch" href="https://oumagachat.firebaseapp.com" />
+  <link rel="dns-prefetch" href="https://identitytoolkit.googleapis.com" />
+  <link rel="dns-prefetch" href="https://firebasestorage.googleapis.com" />
+  <link rel="dns-prefetch" href="https://fcmregistrations.googleapis.com" />
 
   <meta name="viewport"
     content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover, interactive-widget=resizes-content" />

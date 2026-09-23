@@ -141,7 +141,7 @@ export default function MorePage() {
         >
           <div className="w-14 h-14 rounded-full bg-background flex items-center justify-center overflow-hidden shrink-0 border border-border">
             {user?.avatar ? (
-              <img src={user.avatar} className="w-full h-full object-cover" alt="User avatar" />
+              <img src={user.avatar} loading="lazy" decoding="async" className="w-full h-full object-cover" alt="User avatar" />
             ) : (
               <Logo size={40} />
             )}

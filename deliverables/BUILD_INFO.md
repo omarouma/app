@@ -3,7 +3,7 @@
 **Version:** 1.0.0 (versionCode 1)
 **Package:** `gagachat.app`
 **App label:** GaGa
-**Build date:** 2026-09-23 (global-reach pass 7 — 12 languages + final audit)
+**Build date:** 2026-09-23 (performance pass 8 — lazy media + connection hints)
 **minSdk:** 22 (Android 5.1+) · **targetSdk:** 34 (Android 14)
 
 ## Artifacts
@@ -19,8 +19,8 @@
 ## Checksums (SHA-256)
 
 ```
-02d76430cd08b81488343b1816a0b2f38c8c817892017832b85469fde25f6a1a  GaGa-v1.0.0-release.apk
-d54b7ef005e69bc3f6404c93b94c3b9855a82b80aaa0dee12b9cd9225fcf8e2b  GaGa-v1.0.0-release.aab
+2dca654e56f1b7ba012836105cfa8e4182cd890bb20e0ef6aa639f522914a36b  GaGa-v1.0.0-release.apk
+a05757f69818a261f9cbd4149f041f820245d139e78ea04d812f8257e544339a  GaGa-v1.0.0-release.aab
 ```
 
 > The APK checksum changes on every build because APK signing embeds a
@@ -59,6 +59,25 @@ so one file installs and runs everywhere:
 | **Store-ready** | AAB provided for Google Play; APK for direct/sideload distribution |
 
 ## What's included in this build
+
+### Performance pass 8 — lazy media + connection hints
+
+A focused runtime-performance pass that makes scrolling and first-paint faster,
+especially on low-end devices and slow networks:
+
+1. **Lazy-loading + async-decoding on every list-rendered image.** All avatars and
+   thumbnails rendered inside lists, grids and modals (chat list, message list,
+   group members, contacts, blocked users, sent requests, broadcast lists, call
+   log, QR scanner, admin, AI chat, share target, contact pickers, split-bill /
+   request-money / send-to-friend modals, chat & group headers) now carry
+   `loading="lazy"` and `decoding="async"`. Off-screen images are no longer
+   fetched or decoded until they scroll into view, cutting memory use and jank on
+   long lists. (~25 files touched.)
+2. **DNS-prefetch hints for secondary backend origins.** `index.html` now
+   `dns-prefetch`es the Firebase Auth, Firebase Storage and FCM registration
+   origins (in addition to the existing Supabase `preconnect`), so the first
+   auth / upload / push request does not pay a DNS round-trip. `dns-prefetch` is
+   cheap and opens no sockets, so it is safe to hint several origins.
 
 ### Global-reach pass (P0) — language coverage 6 → 12
 

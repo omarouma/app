@@ -108,7 +108,7 @@ export default function ContactPreviewSheet({
               <div className="flex items-start gap-4">
                 <div className="relative shrink-0">
                   <div className="w-16 h-16 rounded-full overflow-hidden bg-muted">
-                    <img src={avatarSrc} className="w-full h-full object-cover" alt={`${user.name}'s avatar`} />
+                    <img src={avatarSrc} loading="lazy" decoding="async" className="w-full h-full object-cover" alt={`${user.name}'s avatar`} />
                   </div>
                   {isBlocked && (
                     <div className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-[#FF3B30] flex items-center justify-center border-2 border-white">

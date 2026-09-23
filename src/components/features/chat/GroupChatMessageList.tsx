@@ -120,7 +120,7 @@ export function GroupChatMessageList({
                                 onContextMenu={(e) => handleContextMenu(e, msg)}
                                 className={`flex items-end gap-2 ${isMe ? 'justify-end' : 'justify-start'} ${isSearchMatch ? 'bg-yellow-200/50 rounded-lg' : ''}`}>
                                 {!isMe && (
-                                    <img src={sanitizeMediaUrl(getSenderAvatar(msg.senderId)) || getDefaultAvatar(msg.senderId)} alt="" className="w-6 h-6 rounded-full shrink-0" />
+                                    <img src={sanitizeMediaUrl(getSenderAvatar(msg.senderId)) || getDefaultAvatar(msg.senderId)} alt="" className="w-6 h-6 rounded-full shrink-0" loading="lazy" decoding="async" />
                                 )}
                                 <div className={`max-w-[70%] p-0 relative`}>
                                     {!isMe && <p className="text-[11px] text-white/80 mb-0.5 ml-1">{getSenderName(msg.senderId)}</p>}

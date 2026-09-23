@@ -300,12 +300,12 @@ export default function ChatInfoPage() {
           <div className="w-20 h-20 rounded-full bg-muted mx-auto mb-3 overflow-hidden flex items-center justify-center">
             {isDirect && otherUser ? (
               sanitizeMediaUrl(otherUser.avatar) ? (
-                <img src={sanitizeMediaUrl(otherUser.avatar)} className="w-full h-full object-cover" alt="User avatar" />
+                <img src={sanitizeMediaUrl(otherUser.avatar)} loading="lazy" decoding="async" className="w-full h-full object-cover" alt="User avatar" />
               ) : (
-                <img src={getDefaultAvatar(otherUser.id)} className="w-full h-full object-cover" alt="User avatar" />
+                <img src={getDefaultAvatar(otherUser.id)} loading="lazy" decoding="async" className="w-full h-full object-cover" alt="User avatar" />
               )
             ) : chat.avatar ? (
-              <img src={sanitizeMediaUrl(chat.avatar)} className="w-full h-full object-cover" alt="User avatar" />
+              <img src={sanitizeMediaUrl(chat.avatar)} loading="lazy" decoding="async" className="w-full h-full object-cover" alt="User avatar" />
             ) : (
               <Users size={32} className="text-muted-foreground" />
             )}
@@ -361,9 +361,9 @@ export default function ChatInfoPage() {
               >
                 <div className="w-10 h-10 rounded-full bg-muted overflow-hidden flex items-center justify-center shrink-0">
                   {sanitizeMediaUrl(p.avatar) ? (
-                    <img src={sanitizeMediaUrl(p.avatar)} className="w-full h-full object-cover" alt="User avatar" />
+                    <img src={sanitizeMediaUrl(p.avatar)} loading="lazy" decoding="async" className="w-full h-full object-cover" alt="User avatar" />
                   ) : (
-                    <img src={getDefaultAvatar(p.id)} className="w-full h-full object-cover" alt="User avatar" />
+                    <img src={getDefaultAvatar(p.id)} loading="lazy" decoding="async" className="w-full h-full object-cover" alt="User avatar" />
                   )}
                 </div>
                 <div className="flex-1 min-w-0">
@@ -431,7 +431,7 @@ export default function ChatInfoPage() {
                         className="aspect-square bg-muted rounded-lg overflow-hidden hover:opacity-90 transition-opacity"
                         aria-label="View shared image"
                       >
-                        <img src={sanitizeMediaUrl(m.mediaUrl)} className="w-full h-full object-cover" alt="Shared image" loading="lazy" />
+                        <img src={sanitizeMediaUrl(m.mediaUrl)} loading="lazy" decoding="async" className="w-full h-full object-cover" alt="Shared image" />
                       </button>
                     ) : (
                       <a key={m.id} href={m.mediaUrl} target="_blank" rel="noopener noreferrer" className="aspect-square bg-muted rounded-lg overflow-hidden hover:opacity-90 transition-opacity">

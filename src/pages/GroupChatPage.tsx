@@ -927,7 +927,7 @@ export default function GroupChatPage() {
                                         >
                                             <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center overflow-hidden shrink-0">
                                                 {sanitizeMediaUrl(avatar) ? (
-                                                    <img src={sanitizeMediaUrl(avatar)} className="w-full h-full object-cover" alt="" />
+                                                    <img src={sanitizeMediaUrl(avatar)} loading="lazy" decoding="async" className="w-full h-full object-cover" alt="" />
                                                 ) : (
                                                     <div className="w-full h-full flex items-center justify-center bg-[#00C300]/10 text-[#00C300] font-bold text-sm">
                                                         {name.charAt(0) || (target.type === 'group' ? 'G' : 'U')}

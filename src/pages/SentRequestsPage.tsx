@@ -89,9 +89,9 @@ export default function SentRequestsPage() {
                 >
                   <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center overflow-hidden shrink-0">
                     {sanitizeMediaUrl(req.toUser?.avatar) ? (
-                      <img src={sanitizeMediaUrl(req.toUser?.avatar)} className="w-full h-full object-cover" alt="User avatar" />
+                      <img src={sanitizeMediaUrl(req.toUser?.avatar)} loading="lazy" decoding="async" className="w-full h-full object-cover" alt="User avatar" />
                     ) : (
-                      <img src={getDefaultAvatar(req.toUser?.id || req.toUser?.name || 'U')} className="w-full h-full object-cover" alt="User avatar" />
+                      <img src={getDefaultAvatar(req.toUser?.id || req.toUser?.name || 'U')} loading="lazy" decoding="async" className="w-full h-full object-cover" alt="User avatar" />
                     )}
                   </div>
                   <div className="flex-1 min-w-0">

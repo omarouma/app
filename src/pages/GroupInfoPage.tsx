@@ -225,7 +225,7 @@ export default function GroupInfoPage() {
             {uploadingAvatar ? (
               <Loader size={28} className="animate-spin text-[#00C300]" />
             ) : group.avatar ? (
-              <img src={sanitizeMediaUrl(group.avatar)} className="w-full h-full object-cover" alt={group.name} />
+              <img src={sanitizeMediaUrl(group.avatar)} loading="lazy" decoding="async" className="w-full h-full object-cover" alt={group.name} />
             ) : (
               <Users size={36} className="text-[#00C300]" />
             )}
@@ -341,7 +341,7 @@ export default function GroupInfoPage() {
             <div key={m.id} className="flex items-center gap-3 px-4 py-3 border-t border-border">
               <img
                 src={sanitizeMediaUrl(m.avatar) || getDefaultAvatar(m.id)}
-                className="w-10 h-10 rounded-full object-cover shrink-0"
+                loading="lazy" decoding="async" className="w-10 h-10 rounded-full object-cover shrink-0"
                 alt={m.name}
               />
               <div className="flex-1 min-w-0">

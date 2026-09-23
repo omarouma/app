@@ -694,7 +694,7 @@ export default function ContactsPage() {
                         )
                       }
                       alt="User avatar"
-                      className="w-11 h-11 rounded-full object-cover shrink-0 bg-background"
+                      loading="lazy" decoding="async" className="w-11 h-11 rounded-full object-cover shrink-0 bg-background"
                       onError={(e) => {
                         const targetId =
                           (req as { fromUserId?: string }).fromUserId ||
@@ -764,9 +764,9 @@ export default function ContactsPage() {
                   >
                     <div className="w-11 h-11 rounded-full bg-background flex items-center justify-center shrink-0 overflow-hidden">
                       {sanitizeMediaUrl(req.toUser?.avatar) ? (
-                        <img src={sanitizeMediaUrl(req.toUser?.avatar)} className="w-full h-full object-cover" alt="User avatar" />
+                        <img src={sanitizeMediaUrl(req.toUser?.avatar)} loading="lazy" decoding="async" className="w-full h-full object-cover" alt="User avatar" />
                       ) : (
-                        <img src={getDefaultAvatar(req.toUser?.id || req.toUser?.name || 'U')} className="w-full h-full object-cover" alt="User avatar" />
+                        <img src={getDefaultAvatar(req.toUser?.id || req.toUser?.name || 'U')} loading="lazy" decoding="async" className="w-full h-full object-cover" alt="User avatar" />
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
@@ -814,9 +814,9 @@ export default function ContactsPage() {
                   >
                     <div className="w-11 h-11 rounded-full bg-background flex items-center justify-center shrink-0 overflow-hidden">
                       {sanitizeMediaUrl(record.blockedUser?.avatar) ? (
-                        <img src={sanitizeMediaUrl(record.blockedUser?.avatar)} className="w-full h-full object-cover" alt="User avatar" />
+                        <img src={sanitizeMediaUrl(record.blockedUser?.avatar)} loading="lazy" decoding="async" className="w-full h-full object-cover" alt="User avatar" />
                       ) : (
-                        <img src={getDefaultAvatar(record.blockedUser?.id || record.blockedUser?.name || 'U')} className="w-full h-full object-cover" alt="User avatar" />
+                        <img src={getDefaultAvatar(record.blockedUser?.id || record.blockedUser?.name || 'U')} loading="lazy" decoding="async" className="w-full h-full object-cover" alt="User avatar" />
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
@@ -896,9 +896,9 @@ export default function ContactsPage() {
                             <div className="relative mr-4">
                               <div className="w-11 h-11 rounded-full bg-muted flex items-center justify-center overflow-hidden">
                                 {sanitizeMediaUrl(friend.avatar) ? (
-                                  <img src={sanitizeMediaUrl(friend.avatar)} className="w-full h-full object-cover" alt="User avatar" />
+                                  <img src={sanitizeMediaUrl(friend.avatar)} loading="lazy" decoding="async" className="w-full h-full object-cover" alt="User avatar" />
                                 ) : (
-                                  <img src={getDefaultAvatar(friend.id || friend.name || 'U')} className="w-full h-full object-cover" alt="User avatar" />
+                                  <img src={getDefaultAvatar(friend.id || friend.name || 'U')} loading="lazy" decoding="async" className="w-full h-full object-cover" alt="User avatar" />
                                 )}
                               </div>
                               {isOnline && (

@@ -111,9 +111,9 @@ export default function SendToFriendModal({ open, onClose }: SendToFriendModalPr
                 <div className="flex items-center gap-3 p-3 bg-[#00C300]/10 rounded-xl border border-[#00C300]/30">
                   <div className="w-10 h-10 rounded-full bg-muted overflow-hidden flex items-center justify-center">
                     {sanitizeMediaUrl(selectedFriend.avatar) ? (
-                      <img src={sanitizeMediaUrl(selectedFriend.avatar)} className="w-full h-full object-cover" alt="User avatar" />
+                      <img src={sanitizeMediaUrl(selectedFriend.avatar)} loading="lazy" decoding="async" className="w-full h-full object-cover" alt="User avatar" />
                     ) : (
-                      <img src={getDefaultAvatar(selectedFriend.id)} className="w-full h-full object-cover" alt="User avatar" />
+                      <img src={getDefaultAvatar(selectedFriend.id)} loading="lazy" decoding="async" className="w-full h-full object-cover" alt="User avatar" />
                     )}
                   </div>
                   <div className="flex-1">
@@ -148,9 +148,9 @@ export default function SendToFriendModal({ open, onClose }: SendToFriendModalPr
                         >
                           <div className="w-9 h-9 rounded-full bg-muted overflow-hidden flex items-center justify-center">
                             {sanitizeMediaUrl(f.avatar) ? (
-                              <img src={sanitizeMediaUrl(f.avatar)} className="w-full h-full object-cover" alt="User avatar" />
+                              <img src={sanitizeMediaUrl(f.avatar)} loading="lazy" decoding="async" className="w-full h-full object-cover" alt="User avatar" />
                             ) : (
-                              <img src={getDefaultAvatar(f.id)} className="w-full h-full object-cover" alt="User avatar" />
+                              <img src={getDefaultAvatar(f.id)} loading="lazy" decoding="async" className="w-full h-full object-cover" alt="User avatar" />
                             )}
                           </div>
                           <div>

@@ -201,9 +201,9 @@ export default function SplitBillModal({ open, onClose }: SplitBillModalProps) {
                       >
                         <div className="w-9 h-9 rounded-full bg-muted overflow-hidden flex items-center justify-center shrink-0">
                           {sanitizeMediaUrl(f.avatar) ? (
-                            <img src={sanitizeMediaUrl(f.avatar)} className="w-full h-full object-cover" alt="User avatar" />
+                            <img src={sanitizeMediaUrl(f.avatar)} loading="lazy" decoding="async" className="w-full h-full object-cover" alt="User avatar" />
                           ) : (
-                            <img src={getDefaultAvatar(f.id)} className="w-full h-full object-cover" alt="User avatar" />
+                            <img src={getDefaultAvatar(f.id)} loading="lazy" decoding="async" className="w-full h-full object-cover" alt="User avatar" />
                           )}
                         </div>
                         <div className="flex-1 min-w-0">

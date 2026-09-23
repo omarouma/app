@@ -240,9 +240,9 @@ export default function BroadcastListsPage() {
                           >
                             <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center overflow-hidden shrink-0">
                               {sanitizeMediaUrl(f.avatar) ? (
-                                <img src={sanitizeMediaUrl(f.avatar)} className="w-full h-full object-cover" alt="User avatar" />
+                                <img src={sanitizeMediaUrl(f.avatar)} loading="lazy" decoding="async" className="w-full h-full object-cover" alt="User avatar" />
                               ) : (
-                                <img src={getDefaultAvatar(f.id || f.name || 'U')} className="w-full h-full object-cover" alt="User avatar" />
+                                <img src={getDefaultAvatar(f.id || f.name || 'U')} loading="lazy" decoding="async" className="w-full h-full object-cover" alt="User avatar" />
                               )}
                             </div>
                             <div className="flex-1 min-w-0">

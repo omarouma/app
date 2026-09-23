@@ -231,7 +231,7 @@ export function GroupChatHeader({
                                             <div key={memberId} className="flex items-center gap-3 px-4 py-3 hover:bg-muted transition-colors">
                                                 <div className="w-10 h-10 rounded-full bg-[#00C300]/10 flex items-center justify-center shrink-0 overflow-hidden">
                                                     {avatar ? (
-                                                        <img src={avatar} className="w-full h-full object-cover" alt={name} />
+                                                        <img src={avatar} loading="lazy" decoding="async" className="w-full h-full object-cover" alt={name} />
                                                     ) : (
                                                         <Users size={18} className="text-[#00C300]" />
                                                     )}

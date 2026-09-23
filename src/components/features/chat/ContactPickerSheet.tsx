@@ -140,7 +140,7 @@ export function ContactPickerSheet({ open, onClose, friends, onSend }: ContactPi
                 <div className="flex items-center gap-3 p-4 rounded-2xl bg-muted">
                   <div className="w-12 h-12 rounded-full bg-[#00C300]/10 dark:bg-[#00C300]/15 flex items-center justify-center overflow-hidden shrink-0">
                     {sanitizeMediaUrl(selected.avatar) ? (
-                      <img src={sanitizeMediaUrl(selected.avatar)} alt="" className="w-full h-full object-cover" />
+                      <img src={sanitizeMediaUrl(selected.avatar)} alt="" loading="lazy" decoding="async" className="w-full h-full object-cover" />
                     ) : (
                       <UserIcon size={22} className="text-[#00C300]" />
                     )}
@@ -224,7 +224,7 @@ export function ContactPickerSheet({ open, onClose, friends, onSend }: ContactPi
                         >
                           <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center overflow-hidden shrink-0">
                             {sanitizeMediaUrl(f.avatar) ? (
-                              <img src={sanitizeMediaUrl(f.avatar)} alt="" className="w-full h-full object-cover" />
+                              <img src={sanitizeMediaUrl(f.avatar)} alt="" loading="lazy" decoding="async" className="w-full h-full object-cover" />
                             ) : (
                               <div className="w-full h-full flex items-center justify-center bg-[#00C300]/10 text-[#00C300] font-bold text-sm">
                                 {(f.name || 'U').charAt(0)}

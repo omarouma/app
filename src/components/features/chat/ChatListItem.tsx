@@ -125,14 +125,14 @@ export const ChatListItem = memo(function ChatListItem({
         <div className="w-12 h-12 rounded-full bg-muted overflow-hidden flex items-center justify-center">
           {isGroup ? (
             avatar ? (
-              <img src={avatarSrc} className="w-full h-full object-cover" alt={name} />
+              <img src={avatarSrc} className="w-full h-full object-cover" alt={name} loading="lazy" decoding="async" />
             ) : (
               <div className="w-full h-full bg-[#00C300]/10 flex items-center justify-center">
                 <Users size={22} className="text-[#00C300]" />
               </div>
             )
           ) : (
-            <img src={avatarSrc} className="w-full h-full object-cover" alt={name} />
+            <img src={avatarSrc} className="w-full h-full object-cover" alt={name} loading="lazy" decoding="async" />
           )}
         </div>
         {isOnline && (

@@ -639,7 +639,7 @@ export default function AdminPage() {
                       <div className="flex items-start gap-3">
                         <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center shrink-0 overflow-hidden">
                           {u.avatar ? (
-                            <img src={u.avatar} alt="User avatar" className="w-full h-full object-cover" />
+                            <img src={u.avatar} alt="User avatar" loading="lazy" decoding="async" className="w-full h-full object-cover" />
                           ) : (
                             <Users size={18} className="text-muted-foreground" />
                           )}
