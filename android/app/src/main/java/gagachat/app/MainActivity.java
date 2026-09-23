@@ -9,7 +9,9 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.provider.Settings;
+import android.view.View;
 import android.webkit.JavascriptInterface;
+import android.webkit.WebSettings;
 import android.webkit.WebView;
 
 import com.getcapacitor.BridgeActivity;
@@ -25,7 +27,47 @@ public class MainActivity extends BridgeActivity {
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         createNotificationChannels();
+        tuneWebViewForPerformance();
         registerNativeBridge();
+    }
+
+    /**
+     * Applies WebView settings that materially improve runtime performance and
+     * smoothness for a media-heavy chat app:
+     *
+     *  - Hardware layer: renders the WebView on the GPU so scrolling, message
+     *    lists and animations stay at 60fps instead of falling back to software.
+     *  - Media autoplay: allows the incoming-call ringtone and profile cover
+     *    video to start without a user gesture (required for calls).
+     *  - Cache mode: uses the normal HTTP cache so avatars/media are not
+     *    re-downloaded on every launch.
+     *  - Over-scroll disabled: removes the glow/stretch effect, which is both
+     *    smoother and matches the native app feel.
+     */
+    private void tuneWebViewForPerformance() {
+        try {
+            WebView webView = this.bridge.getWebView();
+            if (webView == null) return;
+
+            WebSettings settings = webView.getSettings();
+            settings.setDomStorageEnabled(true);
+            settings.setDatabaseEnabled(true);
+            settings.setMediaPlaybackRequiresUserGesture(false);
+            settings.setCacheMode(WebSettings.LOAD_DEFAULT);
+            settings.setLoadsImagesAutomatically(true);
+            settings.setUseWideViewPort(true);
+            settings.setLoadWithOverviewMode(true);
+
+            // Render on the GPU for smooth scrolling/animation.
+            webView.setLayerType(View.LAYER_TYPE_HARDWARE, null);
+            // No glow/stretch overscroll — smoother, more native.
+            webView.setOverScrollMode(View.OVER_SCROLL_NEVER);
+            webView.setScrollBarStyle(View.SCROLLBARS_INSIDE_OVERLAY);
+            webView.setVerticalScrollBarEnabled(false);
+            webView.setHorizontalScrollBarEnabled(false);
+        } catch (Exception ignored) {
+            // Non-fatal: the WebView still works with default settings.
+        }
     }
 
     /**

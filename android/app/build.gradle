@@ -45,9 +45,14 @@ android {
 
     buildTypes {
         release {
-            minifyEnabled false
-            shrinkResources false
-            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            // PERFORMANCE: R8 code shrinking + obfuscation + resource shrinking.
+            // This removes unused code/resources, shrinks classes.dex, and speeds
+            // up cold start (fewer classes to load) and install (smaller APK).
+            // The keep rules in proguard-rules.pro protect Capacitor plugins,
+            // the WebView JS bridge and Firebase, which are reached reflectively.
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
             if (keystorePropsFile.exists()) {
                 signingConfig signingConfigs.release
             }
