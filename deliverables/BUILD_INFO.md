@@ -19,9 +19,12 @@
 ## Checksums (SHA-256)
 
 ```
-2c53949eec4336baf2ae00d937ccbafeaa497a5851b507c711bbbf1fea2f23e7  GaGa-v1.0.0-release.apk
+36672f115a9338a83d7c63dd71697768653710a3961462b593e0fc6dd1c3cfae  GaGa-v1.0.0-release.apk
 cae5187befd94e5ffba50c967542bad4f8f013e49a474364976098099baddefd  GaGa-v1.0.0-release.aab
 ```
+
+> The APK checksum changes on every build because APK signing embeds a
+> timestamp; the AAB is byte-for-byte reproducible.
 
 ## Signing certificate
 
@@ -40,6 +43,20 @@ Signature schemes verified: **v1 (JAR) ✓ · v2 ✓ · v3 ✓**
 > Devices that already have a build signed with the previous key installed must
 > **uninstall it first** before installing this build. Keep this keystore safe:
 > all future updates must be signed with the same key.
+
+## Global compatibility
+
+This is a **single universal APK** — no ABI splits, no device-specific builds —
+so one file installs and runs everywhere:
+
+| Dimension | Coverage |
+|---|---|
+| **Android version** | **5.1 (API 22) → 14 (API 34)** — covers ~99% of active devices |
+| **CPU architecture** | **All** — arm64-v8a, armeabi-v7a, x86, x86_64 (pure Java/Kotlin + WebView; **zero native `.so` libs**, so no ABI is excluded) |
+| **Locales** | **85 languages/regions** bundled (af, am, ar, as, az, be, bg, bn, bs, ca, cs, da, de, el, en-AU/CA/GB/IN, es, es-US, et, eu, fa, fi, fr, fr-CA, gl, gu, hi, hr, hu, hy, in, is, it, iw, ja, ka, kk, km, kn, ko, ky, lo, lt, lv, mk, ml, mn, mr, ms, my, nb, ne, nl, or, pa, pl, pt, pt-BR, pt-PT, ro, ru, si, sk, sl, sq, sr, sr-Latn, sv, sw, ta, te, th, tl, tr, uk, ur, uz, vi, zh-CN, zh-HK, zh-TW, zu) |
+| **Screen sizes** | All densities (mdpi → xxxhdpi) + portrait-locked UI |
+| **Signing** | v1 (JAR) + v2 + v3 — verifies on Android 5 through 14+ |
+| **Store-ready** | AAB provided for Google Play; APK for direct/sideload distribution |
 
 ## What's included in this build
 
