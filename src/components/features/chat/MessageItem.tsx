@@ -3,9 +3,10 @@ import type React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   TextMessage, ImageMessage, VideoMessage, VoiceMessage, FileMessage,
-  LocationMessage, DeletedMessage, PollMessage, ContactCardMessage, MoneyTransferMessage
+  LocationMessage, DeletedMessage, PollMessage, ContactCardMessage, MoneyTransferMessage,
+  CallMessage
 } from './messages';
-import { getDefaultAvatar, sanitizeMediaUrl } from '@/lib/utils';
+import { getDefaultAvatar, sanitizeMediaUrl, getMessagePreview } from '@/lib/utils';
 import { reactionEmojis } from '@/lib/chatConstants';
 import { ReadReceipt } from './ReadReceipt';
 import type { Message } from '@/types';
@@ -73,6 +74,7 @@ const messageComponentMap = {
   poll: PollMessage,
   contact_card: ContactCardMessage,
   money_transfer: MoneyTransferMessage,
+  call: CallMessage,
   sticker: TextMessage,
 } as Record<string, React.ComponentType<any>>;
 
@@ -117,7 +119,7 @@ export const MessageItem = memo(function MessageItem(props: MessageItemProps) {
       : senderIsSystem
         ? 'System'
         : (resolveSenderName ? resolveSenderName(r.senderId) : fallbackName);
-    const previewText = typeof r.content === 'string' ? r.content : '';
+    const previewText = getMessagePreview(r.type, r.content);
     return {
       message: r,
       preview: previewText.length > 60 ? `${previewText.slice(0, 60)}...` : previewText,

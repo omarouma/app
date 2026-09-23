@@ -13,6 +13,7 @@ import { where, orderBy, limit } from '@/lib/firestore';
 import { subscribeDeduped } from '@/lib/subscriptionManager';
 import { useAuthStore } from '@/store/useAuthStore';
 import { buildZegoRoomID } from '@/lib/zego';
+import { upsertCallEventMessage } from '@/services/callEvents';
 import {
   isZimConfigured,
   zimInviteCall,
@@ -118,6 +119,35 @@ function isTransientCallError(error: unknown): boolean {
     message.includes('firestore') ||
     message.includes('unavailable') ||
     message.includes('connection');
+}
+
+/** Collapse group call types to the two chat-event kinds. */
+function toCallEventType(type: CallRecord['type']): 'voice' | 'video' {
+  return type === 'video' || type === 'group_video' ? 'video' : 'voice';
+}
+
+/**
+ * Best-effort write of a call event into the chat timeline. Fire-and-forget so
+ * a timeline write can never block or break the call lifecycle.
+ */
+function recordCallEvent(params: {
+  callSessionId: string;
+  callerId: string;
+  calleeId: string;
+  type: CallRecord['type'];
+  status: 'calling' | 'connected' | 'ended' | 'missed' | 'declined' | 'cancelled' | 'busy' | 'failed';
+  duration?: number;
+  endedReason?: string;
+}): void {
+  void upsertCallEventMessage({
+    callSessionId: params.callSessionId,
+    callerId: params.callerId,
+    calleeId: params.calleeId,
+    callType: toCallEventType(params.type),
+    status: params.status,
+    duration: params.duration,
+    endedReason: params.endedReason,
+  });
 }
 
 const processCallData = (
@@ -384,6 +414,16 @@ export const useCallStore = create<CallStore>((set, get) => ({
 
         set({ currentCall: call, connectedAt: null });
 
+        // First-class chat timeline item: one row per call session, inserted
+        // once here and updated (never re-inserted) as the call progresses.
+        recordCallEvent({
+          callSessionId: callId,
+          callerId: currentUserId,
+          calleeId: userId,
+          type,
+          status: 'calling',
+        });
+
         // Ring the callee via ZIM (best-effort; Supabase realtime is the
         // fallback). Fire-and-forget so a signalling hiccup never blocks the
         // call from starting.
@@ -413,6 +453,15 @@ export const useCallStore = create<CallStore>((set, get) => ({
             } catch {
               // best-effort cleanup
             }
+            recordCallEvent({
+              callSessionId: callId,
+              callerId: currentUserId,
+              calleeId: userId,
+              type,
+              status: 'missed',
+              duration: 0,
+              endedReason: 'no_answer',
+            });
             set({ currentCall: null });
           }
         }, 60000); // 60 second timeout
@@ -458,11 +507,11 @@ export const useCallStore = create<CallStore>((set, get) => ({
     }
 
     if (currentCall) {
+      const wasConnected = currentCall.status === 'connected';
       // Notify the other party via ZIM: cancel the ring if still ringing, or
       // end the call if it was already connected.
       const zimCallId = getZimCallId(currentCall.id);
       if (zimCallId) {
-        const wasConnected = currentCall.status === 'connected';
         const others = currentCall.participantIds.filter((p) => p !== currentCall.initiatorId);
         if (wasConnected) {
           void zimEndCall(zimCallId);
@@ -477,6 +526,17 @@ export const useCallStore = create<CallStore>((set, get) => ({
           status: 'ended',
           endedAt: serverTimestamp(),
           duration: duration > 0 ? duration : 0,
+        });
+        // Update the SAME timeline item: connected calls end with a duration,
+        // calls that never connected are recorded as cancelled.
+        recordCallEvent({
+          callSessionId: currentCall.id,
+          callerId: currentCall.initiatorId,
+          calleeId: currentCall.participantIds.find((p) => p !== currentCall.initiatorId) || '',
+          type: currentCall.type,
+          status: wasConnected ? 'ended' : 'cancelled',
+          duration: wasConnected ? duration : 0,
+          endedReason: wasConnected ? 'hangup' : 'cancelled',
         });
       } catch { /* best-effort: call-history update is non-critical */ }
     }
@@ -531,6 +591,15 @@ export const useCallStore = create<CallStore>((set, get) => ({
       incomingCall: null,
       connectedAt: now,
     });
+
+    // Update the SAME timeline item to reflect the answered call.
+    recordCallEvent({
+      callSessionId: incomingCall.id,
+      callerId: incomingCall.initiatorId,
+      calleeId: incomingCall.participantIds.find((p) => p !== incomingCall.initiatorId) || '',
+      type: incomingCall.type,
+      status: 'connected',
+    });
   },
 
   rejectCall: async () => {
@@ -551,6 +620,15 @@ export const useCallStore = create<CallStore>((set, get) => ({
           status: 'rejected',
           endedAt: serverTimestamp(),
           duration: 0,
+        });
+        recordCallEvent({
+          callSessionId: incomingCall.id,
+          callerId: incomingCall.initiatorId,
+          calleeId: incomingCall.participantIds.find((p) => p !== incomingCall.initiatorId) || '',
+          type: incomingCall.type,
+          status: 'declined',
+          duration: 0,
+          endedReason: 'declined',
         });
       } catch { /* best-effort: call-history update is non-critical */ }
     }
@@ -585,6 +663,16 @@ export const useCallStore = create<CallStore>((set, get) => ({
             endedAt: serverTimestamp(),
             duration: 0,
           });
+          const missed = mapCall(data as Record<string, unknown>);
+          recordCallEvent({
+            callSessionId: callId,
+            callerId: missed.initiatorId,
+            calleeId: missed.participantIds.find((p) => p !== missed.initiatorId) || '',
+            type: missed.type,
+            status: 'missed',
+            duration: 0,
+            endedReason: 'no_answer',
+          });
         } catch { /* best-effort: call-history update is non-critical */ }
       }, MISSED_CALL_MS);
       missedTimers.set(callId, timer);
@@ -609,6 +697,15 @@ export const useCallStore = create<CallStore>((set, get) => ({
             duration: 0,
           }).catch(() => { });
         }
+        recordCallEvent({
+          callSessionId: call.id,
+          callerId: call.initiatorId,
+          calleeId: call.participantIds.find((p) => p !== call.initiatorId) || '',
+          type: call.type,
+          status: 'busy',
+          duration: 0,
+          endedReason: 'busy',
+        });
         set({ incomingCall: null });
         return;
       }

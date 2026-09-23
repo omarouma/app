@@ -8,3 +8,4 @@ export * from './DeletedMessage';
 export * from './PollMessage';
 export * from './ContactCardMessage';
 export * from './MoneyTransferMessage';
+export * from './CallMessage';

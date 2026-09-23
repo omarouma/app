@@ -26,6 +26,7 @@ export const MessageTypeSchema = z.enum([
     'deleted',
     'contact_card',
     'broadcast',
+    'call',
 ]);
 
 export const DeliveryStatusSchema = z.enum([
@@ -151,6 +152,7 @@ export const SendMessageParamsSchema = z.object({
     mediaUrl: z.string().url().optional(),
     replyTo: z.string().or(MessageSchema).optional(),
     duration: z.number().nonnegative().optional(),
+    clientMessageId: z.string().min(1).max(128).optional(),
 });
 
 export const SendMessageResultSchema = z.object({

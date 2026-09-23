@@ -23,6 +23,20 @@ import { subscribeDeduped } from '@/lib/subscriptionManager';
 import { v4 as uuidv4 } from 'uuid';
 
 /**
+ * In-flight send guard. Tracks clientMessageIds whose network send is currently
+ * in progress so a double-tap, a re-entrant call, or a duplicate async job can
+ * never fire the same logical message twice. Cleared in a `finally` block.
+ */
+const inFlightSends = new Set<string>();
+
+/**
+ * Short-window fingerprint guard for identical payloads. Catches the classic
+ * double-tap on Send (two identical sends within a few hundred ms) without
+ * slowing down legitimate rapid-fire messages of different content.
+ */
+const recentSendFingerprints = new Map<string, number>();
+
+/**
  * Chat Store - Refactored to use API layer
  *
  * This store now delegates all I/O operations to the chatApi service,
@@ -33,10 +47,10 @@ import { v4 as uuidv4 } from 'uuid';
 const matchesMessageIdentity = (left: Partial<Message> | undefined, right: Partial<Message> | undefined) => {
   if (!left || !right) return false;
 
-  const leftKeys = [left.localId, left.id].filter(
+  const leftKeys = [left.clientMessageId, left.localId, left.id].filter(
     (value): value is string => typeof value === 'string' && value.trim().length > 0,
   );
-  const rightKeys = [right.localId, right.id].filter(
+  const rightKeys = [right.clientMessageId, right.localId, right.id].filter(
     (value): value is string => typeof value === 'string' && value.trim().length > 0,
   );
 
@@ -278,9 +292,29 @@ export const useChatStore = create<ChatStore>((set, get) => ({
     const rateErr = checkMessageRateLimit();
     if (rateErr) { toast.warning(rateErr); return { success: false, id: '' }; }
 
-    // Generate UUID locally - guaranteed unique + deterministic for sorting
-    const tempId = uuidv4();
+    // ── Double-submit guard ────────────────────────────────────────────────
+    // A rapid second tap on Send produces an identical payload within a few
+    // hundred ms. Reject that duplicate so one tap = one message, while still
+    // allowing genuinely different messages to be sent back-to-back.
+    const fingerprint = `${chatId}|${senderId}|${type}|${cleanedContent}|${mediaUrl ?? ''}`;
     const now = Date.now();
+    const lastAt = recentSendFingerprints.get(fingerprint);
+    if (lastAt && now - lastAt < 700) {
+      return { success: false, id: '' };
+    }
+    recentSendFingerprints.set(fingerprint, now);
+    // Opportunistic cleanup so the map never grows unbounded.
+    if (recentSendFingerprints.size > 200) {
+      for (const [key, ts] of recentSendFingerprints) {
+        if (now - ts > 5000) recentSendFingerprints.delete(key);
+      }
+    }
+
+    // Generate the idempotency key ONCE. This exact id travels through local
+    // state, the backend row and every realtime event, so reconciliation can
+    // always collapse them into a single bubble.
+    const clientMessageId = uuidv4();
+    const tempId = clientMessageId;
 
     const replyToId: string | undefined = typeof replyTo === 'string' ? replyTo : replyTo?.id;
     const message: Message = {
@@ -295,6 +329,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       deliveryStatus: 'sending',
       replyTo: replyToId,
       localId: tempId, // Track the client-generated ID
+      clientMessageId,
       retryCount: 0,
     };
 
@@ -320,6 +355,12 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       return { success: true, id: tempId }; // Local ID returned
     }
 
+    // Re-entrancy guard: never run two network sends for the same key.
+    if (inFlightSends.has(clientMessageId)) {
+      return { success: false, id: clientMessageId };
+    }
+    inFlightSends.add(clientMessageId);
+
     try {
       // Send to database via chatApi with retry for transient errors
       const result = await withRetry(
@@ -331,6 +372,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
           mediaUrl,
           replyTo: replyToId,
           duration,
+          clientMessageId,
         }),
         2,
         500,
@@ -347,8 +389,8 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       set(state => {
         const updatedMessages = { ...state.messages };
         updatedMessages[chatId] = (state.messages[chatId] || []).map(m =>
-          m.id === tempId
-            ? { ...m, id: newDocId, deliveryStatus: 'sent' as const, localId: tempId }
+          m.id === tempId || m.clientMessageId === clientMessageId
+            ? { ...m, id: newDocId, deliveryStatus: 'sent' as const, localId: tempId, clientMessageId }
             : m
         );
         return {
@@ -365,7 +407,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       set(state => {
         const updatedMessages = { ...state.messages };
         updatedMessages[chatId] = (state.messages[chatId] || []).map(m =>
-          m.id === tempId
+          m.id === tempId || m.clientMessageId === clientMessageId
             ? { ...m, deliveryStatus: 'failed' as const, retryCount: (m.retryCount || 0) + 1 }
             : m
         );
@@ -377,6 +419,8 @@ export const useChatStore = create<ChatStore>((set, get) => ({
 
       // Keep in pending for retry
       return { success: false, id: tempId };
+    } finally {
+      inFlightSends.delete(clientMessageId);
     }
   },
 
@@ -415,7 +459,17 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       });
 
       const result = await withRetry(
-        () => chatApi.retryFailedMessage(chatId, localId, failedMsg.content, failedMsg.senderId),
+        () => chatApi.retryFailedMessage(
+          chatId,
+          localId,
+          failedMsg.content,
+          failedMsg.senderId,
+          failedMsg.clientMessageId ?? failedMsg.localId ?? localId,
+          failedMsg.type,
+          failedMsg.mediaUrl,
+          failedMsg.replyTo,
+          failedMsg.duration,
+        ),
         2,
         500,
         { component: 'useChatStore', action: 'retryFailedMessage', userId: failedMsg.senderId },

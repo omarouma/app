@@ -20,6 +20,7 @@ import {
     setDocById,
     updateDocById,
     addDocToSubcollection,
+    addDocToSubcollectionIdempotent,
     queryCollection,
     querySubcollection,
     updateSubcollectionDoc,
@@ -53,6 +54,8 @@ export interface SendMessageParams {
     mediaUrl?: string;
     replyTo?: Message | string;
     duration?: number;
+    /** Stable client-generated idempotency key (see Message.clientMessageId). */
+    clientMessageId?: string;
 }
 
 export interface SendMessageResult {
@@ -119,6 +122,9 @@ export const mapMessage = (d: Record<string, unknown> & { id?: string }): Messag
         readAt: d.readAt ? toDateFromDb(d.readAt) : undefined,
         retryCount: (d.retryCount as number) || undefined,
         localId: (d.localId as string) || undefined,
+        clientMessageId: (d.clientMessageId as string) || (d.localId as string) || undefined,
+        callSessionId: (d.callSessionId as string) || undefined,
+        callData: (d.callData as Message['callData']) || undefined,
         duration: typeof d.duration === 'number' && Number.isFinite(d.duration) ? d.duration : undefined,
     };
 };
@@ -599,30 +605,38 @@ export const chatApi = {
             return { success: false, id: '', error: rateErr };
         }
 
-        const { chatId, senderId, content, type = 'text', mediaUrl, replyTo, duration } = validation.data;
-        const tempId = uuidv4();
+        const { chatId, senderId, content, type = 'text', mediaUrl, replyTo, duration, clientMessageId } = validation.data;
+        // Stable client-generated idempotency key. Reused across retries so the
+        // same logical message never produces more than one database record.
+        const localId = clientMessageId || uuidv4();
         const replyToId: string | undefined = typeof replyTo === 'string' ? replyTo : replyTo?.id;
 
         // Offline support - enqueue message
         if (!isOnline()) {
             // Message will be sent when back online
-            return { success: true, id: tempId };
+            return { success: true, id: localId };
         }
 
         try {
-            const newDocId = await addDocToSubcollection(COLLECTIONS.CHATS, chatId, COLLECTIONS.MESSAGES, {
+            const { id: newDocId } = await addDocToSubcollectionIdempotent(
+                COLLECTIONS.CHATS,
                 chatId,
-                senderId,
-                content: sanitizeText(content),
-                type: type as MessageType,
-                mediaUrl,
-                replyTo: replyToId,
-                duration: typeof duration === 'number' && Number.isFinite(duration) ? duration : undefined,
-                timestamp: serverTimestamp(),
-                localId: tempId,
-                deliveryStatus: 'sent',
-                retryCount: 0,
-            });
+                COLLECTIONS.MESSAGES,
+                {
+                    chatId,
+                    senderId,
+                    content: sanitizeText(content),
+                    type: type as MessageType,
+                    mediaUrl,
+                    replyTo: replyToId,
+                    duration: typeof duration === 'number' && Number.isFinite(duration) ? duration : undefined,
+                    timestamp: serverTimestamp(),
+                    localId,
+                    deliveryStatus: 'sent',
+                    retryCount: 0,
+                },
+                ['sender_id', 'local_id'],
+            );
 
             // Update chat metadata
             await updateDocById(COLLECTIONS.CHATS, chatId, {
@@ -633,37 +647,62 @@ export const chatApi = {
 
             return { success: true, id: newDocId };
         } catch (error) {
-            logStoreError('chatApi.sendMessage', error, { chatId, senderId, tempId });
-            return { success: false, id: tempId, error: String(error) };
+            logStoreError('chatApi.sendMessage', error, { chatId, senderId, localId });
+            return { success: false, id: localId, error: String(error) };
         }
     },
 
     /**
-     * Retry a failed message with exponential backoff
+     * Retry a failed message with exponential backoff.
+     *
+     * Reuses the SAME clientMessageId (localId) so the idempotent insert
+     * collapses any duplicate into a single database record.
      */
-    async retryFailedMessage(chatId: string, localId: string, content: string, senderId: string): Promise<SendMessageResult> {
+    async retryFailedMessage(
+        chatId: string,
+        localId: string,
+        content: string,
+        senderId: string,
+        clientMessageId?: string,
+        type?: string,
+        mediaUrl?: string,
+        replyTo?: string,
+        duration?: number,
+    ): Promise<SendMessageResult> {
         if (!isFirestoreAvailable()) {
             return { success: false, id: '', error: 'Firestore unavailable' };
         }
+
+        const stableId = clientMessageId || localId;
 
         try {
             // Exponential backoff: 1s, 2s, 4s (configurable)
             const delayMs = 1000;
             await new Promise(r => setTimeout(r, delayMs));
 
-            const newDocId = await addDocToSubcollection(COLLECTIONS.CHATS, chatId, COLLECTIONS.MESSAGES, {
+            const { id: newDocId } = await addDocToSubcollectionIdempotent(
+                COLLECTIONS.CHATS,
                 chatId,
-                senderId,
-                content: sanitizeText(content),
-                timestamp: serverTimestamp(),
-                localId,
-                deliveryStatus: 'sent',
-            });
+                COLLECTIONS.MESSAGES,
+                {
+                    chatId,
+                    senderId,
+                    content: sanitizeText(content),
+                    type: (type as MessageType) || 'text',
+                    mediaUrl,
+                    replyTo,
+                    duration: typeof duration === 'number' && Number.isFinite(duration) ? duration : undefined,
+                    timestamp: serverTimestamp(),
+                    localId: stableId,
+                    deliveryStatus: 'sent',
+                },
+                ['sender_id', 'local_id'],
+            );
 
             return { success: true, id: newDocId };
         } catch (error) {
-            logStoreError('chatApi.retryFailedMessage', error, { chatId, localId });
-            return { success: false, id: localId, error: String(error) };
+            logStoreError('chatApi.retryFailedMessage', error, { chatId, localId: stableId });
+            return { success: false, id: stableId, error: String(error) };
         }
     },
 

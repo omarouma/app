@@ -5,6 +5,7 @@ import {
     BarChart3, CalendarClock, Sticker
 } from 'lucide-react';
 import type { Message } from '@/types';
+import { getMessagePreview } from '@/lib/utils';
 import { EmojiPicker } from './EmojiPicker';
 import { RecordingWaveform } from './RecordingWaveform';
 
@@ -117,7 +118,7 @@ export function GroupChatInput({
                         <div className="flex justify-between items-center">
                             <div>
                                 <p className="font-bold">Replying to {replyingTo.senderId}</p>
-                                <p className="truncate max-w-[200px]">{replyingTo.content}</p>
+                                <p className="truncate max-w-[200px]">{getMessagePreview(replyingTo.type, replyingTo.content)}</p>
                             </div>
                             <button type="button" onClick={() => setReplyingTo(null)} className="p-1">
                                 <X size={16} />

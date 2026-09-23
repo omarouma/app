@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { attachmentOptions } from '@/lib/chatConstants';
+import { getMessagePreview } from '@/lib/utils';
 import { EmojiPicker } from './EmojiPicker';
 import { StickerPicker } from './StickerPicker';
 import { RecordingWaveform } from './RecordingWaveform';
@@ -164,7 +165,7 @@ export function InputBar({
           >
             <div className="flex-1 min-w-0">
               <p className="text-[10px] text-[#00C300] font-medium">Replying to</p>
-              <p className="text-muted-foreground text-xs truncate">{replyingTo.content}</p>
+              <p className="text-muted-foreground text-xs truncate">{getMessagePreview(replyingTo.type, replyingTo.content)}</p>
             </div>
             <button type="button" onClick={onCancelReply} aria-label="Cancel reply" className="text-muted-foreground hover:text-foreground">
               <X size={16} />

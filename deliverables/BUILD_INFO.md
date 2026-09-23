@@ -3,7 +3,7 @@
 **Version:** 1.0.0 (versionCode 1)
 **Package:** `gagachat.app`
 **App label:** GaGa
-**Build date:** 2026-09-22
+**Build date:** 2026-09-23
 **minSdk:** 22 (Android 5.1+) · **targetSdk:** 34 (Android 14)
 
 ## Artifacts
@@ -16,8 +16,8 @@
 ## Checksums (SHA-256)
 
 ```
-46e1c445f5c5468843dda051c832e8c928c7cce7d8979f16359722ac847a3a9e  GaGa-v1.0.0-release.apk
-e18b34f8b38f677d9ac6c560e8c168fbcabed9366376c12557a616d2b9470458  GaGa-v1.0.0-release.aab
+2b39e91e181772cbd8bc03eb333cc003e45e856f14e91395e902947cae1a752d  GaGa-v1.0.0-release.apk
+1c245fd180431d102e60bb54ec5748055bd45bfaeed48ae6b441056599e38c6f  GaGa-v1.0.0-release.aab
 ```
 
 ## Signing certificate
@@ -36,6 +36,46 @@ Signature schemes verified: **v1 (JAR) ✓ · v2 ✓ · v3 ✓**
 > uninstall it before installing this one.
 
 ## What's included in this build
+
+### Chat-room feature improvement spec (unified timeline + call history)
+
+**§1 — Unified sending pipeline + idempotency (P0).** The single most important
+guarantee: **1 Send action = 1 logical message = 1 database record = 1 chat
+bubble.** A `clientMessageId` is now generated **once** on the client and carried
+unchanged through the entire path — local optimistic bubble → `chatApi` insert →
+database `local_id` → realtime echo. The insert is idempotent
+(`addDocToSubcollectionIdempotent` with a `UNIQUE(sender_id, local_id)` conflict
+target): a duplicate submit or a realtime race resolves to the *same* row instead
+of creating a second one. A double-submit fingerprint guard (700 ms window) plus
+an in-flight re-entrancy guard in `useChatStore` stop rapid double-taps. Retry
+reuses the **same** `clientMessageId`, so a retried message can never fork into
+two bubbles. Realtime reconciliation matches on `clientMessageId` and performs a
+true INSERT-vs-UPDATE merge — it never blind-appends.
+
+**§2 — Call history inside the chat room.** Voice/video call events are now
+first-class timeline items. One `callSessionId` maps to exactly **one** logical
+call-history record and **one** chat timeline item, which is *updated* (never
+re-inserted) as the call progresses: `calling → connected → ended`, or
+`missed` / `declined` / `cancelled` / `busy` / `failed`. The full call lifecycle
+in `useCallStore` (start, 60 s no-answer timeout, accept, reject, end, missed
+timer, busy branch) is hooked into `upsertCallEventMessage`, which computes the
+deterministic direct-chat id, ensures the chat row exists, and upserts by
+`call_session_id`. A new `CallMessage` component renders the event with the
+correct icon (missed / video / voice), direction arrow (outgoing/incoming
+resolved from `callerId`), status label, formatted duration, and a one-tap
+**call-back** button. DB migration `20260927000100_call_events_in_chat.sql` adds
+`call_session_id` + `call_data` columns and a partial unique index
+`messages_chat_call_session_uq (chat_id, call_session_id)`.
+
+**§3 — Type-aware reply preview.** Reply quotes now render a human preview via
+`getMessagePreview(type, content)` (📷 Photo, 🎥 Video, 🎤 Voice message, 📄 File,
+📍 Location, 📊 Poll, 👤 Contact, 📞 Call) instead of dumping raw content — in
+`MessageItem`, `InputBar`, and `GroupChatInput`.
+
+**§4 — Scroll, unread, and date separators.** A green **"N new message(s)"** pill
+appears on the scroll-to-bottom button when the user is scrolled up and messages
+arrive. The unread divider renders exactly once at the first unread message. Date
+separators (Today / Yesterday / full date) are consistent across the timeline.
 
 ### Full-APK recheck pass (branding consistency)
 
@@ -111,7 +151,7 @@ Signature schemes verified: **v1 (JAR) ✓ · v2 ✓ · v3 ✓**
 
 ```
 ./node_modules/.bin/tsc -b
-NODE_OPTIONS="--max-old-space-size=1536" npx vite build
+NODE_OPTIONS="--max-old-space-size=2048" npx vite build
 npx cap sync android
 node scripts/strip-native-web-assets.mjs
 cd android && ./gradlew assembleRelease bundleRelease

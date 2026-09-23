@@ -91,7 +91,33 @@ export interface Chat {
   lockValue?: string; // hashed PIN or biometric reference
 }
 
-export type MessageType = 'text' | 'image' | 'video' | 'voice' | 'file' | 'sticker' | 'poll' | 'system' | 'money_transfer' | 'location' | 'deleted' | 'contact_card' | 'broadcast';
+export type MessageType = 'text' | 'image' | 'video' | 'voice' | 'file' | 'sticker' | 'poll' | 'system' | 'money_transfer' | 'location' | 'deleted' | 'contact_card' | 'broadcast' | 'call';
+
+/**
+ * Call-event payload carried by a `call` message so voice/video calls appear
+ * as first-class items in the conversation timeline. One call session maps to
+ * exactly ONE message (keyed by `callSessionId`); its lifecycle updates that
+ * existing message rather than inserting new ones.
+ */
+export interface CallEventData {
+  /** Globally-unique id for the call session (== the call_history row id). */
+  callSessionId: string;
+  callType: 'voice' | 'video';
+  /**
+   * Direction from the perspective of the current viewer. Computed at render
+   * time from `callerId` vs the signed-in user, so it is optional in storage.
+   */
+  direction?: 'outgoing' | 'incoming';
+  status: 'calling' | 'connected' | 'ended' | 'missed' | 'declined' | 'cancelled' | 'busy' | 'failed';
+  /** Connected-call duration in seconds (excludes ringing time). */
+  duration?: number;
+  /** Optional terminal reason for diagnostics. */
+  endedReason?: string;
+  /** Who placed the call (== the message senderId). */
+  callerId?: string;
+  /** Who received the call. */
+  calleeId?: string;
+}
 
 export interface Message {
   id: string;
@@ -121,6 +147,17 @@ export interface Message {
   readAt?: Date;
   retryCount?: number;
   localId?: string; // client-generated ID for tracking sends
+  /**
+   * Stable client-generated idempotency key. Generated ONCE before the first
+   * send attempt and preserved through local state, the backend row and every
+   * realtime event so a single user action can never produce two messages.
+   * Mirrors `localId` for backward compatibility.
+   */
+  clientMessageId?: string;
+  /** Present only for `type === 'call'` messages. */
+  callData?: CallEventData;
+  /** Present only for `type === 'call'` messages (mirrors callData.callSessionId). */
+  callSessionId?: string;
 }
 
 export interface ContactCardData {

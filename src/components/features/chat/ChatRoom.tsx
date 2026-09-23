@@ -221,6 +221,46 @@ export default function ChatRoom({ chatId, userId, onBack }: {
     initialLatestTimestampRef,
   });
 
+  // ── Unread tracking (§31 "N new messages" pill, §32 unread divider) ──────
+  // The read boundary is the timestamp of the newest message the user has
+  // actually seen (i.e. while they were at the bottom). Messages newer than
+  // this boundary are "new" and drive both the unread divider and the pill.
+  const [newMessagesCount, setNewMessagesCount] = useState(0);
+
+  // Keep the read boundary pinned to the latest message while at the bottom.
+  useEffect(() => {
+    if (msgs.length === 0) return;
+    if (isAtBottom) {
+      const latest = msgs[msgs.length - 1].timestamp.getTime();
+      initialLatestTimestampRef.current = latest;
+      if (newMessagesCount !== 0) setNewMessagesCount(0);
+      if (hasNewMessages) setHasNewMessages(false);
+    }
+  }, [msgs, isAtBottom, newMessagesCount, hasNewMessages, initialLatestTimestampRef, setHasNewMessages]);
+
+  // Count messages that arrived after the read boundary while scrolled up.
+  useEffect(() => {
+    if (msgs.length === 0) {
+      if (newMessagesCount !== 0) setNewMessagesCount(0);
+      return;
+    }
+    const boundary = initialLatestTimestampRef.current ?? 0;
+    const count = msgs.filter(
+      (m) => m.timestamp.getTime() > boundary && m.senderId !== currentUser?.id,
+    ).length;
+    setNewMessagesCount(count);
+    setHasNewMessages(count > 0 && !isAtBottom);
+  }, [msgs, isAtBottom, currentUser?.id, newMessagesCount, initialLatestTimestampRef, setHasNewMessages]);
+
+  // Index of the first unread message — the divider renders exactly once.
+  const firstUnreadIndex = useMemo(() => {
+    if (!hasNewMessages) return -1;
+    const boundary = initialLatestTimestampRef.current ?? 0;
+    return msgs.findIndex(
+      (m) => m.timestamp.getTime() > boundary && m.senderId !== currentUser?.id,
+    );
+  }, [hasNewMessages, msgs, currentUser?.id, initialLatestTimestampRef]);
+
   // markAsRead is handled inside useChatRoom on message subscription
 
   const handleVoiceSend = useCallback(async () => {
@@ -458,9 +498,9 @@ export default function ChatRoom({ chatId, userId, onBack }: {
     return !prev || !isSameDay(prev.timestamp, msg.timestamp);
   }, [msgs]);
 
-  const shouldShowUnreadSeparator = useCallback((msg: Message) => {
-    return hasNewMessages && msg.timestamp.getTime() >= (initialLatestTimestampRef.current ?? 0) && msg.senderId !== currentUser?.id;
-  }, [hasNewMessages, currentUser?.id]);
+  const shouldShowUnreadSeparator = useCallback((_msg: Message, index: number) => {
+    return index === firstUnreadIndex;
+  }, [firstUnreadIndex]);
 
   const handleMouseDown = useCallback((_msg: Message) => {
     // Reserved for future long-press / drag interactions
@@ -735,7 +775,7 @@ export default function ChatRoom({ chatId, userId, onBack }: {
               showAvatar={shouldShowAvatar(msg, index)}
               showDate={shouldShowDate(msg, index)}
               msgDate={formatDateSeparator(msg.timestamp)}
-              showUnreadSeparator={shouldShowUnreadSeparator(msg)}
+              showUnreadSeparator={shouldShowUnreadSeparator(msg, index)}
               isSelected={selectedMessages.has(msg.id)}
               isSearchMatch={searchQuery ? (msg.content || '').toLowerCase().includes(searchQuery.toLowerCase()) : false}
               editingMessageId={editingMessageId}
@@ -798,10 +838,19 @@ export default function ChatRoom({ chatId, userId, onBack }: {
         {!isAtBottom && (
           <button
             onClick={scrollToBottom}
-            className="absolute bottom-4 right-4 bg-background rounded-full p-2.5 shadow-lg border border-border z-10 active:scale-95 transition-transform"
-            aria-label="Scroll to latest"
+            className={`absolute bottom-4 right-4 z-10 active:scale-95 transition-transform ${
+              newMessagesCount > 0
+                ? 'bg-[#00C300] text-white rounded-full pl-3 pr-2 py-2 shadow-lg flex items-center gap-1.5'
+                : 'bg-background rounded-full p-2.5 shadow-lg border border-border'
+            }`}
+            aria-label={newMessagesCount > 0 ? `${newMessagesCount} new messages` : 'Scroll to latest'}
           >
-            <ChevronDown size={22} className="text-foreground" />
+            {newMessagesCount > 0 && (
+              <span className="text-xs font-semibold whitespace-nowrap">
+                {newMessagesCount} new message{newMessagesCount > 1 ? 's' : ''}
+              </span>
+            )}
+            <ChevronDown size={newMessagesCount > 0 ? 18 : 22} className={newMessagesCount > 0 ? 'text-white' : 'text-foreground'} />
           </button>
         )}
       </div>

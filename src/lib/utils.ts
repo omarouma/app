@@ -155,6 +155,8 @@ export function getMessagePreview(
     case 'contact_card': return '👤 Contact';
     case 'money_transfer': return '💸 Money transfer';
     case 'poll': return '📊 Poll';
+    case 'call': return '📞 Call';
+    case 'system': return text || 'System message';
     case 'deleted': return 'This message was deleted';
     default: return '';
   }

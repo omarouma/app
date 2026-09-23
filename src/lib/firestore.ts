@@ -83,6 +83,22 @@ export async function updateSubcollectionDoc(
   );
 }
 
+export async function addDocToSubcollectionIdempotent(
+  parentCollection: string,
+  parentId: string,
+  subcollectionName: string,
+  data: any,
+  conflictColumns: string[],
+): Promise<{ id: string; created: boolean }> {
+  return supabaseDb.addDocToSubcollectionIdempotent(
+    parentCollection,
+    parentId,
+    subcollectionName,
+    data,
+    conflictColumns,
+  );
+}
+
 export async function deleteSubcollectionDoc(
   parentCollection: string,
   parentId: string,

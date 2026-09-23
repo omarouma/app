@@ -78,7 +78,6 @@ async function updateWithFallback(
 ): Promise<{ data: any; error: any }> {
   const supabase = getDb();
   if (!supabase) throw new Error('Supabase not available');
-
   const data = { ...payload };
   let retries = 0;
   let query = supabase.from(table).update(data).eq('id', id);
@@ -87,17 +86,14 @@ async function updateWithFallback(
       query = query.eq(k, v);
     }
   }
-
   while (retries < MAX_COLUMN_RETRIES) {
     const result = await query;
     if (!result.error) return result;
-
     if (isColumnMissingError(result.error)) {
       const col = extractMissingColumn(result.error);
       if (col && col in data) {
         delete data[col];
         retries++;
-        // Rebuild query with reduced data so next iteration uses updated payload
         query = supabase.from(table).update({ ...data }).eq('id', id);
         if (extraEq) {
           for (const [k, v] of Object.entries(extraEq)) {
@@ -207,6 +203,8 @@ const FIELD_TO_DB: Record<string, string> = {
   storyId: 'story_id',
   reelId: 'reel_id',
   callId: 'call_id',
+  callSessionId: 'call_session_id',
+  callData: 'call_data',
   callerId: 'caller_id',
   calleeId: 'callee_id',
   bdtBalance: 'bdt_balance',
@@ -604,6 +602,54 @@ export async function addDocToSubcollection(
   const result = await insertWithFallback(subTable, payload);
   if (result.error) throw result.error;
   return result.data?.id ?? '';
+}
+
+/**
+ * Idempotent insert into a subcollection.
+ *
+ * Guarantees "1 send action = 1 database record" by first looking up an
+ * existing row that matches the given conflict columns, and falling back to a
+ * unique-violation (23505) recovery if a concurrent insert wins the race.
+ *
+ * Returns `{ id, created }` where `created` is false when an existing row was
+ * reused (i.e. the send was a duplicate and no new row was written).
+ */
+export async function addDocToSubcollectionIdempotent(
+  parentTable: string,
+  parentId: string,
+  subTable: string,
+  data: any,
+  conflictColumns: string[],
+): Promise<{ id: string; created: boolean }> {
+  const supabase = getDb();
+  if (!supabase) throw new Error('Supabase not available');
+  const fk = fkColumn(parentTable, subTable);
+  const payload = { ...toSnake(data), [fk]: parentId };
+
+  const findExisting = async (): Promise<string | null> => {
+    let q = supabase.from(subTable).select('id');
+    for (const col of conflictColumns) {
+      const v = payload[col];
+      q = v === undefined || v === null ? q.is(col, null) : q.eq(col, v);
+    }
+    const { data: rows, error } = await q.limit(1);
+    if (error || !rows || rows.length === 0) return null;
+    return (rows[0] as { id: string }).id;
+  };
+
+  const existingId = await findExisting();
+  if (existingId) return { id: existingId, created: false };
+
+  const result = await insertWithFallback(subTable, payload);
+  if (result.error) {
+    const code = (result.error as { code?: string })?.code;
+    if (code === '23505') {
+      const racedId = await findExisting();
+      if (racedId) return { id: racedId, created: false };
+    }
+    throw result.error;
+  }
+  return { id: result.data?.id ?? '', created: true };
 }
 
 export async function updateSubcollectionDoc(
