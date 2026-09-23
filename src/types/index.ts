@@ -119,6 +119,20 @@ export interface CallEventData {
   calleeId?: string;
 }
 
+/**
+ * Rich link-preview metadata attached to a text message that contains a URL.
+ * Fetched once (server-side, SSRF-safe) and cached on the message row so every
+ * participant sees the same card without re-scraping the target page.
+ */
+export interface LinkPreviewData {
+  url: string;
+  domain: string;
+  title?: string;
+  description?: string;
+  image?: string;
+  siteName?: string;
+}
+
 export interface Message {
   id: string;
   chatId: string;
@@ -158,6 +172,8 @@ export interface Message {
   callData?: CallEventData;
   /** Present only for `type === 'call'` messages (mirrors callData.callSessionId). */
   callSessionId?: string;
+  /** Rich preview for the first URL found in a text message (§41). */
+  linkPreview?: LinkPreviewData;
 }
 
 export interface ContactCardData {

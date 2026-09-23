@@ -9,17 +9,25 @@ export interface ImageMessageProps {
   onSetLightbox: (url: string) => void;
 }
 
+/** Hard caps for a media bubble so one image can never dominate the screen. */
+const MAX_BUBBLE_W = 320;
+const MAX_BUBBLE_H = 420;
+/** Placeholder height used before the natural dimensions are known. */
+const PLACEHOLDER_H = 200;
+
 /**
- * Robust image message.
+ * Robust, responsive image message (§46).
  *
- * IMPORTANT: the <img> is ALWAYS rendered in normal document flow (never
- * `display:none`). Previously the element was hidden with `hidden` +
- * `loading="lazy"`, which meant the browser never fetched it, `onLoad` never
- * fired, and the "Loading image..." skeleton stayed on screen forever.
+ * Sizing follows `bubbleWidth = min(availableWidth × allowedRatio, maxBubbleWidth)`:
+ * the natural aspect ratio is preserved, the bubble never exceeds the available
+ * chat width, and a max-height cap stops portrait images from taking over the
+ * screen. The result is no stretching, no unexpected cropping, no zoomed UI and
+ * no horizontal overflow on any device.
  *
- * The skeleton is now an absolutely-positioned overlay on top of the image,
- * so the image is always visible to the browser and can actually load.
- * A load timeout guarantees the user is never stuck in an indefinite state.
+ * The <img> is ALWAYS rendered in normal document flow (never `display:none`)
+ * so the browser actually fetches it and `onLoad` fires; the skeleton is an
+ * absolutely-positioned overlay. A load timeout guarantees the user is never
+ * stuck in an indefinite state.
  */
 export const ImageMessage = memo(function ImageMessage(props: ImageMessageProps) {
   const { msg, onSetLightbox } = props;
@@ -27,6 +35,8 @@ export const ImageMessage = memo(function ImageMessage(props: ImageMessageProps)
   const [loaded, setLoaded] = useState(false);
   const [retryKey, setRetryKey] = useState(0);
   const [imgUrl, setImgUrl] = useState(() => sanitizeMediaUrl(msg.mediaUrl) ?? '');
+  const [dims, setDims] = useState<{ w: number; h: number } | null>(null);
+  const [availW, setAvailW] = useState(0);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Data-saver: when enabled, images are NOT auto-downloaded. The user taps a
@@ -36,6 +46,23 @@ export const ImageMessage = memo(function ImageMessage(props: ImageMessageProps)
   const gated = dataSaver && !revealed;
 
   const safeUrl = sanitizeMediaUrl(imgUrl);
+
+  // Track the available chat width so the bubble can be sized responsively.
+  useEffect(() => {
+    const compute = () => {
+      const vw = typeof window !== 'undefined' ? window.innerWidth : 360;
+      // The bubble is capped at 75% of the chat column; approximate the column
+      // as the viewport width (mobile-first) and subtract bubble padding.
+      setAvailW(Math.max(160, Math.min(vw * 0.75, MAX_BUBBLE_W) - 8));
+    };
+    compute();
+    window.addEventListener('resize', compute);
+    window.addEventListener('orientationchange', compute);
+    return () => {
+      window.removeEventListener('resize', compute);
+      window.removeEventListener('orientationchange', compute);
+    };
+  }, []);
 
   // Never leave the user stuck: if the image has not loaded within 20s, treat
   // it as failed and offer a retry.
@@ -55,8 +82,32 @@ export const ImageMessage = memo(function ImageMessage(props: ImageMessageProps)
     setImgUrl(refreshed);
     setFailed(false);
     setLoaded(false);
+    setDims(null);
     setRetryKey((key) => key + 1);
   }, [msg.mediaUrl]);
+
+  const handleLoad = useCallback((e: React.SyntheticEvent<HTMLImageElement>) => {
+    const el = e.currentTarget;
+    if (el.naturalWidth > 0 && el.naturalHeight > 0) {
+      setDims({ w: el.naturalWidth, h: el.naturalHeight });
+    }
+    setLoaded(true);
+  }, []);
+
+  // Compute the responsive bubble box from the natural aspect ratio.
+  let boxW: number | undefined;
+  let boxH: number | undefined;
+  if (dims && availW > 0) {
+    const ratio = dims.w / dims.h;
+    const maxW = Math.min(availW, MAX_BUBBLE_W);
+    if (ratio >= 1) {
+      boxW = Math.round(maxW);
+      boxH = Math.round(maxW / ratio);
+    } else {
+      boxH = Math.min(Math.round(maxW / ratio), MAX_BUBBLE_H);
+      boxW = Math.round(boxH * ratio);
+    }
+  }
 
   if (!safeUrl || failed) {
     return (
@@ -92,7 +143,14 @@ export const ImageMessage = memo(function ImageMessage(props: ImageMessageProps)
   }
 
   return (
-    <div className="relative intro max-w-full group min-h-[160px]">
+    <div
+      className="relative intro max-w-full group"
+      style={{
+        width: boxW ? `${boxW}px` : undefined,
+        height: boxH ? `${boxH}px` : undefined,
+        minHeight: boxH ? undefined : PLACEHOLDER_H,
+      }}
+    >
       {/* Skeleton overlay — sits ON TOP of the image, never hides it. */}
       {!loaded && (
         <div className="absolute top-0 right-0 bottom-0 left-0 rounded-2xl mb-1 bg-muted dark:bg-white/5 animate-pulse flex items-center justify-center z-[1]">
@@ -104,10 +162,11 @@ export const ImageMessage = memo(function ImageMessage(props: ImageMessageProps)
         src={safeUrl}
         onClick={() => onSetLightbox(safeUrl)}
         onError={() => setFailed(true)}
-        onLoad={() => setLoaded(true)}
-        className={`rounded-2xl mb-1 max-w-full cursor-pointer hover:opacity-95 transition-opacity duration-200 ${
+        onLoad={handleLoad}
+        className={`rounded-2xl mb-1 max-w-full max-h-[420px] object-contain cursor-pointer hover:opacity-95 transition-opacity duration-200 ${
           loaded ? 'opacity-100' : 'opacity-0'
         }`}
+        style={boxW && boxH ? { width: `${boxW}px`, height: `${boxH}px` } : undefined}
         alt={msg.content || 'Shared image'}
         decoding="async"
       />

@@ -33,7 +33,7 @@ import {
     limit,
     startAfter,
 } from '@/lib/firestore';
-import type { Chat, Message, MessageType, PollData, TransferData, PinnedMessage } from '@/types';
+import type { Chat, Message, MessageType, PollData, TransferData, PinnedMessage, LinkPreviewData } from '@/types';
 import { checkMessageRateLimit } from '@/hooks/useMessageRateLimiter';
 import { isOnline } from '@/lib/offlineQueue';
 import { toDateFromDb } from '@/lib/timeUtils';
@@ -125,6 +125,7 @@ export const mapMessage = (d: Record<string, unknown> & { id?: string }): Messag
         clientMessageId: (d.clientMessageId as string) || (d.localId as string) || undefined,
         callSessionId: (d.callSessionId as string) || undefined,
         callData: (d.callData as Message['callData']) || undefined,
+        linkPreview: (d.linkPreview as Message['linkPreview']) || undefined,
         duration: typeof d.duration === 'number' && Number.isFinite(d.duration) ? d.duration : undefined,
     };
 };
@@ -725,6 +726,35 @@ export const chatApi = {
         } catch (error) {
             logStoreError('chatApi.editMessage', error, { chatId, messageId });
             throw error;
+        }
+    },
+
+    /**
+     * Persist a fetched link preview onto a message (§41).
+     *
+     * Non-fatal: a failure here only means the card is not cached server-side;
+     * the sender still sees it locally and other participants fall back to the
+     * slim domain chip.
+     */
+    async updateMessageLinkPreview(
+        chatId: string,
+        messageId: string,
+        preview: LinkPreviewData,
+    ): Promise<void> {
+        if (!isFirestoreAvailable()) {
+            return;
+        }
+
+        try {
+            await updateSubcollectionDoc(
+                COLLECTIONS.CHATS,
+                chatId,
+                COLLECTIONS.MESSAGES,
+                messageId,
+                { linkPreview: preview },
+            );
+        } catch (error) {
+            logStoreError('chatApi.updateMessageLinkPreview', error, { chatId, messageId });
         }
     },
 

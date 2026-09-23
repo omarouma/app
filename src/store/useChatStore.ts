@@ -20,6 +20,7 @@ import { sanitizeText } from '@/lib/sanitize';
 import { logStoreError } from '@/lib/errorLogger';
 import { withRetry } from '@/lib/errorHandling';
 import { subscribeDeduped } from '@/lib/subscriptionManager';
+import { extractFirstUrl, isPreviewableUrl, fetchLinkPreview } from '@/lib/linkPreview';
 import { v4 as uuidv4 } from 'uuid';
 
 /**
@@ -59,6 +60,29 @@ const matchesMessageIdentity = (left: Partial<Message> | undefined, right: Parti
   }
 
   return leftKeys.some((value) => rightKeys.includes(value));
+};
+
+/**
+ * §24 — Guaranteed chronological ordering.
+ *
+ * Realtime events can arrive out of order (a message sent at 10:00:05 may be
+ * delivered after one sent at 10:00:07 due to network jitter). After every
+ * merge we re-sort by `timestamp` ascending so the timeline is always correct.
+ * Ties are broken by a stable identity key so the order never flickers between
+ * renders when two messages share the same millisecond.
+ */
+const messageSortKey = (m: Message): string =>
+  m.clientMessageId || m.localId || m.id || '';
+
+const sortMessagesChronologically = (list: Message[]): Message[] => {
+  return [...list].sort((a, b) => {
+    const at = a.timestamp instanceof Date ? a.timestamp.getTime() : new Date(a.timestamp as unknown as string).getTime();
+    const bt = b.timestamp instanceof Date ? b.timestamp.getTime() : new Date(b.timestamp as unknown as string).getTime();
+    const av = Number.isFinite(at) ? at : 0;
+    const bv = Number.isFinite(bt) ? bt : 0;
+    if (av !== bv) return av - bv;
+    return messageSortKey(a).localeCompare(messageSortKey(b));
+  });
 };
 
 interface ChatStore {
@@ -141,7 +165,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
       return {
         messages: {
           ...state.messages,
-          [message.chatId]: [...chatMessages, message],
+          [message.chatId]: sortMessagesChronologically([...chatMessages, message]),
         },
       };
     });
@@ -254,7 +278,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
             }
 
             return {
-              messages: { ...state.messages, [chatId]: mergedMessages },
+              messages: { ...state.messages, [chatId]: sortMessagesChronologically(mergedMessages) },
               hasMore: { ...state.hasMore, [chatId]: incomingMessages.length === limitCount },
             };
           });
@@ -398,6 +422,29 @@ export const useChatStore = create<ChatStore>((set, get) => ({
           pendingMessageIds: state.pendingMessageIds.filter(id => id !== tempId),
         };
       });
+
+      // ── Link preview (§41) ──────────────────────────────────────────────
+      // Fire-and-forget: for a text message containing a URL, fetch rich
+      // metadata once and cache it on the message row so every participant
+      // renders the same card. Never blocks the send path.
+      if (type === 'text') {
+        const url = extractFirstUrl(cleanedContent);
+        if (url && isPreviewableUrl(url)) {
+          void fetchLinkPreview(url).then(preview => {
+            if (!preview) return;
+            set(state => {
+              const updatedMessages = { ...state.messages };
+              updatedMessages[chatId] = (state.messages[chatId] || []).map(m =>
+                m.id === newDocId || m.clientMessageId === clientMessageId
+                  ? { ...m, linkPreview: preview }
+                  : m
+              );
+              return { messages: updatedMessages };
+            });
+            void chatApi.updateMessageLinkPreview?.(chatId, newDocId, preview);
+          }).catch(() => { /* non-fatal */ });
+        }
+      }
 
       return { success: true, id: newDocId };
     } catch (error) {

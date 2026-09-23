@@ -9,6 +9,7 @@ import {
 import { useFilteredOnline, useOnlineUsers } from '@/hooks/usePresence';
 import { useVoiceRecorder } from '@/hooks/useVoiceRecorder';
 import { useChatScrollBehavior } from '@/hooks/useChatScrollBehavior';
+import { useKeyboardInset } from '@/hooks/useKeyboardInset';
 import { uploadMediaBlob } from '@/lib/storage';
 import { SWIPE_THRESHOLD, formatDateSeparator } from '@/lib/chatConstants';
 import { sanitizeMediaUrl } from '@/lib/utils';
@@ -210,6 +211,8 @@ export default function ChatRoom({ chatId, userId, onBack }: {
   const touchCurrentXRef = useRef(0);
 
   const isUserOnline = !!onlineUsers[userId];
+  // Keyboard-safe composer (§45/§47): exposes `--kb-inset` for the composer.
+  useKeyboardInset();
   const activeTypingUsers = Object.values(typingUsers || {});
 
   const { scrollToBottom, isAtBottom, msgs, handleAtBottomStateChange } = useChatScrollBehavior({
@@ -967,6 +970,7 @@ export default function ChatRoom({ chatId, userId, onBack }: {
           </button>
         </div>
       ) : (
+      <div className="shrink-0" style={{ paddingBottom: 'var(--kb-inset, 0px)' }}>
       <InputBar
         input={input}
         onInputChange={setInput}
@@ -1042,6 +1046,7 @@ export default function ChatRoom({ chatId, userId, onBack }: {
           }
         }}
       />
+      </div>
       )}
 
       {/* Context Menu */}

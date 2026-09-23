@@ -3,7 +3,7 @@
 **Version:** 1.0.0 (versionCode 1)
 **Package:** `gagachat.app`
 **App label:** GaGa
-**Build date:** 2026-09-23
+**Build date:** 2026-09-23 (chat-room spec pass 2)
 **minSdk:** 22 (Android 5.1+) · **targetSdk:** 34 (Android 14)
 
 ## Artifacts
@@ -16,24 +16,27 @@
 ## Checksums (SHA-256)
 
 ```
-2b39e91e181772cbd8bc03eb333cc003e45e856f14e91395e902947cae1a752d  GaGa-v1.0.0-release.apk
-1c245fd180431d102e60bb54ec5748055bd45bfaeed48ae6b441056599e38c6f  GaGa-v1.0.0-release.aab
+e0a105d6d9aab7c69037673c85f7c75ed7ea0051aaa7e5d2807f0bda22e5953a  GaGa-v1.0.0-release.apk
+ed295fe0e7072dda90c2a563bf58c9aceee8c2c82b11ede5eb6584dc620155f9  GaGa-v1.0.0-release.aab
 ```
 
 ## Signing certificate
 
 ```
 DN: CN=GaGa Chat, OU=Mobile, O=GaGa, L=Dhaka, ST=Dhaka, C=BD
-SHA-256: F6:E9:5A:C8:B0:D2:6B:6D:B9:32:3B:7F:C4:7D:5B:C7:36:DD:1B:AB:37:91:F9:92:E9:86:88:61:21:E7:E4:D1
-SHA-1:   4B:4B:64:61:E6:31:30:0B:B9:A7:B1:9C:0A:E7:50:72:B0:86:CE:E9
+SHA-256: 5D:DB:D0:16:31:AA:18:61:AB:30:8E:FF:B3:A1:28:56:66:4F:0A:55:D8:ED:C2:1F:75:D9:0B:F0:3F:35:F4:A2
+SHA-1:   B5:FE:13:D4:26:E0:DE:B7:E5:3D:E8:3F:F8:B4:CB:88:A9:96:88:38
 ```
 
 Signature schemes verified: **v1 (JAR) ✓ · v2 ✓ · v3 ✓**
 
-> **NOTE — signing key.** The release keystore (`android/gaga-release.jks`) was
-> generated in this build environment. Keep it safe — all future updates must be
-> signed with the same key. Devices with a differently-signed build installed must
-> uninstall it before installing this one.
+> **NOTE — signing key.** The release keystore (`android/gaga-release.jks`) is
+> git-ignored and was **regenerated** in this build environment (the original
+> keystore was not persisted between sessions). The certificate DN is unchanged,
+> but the key material — and therefore the certificate SHA-256 — is **new**.
+> Devices that already have a build signed with the previous key installed must
+> **uninstall it first** before installing this build. Keep this keystore safe:
+> all future updates must be signed with the same key.
 
 ## What's included in this build
 
@@ -76,6 +79,42 @@ resolved from `callerId`), status label, formatted duration, and a one-tap
 appears on the scroll-to-bottom button when the user is scrolled up and messages
 arrive. The unread divider renders exactly once at the first unread message. Date
 separators (Today / Yesterday / full date) are consistent across the timeline.
+
+### Chat-room spec pass 2 (link previews, presence, responsive, ordering)
+
+**§41 — Rich link previews.** The first URL in a text message is now rendered as
+a Messenger/WhatsApp-style preview card (image, title, description, domain).
+`src/lib/linkPreview.ts` extracts and validates the URL (SSRF-hygiene host
+blocklist, in-memory LRU cache of 200), then calls a new **`link-preview` Edge
+Function** that fetches the page with a 512 KB byte cap, 6 s timeout, and
+manual redirect following (re-validating each hop), and parses OpenGraph /
+Twitter-card metadata. The preview is persisted on the message
+(`messages.link_preview` jsonb, migration `20260927000200_link_previews.sql`)
+so it survives reconnect/restart, and is fetched fire-and-forget on send so it
+never blocks the message. `LinkPreview.tsx` renders the card; the fetch never
+throws (degrades to a slim domain chip).
+
+**§29 — Presence / last seen.** The chat header now shows a detailed,
+WhatsApp-style last-seen label — "Last seen today at 6:32 AM", "Last seen
+yesterday at 9:05 PM", "Last seen Mon at 4:12 PM", "Last seen 12 Aug at 3:40 PM"
+— via `formatLastSeenDetailed` in `src/lib/timeUtils.ts`. When the peer is
+online the header shows "Online" (from the presence channel) and the label is
+suppressed, so the two never contradict each other.
+
+**§45/§46/§47 — Responsive media + keyboard-safe composer.** Image and video
+bubbles now size themselves to the viewport (max 320×420, 75% of viewport
+width) and preserve the media's true aspect ratio via `object-contain` — no
+stretch, crop, or horizontal overflow on any device or orientation. A new
+`useKeyboardInset` hook measures `window.visualViewport` and exposes a
+`--kb-inset` CSS variable so the composer rides above the on-screen keyboard
+without the layout jumping.
+
+**§23/§24 — Timeline integrity.** Realtime listeners are ref-counted through
+`subscribeDeduped` so a chat never opens duplicate channels. After every merge
+(initial fetch, realtime echo, and optimistic insert) the timeline is re-sorted
+by `timestamp` ascending with a stable identity tiebreaker
+(`sortMessagesChronologically`), so out-of-order realtime arrivals can never
+render out of order.
 
 ### Full-APK recheck pass (branding consistency)
 

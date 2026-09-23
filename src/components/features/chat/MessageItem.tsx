@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   TextMessage, ImageMessage, VideoMessage, VoiceMessage, FileMessage,
   LocationMessage, DeletedMessage, PollMessage, ContactCardMessage, MoneyTransferMessage,
-  CallMessage
+  CallMessage, LinkPreview
 } from './messages';
 import { getDefaultAvatar, sanitizeMediaUrl, getMessagePreview } from '@/lib/utils';
 import { reactionEmojis } from '@/lib/chatConstants';
@@ -224,6 +224,20 @@ export const MessageItem = memo(function MessageItem(props: MessageItemProps) {
             )}
 
             {renderMessageContent()}
+
+            {msg.type === 'text' && msg.linkPreview && !isEditing && (
+              <LinkPreview
+                preview={msg.linkPreview}
+                isMe={isMe}
+                onOpen={(url) => {
+                  try {
+                    window.open(url, '_blank', 'noopener,noreferrer');
+                  } catch {
+                    /* ignore */
+                  }
+                }}
+              />
+            )}
 
             {(translatedText || isTranslating) && !isEditing && msg.type === 'text' && (
               <div className={`mt-1 px-3 py-1.5 rounded-xl text-[12px] border ${isMe ? 'bg-white/20 border-white/20 text-white/90' : 'bg-info/10 border-info/20 text-foreground'}`}>

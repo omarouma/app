@@ -121,7 +121,7 @@ export const ChatHeader = memo(function ChatHeader(props: ChatHeaderProps) {
           <p className={`text-[11px] truncate ${props.activeTypingUsers.length > 0 ? 'text-[#00C300] font-medium' : props.isUserOnline ? 'text-[#00C300]' : 'text-muted-foreground'}`}>
             {props.activeTypingUsers.length > 0
               ? renderTypingText(props.activeTypingUsers)
-              : props.isUserOnline ? 'Online' : props.lastSeen ? `last seen ${props.lastSeen}` : 'Offline'}
+              : props.isUserOnline ? 'Online' : props.lastSeen ? props.lastSeen : 'Offline'}
           </p>
         </div>
       </div>

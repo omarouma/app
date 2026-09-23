@@ -87,3 +87,37 @@ export function formatLastSeen(date: string | Date | null | undefined): string {
   }
   return formatTime(date);
 }
+
+/**
+ * WhatsApp/Messenger-style detailed last-seen label (§29).
+ *
+ *   "Last seen today at 6:32 AM"
+ *   "Last seen yesterday at 9:05 PM"
+ *   "Last seen Mon at 4:12 PM"      (within the last week)
+ *   "Last seen 12 Aug at 3:40 PM"   (older)
+ *
+ * Returns null when there is no timestamp so the caller can fall back to
+ * "Offline". Never throws on malformed input.
+ */
+export function formatLastSeenDetailed(date: string | Date | null | undefined): string | null {
+  const d = toDate(date);
+  if (!d || isNaN(d.getTime())) return null;
+
+  const now = new Date();
+  const time = d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const startOfYesterday = new Date(startOfToday);
+  startOfYesterday.setDate(startOfYesterday.getDate() - 1);
+  const startOfWeek = new Date(startOfToday);
+  startOfWeek.setDate(startOfWeek.getDate() - 6);
+
+  if (d >= startOfToday) return `Last seen today at ${time}`;
+  if (d >= startOfYesterday) return `Last seen yesterday at ${time}`;
+  if (d >= startOfWeek) {
+    const weekday = d.toLocaleDateString([], { weekday: 'short' });
+    return `Last seen ${weekday} at ${time}`;
+  }
+  const day = d.toLocaleDateString([], { day: 'numeric', month: 'short' });
+  return `Last seen ${day} at ${time}`;
+}

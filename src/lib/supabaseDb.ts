@@ -205,6 +205,7 @@ const FIELD_TO_DB: Record<string, string> = {
   callId: 'call_id',
   callSessionId: 'call_session_id',
   callData: 'call_data',
+  linkPreview: 'link_preview',
   callerId: 'caller_id',
   calleeId: 'callee_id',
   bdtBalance: 'bdt_balance',

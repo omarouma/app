@@ -9,3 +9,4 @@ export * from './PollMessage';
 export * from './ContactCardMessage';
 export * from './MoneyTransferMessage';
 export * from './CallMessage';
+export * from './LinkPreview';

@@ -6,17 +6,16 @@ import { useFriendStore } from '@/store/useFriendStore';
 import { isFirestoreAvailable, COLLECTIONS } from '@/lib/firestore';
 import { isSupabaseConfigured, getSupabase } from '@/lib/supabase';
 import { safeGetStorageItem, safeRemoveStorageItem, safeSetStorageItem } from '@/lib/safeStorage';
+import { formatLastSeenDetailed } from '@/lib/timeUtils';
 
-function formatLastSeen(date: Date): string {
-  const diff = Date.now() - date.getTime();
-  const mins = Math.floor(diff / 60_000);
-  if (mins < 1) return 'just now';
-  if (mins < 60) return `${mins}m ago`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  if (days === 1) return 'yesterday';
-  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+/**
+ * Detailed, WhatsApp/Messenger-style last-seen label (§29). Returns null when
+ * the user is online (the header shows "Online" from the presence channel) or
+ * when no timestamp is available.
+ */
+function lastSeenLabel(status: string | undefined, lastSeen: string | undefined | null): string | null {
+  if (status === 'online') return null;
+  return formatLastSeenDetailed(lastSeen ?? null);
 }
 
 export function useChatEffects(
@@ -110,7 +109,7 @@ export function useChatEffects(
             .single();
           if (!data) return;
           const d = data as { status?: string; last_seen?: string };
-          setLastSeen(d.status === 'online' ? 'online' : d.last_seen ? formatLastSeen(new Date(d.last_seen)) : null);
+          setLastSeen(lastSeenLabel(d.status, d.last_seen));
         } catch {
           /* ignore */
         }
@@ -127,7 +126,7 @@ export function useChatEffects(
         }, (payload) => {
           const d = payload.new as Record<string, unknown>;
           setLastSeen(
-            d.status === 'online' ? 'online' : d.last_seen ? formatLastSeen(new Date(d.last_seen as string)) : null
+            lastSeenLabel(d.status as string | undefined, d.last_seen as string | undefined)
           );
         })
         .subscribe();
@@ -139,7 +138,7 @@ export function useChatEffects(
         getDocById(COLLECTIONS.USERS, userId).then((userDoc) => {
           if (userDoc) {
             const ls = userDoc.lastSeen;
-            setLastSeen(ls ? (typeof ls.toDate === 'function' ? ls.toDate().toLocaleString() : new Date(ls).toLocaleString()) : 'online');
+            setLastSeen(ls ? formatLastSeenDetailed(typeof ls.toDate === 'function' ? ls.toDate() : new Date(ls)) : null);
           }
         }).catch(() => { });
       });
