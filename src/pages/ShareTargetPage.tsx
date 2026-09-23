@@ -120,7 +120,7 @@ export default function ShareTargetPage() {
             <Share size={48} className="mx-auto mb-4 text-muted-foreground" />
             <p className="text-muted-foreground text-sm mb-4">No content shared</p>
             <p className="text-xs text-muted-foreground mb-6">
-              Share content from other apps to GaGa Chat to send it in a conversation.
+              Share content from other apps to GaGa to send it in a conversation.
             </p>
             <button
               type="button"

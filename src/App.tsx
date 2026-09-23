@@ -433,16 +433,16 @@ function AppContent() {
   useEffect(() => {
     const publicSeo: Record<string, { title: string; description: string }> = {
       '/': {
-        title: 'GaGa Chat - Free Global Messaging, HD Voice & Video Calls',
-        description: 'GaGa Chat is a free global messaging app with secure chat, HD voice and video calls, group chat, and media sharing.',
+        title: 'GaGa - Free Global Messaging, HD Voice & Video Calls',
+        description: 'GaGa is a free global messaging app with secure chat, HD voice and video calls, group chat, and media sharing.',
       },
-      '/about': { title: 'About GaGa Chat - Global Messaging and Community', description: 'Learn about GaGa Chat, a global messaging and community platform for secure conversations, calls, and social sharing.' },
-      '/blog': { title: 'GaGa Chat Blog - Messaging, Community, and Safety', description: 'Read the latest GaGa Chat news, product updates, messaging tips, and community guidance.' },
-      '/careers': { title: 'Careers at GaGa Chat', description: 'Explore opportunities to help build a faster, safer, and more connected global communication platform.' },
-      '/privacy': { title: 'Privacy Policy - GaGa Chat', description: 'Read the GaGa Chat privacy policy and learn how account and service data is handled.' },
-      '/terms': { title: 'Terms of Service - GaGa Chat', description: 'Review the terms that apply when using GaGa Chat services.' },
-      '/cookies': { title: 'Cookie Policy - GaGa Chat', description: 'Learn how GaGa Chat uses cookies and related browser technologies.' },
-      '/community-guidelines': { title: 'Community Guidelines - GaGa Chat', description: 'Learn how to keep GaGa Chat welcoming, safe, and respectful for everyone.' },
+      '/about': { title: 'About GaGa - Global Messaging and Community', description: 'Learn about GaGa, a global messaging and community platform for secure conversations, calls, and social sharing.' },
+      '/blog': { title: 'GaGa Blog - Messaging, Community, and Safety', description: 'Read the latest GaGa news, product updates, messaging tips, and community guidance.' },
+      '/careers': { title: 'Careers at GaGa', description: 'Explore opportunities to help build a faster, safer, and more connected global communication platform.' },
+      '/privacy': { title: 'Privacy Policy - GaGa', description: 'Read the GaGa privacy policy and learn how account and service data is handled.' },
+      '/terms': { title: 'Terms of Service - GaGa', description: 'Review the terms that apply when using GaGa services.' },
+      '/cookies': { title: 'Cookie Policy - GaGa', description: 'Learn how GaGa uses cookies and related browser technologies.' },
+      '/community-guidelines': { title: 'Community Guidelines - GaGa', description: 'Learn how to keep GaGa welcoming, safe, and respectful for everyone.' },
     };
     const path = location.pathname.replace(/\/$/, '') || '/';
     const seo = publicSeo[path];

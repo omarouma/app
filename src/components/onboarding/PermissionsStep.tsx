@@ -81,7 +81,7 @@ export default function PermissionsStep() {
       id: 'contacts',
       icon: Users,
       title: 'Contacts',
-      description: 'Find friends from your device contacts who are already on GaGa Chat.',
+      description: 'Find friends from your device contacts who are already on GaGa.',
       color: 'text-[#FF9800]',
       bg: 'bg-[#FF9800]/10',
       state: 'idle',
@@ -207,7 +207,7 @@ export default function PermissionsStep() {
       <div className="text-center mb-5">
         <h2 className="text-2xl font-bold text-foreground mb-2">App Permissions</h2>
         <p className="text-muted-foreground text-sm leading-relaxed">
-          GaGa Chat works best with these permissions. You can change them anytime in your browser settings.
+          GaGa works best with these permissions. You can change them anytime in your browser settings.
         </p>
       </div>
 

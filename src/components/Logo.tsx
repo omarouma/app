@@ -3,12 +3,12 @@ interface LogoProps {
   className?: string;
   /** Use a hard fallback to the raster PNG if the SVG fails to load. */
   fallback?: boolean;
-  /** Render the icon alongside the "GaGa Chat" wordmark (used in headers/navbars). */
+  /** Render the icon alongside the "GaGa" wordmark (used in headers/navbars). */
   withWordmark?: boolean;
 }
 
 /**
-* Brand logo for GaGa Chat.
+* Brand logo for GaGa.
  *
  * Uses the crisp, scalable `public/logo.svg` (512x512, gradient rounded square
  * with a white chat-bubble "G" monogram) so it renders cleanly at any size — no
@@ -21,7 +21,7 @@ export default function Logo({ size = 40, className = '', fallback = false, with
   const mark = (
     <img
       src="/logo.svg"
-      alt="GaGa Chat - Free Global Messaging & Video Call App"
+      alt="GaGa - Free Global Messaging & Video Call App"
       width={size}
       height={size}
       className={`object-contain drop-shadow-sm ${withWordmark ? '' : className}`}
@@ -42,7 +42,7 @@ export default function Logo({ size = 40, className = '', fallback = false, with
     return (
       <img
         src="/logo-192.png"
-        alt="GaGa Chat - Free Global Messaging & Video Call App"
+        alt="GaGa - Free Global Messaging & Video Call App"
         width={size}
         height={size}
         className={`rounded-full object-contain ${className}`}

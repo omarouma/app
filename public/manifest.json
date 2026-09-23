@@ -85,14 +85,14 @@
             "sizes": "512x512",
             "type": "image/png",
             "form_factor": "wide",
-            "label": "GaGa Chat Desktop View"
+            "label": "GaGa Desktop View"
         },
         {
             "src": "/icons/icon-192x192.png",
             "sizes": "192x192",
             "type": "image/png",
             "form_factor": "narrow",
-            "label": "GaGa Chat Mobile View"
+            "label": "GaGa Mobile View"
         }
     ],
     "shortcuts": [

@@ -272,8 +272,8 @@ export default function QRScannerPage() {
   const handleShare = async () => {
     try {
       const usedNative = await nativeShare({
-        title: `Add ${user?.name || 'me'} on GaGa Chat`,
-        text: qrType === 'transfer' ? `Send money to ${user?.name}` : `Connect with me on GaGa Chat!`,
+        title: `Add ${user?.name || 'me'} on GaGa`,
+        text: qrType === 'transfer' ? `Send money to ${user?.name}` : `Connect with me on GaGa!`,
         url: qrType === 'profile' ? profileUrl : window.location.origin,
       });
       if (!usedNative) {
@@ -650,7 +650,7 @@ export default function QRScannerPage() {
                 </div>
 
                 <p className="text-white/60 text-sm mb-6">
-                  Scan a GaGa Chat QR code to add friends, send money, or join groups
+                  Scan a GaGa QR code to add friends, send money, or join groups
                 </p>
               </div>
             )}

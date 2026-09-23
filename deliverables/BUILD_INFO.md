@@ -16,8 +16,8 @@
 ## Checksums (SHA-256)
 
 ```
-32b0ac683504036c5c48b9170796ff4567175fb906b7406190e04b2a10824f01  GaGa-v1.0.0-release.apk
-702e9460e73db440e4954aedb95e69bd524e31ceaada28f297f0beb858f77941  GaGa-v1.0.0-release.aab
+46e1c445f5c5468843dda051c832e8c928c7cce7d8979f16359722ac847a3a9e  GaGa-v1.0.0-release.apk
+e18b34f8b38f677d9ac6c560e8c168fbcabed9366376c12557a616d2b9470458  GaGa-v1.0.0-release.aab
 ```
 
 ## Signing certificate
@@ -36,6 +36,18 @@ Signature schemes verified: **v1 (JAR) ✓ · v2 ✓ · v3 ✓**
 > uninstall it before installing this one.
 
 ## What's included in this build
+
+### Full-APK recheck pass (branding consistency)
+
+- **"GaGa Chat" \u2192 "GaGa" everywhere \u2014 FIXED.** A full recheck of the shipped
+  APK found the launcher label was already "GaGa", but **197 in-app strings**
+  still carried the old "GaGa Chat" wordmark (i18n `appName`, onboarding,
+  AI-assistant replies, legal pages, SEO titles, footer, share/invite text,
+  logo `alt` text, and the `<noscript>` fallback). All were normalised to
+  **GaGa** across `src/`, `index.html`, and `public/`, including the Bengali
+  translated app name (`\u0997\u0997\u09be \u099a\u09cd\u09af\u09be\u099f` \u2192 `\u0997\u0997\u09be`) and the
+  `useDocumentTitle` suffix. The shipped JS bundle now contains **zero**
+  "GaGa Chat" occurrences.
 
 ### Chat-room production hardening (Messenger/WhatsApp-class pass)
 

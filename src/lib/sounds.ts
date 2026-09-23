@@ -1,4 +1,4 @@
-/* ── GaGa Chat Sound + Vibration Engine ───────────
+/* ── GaGa Sound + Vibration Engine ───────────
    Web Audio API + Navigator Vibration API
    Multiple sound profiles, autoplay-safe, quiet-hours aware.
    ─────────────────────────────────────────────── */
@@ -266,7 +266,7 @@ export function playMessageSent() {
 const RINGTONE_SRC = '/gta-ringtone.mp4';
 
 /**
- * Plays the GaGa Chat custom ringtone (Thug Life x GTA) from the
+ * Plays the GaGa custom ringtone (Thug Life x GTA) from the
  * deployed asset. The returned controller is:
  *   - Preloads the asset via <audio preload="auto" so it starts instantly
  *   - Loops it for the entire ringback / incoming ring until stop() is called

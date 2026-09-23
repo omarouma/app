@@ -76,23 +76,23 @@ function generateLocalResponse(userMessage: string): string {
   }
 
   if (lower.includes('message') || lower.includes('chat') || lower.includes('text')) {
-    return `Here are some messaging tips on GaGa Chat:\n\n1. **Send in Chat** \u2014 tap the compose button to start a conversation \u{1F4AC}\n2. **Reply & React** \u2014 long-press a message to reply or react \u{1F44D}\n3. **Share Media** \u2014 attach photos, videos, voice notes and files \u{1F4CE}\n4. **Group Chats** \u2014 create a group from the Chats screen \u{1F465}\n5. **Stay in sync** \u2014 messages update in real time across devices \u{1F504}`;
+    return `Here are some messaging tips on GaGa:\n\n1. **Send in Chat** \u2014 tap the compose button to start a conversation \u{1F4AC}\n2. **Reply & React** \u2014 long-press a message to reply or react \u{1F44D}\n3. **Share Media** \u2014 attach photos, videos, voice notes and files \u{1F4CE}\n4. **Group Chats** \u2014 create a group from the Chats screen \u{1F465}\n5. **Stay in sync** \u2014 messages update in real time across devices \u{1F504}`;
   }
 
   if (lower.includes('call') || lower.includes('voice') || lower.includes('video')) {
-    return `GaGa Chat supports high-quality voice and video calls \u{1F4DE}\n\n\u2022 Start a call from any 1:1 or group chat\n\u2022 Tap the phone icon for voice, camera icon for video\n\u2022 Grant microphone/camera permission when prompted\n\u2022 Calls use ZEGOCLOUD for reliable global connectivity \u{1F30D}`;
+    return `GaGa supports high-quality voice and video calls \u{1F4DE}\n\n\u2022 Start a call from any 1:1 or group chat\n\u2022 Tap the phone icon for voice, camera icon for video\n\u2022 Grant microphone/camera permission when prompted\n\u2022 Calls use ZEGOCLOUD for reliable global connectivity \u{1F30D}`;
   }
 
   if (lower.includes('group')) {
-    return `Group chats on GaGa Chat:\n\n\u2022 Create a group from the Chats screen \u{1F465}\n\u2022 Add members, set a name and photo\n\u2022 Admins can manage members and settings\n\u2022 Everyone gets real-time updates \u{1F504}`;
+    return `Group chats on GaGa:\n\n\u2022 Create a group from the Chats screen \u{1F465}\n\u2022 Add members, set a name and photo\n\u2022 Admins can manage members and settings\n\u2022 Everyone gets real-time updates \u{1F504}`;
   }
 
   if (lower.includes('privacy') || lower.includes('security') || lower.includes('block')) {
-    return `Your privacy matters on GaGa Chat \u{1F512}\n\n\u2022 Control who can message and call you\n\u2022 Block or report users from their profile\n\u2022 Manage read receipts and last-seen visibility\n\u2022 All data is protected with row-level security`;
+    return `Your privacy matters on GaGa \u{1F512}\n\n\u2022 Control who can message and call you\n\u2022 Block or report users from their profile\n\u2022 Manage read receipts and last-seen visibility\n\u2022 All data is protected with row-level security`;
   }
 
   if (lower.includes('friend') || lower.includes('contact') || lower.includes('people')) {
-    return `Great question! Here are your best moves on GaGa Chat:\n\n1. **Add Friends** \u2014 search by username or scan a QR code \u{1F50D}\n2. **Start a Chat** \u2014 message anyone from your contacts \u{1F4AC}\n3. **Create Groups** \u2014 bring people together \u{1F465}\n4. **Make Calls** \u2014 voice or video, one-to-one or group \u{1F4DE}\n5. **Stay connected** \u2014 real-time messaging everywhere \u{1F30D}`;
+    return `Great question! Here are your best moves on GaGa:\n\n1. **Add Friends** \u2014 search by username or scan a QR code \u{1F50D}\n2. **Start a Chat** \u2014 message anyone from your contacts \u{1F4AC}\n3. **Create Groups** \u2014 bring people together \u{1F465}\n4. **Make Calls** \u2014 voice or video, one-to-one or group \u{1F4DE}\n5. **Stay connected** \u2014 real-time messaging everywhere \u{1F30D}`;
   }
 
   if (lower.includes('motivate') || lower.includes('quote') || lower.includes('inspire')) {

@@ -21,7 +21,7 @@ export default function TermsStep({ onValidityChange }: TermsStepProps) {
       </div>
       <h2 className="text-2xl font-bold text-foreground mb-3">Privacy &amp; Terms</h2>
       <p className="text-muted-foreground text-sm leading-relaxed mb-6">
-        Please review and accept our Terms of Service and Privacy Policy to continue using GaGa Chat.
+        Please review and accept our Terms of Service and Privacy Policy to continue using GaGa.
       </p>
 
       <div className="text-left bg-muted rounded-2xl p-4 mb-5 space-y-3">

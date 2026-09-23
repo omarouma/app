@@ -351,7 +351,7 @@ export default function GagaRewardsPage() {
               <button type="button" onClick={async () => {
                   try {
                     await nativeShare({
-                      title: 'Join me on GaGa Chat!',
+                      title: 'Join me on GaGa!',
                       text: `Use my referral code ${referralCode} and get 50 free Gaga Coins!`,
                       url: window.location.origin,
                     });

@@ -66,7 +66,7 @@ export default function PWAPrompt() {
                   <Smartphone size={22} className="text-white" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-foreground text-sm font-bold">Install GaGa Chat</p>
+                  <p className="text-foreground text-sm font-bold">Install GaGa</p>
                   <p className="text-muted-foreground text-xs">Get the best experience with faster access and offline support</p>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
@@ -116,7 +116,7 @@ export default function PWAPrompt() {
                   <div className="w-10 h-10 rounded-xl bg-[#00C300] flex items-center justify-center">
                     <Smartphone size={20} className="text-white" />
                   </div>
-                  <h3 id="pwa-install-title" className="text-foreground font-bold text-lg">Install GaGa Chat</h3>
+                  <h3 id="pwa-install-title" className="text-foreground font-bold text-lg">Install GaGa</h3>
                 </div>
                 <button type="button" onClick={() => setShowIosGuide(false)} className="text-muted-foreground p-1 hover:bg-muted rounded-full">
                   <X size={20} />
@@ -126,7 +126,7 @@ export default function PWAPrompt() {
                 {[
 { step: 1, text: <>Tap the <Share size={14} className="inline text-[#00C300] mx-1" /> <strong>Share</strong> button in Safari</> },
                   { step: 2, text: <>Scroll down and tap <strong>"Add to Home Screen"</strong></> },
-                  { step: 3, text: <>Tap <strong>"Add"</strong> to install GaGa Chat</> },
+                  { step: 3, text: <>Tap <strong>"Add"</strong> to install GaGa</> },
                 ].map(({ step, text }) => (
                   <div key={step} className="flex items-center gap-4 p-3 bg-muted rounded-xl">
                     <div className="w-10 h-10 rounded-full bg-[#00C300] flex items-center justify-center text-white font-bold text-sm shrink-0">

@@ -16,20 +16,20 @@ export default function TermsView() {
             <section>
               <h2 className="text-[#111111] font-semibold text-base mb-3">1. Acceptance of Terms</h2>
               <p>
-                By accessing or using GaGa Chat, you agree to be bound by these Terms of Service and our Privacy Policy. If you do not agree, please do not use our services. These terms are governed by the applicable laws of your jurisdiction.
+                By accessing or using GaGa, you agree to be bound by these Terms of Service and our Privacy Policy. If you do not agree, please do not use our services. These terms are governed by the applicable laws of your jurisdiction.
               </p>
             </section>
 
             <section>
               <h2 className="text-[#111111] font-semibold text-base mb-3">2. Eligibility</h2>
               <p>
-                You must be at least 13 years old to use GaGa Chat. Users aged 13-17 must have parental consent. To use wallet features (Gaga Coins and Fiat currency), you must be 18 years or older. By using our services, you represent that you meet these requirements and that the information you provide is accurate.
+                You must be at least 13 years old to use GaGa. Users aged 13-17 must have parental consent. To use wallet features (Gaga Coins and Fiat currency), you must be 18 years or older. By using our services, you represent that you meet these requirements and that the information you provide is accurate.
               </p>
             </section>
 
             <section>
               <h2 className="text-[#111111] font-semibold text-base mb-3">3. User Conduct</h2>
-              <p className="mb-2">You agree not to use GaGa Chat for any unlawful purpose or to transmit content that is:</p>
+              <p className="mb-2">You agree not to use GaGa for any unlawful purpose or to transmit content that is:</p>
               <ul className="list-disc pl-5 space-y-1">
                 <li>Illegal under applicable local law</li>
                 <li>Harmful, threatening, abusive, harassing, or defamatory</li>
@@ -46,21 +46,21 @@ export default function TermsView() {
             <section>
               <h2 className="text-[#111111] font-semibold text-base mb-3">4. Account Security</h2>
               <p>
-                You are responsible for maintaining the confidentiality of your account credentials. You must notify us immediately of any unauthorized access. GaGa Chat offers two-factor authentication (2FA) and PIN protection for wallets. We strongly recommend enabling these features.
+                You are responsible for maintaining the confidentiality of your account credentials. You must notify us immediately of any unauthorized access. GaGa offers two-factor authentication (2FA) and PIN protection for wallets. We strongly recommend enabling these features.
               </p>
             </section>
 
             <section>
               <h2 className="text-[#111111] font-semibold text-base mb-3">5. Intellectual Property</h2>
               <p>
-                GaGa Chat and its content (logos, trademarks, software, design) are protected by copyright, trademark, and other applicable intellectual property laws. You may not reproduce, distribute, modify, or create derivative works without our express written permission. "GaGa Chat" and the GaGa logo are registered trademarks.
+                GaGa and its content (logos, trademarks, software, design) are protected by copyright, trademark, and other applicable intellectual property laws. You may not reproduce, distribute, modify, or create derivative works without our express written permission. "GaGa" and the GaGa logo are registered trademarks.
               </p>
             </section>
 
             <section>
               <h2 className="text-[#111111] font-semibold text-base mb-3">6. Wallet & Gaga Coins</h2>
               <p className="mb-2">
-                Gaga Coins are virtual credits for use within the GaGa Chat ecosystem. They have no cash value outside the app. Key terms:
+                Gaga Coins are virtual credits for use within the GaGa ecosystem. They have no cash value outside the app. Key terms:
               </p>
               <ul className="list-disc pl-5 space-y-1">
                 <li>Gaga Coins are non-refundable and non-transferable except as explicitly permitted</li>
@@ -88,7 +88,7 @@ export default function TermsView() {
             <section>
               <h2 className="text-[#111111] font-semibold text-base mb-3">9. Limitation of Liability</h2>
               <p>
-                GaGa Chat is provided "as is" without warranties of any kind, express or implied. To the maximum extent permitted by applicable law, we are not liable for any indirect, incidental, special, or consequential damages arising from your use of the service. Our total liability shall not exceed the amount you have paid us in the preceding 12 months, or $10 if no payment was made.
+                GaGa is provided "as is" without warranties of any kind, express or implied. To the maximum extent permitted by applicable law, we are not liable for any indirect, incidental, special, or consequential damages arising from your use of the service. Our total liability shall not exceed the amount you have paid us in the preceding 12 months, or $10 if no payment was made.
               </p>
             </section>
 
@@ -102,7 +102,7 @@ export default function TermsView() {
             <section>
               <h2 className="text-[#111111] font-semibold text-base mb-3">11. Changes to Terms</h2>
               <p>
-                We may update these Terms from time to time. We will notify you of significant changes through the app or via email at least 7 days before they take effect. Continued use of GaGa Chat after changes constitutes acceptance of the updated terms.
+                We may update these Terms from time to time. We will notify you of significant changes through the app or via email at least 7 days before they take effect. Continued use of GaGa after changes constitutes acceptance of the updated terms.
               </p>
             </section>
 
@@ -110,7 +110,7 @@ export default function TermsView() {
               <h2 className="text-[#111111] font-semibold text-base mb-3">12. Contact</h2>
               <div className="bg-[#F5F5F5] rounded-xl p-4 text-[#111111]">
                 <p><strong>Email:</strong> legal@gagachat.app</p>
-                <p><strong>Address:</strong> GaGa Chat Global HQ</p>
+                <p><strong>Address:</strong> GaGa Global HQ</p>
                 <p><strong>Support:</strong> Available 24/7 via in-app chat</p>
               </div>
             </section>

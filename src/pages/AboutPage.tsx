@@ -8,7 +8,7 @@ export default function AboutPage() {
         {
             icon: Globe,
             title: 'Global by design',
-            text: 'GaGa Chat is built for fast, affordable communication across borders, helping people stay close without friction.',
+            text: 'GaGa is built for fast, affordable communication across borders, helping people stay close without friction.',
         },
         {
             icon: Shield,
@@ -28,7 +28,7 @@ export default function AboutPage() {
                 <button type="button" onClick={() => navigate(-1)} className="p-2 -ml-2 rounded-full text-foreground hover:bg-muted">
                     <ArrowLeft size={22} />
                 </button>
-                <h1 className="text-lg font-bold text-foreground">About GaGa Chat</h1>
+                <h1 className="text-lg font-bold text-foreground">About GaGa</h1>
             </div>
 
             <div className="max-w-4xl mx-auto px-4 py-8 space-y-6">
@@ -39,7 +39,7 @@ export default function AboutPage() {
                     </div>
                     <h2 className="text-3xl font-bold text-foreground mb-3">The messaging app designed for everyday connection.</h2>
                     <p className="text-muted-foreground leading-relaxed">
-                        GaGa Chat brings together messaging, voice and video calls, group chats, and broadcast lists in one trusted experience. Our mission is simple: make digital communication feel personal, fast, and genuinely useful.
+                        GaGa brings together messaging, voice and video calls, group chats, and broadcast lists in one trusted experience. Our mission is simple: make digital communication feel personal, fast, and genuinely useful.
                     </p>
                 </section>
 
@@ -56,7 +56,7 @@ export default function AboutPage() {
                 </section>
 
                 <section className="bg-background border border-border rounded-3xl p-6 md:p-8">
-                    <h3 className="text-xl font-bold text-foreground mb-3">Why people choose GaGa Chat</h3>
+                    <h3 className="text-xl font-bold text-foreground mb-3">Why people choose GaGa</h3>
                     <ul className="space-y-3 text-sm text-muted-foreground leading-relaxed">
                         <li>• Free, reliable communication without the friction of a VPN or complicated setup.</li>
                         <li>• Group chats and broadcast lists that keep communities connected and informed.</li>

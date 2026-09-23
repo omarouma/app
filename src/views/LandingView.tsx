@@ -85,7 +85,7 @@ export default function LandingView() {
                 {t('welcome')}
               </h1>
               <p className="text-muted-foreground text-sm sm:text-base lg:text-lg max-w-xl mx-auto lg:mx-0 mb-7 sm:mb-8 leading-relaxed">
-                GaGa Chat brings private conversations, high-quality voice and video, live experiences, and monetization tools together for people, teams, and creators worldwide.
+                GaGa brings private conversations, high-quality voice and video, live experiences, and monetization tools together for people, teams, and creators worldwide.
               </p>
               <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center lg:justify-start">
                 <button type="button" onClick={() => navigate('/auth')}
@@ -180,12 +180,12 @@ export default function LandingView() {
         </div>
       </section>
 
-      {/* Why GaGa Chat? */}
+      {/* Why GaGa? */}
       <section className="py-20 sm:py-28 bg-background">
         <div className="container-page">
           <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className="text-center mb-12 sm:mb-16">
-            <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-foreground mb-3 sm:mb-4">Why GaGa Chat?</h2>
-            <p className="text-muted-foreground max-w-2xl mx-auto text-sm sm:text-base">Discover the key benefits that make GaGa Chat the ideal platform for communication and collaboration.</p>
+            <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-foreground mb-3 sm:mb-4">Why GaGa?</h2>
+            <p className="text-muted-foreground max-w-2xl mx-auto text-sm sm:text-base">Discover the key benefits that make GaGa the ideal platform for communication and collaboration.</p>
           </motion.div>
           <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-6 sm:gap-8 text-center">
             {[
@@ -248,7 +248,7 @@ export default function LandingView() {
                 Talk Face to Face, Anywhere
               </h2>
               <p className="text-gray-600 mb-6 leading-relaxed">
-                GaGa Chat brings you reliable one-to-one and group voice and video calls with global connectivity. Powered by ZEGOCLOUD, calls stay smooth even on low-bandwidth networks.
+                GaGa brings you reliable one-to-one and group voice and video calls with global connectivity. Powered by ZEGOCLOUD, calls stay smooth even on low-bandwidth networks.
               </p>
               <div className="grid grid-cols-2 gap-4 mb-8">
                 {[
@@ -363,17 +363,17 @@ export default function LandingView() {
               <span className="text-[#00C300] text-sm font-medium">Got Questions?</span>
             </div>
             <h2 className="text-3xl sm:text-4xl font-bold text-[#111111] mb-4">Frequently Asked Questions</h2>
-            <p className="text-[#8D8D8D] max-w-lg mx-auto">Everything you need to know about GaGa Chat</p>
+            <p className="text-[#8D8D8D] max-w-lg mx-auto">Everything you need to know about GaGa</p>
           </motion.div>
 
           <div className="space-y-3">
             {[
-              { q: 'Is GaGa Chat really free?', a: 'Yes! GaGa Chat is completely free to use. All messaging, voice calls, and video calls are free with no hidden fees or subscription required.' },
-              { q: 'Do I need a VPN to use GaGa Chat?', a: 'No. GaGa Chat works everywhere without a VPN. Our infrastructure is designed to be accessible globally, including regions where other messaging apps may be blocked.' },
-              { q: 'Is my data secure on GaGa Chat?', a: 'Absolutely. We use end-to-end encryption for messages, secure authentication, and industry-standard security practices. We never sell your data to third parties.' },
-              { q: 'Can I use GaGa Chat on my computer?', a: 'Yes! GaGa Chat works on any device with a web browser. It is a Progressive Web App (PWA), so you can install it on desktop, tablet, and mobile devices.' },
-              { q: 'How is GaGa Chat different from WhatsApp or Telegram?', a: 'GaGa Chat combines the best of all worlds: free messaging, voice/video calls, group chats, and broadcast lists — all in one platform. No VPN needed, and it works in 190+ countries.' },
-              { q: 'Can I make group calls on GaGa Chat?', a: 'Yes! GaGa Chat supports one-to-one and group voice and video calls with reliable global connectivity, powered by ZEGOCLOUD.' },
+              { q: 'Is GaGa really free?', a: 'Yes! GaGa is completely free to use. All messaging, voice calls, and video calls are free with no hidden fees or subscription required.' },
+              { q: 'Do I need a VPN to use GaGa?', a: 'No. GaGa works everywhere without a VPN. Our infrastructure is designed to be accessible globally, including regions where other messaging apps may be blocked.' },
+              { q: 'Is my data secure on GaGa?', a: 'Absolutely. We use end-to-end encryption for messages, secure authentication, and industry-standard security practices. We never sell your data to third parties.' },
+              { q: 'Can I use GaGa on my computer?', a: 'Yes! GaGa works on any device with a web browser. It is a Progressive Web App (PWA), so you can install it on desktop, tablet, and mobile devices.' },
+              { q: 'How is GaGa different from WhatsApp or Telegram?', a: 'GaGa combines the best of all worlds: free messaging, voice/video calls, group chats, and broadcast lists — all in one platform. No VPN needed, and it works in 190+ countries.' },
+              { q: 'Can I make group calls on GaGa?', a: 'Yes! GaGa supports one-to-one and group voice and video calls with reliable global connectivity, powered by ZEGOCLOUD.' },
             ].map((faq, i) => (
               <motion.div key={i} initial={{ opacity: 0, y: 10 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: i * 0.05 }}>
                 <button
@@ -421,15 +421,15 @@ export default function LandingView() {
               <CheckCircle size={14} className="text-[#00C300]" />
               <span className="text-[#00C300] text-sm font-medium">Why GaGa?</span>
             </div>
-            <h2 className="text-3xl sm:text-4xl font-bold text-[#111111] mb-4">GaGa Chat vs Others</h2>
-            <p className="text-[#8D8D8D] max-w-lg mx-auto">See how GaGa Chat compares to the most popular messaging apps</p>
+            <h2 className="text-3xl sm:text-4xl font-bold text-[#111111] mb-4">GaGa vs Others</h2>
+            <p className="text-[#8D8D8D] max-w-lg mx-auto">See how GaGa compares to the most popular messaging apps</p>
           </motion.div>
 
           <div className="overflow-x-auto -mx-4 px-4">
             <div className="min-w-full sm:min-w-[600px]">
               <div className="grid grid-cols-4 gap-3 mb-3">
                 <div className="text-sm font-semibold text-[#8D8D8D] p-3">Feature</div>
-                <div className="text-sm font-bold text-[#00C300] p-3 bg-[#00C300]/5 rounded-xl text-center">GaGa Chat</div>
+                <div className="text-sm font-bold text-[#00C300] p-3 bg-[#00C300]/5 rounded-xl text-center">GaGa</div>
                 <div className="text-sm font-semibold text-[#8D8D8D] p-3 text-center">WhatsApp</div>
                 <div className="text-sm font-semibold text-[#8D8D8D] p-3 text-center">Telegram</div>
               </div>
@@ -587,10 +587,10 @@ export default function LandingView() {
                 <span className="text-[#00C300] text-sm font-medium">Install on Any Device</span>
               </div>
               <h2 className="text-3xl sm:text-4xl font-bold text-[#111111] mb-4">
-                Add GaGa Chat to Your Home Screen
+                Add GaGa to Your Home Screen
               </h2>
               <p className="text-[#8D8D8D] mb-6 leading-relaxed">
-                GaGa Chat works like a native app on any device. No download from app stores required — just install from your browser and start chatting instantly. Works on iPhone, Android, and desktop.
+                GaGa works like a native app on any device. No download from app stores required — just install from your browser and start chatting instantly. Works on iPhone, Android, and desktop.
               </p>
               <div className="grid grid-cols-2 gap-4 mb-8">
                 {[
@@ -632,7 +632,7 @@ export default function LandingView() {
                   </div>
                 </div>
                 <div className="text-center mb-4">
-                  <p className="font-bold text-[#111111] text-lg mb-1">GaGa Chat</p>
+                  <p className="font-bold text-[#111111] text-lg mb-1">GaGa</p>
                   <p className="text-[#8D8D8D] text-xs">Free messaging & calls</p>
                 </div>
                 <div className="bg-[#F5F5F5] rounded-xl p-3 mb-4">
@@ -702,13 +702,13 @@ export default function LandingView() {
               onClick={e => e.stopPropagation()}
             >
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-bold text-[#111111]">Install GaGa Chat</h3>
+                <h3 className="text-lg font-bold text-[#111111]">Install GaGa</h3>
                 <button type="button" onClick={dismissIOSGuide} className="p-1 text-[#8D8D8D] hover:text-[#111111]">
                   <X size={20} />
                 </button>
               </div>
               <p className="text-[#8D8D8D] text-sm mb-4">
-                To install GaGa Chat on your iPhone or iPad, follow these steps:
+                To install GaGa on your iPhone or iPad, follow these steps:
               </p>
               <div className="space-y-3">
                 <div className="flex items-start gap-3">

@@ -12,16 +12,16 @@ const FAQS = [
     icon: HelpCircle,
     items: [
       {
-        q: 'What is GaGa Chat?',
-        a: 'GaGa Chat is a global messaging platform. It includes chat, voice/video calls, group chats, broadcast lists, and a built-in wallet with rewards.',
+        q: 'What is GaGa?',
+        a: 'GaGa is a global messaging platform. It includes chat, voice/video calls, group chats, broadcast lists, and a built-in wallet with rewards.',
       },
       {
         q: 'How do I add friends?',
         a: 'Go to the Contacts tab and tap "Add Friend". You can search by username, phone number, or scan their QR code. You can also use the Nearby feature to find friends around you.',
       },
       {
-        q: 'Is GaGa Chat free?',
-        a: 'Yes! GaGa Chat is completely free to use. All messaging, voice calls, and video calls are free. We also offer premium features for power users.',
+        q: 'Is GaGa free?',
+        a: 'Yes! GaGa is completely free to use. All messaging, voice calls, and video calls are free. We also offer premium features for power users.',
       },
     ],
   },
@@ -49,7 +49,7 @@ const FAQS = [
     items: [
       {
         q: 'Are voice and video calls free?',
-        a: 'Yes! All voice and video calls between GaGa Chat users are completely free, unlimited, and work over Wi-Fi or mobile data.',
+        a: 'Yes! All voice and video calls between GaGa users are completely free, unlimited, and work over Wi-Fi or mobile data.',
       },
       {
         q: 'Can I flip the camera during a video call?',
@@ -89,7 +89,7 @@ const FAQS = [
       },
       {
         q: 'How do I delete my account?',
-        a: 'Go to Settings > Account > Delete Account. This will permanently remove all your data from GaGa Chat.',
+        a: 'Go to Settings > Account > Delete Account. This will permanently remove all your data from GaGa.',
       },
     ],
   },

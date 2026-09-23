@@ -95,8 +95,8 @@ export default function PremiumPage() {
 
   const handleShareReferral = async () => {
     const shareData = {
-      title: 'Join GaGa Chat',
-      text: `Use my referral code ${effectiveCode} to join GaGa Chat and earn ${REFERRAL_REWARD_COINS} coins!`,
+      title: 'Join GaGa',
+      text: `Use my referral code ${effectiveCode} to join GaGa and earn ${REFERRAL_REWARD_COINS} coins!`,
       url: window.location.origin,
     };
     try {

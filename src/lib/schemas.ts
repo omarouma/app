@@ -63,7 +63,7 @@ export const PhoneContactSchema = z.object({
 export type PhoneContact = z.infer<typeof PhoneContactSchema>;
 
 /**
- * GaGa Chat user profile from Firestore
+ * GaGa user profile from Firestore
  * Validates user data structure
  */
 export const UserProfileSchema = z.object({

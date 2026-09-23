@@ -20,7 +20,7 @@ import { usePageTitle } from '@/hooks/useDocumentTitle';
 import type { User } from '@/types';
 
 const INVITE_LINK = 'https://gagachat.app';
-const INVITE_TEXT = 'Join me on GaGa Chat - the free messaging app for everyone!';
+const INVITE_TEXT = 'Join me on GaGa - the free messaging app for everyone!';
 
 export default function ContactsPage() {
   usePageTitle('Contacts');
@@ -99,7 +99,7 @@ export default function ContactsPage() {
   const handleInvite = async (contactName?: string) => {
     const text = contactName ? `${INVITE_TEXT} — Hey ${contactName}, let's chat!` : INVITE_TEXT;
     try {
-      const usedNative = await nativeShare({ title: 'GaGa Chat', text, url: INVITE_LINK });
+      const usedNative = await nativeShare({ title: 'GaGa', text, url: INVITE_LINK });
       if (!usedNative) {
         const ok = await copyToClipboard(`${text} ${INVITE_LINK}`);
         if (ok) toast.success('Invite link copied to clipboard');
@@ -174,9 +174,9 @@ export default function ContactsPage() {
 
   const handleShareContact = useCallback(async (u: User) => {
     const link = u.username ? `${INVITE_LINK}/u/${u.username}` : `${INVITE_LINK}/u/${u.id}`;
-    const text = `Connect with ${u.name || 'me'} on GaGa Chat`;
+    const text = `Connect with ${u.name || 'me'} on GaGa`;
     try {
-      const usedNative = await nativeShare({ title: 'GaGa Chat', text, url: link });
+      const usedNative = await nativeShare({ title: 'GaGa', text, url: link });
       if (!usedNative) {
         const ok = await copyToClipboard(`${text} ${link}`);
         if (ok) toast.success('Contact link copied');
@@ -356,9 +356,9 @@ export default function ContactsPage() {
     const u = previewUser && previewUser.id === id ? previewUser : friends.find((f) => f.id === id);
     if (!u) return;
     const link = u.username ? `${INVITE_LINK}/u/${u.username}` : `${INVITE_LINK}/u/${u.id}`;
-    const text = `Connect with ${u.name || 'me'} on GaGa Chat`;
+    const text = `Connect with ${u.name || 'me'} on GaGa`;
     try {
-      const usedNative = await nativeShare({ title: 'GaGa Chat', text, url: link });
+      const usedNative = await nativeShare({ title: 'GaGa', text, url: link });
       if (!usedNative) {
         const ok = await copyToClipboard(`${text} ${link}`);
         if (ok) toast.success('Contact link copied');

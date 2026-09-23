@@ -1,5 +1,5 @@
 /**
- * Error handling utilities for GaGa Chat.
+ * Error handling utilities for GaGa.
  * Provides retry logic, error classification, and user-friendly messages.
  */
 

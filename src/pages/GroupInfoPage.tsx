@@ -192,7 +192,7 @@ export default function GroupInfoPage() {
   };
 
   const handleShareInvite = async () => {
-    const ok = await nativeShare({ title: `Join ${group.name}`, text: `Join my group "${group.name}" on GaGa Chat`, url: inviteUrl });
+    const ok = await nativeShare({ title: `Join ${group.name}`, text: `Join my group "${group.name}" on GaGa`, url: inviteUrl });
     if (!ok) handleCopyInvite();
   };
 

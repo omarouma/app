@@ -35,7 +35,7 @@ export default function CareersPage() {
                 <section className="bg-background border border-border rounded-3xl p-6 md:p-8">
                     <h2 className="text-3xl font-bold text-foreground mb-3">Help build the next generation of social communication.</h2>
                     <p className="text-muted-foreground leading-relaxed">
-                        GaGa Chat is growing a team of thoughtful builders, designers, creators, and operators who care about community, trust, and product quality. If you want to shape the way people connect online, we’d love to hear from you.
+                        GaGa is growing a team of thoughtful builders, designers, creators, and operators who care about community, trust, and product quality. If you want to shape the way people connect online, we’d love to hear from you.
                     </p>
                 </section>
 

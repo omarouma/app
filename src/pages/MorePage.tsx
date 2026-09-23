@@ -120,7 +120,7 @@ export default function MorePage() {
     {
       title: 'About',
       items: [
-        { icon: Info, label: 'About GaGa Chat', subtitle: 'Version 2.0.0', action: () => setShowAbout(true), color: 'text-muted-foreground', bg: 'bg-muted' },
+        { icon: Info, label: 'About GaGa', subtitle: 'Version 2.0.0', action: () => setShowAbout(true), color: 'text-muted-foreground', bg: 'bg-muted' },
         { icon: HelpCircle, label: 'Help Center', subtitle: 'FAQs and support', action: () => navigate('/help'), color: 'text-[#2196F3]', bg: 'bg-[#2196F3]/10' },
         { icon: Info, label: 'Privacy Policy', subtitle: 'How we protect your data', to: '/privacy', color: 'text-[#8B5CF6]', bg: 'bg-[#8B5CF6]/10' },
         { icon: Info, label: 'Terms of Service', subtitle: 'User agreement', to: '/terms', color: 'text-[#8B5CF6]', bg: 'bg-[#8B5CF6]/10' },
@@ -197,7 +197,7 @@ onClick={() => {
           >
             <LogOut size={18} /> Log Out
           </motion.button>
-          <p className="text-center text-muted-foreground text-[10px] mt-2">GaGa Chat v2.0.0 &bull; Built with care</p>
+          <p className="text-center text-muted-foreground text-[10px] mt-2">GaGa v2.0.0 &bull; Built with care</p>
         </div>
 </div>
 
@@ -220,12 +220,12 @@ onClick={() => {
             <div className="w-16 h-16 rounded-2xl bg-[#00C300]/10 flex items-center justify-center mx-auto mb-4">
               <Logo size={48} />
             </div>
-            <h3 className="text-xl font-bold text-foreground mb-1">GaGa Chat</h3>
+            <h3 className="text-xl font-bold text-foreground mb-1">GaGa</h3>
             <p className="text-muted-foreground text-sm mb-4">Version 2.0.0</p>
             <div className="space-y-2 text-sm text-muted-foreground">
               <p>Free messaging & video calls</p>
               <p>End-to-end encryption for your privacy</p>
-              <p>© 2026 GaGa Chat. All rights reserved.</p>
+              <p>© 2026 GaGa. All rights reserved.</p>
             </div>
             <button type="button" onClick={() => setShowAbout(false)} className="w-full mt-6 py-3 bg-[#00C300] text-white rounded-xl text-sm font-bold">
               Close

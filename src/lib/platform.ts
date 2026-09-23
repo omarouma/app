@@ -1,7 +1,7 @@
 /**
  * Platform detection helpers.
  *
- * GaGa Chat ships as a native Android app (Capacitor) and is also served as a
+ * GaGa ships as a native Android app (Capacitor) and is also served as a
  * web app. Several features are web-only (service worker, PWA install prompt,
  * Google Tag Manager / GA4 / AdSense, canonical-domain redirects, SEO meta) and
  * must be disabled inside the native shell — otherwise they can wedge the

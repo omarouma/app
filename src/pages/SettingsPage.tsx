@@ -413,7 +413,7 @@ export default function SettingsPage() {
                     <div className="flex items-center justify-between mb-3">
                       <div>
                         <p className="text-sm font-semibold text-foreground">App Permissions</p>
-                        <p className="text-xs text-muted-foreground mt-0.5">Manage what GaGa Chat can access on this device</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">Manage what GaGa can access on this device</p>
                       </div>
                       <button
                         type="button"
@@ -857,7 +857,7 @@ export default function SettingsPage() {
                   <div className="flex items-center gap-3 sm:gap-4 px-3 py-3">
                     <Logo size={32} />
                     <div className="min-w-0">
-                      <p className="text-sm font-semibold text-foreground">GaGa Chat</p>
+                      <p className="text-sm font-semibold text-foreground">GaGa</p>
                       <p className="text-xs text-muted-foreground">Version {APP_VERSION}</p>
                     </div>
                   </div>
@@ -892,7 +892,7 @@ export default function SettingsPage() {
                 <div className="flex items-center justify-between border-b border-border p-4">
                   <div>
                     <h2 id="open-source-licenses-title" className="text-lg font-bold text-foreground">Open Source Licenses</h2>
-                    <p className="mt-0.5 text-xs text-muted-foreground">Projects used to build GaGa Chat.</p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">Projects used to build GaGa.</p>
                   </div>
                   <button type="button" onClick={() => setShowLicenses(false)} className="rounded-full p-2 text-muted-foreground hover:bg-accent" aria-label="Close licenses">
                     <ArrowLeft size={18} className="rotate-[-90deg]" />

@@ -28,7 +28,7 @@ export default function BlogPage() {
                 <button type="button" onClick={() => navigate(-1)} className="p-2 -ml-2 rounded-full text-foreground hover:bg-muted">
                     <ArrowLeft size={22} />
                 </button>
-                <h1 className="text-lg font-bold text-foreground">GaGa Chat Blog</h1>
+                <h1 className="text-lg font-bold text-foreground">GaGa Blog</h1>
             </div>
 
             <div className="max-w-5xl mx-auto px-4 py-8 space-y-5">

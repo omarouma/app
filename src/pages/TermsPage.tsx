@@ -20,23 +20,23 @@ export default function TermsPage() {
           </div>
           <h2 className="text-foreground font-semibold mb-2">Acceptance of Terms</h2>
           <p className="text-muted-foreground text-sm leading-relaxed">
-            By using GaGa Chat, you agree to these Terms of Service and our Privacy Policy. These terms are governed by the applicable laws of your jurisdiction. If you do not agree, please do not use our services.
+            By using GaGa, you agree to these Terms of Service and our Privacy Policy. These terms are governed by the applicable laws of your jurisdiction. If you do not agree, please do not use our services.
           </p>
           <p className="text-muted-foreground text-xs mt-2">Last updated: January 2026</p>
         </div>
 
         <div className="bg-background border border-border rounded-2xl p-4 space-y-4">
           {[
-            { title: '1. Eligibility', text: 'You must be at least 13 years old. Users 13-17 need parental consent. Wallet features require age 18+. By using GaGa Chat, you confirm you meet these requirements.' },
-            { title: '2. User Conduct', text: 'You may not use GaGa Chat for illegal purposes under applicable local law. Prohibited content includes harassment, spam, malware, IP infringement, terrorism promotion, and financial fraud.' },
+            { title: '1. Eligibility', text: 'You must be at least 13 years old. Users 13-17 need parental consent. Wallet features require age 18+. By using GaGa, you confirm you meet these requirements.' },
+            { title: '2. User Conduct', text: 'You may not use GaGa for illegal purposes under applicable local law. Prohibited content includes harassment, spam, malware, IP infringement, terrorism promotion, and financial fraud.' },
             { title: '3. Account Security', text: 'You are responsible for your credentials. Notify us immediately of unauthorized access. We recommend enabling 2FA and wallet PIN for added security.' },
-            { title: '4. Intellectual Property', text: 'GaGa Chat and its content are protected by applicable copyright and trademark laws. "GaGa Chat" and the GaGa logo are registered trademarks. No reproduction without permission.' },
+            { title: '4. Intellectual Property', text: 'GaGa and its content are protected by applicable copyright and trademark laws. "GaGa" and the GaGa logo are registered trademarks. No reproduction without permission.' },
             { title: '5. Wallet & Gaga Coins', text: 'Gaga Coins are virtual credits with no cash value outside the app. They are non-refundable and non-transferable. local currency conversions follow applicable financial regulations. Fraud will result in suspension and legal action.' },
             { title: '6. Content Moderation', text: 'We actively moderate content to comply with applicable law. We cooperate with relevant authorities on valid legal requests. You grant us a license to process your content for service operation.' },
             { title: '7. Termination', text: 'We may terminate your account for violations, with or without notice. You may delete your account anytime via settings. Upon termination, your service access ends immediately.' },
-            { title: '8. Limitation of Liability', text: 'GaGa Chat is provided "as is". To the maximum extent under applicable law, we are not liable for indirect damages. Total liability is capped at ৳1,000 or fees paid in the last 12 months.' },
+            { title: '8. Limitation of Liability', text: 'GaGa is provided "as is". To the maximum extent under applicable law, we are not liable for indirect damages. Total liability is capped at ৳1,000 or fees paid in the last 12 months.' },
             { title: '9. Dispute Resolution', text: 'Disputes shall first be resolved amicably. If unresolved, arbitration under applicable arbitration laws in the jurisdiction of the user applies. Both parties submit to the courts of their respective jurisdiction.' },
-            { title: '10. Contact', text: 'Email: legal@gagachat.app | Address: GaGa Chat Global HQ | Support: 24/7 in-app chat' },
+            { title: '10. Contact', text: 'Email: legal@gagachat.app | Address: GaGa Global HQ | Support: 24/7 in-app chat' },
           ].map((section) => (
             <div key={section.title} className="pb-4 border-b border-border last:border-0 last:pb-0">
               <h3 className="text-foreground font-medium text-sm mb-1">{section.title}</h3>

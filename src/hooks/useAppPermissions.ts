@@ -141,7 +141,7 @@ async function checkPhone(): Promise<PermissionStatus> {
 async function requestPhone(): Promise<PermissionStatus> {
     if (typeof window === 'undefined') return 'unsupported';
     if (isPWA()) return 'granted';
-    toast.info('Install GaGa Chat on your home screen for full phone features', {
+    toast.info('Install GaGa on your home screen for full phone features', {
         description: 'Use your browser menu → Add to Home Screen',
         duration: 5000,
     });
@@ -185,7 +185,7 @@ export function openAppSettings(): void {
             return;
         } catch { /* fall through to toast */ }
     }
-    toast.info('Open Settings → Apps → GaGa Chat → Permissions to grant access.', {
+    toast.info('Open Settings → Apps → GaGa → Permissions to grant access.', {
         duration: 6000,
     });
 }

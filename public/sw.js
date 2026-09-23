@@ -150,10 +150,10 @@ self.addEventListener('push', (event) => {
   try {
     data = event.data?.json() || {};
   } catch {
-    data = { title: event.data?.text() || 'GaGa Chat' };
+    data = { title: event.data?.text() || 'GaGa' };
   }
 
-  const title = data.title || 'GaGa Chat';
+  const title = data.title || 'GaGa';
   const isIncomingCall = data.type === 'incoming_call' || data.notificationType === 'incoming_call';
   const isMessage = data.type === 'message' || data.notificationType === 'message';
 

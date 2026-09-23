@@ -31,7 +31,7 @@ async function fireVerifyNotification(email: string) {
     if (granted) {
       await pushNotificationService.sendNotification({
         title: 'Verify Your Account 🔐',
-        body: `Confirm your email (${email || 'your inbox'}) to activate your GaGa Chat account. Open Gmail and tap the verification link.`,
+        body: `Confirm your email (${email || 'your inbox'}) to activate your GaGa account. Open Gmail and tap the verification link.`,
         icon: '/logo-192.png',
         badge: '/logo-192.png',
         tag: VERIFY_NOTIF_TAG,
@@ -47,7 +47,7 @@ async function fireVerifyNotification(email: string) {
   try {
     if ('Notification' in window && Notification.permission === 'granted') {
       new Notification('Verify Your Account 🔐', {
-        body: `Confirm your email (${email || 'your inbox'}) in Gmail to activate your GaGa Chat account.`,
+        body: `Confirm your email (${email || 'your inbox'}) in Gmail to activate your GaGa account.`,
         icon: '/logo-192.png',
         tag: VERIFY_NOTIF_TAG,
         vibrate: [200, 100, 200],
@@ -235,7 +235,7 @@ function LogoHeader({ subtitle }: { subtitle: string }) {
       <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#00C300] to-[#00A300] flex items-center justify-center shadow-lg shadow-[#00C300]/30 mb-3">
         <Logo size={36} />
       </div>
-      <h1 className="font-extrabold text-[#111] text-base tracking-tight">GaGa Chat</h1>
+      <h1 className="font-extrabold text-[#111] text-base tracking-tight">GaGa</h1>
       <p className="text-[#ABABAB] text-[11px] mt-0.5">{subtitle}</p>
     </div>
   );
@@ -383,7 +383,7 @@ export default function AuthView() {
           void fireVerifyNotification(tab === 'email' ? email : phone);
           go('verify');
         } else {
-          toast.success(tab === 'phone' ? 'Phone account created! 🎉' : 'Welcome to GaGa Chat! 🎉');
+          toast.success(tab === 'phone' ? 'Phone account created! 🎉' : 'Welcome to GaGa! 🎉');
         }
       } else {
         setError(translateAuthError(result.error || 'Signup failed'));
@@ -400,7 +400,7 @@ export default function AuthView() {
     setLoading(true);
     try {
       const result = await auth.sendMagicLink(email);
-      if (result.success) setSuccess('Magic link sent! Check your inbox — the email is from GaGa Chat.');
+      if (result.success) setSuccess('Magic link sent! Check your inbox — the email is from GaGa.');
       else setError(result.error || 'Failed to send link');
     } finally {
       setLoading(false);
@@ -549,7 +549,7 @@ export default function AuthView() {
               <LogoHeader subtitle="Reset your password" />
               <form onSubmit={handleForgot} className="space-y-3">
                 <p className="text-[12px] text-[#888] text-center -mt-2 mb-1">
-                  Enter your email and we'll send a reset link from GaGa Chat.
+                  Enter your email and we'll send a reset link from GaGa.
                 </p>
                 <InputField icon={Mail} type="email" value={email} onChange={setEmail} placeholder="Email address" autoComplete="email" name="email" autoFocus />
                 <ErrorMsg msg={error} />

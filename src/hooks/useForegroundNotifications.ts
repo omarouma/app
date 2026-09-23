@@ -54,7 +54,7 @@ export function useForegroundNotifications() {
     // Background: show native browser notification via service worker
     if ('serviceWorker' in navigator && Notification.permission === 'granted') {
       // Sanitize display strings — strip HTML tags and limit length
-      const safeTitle = String(newest.title || 'GaGa Chat').replace(/<[^>]*>/g, '').slice(0, 100);
+      const safeTitle = String(newest.title || 'GaGa').replace(/<[^>]*>/g, '').slice(0, 100);
       const safeBody = String(newest.body || 'You have a new notification').replace(/<[^>]*>/g, '').slice(0, 200);
       const safeChatId = String(newest.data?.chatId || '').replace(/[^a-zA-Z0-9_-]/g, '');
       navigator.serviceWorker.ready

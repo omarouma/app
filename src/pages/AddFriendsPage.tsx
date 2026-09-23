@@ -527,8 +527,8 @@ export default function AddFriendsPage() {
   const handleShare = async () => {
     try {
       const usedNative = await nativeShare({
-        title: `Add ${currentUser?.name || 'me'} on GaGa Chat`,
-        text: `Connect with me on GaGa Chat!`,
+        title: `Add ${currentUser?.name || 'me'} on GaGa`,
+        text: `Connect with me on GaGa!`,
         url: myWebLink,
       });
       if (!usedNative) {
@@ -901,7 +901,7 @@ export default function AddFriendsPage() {
               <div className="text-center py-8">
                 <Navigation size={32} className="text-[#00C300] mx-auto mb-2" />
                 <p className="text-muted-foreground text-sm mb-3">Find friends nearby</p>
-                <p className="text-muted-foreground text-xs mb-4">Enable location to discover GaGa Chat users around you</p>
+                <p className="text-muted-foreground text-xs mb-4">Enable location to discover GaGa users around you</p>
                 <button type="button" onClick={getLocation}
                   disabled={geoLoading}
                   className="px-6 py-3 bg-[#00C300] text-white rounded-full text-sm font-bold active:bg-[#00A300] transition-colors disabled:opacity-50"
@@ -972,7 +972,7 @@ export default function AddFriendsPage() {
                     <Copy size={14} /> Copy Link
                   </button>
                 </div>
-                <p className="text-center text-muted-foreground text-xs mt-3">Scan to add me on GaGa Chat</p>
+                <p className="text-center text-muted-foreground text-xs mt-3">Scan to add me on GaGa</p>
               </div>
               <div className="flex gap-2">
                 <button type="button" onClick={() => { handleCopyLink(); setShowQrModal(false); }}

@@ -1,5 +1,5 @@
 /**
- * Social sharing helpers for GaGa Chat.
+ * Social sharing helpers for GaGa.
  *
  * Provides URL builders for the major share destinations plus a small
  * Web Share API wrapper with a clipboard fallback.

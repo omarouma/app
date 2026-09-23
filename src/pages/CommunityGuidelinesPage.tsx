@@ -18,9 +18,9 @@ export default function CommunityGuidelinesPage() {
           <div className="w-12 h-12 rounded-full bg-[#00C300]/10 flex items-center justify-center mb-4">
             <Shield size={24} className="text-[#00C300]" />
           </div>
-          <h2 className="text-foreground font-semibold mb-2">Welcome to GaGa Chat</h2>
+          <h2 className="text-foreground font-semibold mb-2">Welcome to GaGa</h2>
           <p className="text-muted-foreground text-sm leading-relaxed">
-            Our community guidelines exist to keep GaGa Chat a safe, respectful, and welcoming place for everyone. By using our platform, you agree to follow these guidelines. Violations may result in content removal, account suspension, or permanent bans.
+            Our community guidelines exist to keep GaGa a safe, respectful, and welcoming place for everyone. By using our platform, you agree to follow these guidelines. Violations may result in content removal, account suspension, or permanent bans.
           </p>
           <p className="text-muted-foreground text-xs mt-2">Last updated: January 2026</p>
         </div>
@@ -32,8 +32,8 @@ export default function CommunityGuidelinesPage() {
             { title: '3. Privacy Matters', text: 'Respect the privacy of others. Do not share personal information (doxing) without consent. Do not share private messages, photos, or videos of others without their permission. Report any content that violates privacy.' },
             { title: '4. Authentic Content', text: 'Do not spread misinformation, fake news, or deceptive content. Do not impersonate others or create fake accounts. Do not manipulate engagement through bots, fake accounts, or coordinated inauthentic behavior.' },
             { title: '5. Intellectual Property', text: 'Only share content you have the right to share. Respect copyright, trademarks, and other intellectual property rights. Do not share pirated content or unauthorized copies of copyrighted material.' },
-            { title: '6. Financial Safety', text: 'Do not use GaGa Chat for scams, fraud, or financial schemes. Do not share fake investment opportunities or pyramid schemes. Be cautious when sending money through the platform. Report suspicious financial behavior.' },
-            { title: '7. Safe Communication', text: 'Do not use GaGa Chat to send spam, chain messages, or unsolicited bulk content. Respect others\u2019 boundaries when messaging or calling. Report abusive or unwanted contact immediately.' },
+            { title: '6. Financial Safety', text: 'Do not use GaGa for scams, fraud, or financial schemes. Do not share fake investment opportunities or pyramid schemes. Be cautious when sending money through the platform. Report suspicious financial behavior.' },
+            { title: '7. Safe Communication', text: 'Do not use GaGa to send spam, chain messages, or unsolicited bulk content. Respect others\u2019 boundaries when messaging or calling. Report abusive or unwanted contact immediately.' },
             { title: '8. Reporting Violations', text: 'If you see content that violates these guidelines, please report it using the built-in reporting tools. Our moderation team reviews reports and takes appropriate action. False reports may result in account penalties.' },
             { title: '9. Enforcement', text: 'Violations are handled on a case-by-case basis. Minor violations may result in warnings or content removal. Serious or repeated violations may result in temporary or permanent account suspension. We cooperate with law enforcement on serious legal matters.' },
             { title: '10. Appeals', text: 'If you believe your content was removed or your account was suspended in error, you may appeal by contacting support@gagachat.app with details about your case. We review all appeals within 7 business days.' },

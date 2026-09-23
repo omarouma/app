@@ -17,7 +17,7 @@ export function usePageTracking() {
     const analytics = getFirebaseAnalytics();
     if (!analytics) return;
     const pagePath = location.pathname + location.search;
-    const pageTitle = document.title || 'GaGa Chat';
+    const pageTitle = document.title || 'GaGa';
     trackPageView(pageTitle, pagePath);
   }, [location]);
 }

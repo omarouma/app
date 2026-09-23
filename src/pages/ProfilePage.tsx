@@ -323,7 +323,7 @@ export default function ProfilePage() {
   }, [profileUrl]);
 
   const handleNativeShare = useCallback(async () => {
-    const usedNative = await nativeShare({ title: `${displayUser?.name} on GaGa Chat`, url: profileUrl, text: 'Check out my profile on GaGa Chat' });
+    const usedNative = await nativeShare({ title: `${displayUser?.name} on GaGa`, url: profileUrl, text: 'Check out my profile on GaGa' });
     if (!usedNative) {
       await handleCopyLink();
     }

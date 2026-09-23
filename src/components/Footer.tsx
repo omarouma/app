@@ -49,11 +49,11 @@ export default function Footer() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-2 md:grid-cols-5 gap-8 mb-12">
           <div className="col-span-2">
-            <Link to="/" className="flex items-center gap-2 mb-4" aria-label="GaGa Chat Home">
+            <Link to="/" className="flex items-center gap-2 mb-4" aria-label="GaGa Home">
               <Logo size={32} />
             </Link>
             <p className="text-muted-foreground text-sm max-w-xs leading-relaxed mb-4">
-              GaGa Chat - The future of messaging. Free global messaging, HD voice & video calls, and group chats. Secure, fast, and beautiful. Free for everyone in Bangladesh and worldwide.
+              GaGa - The future of messaging. Free global messaging, HD voice & video calls, and group chats. Secure, fast, and beautiful. Free for everyone in Bangladesh and worldwide.
             </p>
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 rounded-lg bg-background border border-border flex items-center justify-center" title="Messaging">
@@ -93,7 +93,7 @@ export default function Footer() {
         </div>
         <div className="border-t border-border pt-8 flex flex-col sm:flex-row items-center justify-between gap-4">
           <p className="text-muted-foreground text-xs">
-            &copy; {currentYear} GaGa Chat. All rights reserved. GaGa Chat is a free messaging app available in Bangladesh &amp; globally.
+            &copy; {currentYear} GaGa. All rights reserved. GaGa is a free messaging app available in Bangladesh &amp; globally.
           </p>
           <div className="flex items-center gap-4">
             <span className="text-muted-foreground text-xs">Made with care for Bangladesh &amp; the world</span>

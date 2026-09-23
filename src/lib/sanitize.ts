@@ -1,5 +1,5 @@
 /**
- * Input sanitization utilities for GaGa Chat.
+ * Input sanitization utilities for GaGa.
  * Provides functions to sanitize user-generated text content
  * against XSS, injection attacks, and malicious content.
  */

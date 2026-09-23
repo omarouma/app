@@ -28,7 +28,7 @@ const STEPS: Step[] = [
   {
     kind: 'intro',
     icon: Sparkles,
-    title: 'Welcome to GaGa Chat',
+    title: 'Welcome to GaGa',
     description: 'The free messaging app for everyone. Chat, call, share, and earn — all in one place. No VPN needed, supports all languages.',
     color: 'text-[#00C300]',
     bg: 'bg-[#00C300]/10',
@@ -176,7 +176,7 @@ export default function OnboardingPage() {
       <div className="shrink-0 flex items-center justify-between px-6 py-4">
         <div className="flex items-center gap-2">
           <Logo size={32} />
-          <span className="text-foreground font-bold text-sm">GaGa Chat</span>
+          <span className="text-foreground font-bold text-sm">GaGa</span>
         </div>
         {canSkip && (
           <button type="button" onClick={skip}
