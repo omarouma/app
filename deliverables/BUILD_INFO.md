@@ -3,7 +3,7 @@
 **Version:** 1.0.0 (versionCode 1)
 **Package:** `gagachat.app`
 **App label:** GaGa
-**Build date:** 2026-09-23 (performance pass 8 — lazy media + connection hints)
+**Build date:** 2026-09-23 (performance pass 9 — dead-weight removal + lazy media)
 **minSdk:** 22 (Android 5.1+) · **targetSdk:** 34 (Android 14)
 
 ## Artifacts
@@ -19,8 +19,8 @@
 ## Checksums (SHA-256)
 
 ```
-2dca654e56f1b7ba012836105cfa8e4182cd890bb20e0ef6aa639f522914a36b  GaGa-v1.0.0-release.apk
-a05757f69818a261f9cbd4149f041f820245d139e78ea04d812f8257e544339a  GaGa-v1.0.0-release.aab
+8b8498e00b60c0afae511811b9e9c2947e0ecb5a604df83db53c73a8c9e0b1c7  GaGa-v1.0.0-release.apk
+509d8b2092fd43ac45a0c0314b50b0f23475484f301bf2972dc417acf0cd082d  GaGa-v1.0.0-release.aab
 ```
 
 > The APK checksum changes on every build because APK signing embeds a
@@ -59,6 +59,19 @@ so one file installs and runs everywhere:
 | **Store-ready** | AAB provided for Google Play; APK for direct/sideload distribution |
 
 ## What's included in this build
+
+### Performance pass 9 — dead-weight removal
+
+A cleanup pass that removes assets shipped inside the APK that the native app
+never reads:
+
+1. **Removed `public/locales/*/common.json` (6 files, ~60 KB).** These JSON
+   translation files were a leftover from an earlier fetch-based i18n approach.
+   The app now bundles all 12 languages as TypeScript dictionaries compiled into
+   the `i18n` chunk, so nothing ever fetches these files at runtime — they were
+   pure dead weight in the APK. Verified unreferenced across `src/`, `index.html`,
+   `vite.config.ts`, `capacitor.config.ts`, `sw.js` and `manifest.json` before
+   removal.
 
 ### Performance pass 8 — lazy media + connection hints
 
