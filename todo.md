@@ -19,7 +19,7 @@ Branch: `feat/attachment-share-screen`
 - [x] Fix any newly found gaps (none found — prior pass intact)
 
 ## Section 3 — Build & Verify
-- [ ] tsc -b clean
-- [ ] vite build + cap sync android + strip assets
-- [ ] gradlew assembleRelease bundleRelease
-- [ ] Verify APK/AAB + update BUILD_INFO + commit/push
+- [x] tsc -b clean
+- [x] vite build + cap sync android + strip assets
+- [x] gradlew assembleRelease bundleRelease
+- [x] Verify APK/AAB + update BUILD_INFO + commit/push
