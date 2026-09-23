@@ -1,21 +1,22 @@
-# GaGa — Remaining implementations & improvements audit (pass 9)
+# GaGa — Fix blank/stuck chat screen (bug fix)
 
 Branch: `feat/attachment-share-screen`
 North-star: GaGa must be BETTER than WhatsApp/Messenger (see NORTH_STAR.md).
 
-## Section 1 — Deep audit
-- [x] Audit feature parity vs WhatsApp/Messenger
-- [x] Audit code quality (any/eslint/empty-catch)
-- [x] Audit reliability (offline, retries, ordering)
-- [x] Audit performance (bundle, startup, runtime)
-- [x] Audit security/privacy (backup rules, manifest, proguard)
-- [x] Audit dead weight / unreferenced assets
+## Section 1 — Diagnose
+- [x] Reproduce from screenshot: Chats screen stuck on loading skeletons while "All (10)" shows 10 chats exist
+- [x] Trace loading flag: `useChatLogic` returns `loadingChats || loadingGroups`
+- [x] Find root cause: `fetchChats` never called; `subscribeChats` never clears `loadingChats`
 
-## Section 2 — Implement improvements
-- [x] Remove unreferenced public/locales/*/common.json (60K dead weight)
-- [x] tsc clean + verify
+## Section 2 — Fix
+- [x] `useChatStore.subscribeChats`: set `loadingChats: false` in snapshot callback
+- [x] `useChatStore.subscribeChats`: clear `loadingChats` on early-return (backend unavailable)
+- [x] `useChatLogic`: make `loading` data-aware (never skeleton when data present)
+- [x] `DesktopChatView`: same data-aware guard
+- [x] tsc -b clean
 
 ## Section 3 — Build & release
 - [ ] Clean build (tsc -> vite -> cap sync -> strip -> gradle)
-- [ ] Verify + copy to deliverables + checksums + BUILD_INFO
+- [ ] Verify APK/AAB signatures (v1/v2/v3)
+- [ ] Copy to deliverables + checksums + BUILD_INFO
 - [ ] Commit + push to GitHub

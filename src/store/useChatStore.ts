@@ -203,7 +203,11 @@ export const useChatStore = create<ChatStore>((set, get) => ({
   },
 
   subscribeChats: (userId) => {
-    if (!isFirestoreAvailable() || !userId) return () => { };
+    if (!isFirestoreAvailable() || !userId) {
+      // Never leave the UI stuck on skeletons if the backend is unavailable.
+      set({ loadingChats: false });
+      return () => { };
+    }
     return subscribeDeduped(
       `chats_${userId}`,
       () => subscribeToCollection<Chat>(
@@ -214,7 +218,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
           const archivedChats = chats.filter(c => c.archived);
           const activeChats = chats.filter(c => !c.archived);
           const totalUnread = activeChats.reduce((sum, chat) => sum + (chat.unreadCount || 0), 0);
-          set({ chats: activeChats, archivedChats, totalUnread });
+          set({ chats: activeChats, archivedChats, totalUnread, loadingChats: false });
 
           // Overlay authoritative per-user unread counts (server RPC).
           void chatApi.fetchUnreadCounts(userId).then((unreadMap) => {

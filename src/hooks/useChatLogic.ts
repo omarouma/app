@@ -205,7 +205,10 @@ export function useChatLogic() {
     setSearch,
     activeTab,
     setActiveTab,
-    loading: loadingChats || loadingGroups,
+    // Only show skeletons while we truly have nothing to render. If chats or
+    // groups have already arrived (e.g. via the realtime subscription), never
+    // block the UI on a stale loading flag.
+    loading: (loadingChats && chats.length === 0) || (loadingGroups && groups.length === 0),
     filtered,
     totalUnread,
     typingMap,

@@ -19,8 +19,8 @@
 ## Checksums (SHA-256)
 
 ```
-8b8498e00b60c0afae511811b9e9c2947e0ecb5a604df83db53c73a8c9e0b1c7  GaGa-v1.0.0-release.apk
-509d8b2092fd43ac45a0c0314b50b0f23475484f301bf2972dc417acf0cd082d  GaGa-v1.0.0-release.aab
+0aa8d0a94e181b1bd968f37451bf6c2c2cc3926cd8ccd8edc136df01a5ae3aa1  GaGa-v1.0.0-release.apk
+926adb52fd01ffb7d16a68d5e21c239f0625a79418915a77cbfb47a707c9fc35  GaGa-v1.0.0-release.aab
 ```
 
 > The APK checksum changes on every build because APK signing embeds a
@@ -59,6 +59,33 @@ so one file installs and runs everywhere:
 | **Store-ready** | AAB provided for Google Play; APK for direct/sideload distribution |
 
 ## What's included in this build
+
+### Bug fix — chat list stuck on loading skeletons (P0)
+
+**Symptom:** the Chats screen showed the "All (10)" tab (10 chats present in
+state) but the list area rendered only loading skeleton bars forever — the
+conversations never appeared.
+
+**Root cause:** `useChatLogic` derives its `loading` flag from
+`loadingChats || loadingGroups`. `loadingChats` initialises to `true`, and the
+only code that ever set it back to `false` lived inside `useChatStore.fetchChats`
+— which is **never called anywhere in the app** (the app relies entirely on the
+realtime `subscribeChats` path). `subscribeChats` updated `chats`,
+`archivedChats` and `totalUnread` on each snapshot but **never cleared
+`loadingChats`**, so the flag stayed `true` for the lifetime of the session even
+though the chats had already arrived.
+
+**Fix:**
+- `useChatStore.subscribeChats` now sets `loadingChats: false` in its snapshot
+  callback (mirroring `useGroupStore.subscribeGroups`), so the flag clears the
+  moment the first realtime snapshot lands.
+- `subscribeChats` also clears `loadingChats` on its early-return path (when the
+  backend is unavailable or no user id is present), so the UI can never be stuck
+  on skeletons.
+- `useChatLogic` now computes a **data-aware** loading flag —
+  `(loadingChats && chats.length === 0) || (loadingGroups && groups.length === 0)`
+  — so the list is never blocked by a stale flag when data is already present.
+- `DesktopChatView` received the same data-aware guard.
 
 ### Performance pass 9 — dead-weight removal
 

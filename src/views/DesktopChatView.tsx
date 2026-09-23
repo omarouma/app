@@ -75,7 +75,7 @@ export default function DesktopChatView() {
         </div>
 
         <div className="flex-1 overflow-y-auto scrollbar-hide">
-          {loadingChats ? (
+          {loadingChats && chats.length === 0 ? (
             <div className="p-4 space-y-3">
               {[1, 2, 3].map(i => (
                 <div key={i} className="h-16 bg-[#F5F5F5] rounded-xl animate-pulse" />
