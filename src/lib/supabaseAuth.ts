@@ -142,42 +142,40 @@ export function onAuthStateChange(callback: (user: User | null) => void) {
   const supabase = getSupabaseSafe();
   if (!supabase) {
     callback(null);
-    return () => { };
+    return () => {};
   }
 
-  let initialHandled = false;
+  let disposed = false;
+  let revision = 0;
+  const timers = new Set<ReturnType<typeof setTimeout>>();
 
-  const { data } = supabase.auth.onAuthStateChange(async (event, session) => {
-    // On INITIAL_SESSION the listener fires with the current session,
-    // so we don't need a separate getSession() call.
-    if (!initialHandled) initialHandled = true;
-
-    // Surface session lifecycle events so the app can react safely:
-    //  - SIGNED_OUT                  → clear user, redirect to login
-    //  - TOKEN_REFRESHED             → session renewed, keep user
-    //  - USER_UPDATED                → refresh profile (email/name changes)
-    //  - PASSWORD_RECOVERY           → user is in reset flow
-    if (event === 'SIGNED_OUT') {
-      callback(null);
-      return;
-    }
-
-    if (session?.user) {
-      // `fetchUserProfile` is timeout-bounded and never throws, but guard the
-      // whole callback anyway: this callback gates the app's loading screen, so
-      // it must always report a result.
-      try {
-        const user = await fetchUserProfile(session.user.id);
-        callback(user);
-      } catch {
+  // Return synchronously to release the Supabase auth lock before profile I/O.
+  const { data } = supabase.auth.onAuthStateChange((event, session) => {
+    const current = ++revision;
+    const timer = setTimeout(() => {
+      timers.delete(timer);
+      if (disposed || current !== revision) return;
+      if (event === 'SIGNED_OUT' || !session?.user) {
         callback(null);
+        return;
       }
-    } else {
-      callback(null);
-    }
+
+      void fetchUserProfile(session.user.id).then((user) => {
+        if (!disposed && current === revision) callback(user);
+      }).catch(() => {
+        if (!disposed && current === revision) callback(null);
+      });
+    }, 0);
+    timers.add(timer);
   });
 
-  return () => data.subscription.unsubscribe();
+  return () => {
+    disposed = true;
+    revision += 1;
+    for (const timer of timers) clearTimeout(timer);
+    timers.clear();
+    data.subscription.unsubscribe();
+  };
 }
 
 /**

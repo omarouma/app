@@ -1,0 +1,114 @@
+name: GaGa Android release verification
+on:
+  push:
+    branches: [fix/current-apk-release-verification]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify-and-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - name: Install dependencies
+        run: npm ci
+      - name: Typecheck
+        run: npx tsc -b
+      - name: Auth regression tests
+        run: npx vitest run src/lib/supabaseAuth.lifecycle.test.ts
+      - name: Validate release configuration and restore existing signer
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          VITE_FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY }}
+          VITE_FIREBASE_AUTH_DOMAIN: ${{ secrets.VITE_FIREBASE_AUTH_DOMAIN }}
+          VITE_FIREBASE_PROJECT_ID: ${{ secrets.VITE_FIREBASE_PROJECT_ID }}
+          VITE_FIREBASE_STORAGE_BUCKET: ${{ secrets.VITE_FIREBASE_STORAGE_BUCKET }}
+          VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.VITE_FIREBASE_MESSAGING_SENDER_ID }}
+          VITE_FIREBASE_APP_ID: ${{ secrets.VITE_FIREBASE_APP_ID }}
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          python3 - <<'PY'
+          import os, pathlib, base64
+          keys = [
+              'VITE_SUPABASE_URL', 'VITE_SUPABASE_ANON_KEY',
+              'VITE_FIREBASE_API_KEY', 'VITE_FIREBASE_AUTH_DOMAIN',
+              'VITE_FIREBASE_PROJECT_ID', 'VITE_FIREBASE_STORAGE_BUCKET',
+              'VITE_FIREBASE_MESSAGING_SENDER_ID', 'VITE_FIREBASE_APP_ID',
+              'ANDROID_KEYSTORE_BASE64', 'ANDROID_KEYSTORE_PASSWORD',
+              'ANDROID_KEY_ALIAS', 'ANDROID_KEY_PASSWORD'
+          ]
+          missing = [k for k in keys if not os.environ.get(k)]
+          if missing:
+              raise SystemExit('Missing required GitHub Actions secrets: ' + ', '.join(missing))
+          if os.environ['VITE_SUPABASE_URL'].rstrip('/') != 'https://fcjgbbmfqdkucfpqjxae.supabase.co':
+              raise SystemExit('Supabase project differs from verified APK (10); review configuration.')
+          if os.environ['VITE_FIREBASE_PROJECT_ID'] != 'oumagachat':
+              raise SystemExit('Firebase project differs from verified APK (10).')
+          os.umask(0o077)
+          signer = pathlib.Path(os.environ['RUNNER_TEMP']) / 'gaga-release.jks'
+          signer.write_bytes(base64.b64decode(os.environ['ANDROID_KEYSTORE_BASE64'], validate=True))
+          def prop(value):
+              return ''.join('\\' + c if c in '\\ :=#!' else c for c in value).replace('\n', '\\n').replace('\r', '\\r').replace('\t', '\\t')
+          values = {
+              'storeFile': str(signer),
+              'storePassword': os.environ['ANDROID_KEYSTORE_PASSWORD'],
+              'keyAlias': os.environ['ANDROID_KEY_ALIAS'],
+              'keyPassword': os.environ['ANDROID_KEY_PASSWORD']
+          }
+          pathlib.Path('android/keystore.properties').write_text(
+              ''.join(k + '=' + prop(v) + '\n' for k, v in values.items()), encoding='utf-8')
+          PY
+          keytool -exportcert -keystore "$RUNNER_TEMP/gaga-release.jks" -storepass:env ANDROID_KEYSTORE_PASSWORD -alias "$ANDROID_KEY_ALIAS" -file "$RUNNER_TEMP/gaga-signer.der"
+          signer_fingerprint="$(openssl x509 -inform DER -in "$RUNNER_TEMP/gaga-signer.der" -noout -fingerprint -sha256 | cut -d= -f2 | tr -d ':')"
+          test "$signer_fingerprint" = "5DDBD01631AA1861AB308EFFB3A12856664F0A55D8EDC21F75D90BF03F35F4A2" || { echo "Signing certificate does not match APK (10). Do not generate a new key."; exit 1; }
+      - name: Build current native web assets
+        run: npm run native:build
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          VITE_FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY }}
+          VITE_FIREBASE_AUTH_DOMAIN: ${{ secrets.VITE_FIREBASE_AUTH_DOMAIN }}
+          VITE_FIREBASE_DATABASE_URL: ${{ secrets.VITE_FIREBASE_DATABASE_URL }}
+          VITE_FIREBASE_PROJECT_ID: ${{ secrets.VITE_FIREBASE_PROJECT_ID }}
+          VITE_FIREBASE_STORAGE_BUCKET: ${{ secrets.VITE_FIREBASE_STORAGE_BUCKET }}
+          VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.VITE_FIREBASE_MESSAGING_SENDER_ID }}
+          VITE_FIREBASE_APP_ID: ${{ secrets.VITE_FIREBASE_APP_ID }}
+          VITE_ZEGO_APP_ID: '372536818'
+          VITE_ZEGO_TOKEN_SERVER_URL: https://fcjgbbmfqdkucfpqjxae.supabase.co/functions/v1/zego-token
+      - name: Compile signed APK and AAB
+        working-directory: android
+        run: bash ./gradlew --no-daemon assembleRelease bundleRelease
+      - name: Verify APK signature and package
+        run: |
+          sdk_tools="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)"
+          "$sdk_tools/apksigner" verify --verbose --print-certs android/app/build/outputs/apk/release/app-release.apk
+          "$sdk_tools/aapt" dump badging android/app/build/outputs/apk/release/app-release.apk > "$RUNNER_TEMP/apk-badging.txt"
+          grep "package: name='gagachat.app' versionCode='2'" "$RUNNER_TEMP/apk-badging.txt"
+          grep "sdkVersion:'22'" "$RUNNER_TEMP/apk-badging.txt"
+          mkdir -p verified-release
+          cp android/app/build/outputs/apk/release/app-release.apk verified-release/GaGa-v1.0.1-release.apk
+          cp android/app/build/outputs/bundle/release/app-release.aab verified-release/GaGa-v1.0.1-release.aab
+          cp "$RUNNER_TEMP/apk-badging.txt" verified-release/
+          sha256sum verified-release/*.apk verified-release/*.aab > verified-release/SHA256SUMS.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: GaGa-v1.0.1-signed-release
+          path: verified-release/
+          if-no-files-found: error
+      - name: Remove temporary signing material
+        if: always()
+        run: rm -f android/keystore.properties "$RUNNER_TEMP/gaga-release.jks" "$RUNNER_TEMP/gaga-signer.der"
