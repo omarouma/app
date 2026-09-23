@@ -20,7 +20,7 @@ export default function LanguageStep() {
         You can change this later in Settings.
       </p>
 
-      <div className="space-y-2">
+      <div className="space-y-2 max-h-[45vh] overflow-y-auto pr-1">
         {supportedLanguages.map((lang) => {
           const active = selected === lang.code;
           return (

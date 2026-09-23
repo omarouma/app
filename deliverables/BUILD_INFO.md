@@ -3,15 +3,15 @@
 **Version:** 1.0.0 (versionCode 1)
 **Package:** `gagachat.app`
 **App label:** GaGa
-**Build date:** 2026-09-23 (performance & professional-grade pass 6 — R8 + payload slimming)
+**Build date:** 2026-09-23 (global-reach pass 7 — 12 languages + final audit)
 **minSdk:** 22 (Android 5.1+) · **targetSdk:** 34 (Android 14)
 
 ## Artifacts
 
 | File | Size | Purpose |
 |---|---|---|
-| `GaGa-v1.0.0-release.apk` | 5.6 MB | Direct install / sideload / testing |
-| `GaGa-v1.0.0-release.aab` | 6.1 MB | Google Play Store upload |
+| `GaGa-v1.0.0-release.apk` | 5.7 MB | Direct install / sideload / testing |
+| `GaGa-v1.0.0-release.aab` | 6.2 MB | Google Play Store upload |
 
 > **Size milestone:** the APK shrank from **27.2 MB → 5.6 MB (−78%)** and the AAB
 > from **26.9 MB → 6.1 MB (−76%)** in this pass (see "Performance pass" below).
@@ -19,8 +19,8 @@
 ## Checksums (SHA-256)
 
 ```
-36672f115a9338a83d7c63dd71697768653710a3961462b593e0fc6dd1c3cfae  GaGa-v1.0.0-release.apk
-cae5187befd94e5ffba50c967542bad4f8f013e49a474364976098099baddefd  GaGa-v1.0.0-release.aab
+02d76430cd08b81488343b1816a0b2f38c8c817892017832b85469fde25f6a1a  GaGa-v1.0.0-release.apk
+d54b7ef005e69bc3f6404c93b94c3b9855a82b80aaa0dee12b9cd9225fcf8e2b  GaGa-v1.0.0-release.aab
 ```
 
 > The APK checksum changes on every build because APK signing embeds a
@@ -53,12 +53,39 @@ so one file installs and runs everywhere:
 |---|---|
 | **Android version** | **5.1 (API 22) → 14 (API 34)** — covers ~99% of active devices |
 | **CPU architecture** | **All** — arm64-v8a, armeabi-v7a, x86, x86_64 (pure Java/Kotlin + WebView; **zero native `.so` libs**, so no ABI is excluded) |
-| **Locales** | **85 languages/regions** bundled (af, am, ar, as, az, be, bg, bn, bs, ca, cs, da, de, el, en-AU/CA/GB/IN, es, es-US, et, eu, fa, fi, fr, fr-CA, gl, gu, hi, hr, hu, hy, in, is, it, iw, ja, ka, kk, km, kn, ko, ky, lo, lt, lv, mk, ml, mn, mr, ms, my, nb, ne, nl, or, pa, pl, pt, pt-BR, pt-PT, ro, ru, si, sk, sl, sq, sr, sr-Latn, sv, sw, ta, te, th, tl, tr, uk, ur, uz, vi, zh-CN, zh-HK, zh-TW, zu) |
+| **Locales** | **12 in-app UI languages** (en, zh, hi, es, ar, pt, ru, bn, id, fr, de, ja) + **85 Android framework locales/regions** bundled (af, am, ar, as, az, be, bg, bn, bs, ca, cs, da, de, el, en-AU/CA/GB/IN, es, es-US, et, eu, fa, fi, fr, fr-CA, gl, gu, hi, hr, hu, hy, in, is, it, iw, ja, ka, kk, km, kn, ko, ky, lo, lt, lv, mk, ml, mn, mr, ms, my, nb, ne, nl, or, pa, pl, pt, pt-BR, pt-PT, ro, ru, si, sk, sl, sq, sr, sr-Latn, sv, sw, ta, te, th, tl, tr, uk, ur, uz, vi, zh-CN, zh-HK, zh-TW, zu) |
 | **Screen sizes** | All densities (mdpi → xxxhdpi) + portrait-locked UI |
 | **Signing** | v1 (JAR) + v2 + v3 — verifies on Android 5 through 14+ |
 | **Store-ready** | AAB provided for Google Play; APK for direct/sideload distribution |
 
 ## What's included in this build
+
+### Global-reach pass (P0) — language coverage 6 → 12
+
+GaGa's in-app UI was translated into **12 languages** (up from 6), covering the
+majority of the world's speakers. Each new dictionary mirrors the English key set
+**exactly (250/250 keys, zero fallbacks)** and is wired into the onboarding
+language step and Settings → Language selector (both data-driven, so the new
+languages appear automatically).
+
+| Code | Language | Speakers (approx.) |
+|---|---|---|
+| `en` | English | 1.5 B |
+| `zh` | Chinese (中文) | 1.1 B |
+| `hi` | **Hindi (हिन्दी)** | 600 M |
+| `es` | Spanish (Español) | 560 M |
+| `ar` | Arabic (العربية) | 380 M |
+| `pt` | **Portuguese (Português)** | 260 M |
+| `ru` | **Russian (Русский)** | 250 M |
+| `bn` | Bengali (বাংলা) | 230 M |
+| `id` | **Indonesian (Bahasa Indonesia)** | 200 M |
+| `fr` | French (Français) | 130 M |
+| `de` | **German (Deutsch)** | 130 M |
+| `ja` | **Japanese (日本語)** | 125 M |
+
+New in this pass (bold): **Hindi, Portuguese, Russian, Indonesian, German,
+Japanese.** The language list is scrollable on small screens, and RTL is handled
+automatically for Arabic.
 
 ### Performance & professional-grade pass (P0)
 

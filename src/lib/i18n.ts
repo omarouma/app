@@ -1,6 +1,10 @@
-export type LangCode = 'en' | 'bn' | 'es' | 'fr' | 'ar' | 'zh';
+import { hi, pt, ru, id, de, ja } from './i18n-extra';
 
-interface Translations {
+export type LangCode =
+  | 'en' | 'bn' | 'es' | 'fr' | 'ar' | 'zh'
+  | 'hi' | 'pt' | 'ru' | 'id' | 'de' | 'ja';
+
+export interface Translations {
   [key: string]: string | Translations;
 }
 
@@ -1525,7 +1529,7 @@ const zh: Translations = {
   yourPrivacy: '您的隐私，受保护',
 };
 
-const dictionaries: Record<LangCode, Translations> = { en, bn, es, fr, ar, zh };
+const dictionaries: Record<LangCode, Translations> = { en, bn, es, fr, ar, zh, hi, pt, ru, id, de, ja };
 
 function getInitialLang(): LangCode {
   try {
@@ -1579,4 +1583,10 @@ export const supportedLanguages: { code: LangCode; label: string; native: string
   { code: 'fr', label: 'French', native: 'Français' },
   { code: 'ar', label: 'Arabic', native: 'العربية' },
   { code: 'zh', label: 'Chinese', native: '中文' },
+  { code: 'hi', label: 'Hindi', native: 'हिन्दी' },
+  { code: 'pt', label: 'Portuguese', native: 'Português' },
+  { code: 'ru', label: 'Russian', native: 'Русский' },
+  { code: 'id', label: 'Indonesian', native: 'Bahasa Indonesia' },
+  { code: 'de', label: 'German', native: 'Deutsch' },
+  { code: 'ja', label: 'Japanese', native: '日本語' },
 ];

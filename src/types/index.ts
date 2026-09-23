@@ -348,7 +348,7 @@ export interface PinnedMessage {
 export interface ThemeSettings {
   theme: 'light' | 'dark' | 'midnight' | 'oled' | 'gaga';
   fontSize: 'small' | 'medium' | 'large';
-  language: 'en' | 'bn' | 'es' | 'fr' | 'ar' | 'zh';
+  language: 'en' | 'bn' | 'es' | 'fr' | 'ar' | 'zh' | 'hi' | 'pt' | 'ru' | 'id' | 'de' | 'ja';
   accentColor: string;
   notifications: {
     pushEnabled: boolean;

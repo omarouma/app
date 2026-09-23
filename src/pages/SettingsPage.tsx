@@ -22,7 +22,7 @@ import { useUserSettings } from '@/store/useSettingsStore';
 import { useWalletStore } from '@/store/useWalletStore';
 import { useFriendStore } from '@/store/useFriendStore';
 import { useTranslation } from '@/hooks/useTranslation';
-import type { LangCode } from '@/lib/i18n';
+import { supportedLanguages as languages, type LangCode } from '@/lib/i18n';
 import type { ThemeSettings } from '@/types';
 import Logo from '@/components/Logo';
 import { previewSound, type SoundProfile, isVibrationSupported } from '@/lib/sounds';
@@ -55,15 +55,6 @@ const themes = [
   { code: 'midnight' as const, label: 'Midnight', desc: 'Deep blue tones', icon: MoonStar },
   { code: 'oled' as const, label: 'OLED', desc: 'True black for OLED', icon: Smartphone },
   { code: 'gaga' as const, label: 'GaGa', desc: 'Our signature green', icon: Crown },
-];
-
-const languages = [
-  { code: 'en' as const, label: 'English', native: 'English' },
-  { code: 'bn' as const, label: 'Bengali', native: 'বাংলা' },
-  { code: 'es' as const, label: 'Spanish', native: 'Español' },
-  { code: 'fr' as const, label: 'French', native: 'Français' },
-  { code: 'ar' as const, label: 'Arabic', native: 'العربية' },
-  { code: 'zh' as const, label: 'Chinese', native: '中文' },
 ];
 
 const openSourceLicenses = [
