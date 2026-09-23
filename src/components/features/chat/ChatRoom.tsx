@@ -1,5 +1,5 @@
 import { useState, useRef, useMemo, useCallback, useEffect } from 'react';
-import type { ReactElement } from 'react';
+import type { ReactElement, CSSProperties } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -42,6 +42,17 @@ function isSameDay(a: Date, b: Date): boolean {
 
 function hasDayBoundary(a: Message, b: Message): boolean {
   return !isSameDay(new Date(a.timestamp), new Date(b.timestamp));
+}
+
+/** Max gap (ms) between two consecutive messages from the same sender before
+ *  they are treated as separate groups (new avatar + spacing). */
+const GROUP_TIME_GAP_MS = 5 * 60 * 1000;
+
+function hasTimeGap(a: Message, b: Message): boolean {
+  const ta = new Date(a.timestamp).getTime();
+  const tb = new Date(b.timestamp).getTime();
+  if (!Number.isFinite(ta) || !Number.isFinite(tb)) return false;
+  return Math.abs(tb - ta) > GROUP_TIME_GAP_MS;
 }
 
 export default function ChatRoom({ chatId, userId, onBack }: {
@@ -493,7 +504,10 @@ export default function ChatRoom({ chatId, userId, onBack }: {
 
   const shouldShowAvatar = useCallback((msg: Message, index: number) => {
     const prev = msgs[index - 1];
-    return !prev || prev.senderId !== msg.senderId || hasDayBoundary(prev, msg);
+    return !prev
+      || prev.senderId !== msg.senderId
+      || hasDayBoundary(prev, msg)
+      || hasTimeGap(prev, msg);
   }, [msgs]);
 
   const shouldShowDate = useCallback((msg: Message, index: number) => {
@@ -640,7 +654,11 @@ export default function ChatRoom({ chatId, userId, onBack }: {
   }, [selectionMode]);
 
   return (
-    <div className="flex flex-col h-full bg-background" style={{ backgroundImage: chatBg }}>
+    <div
+      className="chat-surface flex flex-col h-full"
+      data-bg={chatBg || undefined}
+      style={{ '--chat-bg': chatBg } as CSSProperties}
+    >
       <ChatHeader
         displayUser={resolvedDisplayUser}
         handle={displayHandle}
@@ -818,6 +836,19 @@ export default function ChatRoom({ chatId, userId, onBack }: {
             />
           )}
           components={{
+            EmptyPlaceholder: () => (
+              <div className="flex flex-col items-center justify-center text-center px-8 py-16 select-none">
+                <div className="w-16 h-16 rounded-full bg-[#00C300]/10 flex items-center justify-center mb-3">
+                  <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#00C300" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
+                  </svg>
+                </div>
+                <p className="text-sm font-semibold text-foreground">No messages yet</p>
+                <p className="text-xs text-muted-foreground mt-1 max-w-[220px]">
+                  Say hi to {resolvedDisplayUser?.name || 'your contact'} to start the conversation.
+                </p>
+              </div>
+            ),
             Header: () => (
               <div className="p-4 flex justify-center">
                 {hasMore && (

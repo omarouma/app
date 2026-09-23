@@ -12,6 +12,7 @@ import { useFriendStore } from '@/store/useFriendStore';
 import { useChatStore } from '@/store/useChatStore';
 import { useGroupStore } from '@/store/useGroupStore';
 import { buildGagaChatWebUrl, getDefaultAvatar, sanitizeMediaUrl } from '@/lib/utils';
+import ProfileCover from '@/components/profile/ProfileCover';
 import { isFirestoreAvailable, COLLECTIONS, updateDocById, subscribeToDoc } from '@/lib/firestore';
 import { copyToClipboard, nativeShare } from '@/lib/share';
 import { validateUsername } from '@/lib/validation';
@@ -578,23 +579,12 @@ export default function ProfilePage() {
         {/* Avatar + Name card */}
         <div className="bg-background rounded-2xl shadow-sm overflow-hidden">
           {/* Cover image / video */}
-          <div className="relative h-32 sm:h-40 w-full bg-gradient-to-r from-[#00C300]/20 to-[#00C300]/5">
-            {sanitizeMediaUrl(displayUser.coverVideo) ? (
-              <video
-                src={sanitizeMediaUrl(displayUser.coverVideo)}
-                className="w-full h-full object-cover"
-                autoPlay
-                muted
-                loop
-                playsInline
-              />
-            ) : sanitizeMediaUrl(displayUser.coverImage) ? (
-              <img
-                src={sanitizeMediaUrl(displayUser.coverImage)}
-                alt={`${displayUser.name}'s cover`}
-                className="w-full h-full object-cover"
-              />
-            ) : null}
+          <div className="relative h-32 sm:h-40 w-full">
+            <ProfileCover
+              videoUrl={displayUser.coverVideo}
+              imageUrl={displayUser.coverImage}
+              alt={`${displayUser.name}'s cover`}
+            />
             {isOwnProfile && (
               <>
                 <div className="absolute bottom-2 right-2 flex items-center gap-1.5">

@@ -3,7 +3,7 @@
 **Version:** 1.0.0 (versionCode 1)
 **Package:** `gagachat.app`
 **App label:** GaGa
-**Build date:** 2026-09-23 (chat-room spec pass 2)
+**Build date:** 2026-09-23 (startup/auth flow + chat-room UI/UX pass 3)
 **minSdk:** 22 (Android 5.1+) · **targetSdk:** 34 (Android 14)
 
 ## Artifacts
@@ -16,8 +16,8 @@
 ## Checksums (SHA-256)
 
 ```
-e0a105d6d9aab7c69037673c85f7c75ed7ea0051aaa7e5d2807f0bda22e5953a  GaGa-v1.0.0-release.apk
-ed295fe0e7072dda90c2a563bf58c9aceee8c2c82b11ede5eb6584dc620155f9  GaGa-v1.0.0-release.aab
+8009e202982762634d7fa248be034bbb72c52ab5952cce35be26fe261b665d05  GaGa-v1.0.0-release.apk
+95f88809b5a58b03bb352d6cf69104b12ddc6db0eb104a7e04bc95fd0e7c4b02  GaGa-v1.0.0-release.aab
 ```
 
 ## Signing certificate
@@ -39,6 +39,50 @@ Signature schemes verified: **v1 (JAR) ✓ · v2 ✓ · v3 ✓**
 > all future updates must be signed with the same key.
 
 ## What's included in this build
+
+### Startup & Authentication Flow — no Landing View on native (P0)
+
+The installed Android app **never** shows the website-style landing page. The
+startup flow is now strictly:
+
+- **Fresh install** → GaGa Splash → Login / Create Account → Main Home.
+- **Already registered / logged in** → GaGa Splash → Main Home.
+- **After logout** → GaGa Splash → Login / Create Account.
+
+Implementation: the `/` route in `App.tsx` redirects to `/auth` on native
+(`isNative()`) instead of rendering `LandingView`; the auth-resolution loading
+gate (`if (loading) return <PageLoader />`) resolves the session **during the
+splash** so there is no flash of Auth before Home; all post-auth navigations use
+`replace`, so Android Back from Home can never expose the Auth screen or the
+Landing View. The "Home" button inside `AuthView` is hidden on native so there is
+no path back to a landing page. Session persistence is handled by Supabase
+(`onAuthStateChange` + `subscribeToUserProfile`) with a 6 s safety timeout.
+
+### Profile cover video — always visible and playable
+
+New `ProfileCover` component guarantees the profile cover video is always
+visible and playable on the native WebView: muted autoplay + `playsInline`,
+graceful fallback to the cover image (poster) if the video fails to load, a
+tap-to-play/pause overlay, and a mute/unmute toggle. Wired into `ProfilePage`.
+
+### Chat-room UI/UX production pass (§33–§76)
+
+- **§36/§37 Incoming message UI — fixed invisible bubbles.** Incoming text,
+  poll, contact-card, voice and group bubbles used `bg-background` (white) with
+  no border on a white conversation surface, making them invisible in light
+  mode. They now carry a `border border-border` surface, matching the file /
+  location / call bubbles.
+- **§39 Message grouping.** Consecutive messages from the same sender now break
+  into a new group after a 5-minute gap (in addition to sender change / day
+  boundary), so avatars and spacing stay meaningful.
+- **§33/§72 Chat surface + dark mode.** The conversation background is now a
+  `.chat-surface` token; the user-chosen light gradient is dimmed automatically
+  in dark mode so bubbles stay legible and the theme stays consistent.
+- **§47 Keyboard-safe composer (group chat).** `GroupChatPage` now uses
+  `useKeyboardInset()` and offsets the composer by `--kb-inset`, matching the
+  1:1 chat room.
+- **§70 Empty state.** The 1:1 chat room now renders a friendly "No messages
+  yet" placeholder instead of a blank surface.
 
 ### Chat-room feature improvement spec (unified timeline + call history)
 

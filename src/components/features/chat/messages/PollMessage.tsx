@@ -31,7 +31,7 @@ export const PollMessage = memo(function PollMessage(props: PollMessageProps) {
   if (!pollData) {
     return (
       <div className={`max-w-[70%]`}>
-        <div className={`inline-block px-4 py-3 rounded-2xl ${isMe ? 'bg-[#00C300] text-white rounded-br-none' : 'bg-background text-foreground rounded-bl-none'}`}>
+        <div className={`inline-block px-4 py-3 rounded-2xl ${isMe ? 'bg-[#00C300] text-white rounded-br-none' : 'bg-background text-foreground rounded-bl-none border border-border'}`}>
           <div className="flex items-center gap-1.5 mb-2">
             <BarChart3 size={14} />
             <span className="text-xs font-medium">Poll</span>
@@ -44,7 +44,7 @@ export const PollMessage = memo(function PollMessage(props: PollMessageProps) {
 
   return (
     <div className={`max-w-[70%]`}>
-      <div className={`inline-block px-4 py-3 rounded-2xl ${isMe ? 'bg-[#00C300] text-white rounded-br-none' : 'bg-background text-foreground rounded-bl-none'}`}>
+      <div className={`inline-block px-4 py-3 rounded-2xl ${isMe ? 'bg-[#00C300] text-white rounded-br-none' : 'bg-background text-foreground rounded-bl-none border border-border'}`}>
         <div className="flex items-center gap-1.5 mb-2">
           <BarChart3 size={14} />
           <span className="text-xs font-medium">Poll</span>

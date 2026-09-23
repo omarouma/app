@@ -1,40 +1,43 @@
-# GaGa — Continue Chat-Room Spec (Sections A–E)
+# GaGa — Startup/Auth Flow + Chat-Room UI/UX Production Pass
 
-Branch: `feat/attachment-share-screen` (base commit `1be198b`)
+Branch: `feat/attachment-share-screen`
 
-## Section A — Link Previews (§41) [redo — was lost uncommitted]
-- [x] `src/types/index.ts` — add `LinkPreviewData` + `Message.linkPreview`
-- [x] `src/lib/linkPreview.ts` — NEW (extract/validate/fetch/cache)
-- [x] `src/components/features/chat/messages/LinkPreview.tsx` — NEW card component
-- [x] `src/components/features/chat/messages/index.ts` — export LinkPreview
-- [x] `supabase/migrations/20260927000200_link_previews.sql` — NEW column
-- [x] `supabase/functions/link-preview/index.ts` — NEW Edge Function (OG scrape, SSRF-safe)
-- [x] `src/lib/supabaseDb.ts` — FIELD_TO_DB `linkPreview`
-- [x] `src/services/chatApi.ts` — mapMessage + `updateMessageLinkPreview`
-- [x] `src/store/useChatStore.ts` — fire-and-forget preview fetch on send
-- [x] `src/components/features/chat/MessageItem.tsx` — render LinkPreview
+## Section 1 — Startup & Authentication Flow (no Landing View on native)
+- [x] `App.tsx` — native `/` route never renders LandingView (→ /auth or Home)
+- [x] `AuthView.tsx` — hide "Home" button on native (no path back to landing)
+- [x] Verify no flash of Auth before Home (loading gate)
+- [x] Verify Back from Home cannot expose Auth (replace navigations)
+- [x] Verify session persistence (Supabase) + post-auth routing
 
-## Section B — Timeline Integrity (§23/§24)
-- [x] §23 duplicate realtime-listener protection — verified `subscribeDeduped` ref-counting
-- [x] §24 guaranteed chronological ordering — `sortMessagesChronologically` applied in `subscribeMessages` + `addMessage`
+## Section 2 — Profile Cover Video (always visible + playable)
+- [x] `ProfileCover.tsx` — robust autoplay, error fallback, tap-to-play/pause, mute toggle
+- [x] `ProfilePage.tsx` — wire ProfileCover into cover block
+- [x] Ensure cover video renders on native WebView (autoplay policy)
 
-## Section C — Presence / Last Seen (§29)
-- [x] `src/lib/timeUtils.ts` — `formatLastSeenDetailed` ("Last seen today at 6:32 AM")
-- [x] `src/components/features/chat/ChatHeader.tsx` — use detailed last-seen
-- [x] `src/hooks/useChatEffects.ts` — detailed label + online sentinel
+## Section 3 — Chat Room UI/UX audit (§33–§76)
+- [x] §33 Global chat-room UI — `.chat-surface` token, dark-mode-aware background
+- [x] §34 Chat header (presence/last-seen/typing verified)
+- [x] §36/§37 Incoming/outgoing message UI — fixed invisible incoming bubbles (border)
+- [x] §38 Sender profile photos (avatar fallback verified)
+- [x] §39 Message grouping — added 5-min time-gap break
+- [x] §40 Date & time UI (separators verified)
+- [x] §41 Message status UI (ReadReceipt verified)
+- [x] §44/§45 Long-press menu + multi-select (verified)
+- [x] §46/§47 Composer + keyboard — group chat now keyboard-safe (kb-inset)
+- [x] §48 Attachment panel (verified)
+- [x] §50–§59 Media/document/location/contact cards (bubble surfaces fixed)
+- [x] §60 Upload/download UI (verified)
+- [x] §61 Typing & presence (verified)
+- [x] §62 Unread messages (separator verified)
+- [x] §64 System & call events in chat (verified)
+- [x] §69–§71 Error/loading/empty states — added chat empty state
+- [x] §72 Dark mode — chat surface + bubble surfaces
+- [x] §73 Accessibility (aria-labels verified)
+- [x] §74 Responsive device layout (max-w bubbles verified)
+- [x] §76 Final consistency audit
 
-## Section D — Responsive + Keyboard (§45/§46/§47)
-- [x] `ImageMessage.tsx` — responsive bubble sizing + aspect ratio (no stretch/crop/overflow)
-- [x] `VideoMessage.tsx` — responsive bubble sizing + aspect ratio
-- [x] `src/hooks/useKeyboardInset.ts` — NEW keyboard-safe composer hook
-- [x] `ChatRoom.tsx` — keyboard-safe composer (visualViewport), no layout jump
-
-## Section E — Build & Verify
-- [ ] Toolchain: JDK 17 + Android SDK 34 + node_modules
-- [ ] Regenerate release keystore + keystore.properties
+## Section 4 — Build & Verify
 - [ ] `tsc -b` clean
 - [ ] `vite build` + `cap sync android` + strip assets
 - [ ] `gradlew assembleRelease bundleRelease`
-- [ ] Verify APK (apksigner + aapt badging)
-- [ ] Update `deliverables/BUILD_INFO.md` + copy artifacts
-- [ ] Commit + push to `feat/attachment-share-screen`
+- [ ] Verify APK + update BUILD_INFO + commit/push

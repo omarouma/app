@@ -124,7 +124,7 @@ export function GroupChatMessageList({
                                 )}
                                 <div className={`max-w-[70%] p-0 relative`}>
                                     {!isMe && <p className="text-[11px] text-white/80 mb-0.5 ml-1">{getSenderName(msg.senderId)}</p>}
-                                    <div className={`px-3 py-2 rounded-xl text-sm leading-tight relative ${isMe ? 'bg-[#00C300] text-white rounded-br-none' : 'bg-background text-foreground rounded-bl-none'}`}>
+                                    <div className={`px-3 py-2 rounded-xl text-sm leading-tight relative ${isMe ? 'bg-[#00C300] text-white rounded-br-none' : 'bg-background text-foreground rounded-bl-none border border-border'}`}>
                                         {(() => {
                                             const mediaUrl = sanitizeMediaUrl(msg.mediaUrl);
                                             if (mediaUrl && msg.type === 'image') {

@@ -66,7 +66,7 @@ export const TextMessage = memo(function TextMessage(props: TextMessageProps) {
   return (
     <>
       {isEditing ? (
-        <div className={`inline-block px-3 py-2 rounded-2xl text-[15px] w-full ${isMe ? 'bg-[#00C300] text-white rounded-br-none' : 'bg-background text-foreground rounded-bl-none'}`}>
+        <div className={`inline-block px-3 py-2 rounded-2xl text-[15px] w-full ${isMe ? 'bg-[#00C300] text-white rounded-br-none' : 'bg-background text-foreground rounded-bl-none border border-border'}`}>
           <input
             value={editInput}
             onChange={(e) => onEditInputChange(e.target.value)}
@@ -92,7 +92,7 @@ export const TextMessage = memo(function TextMessage(props: TextMessageProps) {
         </div>
       ) : (
         <div
-          className={`inline-block px-3 py-2 rounded-2xl text-[15px] cursor-pointer active:scale-[0.98] transition-transform ${isMe ? 'bg-[#00C300] text-white rounded-br-none' : 'bg-background text-foreground rounded-bl-none'}`}
+          className={`inline-block px-3 py-2 rounded-2xl text-[15px] cursor-pointer active:scale-[0.98] transition-transform ${isMe ? 'bg-[#00C300] text-white rounded-br-none' : 'bg-background text-foreground rounded-bl-none border border-border'}`}
         >
           <p className="whitespace-pre-wrap break-words">{richContent}</p>
         </div>

@@ -844,3 +844,16 @@
     column-count: 2;
   }
 }
+/* ── Chat surface background ──────────────────────────────────────────────
+   The conversation background is a light gradient chosen by the user. In
+   dark mode we dim it heavily so bubbles stay legible and the theme stays
+   consistent (§72 Dark Mode). */
+.chat-surface {
+  background-color: hsl(var(--background));
+}
+.chat-surface[data-bg] {
+  background-image: var(--chat-bg);
+}
+.dark .chat-surface[data-bg] {
+  background-image: linear-gradient(rgba(0, 0, 0, 0.82), rgba(0, 0, 0, 0.82)), var(--chat-bg);
+}

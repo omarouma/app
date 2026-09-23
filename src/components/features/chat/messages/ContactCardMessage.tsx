@@ -16,7 +16,7 @@ export const ContactCardMessage = memo(function ContactCardMessage(props: Contac
   if (!card) {
     return (
       <div className={`max-w-[70%]`}>
-        <div className={`inline-block px-4 py-3 rounded-2xl ${isMe ? 'bg-[#00C300] text-white rounded-br-none' : 'bg-background text-foreground rounded-bl-none'} shadow-sm`}>
+        <div className={`inline-block px-4 py-3 rounded-2xl ${isMe ? 'bg-[#00C300] text-white rounded-br-none' : 'bg-background text-foreground rounded-bl-none border border-border'} shadow-sm`}>
           <p className="text-sm opacity-70">Contact unavailable</p>
         </div>
       </div>
@@ -28,7 +28,7 @@ export const ContactCardMessage = memo(function ContactCardMessage(props: Contac
 
   return (
     <div className={`max-w-[70%]`}>
-      <div className={`inline-block px-4 py-3 rounded-2xl ${isMe ? 'bg-[#00C300] text-white rounded-br-none' : 'bg-background text-foreground rounded-bl-none'} shadow-sm`}>
+      <div className={`inline-block px-4 py-3 rounded-2xl ${isMe ? 'bg-[#00C300] text-white rounded-br-none' : 'bg-background text-foreground rounded-bl-none border border-border'} shadow-sm`}>
         <div className="flex items-center gap-2 mb-2">
           <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center shrink-0 overflow-hidden">
             {safeAvatar ? (

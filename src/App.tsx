@@ -544,7 +544,11 @@ function AppContent() {
             element={
               isAuthenticated
                 ? <Navigate to={getPostAuthPath(isMobile)} replace />
-                : <LandingView />
+                : isNative()
+                  // Native app: never show the website-style landing page.
+                  // Fresh install → Splash → Authentication.
+                  ? <Navigate to="/auth" replace />
+                  : <LandingView />
             }
           />
           <Route

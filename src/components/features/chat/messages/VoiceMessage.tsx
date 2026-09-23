@@ -82,14 +82,14 @@ export const VoiceMessage = memo(function VoiceMessage(props: VoiceMessageProps)
 
   if (!safeUrl) {
     return (
-      <div className={`rounded-2xl mb-1 px-3 py-2 ${isMe ? 'bg-[#00C300]' : 'bg-background'}`}>
+      <div className={`rounded-2xl mb-1 px-3 py-2 ${isMe ? 'bg-[#00C300]' : 'bg-background border border-border'}`}>
         <span className={`text-xs ${isMe ? 'text-white/70' : 'text-muted-foreground'}`}>Voice unavailable</span>
       </div>
     );
   }
 
   return (
-    <div className={`rounded-2xl mb-1 px-3 py-2 ${isMe ? 'bg-[#00C300]' : 'bg-background'}`}>
+    <div className={`rounded-2xl mb-1 px-3 py-2 ${isMe ? 'bg-[#00C300]' : 'bg-background border border-border'}`}>
       {loading ? (
         <div className="flex items-center gap-2">
           <Loader size={16} className={`animate-spin ${isMe ? 'text-white/70' : 'text-muted-foreground'}`} />

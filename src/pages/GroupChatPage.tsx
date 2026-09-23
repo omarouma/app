@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import type { CSSProperties } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Users, ChevronDown, X, Pin, PinOff } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -16,6 +17,7 @@ import { useOfflineQueue, isOnline } from '@/hooks/useOfflineQueue';
 import { useScheduledMessages } from '@/hooks/useScheduledMessages';
 import { useSavedMessages } from '@/hooks/useSavedMessages';
 import { useChatScrollBehavior } from '@/hooks/useChatScrollBehavior';
+import { useKeyboardInset } from '@/hooks/useKeyboardInset';
 import { uploadMediaBlob } from '@/lib/storage';
 import { SWIPE_THRESHOLD, formatDateSeparator } from '@/lib/chatConstants';
 import { sanitizeMediaUrl } from '@/lib/utils';
@@ -47,6 +49,8 @@ const CHAT_BACKGROUNDS = [
 
 export default function GroupChatPage() {
     const navigate = useNavigate();
+    // Keyboard-safe composer (§47): keeps the input above the soft keyboard.
+    useKeyboardInset();
     const { groupId } = useParams<{ groupId: string }>();
     const { user: currentUser } = useAuthStore();
     const { settings } = useUserSettings();
@@ -610,7 +614,11 @@ export default function GroupChatPage() {
     }
 
     return (
-        <div className="flex flex-col h-full bg-background" style={{ backgroundImage: chatBg }}>
+        <div
+            className="chat-surface flex flex-col h-full"
+            data-bg={chatBg || undefined}
+            style={{ '--chat-bg': chatBg } as CSSProperties}
+        >
             <GroupChatHeader
                 group={group}
                 currentUser={currentUser}
@@ -829,6 +837,7 @@ export default function GroupChatPage() {
             </AnimatePresence>
 
             {/* Input bar */}
+            <div className="shrink-0" style={{ paddingBottom: 'var(--kb-inset, 0px)' }}>
             {canPost ? (
                 <GroupChatInput
                     input={input}
@@ -859,6 +868,7 @@ export default function GroupChatPage() {
                     Only admins can send messages in this group.
                 </div>
             )}
+            </div>
 
             {/* Context Menu */}
             <AnimatePresence>
