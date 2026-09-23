@@ -24,4 +24,4 @@ North-star: GaGa must be BETTER than WhatsApp/Messenger (see NORTH_STAR.md).
 - [x] Copy to deliverables + checksums + BUILD_INFO
 
 ## Section 4 — Save
-- [ ] Commit + push to GitHub
+- [x] Commit + push to GitHub (f75406b -> feat/attachment-share-screen)
