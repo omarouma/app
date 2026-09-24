@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Security baseline (PDF §10). Cleartext traffic is disabled everywhere; all
+  backend traffic (Supabase REST/Realtime/Storage, Firebase) must be TLS.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>
