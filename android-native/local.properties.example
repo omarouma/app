@@ -1,0 +1,24 @@
+# GaGa Chat — build-time configuration (PDF §10, §11)
+#
+# Copy this file to `local.properties` (which is git-ignored) and fill in the
+# values for your environment. NEVER commit real keys.
+#
+# The Supabase anon key is a PUBLIC client key and is safe to ship in the APK.
+# The Supabase service_role key is PRIVILEGED and must NEVER appear here or in
+# the app — it belongs only on the server.
+
+# Android SDK location (set by Android Studio automatically)
+# sdk.dir=/Users/you/Library/Android/sdk
+
+# Supabase project
+SUPABASE_URL=https://YOUR-PROJECT.supabase.co
+SUPABASE_ANON_KEY=YOUR-PUBLIC-ANON-KEY
+SUPABASE_STORAGE_BUCKET=media
+
+# Release signing (PDF §11). Prefer a keystore outside the repo.
+# These are read by app/build.gradle.kts (or from environment variables of the
+# same name in CI). If absent, the release build is left unsigned.
+# GAGA_RELEASE_STORE_FILE=/absolute/path/to/gaga-release.jks
+# GAGA_RELEASE_STORE_PASSWORD=****
+# GAGA_RELEASE_KEY_ALIAS=gaga
+# GAGA_RELEASE_KEY_PASSWORD=****

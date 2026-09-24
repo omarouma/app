@@ -1,0 +1,94 @@
+package app.gagachat.feature.home.presentation
+
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import app.gagachat.core.common.result.AppResult
+import app.gagachat.core.data.repository.AuthRepository
+import app.gagachat.core.data.repository.ConversationRepository
+import app.gagachat.core.model.Conversation
+import app.gagachat.core.ui.util.toUserMessage
+import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
+import javax.inject.Inject
+
+data class HomeUiState(
+    val conversations: List<Conversation> = emptyList(),
+    val query: String = "",
+    val isLoading: Boolean = true,
+    val isRefreshing: Boolean = false,
+    val errorMessage: String? = null,
+    val currentUserId: String = "",
+)
+
+@HiltViewModel
+class HomeViewModel @Inject constructor(
+    private val conversationRepository: ConversationRepository,
+    private val authRepository: AuthRepository,
+) : ViewModel() {
+
+    private val query = MutableStateFlow("")
+    private val loading = MutableStateFlow(true)
+    private val refreshing = MutableStateFlow(false)
+    private val error = MutableStateFlow<String?>(null)
+
+    val state: StateFlow<HomeUiState> = combine(
+        conversationRepository.observeConversations(),
+        query,
+        loading,
+        refreshing,
+        error,
+    ) { conversations, q, isLoading, isRefreshing, errorMessage ->
+        val filtered = if (q.isBlank()) {
+            conversations
+        } else {
+            conversations.filter { it.displayTitle(currentUserId).contains(q, ignoreCase = true) }
+        }
+        HomeUiState(
+            conversations = filtered.sortedWith(
+                compareByDescending<Conversation> { it.isPinned }
+                    .thenByDescending { it.lastMessageAt ?: it.updatedAt },
+            ),
+            query = q,
+            isLoading = isLoading,
+            isRefreshing = isRefreshing,
+            errorMessage = errorMessage,
+            currentUserId = currentUserId,
+        )
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), HomeUiState())
+
+    private val currentUserId: String
+        get() = authRepository.sessionFlow.value?.userId.orEmpty()
+
+    init {
+        // Local-first: cached rows render immediately; sync runs in background.
+        viewModelScope.launch {
+            loading.value = false
+            sync()
+        }
+    }
+
+    fun onQueryChange(value: String) {
+        query.value = value
+    }
+
+    fun refresh() {
+        viewModelScope.launch { sync(isPullToRefresh = true) }
+    }
+
+    fun consumeError() = error.update { null }
+
+    private suspend fun sync(isPullToRefresh: Boolean = false) {
+        if (isPullToRefresh) refreshing.value = true
+        when (val result = conversationRepository.syncConversations()) {
+            is AppResult.Failure -> error.value = result.error.toUserMessage()
+            else -> Unit
+        }
+        refreshing.value = false
+    }
+}
