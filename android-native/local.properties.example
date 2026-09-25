@@ -13,7 +13,7 @@
 # Supabase project
 SUPABASE_URL=https://YOUR-PROJECT.supabase.co
 SUPABASE_ANON_KEY=YOUR-PUBLIC-ANON-KEY
-SUPABASE_STORAGE_BUCKET=media
+SUPABASE_STORAGE_BUCKET=chat-media
 
 # Release signing (PDF §11). Prefer a keystore outside the repo.
 # These are read by app/build.gradle.kts (or from environment variables of the

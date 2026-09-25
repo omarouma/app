@@ -35,7 +35,7 @@ fun backendValue(name: String, default: String = ""): String {
 
 val supabaseUrl = backendValue("SUPABASE_URL")
 val supabaseAnonKey = backendValue("SUPABASE_ANON_KEY")
-val supabaseBucket = backendValue("SUPABASE_STORAGE_BUCKET", "media")
+val supabaseBucket = backendValue("SUPABASE_STORAGE_BUCKET", "chat-media")
 
 if (supabaseUrl.isBlank() || supabaseAnonKey.isBlank()) {
     logger.warn(

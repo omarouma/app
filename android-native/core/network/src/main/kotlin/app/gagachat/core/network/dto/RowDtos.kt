@@ -136,15 +136,20 @@ data class CallHistoryRow(
     @SerialName("created_at") @Serializable(with = EpochMillisSerializer::class) val createdAt: Long? = null,
 )
 
-/** Device token row (device_tokens). No unique constraint: dedupe client-side. */
+/**
+ * Device row for the LIVE `user_devices` table. `device_id` is NOT NULL on the
+ * server, so the caller must always supply a stable per-install identifier
+ * (ANDROID_ID). Dedupe client-side on (user_id, device_id).
+ */
 @Serializable
 data class DeviceRow(
     val id: String? = null,
     @SerialName("user_id") val userId: String,
-    val token: String? = null,
-    @SerialName("fcm_token") val fcmToken: String? = null,
+    @SerialName("device_id") val deviceId: String,
+    @SerialName("push_token") val pushToken: String? = null,
     val platform: String = "android",
     @SerialName("device_name") val deviceName: String? = null,
+    @SerialName("app_version") val appVersion: String? = null,
     @SerialName("last_seen_at") @Serializable(with = EpochMillisSerializer::class) val lastSeenAt: Long? = null,
 )
 

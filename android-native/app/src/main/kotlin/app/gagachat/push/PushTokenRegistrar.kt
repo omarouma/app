@@ -27,8 +27,8 @@ class PushTokenRegistrar @Inject constructor(
             restApi.upsertDevice(
                 DeviceRow(
                     userId = session.userId,
-                    token = deviceId(),
-                    fcmToken = token,
+                    deviceId = deviceId(),
+                    pushToken = token,
                     platform = "android",
                     deviceName = deviceName(),
                     lastSeenAt = System.currentTimeMillis(),

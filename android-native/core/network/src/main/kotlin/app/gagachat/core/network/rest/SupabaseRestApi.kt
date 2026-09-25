@@ -365,25 +365,31 @@ class SupabaseRestApi @Inject constructor(
 
     // ---- Devices ----
 
+    /**
+     * Registers/refreshes this install's push token in the LIVE `user_devices`
+     * table. There is no server-side unique constraint on (user_id, device_id),
+     * so we look the row up first and PATCH when it already exists, otherwise
+     * INSERT. Safe to call repeatedly (e.g. on every FCM token refresh).
+     */
     suspend fun upsertDevice(row: DeviceRow) {
-        val existing = client.get("${config.restUrl}/device_tokens") {
+        val existing = client.get("${config.restUrl}/user_devices") {
             auth()
             parameter("select", "id")
             parameter("user_id", "eq.${row.userId}")
-            parameter("token", "eq.${row.token}")
+            parameter("device_id", "eq.${row.deviceId}")
             parameter("limit", 1)
         }.body<List<JsonObject>>().firstOrNull()
         if (existing != null) {
-            client.patch("${config.restUrl}/device_tokens") {
+            client.patch("${config.restUrl}/user_devices") {
                 auth()
                 parameter("user_id", "eq.${row.userId}")
-                parameter("token", "eq.${row.token}")
+                parameter("device_id", "eq.${row.deviceId}")
                 header("Prefer", "return=minimal")
                 contentType(ContentType.Application.Json)
                 setBody(row)
             }
         } else {
-            client.post("${config.restUrl}/device_tokens") {
+            client.post("${config.restUrl}/user_devices") {
                 auth()
                 header("Prefer", "return=minimal")
                 contentType(ContentType.Application.Json)

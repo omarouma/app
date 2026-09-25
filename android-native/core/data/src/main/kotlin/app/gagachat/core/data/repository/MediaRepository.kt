@@ -116,8 +116,28 @@ class DefaultMediaRepository @Inject constructor(
             try {
                 val bytes = File(upload.localPath).readBytes()
                 val extension = upload.mime.substringAfterLast('/', "bin")
+                // The storage bucket's RLS policy scopes writes to the caller's own
+                // top-level folder (`<userId>/...`), so the path MUST be prefixed with
+                // the SENDER's user id -- not the conversation id.
+                val senderId = messageDao.getByClientMessageId(upload.clientMessageId)?.senderId
+                if (senderId.isNullOrBlank()) {
+                    uploadDao.updateState(
+                        upload.uploadId,
+                        UploadState.FAILED.name,
+                        upload.attempts + 1,
+                        null,
+                        null,
+                    )
+                    messageDao.updateStatus(
+                        upload.clientMessageId,
+                        MessageStatus.FAILED.name,
+                        null,
+                        null,
+                    )
+                    continue
+                }
                 val objectPath = storageApi.objectPath(
-                    userId = upload.conversationId,
+                    userId = senderId,
                     uploadId = upload.uploadId,
                     extension = extension,
                 )
