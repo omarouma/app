@@ -16,6 +16,9 @@ import javax.inject.Singleton
  * Supabase Storage uploads (PDF §6). Uploads are retry-safe: the caller supplies a
  * stable object path derived from the upload id, and `x-upsert` makes retries
  * idempotent.
+ *
+ * Chat media uses the configured [SupabaseConfig.storageBucket]; avatars and other
+ * assets can target an explicit bucket via [uploadToBucket].
  */
 @Singleton
 class SupabaseStorageApi @Inject constructor(
@@ -29,8 +32,23 @@ class SupabaseStorageApi @Inject constructor(
         bytes: ByteArray,
         mime: String,
         onProgress: (Int) -> Unit = {},
+    ): String = uploadToBucket(
+        bucket = config.storageBucket,
+        objectPath = objectPath,
+        bytes = bytes,
+        mime = mime,
+        onProgress = onProgress,
+    )
+
+    /** Uploads to an explicit bucket (e.g. `avatars`) and returns the public URL. */
+    suspend fun uploadToBucket(
+        bucket: String,
+        objectPath: String,
+        bytes: ByteArray,
+        mime: String,
+        onProgress: (Int) -> Unit = {},
     ): String {
-        client.post("${config.storageUrl}/object/${config.storageBucket}/$objectPath") {
+        client.post("${config.storageUrl}/object/$bucket/$objectPath") {
             header("apikey", config.anonKey)
             sessionStore.accessToken()?.let { header("Authorization", "Bearer $it") }
             header("x-upsert", "true")
@@ -42,13 +60,24 @@ class SupabaseStorageApi @Inject constructor(
                 }
             }
         }
-        return publicUrl(objectPath)
+        return publicUrlForBucket(bucket, objectPath)
     }
 
     fun publicUrl(objectPath: String): String =
-        "${config.storageUrl}/object/public/${config.storageBucket}/$objectPath"
+        publicUrlForBucket(config.storageBucket, objectPath)
+
+    fun publicUrlForBucket(bucket: String, objectPath: String): String =
+        "${config.storageUrl}/object/public/$bucket/$objectPath"
 
     /** Deterministic object path so retries overwrite rather than duplicate. */
     fun objectPath(userId: String, uploadId: String, extension: String): String =
         "$userId/$uploadId.$extension"
+
+    /**
+     * Deterministic avatar path. Scoped to the caller's own top-level folder so it
+     * satisfies the storage RLS policy (`split_part(name,'/',1) = auth.uid()`), and
+     * overwrites on re-upload so a user never accumulates orphaned avatars.
+     */
+    fun avatarObjectPath(userId: String, extension: String): String =
+        "$userId/avatar.$extension"
 }

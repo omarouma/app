@@ -23,7 +23,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.ImeAction
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import app.gagachat.core.ui.component.GagaAvatar
+import app.gagachat.core.ui.component.GagaAvatarPicker
 import app.gagachat.core.ui.component.GagaLoading
 import app.gagachat.core.ui.component.GagaPrimaryButton
 import app.gagachat.core.ui.component.GagaScaffold
@@ -56,9 +56,11 @@ fun EditProfileScreen(
                 .padding(GagaDimens.space16),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            GagaAvatar(
+            GagaAvatarPicker(
                 imageUrl = state.avatarUrl.ifBlank { null },
                 name = state.displayName,
+                isUploading = state.isUploadingAvatar,
+                onImagePicked = viewModel::onAvatarPicked,
                 size = GagaDimens.avatarXLarge,
             )
             Spacer(Modifier.height(GagaDimens.space16))

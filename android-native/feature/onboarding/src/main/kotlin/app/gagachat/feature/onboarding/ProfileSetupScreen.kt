@@ -24,7 +24,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import app.gagachat.core.ui.component.GagaAvatar
+import app.gagachat.core.ui.component.GagaAvatarPicker
 import app.gagachat.core.ui.component.GagaPrimaryButton
 import app.gagachat.core.ui.component.GagaScaffold
 import app.gagachat.core.ui.component.GagaTextField
@@ -55,9 +55,11 @@ fun ProfileSetupScreen(
                 .padding(horizontal = GagaDimens.space24, vertical = GagaDimens.space16),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            GagaAvatar(
+            GagaAvatarPicker(
                 imageUrl = state.avatarUrl.ifBlank { null },
                 name = state.displayName.ifBlank { "New user" },
+                isUploading = state.isUploadingAvatar,
+                onImagePicked = viewModel::onAvatarPicked,
                 size = 96.dp,
             )
 

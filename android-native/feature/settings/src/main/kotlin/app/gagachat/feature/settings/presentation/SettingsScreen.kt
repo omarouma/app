@@ -14,7 +14,7 @@ import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.Logout
+import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.QrCode2
 import androidx.compose.material.icons.filled.Storage
@@ -138,7 +138,7 @@ fun SettingsRoute(
             Spacer(Modifier.height(GagaDimens.space16))
             GagaSettingsRow(
                 title = "Sign out",
-                leadingIcon = Icons.Filled.Logout,
+                leadingIcon = Icons.AutoMirrored.Filled.Logout,
                 onClick = viewModel::signOut,
             )
             Spacer(Modifier.height(GagaDimens.space48))

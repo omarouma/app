@@ -1,5 +1,7 @@
 package app.gagachat.feature.onboarding
 
+import android.content.Context
+import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.gagachat.core.common.di.DispatcherProvider
@@ -8,8 +10,10 @@ import app.gagachat.core.network.dto.UserRow
 import app.gagachat.core.network.error.ErrorMapper
 import app.gagachat.core.network.rest.SupabaseRestApi
 import app.gagachat.core.network.session.SessionStore
+import app.gagachat.core.network.storage.SupabaseStorageApi
 import app.gagachat.core.ui.util.toUserMessage
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -33,6 +37,7 @@ data class OnboardingUiState(
     val bio: String = "",
     val avatarUrl: String = "",
     val isSaving: Boolean = false,
+    val isUploadingAvatar: Boolean = false,
     val isCheckingUsername: Boolean = false,
     /** null = unknown/not yet checked, true = free, false = taken. */
     val usernameAvailable: Boolean? = null,
@@ -41,7 +46,9 @@ data class OnboardingUiState(
 
 @HiltViewModel
 class OnboardingViewModel @Inject constructor(
+    @ApplicationContext private val context: Context,
     private val restApi: SupabaseRestApi,
+    private val storageApi: SupabaseStorageApi,
     private val sessionStore: SessionStore,
     private val onboardingPreferences: OnboardingPreferences,
     private val dispatchers: DispatcherProvider,
@@ -73,6 +80,48 @@ class OnboardingViewModel @Inject constructor(
 
     fun onBioChange(value: String) = _state.update { it.copy(bio = value, error = null) }
     fun onAvatarUrlChange(value: String) = _state.update { it.copy(avatarUrl = value, error = null) }
+
+    /**
+     * Reads the picked image, uploads it to the public `avatars` bucket under the
+     * caller's own folder and stores the resulting public URL. Keeps the previous
+     * avatar if the upload fails, surfacing a friendly error instead.
+     */
+    fun onAvatarPicked(uri: Uri) {
+        val uid = sessionStore.userId()
+        if (uid == null) {
+            _state.update { it.copy(error = "Your session has expired. Please sign in again.") }
+            return
+        }
+        viewModelScope.launch {
+            _state.update { it.copy(isUploadingAvatar = true, error = null) }
+            val url = withContext(dispatchers.io) {
+                runCatching {
+                    val mime = context.contentResolver.getType(uri) ?: "image/jpeg"
+                    val extension = when {
+                        mime.contains("png") -> "png"
+                        mime.contains("webp") -> "webp"
+                        mime.contains("gif") -> "gif"
+                        else -> "jpg"
+                    }
+                    val bytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
+                        ?: error("Could not read the selected image")
+                    storageApi.uploadToBucket(
+                        bucket = "avatars",
+                        objectPath = storageApi.avatarObjectPath(uid, extension),
+                        bytes = bytes,
+                        mime = mime,
+                    )
+                }.getOrNull()
+            }
+            _state.update {
+                it.copy(
+                    isUploadingAvatar = false,
+                    avatarUrl = url ?: it.avatarUrl,
+                    error = if (url == null) "Could not upload photo. Please try again." else null,
+                )
+            }
+        }
+    }
 
     /**
      * Debounced availability probe so the user learns a handle is taken before
