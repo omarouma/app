@@ -6,11 +6,13 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Chat
+import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.ChatBubbleOutline
-import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
@@ -48,13 +50,13 @@ fun HomeRoute(
         title = "GaGa Chat",
         snackbarHostState = snackbarHostState,
         actions = {
-            androidx.compose.material3.IconButton(onClick = onOpenProfile) {
-                Icon(Icons.Filled.Edit, contentDescription = "Profile")
+            IconButton(onClick = onOpenProfile) {
+                Icon(Icons.Filled.AccountCircle, contentDescription = "Profile")
             }
         },
         floatingActionButton = {
             FloatingActionButton(onClick = onOpenNewChat) {
-                Icon(Icons.Filled.Edit, contentDescription = "New chat")
+                Icon(Icons.AutoMirrored.Filled.Chat, contentDescription = "New chat")
             }
         },
     ) { padding ->

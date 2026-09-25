@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.gagachat.core.common.result.AppResult
 import app.gagachat.core.data.repository.AuthRepository
+import app.gagachat.core.data.repository.ConversationRepository
 import app.gagachat.core.data.repository.UserRepository
 import app.gagachat.core.model.User
 import app.gagachat.core.ui.util.toUserMessage
@@ -28,6 +29,7 @@ data class ProfileUiState(
 class ProfileViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val userRepository: UserRepository,
+    private val conversationRepository: ConversationRepository,
     private val authRepository: AuthRepository,
 ) : ViewModel() {
 
@@ -53,4 +55,38 @@ class ProfileViewModel @Inject constructor(
     }
 
     fun consumeError() = _state.update { it.copy(errorMessage = null) }
+
+    /**
+     * Opens (or creates) the DIRECT conversation with this profile's user and
+     * hands the resolved conversation id back to the caller. Previously the
+     * "Message" button navigated to the profile again, so it never reached a chat.
+     */
+    fun openChat(onReady: (conversationId: String) -> Unit) {
+        val me = authRepository.sessionFlow.value?.userId
+        if (me.isNullOrBlank() || userId.isBlank()) return
+        viewModelScope.launch {
+            when (val result = conversationRepository.openDirectConversation(me, userId)) {
+                is AppResult.Success -> onReady(result.data)
+                is AppResult.Failure -> _state.update { it.copy(errorMessage = result.error.toUserMessage()) }
+                AppResult.Loading -> Unit
+            }
+        }
+    }
+
+    /**
+     * Resolves the DIRECT conversation with this profile's user, then starts a
+     * voice/video call on it. Previously the raw userId was passed where a
+     * conversationId was expected, so the call screen opened on a bogus id.
+     */
+    fun startCall(isVideo: Boolean, onReady: (conversationId: String, isVideo: Boolean) -> Unit) {
+        val me = authRepository.sessionFlow.value?.userId
+        if (me.isNullOrBlank() || userId.isBlank()) return
+        viewModelScope.launch {
+            when (val result = conversationRepository.openDirectConversation(me, userId)) {
+                is AppResult.Success -> onReady(result.data, isVideo)
+                is AppResult.Failure -> _state.update { it.copy(errorMessage = result.error.toUserMessage()) }
+                AppResult.Loading -> Unit
+            }
+        }
+    }
 }

@@ -129,7 +129,7 @@ fun SettingsRoute(
             GagaSectionHeader(text = "ABOUT")
             GagaSettingsRow(
                 title = "About GaGa Chat",
-                subtitle = "Version 1.0.0",
+                subtitle = "Version 1.1.0",
                 leadingIcon = Icons.Filled.Info,
                 onClick = onOpenAbout,
             )

@@ -232,7 +232,7 @@ fun AboutSettingsScreen(onBack: () -> Unit) {
             Text(text = "GaGa Chat", style = MaterialTheme.typography.headlineSmall)
             Spacer(Modifier.height(GagaDimens.space4))
             Text(
-                text = "Version 1.0.0",
+                text = "Version 1.1.0",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

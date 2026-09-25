@@ -69,6 +69,10 @@ fun PermissionsScreen(onFinish: () -> Unit) {
         contract = ActivityResultContracts.RequestMultiplePermissions(),
     ) { result ->
         grantedMap = permissions.associateWith { p -> result[p] ?: granted(p) }
+        // Advance regardless of the outcome: the app degrades gracefully when a
+        // permission is denied and re-asks contextually later. Without this the
+        // user is stuck on this step after granting (only "Not now" advanced).
+        onFinish()
     }
 
     GagaScaffold(

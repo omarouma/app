@@ -39,8 +39,8 @@ import app.gagachat.core.ui.util.TimeFormat
 @Composable
 fun ProfileRoute(
     onNavigateBack: () -> Unit,
-    onStartChat: (userId: String) -> Unit,
-    onStartCall: (userId: String, isVideo: Boolean) -> Unit,
+    onOpenConversation: (conversationId: String) -> Unit,
+    onStartCall: (conversationId: String, isVideo: Boolean) -> Unit,
     viewModel: ProfileViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -109,13 +109,13 @@ fun ProfileRoute(
                 ) {
                     GagaPrimaryButton(
                         text = "Message",
-                        onClick = { onStartChat(state.userId) },
+                        onClick = { viewModel.openChat(onOpenConversation) },
                         leadingIcon = Icons.Filled.Chat,
                         modifier = Modifier.weight(1f),
                     )
                     GagaSecondaryButton(
                         text = "Call",
-                        onClick = { onStartCall(state.userId, false) },
+                        onClick = { viewModel.startCall(false, onStartCall) },
                         leadingIcon = Icons.Filled.Call,
                         modifier = Modifier.weight(1f),
                     )
@@ -123,7 +123,7 @@ fun ProfileRoute(
                 Spacer(Modifier.height(GagaDimens.space8))
                 GagaSecondaryButton(
                     text = "Video call",
-                    onClick = { onStartCall(state.userId, true) },
+                    onClick = { viewModel.startCall(true, onStartCall) },
                     leadingIcon = Icons.Filled.Videocam,
                 )
             }

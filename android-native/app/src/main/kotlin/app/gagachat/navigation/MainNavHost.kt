@@ -126,7 +126,9 @@ fun MainNavHost(pendingDeepLink: String?) {
             )
             profileScreen(
                 navController = navController,
-                onStartChat = { userId -> navController.navigate(ProfileRoutes.profile(userId)) },
+                onOpenConversation = { conversationId ->
+                    navController.navigate(ChatRoutes.chat(conversationId))
+                },
                 onStartCall = { conversationId, isVideo ->
                     navController.navigate(CallRoutes.activeCall(conversationId, isVideo))
                 },

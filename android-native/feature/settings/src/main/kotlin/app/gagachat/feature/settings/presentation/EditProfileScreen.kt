@@ -77,7 +77,22 @@ fun EditProfileScreen(
                 label = "Username",
                 leadingIcon = Icons.Filled.AlternateEmail,
                 imeAction = ImeAction.Next,
+                isError = state.usernameAvailable == false,
+                errorText = when {
+                    state.isCheckingUsername -> "Checking availability…"
+                    state.usernameAvailable == false -> "That username is already taken"
+                    else -> null
+                },
             )
+            if (state.usernameAvailable == true && !state.isCheckingUsername) {
+                Spacer(Modifier.height(GagaDimens.space4))
+                Text(
+                    text = "✓ @${state.username} is available",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
             Spacer(Modifier.height(GagaDimens.space12))
             GagaTextField(
                 value = state.bio,

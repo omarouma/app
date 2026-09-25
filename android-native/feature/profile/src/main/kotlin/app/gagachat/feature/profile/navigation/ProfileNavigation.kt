@@ -17,7 +17,7 @@ object ProfileRoutes {
 
 fun NavGraphBuilder.profileScreen(
     navController: NavController,
-    onStartChat: (String) -> Unit,
+    onOpenConversation: (String) -> Unit,
     onStartCall: (String, Boolean) -> Unit,
 ) {
     composable(
@@ -32,7 +32,7 @@ fun NavGraphBuilder.profileScreen(
     ) {
         ProfileRoute(
             onNavigateBack = { navController.popBackStack() },
-            onStartChat = onStartChat,
+            onOpenConversation = onOpenConversation,
             onStartCall = onStartCall,
         )
     }
