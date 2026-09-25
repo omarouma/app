@@ -1,38 +1,18 @@
 -- =============================================================================
--- GaGa Chat — Backend completion migration
+-- GaGa Chat — Backend completion migration (v2 — corrected)
 -- =============================================================================
--- Idempotent. Safe to run multiple times. Apply in the Supabase SQL editor
--- (Dashboard -> SQL Editor -> New query -> paste -> Run) against the LIVE
--- project, or via `supabase db push` if you have CLI access.
+-- Idempotent. Safe to run multiple times.
 --
--- WHY THIS EXISTS
--- A live probe of the production project found three concrete backend gaps that
--- broke parts of the native app:
---
---   1. STORAGE: the `media` bucket referenced by the shipped build config did
---      not exist (uploads returned 404 NoSuchBucket). The buckets that DO exist
---      are chat-media / avatars / voice-messages. The app has been repointed to
---      `chat-media`; this migration also creates `media` plus the remaining
---      buckets (posts / stories / reels) so every client has a valid target.
---
---   2. STORAGE RLS: the previously-shipped policy scoped writes to path segment
---      2 (`split_part(name,'/',2)`), but the client writes `<userId>/<file>`
---      (segment 1). This migration installs policies keyed on segment 1 and
---      removes the mismatched one, so uploads work AND stay scoped to the
---      caller's own folder.
---
---   3. DEVICES: the `device_tokens` view did not expose `device_id`, which is
---      NOT NULL on the underlying `user_devices` table — so every insert failed
---      with `null value in column "device_id"`. The app now writes to
---      `user_devices` directly; this migration repairs the view for any other
---      client and adds a unique index so (user_id, device_id) upserts are safe.
+-- FIX (v2): the storage RLS block previously used a PL/pgSQL variable
+-- (`buckets`) inside CREATE POLICY DDL, which the parser rejected with
+-- `column "buckets" does not exist` (42703). CREATE POLICY is a utility
+-- statement and does not substitute PL/pgSQL variables, so the bucket list is
+-- now inlined as a literal array in every policy.
 -- =============================================================================
 
 -- ---------------------------------------------------------------------------
 -- 1. Storage buckets
 -- ---------------------------------------------------------------------------
--- Public read is intentional: the client stores public media URLs. Writes are
--- restricted by the RLS policies below.
 INSERT INTO storage.buckets (id, name, public)
 VALUES
   ('chat-media',     'chat-media',     true),
@@ -48,57 +28,61 @@ ON CONFLICT (id) DO UPDATE SET public = EXCLUDED.public;
 -- 2. Storage RLS — scope writes to the caller's own top-level folder
 -- ---------------------------------------------------------------------------
 -- Object paths are `<userId>/<uploadId>.<ext>`, i.e. the owner is segment 1.
-DO $$
-DECLARE
-  b text;
-  buckets text[] := ARRAY['chat-media','media','voice-messages','avatars','posts','stories','reels'];
-BEGIN
-  -- Remove the mismatched legacy policy (segment 2).
-  DROP POLICY IF EXISTS "gaga_media_upload_own_folder" ON storage.objects;
-  DROP POLICY IF EXISTS "gaga_media_update_own_folder" ON storage.objects;
-  DROP POLICY IF EXISTS "gaga_media_delete_own_folder" ON storage.objects;
 
-  -- Recreate them keyed on segment 1.
-  DROP POLICY IF EXISTS "gaga_media_insert_own_folder" ON storage.objects;
-  CREATE POLICY "gaga_media_insert_own_folder"
-    ON storage.objects FOR INSERT TO authenticated
-    WITH CHECK (
-      bucket_id = ANY (buckets)
-      AND split_part(name, '/', 1) = auth.uid()::text
-    );
+-- Remove the mismatched legacy policies (they keyed on segment 2).
+DROP POLICY IF EXISTS "gaga_media_upload_own_folder" ON storage.objects;
+DROP POLICY IF EXISTS "gaga_media_update_own_folder" ON storage.objects;
+DROP POLICY IF EXISTS "gaga_media_delete_own_folder" ON storage.objects;
 
-  DROP POLICY IF EXISTS "gaga_media_update_own_folder_v2" ON storage.objects;
-  CREATE POLICY "gaga_media_update_own_folder_v2"
-    ON storage.objects FOR UPDATE TO authenticated
-    USING (
-      bucket_id = ANY (buckets)
-      AND split_part(name, '/', 1) = auth.uid()::text
-    )
-    WITH CHECK (
-      bucket_id = ANY (buckets)
-      AND split_part(name, '/', 1) = auth.uid()::text
-    );
+-- Recreate them keyed on segment 1 (literal bucket array inlined).
+DROP POLICY IF EXISTS "gaga_media_insert_own_folder" ON storage.objects;
+CREATE POLICY "gaga_media_insert_own_folder"
+  ON storage.objects FOR INSERT TO authenticated
+  WITH CHECK (
+    bucket_id = ANY (ARRAY['chat-media','media','voice-messages','avatars','posts','stories','reels'])
+    AND split_part(name, '/', 1) = auth.uid()::text
+  );
 
-  DROP POLICY IF EXISTS "gaga_media_delete_own_folder_v2" ON storage.objects;
-  CREATE POLICY "gaga_media_delete_own_folder_v2"
-    ON storage.objects FOR DELETE TO authenticated
-    USING (
-      bucket_id = ANY (buckets)
-      AND split_part(name, '/', 1) = auth.uid()::text
-    );
+DROP POLICY IF EXISTS "gaga_media_update_own_folder_v2" ON storage.objects;
+CREATE POLICY "gaga_media_update_own_folder_v2"
+  ON storage.objects FOR UPDATE TO authenticated
+  USING (
+    bucket_id = ANY (ARRAY['chat-media','media','voice-messages','avatars','posts','stories','reels'])
+    AND split_part(name, '/', 1) = auth.uid()::text
+  )
+  WITH CHECK (
+    bucket_id = ANY (ARRAY['chat-media','media','voice-messages','avatars','posts','stories','reels'])
+    AND split_part(name, '/', 1) = auth.uid()::text
+  );
 
-  -- Public read for the media buckets.
-  DROP POLICY IF EXISTS "gaga_media_public_read" ON storage.objects;
-  CREATE POLICY "gaga_media_public_read"
-    ON storage.objects FOR SELECT TO public
-    USING (bucket_id = ANY (buckets));
-END $$;
+DROP POLICY IF EXISTS "gaga_media_delete_own_folder_v2" ON storage.objects;
+CREATE POLICY "gaga_media_delete_own_folder_v2"
+  ON storage.objects FOR DELETE TO authenticated
+  USING (
+    bucket_id = ANY (ARRAY['chat-media','media','voice-messages','avatars','posts','stories','reels'])
+    AND split_part(name, '/', 1) = auth.uid()::text
+  );
+
+-- Public read for the media buckets.
+DROP POLICY IF EXISTS "gaga_media_public_read" ON storage.objects;
+CREATE POLICY "gaga_media_public_read"
+  ON storage.objects FOR SELECT TO public
+  USING (bucket_id = ANY (ARRAY['chat-media','media','voice-messages','avatars','posts','stories','reels']));
+
+-- Tighten the overly-broad avatar upload policy so a user can only write into
+-- their own folder (previously it allowed ANY authenticated user to write ANY
+-- path in the avatars bucket).
+DROP POLICY IF EXISTS "avatars_upload_authenticated" ON storage.objects;
+CREATE POLICY "avatars_upload_authenticated"
+  ON storage.objects FOR INSERT TO authenticated
+  WITH CHECK (
+    bucket_id = 'avatars'
+    AND (storage.foldername(name))[1] = auth.uid()::text
+  );
 
 -- ---------------------------------------------------------------------------
 -- 3. Device registry — make (user_id, device_id) upsert-safe
 -- ---------------------------------------------------------------------------
--- The app dedupes client-side, but a unique index makes concurrent
--- registrations (e.g. token refresh racing a login) safe as well.
 CREATE UNIQUE INDEX IF NOT EXISTS uq_user_devices_user_device
   ON public.user_devices (user_id, device_id);
 
@@ -106,7 +90,6 @@ CREATE INDEX IF NOT EXISTS idx_user_devices_push_token
   ON public.user_devices (push_token)
   WHERE push_token IS NOT NULL;
 
--- Keep updated_at honest without relying on the client.
 CREATE OR REPLACE FUNCTION public.touch_user_devices_updated_at()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -124,12 +107,9 @@ CREATE TRIGGER trg_user_devices_touch
 -- ---------------------------------------------------------------------------
 -- 4. Repair the `device_tokens` compatibility view
 -- ---------------------------------------------------------------------------
--- The old view exposed only (id, user_id, token, platform, device_name,
--- last_seen_at, created_at, fcm_token) and HID `device_id`, which is NOT NULL
--- on `user_devices` -- so every INSERT through the view failed with
--- `null value in column "device_id"`. Recreate it exposing every column and
--- back it with INSTEAD OF triggers so legacy clients that only know about
--- `token` keep working (device_id is auto-filled when absent).
+-- The old view hid `device_id` (NOT NULL on user_devices) and filtered on
+-- push_token, so inserts through it failed. Recreate it exposing every column
+-- and back it with INSTEAD OF triggers so legacy clients keep working.
 DROP VIEW IF EXISTS public.device_tokens;
 
 CREATE VIEW public.device_tokens
@@ -219,14 +199,13 @@ CREATE TRIGGER trg_device_tokens_del
 -- ---------------------------------------------------------------------------
 -- 5. Realtime — make sure the chat tables are published
 -- ---------------------------------------------------------------------------
--- Guarded so it is a no-op if the publication already contains the table.
 DO $$
 DECLARE
   t text;
-  tables text[] := ARRAY['chats','messages','chat_reads','call_history','typing','presence','notifications'];
+  tbls text[] := ARRAY['chats','messages','chat_reads','call_history','typing','presence','notifications'];
 BEGIN
   IF EXISTS (SELECT 1 FROM pg_publication WHERE pubname = 'supabase_realtime') THEN
-    FOREACH t IN ARRAY tables LOOP
+    FOREACH t IN ARRAY tbls LOOP
       IF NOT EXISTS (
         SELECT 1 FROM pg_publication_tables
         WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = t
@@ -236,6 +215,47 @@ BEGIN
     END LOOP;
   END IF;
 END $$;
+
+-- ---------------------------------------------------------------------------
+-- 6. Signup trigger — honour the `display_name` metadata key
+-- ---------------------------------------------------------------------------
+-- The native app sends `data: { display_name: <name> }` on signup, but the
+-- original handle_new_profile only read `name` / `full_name`, so the display
+-- name fell back to the email local-part until onboarding saved the profile.
+CREATE OR REPLACE FUNCTION public.handle_new_profile()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'public'
+AS $function$
+DECLARE
+    v_name text;
+    v_username text;
+BEGIN
+    v_name := COALESCE(
+        NULLIF(NEW.raw_user_meta_data->>'display_name', ''),
+        NULLIF(NEW.raw_user_meta_data->>'name', ''),
+        NULLIF(NEW.raw_user_meta_data->>'full_name', ''),
+        NULLIF(split_part(COALESCE(NEW.email, ''), '@', 1), ''),
+        'GaGa User'
+    );
+
+    v_username := lower(regexp_replace(v_name, '[^a-zA-Z0-9]', '', 'g'));
+    IF v_username IS NULL OR length(v_username) < 3 THEN
+        v_username := 'user';
+    END IF;
+    v_username := left(v_username, 20) || '_' || substr(NEW.id::text, 1, 6);
+
+    INSERT INTO public.users (id, email, name, display_name, username, created_at)
+    VALUES (NEW.id, NEW.email, v_name, v_name, v_username, now())
+    ON CONFLICT (id) DO NOTHING;
+
+    INSERT INTO public.profiles (id) VALUES (NEW.id)
+    ON CONFLICT (id) DO NOTHING;
+
+    RETURN NEW;
+END;
+$function$;
 
 -- =============================================================================
 -- Done. Verify with:

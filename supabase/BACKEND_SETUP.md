@@ -34,10 +34,18 @@ signs up two throwaway users and exercises every endpoint the app uses, printing
 | 2 | Push-token registration returned `400` (`null value in column "device_id"`) | The app wrote to the `device_tokens` **view**, which did not expose `device_id` — a `NOT NULL` column on the underlying `user_devices` table. | **App:** writes go straight to `user_devices` with `device_id` + `push_token`. **DB:** migration repairs the view and adds an `INSTEAD OF` trigger so legacy clients still work. |
 | 3 | Group creation returned `400` (`invalid input syntax for type uuid`) | `IdGenerator.newConversationId()` produced `grp_<uuid>`, but `groups.id` is a `uuid` column (`chats.id` is `text`). | **App:** ids are now bare UUIDs, valid for both tables. |
 | 4 | Storage RLS would reject uploads once enforced | The shipped policy scoped writes to path **segment 2**, while the client writes `<userId>/<file>` (**segment 1**). | **App:** upload path is now prefixed with the *sender's* user id. **DB:** migration installs segment-1 policies. |
+| 5 | New signups showed the email local-part as their display name | The `handle_new_profile()` trigger only read the `name` / `full_name` metadata keys, but the app sends `data: { display_name: <name> }`. | **DB:** migration replaces `handle_new_profile()` so it prefers `raw_user_meta_data->>'display_name'`. |
 
 ---
 
 ## 2. Applying the database migration
+
+> **STATUS: ✅ ALREADY APPLIED.** The migration in
+> `supabase/migrations/20260925000100_backend_completion.sql` has been applied to
+> the live project `fcjgbbmfqdkucfpqjxae` and verified end-to-end (buckets, storage
+> RLS, device registry, `device_tokens` view, realtime publication and the
+> `handle_new_profile()` display-name fix). The steps below are kept for reference
+> and for re-applying the (idempotent) migration to another environment.
 
 The migration is **idempotent** — it is safe to run repeatedly.
 
