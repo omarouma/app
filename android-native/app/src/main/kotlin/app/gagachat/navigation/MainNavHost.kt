@@ -5,7 +5,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.People
-import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -26,10 +26,13 @@ import app.gagachat.feature.calls.navigation.activeCallScreen
 import app.gagachat.feature.calls.navigation.callHistoryScreen
 import app.gagachat.feature.chat.navigation.ChatRoutes
 import app.gagachat.feature.chat.navigation.chatScreen
+import app.gagachat.feature.contacts.navigation.ContactsRoutes
+import app.gagachat.feature.contacts.navigation.contactsScreen
 import app.gagachat.feature.groups.GroupsRoutes
 import app.gagachat.feature.groups.groupsGraph
 import app.gagachat.feature.home.navigation.HomeRoutes
 import app.gagachat.feature.home.navigation.homeScreen
+import app.gagachat.feature.home.navigation.moreScreen
 import app.gagachat.feature.people.PeopleRoutes
 import app.gagachat.feature.people.peopleGraph
 import app.gagachat.feature.profile.navigation.ProfileRoutes
@@ -42,28 +45,40 @@ import app.gagachat.feature.wallet.WalletRoutes
 import app.gagachat.feature.wallet.walletGraph
 import app.gagachat.push.PendingDeepLink
 
+/**
+ * The four top-level tabs. Matches the reference screenshots exactly:
+ * People / Chat / Calls / Profile. [route] is the concrete navigation target;
+ * [routePattern] is the registered pattern used to detect selection (the Profile
+ * route carries an optional argument so its pattern differs from its target).
+ */
 private enum class TopLevelDestination(
     val route: String,
+    val routePattern: String,
     val label: String,
     val icon: ImageVector,
 ) {
-    CHATS(HomeRoutes.HOME, "Chats", Icons.AutoMirrored.Filled.Chat),
-    CONTACTS(PeopleRoutes.PEOPLE, "People", Icons.Filled.People),
-    CALLS(CallRoutes.CALL_HISTORY, "Calls", Icons.Filled.Call),
-    SETTINGS(SettingsRoutes.SETTINGS, "Settings", Icons.Filled.Settings),
+    PEOPLE(PeopleRoutes.PEOPLE, PeopleRoutes.PEOPLE, "People", Icons.Filled.People),
+    CHAT(HomeRoutes.HOME, HomeRoutes.HOME, "Chat", Icons.AutoMirrored.Filled.Chat),
+    CALLS(CallRoutes.CALL_HISTORY, CallRoutes.CALL_HISTORY, "Calls", Icons.Filled.Call),
+    PROFILE(ProfileRoutes.profile(), ProfileRoutes.PROFILE, "Profile", Icons.Filled.Person),
 }
+
+/** Routes that keep the bottom bar visible (top-level tabs + the More menu). */
+private val bottomBarRoutes: Set<String> = TopLevelDestination.entries
+    .map { it.routePattern }
+    .toSet() + HomeRoutes.MORE
 
 /**
  * Main graph (PDF §2.1). Hosts the four top-level destinations behind a bottom
- * bar plus the detail surfaces (chat, profile, active call). Deep links captured
- * at cold start are consumed here once the graph is ready (PDF §8).
+ * bar plus the detail surfaces (chat, profile, active call, More menu). Deep
+ * links captured at cold start are consumed here once the graph is ready (§8).
  */
 @Composable
 fun MainNavHost(pendingDeepLink: String?) {
     val navController = rememberNavController()
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route
-    val showBottomBar = TopLevelDestination.entries.any { it.route == currentRoute }
+    val showBottomBar = currentRoute in bottomBarRoutes
 
     LaunchedEffect(pendingDeepLink) {
         if (!pendingDeepLink.isNullOrBlank()) {
@@ -88,12 +103,28 @@ fun MainNavHost(pendingDeepLink: String?) {
                 navController = navController,
                 onOpenConversation = { id -> navController.navigate(ChatRoutes.chat(id)) },
                 onOpenNewChat = { navController.navigate(PeopleRoutes.PEOPLE) },
+                onOpenMore = { navController.navigate(HomeRoutes.MORE) },
+            )
+            moreScreen(
+                navController = navController,
                 onOpenProfile = { navController.navigate(ProfileRoutes.profile()) },
+                onOpenConversations = { navController.navigate(HomeRoutes.HOME) },
+                onOpenCalls = { navController.navigate(CallRoutes.CALL_HISTORY) },
+                onOpenContacts = { navController.navigate(ContactsRoutes.CONTACTS) },
+                onOpenAddFriends = { navController.navigate(PeopleRoutes.DISCOVER) },
+                onOpenWallet = { navController.navigate(WalletRoutes.WALLET) },
+                onOpenMyQr = { navController.navigate(QrRoutes.MY_QR) },
+                onOpenBlocked = { navController.navigate(SettingsRoutes.BLOCKED) },
+                onOpenSettings = { navController.navigate(SettingsRoutes.SETTINGS) },
+                onOpenHelp = { navController.navigate(SettingsRoutes.ABOUT) },
             )
             chatScreen(
                 navController = navController,
                 onStartCall = { conversationId, isVideo ->
                     navController.navigate(CallRoutes.activeCall(conversationId, isVideo))
+                },
+                onOpenProfile = { userId ->
+                    navController.navigate(ProfileRoutes.profile(userId))
                 },
             )
             peopleGraph(
@@ -105,6 +136,13 @@ fun MainNavHost(pendingDeepLink: String?) {
                 onOpenGroups = { navController.navigate(GroupsRoutes.GROUPS) },
                 onOpenMyQr = { navController.navigate(QrRoutes.MY_QR) },
                 onOpenAddByCode = { navController.navigate(QrRoutes.ADD_BY_CODE) },
+            )
+            contactsScreen(
+                navController = navController,
+                onOpenProfile = { userId -> navController.navigate(ProfileRoutes.profile(userId)) },
+                onOpenConversation = { conversationId ->
+                    navController.navigate(ChatRoutes.chat(conversationId))
+                },
             )
             groupsGraph(
                 navController = navController,
@@ -119,6 +157,9 @@ fun MainNavHost(pendingDeepLink: String?) {
             callHistoryScreen(
                 navController = navController,
                 onOpenConversation = { id -> navController.navigate(ChatRoutes.chat(id)) },
+                onStartCall = { conversationId, isVideo ->
+                    navController.navigate(CallRoutes.activeCall(conversationId, isVideo))
+                },
             )
             activeCallScreen(
                 navController = navController,
@@ -153,9 +194,9 @@ private fun GagaBottomBar(
     NavigationBar {
         TopLevelDestination.entries.forEach { destination ->
             NavigationBarItem(
-                selected = currentRoute == destination.route,
+                selected = currentRoute == destination.routePattern,
                 onClick = {
-                    if (currentRoute != destination.route) {
+                    if (currentRoute != destination.routePattern) {
                         navController.navigate(destination.route) {
                             popUpTo(navController.graph.findStartDestination().id) {
                                 saveState = true

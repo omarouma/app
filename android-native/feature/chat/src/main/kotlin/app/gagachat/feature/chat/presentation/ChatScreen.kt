@@ -8,10 +8,13 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -21,17 +24,18 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.gagachat.core.model.Message
-import app.gagachat.core.ui.component.GagaAvatar
+import app.gagachat.core.ui.component.GagaEmptyState
 import app.gagachat.core.ui.component.GagaScaffold
 import app.gagachat.core.ui.theme.GagaDimens
-import app.gagachat.core.ui.util.TimeFormat
 import app.gagachat.feature.chat.presentation.components.DateSeparator
 import app.gagachat.feature.chat.presentation.components.MessageBubble
 import app.gagachat.feature.chat.presentation.components.MessageComposer
@@ -42,6 +46,7 @@ import app.gagachat.feature.chat.presentation.components.rememberMediaPicker
 fun ChatRoute(
     onNavigateBack: () -> Unit,
     onStartCall: (conversationId: String, isVideo: Boolean) -> Unit,
+    onOpenProfile: (userId: String) -> Unit,
     viewModel: ChatViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -60,6 +65,13 @@ fun ChatRoute(
         }
     }
 
+    LaunchedEffect(state.noticeMessage) {
+        state.noticeMessage?.let {
+            snackbarHostState.showSnackbar(it)
+            viewModel.consumeNotice()
+        }
+    }
+
     // Load older messages when the user scrolls near the top of the history.
     val shouldLoadOlder by remember {
         derivedStateOf {
@@ -73,7 +85,7 @@ fun ChatRoute(
 
     GagaScaffold(
         title = state.title,
-        subtitle = if (state.isOtherTyping) "typing…" else state.subtitle,
+        subtitle = if (state.isOtherTyping) "typing\u2026" else state.subtitle,
         onBack = onNavigateBack,
         snackbarHostState = snackbarHostState,
         actions = {
@@ -83,9 +95,15 @@ fun ChatRoute(
             IconButton(onClick = { onStartCall(state.conversationId, true) }) {
                 Icon(Icons.Filled.Videocam, contentDescription = "Video call")
             }
-            IconButton(onClick = {}) {
-                Icon(Icons.Filled.MoreVert, contentDescription = "More")
-            }
+            ChatOverflowMenu(
+                onViewProfile = {
+                    if (state.otherUserId.isNotBlank()) onOpenProfile(state.otherUserId)
+                },
+                onAction = { label ->
+                    snackbarHostState.currentSnackbarData?.dismiss()
+                    viewModel.showNotice(label)
+                },
+            )
         },
     ) { padding ->
         Column(
@@ -94,15 +112,23 @@ fun ChatRoute(
                 .padding(padding),
         ) {
             Box(modifier = Modifier.weight(1f)) {
-                MessageList(
-                    messages = state.messages,
-                    currentUserId = state.currentUserId,
-                    isLoadingOlder = state.isLoadingOlder,
-                    isOtherTyping = state.isOtherTyping,
-                    listState = listState,
-                    onRetry = viewModel::retry,
-                    onLongPress = viewModel::setReplyTo,
-                )
+                if (state.messages.isEmpty() && !state.isLoadingOlder) {
+                    GagaEmptyState(
+                        icon = Icons.AutoMirrored.Filled.Chat,
+                        title = "No messages yet",
+                        description = "Say hi to start the conversation.",
+                    )
+                } else {
+                    MessageList(
+                        messages = state.messages,
+                        currentUserId = state.currentUserId,
+                        isLoadingOlder = state.isLoadingOlder,
+                        isOtherTyping = state.isOtherTyping,
+                        listState = listState,
+                        onRetry = viewModel::retry,
+                        onLongPress = viewModel::setReplyTo,
+                    )
+                }
             }
             MessageComposer(
                 draft = state.draft,
@@ -112,10 +138,49 @@ fun ChatRoute(
                 onCancelReply = { viewModel.setReplyTo(null) },
                 onAttach = mediaPicker.pickFile,
                 onPickImage = mediaPicker.pickImage,
-                onShareLocation = {},
+                onShareLocation = { viewModel.shareLocation() },
             )
         }
     }
+}
+
+/**
+ * The conversation overflow menu (reference screenshot 174606): Search Messages,
+ * Chat Background, Send Money, View Profile, Chat Info, Remove Friend, Block User
+ * and Report User. "View Profile" is fully wired; the remaining entries surface a
+ * transient notice until their owning features land.
+ */
+@Composable
+private fun ChatOverflowMenu(
+    onViewProfile: () -> Unit,
+    onAction: (String) -> Unit,
+) {
+    var expanded by remember { mutableStateOf(false) }
+
+    IconButton(onClick = { expanded = true }) {
+        Icon(Icons.Filled.MoreVert, contentDescription = "More")
+    }
+    DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+        MenuItem("Search Messages") { expanded = false; onAction("Search Messages") }
+        MenuItem("Chat Background") { expanded = false; onAction("Chat Background") }
+        MenuItem("Send Money") { expanded = false; onAction("Send Money") }
+        MenuItem("View Profile") {
+            expanded = false
+            onViewProfile()
+        }
+        MenuItem("Chat Info") { expanded = false; onAction("Chat Info") }
+        MenuItem("Remove Friend") { expanded = false; onAction("Remove Friend") }
+        MenuItem("Block User") { expanded = false; onAction("Block User") }
+        MenuItem("Report User") { expanded = false; onAction("Report User") }
+    }
+}
+
+@Composable
+private fun MenuItem(label: String, onClick: () -> Unit) {
+    DropdownMenuItem(
+        text = { Text(label) },
+        onClick = onClick,
+    )
 }
 
 @Composable

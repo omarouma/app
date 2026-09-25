@@ -7,8 +7,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Chat
-import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.ChatBubbleOutline
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
@@ -33,7 +33,7 @@ import app.gagachat.core.ui.theme.GagaDimens
 fun HomeRoute(
     onOpenConversation: (conversationId: String) -> Unit,
     onOpenNewChat: () -> Unit,
-    onOpenProfile: () -> Unit,
+    onOpenMore: () -> Unit,
     viewModel: HomeViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -50,8 +50,8 @@ fun HomeRoute(
         title = "GaGa Chat",
         snackbarHostState = snackbarHostState,
         actions = {
-            IconButton(onClick = onOpenProfile) {
-                Icon(Icons.Filled.AccountCircle, contentDescription = "Profile")
+            IconButton(onClick = onOpenMore) {
+                Icon(Icons.Filled.MoreVert, contentDescription = "More")
             }
         },
         floatingActionButton = {

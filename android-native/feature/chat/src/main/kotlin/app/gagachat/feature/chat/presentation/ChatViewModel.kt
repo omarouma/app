@@ -1,6 +1,9 @@
 package app.gagachat.feature.chat.presentation
 
+import android.Manifest
 import android.content.Context
+import android.content.pm.PackageManager
+import android.location.LocationManager
 import android.net.Uri
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
@@ -32,10 +35,12 @@ data class ChatUiState(
     val avatarUrl: String? = null,
     val messages: List<Message> = emptyList(),
     val currentUserId: String = "",
+    val otherUserId: String = "",
     val draft: String = "",
     val isLoadingOlder: Boolean = false,
     val hasMoreOlder: Boolean = true,
     val errorMessage: String? = null,
+    val noticeMessage: String? = null,
     val replyTo: Message? = null,
     val isOtherTyping: Boolean = false,
 )
@@ -56,6 +61,7 @@ class ChatViewModel @Inject constructor(
     private val loadingOlder = MutableStateFlow(false)
     private val hasMoreOlder = MutableStateFlow(true)
     private val error = MutableStateFlow<String?>(null)
+    private val notice = MutableStateFlow<String?>(null)
     private val replyTo = MutableStateFlow<Message?>(null)
     private val typing = MutableStateFlow(false)
 
@@ -67,8 +73,8 @@ class ChatViewModel @Inject constructor(
         conversationRepository.observeConversation(conversationId),
         draft,
         combine(loadingOlder, hasMoreOlder, error) { l, h, e -> Triple(l, h, e) },
-        combine(replyTo, typing) { r, t -> r to t },
-    ) { messages, conversation, draftText, (isLoadingOlder, moreOlder, errorMessage), (reply, isTyping) ->
+        combine(replyTo, typing, notice) { r, t, n -> Triple(r, t, n) },
+    ) { messages, conversation, draftText, (isLoadingOlder, moreOlder, errorMessage), (reply, isTyping, noticeMessage) ->
         ChatUiState(
             conversationId = conversationId,
             title = conversation?.displayTitle(currentUserId) ?: "Chat",
@@ -76,10 +82,12 @@ class ChatViewModel @Inject constructor(
             avatarUrl = conversation?.avatar ?: conversation?.otherMember(currentUserId)?.avatar,
             messages = messages,
             currentUserId = currentUserId,
+            otherUserId = conversation?.otherMember(currentUserId)?.userId.orEmpty(),
             draft = draftText,
             isLoadingOlder = isLoadingOlder,
             hasMoreOlder = moreOlder,
             errorMessage = errorMessage,
+            noticeMessage = noticeMessage,
             replyTo = reply,
             isOtherTyping = isTyping,
         )
@@ -142,6 +150,47 @@ class ChatViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Shares the device's last known location as a LOCATION message (reference
+     * screenshots 174452 / 174502). Reads the cached fix from the platform
+     * [LocationManager]; if permission is missing or no fix is cached a notice is
+     * surfaced instead of failing silently.
+     */
+    fun shareLocation() {
+        viewModelScope.launch {
+            val fine = context.checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION)
+            val coarse = context.checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION)
+            if (fine != PackageManager.PERMISSION_GRANTED && coarse != PackageManager.PERMISSION_GRANTED) {
+                notice.value = "Enable location permission to share your location."
+                return@launch
+            }
+            val manager = context.getSystemService(Context.LOCATION_SERVICE) as? LocationManager
+            val location = runCatching {
+                manager?.getLastKnownLocation(LocationManager.GPS_PROVIDER)
+                    ?: manager?.getLastKnownLocation(LocationManager.NETWORK_PROVIDER)
+            }.getOrNull()
+            if (location == null) {
+                notice.value = "Couldn't get your current location yet."
+                return@launch
+            }
+            val session = authRepository.sessionFlow.value
+            val result = messageRepository.sendLocation(
+                conversationId = conversationId,
+                senderId = currentUserId,
+                senderName = session?.displayName,
+                senderAvatar = null,
+                latitude = location.latitude,
+                longitude = location.longitude,
+            )
+            if (result is AppResult.Failure) error.value = result.error.toUserMessage()
+        }
+    }
+
+    /** Surfaces a transient notice for an overflow-menu entry that isn't wired yet. */
+    fun showNotice(label: String) {
+        notice.value = "$label isn't available yet."
+    }
+
     /** Copies a content:// Uri into app cache and returns (path, mime, size). */
     private fun resolveUri(uri: Uri): Triple<String, String, Long>? = runCatching {
         val mime = context.contentResolver.getType(uri) ?: "application/octet-stream"
@@ -181,6 +230,8 @@ class ChatViewModel @Inject constructor(
     }
 
     fun consumeError() = error.update { null }
+
+    fun consumeNotice() = notice.update { null }
 
     private fun presenceSubtitle(conversation: Conversation?, currentUserId: String): String? {
         if (conversation == null) return null

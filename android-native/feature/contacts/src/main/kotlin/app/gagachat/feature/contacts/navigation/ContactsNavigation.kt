@@ -12,12 +12,12 @@ object ContactsRoutes {
 fun NavGraphBuilder.contactsScreen(
     navController: NavController,
     onOpenProfile: (String) -> Unit,
-    onStartChat: (String) -> Unit,
+    onOpenConversation: (String) -> Unit,
 ) {
     composable(ContactsRoutes.CONTACTS) {
         ContactsRoute(
             onOpenProfile = onOpenProfile,
-            onStartChat = onStartChat,
+            onOpenConversation = onOpenConversation,
         )
     }
 }
