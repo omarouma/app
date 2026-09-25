@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
@@ -22,10 +23,14 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import app.gagachat.core.ui.component.GagaBrandHeader
 import app.gagachat.core.ui.component.GagaPasswordField
 import app.gagachat.core.ui.component.GagaPrimaryButton
 import app.gagachat.core.ui.component.GagaScaffold
@@ -54,7 +59,7 @@ fun RegisterRoute(
     }
 
     GagaScaffold(
-        title = "Create account",
+        title = "",
         onBack = onNavigateBack,
         snackbarHostState = snackbarHostState,
     ) { padding ->
@@ -69,17 +74,26 @@ fun RegisterRoute(
             verticalArrangement = Arrangement.Top,
         ) {
             Spacer(Modifier.height(GagaDimens.space16))
-            Text(
-                text = "Join GaGa Chat",
-                style = MaterialTheme.typography.headlineMedium,
-            )
-            Spacer(Modifier.height(GagaDimens.space8))
-            Text(
-                text = "Create your account in a few seconds",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            GagaBrandHeader(
+                logoSize = 84.dp,
+                tagline = "Chat freely, stay connected",
             )
             Spacer(Modifier.height(GagaDimens.space32))
+
+            Text(
+                text = "Create your account",
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Spacer(Modifier.height(GagaDimens.space4))
+            Text(
+                text = "Join GaGa Chat in a few seconds — all you need is an email.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Spacer(Modifier.height(GagaDimens.space24))
 
             GagaTextField(
                 value = state.displayName,
@@ -94,7 +108,7 @@ fun RegisterRoute(
             GagaTextField(
                 value = state.identifier,
                 onValueChange = viewModel::onIdentifierChange,
-                label = "Email or phone",
+                label = "Email address",
                 leadingIcon = Icons.Filled.Email,
                 isError = state.identifierError != null,
                 errorText = state.identifierError,
@@ -132,6 +146,15 @@ fun RegisterRoute(
                 text = "Already have an account? Sign in",
                 onClick = onNavigateBack,
             )
+            Spacer(Modifier.height(GagaDimens.space16))
+            Text(
+                text = "By continuing you agree to GaGa's Terms and Privacy Policy.",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Spacer(Modifier.height(GagaDimens.space8))
         }
     }
 }

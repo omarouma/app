@@ -2,6 +2,7 @@ package app.gagachat.core.common.di
 
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
+import javax.inject.Inject
 
 /**
  * Injectable dispatchers so that all DB/network/image work can be moved off the
@@ -14,7 +15,7 @@ interface DispatcherProvider {
     val computation: CoroutineDispatcher
 }
 
-class DefaultDispatcherProvider : DispatcherProvider {
+class DefaultDispatcherProvider @Inject constructor() : DispatcherProvider {
     override val main: CoroutineDispatcher = Dispatchers.Main.immediate
     override val io: CoroutineDispatcher = Dispatchers.IO
     override val default: CoroutineDispatcher = Dispatchers.Default

@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="gaga_violet">#6C4CF1</color>
-    <color name="gaga_violet_dark">#4B32B8</color>
-    <color name="gaga_teal">#12B5A5</color>
+    <color name="gaga_green">#00C300</color>
+    <color name="gaga_green_dark">#009A00</color>
+    <color name="gaga_teal">#00A884</color>
     <color name="white">#FFFFFFFF</color>
     <color name="black">#FF000000</color>
-    <color name="ic_launcher_background">#6C4CF1</color>
+    <color name="ic_launcher_background">#00C300</color>
 </resources>

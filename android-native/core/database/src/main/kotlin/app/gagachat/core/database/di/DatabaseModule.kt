@@ -2,6 +2,7 @@ package app.gagachat.core.database.di
 
 import android.content.Context
 import androidx.room.Room
+import androidx.room.RoomDatabase
 import app.gagachat.core.database.GagaDatabase
 import app.gagachat.core.database.dao.BlockDao
 import app.gagachat.core.database.dao.CallDao
@@ -26,7 +27,7 @@ object DatabaseModule {
     fun provideDatabase(@ApplicationContext context: Context): GagaDatabase =
         Room.databaseBuilder(context, GagaDatabase::class.java, GagaDatabase.NAME)
             // WAL keeps reads non-blocking while the outbox writes (PDF §9.1).
-            .setJournalMode(GagaDatabase.JournalMode.WRITE_AHEAD_LOGGING)
+            .setJournalMode(RoomDatabase.JournalMode.WRITE_AHEAD_LOGGING)
             .fallbackToDestructiveMigrationOnDowngrade()
             .build()
 

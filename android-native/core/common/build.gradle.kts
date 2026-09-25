@@ -1,5 +1,6 @@
 plugins {
     id("gaga.android.library")
+    id("gaga.android.hilt")
     id("org.jetbrains.kotlin.plugin.serialization")
 }
 

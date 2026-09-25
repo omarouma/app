@@ -6,7 +6,7 @@ import app.gagachat.core.common.result.AppResult
 import app.gagachat.core.common.util.AppLogger
 import app.gagachat.core.common.util.TimeProvider
 import app.gagachat.core.network.auth.SupabaseAuthApi
-import app.gagachat.core.network.auth.SupabaseAuthApi.Companion.toSession
+import app.gagachat.core.network.auth.toSession
 import app.gagachat.core.network.error.ErrorMapper
 import app.gagachat.core.network.session.AuthSession
 import app.gagachat.core.network.session.SessionStore

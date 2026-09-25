@@ -6,19 +6,21 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.dsl.KotlinJvmProjectExtension
 
 class JvmLibraryConventionPlugin : Plugin<Project> {
-    override fun apply(target: Project) = with(target) {
-        pluginManager.apply("org.jetbrains.kotlin.jvm")
-        pluginManager.apply("org.jetbrains.kotlin.plugin.serialization")
+    override fun apply(target: Project) {
+        with(target) {
+            pluginManager.apply("org.jetbrains.kotlin.jvm")
+            pluginManager.apply("org.jetbrains.kotlin.plugin.serialization")
 
-        extensions.configure<KotlinJvmProjectExtension> {
-            compilerOptions {
-                jvmTarget.set(JvmTarget.JVM_17)
+            extensions.configure<KotlinJvmProjectExtension> {
+                compilerOptions {
+                    jvmTarget.set(JvmTarget.JVM_17)
+                }
             }
-        }
 
-        extensions.configure<org.gradle.api.plugins.JavaPluginExtension> {
-            sourceCompatibility = JavaVersion.VERSION_17
-            targetCompatibility = JavaVersion.VERSION_17
+            extensions.configure<org.gradle.api.plugins.JavaPluginExtension> {
+                sourceCompatibility = JavaVersion.VERSION_17
+                targetCompatibility = JavaVersion.VERSION_17
+            }
         }
     }
 }

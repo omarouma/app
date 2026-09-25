@@ -87,17 +87,17 @@ class SupabaseAuthApi @Inject constructor(
             header("Authorization", "Bearer $accessToken")
         }
     }
+}
 
-    fun TokenResponse.toSession(): AuthSession {
-        val now = System.currentTimeMillis()
-        return AuthSession(
-            userId = user?.id ?: "",
-            accessToken = accessToken,
-            refreshToken = refreshToken,
-            expiresAtMillis = expiresAt ?: (now + expiresIn * 1000),
-            email = user?.email,
-            phone = user?.phone,
-            displayName = user?.userMetadata?.get("display_name"),
-        )
-    }
+fun TokenResponse.toSession(): AuthSession {
+    val now = System.currentTimeMillis()
+    return AuthSession(
+        userId = user?.id ?: "",
+        accessToken = accessToken,
+        refreshToken = refreshToken,
+        expiresAtMillis = expiresAt ?: (now + expiresIn * 1000),
+        email = user?.email,
+        phone = user?.phone,
+        displayName = user?.userMetadata?.get("display_name"),
+    )
 }

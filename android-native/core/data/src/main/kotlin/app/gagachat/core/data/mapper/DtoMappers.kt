@@ -12,15 +12,16 @@ import app.gagachat.core.model.MessageStatus
 import app.gagachat.core.model.MessageType
 import app.gagachat.core.model.User
 import app.gagachat.core.model.UserStatus
-import app.gagachat.core.network.dto.CallSessionRow
-import app.gagachat.core.network.dto.ConversationMemberRow
+import app.gagachat.core.network.dto.CallHistoryRow
 import app.gagachat.core.network.dto.ConversationRow
 import app.gagachat.core.network.dto.MessageRow
 import app.gagachat.core.network.dto.UserRow
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.jsonPrimitive
 
 fun UserRow.toDomain(): User = User(
     id = id,
-    displayName = displayName ?: username ?: "User",
+    displayName = displayName ?: name ?: username ?: "User",
     username = username,
     avatar = avatar,
     phone = phone,
@@ -39,12 +40,12 @@ fun ConversationRow.toDomain(members: List<ConversationMember> = emptyList()): C
         id = id,
         type = type?.let { runCatching { ConversationType.valueOf(it.uppercase()) }.getOrNull() }
             ?: ConversationType.DIRECT,
-        title = title,
-        avatar = avatar,
-        lastMessageId = lastMessageId,
+        title = title?.takeIf { it.isNotBlank() },
+        avatar = avatar?.takeIf { it.isNotBlank() },
+        lastMessageId = null,
         lastMessagePreview = lastMessagePreview,
-        lastMessageAt = lastMessageAt,
-        updatedAt = updatedAt ?: 0L,
+        lastMessageAt = updatedAt,
+        updatedAt = updatedAt ?: createdAt ?: 0L,
         unreadCount = unreadCount ?: 0,
         isPinned = isPinned ?: false,
         isMuted = isMuted ?: false,
@@ -52,56 +53,63 @@ fun ConversationRow.toDomain(members: List<ConversationMember> = emptyList()): C
         members = members,
     )
 
-fun ConversationMemberRow.toDomain(): ConversationMember = ConversationMember(
-    conversationId = conversationId,
-    userId = userId,
-    role = role?.let { runCatching { MemberRole.valueOf(it.uppercase()) }.getOrNull() }
-        ?: MemberRole.MEMBER,
-    joinedAt = joinedAt ?: 0L,
-    lastReadMessageId = lastReadMessageId,
-    displayName = displayName,
-    avatar = avatar,
-)
+fun MessageRow.toDomain(): Message {
+    val meta = metadata
+    val type = type?.let { runCatching { MessageType.valueOf(it.uppercase()) }.getOrNull() }
+        ?: MessageType.TEXT
+    val resolvedMedia = mediaUrl ?: mediaUrls?.firstOrNull()
+    val thumbnail = mediaUrls?.getOrNull(1)
+    val created = createdAt
+    val updated = updatedAt
+    val edited = created != null && updated != null && updated > created
+    return Message(
+        localId = clientMessageId ?: id,
+        clientMessageId = clientMessageId ?: id,
+        serverMessageId = id,
+        conversationId = conversationId,
+        senderId = senderId,
+        type = type,
+        text = text,
+        mediaUrl = resolvedMedia,
+        thumbnailUrl = thumbnail,
+        replyToMessageId = replyToMessageId,
+        createdAtClient = createdAt ?: 0L,
+        createdAtServer = createdAt,
+        status = deliveryStatus?.let {
+            runCatching { MessageStatus.valueOf(it.uppercase()) }.getOrNull()
+        } ?: MessageStatus.SENT,
+        editedAt = if (edited) updated else null,
+        deletedAt = if (destroyed == true) updated else null,
+        latitude = if (type == MessageType.LOCATION) meta?.double("lat") else null,
+        longitude = if (type == MessageType.LOCATION) meta?.double("lng") else null,
+    )
+}
 
-fun MessageRow.toDomain(): Message = Message(
-    localId = id,
-    clientMessageId = clientMessageId ?: id,
-    serverMessageId = id,
-    conversationId = conversationId,
-    senderId = senderId,
-    type = type?.let { runCatching { MessageType.valueOf(it.uppercase()) }.getOrNull() }
-        ?: MessageType.TEXT,
-    text = text,
-    mediaUrl = mediaUrl,
-    thumbnailUrl = thumbnailUrl,
-    replyToMessageId = replyToMessageId,
-    createdAtClient = createdAt ?: 0L,
-    createdAtServer = createdAt,
-    status = MessageStatus.SENT,
-    editedAt = editedAt,
-    deletedAt = deletedAt,
-    latitude = latitude,
-    longitude = longitude,
-)
+private fun JsonObject.double(key: String): Double? =
+    this[key]?.jsonPrimitive?.content?.toDoubleOrNull()
 
-fun CallSessionRow.toDomain(
+fun CallHistoryRow.toDomain(
     peerId: String? = null,
     peerName: String? = null,
     peerAvatar: String? = null,
     isOutgoing: Boolean = false,
-): CallSession = CallSession(
-    id = id,
-    conversationId = conversationId,
-    initiatorId = initiatorId,
-    type = type?.let { runCatching { CallType.valueOf(it.uppercase()) }.getOrNull() }
-        ?: CallType.AUDIO,
-    startedAt = startedAt ?: 0L,
-    endedAt = endedAt,
-    status = status?.let { runCatching { CallStatus.valueOf(it.uppercase()) }.getOrNull() }
-        ?: CallStatus.ENDED,
-    peerId = peerId,
-    peerName = peerName,
-    peerAvatar = peerAvatar,
-    durationMs = if (endedAt != null && startedAt != null) endedAt - startedAt else null,
-    isOutgoing = isOutgoing,
-)
+): CallSession {
+    val start = startedAt
+    val end = endedAt
+    return CallSession(
+        id = id,
+        conversationId = conversationId ?: "",
+        initiatorId = callerId,
+        type = type?.let { runCatching { CallType.valueOf(it.uppercase()) }.getOrNull() }
+            ?: CallType.AUDIO,
+        startedAt = start ?: createdAt ?: 0L,
+        endedAt = end,
+        status = status?.let { runCatching { CallStatus.valueOf(it.uppercase()) }.getOrNull() }
+            ?: CallStatus.ENDED,
+        peerId = peerId,
+        peerName = peerName,
+        peerAvatar = peerAvatar,
+        durationMs = duration ?: if (end != null && start != null) end - start else null,
+        isOutgoing = isOutgoing,
+    )
+}

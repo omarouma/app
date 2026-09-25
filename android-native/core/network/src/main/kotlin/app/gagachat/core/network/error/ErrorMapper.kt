@@ -21,7 +21,7 @@ object ErrorMapper {
 
     private val json = Json { ignoreUnknownKeys = true }
 
-    fun map(throwable: Throwable): AppError = when (throwable) {
+    suspend fun map(throwable: Throwable): AppError = when (throwable) {
         is UnknownHostException, is IOException, is HttpRequestTimeoutException,
         is TimeoutCancellationException,
         -> AppError.Network(throwable.message, throwable)
@@ -51,12 +51,12 @@ object ErrorMapper {
         else -> AppError.Unknown(throwable.message, throwable)
     }
 
-    private fun extractMessage(exception: ResponseException): String? = runCatching {
+    private suspend fun extractMessage(exception: ResponseException): String? = runCatching {
         val body = exception.response.bodyAsText()
         val obj = json.parseToJsonElement(body).jsonObject
         obj["message"]?.jsonPrimitive?.content
             ?: obj["msg"]?.jsonPrimitive?.content
             ?: obj["error_description"]?.jsonPrimitive?.content
             ?: obj["error"]?.jsonPrimitive?.content
-    }.getOrNull()
+    }.getOrNull() ?: exception.response.status.description
 }

@@ -3,12 +3,14 @@ package app.gagachat.feature.calls.presentation
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.gagachat.core.common.result.AppResult
+import app.gagachat.core.data.call.CallManager
 import app.gagachat.core.data.repository.AuthRepository
 import app.gagachat.core.data.repository.CallRepository
 import app.gagachat.core.data.repository.ConversationRepository
 import app.gagachat.core.model.CallSession
 import app.gagachat.core.model.CallStatus
 import app.gagachat.core.model.CallType
+import app.gagachat.core.ui.util.toUserMessage
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -42,7 +44,7 @@ data class CallUiState(
     val activeCall: CallSession? = null,
     val isMuted: Boolean = false,
     val isSpeakerOn: Boolean = false,
-    val isVideoEnabled: true,
+    val isVideoEnabled: Boolean = true,
     val elapsedSeconds: Long = 0L,
 )
 
@@ -51,6 +53,7 @@ class CallViewModel @Inject constructor(
     private val callRepository: CallRepository,
     private val authRepository: AuthRepository,
     private val conversationRepository: ConversationRepository,
+    private val callManager: CallManager,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(CallUiState())
@@ -61,6 +64,39 @@ class CallViewModel @Inject constructor(
     init {
         observeHistory()
         refreshHistory()
+        callManager.bindScope(viewModelScope)
+        observeCallEvents()
+    }
+
+    /**
+     * Bridges WebRTC signaling/media events (from the data-layer [CallManager])
+     * into the UI call state machine. The media path stays fully decoupled from
+     * the state machine: the ViewModel never touches WebRTC directly.
+     */
+    private fun observeCallEvents() {
+        viewModelScope.launch {
+            callManager.events.collect { event ->
+                when (event) {
+                    is CallManager.CallEvent.RemoteRinging ->
+                        _state.update { it.copy(phase = CallPhase.INCOMING_RINGING) }
+                    is CallManager.CallEvent.RemoteAccepted ->
+                        _state.update { it.copy(phase = CallPhase.CONNECTING) }
+                    is CallManager.CallEvent.Connected -> onMediaConnected()
+                    is CallManager.CallEvent.RemoteRejected,
+                    is CallManager.CallEvent.RemoteBusy,
+                    is CallManager.CallEvent.RemoteHangup ->
+                        endCall()
+                    is CallManager.CallEvent.Failed ->
+                        _state.update {
+                            it.copy(
+                                phase = CallPhase.ENDED,
+                                activeCall = null,
+                                error = event.reason ?: "Call failed",
+                            )
+                        }
+                }
+            }
+        }
     }
 
     private fun observeHistory() {
@@ -110,6 +146,18 @@ class CallViewModel @Inject constructor(
                             elapsedSeconds = 0L,
                         )
                     }
+                    // Begin signaling + media negotiation for the outgoing call.
+                    if (peerId != null) {
+                        callManager.begin(
+                            scope = viewModelScope,
+                            callId = result.data.id,
+                            conversationId = conversationId,
+                            selfUserId = initiatorId,
+                            peerUserId = peerId,
+                            asCaller = true,
+                            video = type == CallType.VIDEO,
+                        )
+                    }
                 }
                 is AppResult.Failure -> {
                     _state.update { it.copy(error = result.error.toUserMessage()) }
@@ -145,12 +193,14 @@ class CallViewModel @Inject constructor(
         _state.update { it.copy(phase = CallPhase.CONNECTING) }
         // Media negotiation happens in the WebRTC layer; once connected the
         // signaling layer flips the phase to CONNECTED via onMediaConnected().
+        callManager.accept(viewModelScope)
         startTimerIfNeeded(call)
     }
 
     /** Rejects an incoming call and records the REJECTED status. */
     fun rejectCall() {
         val call = _state.value.activeCall ?: return
+        callManager.reject(viewModelScope)
         viewModelScope.launch {
             callRepository.endCall(call.id, CallStatus.REJECTED, null)
             _state.update { it.copy(phase = CallPhase.ENDED, activeCall = null) }
@@ -167,6 +217,7 @@ class CallViewModel @Inject constructor(
             CallPhase.OUTGOING_RINGING -> CallStatus.MISSED
             else -> CallStatus.ENDED
         }
+        callManager.hangup(viewModelScope)
         viewModelScope.launch {
             callRepository.endCall(call.id, status, durationMs)
             _state.update { it.copy(phase = CallPhase.ENDED, activeCall = null) }

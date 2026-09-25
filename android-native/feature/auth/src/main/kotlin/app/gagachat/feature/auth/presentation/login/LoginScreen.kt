@@ -22,10 +22,13 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import app.gagachat.core.ui.component.GagaBrandHeader
 import app.gagachat.core.ui.component.GagaPasswordField
 import app.gagachat.core.ui.component.GagaPrimaryButton
 import app.gagachat.core.ui.component.GagaScaffold
@@ -54,7 +57,7 @@ fun LoginRoute(
     }
 
     GagaScaffold(
-        title = "Sign in",
+        title = "",
         snackbarHostState = snackbarHostState,
     ) { padding ->
         Column(
@@ -68,22 +71,28 @@ fun LoginRoute(
             verticalArrangement = Arrangement.Top,
         ) {
             Spacer(Modifier.height(GagaDimens.space24))
+            GagaBrandHeader(tagline = "Chat freely, stay connected")
+            Spacer(Modifier.height(GagaDimens.space32))
+
             Text(
                 text = "Welcome back",
-                style = MaterialTheme.typography.headlineMedium,
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.fillMaxWidth(),
             )
-            Spacer(Modifier.height(GagaDimens.space8))
+            Spacer(Modifier.height(GagaDimens.space4))
             Text(
                 text = "Sign in to continue to GaGa Chat",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.fillMaxWidth(),
             )
-            Spacer(Modifier.height(GagaDimens.space32))
+            Spacer(Modifier.height(GagaDimens.space24))
 
             GagaTextField(
                 value = state.identifier,
                 onValueChange = viewModel::onIdentifierChange,
-                label = "Email or phone",
+                label = "Email address",
                 leadingIcon = Icons.Filled.Email,
                 isError = state.identifierError != null,
                 errorText = state.identifierError,
@@ -108,18 +117,26 @@ fun LoginRoute(
             )
             Spacer(Modifier.height(GagaDimens.space12))
             GagaTextButton(
-                text = "Use a one-time code instead",
+                text = "Email me a sign-in code instead",
                 onClick = {
                     val id = state.identifier.trim()
                     if (id.isNotEmpty()) {
-                        onNavigateToOtp(id, if (id.contains("@")) "email" else "phone")
+                        onNavigateToOtp(id, "email")
                     }
                 },
             )
-            Spacer(Modifier.height(GagaDimens.space8))
+            Spacer(Modifier.height(GagaDimens.space4))
             GagaTextButton(
                 text = "Don't have an account? Create one",
                 onClick = onNavigateToRegister,
+            )
+            Spacer(Modifier.height(GagaDimens.space24))
+            Text(
+                text = "By continuing you agree to GaGa's Terms and Privacy Policy.",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth(),
             )
         }
     }

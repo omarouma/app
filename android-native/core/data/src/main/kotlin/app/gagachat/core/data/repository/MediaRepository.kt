@@ -17,8 +17,10 @@ import app.gagachat.core.model.PendingUpload
 import app.gagachat.core.model.UploadState
 import app.gagachat.core.network.storage.SupabaseStorageApi
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 import javax.inject.Inject
@@ -119,12 +121,22 @@ class DefaultMediaRepository @Inject constructor(
                     uploadId = upload.uploadId,
                     extension = extension,
                 )
-                val url = storageApi.upload(objectPath, bytes, upload.mime) { progress ->
-                    // Progress is best-effort; DB writes happen on the IO dispatcher.
-                    kotlinx.coroutines.runBlocking {
+                // Persist progress from a sibling coroutine instead of blocking the
+                // upload thread with runBlocking.
+                val progressChannel = Channel<Int>(Channel.CONFLATED)
+                val writer = launch {
+                    for (progress in progressChannel) {
                         messageDao.updateUploadProgress(upload.clientMessageId, progress)
                         uploadDao.updateProgress(upload.uploadId, progress)
                     }
+                }
+                val url = try {
+                    storageApi.upload(objectPath, bytes, upload.mime) { progress ->
+                        progressChannel.trySend(progress)
+                    }
+                } finally {
+                    progressChannel.close()
+                    writer.join()
                 }
                 messageDao.updateMedia(upload.clientMessageId, url, null)
                 uploadDao.updateState(

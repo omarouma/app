@@ -13,8 +13,8 @@ android {
 
     defaultConfig {
         applicationId = "gagachat.app"
-        versionCode = 1
-        versionName = "1.0.0"
+        versionCode = 2
+        versionName = "1.1.0"
     }
 
     // Release signing (PDF §11 — signing key kept in a secure CI/release
@@ -57,7 +57,6 @@ android {
             signingConfig = signingConfigs.findByName("release")
                 ?.takeIf { it.storeFile != null }
             // Baseline profile is consumed from the :baselineprofile module.
-            baselineProfile.automaticGenerationDuringBuild = false
         }
     }
 
@@ -85,10 +84,15 @@ dependencies {
     implementation(project(":core:ui"))
 
     // Features
+    implementation(project(":feature:onboarding"))
     implementation(project(":feature:auth"))
     implementation(project(":feature:home"))
     implementation(project(":feature:chat"))
     implementation(project(":feature:contacts"))
+    implementation(project(":feature:people"))
+    implementation(project(":feature:groups"))
+    implementation(project(":feature:qr"))
+    implementation(project(":feature:wallet"))
     implementation(project(":feature:calls"))
     implementation(project(":feature:profile"))
     implementation(project(":feature:settings"))
@@ -104,10 +108,24 @@ dependencies {
     implementation(libs.androidx.core.splashscreen)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.runtime.compose)
+    implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.lifecycle.process)
     implementation(libs.androidx.navigation.compose)
     implementation(libs.androidx.compose.material.icons.extended)
     implementation(libs.androidx.profileinstaller)
+
+    // Compose (the app module hosts the Compose UI directly)
+    implementation(platform(libs.androidx.compose.bom))
+    implementation(libs.androidx.compose.ui)
+    implementation(libs.androidx.compose.ui.graphics)
+    implementation(libs.androidx.compose.ui.tooling.preview)
+    implementation(libs.androidx.compose.foundation)
+    implementation(libs.androidx.compose.runtime)
+    implementation(libs.androidx.compose.material3)
+    debugImplementation(libs.androidx.compose.ui.tooling)
+
+    // Hilt navigation (hiltViewModel() in the root composable)
+    implementation(libs.hilt.navigation.compose)
 
     // WorkManager + Hilt integration
     implementation(libs.androidx.work.runtime.ktx)

@@ -93,7 +93,7 @@ fun GagaListRow(
             .fillMaxWidth()
             .heightIn(min = GagaDimens.listItemMinHeight)
             .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
-            .padding(horizontal = GagaDimens.space16, vertical = GagaDimens.space10),
+            .padding(horizontal = GagaDimens.space16, vertical = GagaDimens.space12),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.Start,
     ) {

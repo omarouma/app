@@ -23,6 +23,7 @@ interface UserRepository {
     fun observeUser(id: String): Flow<User?>
     fun observeUsers(ids: List<String>): Flow<List<User>>
     fun searchUsers(query: String): Flow<List<User>>
+    suspend fun searchUsersRemote(query: String): AppResult<List<User>>
     suspend fun getUser(id: String): AppResult<User>
     suspend fun refreshUser(id: String): AppResult<User>
     suspend fun cacheUsers(users: List<User>)
@@ -44,6 +45,21 @@ class DefaultUserRepository @Inject constructor(
 
     override fun searchUsers(query: String): Flow<List<User>> =
         userDao.search(query, 30).map { list -> list.map { it.toDomain() } }
+
+    override suspend fun searchUsersRemote(query: String): AppResult<List<User>> =
+        withContext(dispatchers.io) {
+            val trimmed = query.trim()
+            if (trimmed.isEmpty()) return@withContext AppResult.Success(emptyList())
+            try {
+                val rows = restApi.searchUsers(trimmed, 30)
+                val users = rows.map { it.toDomain() }
+                val now = timeProvider.nowMillis()
+                userDao.upsertAll(users.map { it.toEntity(now) })
+                AppResult.Success(users)
+            } catch (t: Throwable) {
+                AppResult.Failure(ErrorMapper.map(t))
+            }
+        }
 
     override suspend fun getUser(id: String): AppResult<User> = withContext(dispatchers.io) {
         // Cache-first: return local immediately if present, else fetch.

@@ -11,8 +11,7 @@ import app.gagachat.core.database.mapper.toEntity
 import app.gagachat.core.model.CallSession
 import app.gagachat.core.model.CallStatus
 import app.gagachat.core.model.CallType
-import app.gagachat.core.model.MessageType
-import app.gagachat.core.network.dto.CallSessionRow
+import app.gagachat.core.network.dto.CallHistoryRow
 import app.gagachat.core.network.error.ErrorMapper
 import app.gagachat.core.network.rest.SupabaseRestApi
 import kotlinx.coroutines.flow.Flow
@@ -22,8 +21,8 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Call subsystem (PDF §8). Call history and the CALL_EVENT chat item share the
- * same server session id.
+ * Call subsystem. Call history and the CALL_EVENT chat item share the same
+ * server session id.
  */
 interface CallRepository {
     fun observeHistory(): Flow<List<CallSession>>
@@ -76,19 +75,22 @@ class DefaultCallRepository @Inject constructor(
             isOutgoing = true,
         )
         callDao.upsert(session.toEntity())
-        try {
-            restApi.insertCallSession(
-                CallSessionRow(
-                    id = callId,
-                    conversationId = conversationId,
-                    initiatorId = initiatorId,
-                    type = type.name.lowercase(),
-                    startedAt = now,
-                    status = CallStatus.RINGING.name.lowercase(),
-                ),
-            )
-        } catch (t: Throwable) {
-            // Local record still exists; history sync will reconcile later.
+        // call_history.callee_id is NOT NULL, so a server row needs a known peer.
+        if (peerId != null) {
+            runCatching {
+                restApi.insertCallHistory(
+                    CallHistoryRow(
+                        id = callId,
+                        conversationId = conversationId,
+                        callerId = initiatorId,
+                        calleeId = peerId,
+                        type = type.name.lowercase(),
+                        status = CallStatus.RINGING.name.lowercase(),
+                        roomId = callId,
+                        startedAt = now,
+                    ),
+                )
+            }
         }
         AppResult.Success(session)
     }
@@ -97,15 +99,15 @@ class DefaultCallRepository @Inject constructor(
         withContext(dispatchers.io) {
             val now = timeProvider.nowMillis()
             callDao.finalize(callId, status.name, now, durationMs)
-            runCatching { restApi.updateCallSession(callId, status.name.lowercase(), now) }
-            // Persist a CALL_EVENT into chat history (PDF §8).
+            runCatching {
+                restApi.updateCallHistory(callId, status.name.lowercase(), now, durationMs)
+            }
+            // Persist a CALL_EVENT into chat history.
             val session = callDao.getById(callId)?.toDomain()
             if (session != null) {
-                messageRepository.sendText(
+                messageRepository.sendCallEvent(
                     conversationId = session.conversationId,
                     senderId = session.initiatorId,
-                    senderName = null,
-                    senderAvatar = null,
                     text = callEventText(session, status, durationMs),
                 )
             }
@@ -116,6 +118,7 @@ class DefaultCallRepository @Inject constructor(
             val rows = restApi.getCallHistory(100)
             rows.forEach { callDao.upsert(it.toDomain().toEntity()) }
         }
+        Unit
     }
 
     private fun callEventText(session: CallSession, status: CallStatus, durationMs: Long?): String {
@@ -126,7 +129,7 @@ class DefaultCallRepository @Inject constructor(
             CallStatus.BUSY -> "Missed $kind (busy)"
             else -> {
                 val secs = (durationMs ?: 0L) / 1000
-                "$kind • ${secs / 60}m ${secs % 60}s"
+                "$kind \u2022 ${secs / 60}m ${secs % 60}s"
             }
         }
     }

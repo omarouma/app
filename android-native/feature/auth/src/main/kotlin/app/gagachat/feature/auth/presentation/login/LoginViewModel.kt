@@ -49,10 +49,11 @@ class LoginViewModel @Inject constructor(
         }
         _state.update { it.copy(isSubmitting = true, errorMessage = null) }
         viewModelScope.launch {
-            val isEmail = current.identifier.contains("@")
+            // Email/password is the supported credential on this backend. Phone
+            // sign-in is validated out earlier so we only ever send an email here.
             val result = authRepository.signIn(
-                email = if (isEmail) current.identifier.trim() else null,
-                phone = if (!isEmail) current.identifier.trim() else null,
+                email = current.identifier.trim(),
+                phone = null,
                 password = current.password,
             )
             when (result) {
@@ -67,15 +68,27 @@ class LoginViewModel @Inject constructor(
 
     fun consumeError() = _state.update { it.copy(errorMessage = null) }
 
+    /**
+     * The backend currently only enables the email provider, so we validate for a
+     * real email address and give phone-number typers a clear, actionable message
+     * instead of letting the request fail with a cryptic provider error.
+     */
     private fun validateIdentifier(value: String): String? {
         val trimmed = value.trim()
         return when {
-            trimmed.isEmpty() -> "Email or phone is required"
-            trimmed.contains("@") && !android.util.Patterns.EMAIL_ADDRESS.matcher(trimmed).matches() ->
+            trimmed.isEmpty() -> "Email address is required"
+            looksLikePhone(trimmed) ->
+                "Phone sign-in isn't available yet — please use your email address."
+            !android.util.Patterns.EMAIL_ADDRESS.matcher(trimmed).matches() ->
                 "Enter a valid email address"
-            !trimmed.contains("@") && trimmed.filter { it.isDigit() }.length < 7 ->
-                "Enter a valid phone number"
             else -> null
         }
+    }
+
+    private fun looksLikePhone(value: String): Boolean {
+        if (value.contains("@")) return false
+        val digits = value.count { it.isDigit() }
+        val others = value.count { it == '+' || it == '-' || it == ' ' || it == '(' || it == ')' }
+        return digits >= 7 && (digits + others) == value.length
     }
 }

@@ -20,6 +20,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
 import app.gagachat.core.model.Conversation
 import app.gagachat.core.ui.component.GagaAvatar
 import app.gagachat.core.ui.component.GagaBadge
@@ -43,7 +44,7 @@ fun ConversationRow(
             .fillMaxWidth()
             .heightIn(min = 72.dp)
             .clickable(onClick = onClick)
-            .padding(horizontal = GagaDimens.space16, vertical = GagaDimens.space10),
+            .padding(horizontal = GagaDimens.space16, vertical = GagaDimens.space12),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         GagaAvatar(

@@ -26,14 +26,20 @@ import app.gagachat.feature.calls.navigation.activeCallScreen
 import app.gagachat.feature.calls.navigation.callHistoryScreen
 import app.gagachat.feature.chat.navigation.ChatRoutes
 import app.gagachat.feature.chat.navigation.chatScreen
-import app.gagachat.feature.contacts.navigation.ContactsRoutes
-import app.gagachat.feature.contacts.navigation.contactsScreen
+import app.gagachat.feature.groups.GroupsRoutes
+import app.gagachat.feature.groups.groupsGraph
 import app.gagachat.feature.home.navigation.HomeRoutes
 import app.gagachat.feature.home.navigation.homeScreen
+import app.gagachat.feature.people.PeopleRoutes
+import app.gagachat.feature.people.peopleGraph
 import app.gagachat.feature.profile.navigation.ProfileRoutes
+import app.gagachat.feature.qr.QrRoutes
+import app.gagachat.feature.qr.qrGraph
 import app.gagachat.feature.profile.navigation.profileScreen
 import app.gagachat.feature.settings.navigation.SettingsRoutes
 import app.gagachat.feature.settings.navigation.settingsScreen
+import app.gagachat.feature.wallet.WalletRoutes
+import app.gagachat.feature.wallet.walletGraph
 import app.gagachat.push.PendingDeepLink
 
 private enum class TopLevelDestination(
@@ -42,7 +48,7 @@ private enum class TopLevelDestination(
     val icon: ImageVector,
 ) {
     CHATS(HomeRoutes.HOME, "Chats", Icons.AutoMirrored.Filled.Chat),
-    CONTACTS(ContactsRoutes.CONTACTS, "Contacts", Icons.Filled.People),
+    CONTACTS(PeopleRoutes.PEOPLE, "People", Icons.Filled.People),
     CALLS(CallRoutes.CALL_HISTORY, "Calls", Icons.Filled.Call),
     SETTINGS(SettingsRoutes.SETTINGS, "Settings", Icons.Filled.Settings),
 }
@@ -81,7 +87,7 @@ fun MainNavHost(pendingDeepLink: String?) {
             homeScreen(
                 navController = navController,
                 onOpenConversation = { id -> navController.navigate(ChatRoutes.chat(id)) },
-                onOpenNewChat = { navController.navigate(ContactsRoutes.CONTACTS) },
+                onOpenNewChat = { navController.navigate(PeopleRoutes.PEOPLE) },
                 onOpenProfile = { navController.navigate(ProfileRoutes.profile()) },
             )
             chatScreen(
@@ -90,10 +96,25 @@ fun MainNavHost(pendingDeepLink: String?) {
                     navController.navigate(CallRoutes.activeCall(conversationId, isVideo))
                 },
             )
-            contactsScreen(
+            peopleGraph(
                 navController = navController,
                 onOpenProfile = { userId -> navController.navigate(ProfileRoutes.profile(userId)) },
-                onStartChat = { userId -> navController.navigate(ProfileRoutes.profile(userId)) },
+                onOpenConversation = { conversationId ->
+                    navController.navigate(ChatRoutes.chat(conversationId))
+                },
+                onOpenGroups = { navController.navigate(GroupsRoutes.GROUPS) },
+                onOpenMyQr = { navController.navigate(QrRoutes.MY_QR) },
+                onOpenAddByCode = { navController.navigate(QrRoutes.ADD_BY_CODE) },
+            )
+            groupsGraph(
+                navController = navController,
+                onOpenConversation = { conversationId ->
+                    navController.navigate(ChatRoutes.chat(conversationId))
+                },
+            )
+            qrGraph(
+                navController = navController,
+                onOpenChat = { conversationId -> navController.navigate(ChatRoutes.chat(conversationId)) },
             )
             callHistoryScreen(
                 navController = navController,
@@ -113,8 +134,11 @@ fun MainNavHost(pendingDeepLink: String?) {
             settingsScreen(
                 navController = navController,
                 onOpenProfile = { navController.navigate(ProfileRoutes.profile()) },
+                onOpenWallet = { navController.navigate(WalletRoutes.WALLET) },
+                onOpenMyQr = { navController.navigate(QrRoutes.MY_QR) },
                 onSignedOut = { /* session flow swaps to auth graph */ },
             )
+            walletGraph(navController = navController)
         }
     }
 }
