@@ -40,6 +40,7 @@ interface MediaRepository {
         mime: String,
         size: Long,
         type: MessageType,
+        durationMs: Long? = null,
     ): AppResult<Message>
 
     /** Processes the durable upload queue; safe to call from a background worker. */
@@ -69,6 +70,7 @@ class DefaultMediaRepository @Inject constructor(
         mime: String,
         size: Long,
         type: MessageType,
+        durationMs: Long?,
     ): AppResult<Message> = withContext(dispatchers.io) {
         if (size > app.gagachat.core.common.Constants.MAX_UPLOAD_BYTES) {
             return@withContext AppResult.Failure(AppError.Validation("File too large"))
@@ -92,6 +94,7 @@ class DefaultMediaRepository @Inject constructor(
             localMediaPath = localPath,
             mediaMime = mime,
             mediaSize = size,
+            mediaDurationMs = durationMs,
         )
         messageDao.upsert(message.toEntity())
 

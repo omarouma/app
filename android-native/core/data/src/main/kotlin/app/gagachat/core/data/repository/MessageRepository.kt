@@ -326,7 +326,7 @@ class DefaultMessageRepository @Inject constructor(
                 mediaUrl = pending.mediaUrl,
                 mediaUrls = pending.mediaUrl?.let { listOf(it) },
                 replyToMessageId = pending.replyToMessageId,
-                metadata = locationMetadata(pending),
+                metadata = messageMetadata(pending),
             ),
         )
         messageDao.updateStatus(
@@ -347,14 +347,26 @@ class DefaultMessageRepository @Inject constructor(
         AppResult.Failure(ErrorMapper.map(t))
     }
 
-    private fun locationMetadata(message: Message): JsonObject? {
-        if (message.type != MessageType.LOCATION) return null
-        val lat = message.latitude ?: return null
-        val lng = message.longitude ?: return null
-        return buildJsonObject {
-            put("lat", lat)
-            put("lng", lng)
+    /**
+     * Builds the `metadata` JSON carried alongside a message row. Location
+     * messages store their coordinates; voice messages store their duration so
+     * the receiving client can render the clip length without downloading it.
+     */
+    private fun messageMetadata(message: Message): JsonObject? {
+        val obj = buildJsonObject {
+            if (message.type == MessageType.LOCATION) {
+                val lat = message.latitude
+                val lng = message.longitude
+                if (lat != null && lng != null) {
+                    put("lat", lat)
+                    put("lng", lng)
+                }
+            }
+            if (message.type == MessageType.AUDIO) {
+                message.mediaDurationMs?.let { put("duration_ms", it) }
+            }
         }
+        return if (obj.isEmpty()) null else obj
     }
 
     private suspend fun updateConversationPreview(
@@ -392,6 +404,7 @@ class DefaultMessageRepository @Inject constructor(
             deletedAt = if (str("destroyed") == "true") ts("updated_at") else null,
             latitude = if (type == MessageType.LOCATION) meta?.get("lat")?.jsonPrimitive?.content?.toDoubleOrNull() else null,
             longitude = if (type == MessageType.LOCATION) meta?.get("lng")?.jsonPrimitive?.content?.toDoubleOrNull() else null,
+            mediaDurationMs = if (type == MessageType.AUDIO) meta?.get("duration_ms")?.jsonPrimitive?.content?.toLongOrNull() else null,
         )
     }
 }

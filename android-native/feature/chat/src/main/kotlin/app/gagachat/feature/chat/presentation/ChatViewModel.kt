@@ -10,15 +10,20 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.gagachat.core.common.result.AppResult
 import app.gagachat.core.data.repository.AuthRepository
+import app.gagachat.core.data.repository.BlockRepository
 import app.gagachat.core.data.repository.ConversationRepository
+import app.gagachat.core.data.repository.FriendsRepository
 import app.gagachat.core.data.repository.MediaRepository
 import app.gagachat.core.data.repository.MessageRepository
 import app.gagachat.core.model.Conversation
 import app.gagachat.core.model.Message
 import app.gagachat.core.model.MessageType
 import app.gagachat.core.ui.util.toUserMessage
+import app.gagachat.feature.chat.presentation.components.VoiceRecorder
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -43,6 +48,22 @@ data class ChatUiState(
     val noticeMessage: String? = null,
     val replyTo: Message? = null,
     val isOtherTyping: Boolean = false,
+    val isRecording: Boolean = false,
+    val recordingElapsedMs: Long = 0L,
+)
+
+/** Transient voice-recording state driven by the composer's mic button. */
+data class RecordingState(
+    val isActive: Boolean = false,
+    val elapsedMs: Long = 0L,
+)
+
+/** Bundled composer-side state (reply target, typing, notices, recording). */
+private data class ComposerState(
+    val reply: Message?,
+    val typing: Boolean,
+    val notice: String?,
+    val recording: RecordingState,
 )
 
 @HiltViewModel
@@ -52,6 +73,8 @@ class ChatViewModel @Inject constructor(
     private val conversationRepository: ConversationRepository,
     private val mediaRepository: MediaRepository,
     private val authRepository: AuthRepository,
+    private val blockRepository: BlockRepository,
+    private val friendsRepository: FriendsRepository,
     @ApplicationContext private val context: Context,
 ) : ViewModel() {
 
@@ -64,6 +87,10 @@ class ChatViewModel @Inject constructor(
     private val notice = MutableStateFlow<String?>(null)
     private val replyTo = MutableStateFlow<Message?>(null)
     private val typing = MutableStateFlow(false)
+    private val recording = MutableStateFlow(RecordingState())
+
+    private val voiceRecorder = VoiceRecorder(context)
+    private var recordingTicker: Job? = null
 
     private val currentUserId: String
         get() = authRepository.sessionFlow.value?.userId.orEmpty()
@@ -73,8 +100,8 @@ class ChatViewModel @Inject constructor(
         conversationRepository.observeConversation(conversationId),
         draft,
         combine(loadingOlder, hasMoreOlder, error) { l, h, e -> Triple(l, h, e) },
-        combine(replyTo, typing, notice) { r, t, n -> Triple(r, t, n) },
-    ) { messages, conversation, draftText, (isLoadingOlder, moreOlder, errorMessage), (reply, isTyping, noticeMessage) ->
+        combine(replyTo, typing, notice, recording) { r, t, n, rec -> ComposerState(r, t, n, rec) },
+    ) { messages, conversation, draftText, (isLoadingOlder, moreOlder, errorMessage), composer ->
         ChatUiState(
             conversationId = conversationId,
             title = conversation?.displayTitle(currentUserId) ?: "Chat",
@@ -87,9 +114,11 @@ class ChatViewModel @Inject constructor(
             isLoadingOlder = isLoadingOlder,
             hasMoreOlder = moreOlder,
             errorMessage = errorMessage,
-            noticeMessage = noticeMessage,
-            replyTo = reply,
-            isOtherTyping = isTyping,
+            noticeMessage = composer.notice,
+            replyTo = composer.reply,
+            isOtherTyping = composer.typing,
+            isRecording = composer.recording.isActive,
+            recordingElapsedMs = composer.recording.elapsedMs,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ChatUiState(conversationId = conversationId))
 
@@ -147,6 +176,104 @@ class ChatViewModel @Inject constructor(
                 type = type,
             )
             if (result is AppResult.Failure) error.value = result.error.toUserMessage()
+        }
+    }
+
+    /**
+     * Starts a voice recording. Requires RECORD_AUDIO; the caller is responsible
+     * for requesting it, but we re-check here so a revoked grant degrades to a
+     * friendly notice instead of a crash.
+     */
+    fun startVoiceRecording() {
+        if (recording.value.isActive) return
+        val granted = context.checkSelfPermission(Manifest.permission.RECORD_AUDIO) ==
+            PackageManager.PERMISSION_GRANTED
+        if (!granted) {
+            notice.value = "Enable microphone permission to record voice messages."
+            return
+        }
+        if (!voiceRecorder.start()) {
+            notice.value = "Couldn't start recording. Close other apps using the mic."
+            return
+        }
+        recording.value = RecordingState(isActive = true, elapsedMs = 0L)
+        recordingTicker?.cancel()
+        recordingTicker = viewModelScope.launch {
+            val startedAt = System.currentTimeMillis()
+            while (recording.value.isActive) {
+                recording.value = recording.value.copy(elapsedMs = System.currentTimeMillis() - startedAt)
+                delay(200)
+            }
+        }
+    }
+
+    /** Stops the active recording and uploads it as an AUDIO message. */
+    fun stopVoiceRecordingAndSend() {
+        if (!recording.value.isActive) return
+        recordingTicker?.cancel()
+        recordingTicker = null
+        val clip = voiceRecorder.stop()
+        recording.value = RecordingState()
+        if (clip == null) {
+            notice.value = "That recording was too short. Hold the mic a little longer."
+            return
+        }
+        val (path, durationMs, size) = clip
+        viewModelScope.launch {
+            val session = authRepository.sessionFlow.value
+            val result = mediaRepository.enqueueUpload(
+                conversationId = conversationId,
+                senderId = currentUserId,
+                senderName = session?.displayName,
+                senderAvatar = null,
+                localPath = path,
+                mime = "audio/mp4",
+                size = size,
+                type = MessageType.AUDIO,
+                durationMs = durationMs,
+            )
+            if (result is AppResult.Failure) error.value = result.error.toUserMessage()
+        }
+    }
+
+    /** Aborts the active recording and discards the partial clip. */
+    fun cancelVoiceRecording() {
+        if (!recording.value.isActive) return
+        recordingTicker?.cancel()
+        recordingTicker = null
+        voiceRecorder.cancel()
+        recording.value = RecordingState()
+    }
+
+    /** Blocks the other participant and surfaces a confirmation notice. */
+    fun blockUser() {
+        val target = state.value.otherUserId
+        if (target.isBlank()) {
+            notice.value = "Couldn't resolve this contact to block."
+            return
+        }
+        viewModelScope.launch {
+            when (val result = blockRepository.block(target)) {
+                is AppResult.Success -> notice.value = "This user has been blocked."
+                is AppResult.Failure -> error.value = result.error.toUserMessage()
+                AppResult.Loading -> Unit
+            }
+        }
+    }
+
+    /** Removes the other participant from the caller's friend list. */
+    fun removeFriend() {
+        val target = state.value.otherUserId
+        if (target.isBlank()) {
+            notice.value = "Couldn't resolve this contact to remove."
+            return
+        }
+        viewModelScope.launch {
+            when (val result = friendsRepository.removeFriend(target)) {
+                is AppResult.Success -> notice.value = "Removed from your friends."
+                is AppResult.Failure -> error.value = result.error.toUserMessage()
+                AppResult.Loading -> Unit
+            }
         }
     }
 
@@ -232,6 +359,12 @@ class ChatViewModel @Inject constructor(
     fun consumeError() = error.update { null }
 
     fun consumeNotice() = notice.update { null }
+
+    override fun onCleared() {
+        recordingTicker?.cancel()
+        voiceRecorder.cancel()
+        super.onCleared()
+    }
 
     private fun presenceSubtitle(conversation: Conversation?, currentUserId: String): String? {
         if (conversation == null) return null

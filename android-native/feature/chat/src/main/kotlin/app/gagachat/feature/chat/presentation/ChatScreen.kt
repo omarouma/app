@@ -1,5 +1,9 @@
 package app.gagachat.feature.chat.presentation
 
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -29,7 +33,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.gagachat.core.model.Message
@@ -57,6 +63,12 @@ fun ChatRoute(
         onVideoPicked = { viewModel.sendMedia(it, "video") },
         onFilePicked = { viewModel.sendMedia(it, "file") },
     )
+    val context = LocalContext.current
+    // Requests RECORD_AUDIO the first time the mic is tapped, then starts the
+    // recording. If the user denies, the ViewModel surfaces an actionable notice.
+    val micPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission(),
+    ) { viewModel.startVoiceRecording() }
 
     LaunchedEffect(state.errorMessage) {
         state.errorMessage?.let {
@@ -99,6 +111,8 @@ fun ChatRoute(
                 onViewProfile = {
                     if (state.otherUserId.isNotBlank()) onOpenProfile(state.otherUserId)
                 },
+                onBlockUser = viewModel::blockUser,
+                onRemoveFriend = viewModel::removeFriend,
                 onAction = { label ->
                     snackbarHostState.currentSnackbarData?.dismiss()
                     viewModel.showNotice(label)
@@ -139,6 +153,21 @@ fun ChatRoute(
                 onAttach = mediaPicker.pickFile,
                 onPickImage = mediaPicker.pickImage,
                 onShareLocation = { viewModel.shareLocation() },
+                isRecording = state.isRecording,
+                recordingElapsedMs = state.recordingElapsedMs,
+                onStartRecording = {
+                    val granted = ContextCompat.checkSelfPermission(
+                        context,
+                        Manifest.permission.RECORD_AUDIO,
+                    ) == PackageManager.PERMISSION_GRANTED
+                    if (granted) {
+                        viewModel.startVoiceRecording()
+                    } else {
+                        micPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                    }
+                },
+                onStopRecording = viewModel::stopVoiceRecordingAndSend,
+                onCancelRecording = viewModel::cancelVoiceRecording,
             )
         }
     }
@@ -147,12 +176,15 @@ fun ChatRoute(
 /**
  * The conversation overflow menu (reference screenshot 174606): Search Messages,
  * Chat Background, Send Money, View Profile, Chat Info, Remove Friend, Block User
- * and Report User. "View Profile" is fully wired; the remaining entries surface a
- * transient notice until their owning features land.
+ * and Report User. "View Profile", "Block User" and "Remove Friend" are fully
+ * wired; the remaining entries surface a transient notice until their owning
+ * features land.
  */
 @Composable
 private fun ChatOverflowMenu(
     onViewProfile: () -> Unit,
+    onBlockUser: () -> Unit,
+    onRemoveFriend: () -> Unit,
     onAction: (String) -> Unit,
 ) {
     var expanded by remember { mutableStateOf(false) }
@@ -169,8 +201,14 @@ private fun ChatOverflowMenu(
             onViewProfile()
         }
         MenuItem("Chat Info") { expanded = false; onAction("Chat Info") }
-        MenuItem("Remove Friend") { expanded = false; onAction("Remove Friend") }
-        MenuItem("Block User") { expanded = false; onAction("Block User") }
+        MenuItem("Remove Friend") {
+            expanded = false
+            onRemoveFriend()
+        }
+        MenuItem("Block User") {
+            expanded = false
+            onBlockUser()
+        }
         MenuItem("Report User") { expanded = false; onAction("Report User") }
     }
 }

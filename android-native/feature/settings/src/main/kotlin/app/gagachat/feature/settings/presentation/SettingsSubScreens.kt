@@ -27,6 +27,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.gagachat.core.data.preferences.MediaDownloadPolicy
@@ -215,6 +216,7 @@ fun StorageSettingsScreen(
 /** About screen (Master Spec §C). */
 @Composable
 fun AboutSettingsScreen(onBack: () -> Unit) {
+    val uriHandler = LocalUriHandler.current
     GagaScaffold(title = "About", onBack = onBack) { padding ->
         Column(
             modifier = Modifier
@@ -247,15 +249,19 @@ fun AboutSettingsScreen(onBack: () -> Unit) {
             GagaSettingsRow(
                 title = "Terms of service",
                 leadingIcon = Icons.Filled.Check,
-                onClick = { },
+                onClick = { runCatching { uriHandler.openUri(TERMS_URL) } },
             )
             GagaDivider()
             GagaSettingsRow(
                 title = "Privacy policy",
                 leadingIcon = Icons.Filled.Lock,
-                onClick = { },
+                onClick = { runCatching { uriHandler.openUri(PRIVACY_URL) } },
             )
             GagaDivider()
         }
     }
 }
+
+/** Hosted legal pages for GaGa Chat (same host used by the app's deep links). */
+private const val TERMS_URL = "https://oumagachat.web.app/terms"
+private const val PRIVACY_URL = "https://oumagachat.web.app/privacy"
