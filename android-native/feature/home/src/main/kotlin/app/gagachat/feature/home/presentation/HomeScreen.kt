@@ -48,6 +48,7 @@ fun HomeRoute(
 
     GagaScaffold(
         title = "GaGa Chat",
+        brandMark = true,
         snackbarHostState = snackbarHostState,
         actions = {
             IconButton(onClick = onOpenMore) {
@@ -75,6 +76,7 @@ fun HomeRoute(
                 state.conversations.isEmpty() -> GagaEmptyState(
                     icon = Icons.Filled.ChatBubbleOutline,
                     title = if (state.query.isBlank()) "No conversations yet" else "No matches",
+                    brandMark = state.query.isBlank(),
                     description = if (state.query.isBlank()) {
                         "Start a new chat to see it here."
                     } else {
