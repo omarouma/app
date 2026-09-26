@@ -112,10 +112,14 @@ fun MainNavHost(pendingDeepLink: String?) {
                 onOpenCalls = { navController.navigate(CallRoutes.CALL_HISTORY) },
                 onOpenContacts = { navController.navigate(ContactsRoutes.CONTACTS) },
                 onOpenAddFriends = { navController.navigate(PeopleRoutes.DISCOVER) },
+                onOpenPeople = { navController.navigate(PeopleRoutes.PEOPLE) },
                 onOpenWallet = { navController.navigate(WalletRoutes.WALLET) },
                 onOpenMyQr = { navController.navigate(QrRoutes.MY_QR) },
                 onOpenBlocked = { navController.navigate(SettingsRoutes.BLOCKED) },
                 onOpenSettings = { navController.navigate(SettingsRoutes.SETTINGS) },
+                onOpenNotifications = { navController.navigate(SettingsRoutes.NOTIFICATIONS) },
+                onOpenPrivacy = { navController.navigate(SettingsRoutes.PRIVACY) },
+                onOpenSearch = { navController.navigate(PeopleRoutes.DISCOVER) },
                 onOpenHelp = { navController.navigate(SettingsRoutes.ABOUT) },
             )
             chatScreen(
@@ -126,6 +130,7 @@ fun MainNavHost(pendingDeepLink: String?) {
                 onOpenProfile = { userId ->
                     navController.navigate(ProfileRoutes.profile(userId))
                 },
+                onSendMoney = { navController.navigate(WalletRoutes.SEND) },
             )
             peopleGraph(
                 navController = navController,

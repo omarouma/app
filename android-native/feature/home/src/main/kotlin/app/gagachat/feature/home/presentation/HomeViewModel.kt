@@ -86,6 +86,34 @@ class HomeViewModel @Inject constructor(
 
     fun consumeError() = error.update { null }
 
+    /** Pin/unpin a conversation (also mirrored to the server). */
+    fun onTogglePin(conversation: Conversation) {
+        viewModelScope.launch {
+            conversationRepository.setPinned(conversation.id, !conversation.isPinned)
+        }
+    }
+
+    /** Mute/unmute a conversation. */
+    fun onToggleMute(conversation: Conversation) {
+        viewModelScope.launch {
+            conversationRepository.setMuted(conversation.id, !conversation.isMuted)
+        }
+    }
+
+    /** Clear the unread badge for a conversation. */
+    fun onMarkRead(conversation: Conversation) {
+        viewModelScope.launch {
+            conversationRepository.markRead(conversation.id, conversation.lastMessageId.orEmpty())
+        }
+    }
+
+    /** Delete a conversation locally and on the server. */
+    fun onDelete(conversation: Conversation) {
+        viewModelScope.launch {
+            conversationRepository.deleteConversation(conversation.id)
+        }
+    }
+
     private suspend fun sync(isPullToRefresh: Boolean = false) {
         if (isPullToRefresh) refreshing.value = true
         when (val result = conversationRepository.syncConversations()) {

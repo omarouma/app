@@ -39,6 +39,9 @@ interface ConversationRepository {
     suspend fun setPinned(conversationId: String, pinned: Boolean)
     suspend fun setMuted(conversationId: String, muted: Boolean)
 
+    /** Remove a conversation locally and on the server (best-effort). */
+    suspend fun deleteConversation(conversationId: String)
+
     /**
      * Returns the id of the DIRECT conversation between the two users, creating
      * it (locally + on the server) when it does not yet exist.
@@ -118,6 +121,14 @@ class DefaultConversationRepository @Inject constructor(
         withContext(dispatchers.io) {
             conversationDao.setMuted(conversationId, muted)
             runCatching { restApi.updateConversationFlags(conversationId, muted = muted) }
+            Unit
+        }
+
+    override suspend fun deleteConversation(conversationId: String) =
+        withContext(dispatchers.io) {
+            conversationDao.deleteMembers(conversationId)
+            conversationDao.deleteById(conversationId)
+            runCatching { restApi.deleteConversation(conversationId) }
             Unit
         }
 

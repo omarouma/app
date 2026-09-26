@@ -70,10 +70,14 @@ fun MoreRoute(
     onOpenCalls: () -> Unit,
     onOpenContacts: () -> Unit,
     onOpenAddFriends: () -> Unit,
+    onOpenPeople: () -> Unit,
     onOpenWallet: () -> Unit,
     onOpenMyQr: () -> Unit,
     onOpenBlocked: () -> Unit,
     onOpenSettings: () -> Unit,
+    onOpenNotifications: () -> Unit,
+    onOpenPrivacy: () -> Unit,
+    onOpenSearch: () -> Unit,
     onOpenHelp: () -> Unit,
     viewModel: MoreViewModel = hiltViewModel(),
 ) {
@@ -103,8 +107,8 @@ fun MoreRoute(
             MenuRow("GaGa AI", "Your AI assistant for chats & ideas", Icons.Filled.AutoAwesome, onOpenConversations)
 
             GagaSectionHeader("DISCOVER")
-            MenuRow("Search", "Find people, groups, and messages", Icons.Filled.Search, onOpenContacts)
-            MenuRow("Sent Requests", "Pending friend requests", Icons.Filled.Send, onOpenContacts)
+            MenuRow("Search", "Find people, groups, and messages", Icons.Filled.Search, onOpenSearch)
+            MenuRow("Sent Requests", "Pending friend requests", Icons.Filled.Send, onOpenPeople)
             MenuRow("Blocked Users", "Manage blocked accounts", Icons.Filled.Block, onOpenBlocked)
 
             GagaSectionHeader("WALLET & REWARDS")
@@ -116,8 +120,8 @@ fun MoreRoute(
             GagaSectionHeader("ACCOUNT")
             MenuRow("Profile", "Edit your profile", Icons.Filled.Person, onOpenProfile)
             MenuRow("My QR Code", "Share and scan", Icons.Filled.QrCode2, onOpenMyQr)
-            MenuRow("Notifications", "Notification preferences", Icons.Filled.Notifications, onOpenSettings)
-            MenuRow("Security", "Privacy, login, and app lock", Icons.Filled.Security, onOpenSettings)
+            MenuRow("Notifications", "Notification preferences", Icons.Filled.Notifications, onOpenNotifications)
+            MenuRow("Security", "Privacy, login, and app lock", Icons.Filled.Security, onOpenPrivacy)
             MenuRow("Saved Messages", "Your bookmarked chats", Icons.Filled.Bookmark, onOpenConversations)
 
             GagaSectionHeader("SETTINGS")

@@ -211,6 +211,15 @@ class SupabaseRestApi @Inject constructor(
         }
     }
 
+    /** Delete a conversation (chats table) by id. */
+    suspend fun deleteConversation(id: String) {
+        client.delete("${config.restUrl}/chats") {
+            auth()
+            parameter("id", "eq.$id")
+            header("Prefer", "return=minimal")
+        }
+    }
+
     // ---- Messages ----
 
     suspend fun getMessages(

@@ -53,6 +53,7 @@ fun ChatRoute(
     onNavigateBack: () -> Unit,
     onStartCall: (conversationId: String, isVideo: Boolean) -> Unit,
     onOpenProfile: (userId: String) -> Unit,
+    onSendMoney: () -> Unit,
     viewModel: ChatViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -111,6 +112,10 @@ fun ChatRoute(
                 onViewProfile = {
                     if (state.otherUserId.isNotBlank()) onOpenProfile(state.otherUserId)
                 },
+                onChatInfo = {
+                    if (state.otherUserId.isNotBlank()) onOpenProfile(state.otherUserId)
+                },
+                onSendMoney = onSendMoney,
                 onBlockUser = viewModel::blockUser,
                 onRemoveFriend = viewModel::removeFriend,
                 onAction = { label ->
@@ -183,6 +188,8 @@ fun ChatRoute(
 @Composable
 private fun ChatOverflowMenu(
     onViewProfile: () -> Unit,
+    onChatInfo: () -> Unit,
+    onSendMoney: () -> Unit,
     onBlockUser: () -> Unit,
     onRemoveFriend: () -> Unit,
     onAction: (String) -> Unit,
@@ -195,12 +202,18 @@ private fun ChatOverflowMenu(
     DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
         MenuItem("Search Messages") { expanded = false; onAction("Search Messages") }
         MenuItem("Chat Background") { expanded = false; onAction("Chat Background") }
-        MenuItem("Send Money") { expanded = false; onAction("Send Money") }
+        MenuItem("Send Money") {
+            expanded = false
+            onSendMoney()
+        }
         MenuItem("View Profile") {
             expanded = false
             onViewProfile()
         }
-        MenuItem("Chat Info") { expanded = false; onAction("Chat Info") }
+        MenuItem("Chat Info") {
+            expanded = false
+            onChatInfo()
+        }
         MenuItem("Remove Friend") {
             expanded = false
             onRemoveFriend()

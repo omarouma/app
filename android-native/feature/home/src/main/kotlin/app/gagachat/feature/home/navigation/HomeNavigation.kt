@@ -38,10 +38,14 @@ fun NavGraphBuilder.moreScreen(
     onOpenCalls: () -> Unit,
     onOpenContacts: () -> Unit,
     onOpenAddFriends: () -> Unit,
+    onOpenPeople: () -> Unit,
     onOpenWallet: () -> Unit,
     onOpenMyQr: () -> Unit,
     onOpenBlocked: () -> Unit,
     onOpenSettings: () -> Unit,
+    onOpenNotifications: () -> Unit,
+    onOpenPrivacy: () -> Unit,
+    onOpenSearch: () -> Unit,
     onOpenHelp: () -> Unit,
 ) {
     composable(HomeRoutes.MORE) {
@@ -51,10 +55,14 @@ fun NavGraphBuilder.moreScreen(
             onOpenCalls = onOpenCalls,
             onOpenContacts = onOpenContacts,
             onOpenAddFriends = onOpenAddFriends,
+            onOpenPeople = onOpenPeople,
             onOpenWallet = onOpenWallet,
             onOpenMyQr = onOpenMyQr,
             onOpenBlocked = onOpenBlocked,
             onOpenSettings = onOpenSettings,
+            onOpenNotifications = onOpenNotifications,
+            onOpenPrivacy = onOpenPrivacy,
+            onOpenSearch = onOpenSearch,
             onOpenHelp = onOpenHelp,
         )
     }
