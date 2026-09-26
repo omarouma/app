@@ -56,12 +56,12 @@ fun ContactsRoute(
                 ) {
                     items(items = state.contacts, key = { it.id }) { user ->
                         GagaListRow(
-                            title = user.displayName.ifBlank { user.username ?: "Unknown" },
+                            title = user.displayLabel,
                             subtitle = user.status.name.lowercase().replaceFirstChar { it.uppercase() },
                             avatar = {
                                 GagaAvatar(
                                     imageUrl = user.avatar,
-                                    name = user.displayName,
+                                    name = user.displayLabel,
                                     status = user.status,
                                     showStatus = true,
                                 )

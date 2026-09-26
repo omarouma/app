@@ -61,15 +61,15 @@ fun SendCoinsScreen(
                 )
             }
 
-            GagaSectionHeader("To (${state.selected?.user?.displayName ?: "choose a friend"})")
+            GagaSectionHeader("To (${state.selected?.user?.displayLabel ?: "choose a friend"})")
 
             LazyColumn(modifier = Modifier.weight(1f)) {
                 items(state.friends, key = { it.user.id }) { friend ->
                     val selected = state.selected?.user?.id == friend.user.id
                     GagaListRow(
-                        title = friend.user.displayName,
+                        title = friend.user.displayLabel,
                         subtitle = friend.user.username?.let { "@$it" },
-                        avatar = { GagaAvatar(imageUrl = friend.user.avatar, name = friend.user.displayName) },
+                        avatar = { GagaAvatar(imageUrl = friend.user.avatar, name = friend.user.displayLabel) },
                         trailing = {
                             Checkbox(checked = selected, onCheckedChange = { viewModel.select(friend) })
                         },

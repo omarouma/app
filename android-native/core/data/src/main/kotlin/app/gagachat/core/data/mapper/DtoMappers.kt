@@ -21,8 +21,14 @@ import kotlinx.serialization.json.jsonPrimitive
 
 fun UserRow.toDomain(): User = User(
     id = id,
-    displayName = displayName ?: name ?: username ?: "User",
-    username = username,
+    // Keep the *real* human name only. Never collapse to the username or the
+    // literal "User" here — that destroys identity and is the root cause of the
+    // "@user"/"User"/"Unknown" symptoms. The UI resolves a safe label via
+    // User.displayLabel (displayName → @username → phone → email → "GaGa User").
+    displayName = displayName?.trim()?.takeIf { it.isNotEmpty() }
+        ?: name?.trim()?.takeIf { it.isNotEmpty() }
+        ?: "",
+    username = username?.trim()?.takeIf { it.isNotEmpty() },
     avatar = avatar,
     phone = phone,
     email = email,

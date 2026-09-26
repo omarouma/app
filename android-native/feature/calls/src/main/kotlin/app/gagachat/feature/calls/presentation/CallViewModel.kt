@@ -180,7 +180,8 @@ class CallViewModel @Inject constructor(
             startCall(
                 conversationId = conversationId,
                 peerId = peer?.userId,
-                peerName = peer?.displayName ?: conversation?.displayTitle(currentUserId),
+                peerName = peer?.displayName?.takeIf { it.isNotBlank() }
+                    ?: conversation?.displayTitle(currentUserId) ?: "GaGa User",
                 peerAvatar = peer?.avatar,
                 type = if (isVideo) CallType.VIDEO else CallType.AUDIO,
             )

@@ -24,6 +24,10 @@ interface UserDao {
     @Query("SELECT * FROM users WHERE id IN (:ids)")
     fun observeByIds(ids: List<String>): Flow<List<UserEntity>>
 
+    /** All cached users — used by the shared identity-resolution layer. */
+    @Query("SELECT * FROM users")
+    fun observeAll(): Flow<List<UserEntity>>
+
     @Query(
         """
         SELECT * FROM users

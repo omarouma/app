@@ -79,9 +79,9 @@ fun GroupInfoScreen(
                     item { GagaSectionHeader("Add members") }
                     items(addable, key = { it.user.id }) { friend ->
                         GagaListRow(
-                            title = friend.user.displayName,
+                            title = friend.user.displayLabel,
                             subtitle = friend.user.username?.let { "@$it" },
-                            avatar = { GagaAvatar(imageUrl = friend.user.avatar, name = friend.user.displayName) },
+                            avatar = { GagaAvatar(imageUrl = friend.user.avatar, name = friend.user.displayLabel) },
                             trailing = {
                                 IconButton(onClick = { viewModel.addMembers(listOf(friend.user.id)) }) {
                                     Icon(

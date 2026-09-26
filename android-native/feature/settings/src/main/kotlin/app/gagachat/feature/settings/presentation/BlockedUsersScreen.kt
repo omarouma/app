@@ -37,9 +37,9 @@ fun BlockedUsersScreen(
             LazyColumn(modifier = Modifier.fillMaxSize()) {
                 items(users, key = { it.id }) { user ->
                     GagaListRow(
-                        title = user.displayName,
+                        title = user.displayLabel,
                         subtitle = user.username?.let { "@$it" },
-                        avatar = { GagaAvatar(imageUrl = user.avatar, name = user.displayName) },
+                        avatar = { GagaAvatar(imageUrl = user.avatar, name = user.displayLabel) },
                         trailing = {
                             TextButton(onClick = { viewModel.unblock(user.id) }) { Text("Unblock") }
                         },

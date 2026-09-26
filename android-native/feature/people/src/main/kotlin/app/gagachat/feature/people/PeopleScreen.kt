@@ -149,7 +149,7 @@ private fun FriendsTab(
     val filtered = remember(friends, query) {
         if (query.isBlank()) friends
         else friends.filter {
-            it.user.displayName.contains(query, ignoreCase = true) ||
+            it.user.displayLabel.contains(query, ignoreCase = true) ||
                 it.user.username?.contains(query, ignoreCase = true) == true
         }
     }
@@ -170,13 +170,13 @@ private fun FriendsTab(
             LazyColumn(modifier = Modifier.fillMaxSize()) {
                 items(filtered, key = { it.user.id }) { friend ->
                     GagaListRow(
-                        title = friend.user.displayName,
+                        title = friend.user.displayLabel,
                         subtitle = friend.user.username?.let { "@$it" }
                             ?: if (friend.isOnline) "Online" else "Offline",
                         avatar = {
                             GagaAvatar(
                                 imageUrl = friend.user.avatar,
-                                name = friend.user.displayName,
+                                name = friend.user.displayLabel,
                                 status = if (friend.isOnline) UserStatus.ONLINE else UserStatus.OFFLINE,
                                 showStatus = true,
                             )
@@ -227,10 +227,10 @@ private fun FavoritesTab(
     LazyColumn(modifier = Modifier.fillMaxSize()) {
         items(friends, key = { it.user.id }) { friend ->
             GagaListRow(
-                title = friend.user.displayName,
+                title = friend.user.displayLabel,
                 subtitle = friend.user.username?.let { "@$it" } ?: "Friend",
                 avatar = {
-                    GagaAvatar(imageUrl = friend.user.avatar, name = friend.user.displayName)
+                    GagaAvatar(imageUrl = friend.user.avatar, name = friend.user.displayLabel)
                 },
                 trailing = {
                     IconButton(onClick = { onOpenChat(friend.user.id) }) {
@@ -329,9 +329,9 @@ private fun BlockedTab(
         item { GagaSectionHeader("Blocked") }
         items(blocked, key = { it.id }) { user ->
             GagaListRow(
-                title = user.displayName,
+                title = user.displayLabel,
                 subtitle = user.username?.let { "@$it" } ?: "Blocked",
-                avatar = { GagaAvatar(imageUrl = user.avatar, name = user.displayName) },
+                avatar = { GagaAvatar(imageUrl = user.avatar, name = user.displayLabel) },
                 trailing = {
                     TextButton(onClick = { onUnblock(user.id) }) { Text("Unblock") }
                 },

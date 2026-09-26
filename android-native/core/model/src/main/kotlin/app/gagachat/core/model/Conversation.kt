@@ -26,7 +26,7 @@ data class Conversation(
     fun displayTitle(currentUserId: String): String {
         if (!title.isNullOrBlank()) return title
         val other = members.firstOrNull { it.userId != currentUserId }
-        return other?.displayName ?: "Unknown"
+        return other?.displayName?.takeIf { it.isNotBlank() } ?: "GaGa User"
     }
 
     fun otherMember(currentUserId: String): ConversationMember? =

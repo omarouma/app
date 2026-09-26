@@ -63,9 +63,9 @@ fun CreateGroupScreen(
             LazyColumn(modifier = Modifier.weight(1f)) {
                 items(state.friends, key = { it.user.id }) { friend ->
                     GagaListRow(
-                        title = friend.user.displayName,
+                        title = friend.user.displayLabel,
                         subtitle = friend.user.username?.let { "@$it" },
-                        avatar = { GagaAvatar(imageUrl = friend.user.avatar, name = friend.user.displayName) },
+                        avatar = { GagaAvatar(imageUrl = friend.user.avatar, name = friend.user.displayLabel) },
                         trailing = {
                             Checkbox(
                                 checked = state.selectedIds.contains(friend.user.id),

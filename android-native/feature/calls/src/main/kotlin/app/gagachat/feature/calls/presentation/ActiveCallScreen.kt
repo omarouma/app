@@ -81,12 +81,12 @@ fun ActiveCallRoute(
         ) {
             GagaAvatar(
                 imageUrl = call.peerAvatar,
-                name = call.peerName,
+                name = call.peerName?.takeIf { it.isNotBlank() } ?: "GaGa User",
                 size = GagaDimens.avatarXLarge,
             )
             Spacer(Modifier.height(GagaDimens.space20))
             Text(
-                text = call.peerName ?: "Unknown",
+                text = call.peerName?.takeIf { it.isNotBlank() } ?: "GaGa User",
                 style = MaterialTheme.typography.headlineSmall,
                 textAlign = TextAlign.Center,
             )

@@ -224,7 +224,7 @@ private fun ProfileHeader(
         ) {
             GagaAvatar(
                 imageUrl = user?.avatar,
-                name = user?.displayName,
+                name = user?.displayLabel,
                 size = GagaDimens.avatarXLarge,
                 status = user?.status,
                 showStatus = false,
@@ -258,7 +258,7 @@ private fun ProfileHeader(
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
-                text = user?.displayName ?: "Unknown",
+                text = user?.displayLabel ?: "GaGa User",
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.Bold,
                 textAlign = TextAlign.Center,

@@ -142,13 +142,13 @@ private fun CallHistoryRow(
     ) {
         GagaAvatar(
             imageUrl = call.peerAvatar,
-            name = call.peerName,
+            name = call.peerName?.takeIf { it.isNotBlank() } ?: "GaGa User",
             size = GagaDimens.avatarMedium,
         )
         Spacer(Modifier.width(GagaDimens.space12))
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                text = call.peerName ?: "Unknown",
+                text = call.peerName?.takeIf { it.isNotBlank() } ?: "GaGa User",
                 style = MaterialTheme.typography.titleMedium,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,

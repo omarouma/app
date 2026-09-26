@@ -105,9 +105,9 @@ private fun DiscoverRow(
     onClick: () -> Unit,
 ) {
     GagaListRow(
-        title = user.displayName,
+        title = user.displayLabel,
         subtitle = user.username?.let { "@$it" } ?: user.bio,
-        avatar = { GagaAvatar(imageUrl = user.avatar, name = user.displayName) },
+        avatar = { GagaAvatar(imageUrl = user.avatar, name = user.displayLabel) },
         trailing = {
             when {
                 isFriend -> Text("Friends", modifier = Modifier.padding(end = GagaDimens.space8))

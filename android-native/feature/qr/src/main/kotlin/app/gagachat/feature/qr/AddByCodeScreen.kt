@@ -81,10 +81,10 @@ fun AddByCodeScreen(
                 AddByCodeStatus.FOUND -> state.result?.let { user ->
                     Column {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            GagaAvatar(imageUrl = user.avatar, name = user.displayName, size = 56.dp)
+                            GagaAvatar(imageUrl = user.avatar, name = user.displayLabel, size = 56.dp)
                             Spacer(Modifier.width(GagaDimens.space12))
                             Column {
-                                Text(text = user.displayName, style = MaterialTheme.typography.titleMedium)
+                                Text(text = user.displayLabel, style = MaterialTheme.typography.titleMedium)
                                 user.username?.let {
                                     Text(
                                         text = "@$it",

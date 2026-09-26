@@ -9,6 +9,7 @@ import app.gagachat.core.common.util.TimeProvider
 import app.gagachat.core.data.mapper.toDomain
 import app.gagachat.core.database.dao.ConversationDao
 import app.gagachat.core.database.dao.SyncStateDao
+import app.gagachat.core.database.dao.UserDao
 import app.gagachat.core.database.entity.SyncStateEntity
 import app.gagachat.core.database.mapper.toDomain
 import app.gagachat.core.database.mapper.toEntity
@@ -16,6 +17,7 @@ import app.gagachat.core.model.Conversation
 import app.gagachat.core.model.ConversationMember
 import app.gagachat.core.model.ConversationType
 import app.gagachat.core.model.MemberRole
+import app.gagachat.core.model.User
 import app.gagachat.core.network.dto.ConversationInsert
 import app.gagachat.core.network.dto.ConversationRow
 import app.gagachat.core.network.error.ErrorMapper
@@ -53,6 +55,7 @@ interface ConversationRepository {
 class DefaultConversationRepository @Inject constructor(
     private val conversationDao: ConversationDao,
     private val syncStateDao: SyncStateDao,
+    private val userDao: UserDao,
     private val restApi: SupabaseRestApi,
     private val idGenerator: IdGenerator,
     private val timeProvider: TimeProvider,
@@ -63,11 +66,13 @@ class DefaultConversationRepository @Inject constructor(
         combine(
             conversationDao.observeAll(),
             conversationDao.observeAllMembers(),
-        ) { entities, members ->
+            userDao.observeAll(),
+        ) { entities, members, users ->
+            val usersById = users.associate { it.id to it.toDomain() }
             val byConversation = members.groupBy { it.conversationId }
             entities.map { entity ->
                 val conversationMembers = byConversation[entity.id]
-                    ?.map { it.toDomain() }
+                    ?.map { resolveMember(it.toDomain(), usersById) }
                     ?: emptyList()
                 entity.toDomain(conversationMembers)
             }
@@ -77,9 +82,25 @@ class DefaultConversationRepository @Inject constructor(
         combine(
             conversationDao.observeById(id),
             conversationDao.observeMembers(id),
-        ) { entity, members ->
-            entity?.toDomain(members.map { it.toDomain() })
+            userDao.observeAll(),
+        ) { entity, members, users ->
+            val usersById = users.associate { it.id to it.toDomain() }
+            entity?.toDomain(members.map { resolveMember(it.toDomain(), usersById) })
         }
+
+    /**
+     * Fills a conversation member's display identity from the cached users table
+     * when the denormalised value is missing. This is the shared resolution step
+     * that stops direct chats from rendering as "Unknown".
+     */
+    private fun resolveMember(member: ConversationMember, usersById: Map<String, User>): ConversationMember {
+        val user = usersById[member.userId]
+        return member.copy(
+            displayName = member.displayName?.takeIf { it.isNotBlank() }
+                ?: user?.displayLabel,
+            avatar = member.avatar ?: user?.avatar,
+        )
+    }
 
     override suspend fun syncConversations(): AppResult<Unit> = withContext(dispatchers.io) {
         try {
@@ -92,7 +113,11 @@ class DefaultConversationRepository @Inject constructor(
             val now = timeProvider.nowMillis()
             conversationDao.upsertAll(rows.map { it.toDomain().toEntity(now) })
 
-            val memberEntities = rows.flatMap { it.toMemberEntities(now) }
+            // Resolve + cache participant profiles so members render real
+            // identities (displayName → @username → … ) instead of "Unknown".
+            val usersById = resolveAndCacheParticipants(rows.flatMap { it.participants ?: emptyList() }, now)
+
+            val memberEntities = rows.flatMap { it.toMemberEntities(now, usersById) }
             if (memberEntities.isNotEmpty()) {
                 conversationDao.upsertMembers(memberEntities)
             }
@@ -174,7 +199,23 @@ class DefaultConversationRepository @Inject constructor(
     private suspend fun cacheConversation(row: ConversationRow) {
         val now = timeProvider.nowMillis()
         conversationDao.upsert(row.toDomain().toEntity(now))
-        conversationDao.upsertMembers(row.toMemberEntities(now))
+        val usersById = resolveAndCacheParticipants(row.participants ?: emptyList(), now)
+        conversationDao.upsertMembers(row.toMemberEntities(now, usersById))
+    }
+
+    /**
+     * Fetches the given user ids from the backend, caches them locally and returns
+     * them keyed by id. Best-effort: a failure degrades to an empty map so callers
+     * still persist the conversation/membership rows.
+     */
+    private suspend fun resolveAndCacheParticipants(ids: List<String>, now: Long): Map<String, User> {
+        val distinct = ids.filter { it.isNotBlank() }.distinct()
+        if (distinct.isEmpty()) return emptyMap()
+        return runCatching {
+            val users = restApi.getUsers(distinct).map { it.toDomain() }
+            if (users.isNotEmpty()) userDao.upsertAll(users.map { it.toEntity(now) })
+            users.associateBy { it.id }
+        }.getOrDefault(emptyMap())
     }
 
     private fun directChatId(a: String, b: String): String {
@@ -188,18 +229,22 @@ class DefaultConversationRepository @Inject constructor(
 }
 
 /** Build member rows from a chat's `participants`/`admins` arrays. */
-private fun ConversationRow.toMemberEntities(now: Long): List<app.gagachat.core.database.entity.ConversationMemberEntity> {
+private fun ConversationRow.toMemberEntities(
+    now: Long,
+    usersById: Map<String, User>,
+): List<app.gagachat.core.database.entity.ConversationMemberEntity> {
     val participants = participants ?: return emptyList()
     val adminSet = (admins ?: emptyList()).toSet()
     return participants.map { userId ->
+        val user = usersById[userId]
         ConversationMember(
             conversationId = id,
             userId = userId,
             role = if (userId in adminSet) MemberRole.ADMIN else MemberRole.MEMBER,
             joinedAt = createdAt ?: now,
             lastReadMessageId = null,
-            displayName = null,
-            avatar = null,
+            displayName = user?.displayLabel,
+            avatar = user?.avatar,
         ).toEntity()
     }
 }

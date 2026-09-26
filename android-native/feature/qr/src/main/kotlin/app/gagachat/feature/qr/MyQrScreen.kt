@@ -118,10 +118,10 @@ fun MyQrScreen(
                         .padding(GagaDimens.space20),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
-                    GagaAvatar(imageUrl = ui.user.avatar, name = ui.user.displayName, size = 72.dp)
+                    GagaAvatar(imageUrl = ui.user.avatar, name = ui.user.displayLabel, size = 72.dp)
                     Spacer(Modifier.height(GagaDimens.space12))
                     Text(
-                        text = ui.user.displayName,
+                        text = ui.user.displayLabel,
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold,
                     )
