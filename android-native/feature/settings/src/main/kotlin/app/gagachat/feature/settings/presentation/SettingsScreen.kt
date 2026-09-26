@@ -8,15 +8,20 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Logout
+import androidx.compose.material.icons.filled.Accessibility
 import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.AccountCircle
+import androidx.compose.material.icons.filled.Apps
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.HelpOutline
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.QrCode2
+import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -33,9 +38,10 @@ import app.gagachat.core.ui.component.GagaSettingsRow
 import app.gagachat.core.ui.theme.GagaDimens
 
 /**
- * Full settings hub (Master Spec §C — full settings). Groups every settings
- * surface: account/profile, wallet, QR, notifications, privacy, appearance,
- * storage, blocked users and about.
+ * Full settings hub (Master Spec §C — full settings). Mirrors the reference
+ * Settings screen (screenshot 174151): an account block followed by the
+ * preference rows — App permissions, Appearance, Notifications, Privacy,
+ * Security, Data & Storage, Accessibility, Language — and a Help entry.
  */
 @Composable
 fun SettingsRoute(
@@ -98,6 +104,20 @@ fun SettingsRoute(
 
             GagaSectionHeader(text = "PREFERENCES")
             GagaSettingsRow(
+                title = "App permissions",
+                subtitle = "Camera, microphone, contacts and more",
+                leadingIcon = Icons.Filled.Apps,
+                onClick = onOpenNotifications,
+            )
+            GagaDivider()
+            GagaSettingsRow(
+                title = "Appearance",
+                subtitle = "Theme: ${state.themeMode.name.lowercase().replaceFirstChar { it.uppercase() }}",
+                leadingIcon = Icons.Filled.DarkMode,
+                onClick = onOpenAppearance,
+            )
+            GagaDivider()
+            GagaSettingsRow(
                 title = "Notifications",
                 subtitle = "Message and call alerts",
                 leadingIcon = Icons.Filled.Notifications,
@@ -112,24 +132,45 @@ fun SettingsRoute(
             )
             GagaDivider()
             GagaSettingsRow(
-                title = "Appearance",
-                subtitle = "Theme: ${state.themeMode.name.lowercase().replaceFirstChar { it.uppercase() }}",
-                leadingIcon = Icons.Filled.DarkMode,
-                onClick = onOpenAppearance,
+                title = "Security",
+                subtitle = "App lock, login and blocked users",
+                leadingIcon = Icons.Filled.Security,
+                onClick = onOpenPrivacy,
             )
             GagaDivider()
             GagaSettingsRow(
-                title = "Storage and data",
+                title = "Data & Storage",
                 subtitle = "Media auto-download and cache",
                 leadingIcon = Icons.Filled.Storage,
                 onClick = onOpenStorage,
             )
             GagaDivider()
+            GagaSettingsRow(
+                title = "Accessibility",
+                subtitle = "Text size and display options",
+                leadingIcon = Icons.Filled.Accessibility,
+                onClick = onOpenAppearance,
+            )
+            GagaDivider()
+            GagaSettingsRow(
+                title = "Language",
+                subtitle = "App display language",
+                leadingIcon = Icons.Filled.Language,
+                onClick = onOpenAppearance,
+            )
+            GagaDivider()
 
             GagaSectionHeader(text = "ABOUT")
             GagaSettingsRow(
+                title = "Help",
+                subtitle = "FAQs and support",
+                leadingIcon = Icons.Filled.HelpOutline,
+                onClick = onOpenAbout,
+            )
+            GagaDivider()
+            GagaSettingsRow(
                 title = "About GaGa Chat",
-                subtitle = "Version 1.1.0",
+                subtitle = "Version 2.0.0",
                 leadingIcon = Icons.Filled.Info,
                 onClick = onOpenAbout,
             )

@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import app.gagachat.core.common.result.AppResult
 import app.gagachat.core.data.repository.AuthRepository
 import app.gagachat.core.data.repository.ConversationRepository
+import app.gagachat.core.data.repository.FriendsRepository
 import app.gagachat.core.data.repository.UserRepository
 import app.gagachat.core.model.User
 import app.gagachat.core.ui.util.toUserMessage
@@ -23,13 +24,33 @@ data class ProfileUiState(
     val isSelf: Boolean = false,
     val isLoading: Boolean = true,
     val errorMessage: String? = null,
-)
+    val friendsCount: Int = 0,
+    val followersCount: Int = 0,
+    val followingCount: Int = 0,
+) {
+    /**
+     * Profile completeness (0..100). Derived from which optional profile fields
+     * the user has filled in: avatar, bio, username and a contact channel. This
+     * mirrors the "Profile completeness" progress card in the reference design.
+     */
+    val completeness: Int
+        get() {
+            val u = user ?: return 0
+            var score = 0
+            if (!u.avatar.isNullOrBlank()) score += 25
+            if (!u.bio.isNullOrBlank()) score += 25
+            if (!u.username.isNullOrBlank()) score += 25
+            if (!u.phone.isNullOrBlank() || !u.email.isNullOrBlank()) score += 25
+            return score
+        }
+}
 
 @HiltViewModel
 class ProfileViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val userRepository: UserRepository,
     private val conversationRepository: ConversationRepository,
+    private val friendsRepository: FriendsRepository,
     private val authRepository: AuthRepository,
 ) : ViewModel() {
 
@@ -50,6 +71,13 @@ class ProfileViewModel @Inject constructor(
             when (val result = userRepository.refreshUser(userId)) {
                 is AppResult.Failure -> _state.update { it.copy(errorMessage = result.error.toUserMessage(), isLoading = false) }
                 else -> Unit
+            }
+        }
+        // Friends count powers the stats row on the profile header. Followers /
+        // following are not yet backed by a table, so they stay at 0.
+        viewModelScope.launch {
+            friendsRepository.friends.collect { list ->
+                _state.update { it.copy(friendsCount = list.size) }
             }
         }
     }

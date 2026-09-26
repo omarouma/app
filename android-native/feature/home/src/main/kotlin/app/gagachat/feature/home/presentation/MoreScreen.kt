@@ -54,7 +54,7 @@ import app.gagachat.core.ui.component.GagaSettingsRow
 import app.gagachat.core.ui.theme.GagaDimens
 
 /** App version shown in the More footer. Kept in sync with SettingsScreen. */
-private const val APP_VERSION = "1.1.0"
+private const val APP_VERSION = "2.0.0"
 
 /**
  * The "More" menu reached from the Chat tab's overflow (reference screenshots

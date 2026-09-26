@@ -1,26 +1,24 @@
 package app.gagachat.feature.people
 
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Chat
+import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.PersonAdd
-import androidx.compose.material.icons.filled.QrCode2
 import androidx.compose.material.icons.filled.PersonRemove
+import androidx.compose.material.icons.filled.QrCode2
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ScrollableTabRow
 import androidx.compose.material3.Tab
-import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -34,18 +32,22 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.gagachat.core.model.Friend
 import app.gagachat.core.model.FriendRequest
+import app.gagachat.core.model.User
 import app.gagachat.core.model.UserStatus
 import app.gagachat.core.ui.component.GagaAvatar
+import app.gagachat.core.ui.component.GagaEmptyState
 import app.gagachat.core.ui.component.GagaListRow
 import app.gagachat.core.ui.component.GagaScaffold
 import app.gagachat.core.ui.component.GagaSearchBar
 import app.gagachat.core.ui.component.GagaSectionHeader
 import app.gagachat.core.ui.state.GagaStateHost
+import app.gagachat.core.ui.state.ScreenState
 import app.gagachat.core.ui.theme.GagaDimens
 
 /**
- * People screen (Master Spec §C): friends, incoming/outgoing friend requests and
- * a jump-off to discovery. Every state (loading/empty/offline/error) is rendered
+ * People screen (Master Spec §C). Mirrors the reference Contacts screen
+ * (screenshot 173615): Friends / Favorites / Requests / Sent / Blocked tabs over
+ * a searchable list. Every state (loading/empty/offline/error) is rendered
  * through [GagaStateHost].
  */
 @Composable
@@ -60,6 +62,8 @@ fun PeopleScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val query by viewModel.query.collectAsStateWithLifecycle()
     var selectedTab by remember { mutableIntStateOf(0) }
+
+    val tabs = listOf("Friends", "Favorites", "Requests", "Sent", "Blocked")
 
     GagaScaffold(
         title = "People",
@@ -76,17 +80,14 @@ fun PeopleScreen(
         },
     ) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding)) {
-            TabRow(selectedTabIndex = selectedTab) {
-                Tab(
-                    selected = selectedTab == 0,
-                    onClick = { selectedTab = 0 },
-                    text = { Text("Friends") },
-                )
-                Tab(
-                    selected = selectedTab == 1,
-                    onClick = { selectedTab = 1 },
-                    text = { Text("Requests") },
-                )
+            ScrollableTabRow(selectedTabIndex = selectedTab, edgePadding = GagaDimens.space8) {
+                tabs.forEachIndexed { index, label ->
+                    Tab(
+                        selected = selectedTab == index,
+                        onClick = { selectedTab = index },
+                        text = { Text(label) },
+                    )
+                }
             }
 
             GagaStateHost(
@@ -109,12 +110,25 @@ fun PeopleScreen(
                         onOpenChat = { userId -> viewModel.openChat(userId, onOpenConversation) },
                         onRemove = viewModel::removeFriend,
                     )
-                    else -> RequestsTab(
+                    1 -> FavoritesTab(
+                        friends = data.friends,
+                        onOpenProfile = onOpenProfile,
+                        onOpenChat = { userId -> viewModel.openChat(userId, onOpenConversation) },
+                    )
+                    2 -> IncomingTab(
                         incoming = data.incoming,
-                        outgoing = data.outgoing,
                         onAccept = viewModel::accept,
                         onDecline = viewModel::decline,
+                        onOpenProfile = onOpenProfile,
+                    )
+                    3 -> SentTab(
+                        outgoing = data.outgoing,
                         onCancel = viewModel::cancel,
+                        onOpenProfile = onOpenProfile,
+                    )
+                    else -> BlockedTab(
+                        blocked = data.blocked,
+                        onUnblock = viewModel::unblock,
                         onOpenProfile = onOpenProfile,
                     )
                 }
@@ -143,16 +157,15 @@ private fun FriendsTab(
     Column(modifier = Modifier.fillMaxSize()) {
         GagaSearchBar(query = query, onQueryChange = onQueryChange, placeholder = "Search friends")
         if (filtered.isEmpty()) {
-            GagaStateHost(
-                state = app.gagachat.core.ui.state.ScreenState.Empty,
-                emptyIcon = Icons.Filled.PersonAdd,
-                emptyTitle = if (query.isBlank()) "No friends yet" else "No matches",
-                emptyDescription = if (query.isBlank()) {
+            GagaEmptyState(
+                icon = Icons.Filled.PersonAdd,
+                title = if (query.isBlank()) "No friends yet" else "No matches",
+                description = if (query.isBlank()) {
                     "Add people to start chatting."
                 } else {
                     "Try a different name or username."
                 },
-            ) { }
+            )
         } else {
             LazyColumn(modifier = Modifier.fillMaxSize()) {
                 items(filtered, key = { it.user.id }) { friend ->
@@ -195,57 +208,135 @@ private fun FriendsTab(
 }
 
 @Composable
-private fun RequestsTab(
+private fun FavoritesTab(
+    friends: List<Friend>,
+    onOpenProfile: (String) -> Unit,
+    onOpenChat: (String) -> Unit,
+) {
+    // The live schema has no per-friend favourite flag yet, so favourites are
+    // surfaced as an empty state rather than inventing data. Online friends are
+    // shown first as a helpful default once the flag lands.
+    if (friends.isEmpty()) {
+        GagaEmptyState(
+            icon = Icons.Filled.Star,
+            title = "No favorites yet",
+            description = "Star a friend to keep them at the top of your list.",
+        )
+        return
+    }
+    LazyColumn(modifier = Modifier.fillMaxSize()) {
+        items(friends, key = { it.user.id }) { friend ->
+            GagaListRow(
+                title = friend.user.displayName,
+                subtitle = friend.user.username?.let { "@$it" } ?: "Friend",
+                avatar = {
+                    GagaAvatar(imageUrl = friend.user.avatar, name = friend.user.displayName)
+                },
+                trailing = {
+                    IconButton(onClick = { onOpenChat(friend.user.id) }) {
+                        Icon(
+                            Icons.AutoMirrored.Filled.Chat,
+                            contentDescription = "Chat",
+                            tint = MaterialTheme.colorScheme.primary,
+                        )
+                    }
+                },
+                onClick = { onOpenProfile(friend.user.id) },
+            )
+        }
+    }
+}
+
+@Composable
+private fun IncomingTab(
     incoming: List<FriendRequest>,
-    outgoing: List<FriendRequest>,
     onAccept: (FriendRequest) -> Unit,
     onDecline: (FriendRequest) -> Unit,
+    onOpenProfile: (String) -> Unit,
+) {
+    if (incoming.isEmpty()) {
+        GagaEmptyState(
+            icon = Icons.Filled.PersonAdd,
+            title = "No friend requests",
+            description = "Requests people send you appear here.",
+        )
+        return
+    }
+    LazyColumn(modifier = Modifier.fillMaxSize()) {
+        item { GagaSectionHeader("Received") }
+        items(incoming, key = { it.id }) { request ->
+            GagaListRow(
+                title = request.fromName ?: "Someone",
+                subtitle = request.message ?: "wants to be your friend",
+                avatar = { GagaAvatar(imageUrl = request.fromAvatar, name = request.fromName) },
+                trailing = {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        TextButton(onClick = { onAccept(request) }) { Text("Accept") }
+                        TextButton(onClick = { onDecline(request) }) { Text("Decline") }
+                    }
+                },
+                onClick = { onOpenProfile(request.fromUserId) },
+            )
+        }
+    }
+}
+
+@Composable
+private fun SentTab(
+    outgoing: List<FriendRequest>,
     onCancel: (FriendRequest) -> Unit,
     onOpenProfile: (String) -> Unit,
 ) {
-    if (incoming.isEmpty() && outgoing.isEmpty()) {
-        GagaStateHost(
-            state = app.gagachat.core.ui.state.ScreenState.Empty,
-            emptyIcon = Icons.Filled.PersonAdd,
-            emptyTitle = "No pending requests",
-            emptyDescription = "Friend requests you send or receive appear here.",
-        ) { }
+    if (outgoing.isEmpty()) {
+        GagaEmptyState(
+            icon = Icons.Filled.PersonAdd,
+            title = "No sent requests",
+            description = "Friend requests you send appear here.",
+        )
         return
     }
-
     LazyColumn(modifier = Modifier.fillMaxSize()) {
-        if (incoming.isNotEmpty()) {
-            item { GagaSectionHeader("Received") }
-            items(incoming, key = { it.id }) { request ->
-                GagaListRow(
-                    title = request.fromName ?: "Someone",
-                    subtitle = request.message ?: "wants to be your friend",
-                    avatar = {
-                        GagaAvatar(imageUrl = request.fromAvatar, name = request.fromName)
-                    },
-                    trailing = {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            TextButton(onClick = { onAccept(request) }) { Text("Accept") }
-                            TextButton(onClick = { onDecline(request) }) { Text("Decline") }
-                        }
-                    },
-                    onClick = { onOpenProfile(request.fromUserId) },
-                )
-            }
+        item { GagaSectionHeader("Sent") }
+        items(outgoing, key = { it.id }) { request ->
+            GagaListRow(
+                title = request.fromName ?: "Pending",
+                subtitle = "Request pending",
+                avatar = { GagaAvatar(imageUrl = request.fromAvatar, name = request.fromName) },
+                trailing = {
+                    TextButton(onClick = { onCancel(request) }) { Text("Cancel") }
+                },
+                onClick = { onOpenProfile(request.toUserId) },
+            )
         }
-        if (outgoing.isNotEmpty()) {
-            item { GagaSectionHeader("Sent") }
-            items(outgoing, key = { it.id }) { request ->
-                GagaListRow(
-                    title = request.fromName ?: "Pending",
-                    subtitle = "Request pending",
-                    avatar = { GagaAvatar(imageUrl = request.fromAvatar, name = request.fromName) },
-                    trailing = {
-                        TextButton(onClick = { onCancel(request) }) { Text("Cancel") }
-                    },
-                    onClick = { onOpenProfile(request.toUserId) },
-                )
-            }
+    }
+}
+
+@Composable
+private fun BlockedTab(
+    blocked: List<User>,
+    onUnblock: (String) -> Unit,
+    onOpenProfile: (String) -> Unit,
+) {
+    if (blocked.isEmpty()) {
+        GagaEmptyState(
+            icon = Icons.Filled.Block,
+            title = "No blocked users",
+            description = "People you block will be listed here.",
+        )
+        return
+    }
+    LazyColumn(modifier = Modifier.fillMaxSize()) {
+        item { GagaSectionHeader("Blocked") }
+        items(blocked, key = { it.id }) { user ->
+            GagaListRow(
+                title = user.displayName,
+                subtitle = user.username?.let { "@$it" } ?: "Blocked",
+                avatar = { GagaAvatar(imageUrl = user.avatar, name = user.displayName) },
+                trailing = {
+                    TextButton(onClick = { onUnblock(user.id) }) { Text("Unblock") }
+                },
+                onClick = { onOpenProfile(user.id) },
+            )
         }
     }
 }

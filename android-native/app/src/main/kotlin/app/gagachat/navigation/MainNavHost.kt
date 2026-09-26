@@ -178,6 +178,8 @@ fun MainNavHost(pendingDeepLink: String?) {
                 onStartCall = { conversationId, isVideo ->
                     navController.navigate(CallRoutes.activeCall(conversationId, isVideo))
                 },
+                onEditProfile = { navController.navigate(SettingsRoutes.EDIT_PROFILE) },
+                onOpenPrivacy = { navController.navigate(SettingsRoutes.PRIVACY) },
             )
             settingsScreen(
                 navController = navController,

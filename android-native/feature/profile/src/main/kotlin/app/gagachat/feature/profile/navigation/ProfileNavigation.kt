@@ -19,6 +19,9 @@ fun NavGraphBuilder.profileScreen(
     navController: NavController,
     onOpenConversation: (String) -> Unit,
     onStartCall: (String, Boolean) -> Unit,
+    onEditProfile: () -> Unit = {},
+    onOpenPrivacy: () -> Unit = {},
+    onShare: (String) -> Unit = {},
 ) {
     composable(
         route = ProfileRoutes.PROFILE,
@@ -34,6 +37,9 @@ fun NavGraphBuilder.profileScreen(
             onNavigateBack = { navController.popBackStack() },
             onOpenConversation = onOpenConversation,
             onStartCall = onStartCall,
+            onEditProfile = onEditProfile,
+            onOpenPrivacy = onOpenPrivacy,
+            onShare = onShare,
         )
     }
 }

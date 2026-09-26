@@ -16,6 +16,12 @@ data class Wallet(
 ) {
     /** Coins are stored as integers; formatted for display. */
     val formatted: String get() = "%,d".format(coins)
+
+    /**
+     * Short, human-readable wallet code shown in the UI (e.g. `GC-2AARB3B`).
+     * Derived deterministically from the wallet id so it stays stable.
+     */
+    val walletCode: String get() = "GC-" + id.replace("-", "").take(6).uppercase()
 }
 
 /**

@@ -25,6 +25,7 @@ fun NavGraphBuilder.qrGraph(
                 // Sharing is surfaced as a system share sheet from the host app; here
                 // we simply keep the payload available for the caller to consume.
             },
+            onScan = { navController.navigate(QrRoutes.ADD_BY_CODE) },
         )
     }
     composable(QrRoutes.ADD_BY_CODE) {
