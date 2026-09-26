@@ -17,8 +17,10 @@ import app.gagachat.core.model.PendingUpload
 import app.gagachat.core.model.UploadState
 import app.gagachat.core.network.storage.SupabaseStorageApi
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 import javax.inject.Inject
@@ -38,6 +40,7 @@ interface MediaRepository {
         mime: String,
         size: Long,
         type: MessageType,
+        durationMs: Long? = null,
     ): AppResult<Message>
 
     /** Processes the durable upload queue; safe to call from a background worker. */
@@ -67,6 +70,7 @@ class DefaultMediaRepository @Inject constructor(
         mime: String,
         size: Long,
         type: MessageType,
+        durationMs: Long?,
     ): AppResult<Message> = withContext(dispatchers.io) {
         if (size > app.gagachat.core.common.Constants.MAX_UPLOAD_BYTES) {
             return@withContext AppResult.Failure(AppError.Validation("File too large"))
@@ -90,6 +94,7 @@ class DefaultMediaRepository @Inject constructor(
             localMediaPath = localPath,
             mediaMime = mime,
             mediaSize = size,
+            mediaDurationMs = durationMs,
         )
         messageDao.upsert(message.toEntity())
 
@@ -114,17 +119,47 @@ class DefaultMediaRepository @Inject constructor(
             try {
                 val bytes = File(upload.localPath).readBytes()
                 val extension = upload.mime.substringAfterLast('/', "bin")
+                // The storage bucket's RLS policy scopes writes to the caller's own
+                // top-level folder (`<userId>/...`), so the path MUST be prefixed with
+                // the SENDER's user id -- not the conversation id.
+                val senderId = messageDao.getByClientMessageId(upload.clientMessageId)?.senderId
+                if (senderId.isNullOrBlank()) {
+                    uploadDao.updateState(
+                        upload.uploadId,
+                        UploadState.FAILED.name,
+                        upload.attempts + 1,
+                        null,
+                        null,
+                    )
+                    messageDao.updateStatus(
+                        upload.clientMessageId,
+                        MessageStatus.FAILED.name,
+                        null,
+                        null,
+                    )
+                    continue
+                }
                 val objectPath = storageApi.objectPath(
-                    userId = upload.conversationId,
+                    userId = senderId,
                     uploadId = upload.uploadId,
                     extension = extension,
                 )
-                val url = storageApi.upload(objectPath, bytes, upload.mime) { progress ->
-                    // Progress is best-effort; DB writes happen on the IO dispatcher.
-                    kotlinx.coroutines.runBlocking {
+                // Persist progress from a sibling coroutine instead of blocking the
+                // upload thread with runBlocking.
+                val progressChannel = Channel<Int>(Channel.CONFLATED)
+                val writer = launch {
+                    for (progress in progressChannel) {
                         messageDao.updateUploadProgress(upload.clientMessageId, progress)
                         uploadDao.updateProgress(upload.uploadId, progress)
                     }
+                }
+                val url = try {
+                    storageApi.upload(objectPath, bytes, upload.mime) { progress ->
+                        progressChannel.trySend(progress)
+                    }
+                } finally {
+                    progressChannel.close()
+                    writer.join()
                 }
                 messageDao.updateMedia(upload.clientMessageId, url, null)
                 uploadDao.updateState(

@@ -47,6 +47,7 @@ fun GagaEmptyState(
     modifier: Modifier = Modifier,
     description: String? = null,
     action: (@Composable () -> Unit)? = null,
+    brandMark: Boolean = false,
 ) {
     Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         Column(
@@ -54,12 +55,18 @@ fun GagaEmptyState(
             verticalArrangement = Arrangement.Center,
             modifier = Modifier.padding(GagaDimens.space32),
         ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                modifier = Modifier.size(64.dp),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            if (brandMark) {
+                // Branded empty state: show the GaGa mark so the identity is
+                // reinforced on the app's most-seen "first run" screens.
+                GagaLogo(size = 72.dp, elevation = 6.dp)
+            } else {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    modifier = Modifier.size(64.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
             Spacer(Modifier.height(GagaDimens.space16))
             Text(
                 text = title,

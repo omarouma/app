@@ -17,21 +17,24 @@ import app.gagachat.core.database.mapper.toEntity
 import app.gagachat.core.model.Message
 import app.gagachat.core.model.MessageStatus
 import app.gagachat.core.model.MessageType
+import app.gagachat.core.network.dto.ChatReadRow
+import app.gagachat.core.network.dto.EpochMillisSerializer
 import app.gagachat.core.network.dto.MessageInsert
-import app.gagachat.core.network.dto.MessageReceiptRow
 import app.gagachat.core.network.error.ErrorMapper
 import app.gagachat.core.network.rest.SupabaseRestApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.put
 import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
  * Message access implementing the local-first, optimistic, idempotent send
- * pipeline from PDF §5.1–§5.3.
+ * pipeline.
  */
 interface MessageRepository {
     fun observeMessages(
@@ -58,6 +61,12 @@ interface MessageRepository {
         senderAvatar: String?,
         latitude: Double,
         longitude: Double,
+    ): AppResult<Message>
+
+    suspend fun sendCallEvent(
+        conversationId: String,
+        senderId: String,
+        text: String,
     ): AppResult<Message>
 
     suspend fun retry(localId: String): AppResult<Unit>
@@ -111,7 +120,6 @@ class DefaultMessageRepository @Inject constructor(
                 } else {
                     restApi.getMessagesSince(conversationId, cursor, Constants.MESSAGE_PAGE_SIZE)
                 }
-                val now = timeProvider.nowMillis()
                 rows.map { it.toDomain() }.forEach { remote ->
                     val local = messageDao.getByServerMessageId(remote.serverMessageId ?: "")
                         ?: messageDao.getByClientMessageId(remote.clientMessageId)
@@ -119,7 +127,7 @@ class DefaultMessageRepository @Inject constructor(
                         messageDao.upsert(remote.toEntity())
                     }
                 }
-                syncStateDao.upsert(SyncStateEntity(key, now, null))
+                syncStateDao.upsert(SyncStateEntity(key, timeProvider.nowMillis(), null))
                 AppResult.Success(Unit)
             } catch (t: Throwable) {
                 AppResult.Failure(ErrorMapper.map(t))
@@ -141,7 +149,6 @@ class DefaultMessageRepository @Inject constructor(
         val clientMessageId = idGenerator.newClientMessageId()
         val now = timeProvider.nowMillis()
 
-        // Step 1-3: write exactly ONE local pending row and show it immediately.
         val pending = Message(
             localId = clientMessageId,
             clientMessageId = clientMessageId,
@@ -157,8 +164,6 @@ class DefaultMessageRepository @Inject constructor(
         )
         messageDao.upsert(pending.toEntity())
         updateConversationPreview(conversationId, clientMessageId, trimmed, now)
-
-        // Step 4-5: send with idempotency key; server ACK updates the same row.
         dispatch(pending)
     }
 
@@ -187,7 +192,29 @@ class DefaultMessageRepository @Inject constructor(
             senderAvatar = senderAvatar,
         )
         messageDao.upsert(pending.toEntity())
-        updateConversationPreview(conversationId, clientMessageId, "📍 Location", now)
+        updateConversationPreview(conversationId, clientMessageId, "\uD83D\uDCCD Location", now)
+        dispatch(pending)
+    }
+
+    override suspend fun sendCallEvent(
+        conversationId: String,
+        senderId: String,
+        text: String,
+    ): AppResult<Message> = withContext(dispatchers.io) {
+        val clientMessageId = idGenerator.newClientMessageId()
+        val now = timeProvider.nowMillis()
+        val pending = Message(
+            localId = clientMessageId,
+            clientMessageId = clientMessageId,
+            conversationId = conversationId,
+            senderId = senderId,
+            type = MessageType.CALL_EVENT,
+            text = text,
+            createdAtClient = now,
+            status = MessageStatus.PENDING,
+        )
+        messageDao.upsert(pending.toEntity())
+        updateConversationPreview(conversationId, clientMessageId, text, now)
         dispatch(pending)
     }
 
@@ -206,7 +233,7 @@ class DefaultMessageRepository @Inject constructor(
             val now = timeProvider.nowMillis()
             messageDao.updateText(localId, text, now)
             entity.serverMessageId?.let { serverId ->
-                runCatching { restApi.updateMessageText(serverId, text, now) }
+                runCatching { restApi.updateMessageText(serverId, text) }
             }
             AppResult.Success(Unit)
         }
@@ -218,7 +245,7 @@ class DefaultMessageRepository @Inject constructor(
             val now = timeProvider.nowMillis()
             messageDao.markDeleted(localId, now)
             entity.serverMessageId?.let { serverId ->
-                runCatching { restApi.deleteMessage(serverId, now) }
+                runCatching { restApi.deleteMessage(serverId) }
             }
             AppResult.Success(Unit)
         }
@@ -229,9 +256,7 @@ class DefaultMessageRepository @Inject constructor(
             val now = timeProvider.nowMillis()
             messages.filter { it.senderId != userId }.forEach { m ->
                 m.serverMessageId?.let { id ->
-                    runCatching {
-                        restApi.upsertReceipt(MessageReceiptRow(id, userId, deliveredAt = now))
-                    }
+                    runCatching { restApi.updateMessageDelivery(id, "delivered", now, null) }
                 }
             }
         }
@@ -240,11 +265,22 @@ class DefaultMessageRepository @Inject constructor(
         withContext(dispatchers.io) {
             val messages = messageDao.getLatest(conversationId, Constants.INITIAL_MESSAGE_PAGE_SIZE)
             val now = timeProvider.nowMillis()
+            val lastIncoming = messages.firstOrNull { it.senderId != userId }
+            lastIncoming?.serverMessageId?.let { id ->
+                runCatching {
+                    restApi.upsertChatRead(
+                        ChatReadRow(
+                            chatId = conversationId,
+                            userId = userId,
+                            lastReadMessageId = id,
+                            lastReadAt = now,
+                        ),
+                    )
+                }
+            }
             messages.filter { it.senderId != userId }.forEach { m ->
                 m.serverMessageId?.let { id ->
-                    runCatching {
-                        restApi.upsertReceipt(MessageReceiptRow(id, userId, deliveredAt = now, readAt = now))
-                    }
+                    runCatching { restApi.updateMessageDelivery(id, "read", now, now) }
                 }
             }
             conversationDao.updateUnreadCount(conversationId, 0)
@@ -252,8 +288,7 @@ class DefaultMessageRepository @Inject constructor(
 
     override suspend fun applyRealtimeInsert(record: JsonObject) = withContext(dispatchers.io) {
         val serverId = record["id"]?.jsonPrimitive?.content ?: return@withContext
-        val clientId = record["client_message_id"]?.jsonPrimitive?.content
-        // Deduplicate: if we already have this row (by client or server id), update it.
+        val clientId = record["local_id"]?.jsonPrimitive?.content
         val existing = messageDao.getByServerMessageId(serverId)
             ?: clientId?.let { messageDao.getByClientMessageId(it) }
         val remote = recordToMessage(record)
@@ -262,7 +297,6 @@ class DefaultMessageRepository @Inject constructor(
         } else if (SyncPolicy.shouldApplyRemote(existing.status)) {
             messageDao.upsert(remote.copy(localId = existing.localId).toEntity())
         } else {
-            // Our own optimistic row: just attach the server id + timestamp.
             messageDao.updateStatus(
                 existing.localId,
                 MessageStatus.SENT.name,
@@ -290,10 +324,9 @@ class DefaultMessageRepository @Inject constructor(
                 type = pending.type.name.lowercase(),
                 text = pending.text,
                 mediaUrl = pending.mediaUrl,
-                thumbnailUrl = pending.thumbnailUrl,
+                mediaUrls = pending.mediaUrl?.let { listOf(it) },
                 replyToMessageId = pending.replyToMessageId,
-                latitude = pending.latitude,
-                longitude = pending.longitude,
+                metadata = messageMetadata(pending),
             ),
         )
         messageDao.updateStatus(
@@ -314,6 +347,28 @@ class DefaultMessageRepository @Inject constructor(
         AppResult.Failure(ErrorMapper.map(t))
     }
 
+    /**
+     * Builds the `metadata` JSON carried alongside a message row. Location
+     * messages store their coordinates; voice messages store their duration so
+     * the receiving client can render the clip length without downloading it.
+     */
+    private fun messageMetadata(message: Message): JsonObject? {
+        val obj = buildJsonObject {
+            if (message.type == MessageType.LOCATION) {
+                val lat = message.latitude
+                val lng = message.longitude
+                if (lat != null && lng != null) {
+                    put("lat", lat)
+                    put("lng", lng)
+                }
+            }
+            if (message.type == MessageType.AUDIO) {
+                message.mediaDurationMs?.let { put("duration_ms", it) }
+            }
+        }
+        return if (obj.isEmpty()) null else obj
+    }
+
     private suspend fun updateConversationPreview(
         conversationId: String,
         messageId: String,
@@ -325,29 +380,31 @@ class DefaultMessageRepository @Inject constructor(
 
     private fun recordToMessage(record: JsonObject): Message {
         fun str(key: String) = record[key]?.jsonPrimitive?.content
-        fun long(key: String) = record[key]?.jsonPrimitive?.content?.toLongOrNull()
-        fun dbl(key: String) = record[key]?.jsonPrimitive?.content?.toDoubleOrNull()
+        fun ts(key: String) = EpochMillisSerializer.parseIso(str(key))
         val serverId = str("id") ?: ""
-        val clientId = str("client_message_id") ?: serverId
+        val clientId = str("local_id") ?: serverId
+        val type = str("type")?.let { runCatching { MessageType.valueOf(it.uppercase()) }.getOrNull() }
+            ?: MessageType.TEXT
+        val meta = record["metadata"] as? JsonObject
         return Message(
             localId = clientId,
             clientMessageId = clientId,
             serverMessageId = serverId,
-            conversationId = str("conversation_id") ?: "",
+            conversationId = str("chat_id") ?: "",
             senderId = str("sender_id") ?: "",
-            type = str("type")?.let { runCatching { MessageType.valueOf(it.uppercase()) }.getOrNull() }
-                ?: MessageType.TEXT,
-            text = str("text"),
+            type = type,
+            text = str("content"),
             mediaUrl = str("media_url"),
-            thumbnailUrl = str("thumbnail_url"),
-            replyToMessageId = str("reply_to_message_id"),
-            createdAtClient = long("created_at") ?: 0L,
-            createdAtServer = long("created_at"),
+            thumbnailUrl = null,
+            replyToMessageId = str("reply_to"),
+            createdAtClient = ts("created_at") ?: 0L,
+            createdAtServer = ts("created_at"),
             status = MessageStatus.SENT,
-            editedAt = long("edited_at"),
-            deletedAt = long("deleted_at"),
-            latitude = dbl("latitude"),
-            longitude = dbl("longitude"),
+            editedAt = if (str("edited") == "true") ts("updated_at") else null,
+            deletedAt = if (str("destroyed") == "true") ts("updated_at") else null,
+            latitude = if (type == MessageType.LOCATION) meta?.get("lat")?.jsonPrimitive?.content?.toDoubleOrNull() else null,
+            longitude = if (type == MessageType.LOCATION) meta?.get("lng")?.jsonPrimitive?.content?.toDoubleOrNull() else null,
+            mediaDurationMs = if (type == MessageType.AUDIO) meta?.get("duration_ms")?.jsonPrimitive?.content?.toLongOrNull() else null,
         )
     }
 }

@@ -12,7 +12,7 @@
 
     <!-- Splash screen theme (androidx.core:core-splashscreen). -->
     <style name="Theme.GaGaChat.Splash" parent="Theme.SplashScreen">
-        <item name="windowSplashScreenBackground">@color/gaga_violet</item>
+        <item name="windowSplashScreenBackground">@color/gaga_green</item>
         <item name="windowSplashScreenAnimatedIcon">@mipmap/ic_launcher</item>
         <item name="postSplashScreenTheme">@style/Theme.GaGaChat</item>
     </style>

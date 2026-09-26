@@ -4,8 +4,10 @@ import app.gagachat.core.common.util.AppLogger
 import app.gagachat.core.network.config.SupabaseConfig
 import app.gagachat.core.network.session.SessionStore
 import io.ktor.client.HttpClient
+import io.ktor.client.plugins.websocket.DefaultClientWebSocketSession
 import io.ktor.client.plugins.websocket.webSocketSession
 import io.ktor.websocket.Frame
+import io.ktor.websocket.close
 import io.ktor.websocket.readText
 import io.ktor.websocket.send
 import kotlinx.coroutines.CoroutineScope
@@ -57,6 +59,7 @@ class SupabaseRealtimeClient @Inject constructor(
 
     private var connectionJob: Job? = null
     private var scope: CoroutineScope? = null
+    private var activeSession: DefaultClientWebSocketSession? = null
     private val activeTopics = mutableSetOf<String>()
     private var refCounter = 0
 
@@ -82,9 +85,81 @@ class SupabaseRealtimeClient @Inject constructor(
     fun subscribe(table: String, filter: String? = null) {
         val topic = topicFor(table, filter)
         if (!activeTopics.add(topic)) return
-        // If already connected, join immediately; otherwise the loop joins on connect.
         val currentScope = scope ?: return
         connect(currentScope)
+        // If a connection is already live, join immediately; otherwise the
+        // connection loop joins every active topic when it (re)connects.
+        val session = activeSession
+        if (session != null) {
+            currentScope.launch {
+                runCatching { session.send(Frame.Text(joinMessage(topic))) }
+            }
+        }
+    }
+
+    /** Leave a topic and stop receiving its deltas. */
+    @Synchronized
+    fun unsubscribe(table: String, filter: String? = null) {
+        val topic = topicFor(table, filter)
+        if (!activeTopics.remove(topic)) return
+        val session = activeSession ?: return
+        val currentScope = scope ?: return
+        currentScope.launch {
+            runCatching { session.send(Frame.Text(leaveMessage(topic))) }
+        }
+    }
+
+    /**
+     * Joins a raw broadcast topic (no postgres_changes binding). Used by the
+     * WebRTC signaling channel, which exchanges ephemeral offer/answer/ICE
+     * payloads over `broadcast` rather than the table stream (PDF §8).
+     */
+    @Synchronized
+    fun subscribeBroadcast(topic: String) {
+        if (!activeTopics.add(topic)) return
+        val currentScope = scope ?: return
+        connect(currentScope)
+        val session = activeSession
+        if (session != null) {
+            currentScope.launch {
+                runCatching { session.send(Frame.Text(joinBroadcastMessage(topic))) }
+            }
+        }
+    }
+
+    /** Leaves a raw broadcast topic. */
+    @Synchronized
+    fun unsubscribeBroadcast(topic: String) {
+        if (!activeTopics.remove(topic)) return
+        val session = activeSession ?: return
+        val currentScope = scope ?: return
+        currentScope.launch {
+            runCatching { session.send(Frame.Text(leaveMessage(topic))) }
+        }
+    }
+
+    /**
+     * Sends a broadcast message on [topic]. Fire-and-forget: if the socket is
+     * not yet connected the message is dropped, and the caller retries on the
+     * next signaling tick (signaling is idempotent by design).
+     */
+    @Synchronized
+    fun broadcast(topic: String, event: String, payload: JsonObject) {
+        val session = activeSession ?: return
+        val currentScope = scope ?: return
+        val message = buildJsonObject {
+            put("topic", topic)
+            put("event", "broadcast")
+            put("payload", buildJsonObject {
+                put("type", "broadcast")
+                put("event", event)
+                put("payload", payload)
+            })
+            put("ref", (++refCounter).toString())
+        }.toString()
+        currentScope.launch {
+            runCatching { session.send(Frame.Text(message)) }
+        }
     }
 
     private fun topicFor(table: String, filter: String?): String =
@@ -95,15 +170,18 @@ class SupabaseRealtimeClient @Inject constructor(
         while (true) {
             try {
                 val url = "${config.realtimeUrl}?apikey=${config.anonKey}&vsn=1.0.0"
-                client.webSocketSession(url).use { session ->
+                val session = client.webSocketSession(url)
+                try {
                     logger.i(TAG, "Realtime connected")
                     backoff = 1_000L
+                    activeSession = session
                     // Join all currently active topics.
                     activeTopics.toList().forEach { topic ->
                         session.send(Frame.Text(joinMessage(topic)))
                     }
-                    // Heartbeat loop.
-                    val heartbeat = launch {
+                    // Heartbeat loop. `session` is a CoroutineScope, so the
+                    // heartbeat is scoped to the lifetime of the connection.
+                    val heartbeat = session.launch {
                         while (isActive) {
                             delay(25_000)
                             session.send(Frame.Text(heartbeatMessage()))
@@ -115,8 +193,12 @@ class SupabaseRealtimeClient @Inject constructor(
                         }
                     }
                     heartbeat.cancel()
+                } finally {
+                    activeSession = null
+                    runCatching { session.close() }
                 }
             } catch (t: Throwable) {
+                activeSession = null
                 logger.w(TAG, "Realtime disconnected: ${t.message}")
                 _events.tryEmit(RealtimeEvent.ConnectionError(t.message ?: "disconnected"))
             }
@@ -136,8 +218,16 @@ class SupabaseRealtimeClient @Inject constructor(
                 else _events.tryEmit(RealtimeEvent.Failure(topic, status ?: "error"))
             }
             "postgres_changes" -> parsePostgresChange(obj)
+            "broadcast" -> parseBroadcast(topic, obj)
             "phx_error", "phx_close" -> _events.tryEmit(RealtimeEvent.Unsubscribed(topic))
         }
+    }
+
+    private fun parseBroadcast(topic: String, obj: JsonObject) {
+        val payload = obj["payload"]?.jsonObject ?: return
+        val event = payload["event"]?.jsonPrimitive?.content ?: return
+        val data = payload["payload"]?.jsonObject ?: JsonObject(emptyMap())
+        _events.tryEmit(RealtimeEvent.Broadcast(topic, event, data))
     }
 
     private fun parsePostgresChange(obj: JsonObject) {
@@ -177,6 +267,29 @@ class SupabaseRealtimeClient @Inject constructor(
             put("ref", (++refCounter).toString())
         }.toString()
     }
+
+    private fun joinBroadcastMessage(topic: String): String {
+        val payload = buildJsonObject {
+            putJsonObject("config") {
+                putJsonObject("broadcast") { put("self", false) }
+                putJsonObject("presence") { put("key", "") }
+            }
+            sessionStore.accessToken()?.let { put("access_token", it) }
+        }
+        return buildJsonObject {
+            put("topic", topic)
+            put("event", "phx_join")
+            put("payload", payload)
+            put("ref", (++refCounter).toString())
+        }.toString()
+    }
+
+    private fun leaveMessage(topic: String): String = buildJsonObject {
+        put("topic", topic)
+        put("event", "phx_leave")
+        put("payload", buildJsonObject {})
+        put("ref", (++refCounter).toString())
+    }.toString()
 
     private fun heartbeatMessage(): String = buildJsonObject {
         put("topic", "phoenix")

@@ -21,11 +21,13 @@ object CallRoutes {
 fun NavGraphBuilder.callHistoryScreen(
     navController: NavController,
     onOpenConversation: (String) -> Unit,
+    onStartCall: (conversationId: String, isVideo: Boolean) -> Unit,
 ) {
     composable(CallRoutes.CALL_HISTORY) {
         CallHistoryRoute(
             onNavigateBack = { navController.popBackStack() },
             onOpenConversation = onOpenConversation,
+            onStartCall = onStartCall,
         )
     }
 }

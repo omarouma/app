@@ -60,10 +60,9 @@ class RegisterViewModel @Inject constructor(
         }
         _state.update { it.copy(isSubmitting = true, errorMessage = null) }
         viewModelScope.launch {
-            val isEmail = current.identifier.contains("@")
             val result = authRepository.signUp(
-                email = if (isEmail) current.identifier.trim() else null,
-                phone = if (!isEmail) current.identifier.trim() else null,
+                email = current.identifier.trim(),
+                phone = null,
                 password = current.password,
                 displayName = current.displayName.trim(),
             )
@@ -82,12 +81,19 @@ class RegisterViewModel @Inject constructor(
     private fun validateIdentifier(value: String): String? {
         val trimmed = value.trim()
         return when {
-            trimmed.isEmpty() -> "Email or phone is required"
-            trimmed.contains("@") && !android.util.Patterns.EMAIL_ADDRESS.matcher(trimmed).matches() ->
+            trimmed.isEmpty() -> "Email address is required"
+            looksLikePhone(trimmed) ->
+                "Phone sign-up isn't available yet — please use your email address."
+            !android.util.Patterns.EMAIL_ADDRESS.matcher(trimmed).matches() ->
                 "Enter a valid email address"
-            !trimmed.contains("@") && trimmed.filter { it.isDigit() }.length < 7 ->
-                "Enter a valid phone number"
             else -> null
         }
+    }
+
+    private fun looksLikePhone(value: String): Boolean {
+        if (value.contains("@")) return false
+        val digits = value.count { it.isDigit() }
+        val others = value.count { it == '+' || it == '-' || it == ' ' || it == '(' || it == ')' }
+        return digits >= 7 && (digits + others) == value.length
     }
 }

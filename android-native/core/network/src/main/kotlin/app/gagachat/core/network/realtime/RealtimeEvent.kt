@@ -18,6 +18,17 @@ sealed interface RealtimeEvent {
     data class Unsubscribed(val topic: String) : RealtimeEvent
     data class Failure(val topic: String, val message: String) : RealtimeEvent
     data class ConnectionError(val message: String) : RealtimeEvent
+
+    /**
+     * A broadcast message received on a topic. Used for the WebRTC call
+     * signaling channel (offer/answer/ICE/ringing/accept/reject/hangup), which
+     * is deliberately kept out of the postgres table stream (PDF §8).
+     */
+    data class Broadcast(
+        val topic: String,
+        val event: String,
+        val payload: JsonObject,
+    ) : RealtimeEvent
 }
 
 enum class ChangeType { INSERT, UPDATE, DELETE }

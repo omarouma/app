@@ -37,17 +37,23 @@ class HomeViewModel @Inject constructor(
     private val refreshing = MutableStateFlow(false)
     private val error = MutableStateFlow<String?>(null)
 
+    // Fold the session into the query stream so we stay within the 5-arg
+    // combine overload while still reacting to sign-in / sign-out.
+    private val queryWithSession = combine(query, authRepository.sessionFlow) { q, session ->
+        q to session?.userId.orEmpty()
+    }
+
     val state: StateFlow<HomeUiState> = combine(
         conversationRepository.observeConversations(),
-        query,
+        queryWithSession,
         loading,
         refreshing,
         error,
-    ) { conversations, q, isLoading, isRefreshing, errorMessage ->
+    ) { conversations, (q, me), isLoading, isRefreshing, errorMessage ->
         val filtered = if (q.isBlank()) {
             conversations
         } else {
-            conversations.filter { it.displayTitle(currentUserId).contains(q, ignoreCase = true) }
+            conversations.filter { it.displayTitle(me).contains(q, ignoreCase = true) }
         }
         HomeUiState(
             conversations = filtered.sortedWith(
@@ -58,12 +64,9 @@ class HomeViewModel @Inject constructor(
             isLoading = isLoading,
             isRefreshing = isRefreshing,
             errorMessage = errorMessage,
-            currentUserId = currentUserId,
+            currentUserId = me,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), HomeUiState())
-
-    private val currentUserId: String
-        get() = authRepository.sessionFlow.value?.userId.orEmpty()
 
     init {
         // Local-first: cached rows render immediately; sync runs in background.
@@ -82,6 +85,34 @@ class HomeViewModel @Inject constructor(
     }
 
     fun consumeError() = error.update { null }
+
+    /** Pin/unpin a conversation (also mirrored to the server). */
+    fun onTogglePin(conversation: Conversation) {
+        viewModelScope.launch {
+            conversationRepository.setPinned(conversation.id, !conversation.isPinned)
+        }
+    }
+
+    /** Mute/unmute a conversation. */
+    fun onToggleMute(conversation: Conversation) {
+        viewModelScope.launch {
+            conversationRepository.setMuted(conversation.id, !conversation.isMuted)
+        }
+    }
+
+    /** Clear the unread badge for a conversation. */
+    fun onMarkRead(conversation: Conversation) {
+        viewModelScope.launch {
+            conversationRepository.markRead(conversation.id, conversation.lastMessageId.orEmpty())
+        }
+    }
+
+    /** Delete a conversation locally and on the server. */
+    fun onDelete(conversation: Conversation) {
+        viewModelScope.launch {
+            conversationRepository.deleteConversation(conversation.id)
+        }
+    }
 
     private suspend fun sync(isPullToRefresh: Boolean = false) {
         if (isPullToRefresh) refreshing.value = true

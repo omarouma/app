@@ -2,6 +2,7 @@ package app.gagachat.core.common.util
 
 import android.util.Log
 import app.gagachat.core.common.BuildConfig
+import javax.inject.Inject
 
 /**
  * Central logging facade.
@@ -17,7 +18,7 @@ interface AppLogger {
     fun e(tag: String, message: String, throwable: Throwable? = null)
 }
 
-class AndroidAppLogger : AppLogger {
+class AndroidAppLogger @Inject constructor() : AppLogger {
     private val enabled = BuildConfig.DEBUG
 
     override fun d(tag: String, message: String) {

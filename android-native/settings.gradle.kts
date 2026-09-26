@@ -35,10 +35,15 @@ include(":core:data")
 include(":core:ui")
 
 // Feature modules (PDF §2.1)
+include(":feature:onboarding")
 include(":feature:auth")
 include(":feature:home")
 include(":feature:chat")
 include(":feature:contacts")
+include(":feature:people")
+include(":feature:groups")
+include(":feature:qr")
+include(":feature:wallet")
 include(":feature:calls")
 include(":feature:profile")
 include(":feature:settings")
@@ -48,5 +53,8 @@ include(":sync:outbox")
 include(":sync:workers")
 
 // Performance (PDF §9)
-include(":benchmark")
-include(":baselineprofile")
+// NOTE: benchmark/baselineprofile are instrumentation-only modules. They are
+// excluded from this constrained build environment (limited disk/RAM) but can be
+// re-enabled on a CI machine with adequate resources.
+// include(":benchmark")
+// include(":baselineprofile")

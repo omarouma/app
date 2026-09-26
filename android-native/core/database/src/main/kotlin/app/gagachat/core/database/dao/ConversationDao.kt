@@ -66,6 +66,27 @@ interface ConversationDao {
     @Query("SELECT * FROM conversation_members WHERE conversationId = :conversationId")
     suspend fun getMembers(conversationId: String): List<ConversationMemberEntity>
 
+    /** All members in one query (avoids the N+1 member lookup per conversation). */
+    @Query("SELECT * FROM conversation_members")
+    fun observeAllMembers(): Flow<List<ConversationMemberEntity>>
+
+    @Query("SELECT * FROM conversation_members WHERE conversationId IN (:conversationIds)")
+    suspend fun getMembersForConversations(conversationIds: List<String>): List<ConversationMemberEntity>
+
+    /** Find an existing DIRECT conversation between two users (local cache). */
+    @Query(
+        """
+        SELECT c.* FROM conversations c
+        WHERE c.type = 'DIRECT'
+          AND EXISTS (SELECT 1 FROM conversation_members m1
+                      WHERE m1.conversationId = c.id AND m1.userId = :userA)
+          AND EXISTS (SELECT 1 FROM conversation_members m2
+                      WHERE m2.conversationId = c.id AND m2.userId = :userB)
+        LIMIT 1
+        """,
+    )
+    suspend fun findDirectConversation(userA: String, userB: String): ConversationEntity?
+
     @Query("DELETE FROM conversation_members WHERE conversationId = :conversationId")
     suspend fun deleteMembers(conversationId: String)
 

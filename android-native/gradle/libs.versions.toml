@@ -35,6 +35,7 @@ splashscreen = "1.0.1"
 webkit = "1.12.1"
 profileinstaller = "1.4.1"
 desugar = "2.1.3"
+zxing = "3.5.3"
 
 [libraries]
 # AndroidX core
@@ -107,6 +108,9 @@ kotlinx-datetime = { group = "org.jetbrains.kotlinx", name = "kotlinx-datetime",
 # Coil (image loading with memory + disk cache)
 coil-compose = { group = "io.coil-kt", name = "coil-compose", version.ref = "coil" }
 coil-video = { group = "io.coil-kt", name = "coil-video", version.ref = "coil" }
+
+# QR codes (pure-Java core, no Android runtime needed)
+zxing-core = { group = "com.google.zxing", name = "core", version.ref = "zxing" }
 
 # Security
 androidx-security-crypto = { group = "androidx.security", name = "security-crypto", version.ref = "securityCrypto" }

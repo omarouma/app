@@ -1,7 +1,6 @@
 package app.gagachat.feature.calls.presentation
 
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -22,12 +21,16 @@ import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -37,6 +40,7 @@ import app.gagachat.core.model.CallType
 import app.gagachat.core.ui.component.GagaAvatar
 import app.gagachat.core.ui.component.GagaDivider
 import app.gagachat.core.ui.component.GagaEmptyState
+import app.gagachat.core.ui.component.GagaErrorState
 import app.gagachat.core.ui.component.GagaLoading
 import app.gagachat.core.ui.component.GagaScaffold
 import app.gagachat.core.ui.theme.GagaDimens
@@ -46,35 +50,67 @@ import app.gagachat.core.ui.util.TimeFormat
 fun CallHistoryRoute(
     onNavigateBack: () -> Unit,
     onOpenConversation: (String) -> Unit,
+    onStartCall: (conversationId: String, isVideo: Boolean) -> Unit,
     viewModel: CallViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    var selectedTab by remember { mutableIntStateOf(0) }
+
+    val visibleCalls = remember(state.history, selectedTab) {
+        if (selectedTab == 1) state.history.filter { it.isMissedCall() } else state.history
+    }
 
     GagaScaffold(title = "Calls", onBack = onNavigateBack) { padding ->
-        when {
-            state.isLoading && state.history.isEmpty() -> {
-                GagaLoading(modifier = Modifier.padding(padding))
-            }
-            state.history.isEmpty() -> {
-                GagaEmptyState(
-                    icon = Icons.Filled.Call,
-                    title = "No calls yet",
-                    description = "Your voice and video call history will appear here.",
-                    modifier = Modifier.padding(padding),
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding),
+        ) {
+            TabRow(selectedTabIndex = selectedTab) {
+                Tab(
+                    selected = selectedTab == 0,
+                    onClick = { selectedTab = 0 },
+                    text = { Text("All") },
+                )
+                Tab(
+                    selected = selectedTab == 1,
+                    onClick = { selectedTab = 1 },
+                    text = { Text("Missed") },
                 )
             }
-            else -> {
-                LazyColumn(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(padding),
-                ) {
-                    items(state.history, key = { it.id }) { call ->
-                        CallHistoryRow(
-                            call = call,
-                            onClick = { onOpenConversation(call.conversationId) },
-                        )
-                        GagaDivider()
+            when {
+                state.isLoading && state.history.isEmpty() -> {
+                    GagaLoading(modifier = Modifier.padding(top = GagaDimens.space24))
+                }
+                state.error != null && state.history.isEmpty() -> {
+                    GagaErrorState(
+                        title = "Couldn't load calls",
+                        description = state.error,
+                        onRetry = viewModel::refreshHistory,
+                    )
+                }
+                visibleCalls.isEmpty() -> {
+                    GagaEmptyState(
+                        icon = Icons.Filled.Call,
+                        title = if (selectedTab == 1) "No missed calls" else "No calls yet",
+                        description = if (selectedTab == 1) {
+                            "You're all caught up."
+                        } else {
+                            "Your voice and video call history will appear here."
+                        },
+                    )
+                }
+                else -> {
+                    LazyColumn(modifier = Modifier.fillMaxSize()) {
+                        items(visibleCalls, key = { it.id }) { call ->
+                            CallHistoryRow(
+                                call = call,
+                                onClick = { onOpenConversation(call.conversationId) },
+                                onCall = { onStartCall(call.conversationId, false) },
+                                onVideoCall = { onStartCall(call.conversationId, true) },
+                            )
+                            GagaDivider()
+                        }
                     }
                 }
             }
@@ -86,10 +122,10 @@ fun CallHistoryRoute(
 private fun CallHistoryRow(
     call: CallSession,
     onClick: () -> Unit,
+    onCall: () -> Unit,
+    onVideoCall: () -> Unit,
 ) {
-    val missed = call.status == CallStatus.MISSED ||
-        call.status == CallStatus.REJECTED ||
-        call.status == CallStatus.BUSY
+    val missed = call.isMissedCall()
     val directionIcon = when {
         missed -> Icons.AutoMirrored.Filled.CallMissed
         call.isOutgoing -> Icons.AutoMirrored.Filled.CallMade
@@ -101,7 +137,7 @@ private fun CallHistoryRow(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .padding(horizontal = GagaDimens.space16, vertical = GagaDimens.space12),
+            .padding(start = GagaDimens.space16, end = GagaDimens.space8, top = GagaDimens.space12, bottom = GagaDimens.space12),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         GagaAvatar(
@@ -135,15 +171,25 @@ private fun CallHistoryRow(
                 )
             }
         }
-        IconButton(onClick = onClick) {
+        IconButton(onClick = onCall) {
             Icon(
-                imageVector = if (call.type == CallType.VIDEO) Icons.Filled.Videocam else Icons.Filled.Call,
-                contentDescription = "Call back",
+                imageVector = Icons.Filled.Call,
+                contentDescription = "Voice call",
+                tint = MaterialTheme.colorScheme.primary,
+            )
+        }
+        IconButton(onClick = onVideoCall) {
+            Icon(
+                imageVector = Icons.Filled.Videocam,
+                contentDescription = "Video call",
                 tint = MaterialTheme.colorScheme.primary,
             )
         }
     }
 }
+
+private fun CallSession.isMissedCall(): Boolean =
+    status == CallStatus.MISSED || status == CallStatus.REJECTED || status == CallStatus.BUSY
 
 private fun callSubtitle(call: CallSession): String {
     val time = TimeFormat.conversationTime(call.startedAt)

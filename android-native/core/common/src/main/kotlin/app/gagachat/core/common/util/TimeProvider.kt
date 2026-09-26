@@ -2,6 +2,7 @@ package app.gagachat.core.common.util
 
 import kotlinx.datetime.Clock
 import kotlinx.datetime.Instant
+import javax.inject.Inject
 
 /**
  * Injectable clock. Server timestamps are authoritative (PDF §11); the client
@@ -12,7 +13,7 @@ interface TimeProvider {
     fun now(): Instant
 }
 
-class SystemTimeProvider : TimeProvider {
+class SystemTimeProvider @Inject constructor() : TimeProvider {
     override fun nowMillis(): Long = Clock.System.now().toEpochMilliseconds()
     override fun now(): Instant = Clock.System.now()
 }

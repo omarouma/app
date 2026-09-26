@@ -8,7 +8,7 @@ import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import app.gagachat.navigation.GagaApp
 import app.gagachat.push.DeepLinkRouter
 import app.gagachat.push.PendingDeepLink
-import app.gagachat.ui.theme.GagaTheme
+import app.gagachat.core.ui.theme.GagaTheme
 import dagger.hilt.android.AndroidEntryPoint
 
 /**

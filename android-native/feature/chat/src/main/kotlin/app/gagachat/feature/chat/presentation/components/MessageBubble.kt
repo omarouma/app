@@ -19,6 +19,7 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.DoneAll
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material3.Icon
@@ -174,8 +175,21 @@ private fun MediaVideo(message: Message, contentColor: Color) {
 
 @Composable
 private fun AudioContent(message: Message, contentColor: Color) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Icon(Icons.Filled.PlayArrow, contentDescription = "Play audio", tint = contentColor)
+    val player = rememberVoicePlayer()
+    val source = message.mediaUrl ?: message.localMediaPath
+    val playable = !source.isNullOrBlank()
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .clip(RoundedCornerShape(12.dp))
+            .clickable(enabled = playable) { player.toggle(source) }
+            .padding(vertical = GagaDimens.space2, horizontal = GagaDimens.space2),
+    ) {
+        Icon(
+            imageVector = if (player.isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
+            contentDescription = if (player.isPlaying) "Pause audio" else "Play audio",
+            tint = contentColor,
+        )
         Spacer(Modifier.width(GagaDimens.space8))
         Text(
             text = message.mediaDurationMs?.let { TimeFormat.callDuration(it) } ?: "Voice message",

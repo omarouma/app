@@ -21,6 +21,7 @@ fun GagaScaffold(
     modifier: Modifier = Modifier,
     subtitle: String? = null,
     onBack: (() -> Unit)? = null,
+    brandMark: Boolean = false,
     snackbarHostState: SnackbarHostState? = null,
     actions: @Composable RowScope.() -> Unit = {},
     floatingActionButton: @Composable () -> Unit = {},
@@ -34,6 +35,7 @@ fun GagaScaffold(
                 title = title,
                 subtitle = subtitle,
                 onBack = onBack,
+                brandMark = brandMark,
                 actions = actions,
             )
         },

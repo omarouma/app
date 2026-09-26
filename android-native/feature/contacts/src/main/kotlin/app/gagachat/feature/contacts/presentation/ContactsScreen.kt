@@ -23,7 +23,7 @@ import app.gagachat.core.ui.theme.GagaDimens
 @Composable
 fun ContactsRoute(
     onOpenProfile: (userId: String) -> Unit,
-    onStartChat: (userId: String) -> Unit,
+    onOpenConversation: (conversationId: String) -> Unit,
     viewModel: ContactsViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -66,7 +66,13 @@ fun ContactsRoute(
                                     showStatus = true,
                                 )
                             },
-                            onClick = { onOpenProfile(user.id) },
+                            // Tapping the row opens (or creates) the direct chat,
+                            // matching the reference Contacts behaviour.
+                            onClick = {
+                                viewModel.openChat(user.id) { conversationId ->
+                                    onOpenConversation(conversationId)
+                                }
+                            },
                         )
                     }
                 }

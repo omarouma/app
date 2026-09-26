@@ -11,8 +11,8 @@ import javax.inject.Singleton
 
 /**
  * Registers the FCM push token against the signed-in user's device row so the
- * backend can route notifications (PDF §8, §7.1 `devices`). Safe to call
- * repeatedly — the upsert is keyed on (user_id, device_id).
+ * backend can route notifications. Safe to call repeatedly; the row is matched
+ * on (user_id, token) and patched when it already exists.
  */
 @Singleton
 class PushTokenRegistrar @Inject constructor(
@@ -30,8 +30,8 @@ class PushTokenRegistrar @Inject constructor(
                     deviceId = deviceId(),
                     pushToken = token,
                     platform = "android",
-                    lastActive = System.currentTimeMillis(),
-                    appVersion = appVersion(),
+                    deviceName = deviceName(),
+                    lastSeenAt = System.currentTimeMillis(),
                 ),
             )
         }
@@ -41,7 +41,7 @@ class PushTokenRegistrar @Inject constructor(
         Settings.Secure.getString(context.contentResolver, Settings.Secure.ANDROID_ID)
             ?: "unknown-device"
 
-    private fun appVersion(): String? = runCatching {
-        context.packageManager.getPackageInfo(context.packageName, 0).versionName
+    private fun deviceName(): String? = runCatching {
+        "${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}"
     }.getOrNull()
 }

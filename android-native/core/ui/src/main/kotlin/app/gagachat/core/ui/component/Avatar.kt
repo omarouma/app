@@ -89,14 +89,14 @@ private fun rememberInitials(name: String?): String {
 }
 
 private val avatarPalette = listOf(
-    Color(0xFF6C4CF1),
-    Color(0xFF12B5A5),
-    Color(0xFFE5484D),
-    Color(0xFFF5A623),
-    Color(0xFF2FBF71),
-    Color(0xFF3B82F6),
-    Color(0xFFEC4899),
-    Color(0xFF8B5CF6),
+    Color(0xFF00C300),
+    Color(0xFF00A884),
+    Color(0xFF00897B),
+    Color(0xFF2E7D32),
+    Color(0xFF43A047),
+    Color(0xFF00838F),
+    Color(0xFF00695C),
+    Color(0xFF558B2F),
 )
 
 private fun rememberAvatarColor(name: String?): Color {
