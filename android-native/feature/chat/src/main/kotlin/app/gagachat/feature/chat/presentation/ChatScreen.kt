@@ -6,15 +6,20 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.filled.Call
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
@@ -23,7 +28,10 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
@@ -33,8 +41,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -118,6 +128,8 @@ fun ChatRoute(
                 onSendMoney = onSendMoney,
                 onBlockUser = viewModel::blockUser,
                 onRemoveFriend = viewModel::removeFriend,
+                onSearch = viewModel::toggleSearch,
+                onReport = viewModel::reportUser,
                 onAction = { label ->
                     snackbarHostState.currentSnackbarData?.dismiss()
                     viewModel.showNotice(label)
@@ -130,19 +142,32 @@ fun ChatRoute(
                 .fillMaxSize()
                 .padding(padding),
         ) {
+            if (state.isSearching) {
+                MessageSearchBar(
+                    query = state.searchQuery,
+                    onQueryChange = viewModel::onSearchQueryChange,
+                    onClose = viewModel::toggleSearch,
+                )
+            }
             Box(modifier = Modifier.weight(1f)) {
-                if (state.messages.isEmpty() && !state.isLoadingOlder) {
+                val visible = state.visibleMessages
+                val isFiltering = state.isSearching && state.searchQuery.isNotBlank()
+                if (visible.isEmpty() && !state.isLoadingOlder) {
                     GagaEmptyState(
                         icon = Icons.AutoMirrored.Filled.Chat,
-                        title = "No messages yet",
-                        description = "Say hi to start the conversation.",
+                        title = if (isFiltering) "No matches" else "No messages yet",
+                        description = if (isFiltering) {
+                            "Try a different search term."
+                        } else {
+                            "Say hi to start the conversation."
+                        },
                     )
                 } else {
                     MessageList(
-                        messages = state.messages,
+                        messages = visible,
                         currentUserId = state.currentUserId,
                         isLoadingOlder = state.isLoadingOlder,
-                        isOtherTyping = state.isOtherTyping,
+                        isOtherTyping = state.isOtherTyping && !isFiltering,
                         listState = listState,
                         onRetry = viewModel::retry,
                         onLongPress = viewModel::setReplyTo,
@@ -179,11 +204,55 @@ fun ChatRoute(
 }
 
 /**
+ * Inline message search bar (reference screenshot 174606 — "Search Messages").
+ * Filters the currently loaded history by text; the close button restores the
+ * full conversation.
+ */
+@Composable
+private fun MessageSearchBar(
+    query: String,
+    onQueryChange: (String) -> Unit,
+    onClose: () -> Unit,
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = MaterialTheme.colorScheme.surface,
+        tonalElevation = 2.dp,
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = GagaDimens.space8, vertical = GagaDimens.space4),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(Icons.Filled.Search, contentDescription = null)
+            Spacer(Modifier.width(GagaDimens.space8))
+            TextField(
+                value = query,
+                onValueChange = onQueryChange,
+                modifier = Modifier.weight(1f),
+                placeholder = { Text("Search messages") },
+                singleLine = true,
+                colors = TextFieldDefaults.colors(
+                    focusedContainerColor = Color.Transparent,
+                    unfocusedContainerColor = Color.Transparent,
+                    focusedIndicatorColor = Color.Transparent,
+                    unfocusedIndicatorColor = Color.Transparent,
+                ),
+            )
+            IconButton(onClick = onClose) {
+                Icon(Icons.Filled.Close, contentDescription = "Close search")
+            }
+        }
+    }
+}
+
+/**
  * The conversation overflow menu (reference screenshot 174606): Search Messages,
  * Chat Background, Send Money, View Profile, Chat Info, Remove Friend, Block User
- * and Report User. "View Profile", "Block User" and "Remove Friend" are fully
- * wired; the remaining entries surface a transient notice until their owning
- * features land.
+ * and Report User. "Search Messages", "View Profile", "Block User", "Remove
+ * Friend" and "Report User" are wired; "Chat Background" surfaces a transient
+ * notice until its owning feature lands (deferred to the UI-polish phase).
  */
 @Composable
 private fun ChatOverflowMenu(
@@ -192,6 +261,8 @@ private fun ChatOverflowMenu(
     onSendMoney: () -> Unit,
     onBlockUser: () -> Unit,
     onRemoveFriend: () -> Unit,
+    onSearch: () -> Unit,
+    onReport: () -> Unit,
     onAction: (String) -> Unit,
 ) {
     var expanded by remember { mutableStateOf(false) }
@@ -200,7 +271,7 @@ private fun ChatOverflowMenu(
         Icon(Icons.Filled.MoreVert, contentDescription = "More")
     }
     DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-        MenuItem("Search Messages") { expanded = false; onAction("Search Messages") }
+        MenuItem("Search Messages") { expanded = false; onSearch() }
         MenuItem("Chat Background") { expanded = false; onAction("Chat Background") }
         MenuItem("Send Money") {
             expanded = false
@@ -222,7 +293,7 @@ private fun ChatOverflowMenu(
             expanded = false
             onBlockUser()
         }
-        MenuItem("Report User") { expanded = false; onAction("Report User") }
+        MenuItem("Report User") { expanded = false; onReport() }
     }
 }
 

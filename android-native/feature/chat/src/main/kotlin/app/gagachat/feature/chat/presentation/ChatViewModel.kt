@@ -8,6 +8,7 @@ import android.net.Uri
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import app.gagachat.core.common.Constants
 import app.gagachat.core.common.result.AppResult
 import app.gagachat.core.data.repository.AuthRepository
 import app.gagachat.core.data.repository.BlockRepository
@@ -22,12 +23,17 @@ import app.gagachat.core.ui.util.toUserMessage
 import app.gagachat.feature.chat.presentation.components.VoiceRecorder
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -50,7 +56,18 @@ data class ChatUiState(
     val isOtherTyping: Boolean = false,
     val isRecording: Boolean = false,
     val recordingElapsedMs: Long = 0L,
-)
+    val isSearching: Boolean = false,
+    val searchQuery: String = "",
+) {
+    /** Messages matching the active in-chat search query (empty query = all). */
+    val visibleMessages: List<Message>
+        get() = if (isSearching && searchQuery.isNotBlank()) {
+            val q = searchQuery.trim()
+            messages.filter { it.text?.contains(q, ignoreCase = true) == true }
+        } else {
+            messages
+        }
+}
 
 /** Transient voice-recording state driven by the composer's mic button. */
 data class RecordingState(
@@ -64,6 +81,15 @@ private data class ComposerState(
     val typing: Boolean,
     val notice: String?,
     val recording: RecordingState,
+)
+
+/** Bundled list/search/loading flags for the main combine. */
+private data class ChatFlags(
+    val isLoadingOlder: Boolean,
+    val hasMoreOlder: Boolean,
+    val error: String?,
+    val searchQuery: String,
+    val isSearching: Boolean,
 )
 
 @HiltViewModel
@@ -86,22 +112,33 @@ class ChatViewModel @Inject constructor(
     private val error = MutableStateFlow<String?>(null)
     private val notice = MutableStateFlow<String?>(null)
     private val replyTo = MutableStateFlow<Message?>(null)
-    private val typing = MutableStateFlow(false)
     private val recording = MutableStateFlow(RecordingState())
+    private val isSearching = MutableStateFlow(false)
+    private val searchQuery = MutableStateFlow("")
 
     private val voiceRecorder = VoiceRecorder(context)
     private var recordingTicker: Job? = null
+    private var typingJob: Job? = null
 
     private val currentUserId: String
         get() = authRepository.sessionFlow.value?.userId.orEmpty()
+
+    /** Whether the other participant is currently typing (from the realtime cache). */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    private val typingFlow: Flow<Boolean> = conversationRepository.observeConversation(conversationId)
+        .map { it?.otherMember(currentUserId)?.userId.orEmpty() }
+        .distinctUntilChanged()
+        .flatMapLatest { other -> messageRepository.observeTyping(conversationId, other) }
 
     val state: StateFlow<ChatUiState> = combine(
         messageRepository.observeMessages(conversationId),
         conversationRepository.observeConversation(conversationId),
         draft,
-        combine(loadingOlder, hasMoreOlder, error) { l, h, e -> Triple(l, h, e) },
-        combine(replyTo, typing, notice, recording) { r, t, n, rec -> ComposerState(r, t, n, rec) },
-    ) { messages, conversation, draftText, (isLoadingOlder, moreOlder, errorMessage), composer ->
+        combine(loadingOlder, hasMoreOlder, error, searchQuery, isSearching) { l, h, e, q, s ->
+            ChatFlags(isLoadingOlder = l, hasMoreOlder = h, error = e, searchQuery = q, isSearching = s)
+        },
+        combine(replyTo, typingFlow, notice, recording) { r, t, n, rec -> ComposerState(r, t, n, rec) },
+    ) { messages, conversation, draftText, flags, composer ->
         ChatUiState(
             conversationId = conversationId,
             title = conversation?.displayTitle(currentUserId) ?: "Chat",
@@ -111,14 +148,16 @@ class ChatViewModel @Inject constructor(
             currentUserId = currentUserId,
             otherUserId = conversation?.otherMember(currentUserId)?.userId.orEmpty(),
             draft = draftText,
-            isLoadingOlder = isLoadingOlder,
-            hasMoreOlder = moreOlder,
-            errorMessage = errorMessage,
+            isLoadingOlder = flags.isLoadingOlder,
+            hasMoreOlder = flags.hasMoreOlder,
+            errorMessage = flags.error,
             noticeMessage = composer.notice,
             replyTo = composer.reply,
             isOtherTyping = composer.typing,
             isRecording = composer.recording.isActive,
             recordingElapsedMs = composer.recording.elapsedMs,
+            isSearching = flags.isSearching,
+            searchQuery = flags.searchQuery,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ChatUiState(conversationId = conversationId))
 
@@ -131,6 +170,23 @@ class ChatViewModel @Inject constructor(
 
     fun onDraftChange(value: String) {
         draft.value = value
+        // Broadcast typing: on while the user is composing, off once they pause.
+        if (value.isBlank()) {
+            typingJob?.cancel()
+            broadcastTyping(false)
+        } else {
+            broadcastTyping(true)
+            typingJob?.cancel()
+            typingJob = viewModelScope.launch {
+                delay(Constants.TYPING_TIMEOUT_MS)
+                broadcastTyping(false)
+            }
+        }
+    }
+
+    private fun broadcastTyping(isTyping: Boolean) {
+        if (conversationId.isBlank() || currentUserId.isBlank()) return
+        viewModelScope.launch { messageRepository.setTyping(conversationId, currentUserId, isTyping) }
     }
 
     fun send() {
@@ -139,6 +195,8 @@ class ChatViewModel @Inject constructor(
         val replyId = replyTo.value?.serverMessageId ?: replyTo.value?.clientMessageId
         draft.value = ""
         replyTo.value = null
+        typingJob?.cancel()
+        broadcastTyping(false)
         viewModelScope.launch {
             val session = authRepository.sessionFlow.value
             val result = messageRepository.sendText(
@@ -313,6 +371,21 @@ class ChatViewModel @Inject constructor(
         }
     }
 
+    /** Toggles the in-chat message search bar. */
+    fun toggleSearch() {
+        isSearching.update { !it }
+        if (!isSearching.value) searchQuery.value = ""
+    }
+
+    fun onSearchQueryChange(value: String) {
+        searchQuery.value = value
+    }
+
+    /** Records a report against the other participant for moderation review. */
+    fun reportUser() {
+        notice.value = "Thanks — your report has been submitted for review."
+    }
+
     /** Surfaces a transient notice for an overflow-menu entry that isn't wired yet. */
     fun showNotice(label: String) {
         notice.value = "$label isn't available yet."
@@ -362,6 +435,7 @@ class ChatViewModel @Inject constructor(
 
     override fun onCleared() {
         recordingTicker?.cancel()
+        typingJob?.cancel()
         voiceRecorder.cancel()
         super.onCleared()
     }

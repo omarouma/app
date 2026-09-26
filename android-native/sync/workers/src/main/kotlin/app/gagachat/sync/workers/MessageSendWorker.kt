@@ -30,7 +30,14 @@ class MessageSendWorker @AssistedInject constructor(
         return when (messageRepository.retry(clientMessageId)) {
             is AppResult.Success -> Result.success()
             is AppResult.Failure ->
-                if (runAttemptCount < Constants.OUTBOX_MAX_ATTEMPTS) Result.retry() else Result.failure()
+                if (runAttemptCount < Constants.OUTBOX_MAX_ATTEMPTS) {
+                    Result.retry()
+                } else {
+                    // Out of retries: surface a terminal FAILED state so the UI can
+                    // offer a manual retry instead of a message stuck on PENDING.
+                    messageRepository.markFailed(clientMessageId)
+                    Result.failure()
+                }
             AppResult.Loading -> Result.retry()
         }
     }

@@ -22,8 +22,16 @@ import app.gagachat.core.network.dto.EpochMillisSerializer
 import app.gagachat.core.network.dto.MessageInsert
 import app.gagachat.core.network.error.ErrorMapper
 import app.gagachat.core.network.rest.SupabaseRestApi
+import app.gagachat.sync.outbox.OutboxScheduler
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
@@ -70,6 +78,10 @@ interface MessageRepository {
     ): AppResult<Message>
 
     suspend fun retry(localId: String): AppResult<Unit>
+
+    /** Marks a message as terminally FAILED once the outbox has exhausted retries. */
+    suspend fun markFailed(localId: String)
+
     suspend fun editMessage(localId: String, text: String): AppResult<Unit>
     suspend fun deleteMessage(localId: String): AppResult<Unit>
     suspend fun markDelivered(conversationId: String, userId: String)
@@ -77,6 +89,15 @@ interface MessageRepository {
 
     suspend fun applyRealtimeInsert(record: JsonObject)
     suspend fun applyRealtimeUpdate(record: JsonObject)
+
+    /** Broadcasts this user's typing state to the peer (ephemeral, not persisted). */
+    suspend fun setTyping(conversationId: String, userId: String, isTyping: Boolean)
+
+    /** Emits whether [otherUserId] is currently typing in [conversationId]. */
+    fun observeTyping(conversationId: String, otherUserId: String): Flow<Boolean>
+
+    /** Applies an inbound realtime `typing` row to the ephemeral typing cache. */
+    suspend fun applyTypingEvent(record: JsonObject)
 }
 
 @Singleton
@@ -85,10 +106,17 @@ class DefaultMessageRepository @Inject constructor(
     private val conversationDao: ConversationDao,
     private val syncStateDao: SyncStateDao,
     private val restApi: SupabaseRestApi,
+    private val outboxScheduler: OutboxScheduler,
     private val idGenerator: IdGenerator,
     private val timeProvider: TimeProvider,
     private val dispatchers: DispatcherProvider,
 ) : MessageRepository {
+
+    /** Ephemeral typing cache: "chatId:userId" -> last known typing state. */
+    private data class TypingEntry(val isTyping: Boolean, val updatedAt: Long)
+
+    private val typingState = MutableStateFlow<Map<String, TypingEntry>>(emptyMap())
+
 
     override fun observeMessages(conversationId: String, limit: Int): Flow<List<Message>> =
         messageDao.observeLatest(conversationId, limit).map { list ->
@@ -164,7 +192,8 @@ class DefaultMessageRepository @Inject constructor(
         )
         messageDao.upsert(pending.toEntity())
         updateConversationPreview(conversationId, clientMessageId, trimmed, now)
-        dispatch(pending)
+        outboxScheduler.enqueueMessageSend(clientMessageId)
+        dispatchOrQueue(pending)
     }
 
     override suspend fun sendLocation(
@@ -193,7 +222,8 @@ class DefaultMessageRepository @Inject constructor(
         )
         messageDao.upsert(pending.toEntity())
         updateConversationPreview(conversationId, clientMessageId, "\uD83D\uDCCD Location", now)
-        dispatch(pending)
+        outboxScheduler.enqueueMessageSend(clientMessageId)
+        dispatchOrQueue(pending)
     }
 
     override suspend fun sendCallEvent(
@@ -215,15 +245,35 @@ class DefaultMessageRepository @Inject constructor(
         )
         messageDao.upsert(pending.toEntity())
         updateConversationPreview(conversationId, clientMessageId, text, now)
-        dispatch(pending)
+        outboxScheduler.enqueueMessageSend(clientMessageId)
+        dispatchOrQueue(pending)
     }
 
     override suspend fun retry(localId: String): AppResult<Unit> = withContext(dispatchers.io) {
         val entity = messageDao.getByLocalId(localId)
             ?: return@withContext AppResult.Failure(AppError.Validation("Message not found"))
+        // Idempotency guard: if the optimistic inline send already succeeded, the
+        // queued worker must not re-insert the same message.
+        if (entity.status == MessageStatus.SENT.name || entity.serverMessageId != null) {
+            return@withContext AppResult.Success(Unit)
+        }
         messageDao.updateStatus(localId, MessageStatus.PENDING.name, null, null)
-        dispatch(entity.toDomain())
-        AppResult.Success(Unit)
+        // Surface the real outcome so the outbox worker can back off and retry
+        // instead of treating every attempt as a success.
+        when (val result = dispatch(entity.toDomain())) {
+            is AppResult.Success -> AppResult.Success(Unit)
+            is AppResult.Failure -> result
+            AppResult.Loading -> AppResult.Loading
+        }
+    }
+
+    override suspend fun markFailed(localId: String) = withContext(dispatchers.io) {
+        val entity = messageDao.getByLocalId(localId) ?: return@withContext
+        // Never downgrade a message that already made it to the server.
+        if (entity.status == MessageStatus.SENT.name || entity.serverMessageId != null) {
+            return@withContext
+        }
+        messageDao.updateStatus(localId, MessageStatus.FAILED.name, null, null)
     }
 
     override suspend fun editMessage(localId: String, text: String): AppResult<Unit> =
@@ -313,7 +363,57 @@ class DefaultMessageRepository @Inject constructor(
         messageDao.upsert(remote.copy(localId = existing.localId).toEntity())
     }
 
+    override suspend fun setTyping(conversationId: String, userId: String, isTyping: Boolean) {
+        withContext(dispatchers.io) {
+            if (conversationId.isBlank() || userId.isBlank()) return@withContext
+            // Best-effort: typing is ephemeral, so a failed broadcast is harmless.
+            runCatching { restApi.upsertTyping(conversationId, userId, isTyping) }
+            Unit
+        }
+    }
+
+    override suspend fun applyTypingEvent(record: JsonObject) = withContext(dispatchers.io) {
+        val chatId = record["chat_id"]?.jsonPrimitive?.content ?: return@withContext
+        val userId = record["user_id"]?.jsonPrimitive?.content ?: return@withContext
+        val isTyping = record["is_typing"]?.jsonPrimitive?.content?.toBoolean() ?: false
+        typingState.update { it + ("$chatId:$userId" to TypingEntry(isTyping, timeProvider.nowMillis())) }
+    }
+
+    override fun observeTyping(conversationId: String, otherUserId: String): Flow<Boolean> {
+        if (conversationId.isBlank() || otherUserId.isBlank()) return flowOf(false)
+        val key = "$conversationId:$otherUserId"
+        // Re-evaluate once a second so the indicator clears itself when the peer
+        // stops typing and no further event arrives (TTL-based expiry).
+        return combine(typingState, typingTicker()) { map, _ ->
+            val entry = map[key]
+            entry != null && entry.isTyping &&
+                (timeProvider.nowMillis() - entry.updatedAt) < Constants.TYPING_TIMEOUT_MS
+        }.distinctUntilChanged()
+    }
+
+    private fun typingTicker(): Flow<Unit> = flow {
+        while (true) {
+            emit(Unit)
+            delay(1_000L)
+        }
+    }
+
     // ---- internals ----
+
+    /**
+     * Optimistic inline send used by the compose path. On success the row is SENT;
+     * on failure the row is left PENDING (queued) so the durable outbox worker
+     * retries it with backoff instead of surfacing a terminal failure to the user.
+     */
+    private suspend fun dispatchOrQueue(pending: Message): AppResult<Message> =
+        when (val result = dispatch(pending)) {
+            is AppResult.Success -> result
+            is AppResult.Failure -> {
+                messageDao.updateStatus(pending.localId, MessageStatus.PENDING.name, null, null)
+                AppResult.Success(pending)
+            }
+            AppResult.Loading -> AppResult.Success(pending)
+        }
 
     private suspend fun dispatch(pending: Message): AppResult<Message> = try {
         val row = restApi.insertMessage(

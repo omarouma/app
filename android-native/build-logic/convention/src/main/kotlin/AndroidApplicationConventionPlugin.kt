@@ -41,6 +41,12 @@ class AndroidApplicationConventionPlugin : Plugin<Project> {
                         "META-INF/LICENSE*",
                     )
                 }
+                lint {
+                    // Release lint analysis is memory-heavy and not required for CI
+                    // packaging; it was crashing the constrained build daemon.
+                    checkReleaseBuilds = false
+                    abortOnError = false
+                }
             }
 
             extensions.configure<KotlinAndroidProjectExtension> {

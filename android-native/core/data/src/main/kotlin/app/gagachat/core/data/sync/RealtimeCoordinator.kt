@@ -40,10 +40,22 @@ class RealtimeCoordinator @Inject constructor(
         realtime.connect(appScope)
         realtime.subscribe(TABLE_MESSAGES)
         realtime.subscribe(TABLE_CHATS)
+        realtime.subscribe(TABLE_TYPING)
         eventJob = appScope.launch {
             realtime.events.collect { event -> handleEvent(event) }
         }
         logger.i(TAG, "Realtime coordinator started")
+    }
+
+    /**
+     * Tears down and re-establishes the socket so every topic is re-joined with a
+     * fresh access token. Called once a session becomes available, because the
+     * socket may have connected at process start before login.
+     */
+    @Synchronized
+    fun restart(appScope: CoroutineScope) {
+        stop()
+        start(appScope)
     }
 
     /** Tears down the socket subscription. Safe to call repeatedly. */
@@ -54,6 +66,7 @@ class RealtimeCoordinator @Inject constructor(
         eventJob?.cancel(); eventJob = null
         realtime.unsubscribe(TABLE_MESSAGES)
         realtime.unsubscribe(TABLE_CHATS)
+        realtime.unsubscribe(TABLE_TYPING)
         realtime.disconnect()
         logger.i(TAG, "Realtime coordinator stopped")
     }
@@ -66,6 +79,10 @@ class RealtimeCoordinator @Inject constructor(
                         ChangeType.INSERT -> messageRepository.applyRealtimeInsert(event.record)
                         ChangeType.UPDATE -> messageRepository.applyRealtimeUpdate(event.record)
                         ChangeType.DELETE -> Unit // tombstones handled by the sync worker
+                    }
+                    TABLE_TYPING -> when (event.type) {
+                        ChangeType.INSERT, ChangeType.UPDATE -> messageRepository.applyTypingEvent(event.record)
+                        ChangeType.DELETE -> Unit
                     }
                     TABLE_CHATS -> Unit // conversation previews reconciled by the worker
                     else -> Unit
@@ -81,5 +98,6 @@ class RealtimeCoordinator @Inject constructor(
         const val TAG = "Realtime"
         const val TABLE_MESSAGES = "messages"
         const val TABLE_CHATS = "chats"
+        const val TABLE_TYPING = "typing"
     }
 }

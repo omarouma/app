@@ -2,11 +2,14 @@ package app.gagachat.navigation
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import app.gagachat.core.common.di.ApplicationScope
 import app.gagachat.core.data.preferences.OnboardingPreferences
 import app.gagachat.core.data.repository.AuthRepository
+import app.gagachat.core.data.sync.RealtimeCoordinator
 import app.gagachat.core.network.session.AuthSession
 import app.gagachat.sync.workers.SyncInitializer
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
@@ -26,6 +29,8 @@ class AppViewModel @Inject constructor(
     private val authRepository: AuthRepository,
     private val onboardingPreferences: OnboardingPreferences,
     private val syncInitializer: SyncInitializer,
+    private val realtimeCoordinator: RealtimeCoordinator,
+    @ApplicationScope private val applicationScope: CoroutineScope,
 ) : ViewModel() {
 
     val session: StateFlow<AuthSession?> = authRepository.sessionFlow
@@ -42,6 +47,9 @@ class AppViewModel @Inject constructor(
         // Kick off background sync once a session exists (PDF §4).
         if (authRepository.isLoggedIn()) {
             syncInitializer.start()
+            // Re-join the realtime topics with the now-available access token: the
+            // socket may have connected at process start before login existed.
+            realtimeCoordinator.restart(applicationScope)
         }
     }
 }

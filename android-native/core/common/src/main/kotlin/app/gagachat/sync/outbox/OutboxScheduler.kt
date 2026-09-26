@@ -1,6 +1,8 @@
 package app.gagachat.sync.outbox
 
-/** WorkManager unique names and input keys shared by the scheduler and workers. */
+/**
+ * WorkManager unique names and input keys shared by the scheduler and workers.
+ */
 object OutboxWork {
     const val MESSAGE_SEND = "gaga_message_send"
     const val MEDIA_UPLOAD = "gaga_media_upload"
@@ -18,8 +20,10 @@ object OutboxWork {
  * survives process death and retries safely. Idempotency is guaranteed upstream
  * by the stable `clientMessageId`.
  *
- * The implementation lives in `:sync:workers` because it references the concrete
- * worker classes.
+ * The interface lives in `:core:common` (which every layer depends on) so the
+ * data layer can enqueue durable work without depending on `:sync:workers`
+ * (which would be a circular dependency). The implementation lives in
+ * `:sync:workers` because it references the concrete worker classes.
  */
 interface OutboxScheduler {
     fun enqueueMessageSend(clientMessageId: String)
