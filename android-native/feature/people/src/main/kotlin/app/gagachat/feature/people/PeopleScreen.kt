@@ -299,9 +299,9 @@ private fun SentTab(
         item { GagaSectionHeader("Sent") }
         items(outgoing, key = { it.id }) { request ->
             GagaListRow(
-                title = request.fromName ?: "Pending",
+                title = request.toName ?: "Pending",
                 subtitle = "Request pending",
-                avatar = { GagaAvatar(imageUrl = request.fromAvatar, name = request.fromName) },
+                avatar = { GagaAvatar(imageUrl = request.toAvatar, name = request.toName) },
                 trailing = {
                     TextButton(onClick = { onCancel(request) }) { Text("Cancel") }
                 },

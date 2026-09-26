@@ -27,9 +27,12 @@ data class FriendRequest(
     val message: String? = null,
     @SerialName("created_at") val createdAt: Long = 0L,
     @SerialName("updated_at") val updatedAt: Long = 0L,
-    // Denormalised profile of the other party for list rendering.
+    // Denormalised profile of the sender (used for incoming requests).
     @SerialName("from_name") val fromName: String? = null,
     @SerialName("from_avatar") val fromAvatar: String? = null,
+    // Denormalised profile of the recipient (used for outgoing/sent requests).
+    @SerialName("to_name") val toName: String? = null,
+    @SerialName("to_avatar") val toAvatar: String? = null,
 ) {
     /** True when the current user is the recipient of the request. */
     fun isIncoming(currentUserId: String): Boolean = toUserId == currentUserId

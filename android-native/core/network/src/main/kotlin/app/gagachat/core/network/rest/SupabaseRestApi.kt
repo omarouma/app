@@ -446,7 +446,10 @@ class SupabaseRestApi @Inject constructor(
     suspend fun insertFriendship(row: FriendshipInsert) {
         client.post("${config.restUrl}/friendships") {
             auth()
-            header("Prefer", "return=minimal")
+            // friendships has UNIQUE(user_id, friend_id); ignore duplicates so
+            // accepting a request twice (or re-adding) is idempotent, not a 409.
+            parameter("on_conflict", "user_id,friend_id")
+            header("Prefer", "resolution=ignore-duplicates,return=minimal")
             contentType(ContentType.Application.Json)
             setBody(row)
         }

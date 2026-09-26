@@ -13,8 +13,8 @@ android {
 
     defaultConfig {
         applicationId = "gagachat.app"
-        versionCode = 5
-        versionName = "2.0.2"
+        versionCode = 6
+        versionName = "2.0.3"
     }
 
     // Release signing (PDF §11 — signing key kept in a secure CI/release

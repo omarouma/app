@@ -47,6 +47,8 @@ class DiscoverViewModel @Inject constructor(
                 _state.update { it.copy(friendIds = friends.map { f -> f.user.id }.toSet()) }
             }
         }
+        // Make sure the friend set is fresh even if People wasn't opened first.
+        viewModelScope.launch { runCatching { friendsRepository.refresh() } }
     }
 
     fun onQueryChange(value: String) {

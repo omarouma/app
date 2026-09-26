@@ -16,6 +16,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.gagachat.core.ui.component.GagaAvatar
 import app.gagachat.core.ui.component.GagaEmptyState
 import app.gagachat.core.ui.component.GagaListRow
+import app.gagachat.core.ui.component.GagaLoading
 import app.gagachat.core.ui.component.GagaScaffold
 import app.gagachat.core.ui.component.GagaSearchBar
 import app.gagachat.core.ui.theme.GagaDimens
@@ -39,18 +40,8 @@ fun ContactsRoute(
                 onQueryChange = viewModel::onQueryChange,
                 placeholder = "Search people",
             )
-            if (state.contacts.isEmpty()) {
-                GagaEmptyState(
-                    icon = Icons.Filled.PersonSearch,
-                    title = if (state.query.isBlank()) "No contacts yet" else "No matches",
-                    description = if (state.query.isBlank()) {
-                        "People you chat with will appear here."
-                    } else {
-                        "Try a different name or username."
-                    },
-                )
-            } else {
-                LazyColumn(
+            when {
+                state.contacts.isNotEmpty() -> LazyColumn(
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(bottom = GagaDimens.space48),
                 ) {
@@ -76,6 +67,24 @@ fun ContactsRoute(
                         )
                     }
                 }
+
+                state.isLoading -> GagaLoading(message = "Searching…")
+
+                state.error != null -> GagaEmptyState(
+                    icon = Icons.Filled.PersonSearch,
+                    title = "Couldn't load people",
+                    description = state.error!!,
+                )
+
+                else -> GagaEmptyState(
+                    icon = Icons.Filled.PersonSearch,
+                    title = if (state.query.isBlank()) "No contacts yet" else "No matches",
+                    description = if (state.query.isBlank()) {
+                        "People you chat with will appear here."
+                    } else {
+                        "Try a different name or username."
+                    },
+                )
             }
         }
     }

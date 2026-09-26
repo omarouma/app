@@ -88,6 +88,7 @@ class DefaultFriendsRepository @Inject constructor(
 
             val mapped = requests.map { row ->
                 val from = requestUserById[row.fromUserId]
+                val to = requestUserById[row.toUserId]
                 FriendRequest(
                     id = row.id,
                     fromUserId = row.fromUserId,
@@ -98,6 +99,8 @@ class DefaultFriendsRepository @Inject constructor(
                     updatedAt = row.updatedAt ?: 0L,
                     fromName = from?.displayName ?: from?.name ?: from?.username,
                     fromAvatar = from?.avatar,
+                    toName = to?.displayName ?: to?.name ?: to?.username,
+                    toAvatar = to?.avatar,
                 )
             }
             _incoming.value = mapped.filter { it.toUserId == me && it.status == FriendRequestStatus.PENDING }
@@ -116,6 +119,17 @@ class DefaultFriendsRepository @Inject constructor(
             val me = currentUserId
             if (me.isBlank()) return@withContext AppResult.Failure(AppError.Unauthorized())
             if (me == toUserId) return@withContext AppResult.Failure(AppError.Validation("You can't add yourself"))
+            if (_friends.value.any { it.user.id == toUserId }) {
+                return@withContext AppResult.Failure(AppError.Validation("You're already friends"))
+            }
+            if (_outgoing.value.any { it.toUserId == toUserId }) {
+                return@withContext AppResult.Failure(AppError.Validation("Request already sent"))
+            }
+            // If they already asked us, treat this as a mutual match: accept it.
+            val incoming = _incoming.value.firstOrNull { it.fromUserId == toUserId }
+            if (incoming != null) {
+                return@withContext acceptRequest(incoming.id, incoming.fromUserId)
+            }
             try {
                 restApi.insertFriendRequest(FriendRequestInsert(fromUserId = me, toUserId = toUserId, message = message))
                 refresh()
