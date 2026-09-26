@@ -2,6 +2,8 @@ package app.gagachat.core.database
 
 import androidx.room.Database
 import androidx.room.RoomDatabase
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 import app.gagachat.core.database.dao.BlockDao
 import app.gagachat.core.database.dao.CallDao
 import app.gagachat.core.database.dao.ConversationDao
@@ -35,7 +37,7 @@ import app.gagachat.core.database.entity.UserEntity
         BlockEntity::class,
         SyncStateEntity::class,
     ],
-    version = 1,
+    version = 2,
     exportSchema = true,
 )
 abstract class GagaDatabase : RoomDatabase() {
@@ -49,5 +51,17 @@ abstract class GagaDatabase : RoomDatabase() {
 
     companion object {
         const val NAME = "gaga.db"
+
+        /**
+         * v1 → v2: add the cached social-graph sizes to `users` so the profile
+         * stats row can render real follower/following counts. Additive only —
+         * existing rows default to 0.
+         */
+        val MIGRATION_1_2 = object : Migration(1, 2) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE users ADD COLUMN followersCount INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE users ADD COLUMN followingCount INTEGER NOT NULL DEFAULT 0")
+            }
+        }
     }
 }

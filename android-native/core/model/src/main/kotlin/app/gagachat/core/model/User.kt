@@ -21,6 +21,13 @@ data class User(
     @SerialName("created_at") val createdAt: Long = 0L,
     @SerialName("is_verified") val isVerified: Boolean = false,
     @SerialName("is_premium") val isPremium: Boolean = false,
+    /**
+     * Social-graph sizes, derived from the `users.followers` / `users.following`
+     * `text[]` columns on the backend. Kept as plain counts in the domain so the
+     * profile stats row can render real numbers instead of a hardcoded 0.
+     */
+    @SerialName("followers_count") val followersCount: Int = 0,
+    @SerialName("following_count") val followingCount: Int = 0,
 ) {
     val initials: String
         get() = displayLabel.trim().split(" ")

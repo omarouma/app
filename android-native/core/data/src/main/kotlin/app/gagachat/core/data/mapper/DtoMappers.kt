@@ -39,6 +39,10 @@ fun UserRow.toDomain(): User = User(
     createdAt = createdAt ?: 0L,
     isVerified = isVerified ?: false,
     isPremium = isPremium ?: false,
+    // The backend stores the social graph as text[] arrays; surface their sizes
+    // so the profile stats row shows real counts.
+    followersCount = followers?.size ?: 0,
+    followingCount = following?.size ?: 0,
 )
 
 fun ConversationRow.toDomain(members: List<ConversationMember> = emptyList()): Conversation =

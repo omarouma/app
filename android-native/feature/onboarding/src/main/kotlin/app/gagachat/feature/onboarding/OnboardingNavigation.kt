@@ -8,17 +8,18 @@ import androidx.navigation.compose.rememberNavController
 
 /** Routes for the post-authentication onboarding flow (Master Spec §C). */
 object OnboardingRoutes {
-    const val WELCOME = "onboarding/welcome"
     const val PROFILE = "onboarding/profile"
     const val PERMISSIONS = "onboarding/permissions"
 }
 
 /**
- * Self-contained onboarding graph: welcome → profile setup → permissions.
+ * Self-contained onboarding graph: profile setup → permissions.
  *
- * One [OnboardingViewModel] is hoisted above the graph so every step shares the
- * same state. When the user finishes, [onFinished] is invoked and the app shell
- * swaps to the main graph.
+ * The standalone Welcome/marketing screen was removed — a freshly authenticated
+ * user lands straight on profile setup, which is the first step that actually
+ * collects something. One [OnboardingViewModel] is hoisted above the graph so
+ * every step shares the same state. When the user finishes, [onFinished] is
+ * invoked and the app shell swaps to the main graph.
  */
 @Composable
 fun OnboardingNavHost(onFinished: () -> Unit) {
@@ -27,17 +28,13 @@ fun OnboardingNavHost(onFinished: () -> Unit) {
 
     NavHost(
         navController = navController,
-        startDestination = OnboardingRoutes.WELCOME,
+        startDestination = OnboardingRoutes.PROFILE,
     ) {
-        composable(OnboardingRoutes.WELCOME) {
-            WelcomeScreen(
-                onContinue = { navController.navigate(OnboardingRoutes.PROFILE) },
-            )
-        }
         composable(OnboardingRoutes.PROFILE) {
             ProfileSetupScreen(
                 viewModel = viewModel,
-                onBack = { navController.popBackStack() },
+                // First screen in the graph — there is nothing to go back to.
+                onBack = {},
                 onContinue = { navController.navigate(OnboardingRoutes.PERMISSIONS) },
             )
         }

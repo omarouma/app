@@ -86,7 +86,7 @@ private fun NotificationRow.toDomain(): AppNotification = AppNotification(
     type = type.toNotificationType(),
     title = title,
     body = body,
-    data = data,
+    data = data?.toString(),
     read = read ?: false,
     createdAt = createdAt ?: 0L,
 )

@@ -1,6 +1,7 @@
 package app.gagachat.feature.profile.presentation
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -102,6 +103,7 @@ fun ProfileRoute(
                 friendsCount = state.friendsCount,
                 followersCount = state.followersCount,
                 followingCount = state.followingCount,
+                onEditPhoto = onEditProfile,
             )
 
             Spacer(Modifier.height(GagaDimens.space16))
@@ -172,12 +174,22 @@ fun ProfileRoute(
             }
 
             // Contact info ---------------------------------------------------
+            // Email/phone are the signed-in user's own PII and must never be
+            // rendered on someone else's profile. For other users we show only
+            // public, non-sensitive identity facts.
             Spacer(Modifier.height(GagaDimens.space16))
             GagaDivider()
             GagaSectionHeader("Contact Info")
-            GagaSettingsRow(title = "Email", subtitle = user?.email ?: "Not added")
-            GagaDivider()
-            GagaSettingsRow(title = "Phone", subtitle = user?.phone ?: "Not added")
+            if (state.isSelf) {
+                GagaSettingsRow(title = "Email", subtitle = user?.email ?: "Not added")
+                GagaDivider()
+                GagaSettingsRow(title = "Phone", subtitle = user?.phone ?: "Not added")
+            } else {
+                GagaSettingsRow(
+                    title = "Username",
+                    subtitle = user?.username?.takeIf { it.isNotBlank() }?.let { "@$it" } ?: "Not set",
+                )
+            }
             user?.lastSeen?.let {
                 GagaDivider()
                 GagaSettingsRow(title = "Last seen", subtitle = TimeFormat.lastSeen(it))
@@ -195,6 +207,7 @@ private fun ProfileHeader(
     friendsCount: Int,
     followersCount: Int,
     followingCount: Int,
+    onEditPhoto: () -> Unit,
 ) {
     Box(modifier = Modifier.fillMaxWidth()) {
         // Mint cover banner
@@ -211,8 +224,8 @@ private fun ProfileHeader(
                     .padding(GagaDimens.space12),
                 horizontalArrangement = Arrangement.spacedBy(GagaDimens.space8),
             ) {
-                CoverChip("Photo")
-                CoverChip("Video")
+                // Opens the edit-profile flow, which hosts the avatar picker.
+                CoverChip("Edit photo", onClick = onEditPhoto)
             }
         }
 
@@ -235,7 +248,8 @@ private fun ProfileHeader(
                         .align(Alignment.BottomEnd)
                         .size(28.dp)
                         .clip(CircleShape)
-                        .background(GagaGreen),
+                        .background(GagaGreen)
+                        .clickable(onClick = onEditPhoto),
                     contentAlignment = Alignment.Center,
                 ) {
                     Icon(
@@ -323,11 +337,12 @@ private fun StatColumn(value: Int, label: String) {
 }
 
 @Composable
-private fun CoverChip(label: String) {
+private fun CoverChip(label: String, onClick: () -> Unit) {
     Box(
         modifier = Modifier
             .clip(RoundedCornerShape(50))
             .background(Color.White)
+            .clickable(onClick = onClick)
             .padding(horizontal = GagaDimens.space12, vertical = GagaDimens.space4),
     ) {
         Text(text = label, style = MaterialTheme.typography.labelMedium, color = GagaGreen)

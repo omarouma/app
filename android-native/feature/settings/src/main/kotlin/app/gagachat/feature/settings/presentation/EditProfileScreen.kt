@@ -12,7 +12,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AlternateEmail
 import androidx.compose.material.icons.filled.Badge
-import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -103,15 +102,6 @@ fun EditProfileScreen(
                 singleLine = false,
                 imeAction = ImeAction.Default,
             )
-            Spacer(Modifier.height(GagaDimens.space12))
-            GagaTextField(
-                value = state.avatarUrl,
-                onValueChange = viewModel::onAvatarUrlChange,
-                label = "Avatar URL",
-                leadingIcon = Icons.Filled.Image,
-                imeAction = ImeAction.Done,
-            )
-
             if (state.error != null) {
                 Spacer(Modifier.height(GagaDimens.space12))
                 Text(

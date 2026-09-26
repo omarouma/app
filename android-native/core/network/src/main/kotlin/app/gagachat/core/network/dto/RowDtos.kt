@@ -30,8 +30,16 @@ data class UserRow(
     val website: String? = null,
     @SerialName("is_verified") val isVerified: Boolean? = null,
     @SerialName("is_premium") val isPremium: Boolean? = null,
-    val followers: Int? = null,
-    val following: Int? = null,
+    /**
+     * The LIVE `users` table stores social graph as `text[]` arrays (not counts),
+     * so these MUST be typed as lists. Typing them as `Int?` made every
+     * `select=*` user fetch fail with a JsonDecodingException ("Expected numeric
+     * literal at path: $[0].followers") — which silently broke remote identity
+     * resolution app-wide (users fell back to "Unknown User"/raw ids).
+     */
+    val followers: List<String>? = null,
+    val following: List<String>? = null,
+    val friends: List<String>? = null,
     @SerialName("friend_count") val friendCount: Int? = null,
     @SerialName("last_seen") @Serializable(with = EpochMillisSerializer::class) val lastSeen: Long? = null,
     @SerialName("created_at") @Serializable(with = EpochMillisSerializer::class) val createdAt: Long? = null,

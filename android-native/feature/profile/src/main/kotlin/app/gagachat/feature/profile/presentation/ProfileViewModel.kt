@@ -64,7 +64,15 @@ class ProfileViewModel @Inject constructor(
     init {
         viewModelScope.launch {
             userRepository.observeUser(userId).collect { user ->
-                _state.update { it.copy(user = user, isLoading = false) }
+                _state.update {
+                    it.copy(
+                        user = user,
+                        isLoading = false,
+                        // Real social-graph sizes cached on the user row.
+                        followersCount = user?.followersCount ?: it.followersCount,
+                        followingCount = user?.followingCount ?: it.followingCount,
+                    )
+                }
             }
         }
         viewModelScope.launch {
@@ -74,7 +82,7 @@ class ProfileViewModel @Inject constructor(
             }
         }
         // Friends count powers the stats row on the profile header. Followers /
-        // following are not yet backed by a table, so they stay at 0.
+        // following come from the cached user row (see observeUser above).
         viewModelScope.launch {
             friendsRepository.friends.collect { list ->
                 _state.update { it.copy(friendsCount = list.size) }

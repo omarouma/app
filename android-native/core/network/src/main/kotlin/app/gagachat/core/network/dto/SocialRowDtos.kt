@@ -2,6 +2,7 @@ package app.gagachat.core.network.dto
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonElement
 
 /**
  * Row DTOs for the social / wallet / group / notification tables discovered on
@@ -101,7 +102,14 @@ data class NotificationRow(
     val type: String? = null,
     val title: String? = null,
     val body: String? = null,
-    val data: String? = null,
+    /**
+     * `notifications.data` is a jsonb column that stores an OBJECT (e.g.
+     * {"call_id":…,"room_id":…,"call_type":"voice"}). Typing it as `String?`
+     * made every notification fetch fail with a JsonDecodingException, so the
+     * notifications list was always empty. [JsonElement] accepts object/array/
+     * scalar jsonb values; it is stringified when mapped to the domain model.
+     */
+    val data: JsonElement? = null,
     val read: Boolean? = null,
     @SerialName("created_at") @Serializable(with = EpochMillisSerializer::class) val createdAt: Long? = null,
 )

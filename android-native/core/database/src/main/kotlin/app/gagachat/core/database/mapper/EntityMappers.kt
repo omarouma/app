@@ -41,6 +41,8 @@ fun UserEntity.toDomain(): User = User(
     createdAt = createdAt,
     isVerified = isVerified,
     isPremium = isPremium,
+    followersCount = followersCount,
+    followingCount = followingCount,
 )
 
 fun User.toEntity(cachedAt: Long): UserEntity = UserEntity(
@@ -56,6 +58,8 @@ fun User.toEntity(cachedAt: Long): UserEntity = UserEntity(
     createdAt = createdAt,
     isVerified = isVerified,
     isPremium = isPremium,
+    followersCount = followersCount,
+    followingCount = followingCount,
     cachedAt = cachedAt,
 )
 

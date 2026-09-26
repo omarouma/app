@@ -24,6 +24,9 @@ data class UserEntity(
     val createdAt: Long,
     val isVerified: Boolean,
     val isPremium: Boolean,
+    /** Size of the backend `followers` / `following` text[] arrays. */
+    val followersCount: Int = 0,
+    val followingCount: Int = 0,
     /** Local row freshness marker for cache invalidation. */
     val cachedAt: Long,
 )

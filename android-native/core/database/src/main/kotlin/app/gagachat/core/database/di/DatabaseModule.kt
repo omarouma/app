@@ -28,6 +28,7 @@ object DatabaseModule {
         Room.databaseBuilder(context, GagaDatabase::class.java, GagaDatabase.NAME)
             // WAL keeps reads non-blocking while the outbox writes (PDF §9.1).
             .setJournalMode(RoomDatabase.JournalMode.WRITE_AHEAD_LOGGING)
+            .addMigrations(GagaDatabase.MIGRATION_1_2)
             .fallbackToDestructiveMigrationOnDowngrade()
             .build()
 
