@@ -122,10 +122,14 @@ fun ChatRoute(
             }
             ChatOverflowMenu(
                 onViewProfile = {
-                    if (state.otherUserId.isNotBlank()) onOpenProfile(state.otherUserId)
+                    val id = state.otherUserId
+                    if (id.isNotBlank()) onOpenProfile(id)
+                    else viewModel.showNotice("Couldn't open this profile yet.")
                 },
                 onChatInfo = {
-                    if (state.otherUserId.isNotBlank()) onOpenProfile(state.otherUserId)
+                    val id = state.otherUserId
+                    if (id.isNotBlank()) onOpenProfile(id)
+                    else viewModel.showNotice("Couldn't open this profile yet.")
                 },
                 onSendMoney = onSendMoney,
                 onBlockUser = viewModel::blockUser,

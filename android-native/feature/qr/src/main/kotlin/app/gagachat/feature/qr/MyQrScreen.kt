@@ -123,7 +123,6 @@ fun MyQrScreen(
                 ) {
                     SegmentButton("My QR", mode == 0, Modifier.weight(1f)) { mode = 0 }
                     SegmentButton("Scan", mode == 1, Modifier.weight(1f)) {
-                        mode = 1
                         onScan()
                     }
                 }
@@ -166,7 +165,7 @@ fun MyQrScreen(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     Spacer(Modifier.height(GagaDimens.space16))
-                    GagaQrCode(content = viewModel.qrPayload, size = 220.dp)
+                    GagaQrCode(content = ui.qrPayload, size = 220.dp)
                     Spacer(Modifier.height(GagaDimens.space16))
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
@@ -226,15 +225,15 @@ fun MyQrScreen(
                 ) {
                     GagaPrimaryButton(
                         text = "Share",
-                        onClick = { sharePayload(viewModel.qrPayload, ui.user.displayLabel) },
+                        onClick = { sharePayload(ui.qrPayload, ui.user.displayLabel) },
                         leadingIcon = Icons.Filled.Share,
                         modifier = Modifier.weight(1f),
                     )
                     GagaSecondaryButton(
                         text = "Copy Link",
                         onClick = {
-                            copyToClipboard("GaGa QR", viewModel.qrPayload, "Link copied")
-                            onShare(viewModel.qrPayload)
+                            copyToClipboard("GaGa QR", ui.qrPayload, "Link copied")
+                            onShare(ui.qrPayload)
                         },
                         leadingIcon = Icons.Filled.ContentCopy,
                         modifier = Modifier.weight(1f),

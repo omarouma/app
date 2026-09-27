@@ -21,6 +21,7 @@ data class MyQrUi(
     val user: User,
     val walletCode: String,
     val balance: String,
+    val qrPayload: String,
 )
 
 /**
@@ -61,6 +62,7 @@ class MyQrViewModel @Inject constructor(
                             user = result.data,
                             walletCode = wallet?.walletCode ?: "GC-",
                             balance = wallet?.formatted ?: "0",
+                            qrPayload = QrPayload.encodeUser(me),
                         ),
                     )
                 }
@@ -80,21 +82,54 @@ object QrPayload {
 
     fun encodeUser(userId: String): String = "$SCHEME$userId"
 
-    /** Returns the user id embedded in [raw], or null if it is a username/other. */
+    /**
+     * Returns the user id embedded in [raw], or null if it is a username/other.
+     *
+     * Tolerant by design: the code may arrive on its own, as a bare id, or
+     * embedded in a pasted share message such as
+     * `"Add John on GaGa Chat: gaga://user/123"`, so we search for the scheme
+     * anywhere in the text and stop at the first whitespace.
+     */
     fun decodeUserId(raw: String): String? {
         val trimmed = raw.trim()
         if (trimmed.isEmpty()) return null
-        if (trimmed.startsWith(SCHEME)) return trimmed.removePrefix(SCHEME).ifBlank { null }
-        if (trimmed.startsWith("gaga://")) {
-            return trimmed.removePrefix("gaga://").substringAfter("user/", "").ifBlank { null }
+
+        // 1. Canonical `gaga://user/<id>` link, anywhere in the text.
+        val schemeIndex = trimmed.indexOf(SCHEME)
+        if (schemeIndex >= 0) {
+            val id = trimmed.substring(schemeIndex + SCHEME.length)
+                .takeWhile { !it.isWhitespace() }
+                .trimEnd('.', ',', ')', ']', '>', '"', '\'')
+                .ifBlank { null }
+            if (id != null) return id
         }
-        // Bare id: accept anything that is not an @handle.
-        return if (!trimmed.startsWith("@")) trimmed else null
+
+        // 2. Any other `gaga://…/user/<id>` link.
+        val genericIndex = trimmed.indexOf("gaga://")
+        if (genericIndex >= 0) {
+            val rest = trimmed.substring(genericIndex + "gaga://".length)
+            val id = rest.substringAfter("user/", "")
+                .takeWhile { !it.isWhitespace() }
+                .trimEnd('.', ',', ')', ']', '>', '"', '\'')
+                .ifBlank { null }
+            if (id != null) return id
+        }
+
+        // 3. Bare id: accept anything that is not an @handle and has no spaces
+        //    (so a pasted sentence is never mistaken for an id).
+        return if (!trimmed.startsWith("@") && trimmed.none { it.isWhitespace() }) trimmed else null
     }
 
-    /** Returns a `@username` handle (without the @) if [raw] is one. */
+    /** Returns a `@username` handle (without the @) if [raw] contains one. */
     fun decodeUsername(raw: String): String? {
         val trimmed = raw.trim()
-        return if (trimmed.startsWith("@")) trimmed.removePrefix("@").ifBlank { null } else null
+        val atIndex = trimmed.indexOf('@')
+        if (atIndex < 0) return null
+        // Only treat it as a handle at a word boundary (start or after a space),
+        // so email-like strings are not misread.
+        if (atIndex > 0 && !trimmed[atIndex - 1].isWhitespace()) return null
+        return trimmed.substring(atIndex + 1)
+            .takeWhile { it.isLetterOrDigit() || it == '_' || it == '.' }
+            .ifBlank { null }
     }
 }

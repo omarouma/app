@@ -60,18 +60,17 @@ class AddByCodeViewModel @Inject constructor(
             val username = QrPayload.decodeUsername(raw)
 
             val user: User? = when {
-                userId != null -> when (val r = userRepository.getUser(userId)) {
-                    is AppResult.Success -> r.data
-                    is AppResult.Failure -> null
-                    AppResult.Loading -> null
+                userId != null -> {
+                    val byId = when (val r = userRepository.getUser(userId)) {
+                        is AppResult.Success -> r.data
+                        is AppResult.Failure -> null
+                        AppResult.Loading -> null
+                    }
+                    // Fall back to a username search so a bare handle typed
+                    // without "@" still resolves.
+                    byId ?: searchByUsername(userId)
                 }
-                username != null -> when (val r = userRepository.searchUsersRemote(username)) {
-                    is AppResult.Success -> r.data.firstOrNull {
-                        it.username?.equals(username, ignoreCase = true) == true
-                    } ?: r.data.firstOrNull()
-                    is AppResult.Failure -> null
-                    AppResult.Loading -> null
-                }
+                username != null -> searchByUsername(username)
                 else -> null
             }
 
@@ -91,6 +90,16 @@ class AddByCodeViewModel @Inject constructor(
             }
         }
     }
+
+    /** Resolves a user by username, preferring an exact (case-insensitive) match. */
+    private suspend fun searchByUsername(username: String): User? =
+        when (val r = userRepository.searchUsersRemote(username)) {
+            is AppResult.Success -> r.data.firstOrNull {
+                it.username?.equals(username, ignoreCase = true) == true
+            } ?: r.data.firstOrNull()
+            is AppResult.Failure -> null
+            AppResult.Loading -> null
+        }
 
     fun sendRequest() {
         val target = _state.value.result ?: return
