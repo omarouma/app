@@ -128,3 +128,32 @@ data class TypingRow(
     @SerialName("is_typing") val isTyping: Boolean = false,
     @SerialName("updated_at") @Serializable(with = EpochMillisSerializer::class) val updatedAt: Long? = null,
 )
+
+/**
+ * A bookmarked message (LIVE table `saved_messages`). Powers the Profile hub
+ * "Saved Messages" surface.
+ */
+@Serializable
+data class SavedMessageRow(
+    val id: String,
+    @SerialName("user_id") val userId: String,
+    @SerialName("message_id") val messageId: String,
+    @SerialName("chat_id") val chatId: String,
+    @SerialName("sender_id") val senderId: String? = null,
+    val content: String? = null,
+    val type: String? = null,
+    @SerialName("media_url") val mediaUrl: String? = null,
+    @SerialName("saved_at") @Serializable(with = EpochMillisSerializer::class) val savedAt: Long? = null,
+)
+
+/** Insert payload for bookmarking a message. */
+@Serializable
+data class SavedMessageInsert(
+    @SerialName("user_id") val userId: String,
+    @SerialName("message_id") val messageId: String,
+    @SerialName("chat_id") val chatId: String,
+    @SerialName("sender_id") val senderId: String? = null,
+    val content: String? = null,
+    val type: String = "text",
+    @SerialName("media_url") val mediaUrl: String? = null,
+)

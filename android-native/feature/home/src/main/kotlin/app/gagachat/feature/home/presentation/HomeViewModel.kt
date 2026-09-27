@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import app.gagachat.core.common.result.AppResult
 import app.gagachat.core.data.repository.AuthRepository
 import app.gagachat.core.data.repository.ConversationRepository
+import app.gagachat.core.data.repository.NotificationRepository
 import app.gagachat.core.model.Conversation
 import app.gagachat.core.ui.util.toUserMessage
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -30,7 +31,11 @@ data class HomeUiState(
 class HomeViewModel @Inject constructor(
     private val conversationRepository: ConversationRepository,
     private val authRepository: AuthRepository,
+    private val notificationRepository: NotificationRepository,
 ) : ViewModel() {
+
+    /** Unread in-app notification count, surfaced as a bell badge on Home. */
+    val unreadNotifications: StateFlow<Int> = notificationRepository.unreadCount
 
     private val query = MutableStateFlow("")
     private val loading = MutableStateFlow(true)
@@ -74,6 +79,8 @@ class HomeViewModel @Inject constructor(
             loading.value = false
             sync()
         }
+        // Populate the notification bell badge without blocking the chat list.
+        viewModelScope.launch { runCatching { notificationRepository.refresh() } }
     }
 
     fun onQueryChange(value: String) {

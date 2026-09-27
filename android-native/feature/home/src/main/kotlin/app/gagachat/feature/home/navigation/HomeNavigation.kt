@@ -16,12 +16,14 @@ fun NavGraphBuilder.homeScreen(
     onOpenConversation: (String) -> Unit,
     onOpenNewChat: () -> Unit,
     onOpenMore: () -> Unit,
+    onOpenNotifications: () -> Unit = {},
 ) {
     composable(HomeRoutes.HOME) {
         HomeRoute(
             onOpenConversation = onOpenConversation,
             onOpenNewChat = onOpenNewChat,
             onOpenMore = onOpenMore,
+            onOpenNotifications = onOpenNotifications,
         )
     }
 }

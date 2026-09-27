@@ -10,7 +10,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.filled.ChatBubbleOutline
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
@@ -43,9 +46,11 @@ fun HomeRoute(
     onOpenConversation: (conversationId: String) -> Unit,
     onOpenNewChat: () -> Unit,
     onOpenMore: () -> Unit,
+    onOpenNotifications: () -> Unit = {},
     viewModel: HomeViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val unreadNotifications by viewModel.unreadNotifications.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
 
@@ -89,6 +94,17 @@ fun HomeRoute(
         brandMark = true,
         snackbarHostState = snackbarHostState,
         actions = {
+            IconButton(onClick = onOpenNotifications) {
+                BadgedBox(
+                    badge = {
+                        if (unreadNotifications > 0) {
+                            Badge { Text(if (unreadNotifications > 99) "99+" else "$unreadNotifications") }
+                        }
+                    },
+                ) {
+                    Icon(Icons.Filled.Notifications, contentDescription = "Notifications")
+                }
+            }
             IconButton(onClick = onOpenMore) {
                 Icon(Icons.Filled.MoreVert, contentDescription = "More")
             }

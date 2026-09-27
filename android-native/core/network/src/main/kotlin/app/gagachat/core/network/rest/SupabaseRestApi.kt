@@ -19,6 +19,8 @@ import app.gagachat.core.network.dto.GroupRow
 import app.gagachat.core.network.dto.MessageInsert
 import app.gagachat.core.network.dto.MessageRow
 import app.gagachat.core.network.dto.NotificationRow
+import app.gagachat.core.network.dto.SavedMessageInsert
+import app.gagachat.core.network.dto.SavedMessageRow
 import app.gagachat.core.network.dto.UserRow
 import app.gagachat.core.network.dto.WalletInsert
 import app.gagachat.core.network.dto.WalletRow
@@ -631,6 +633,33 @@ class SupabaseRestApi @Inject constructor(
             header("Prefer", "return=minimal")
             contentType(ContentType.Application.Json)
             setBody(mapOf("read" to true))
+        }
+    }
+
+    // ---- Saved Messages ----
+
+    suspend fun getSavedMessages(userId: String, limit: Int = 200): List<SavedMessageRow> =
+        client.get("${config.restUrl}/saved_messages") {
+            auth()
+            parameter("select", "*")
+            parameter("user_id", "eq.$userId")
+            parameter("order", "saved_at.desc")
+            parameter("limit", limit)
+        }.body()
+
+    suspend fun saveMessage(payload: SavedMessageInsert): SavedMessageRow =
+        client.post("${config.restUrl}/saved_messages") {
+            auth()
+            header("Prefer", "return=representation")
+            contentType(ContentType.Application.Json)
+            setBody(payload)
+        }.body()
+
+    suspend fun deleteSavedMessage(id: String) {
+        client.delete("${config.restUrl}/saved_messages") {
+            auth()
+            parameter("id", "eq.$id")
+            header("Prefer", "return=minimal")
         }
     }
 

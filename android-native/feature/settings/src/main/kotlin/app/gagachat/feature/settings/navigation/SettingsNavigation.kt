@@ -10,8 +10,10 @@ import app.gagachat.feature.settings.presentation.AppearanceSettingsScreen
 import app.gagachat.feature.settings.presentation.BlockedUsersScreen
 import app.gagachat.feature.settings.presentation.EditProfileScreen
 import app.gagachat.feature.settings.presentation.LanguageSettingsScreen
+import app.gagachat.feature.settings.presentation.NotificationInboxScreen
 import app.gagachat.feature.settings.presentation.NotificationsSettingsScreen
 import app.gagachat.feature.settings.presentation.PrivacySettingsScreen
+import app.gagachat.feature.settings.presentation.SavedMessagesScreen
 import app.gagachat.feature.settings.presentation.SecuritySettingsScreen
 import app.gagachat.feature.settings.presentation.SettingsRoute
 import app.gagachat.feature.settings.presentation.StorageSettingsScreen
@@ -21,6 +23,8 @@ object SettingsRoutes {
     const val SETTINGS = "settings"
     const val EDIT_PROFILE = "settings/edit-profile"
     const val NOTIFICATIONS = "settings/notifications"
+    const val NOTIFICATIONS_INBOX = "settings/notifications-inbox"
+    const val SAVED_MESSAGES = "settings/saved-messages"
     const val PRIVACY = "settings/privacy"
     const val APPEARANCE = "settings/appearance"
     const val STORAGE = "settings/storage"
@@ -73,6 +77,12 @@ fun NavGraphBuilder.settingsScreen(
     }
     composable(SettingsRoutes.NOTIFICATIONS) {
         NotificationsSettingsScreen(onBack = { navController.popBackStack() })
+    }
+    composable(SettingsRoutes.NOTIFICATIONS_INBOX) {
+        NotificationInboxScreen(onBack = { navController.popBackStack() })
+    }
+    composable(SettingsRoutes.SAVED_MESSAGES) {
+        SavedMessagesScreen(onBack = { navController.popBackStack() })
     }
     composable(SettingsRoutes.PRIVACY) {
         PrivacySettingsScreen(
