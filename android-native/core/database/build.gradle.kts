@@ -13,4 +13,5 @@ dependencies {
     implementation(project(":core:common"))
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.kotlinx.datetime)
+    implementation(libs.kotlinx.serialization.json)
 }

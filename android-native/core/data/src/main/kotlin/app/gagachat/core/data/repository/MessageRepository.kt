@@ -33,7 +33,11 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
@@ -84,6 +88,29 @@ interface MessageRepository {
 
     suspend fun editMessage(localId: String, text: String): AppResult<Unit>
     suspend fun deleteMessage(localId: String): AppResult<Unit>
+
+    /** Toggles [userId]'s [emoji] reaction on a message (add or remove). */
+    suspend fun toggleReaction(localId: String, emoji: String, userId: String): AppResult<Unit>
+
+    /** Sends a contact-card message. */
+    suspend fun sendContact(
+        conversationId: String,
+        senderId: String,
+        senderName: String?,
+        senderAvatar: String?,
+        contactName: String,
+        contactPhone: String?,
+    ): AppResult<Message>
+
+    /** Forwards [source] into [conversationId] as a brand-new message. */
+    suspend fun forwardMessage(
+        source: Message,
+        conversationId: String,
+        senderId: String,
+        senderName: String?,
+        senderAvatar: String?,
+    ): AppResult<Message>
+
     suspend fun markDelivered(conversationId: String, userId: String)
     suspend fun markRead(conversationId: String, userId: String)
 
@@ -116,6 +143,29 @@ class DefaultMessageRepository @Inject constructor(
     private data class TypingEntry(val isTyping: Boolean, val updatedAt: Long)
 
     private val typingState = MutableStateFlow<Map<String, TypingEntry>>(emptyMap())
+
+    private val reactionsJson = Json { ignoreUnknownKeys = true }
+
+    private fun parseReactions(raw: String?): Map<String, List<String>> =
+        if (raw.isNullOrBlank()) emptyMap()
+        else runCatching { reactionsJson.decodeFromString<Map<String, List<String>>>(raw) }
+            .getOrDefault(emptyMap())
+
+    private fun encodeReactions(map: Map<String, List<String>>): String? =
+        if (map.isEmpty()) null else reactionsJson.encodeToString(map)
+
+    /** Converts emoji -> userIds into the backend `reactions` jsonb shape. */
+    private fun reactionsToJson(map: Map<String, List<String>>): JsonObject =
+        JsonObject(map.mapValues { (_, users) -> JsonArray(users.map { JsonPrimitive(it) }) })
+
+    /** Reads the backend `reactions` jsonb (emoji -> [userIds]) into a domain map. */
+    private fun jsonToReactions(obj: JsonObject?): Map<String, List<String>> {
+        if (obj == null) return emptyMap()
+        return obj.mapNotNull { (emoji, value) ->
+            val users = (value as? JsonArray)?.mapNotNull { it.jsonPrimitive.content }
+            if (users.isNullOrEmpty()) null else emoji to users
+        }.toMap()
+    }
 
 
     override fun observeMessages(conversationId: String, limit: Int): Flow<List<Message>> =
@@ -300,6 +350,95 @@ class DefaultMessageRepository @Inject constructor(
             AppResult.Success(Unit)
         }
 
+    override suspend fun toggleReaction(
+        localId: String,
+        emoji: String,
+        userId: String,
+    ): AppResult<Unit> = withContext(dispatchers.io) {
+        val entity = messageDao.getByLocalId(localId)
+            ?: return@withContext AppResult.Failure(AppError.Validation("Message not found"))
+        val current = parseReactions(entity.reactions)
+        val reactors = current[emoji].orEmpty().toMutableSet()
+        if (!reactors.add(userId)) reactors.remove(userId)
+        val updated = current.toMutableMap()
+        if (reactors.isEmpty()) updated.remove(emoji) else updated[emoji] = reactors.toList()
+        messageDao.updateReactions(localId, encodeReactions(updated))
+        entity.serverMessageId?.let { serverId ->
+            runCatching { restApi.updateMessageReactions(serverId, reactionsToJson(updated)) }
+        }
+        AppResult.Success(Unit)
+    }
+
+    override suspend fun sendContact(
+        conversationId: String,
+        senderId: String,
+        senderName: String?,
+        senderAvatar: String?,
+        contactName: String,
+        contactPhone: String?,
+    ): AppResult<Message> = withContext(dispatchers.io) {
+        val clientMessageId = idGenerator.newClientMessageId()
+        val now = timeProvider.nowMillis()
+        val pending = Message(
+            localId = clientMessageId,
+            clientMessageId = clientMessageId,
+            conversationId = conversationId,
+            senderId = senderId,
+            type = MessageType.CONTACT,
+            text = contactName,
+            contactName = contactName,
+            contactPhone = contactPhone,
+            createdAtClient = now,
+            status = MessageStatus.PENDING,
+            senderName = senderName,
+            senderAvatar = senderAvatar,
+        )
+        messageDao.upsert(pending.toEntity())
+        updateConversationPreview(conversationId, clientMessageId, "\uD83D\uDC64 $contactName", now)
+        outboxScheduler.enqueueMessageSend(clientMessageId)
+        dispatchOrQueue(pending)
+    }
+
+    override suspend fun forwardMessage(
+        source: Message,
+        conversationId: String,
+        senderId: String,
+        senderName: String?,
+        senderAvatar: String?,
+    ): AppResult<Message> = withContext(dispatchers.io) {
+        val clientMessageId = idGenerator.newClientMessageId()
+        val now = timeProvider.nowMillis()
+        val originalAuthor = source.forwardedFrom ?: source.senderId
+        val pending = Message(
+            localId = clientMessageId,
+            clientMessageId = clientMessageId,
+            conversationId = conversationId,
+            senderId = senderId,
+            type = source.type,
+            text = source.text,
+            mediaUrl = source.mediaUrl,
+            mediaUrls = source.mediaUrls,
+            thumbnailUrl = source.thumbnailUrl,
+            mediaMime = source.mediaMime,
+            mediaSize = source.mediaSize,
+            mediaDurationMs = source.mediaDurationMs,
+            latitude = source.latitude,
+            longitude = source.longitude,
+            contactName = source.contactName,
+            contactPhone = source.contactPhone,
+            forwardedFrom = originalAuthor,
+            createdAtClient = now,
+            status = MessageStatus.PENDING,
+            senderName = senderName,
+            senderAvatar = senderAvatar,
+        )
+        messageDao.upsert(pending.toEntity())
+        val preview = source.text ?: "\uD83D\uDCE4 Forwarded"
+        updateConversationPreview(conversationId, clientMessageId, preview, now)
+        outboxScheduler.enqueueMessageSend(clientMessageId)
+        dispatchOrQueue(pending)
+    }
+
     override suspend fun markDelivered(conversationId: String, userId: String) =
         withContext(dispatchers.io) {
             val messages = messageDao.getLatest(conversationId, Constants.INITIAL_MESSAGE_PAGE_SIZE)
@@ -426,6 +565,7 @@ class DefaultMessageRepository @Inject constructor(
                 mediaUrl = pending.mediaUrl,
                 mediaUrls = pending.mediaUrl?.let { listOf(it) },
                 replyToMessageId = pending.replyToMessageId,
+                forwardedFrom = pending.forwardedFrom,
                 metadata = messageMetadata(pending),
             ),
         )
@@ -465,6 +605,10 @@ class DefaultMessageRepository @Inject constructor(
             if (message.type == MessageType.AUDIO) {
                 message.mediaDurationMs?.let { put("duration_ms", it) }
             }
+            if (message.type == MessageType.CONTACT) {
+                message.contactName?.let { put("contact_name", it) }
+                message.contactPhone?.let { put("contact_phone", it) }
+            }
         }
         return if (obj.isEmpty()) null else obj
     }
@@ -486,6 +630,10 @@ class DefaultMessageRepository @Inject constructor(
         val type = str("type")?.let { runCatching { MessageType.valueOf(it.uppercase()) }.getOrNull() }
             ?: MessageType.TEXT
         val meta = record["metadata"] as? JsonObject
+        val mediaUrls = (record["media_urls"] as? JsonArray)
+            ?.mapNotNull { it.jsonPrimitive.content }
+            ?.takeIf { it.isNotEmpty() }
+        val singleMedia = str("media_url")
         return Message(
             localId = clientId,
             clientMessageId = clientId,
@@ -494,9 +642,14 @@ class DefaultMessageRepository @Inject constructor(
             senderId = str("sender_id") ?: "",
             type = type,
             text = str("content"),
-            mediaUrl = str("media_url"),
+            mediaUrl = singleMedia ?: mediaUrls?.firstOrNull(),
+            mediaUrls = mediaUrls ?: singleMedia?.let { listOf(it) } ?: emptyList(),
             thumbnailUrl = null,
             replyToMessageId = str("reply_to"),
+            reactions = jsonToReactions(record["reactions"] as? JsonObject),
+            forwardedFrom = str("forwarded_from"),
+            contactName = meta?.get("contact_name")?.jsonPrimitive?.content,
+            contactPhone = meta?.get("contact_phone")?.jsonPrimitive?.content,
             createdAtClient = ts("created_at") ?: 0L,
             createdAtServer = ts("created_at"),
             status = MessageStatus.SENT,

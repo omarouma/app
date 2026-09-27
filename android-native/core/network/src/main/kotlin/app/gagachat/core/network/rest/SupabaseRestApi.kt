@@ -305,6 +305,26 @@ class SupabaseRestApi @Inject constructor(
         }
     }
 
+    /**
+     * Lightweight presence write: patches only the live-status columns on the
+     * `users` row (never touches the rest of the profile) so peers can render
+     * online/last-seen without a full upsert clobbering unrelated fields.
+     */
+    suspend fun updateUserPresence(userId: String, isOnline: Boolean, lastSeen: Long) {
+        client.patch("${config.restUrl}/users") {
+            auth()
+            parameter("id", "eq.$userId")
+            header("Prefer", "return=minimal")
+            contentType(ContentType.Application.Json)
+            setBody(
+                mapOf(
+                    "status" to if (isOnline) "online" else "offline",
+                    "last_seen" to iso(lastSeen),
+                ),
+            )
+        }
+    }
+
     suspend fun updateMessageReactions(id: String, reactions: JsonObject) {
         client.patch("${config.restUrl}/messages") {
             auth()

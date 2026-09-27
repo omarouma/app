@@ -98,6 +98,12 @@ interface MessageDao {
     @Query("UPDATE messages SET text = :text, editedAt = :editedAt WHERE localId = :localId")
     suspend fun updateText(localId: String, text: String, editedAt: Long)
 
+    @Query("UPDATE messages SET reactions = :reactions WHERE localId = :localId")
+    suspend fun updateReactions(localId: String, reactions: String?)
+
+    @Query("UPDATE messages SET forwardedFrom = :forwardedFrom WHERE localId = :localId")
+    suspend fun updateForwardedFrom(localId: String, forwardedFrom: String?)
+
     @Query("UPDATE messages SET deletedAt = :deletedAt, text = NULL WHERE localId = :localId")
     suspend fun markDeleted(localId: String, deletedAt: Long)
 

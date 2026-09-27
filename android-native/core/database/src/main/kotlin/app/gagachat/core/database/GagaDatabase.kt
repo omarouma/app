@@ -37,7 +37,7 @@ import app.gagachat.core.database.entity.UserEntity
         BlockEntity::class,
         SyncStateEntity::class,
     ],
-    version = 2,
+    version = 3,
     exportSchema = true,
 )
 abstract class GagaDatabase : RoomDatabase() {
@@ -61,6 +61,21 @@ abstract class GagaDatabase : RoomDatabase() {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE users ADD COLUMN followersCount INTEGER NOT NULL DEFAULT 0")
                 db.execSQL("ALTER TABLE users ADD COLUMN followingCount INTEGER NOT NULL DEFAULT 0")
+            }
+        }
+
+        /**
+         * v2 → v3: add multi-photo urls, reactions, forwarding and contact-card
+         * columns to `messages`. Additive only — every column is nullable so
+         * existing rows keep rendering unchanged.
+         */
+        val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE messages ADD COLUMN mediaUrls TEXT")
+                db.execSQL("ALTER TABLE messages ADD COLUMN reactions TEXT")
+                db.execSQL("ALTER TABLE messages ADD COLUMN forwardedFrom TEXT")
+                db.execSQL("ALTER TABLE messages ADD COLUMN contactName TEXT")
+                db.execSQL("ALTER TABLE messages ADD COLUMN contactPhone TEXT")
             }
         }
     }

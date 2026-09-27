@@ -25,6 +25,25 @@ import app.gagachat.core.model.PendingUpload
 import app.gagachat.core.model.UploadState
 import app.gagachat.core.model.User
 import app.gagachat.core.model.UserStatus
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
+
+private val messageJson = Json { ignoreUnknownKeys = true }
+
+private fun parseStringList(raw: String?): List<String> =
+    if (raw.isNullOrBlank()) emptyList()
+    else runCatching { messageJson.decodeFromString<List<String>>(raw) }.getOrDefault(emptyList())
+
+private fun parseReactions(raw: String?): Map<String, List<String>> =
+    if (raw.isNullOrBlank()) emptyMap()
+    else runCatching { messageJson.decodeFromString<Map<String, List<String>>>(raw) }
+        .getOrDefault(emptyMap())
+
+private fun encodeStringList(list: List<String>): String? =
+    if (list.isEmpty()) null else messageJson.encodeToString(list)
+
+private fun encodeReactions(map: Map<String, List<String>>): String? =
+    if (map.isEmpty()) null else messageJson.encodeToString(map)
 
 // ---- User ----
 
@@ -144,6 +163,11 @@ fun MessageEntity.toDomain(): Message = Message(
     mediaDurationMs = mediaDurationMs,
     latitude = latitude,
     longitude = longitude,
+    mediaUrls = parseStringList(mediaUrls),
+    reactions = parseReactions(reactions),
+    forwardedFrom = forwardedFrom,
+    contactName = contactName,
+    contactPhone = contactPhone,
 )
 
 fun Message.toEntity(): MessageEntity = MessageEntity(
@@ -172,6 +196,11 @@ fun Message.toEntity(): MessageEntity = MessageEntity(
     mediaDurationMs = mediaDurationMs,
     latitude = latitude,
     longitude = longitude,
+    mediaUrls = encodeStringList(mediaUrls),
+    reactions = encodeReactions(reactions),
+    forwardedFrom = forwardedFrom,
+    contactName = contactName,
+    contactPhone = contactPhone,
 )
 
 // ---- Attachment ----

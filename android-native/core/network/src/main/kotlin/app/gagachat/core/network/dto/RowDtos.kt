@@ -91,7 +91,7 @@ data class MessageRow(
     @SerialName("media_url") val mediaUrl: String? = null,
     @SerialName("media_urls") val mediaUrls: List<String>? = null,
     @SerialName("reply_to") val replyToMessageId: String? = null,
-    @SerialName("reactions") val reactions: Map<String, Int>? = null,
+    @SerialName("reactions") val reactions: JsonObject? = null,
     @SerialName("forwarded_from") val forwardedFrom: String? = null,
     @SerialName("delivery_status") val deliveryStatus: String? = null,
     @SerialName("destroyed") val destroyed: Boolean? = null,
@@ -115,6 +115,7 @@ data class MessageInsert(
     @SerialName("media_url") val mediaUrl: String? = null,
     @SerialName("media_urls") val mediaUrls: List<String>? = null,
     @SerialName("reply_to") val replyToMessageId: String? = null,
+    @SerialName("forwarded_from") val forwardedFrom: String? = null,
     val metadata: JsonObject? = null,
 )
 

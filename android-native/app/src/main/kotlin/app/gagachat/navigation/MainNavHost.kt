@@ -25,6 +25,7 @@ import app.gagachat.feature.calls.navigation.CallRoutes
 import app.gagachat.feature.calls.navigation.activeCallScreen
 import app.gagachat.feature.calls.navigation.callHistoryScreen
 import app.gagachat.feature.chat.navigation.ChatRoutes
+import app.gagachat.feature.chat.navigation.chatInfoScreen
 import app.gagachat.feature.chat.navigation.chatScreen
 import app.gagachat.feature.contacts.navigation.ContactsRoutes
 import app.gagachat.feature.contacts.navigation.contactsScreen
@@ -132,6 +133,15 @@ fun MainNavHost(pendingDeepLink: String?) {
                     navController.navigate(ProfileRoutes.profile(userId))
                 },
                 onSendMoney = { navController.navigate(WalletRoutes.WALLET) },
+            )
+            chatInfoScreen(
+                navController = navController,
+                onStartCall = { conversationId, isVideo ->
+                    navController.navigate(CallRoutes.activeCall(conversationId, isVideo))
+                },
+                onOpenProfile = { userId ->
+                    navController.navigate(ProfileRoutes.profile(userId))
+                },
             )
             peopleGraph(
                 navController = navController,

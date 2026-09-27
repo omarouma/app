@@ -9,6 +9,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.gagachat.core.common.Constants
+import app.gagachat.core.common.network.NetworkMonitor
 import app.gagachat.core.common.result.AppResult
 import app.gagachat.core.data.repository.AuthRepository
 import app.gagachat.core.data.repository.BlockRepository
@@ -16,9 +17,13 @@ import app.gagachat.core.data.repository.ConversationRepository
 import app.gagachat.core.data.repository.FriendsRepository
 import app.gagachat.core.data.repository.MediaRepository
 import app.gagachat.core.data.repository.MessageRepository
+import app.gagachat.core.data.repository.UserRepository
 import app.gagachat.core.model.Conversation
 import app.gagachat.core.model.Message
+import app.gagachat.core.model.MessageStatus
 import app.gagachat.core.model.MessageType
+import app.gagachat.core.model.User
+import app.gagachat.core.model.UserStatus
 import app.gagachat.core.ui.util.toUserMessage
 import app.gagachat.feature.chat.presentation.components.VoiceRecorder
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -33,12 +38,18 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+/**
+ * Complete UI state for the Chat Room. Everything the screen renders flows from
+ * here so the layout stays a pure function of state (and therefore survives
+ * process death / rotation without losing the reply, edit or selection target).
+ */
 data class ChatUiState(
     val conversationId: String = "",
     val title: String = "",
@@ -47,18 +58,33 @@ data class ChatUiState(
     val messages: List<Message> = emptyList(),
     val currentUserId: String = "",
     val otherUserId: String = "",
+    // Resolved peer identity (never "Unknown" — see User.displayLabel).
+    val otherUserName: String = "",
+    val otherUserAvatar: String? = null,
+    val otherUserStatus: UserStatus = UserStatus.OFFLINE,
+    val otherUserLastSeen: Long? = null,
     val draft: String = "",
     val isLoadingOlder: Boolean = false,
     val hasMoreOlder: Boolean = true,
     val errorMessage: String? = null,
     val noticeMessage: String? = null,
     val replyTo: Message? = null,
+    val editingMessage: Message? = null,
+    val selectedMessage: Message? = null,
     val isOtherTyping: Boolean = false,
     val isRecording: Boolean = false,
     val recordingElapsedMs: Long = 0L,
     val isSearching: Boolean = false,
     val searchQuery: String = "",
+    val isOnline: Boolean = true,
+    /** The current user's last-read marker, used to place the unread divider. */
+    val myLastReadMessageId: String? = null,
 ) {
+    val isEditing: Boolean get() = editingMessage != null
+
+    /** True when at least one outgoing message is still queued for delivery. */
+    val hasQueued: Boolean get() = messages.any { it.status == MessageStatus.PENDING }
+
     /** Messages matching the active in-chat search query (empty query = all). */
     val visibleMessages: List<Message>
         get() = if (isSearching && searchQuery.isNotBlank()) {
@@ -75,9 +101,11 @@ data class RecordingState(
     val elapsedMs: Long = 0L,
 )
 
-/** Bundled composer-side state (reply target, typing, notices, recording). */
+/** Bundled composer-side state (reply target, edit target, selection, typing, notices, recording). */
 private data class ComposerState(
     val reply: Message?,
+    val editing: Message?,
+    val selected: Message?,
     val typing: Boolean,
     val notice: String?,
     val recording: RecordingState,
@@ -97,10 +125,12 @@ class ChatViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val messageRepository: MessageRepository,
     private val conversationRepository: ConversationRepository,
+    private val userRepository: UserRepository,
     private val mediaRepository: MediaRepository,
     private val authRepository: AuthRepository,
     private val blockRepository: BlockRepository,
     private val friendsRepository: FriendsRepository,
+    private val networkMonitor: NetworkMonitor,
     @ApplicationContext private val context: Context,
 ) : ViewModel() {
 
@@ -112,6 +142,8 @@ class ChatViewModel @Inject constructor(
     private val error = MutableStateFlow<String?>(null)
     private val notice = MutableStateFlow<String?>(null)
     private val replyTo = MutableStateFlow<Message?>(null)
+    private val editing = MutableStateFlow<Message?>(null)
+    private val selected = MutableStateFlow<Message?>(null)
     private val recording = MutableStateFlow(RecordingState())
     private val isSearching = MutableStateFlow(false)
     private val searchQuery = MutableStateFlow("")
@@ -130,34 +162,61 @@ class ChatViewModel @Inject constructor(
         .distinctUntilChanged()
         .flatMapLatest { other -> messageRepository.observeTyping(conversationId, other) }
 
+    /**
+     * The peer's resolved [User] row, so the header can show a real name, avatar
+     * and presence instead of a raw id or "Unknown".
+     */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    private val otherUserFlow: Flow<User?> = conversationRepository.observeConversation(conversationId)
+        .map { it?.otherMember(currentUserId)?.userId.orEmpty() }
+        .distinctUntilChanged()
+        .flatMapLatest { id -> if (id.isBlank()) flowOf(null) else userRepository.observeUser(id) }
+
     val state: StateFlow<ChatUiState> = combine(
         messageRepository.observeMessages(conversationId),
         conversationRepository.observeConversation(conversationId),
-        draft,
+        otherUserFlow,
         combine(loadingOlder, hasMoreOlder, error, searchQuery, isSearching) { l, h, e, q, s ->
             ChatFlags(isLoadingOlder = l, hasMoreOlder = h, error = e, searchQuery = q, isSearching = s)
         },
-        combine(replyTo, typingFlow, notice, recording) { r, t, n, rec -> ComposerState(r, t, n, rec) },
-    ) { messages, conversation, draftText, flags, composer ->
+        combine(
+            combine(replyTo, editing, selected) { r, ed, sel -> Triple(r, ed, sel) },
+            combine(typingFlow, notice, recording) { t, n, rec -> Triple(t, n, rec) },
+            networkMonitor.isOnline,
+        ) { (r, ed, sel), (t, n, rec), online ->
+            ComposerState(reply = r, editing = ed, selected = sel, typing = t, notice = n, recording = rec) to online
+        },
+    ) { messages, conversation, otherUser, flags, composerAndOnline ->
+        val (composer, online) = composerAndOnline
         ChatUiState(
             conversationId = conversationId,
             title = conversation?.displayTitle(currentUserId) ?: "Chat",
-            subtitle = presenceSubtitle(conversation, currentUserId),
-            avatarUrl = conversation?.avatar ?: conversation?.otherMember(currentUserId)?.avatar,
+            subtitle = presenceSubtitle(conversation, otherUser, currentUserId),
+            avatarUrl = otherUser?.avatar ?: conversation?.avatar ?: conversation?.otherMember(currentUserId)?.avatar,
             messages = messages,
             currentUserId = currentUserId,
             otherUserId = conversation?.otherMember(currentUserId)?.userId.orEmpty(),
-            draft = draftText,
+            otherUserName = otherUser?.displayLabel.orEmpty(),
+            otherUserAvatar = otherUser?.avatar,
+            otherUserStatus = otherUser?.status ?: UserStatus.OFFLINE,
+            otherUserLastSeen = otherUser?.lastSeen,
+            draft = draft.value,
             isLoadingOlder = flags.isLoadingOlder,
             hasMoreOlder = flags.hasMoreOlder,
             errorMessage = flags.error,
             noticeMessage = composer.notice,
             replyTo = composer.reply,
+            editingMessage = composer.editing,
+            selectedMessage = composer.selected,
             isOtherTyping = composer.typing,
             isRecording = composer.recording.isActive,
             recordingElapsedMs = composer.recording.elapsedMs,
             isSearching = flags.isSearching,
             searchQuery = flags.searchQuery,
+            isOnline = online,
+            myLastReadMessageId = conversation?.members
+                ?.firstOrNull { it.userId == currentUserId }
+                ?.lastReadMessageId,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ChatUiState(conversationId = conversationId))
 
@@ -189,7 +248,15 @@ class ChatViewModel @Inject constructor(
         viewModelScope.launch { messageRepository.setTyping(conversationId, currentUserId, isTyping) }
     }
 
+    /**
+     * The composer's primary action. In edit mode this commits the edit instead
+     * of sending a new message, so one tap can never produce both.
+     */
     fun send() {
+        if (editing.value != null) {
+            submitEdit()
+            return
+        }
         val text = draft.value.trim()
         if (text.isEmpty()) return
         val replyId = replyTo.value?.serverMessageId ?: replyTo.value?.clientMessageId
@@ -303,6 +370,98 @@ class ChatViewModel @Inject constructor(
         recording.value = RecordingState()
     }
 
+    // ---- reply / edit / delete / reactions / forward / contact ----
+
+    fun setReplyTo(message: Message?) {
+        replyTo.value = message
+        if (message != null) editing.value = null
+    }
+
+    /** Begins editing an outgoing text message. */
+    fun startEdit(message: Message) {
+        if (message.senderId != currentUserId || message.isDeleted || message.type != MessageType.TEXT) return
+        editing.value = message
+        replyTo.value = null
+        draft.value = message.text.orEmpty()
+        selected.value = null
+    }
+
+    fun cancelEdit() {
+        editing.value = null
+        draft.value = ""
+    }
+
+    private fun submitEdit() {
+        val target = editing.value ?: return
+        val text = draft.value.trim()
+        if (text.isEmpty()) return
+        draft.value = ""
+        editing.value = null
+        viewModelScope.launch {
+            when (val result = messageRepository.editMessage(target.localId, text)) {
+                is AppResult.Failure -> error.value = result.error.toUserMessage()
+                else -> Unit
+            }
+        }
+    }
+
+    /** Deletes a message for everyone (tombstone rendering on both sides). */
+    fun deleteMessage(message: Message) {
+        selected.value = null
+        if (editing.value?.localId == message.localId) cancelEdit()
+        viewModelScope.launch {
+            when (val result = messageRepository.deleteMessage(message.localId)) {
+                is AppResult.Failure -> error.value = result.error.toUserMessage()
+                else -> Unit
+            }
+        }
+    }
+
+    /** Adds or removes the current user's [emoji] reaction on [message]. */
+    fun toggleReaction(message: Message, emoji: String) {
+        selected.value = null
+        viewModelScope.launch {
+            messageRepository.toggleReaction(message.localId, emoji, currentUserId)
+        }
+    }
+
+    /** Forwards [message] into the current conversation as a new message. */
+    fun forwardMessage(message: Message) {
+        selected.value = null
+        viewModelScope.launch {
+            val session = authRepository.sessionFlow.value
+            messageRepository.forwardMessage(
+                source = message,
+                conversationId = conversationId,
+                senderId = currentUserId,
+                senderName = session?.displayName,
+                senderAvatar = null,
+            )
+        }
+    }
+
+    /** Shares a contact card (name + optional phone) into the conversation. */
+    fun shareContact(contactName: String, contactPhone: String?) {
+        if (contactName.isBlank()) return
+        viewModelScope.launch {
+            val session = authRepository.sessionFlow.value
+            messageRepository.sendContact(
+                conversationId = conversationId,
+                senderId = currentUserId,
+                senderName = session?.displayName,
+                senderAvatar = null,
+                contactName = contactName,
+                contactPhone = contactPhone,
+            )
+        }
+    }
+
+    fun selectMessage(message: Message?) {
+        selected.value = message
+    }
+
+    // ---- moderation ----
+
     /** Blocks the other participant and surfaces a confirmation notice. */
     fun blockUser() {
         val target = state.value.otherUserId
@@ -336,10 +495,9 @@ class ChatViewModel @Inject constructor(
     }
 
     /**
-     * Shares the device's last known location as a LOCATION message (reference
-     * screenshots 174452 / 174502). Reads the cached fix from the platform
-     * [LocationManager]; if permission is missing or no fix is cached a notice is
-     * surfaced instead of failing silently.
+     * Shares the device's last known location as a LOCATION message. Reads the
+     * cached fix from the platform [LocationManager]; if permission is missing or
+     * no fix is cached a notice is surfaced instead of failing silently.
      */
     fun shareLocation() {
         viewModelScope.launch {
@@ -383,7 +541,7 @@ class ChatViewModel @Inject constructor(
 
     /** Records a report against the other participant for moderation review. */
     fun reportUser() {
-        notice.value = "Thanks — your report has been submitted for review."
+        notice.value = "Thanks \u2014 your report has been submitted for review."
     }
 
     /** Surfaces a transient notice for an overflow-menu entry that isn't wired yet. */
@@ -425,10 +583,6 @@ class ChatViewModel @Inject constructor(
         }
     }
 
-    fun setReplyTo(message: Message?) {
-        replyTo.value = message
-    }
-
     fun consumeError() = error.update { null }
 
     fun consumeNotice() = notice.update { null }
@@ -440,9 +594,23 @@ class ChatViewModel @Inject constructor(
         super.onCleared()
     }
 
-    private fun presenceSubtitle(conversation: Conversation?, currentUserId: String): String? {
+    /**
+     * Header subtitle: online / away / busy presence wins; otherwise fall back to
+     * the peer's resolved name so the header is never blank.
+     */
+    private fun presenceSubtitle(
+        conversation: Conversation?,
+        otherUser: User?,
+        currentUserId: String,
+    ): String? {
         if (conversation == null) return null
-        val other = conversation.otherMember(currentUserId) ?: return null
-        return other.displayName
+        val member = conversation.otherMember(currentUserId) ?: return null
+        val name = otherUser?.displayLabel?.takeIf { it.isNotBlank() } ?: member.displayName
+        return when (otherUser?.status) {
+            UserStatus.ONLINE -> "Online"
+            UserStatus.AWAY -> "Away"
+            UserStatus.BUSY -> "Busy"
+            else -> name
+        }
     }
 }
