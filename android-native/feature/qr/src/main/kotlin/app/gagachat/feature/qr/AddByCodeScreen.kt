@@ -20,6 +20,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.ImeAction
@@ -44,6 +47,7 @@ fun AddByCodeScreen(
     viewModel: AddByCodeViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    var showScanner by remember { mutableStateOf(false) }
 
     GagaScaffold(title = "Add by code", onBack = onBack) { padding ->
         Column(
@@ -53,16 +57,27 @@ fun AddByCodeScreen(
                 .padding(GagaDimens.space16),
         ) {
             Text(
-                text = "Paste or type a GaGa code or @username to find someone.",
+                text = "Scan a GaGa QR code, or paste/type a code or @username to find someone.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            Spacer(Modifier.height(GagaDimens.space4))
-            Text(
-                text = "Camera scanning is coming soon.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            Spacer(Modifier.height(GagaDimens.space12))
+            GagaSecondaryButton(
+                text = if (showScanner) "Hide camera" else "Scan with camera",
+                onClick = { showScanner = !showScanner },
+                modifier = Modifier.fillMaxWidth(),
+                leadingIcon = Icons.Filled.QrCodeScanner,
             )
+            if (showScanner) {
+                Spacer(Modifier.height(GagaDimens.space12))
+                QrCameraScanner(
+                    onCodeScanned = { scanned ->
+                        viewModel.onInputChange(scanned)
+                        viewModel.lookup()
+                        showScanner = false
+                    },
+                )
+            }
             Spacer(Modifier.height(GagaDimens.space12))
             GagaTextField(
                 value = state.input,
