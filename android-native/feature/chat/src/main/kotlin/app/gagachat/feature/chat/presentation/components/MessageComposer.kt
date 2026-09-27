@@ -52,6 +52,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import app.gagachat.core.model.Message
 import app.gagachat.core.ui.theme.GagaDimens
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import app.gagachat.core.ui.util.TimeFormat
 
 /**
@@ -83,6 +85,7 @@ fun MessageComposer(
 ) {
     var showAttachSheet by remember { mutableStateOf(false) }
     val sheetState = rememberModalBottomSheetState()
+    val haptics = LocalHapticFeedback.current
 
     Surface(
         modifier = modifier.fillMaxWidth(),
@@ -138,7 +141,10 @@ fun MessageComposer(
                         }
                     } else {
                         FilledIconButton(
-                            onClick = onSend,
+                            onClick = {
+                                haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                onSend()
+                            },
                             shape = CircleShape,
                             modifier = Modifier.size(48.dp),
                         ) {

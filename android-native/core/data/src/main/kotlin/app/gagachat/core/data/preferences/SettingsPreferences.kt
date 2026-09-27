@@ -126,6 +126,9 @@ class SettingsPreferences @Inject constructor(
     suspend fun setTextScale(value: TextScale) =
         context.settingsDataStore.edit { it[textScaleKey] = value.name }
 
-    suspend fun setLanguage(value: AppLanguage) =
+    suspend fun setLanguage(value: AppLanguage) {
         context.settingsDataStore.edit { it[languageKey] = value.code }
+        // Mirror synchronously so the locale can be applied in attachBaseContext.
+        AppLocaleStore.persist(context, value.code)
+    }
 }

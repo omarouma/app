@@ -18,6 +18,7 @@ import app.gagachat.core.data.repository.FriendsRepository
 import app.gagachat.core.data.repository.MediaRepository
 import app.gagachat.core.data.repository.MessageRepository
 import app.gagachat.core.data.repository.UserRepository
+import kotlinx.coroutines.flow.first
 import app.gagachat.core.model.Conversation
 import app.gagachat.core.model.Message
 import app.gagachat.core.model.MessageStatus
@@ -131,6 +132,8 @@ class ChatViewModel @Inject constructor(
     private val blockRepository: BlockRepository,
     private val friendsRepository: FriendsRepository,
     private val networkMonitor: NetworkMonitor,
+    private val settingsPreferences: app.gagachat.core.data.preferences.SettingsPreferences,
+    private val soundPlayer: app.gagachat.core.data.media.GagaSoundPlayer,
     @ApplicationContext private val context: Context,
 ) : ViewModel() {
 
@@ -223,7 +226,34 @@ class ChatViewModel @Inject constructor(
     init {
         viewModelScope.launch {
             messageRepository.syncNewMessages(conversationId)
-            messageRepository.markRead(conversationId, currentUserId)
+            // Read receipts are user-controlled (Master Spec §C — privacy). When
+            // disabled we still mark messages read locally but never publish the
+            // receipt to the peer.
+            val receiptsEnabled = settingsPreferences.readReceiptsEnabled.first()
+            if (receiptsEnabled) {
+                messageRepository.markRead(conversationId, currentUserId)
+            }
+        }
+        observeIncomingForSound()
+    }
+
+    /**
+     * Plays the in-app message tone when a new incoming message arrives while the
+     * chat is open (Master Spec §C — message sounds). The first emission (history
+     * load) is ignored so opening a chat is silent.
+     */
+    private fun observeIncomingForSound() {
+        viewModelScope.launch {
+            var lastIncomingId: String? = null
+            messageRepository.observeMessages(conversationId).collect { messages ->
+                val latestIncoming = messages.lastOrNull { it.senderId != currentUserId }
+                val id = latestIncoming?.localId
+                if (id != null && id != lastIncomingId) {
+                    val isFirstLoad = lastIncomingId == null
+                    lastIncomingId = id
+                    if (!isFirstLoad) soundPlayer.playMessageSound()
+                }
+            }
         }
     }
 

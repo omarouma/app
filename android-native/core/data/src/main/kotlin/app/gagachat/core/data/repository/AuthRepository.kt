@@ -43,12 +43,21 @@ interface AuthRepository {
     suspend fun verifyOtp(email: String?, phone: String?, token: String): AppResult<AuthSession>
 
     suspend fun signOut()
+
+    /**
+     * Permanently deletes the signed-in user's account and all owned data
+     * (Play Store requirement). On success the local session is cleared so the
+     * app returns to the auth graph.
+     */
+    suspend fun deleteAccount(): AppResult<Unit>
+
     fun isLoggedIn(): Boolean
 }
 
 @Singleton
 class DefaultAuthRepository @Inject constructor(
     private val authApi: SupabaseAuthApi,
+    private val restApi: app.gagachat.core.network.rest.SupabaseRestApi,
     private val sessionStore: SessionStore,
     private val timeProvider: TimeProvider,
     private val dispatchers: DispatcherProvider,
@@ -123,6 +132,16 @@ class DefaultAuthRepository @Inject constructor(
             val token = sessionStore.accessToken()
             if (token != null) runCatching { authApi.signOut(token) }
             clearLocalSession()
+        }
+    }
+
+    override suspend fun deleteAccount(): AppResult<Unit> = withContext(dispatchers.io) {
+        try {
+            restApi.deleteMyAccount()
+            clearLocalSession()
+            AppResult.Success(Unit)
+        } catch (t: Throwable) {
+            AppResult.Failure(ErrorMapper.map(t))
         }
     }
 

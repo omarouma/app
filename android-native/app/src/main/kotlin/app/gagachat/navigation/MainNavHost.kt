@@ -6,6 +6,8 @@ import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -16,6 +18,8 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
@@ -80,6 +84,8 @@ fun MainNavHost(pendingDeepLink: String?) {
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route
     val showBottomBar = currentRoute in bottomBarRoutes
+    val viewModel: MainNavViewModel = hiltViewModel()
+    val totalUnread by viewModel.totalUnread.collectAsStateWithLifecycle()
 
     LaunchedEffect(pendingDeepLink) {
         if (!pendingDeepLink.isNullOrBlank()) {
@@ -91,7 +97,11 @@ fun MainNavHost(pendingDeepLink: String?) {
     Scaffold(
         bottomBar = {
             if (showBottomBar) {
-                GagaBottomBar(navController = navController, currentRoute = currentRoute)
+                GagaBottomBar(
+                    navController = navController,
+                    currentRoute = currentRoute,
+                    chatBadgeCount = totalUnread,
+                )
             }
         },
     ) { innerPadding ->
@@ -217,6 +227,7 @@ fun MainNavHost(pendingDeepLink: String?) {
 private fun GagaBottomBar(
     navController: NavHostController,
     currentRoute: String?,
+    chatBadgeCount: Int,
 ) {
     NavigationBar {
         TopLevelDestination.entries.forEach { destination ->
@@ -233,7 +244,21 @@ private fun GagaBottomBar(
                         }
                     }
                 },
-                icon = { Icon(destination.icon, contentDescription = destination.label) },
+                icon = {
+                    if (destination == TopLevelDestination.CHAT && chatBadgeCount > 0) {
+                        BadgedBox(
+                            badge = {
+                                Badge {
+                                    Text(if (chatBadgeCount > 99) "99+" else "$chatBadgeCount")
+                                }
+                            },
+                        ) {
+                            Icon(destination.icon, contentDescription = destination.label)
+                        }
+                    } else {
+                        Icon(destination.icon, contentDescription = destination.label)
+                    }
+                },
                 label = { Text(destination.label) },
             )
         }

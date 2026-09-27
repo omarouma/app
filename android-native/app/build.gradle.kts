@@ -13,8 +13,8 @@ android {
 
     defaultConfig {
         applicationId = "gagachat.app"
-        versionCode = 9
-        versionName = "2.0.7"
+        versionCode = 10
+        versionName = "2.0.8"
 
         // The ZEGOCLOUD Call Kit ships native RTC libraries for four ABIs. We
         // only bundle the two that every real Android phone uses, which keeps

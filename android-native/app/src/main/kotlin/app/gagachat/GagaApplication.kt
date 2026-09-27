@@ -9,6 +9,7 @@ import androidx.work.Configuration
 import app.gagachat.core.common.di.ApplicationScope
 import app.gagachat.core.data.repository.AuthRepository
 import app.gagachat.core.data.repository.UserRepository
+import app.gagachat.core.data.preferences.SettingsPreferences
 import app.gagachat.core.data.sync.RealtimeCoordinator
 import app.gagachat.push.NotificationChannels
 import coil.ImageLoader
@@ -50,6 +51,13 @@ class GagaApplication : Application(), Configuration.Provider, ImageLoaderFactor
     @Inject
     lateinit var userRepository: UserRepository
 
+    @Inject
+    lateinit var settingsPreferences: SettingsPreferences
+
+    /** Cached privacy flag — when false we never advertise "online" (Master Spec §C). */
+    @Volatile
+    private var shareLastSeen: Boolean = true
+
     /** Periodic presence heartbeat, alive only while the app is foregrounded. */
     private var presenceJob: Job? = null
 
@@ -59,7 +67,22 @@ class GagaApplication : Application(), Configuration.Provider, ImageLoaderFactor
         // Connect the realtime fast path for the app lifetime. Safe to call
         // before a session exists: subscriptions are re-joined on reconnect.
         realtimeCoordinator.start(applicationScope)
+        observePrivacyForPresence()
         observeAppLifecycleForPresence()
+    }
+
+    /**
+     * Keeps the presence heartbeat honest about the "share last seen" privacy
+     * setting: toggling it off immediately publishes "offline" so peers stop
+     * seeing a stale online state.
+     */
+    private fun observePrivacyForPresence() {
+        applicationScope.launch {
+            settingsPreferences.shareLastSeenEnabled.collect { enabled ->
+                shareLastSeen = enabled
+                if (!enabled) publishPresence(isOnline = false)
+            }
+        }
     }
 
     /**
@@ -93,7 +116,9 @@ class GagaApplication : Application(), Configuration.Provider, ImageLoaderFactor
 
     private fun publishPresence(isOnline: Boolean) {
         val userId = authRepository.sessionFlow.value?.userId ?: return
-        applicationScope.launch { userRepository.updatePresence(userId, isOnline) }
+        // Privacy: when the user hides last seen we never advertise "online".
+        val online = isOnline && shareLastSeen
+        applicationScope.launch { userRepository.updatePresence(userId, online) }
     }
 
     override val workManagerConfiguration: Configuration

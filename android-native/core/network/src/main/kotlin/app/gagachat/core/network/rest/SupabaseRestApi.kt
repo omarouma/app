@@ -702,6 +702,22 @@ class SupabaseRestApi @Inject constructor(
         }
     }
 
+    // ---- Account ----
+
+    /**
+     * Permanently deletes the signed-in user's account and all owned data via the
+     * `delete_my_account()` RPC (Play Store requirement). The server scopes the
+     * deletion to `auth.uid()`, so this can only ever delete the caller.
+     */
+    suspend fun deleteMyAccount() {
+        client.post("${config.restUrl}/rpc/delete_my_account") {
+            auth()
+            header("Prefer", "return=minimal")
+            contentType(ContentType.Application.Json)
+            setBody(emptyMap<String, String>())
+        }
+    }
+
     // ---- Presence ----
 
     suspend fun upsertPresence(userId: String, isOnline: Boolean) {
