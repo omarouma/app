@@ -1,5 +1,6 @@
 package app.gagachat.core.network.dto
 
+import app.gagachat.core.model.CoinActivity
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonElement
@@ -49,6 +50,10 @@ data class WalletRow(
     val id: String,
     @SerialName("user_id") val userId: String,
     val coins: Long? = null,
+    /** Server-side ledger, persisted in the `transactions` jsonb column. */
+    @SerialName("transactions")
+    @Serializable(with = LenientCoinActivityListSerializer::class)
+    val transactions: List<CoinActivity>? = null,
     @SerialName("created_at") @Serializable(with = EpochMillisSerializer::class) val createdAt: Long? = null,
     @SerialName("updated_at") @Serializable(with = EpochMillisSerializer::class) val updatedAt: Long? = null,
 )
@@ -57,6 +62,7 @@ data class WalletRow(
 data class WalletInsert(
     @SerialName("user_id") val userId: String,
     val coins: Long = 0,
+    val transactions: List<CoinActivity> = emptyList(),
 )
 
 @Serializable

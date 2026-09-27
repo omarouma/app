@@ -1,5 +1,6 @@
 package app.gagachat.core.network.rest
 
+import app.gagachat.core.model.CoinActivity
 import app.gagachat.core.network.config.SupabaseConfig
 import app.gagachat.core.network.dto.BlockRow
 import app.gagachat.core.network.dto.CallHistoryRow
@@ -517,6 +518,17 @@ class SupabaseRestApi @Inject constructor(
             header("Prefer", "return=minimal")
             contentType(ContentType.Application.Json)
             setBody(mapOf("coins" to coins))
+        }
+    }
+
+    /** Persist the wallet ledger (jsonb `transactions` column) for [userId]. */
+    suspend fun updateWalletTransactions(userId: String, transactions: List<CoinActivity>) {
+        client.patch("${config.restUrl}/wallets") {
+            auth()
+            parameter("user_id", "eq.$userId")
+            header("Prefer", "return=minimal")
+            contentType(ContentType.Application.Json)
+            setBody(mapOf("transactions" to transactions))
         }
     }
 

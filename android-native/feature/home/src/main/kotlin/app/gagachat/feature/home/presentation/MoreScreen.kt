@@ -1,5 +1,6 @@
 package app.gagachat.feature.home.presentation
 
+import android.content.Context
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -39,9 +40,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -53,8 +56,15 @@ import app.gagachat.core.ui.component.GagaSectionHeader
 import app.gagachat.core.ui.component.GagaSettingsRow
 import app.gagachat.core.ui.theme.GagaDimens
 
-/** App version shown in the More footer. Kept in sync with SettingsScreen. */
-private const val APP_VERSION = "2.0.0"
+/**
+ * Resolves the installed app's version name from the package manager so the
+ * footer always reflects the real build (the home feature module does not own
+ * the app's BuildConfig).
+ */
+private fun appVersionLabel(context: Context): String =
+    runCatching {
+        context.packageManager.getPackageInfo(context.packageName, 0).versionName
+    }.getOrNull()?.takeIf { it.isNotBlank() } ?: "\u2014"
 
 /**
  * The "More" menu reached from the Chat tab's overflow (reference screenshots
@@ -82,6 +92,8 @@ fun MoreRoute(
     viewModel: MoreViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+    val appVersion = remember(context) { appVersionLabel(context) }
 
     GagaScaffold(title = "More") { padding ->
         Column(
@@ -128,7 +140,7 @@ fun MoreRoute(
             MenuRow("All Settings", "Theme, language, privacy, data & more", Icons.Filled.Settings, onOpenSettings)
 
             GagaSectionHeader("ABOUT")
-            MenuRow("About GaGa", "Version $APP_VERSION", Icons.Filled.Info, onOpenHelp)
+            MenuRow("About GaGa", "Version $appVersion", Icons.Filled.Info, onOpenHelp)
             MenuRow("Help Center", "FAQs and support", Icons.Filled.Info, onOpenHelp)
             MenuRow("Privacy Policy", "How we protect your data", Icons.Filled.Info, onOpenHelp)
             MenuRow("Terms of Service", "User agreement", Icons.Filled.Info, onOpenHelp)
@@ -144,7 +156,7 @@ fun MoreRoute(
             )
             Spacer(Modifier.height(GagaDimens.space12))
             Text(
-                text = "GaGa v$APP_VERSION \u2022 Built with care",
+                text = "GaGa v$appVersion \u2022 Built with care",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,

@@ -20,9 +20,9 @@ import javax.inject.Singleton
 /**
  * Coin wallet (LIVE table `wallets`, one row per user).
  *
- * The balance is authoritative on the server. The live schema does not yet
- * expose a ledger table, so a local, in-memory activity log is maintained for
- * the current session to render the "activity" list; it never affects balance.
+ * The balance is authoritative on the server. The ledger is persisted in the
+ * `wallets.transactions` jsonb column, so activity survives app restarts and
+ * is shared across devices; it never affects the authoritative balance.
  */
 interface WalletRepository {
     val wallet: StateFlow<Wallet?>
@@ -63,6 +63,7 @@ class DefaultWalletRepository @Inject constructor(
         try {
             val row = restApi.getWallet(me)
             _wallet.value = row?.toDomain() ?: Wallet(id = me, userId = me, coins = 0L)
+            row?.transactions?.let { _activity.value = it.sortedByDescending { a -> a.createdAt } }
             AppResult.Success(Unit)
         } catch (t: Throwable) {
             AppResult.Failure(ErrorMapper.map(t))
@@ -79,6 +80,7 @@ class DefaultWalletRepository @Inject constructor(
                 created.toDomain()
             }
             _wallet.value = wallet
+            existing?.transactions?.let { _activity.value = it.sortedByDescending { a -> a.createdAt } }
             AppResult.Success(wallet)
         } catch (t: Throwable) {
             AppResult.Failure(ErrorMapper.map(t))
@@ -130,7 +132,7 @@ class DefaultWalletRepository @Inject constructor(
         }
     }
 
-    private fun record(
+    private suspend fun record(
         type: CoinActivityType,
         amount: Long,
         counterpartyId: String? = null,
@@ -146,7 +148,11 @@ class DefaultWalletRepository @Inject constructor(
             note = note,
             createdAt = timeProvider.nowMillis(),
         )
-        _activity.value = listOf(entry) + _activity.value
+        val updated = listOf(entry) + _activity.value
+        _activity.value = updated
+        // Persist the ledger best-effort; a failure here must never fail the
+        // balance mutation that already succeeded on the server.
+        runCatching { restApi.updateWalletTransactions(currentUserId, updated) }
     }
 }
 
