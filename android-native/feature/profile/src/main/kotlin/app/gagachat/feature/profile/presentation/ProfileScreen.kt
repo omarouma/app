@@ -19,13 +19,24 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.AccountBalanceWallet
+import androidx.compose.material.icons.filled.Block
+import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.HelpOutline
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.QrCode2
+import androidx.compose.material.icons.filled.Security
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material.icons.filled.Verified
 import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material.icons.filled.WorkspacePremium
@@ -69,6 +80,16 @@ fun ProfileRoute(
     onEditProfile: () -> Unit = {},
     onOpenPrivacy: () -> Unit = {},
     onShare: (String) -> Unit = {},
+    // Personal Hub (self profile only).
+    onOpenMyQr: () -> Unit = {},
+    onOpenSavedMessages: () -> Unit = {},
+    onOpenWallet: () -> Unit = {},
+    onOpenSettings: () -> Unit = {},
+    onOpenBlocked: () -> Unit = {},
+    onOpenLanguage: () -> Unit = {},
+    onOpenStorage: () -> Unit = {},
+    onOpenHelp: () -> Unit = {},
+    onOpenAbout: () -> Unit = {},
     viewModel: ProfileViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -193,6 +214,93 @@ fun ProfileRoute(
             user?.lastSeen?.let {
                 GagaDivider()
                 GagaSettingsRow(title = "Last seen", subtitle = TimeFormat.lastSeen(it))
+            }
+
+            // Personal Hub (self only). This is the "Profile = My Profile +
+            // Personal Hub" architecture: the separate "Me" screen is gone and
+            // all personal/account destinations live here.
+            if (state.isSelf) {
+                Spacer(Modifier.height(GagaDimens.space8))
+                GagaDivider()
+                GagaSectionHeader("PERSONAL")
+                GagaSettingsRow(
+                    title = "My QR",
+                    subtitle = "Share and scan",
+                    leadingIcon = Icons.Filled.QrCode2,
+                    trailing = { ChevronRight() },
+                    onClick = onOpenMyQr,
+                )
+                GagaDivider()
+                GagaSettingsRow(
+                    title = "Saved Messages",
+                    subtitle = "Your private notes and bookmarks",
+                    leadingIcon = Icons.Filled.Bookmark,
+                    trailing = { ChevronRight() },
+                    onClick = onOpenSavedMessages,
+                )
+                GagaDivider()
+                GagaSettingsRow(
+                    title = "GaGa Wallet",
+                    subtitle = "GaGa Coin and payments",
+                    leadingIcon = Icons.Filled.AccountBalanceWallet,
+                    trailing = { ComingSoonBadge() },
+                    onClick = onOpenWallet,
+                )
+                GagaDivider()
+
+                GagaSectionHeader("ACCOUNT & APP")
+                GagaSettingsRow(
+                    title = "Settings",
+                    subtitle = "Theme, language, privacy, data & more",
+                    leadingIcon = Icons.Filled.Settings,
+                    trailing = { ChevronRight() },
+                    onClick = onOpenSettings,
+                )
+                GagaDivider()
+                GagaSettingsRow(
+                    title = "Privacy & Security",
+                    leadingIcon = Icons.Filled.Security,
+                    trailing = { ChevronRight() },
+                    onClick = onOpenPrivacy,
+                )
+                GagaDivider()
+                GagaSettingsRow(
+                    title = "Blocked Users",
+                    leadingIcon = Icons.Filled.Block,
+                    trailing = { ChevronRight() },
+                    onClick = onOpenBlocked,
+                )
+                GagaDivider()
+                GagaSettingsRow(
+                    title = "Language",
+                    leadingIcon = Icons.Filled.Language,
+                    trailing = { ChevronRight() },
+                    onClick = onOpenLanguage,
+                )
+                GagaDivider()
+                GagaSettingsRow(
+                    title = "Storage & Data",
+                    leadingIcon = Icons.Filled.Storage,
+                    trailing = { ChevronRight() },
+                    onClick = onOpenStorage,
+                )
+                GagaDivider()
+
+                GagaSectionHeader("SUPPORT")
+                GagaSettingsRow(
+                    title = "Help & Support",
+                    leadingIcon = Icons.Filled.HelpOutline,
+                    trailing = { ChevronRight() },
+                    onClick = onOpenHelp,
+                )
+                GagaDivider()
+                GagaSettingsRow(
+                    title = "About GaGa",
+                    leadingIcon = Icons.Filled.Info,
+                    trailing = { ChevronRight() },
+                    onClick = onOpenAbout,
+                )
+                GagaDivider()
             }
             Spacer(Modifier.height(GagaDimens.space48))
         }
@@ -441,4 +549,30 @@ private fun StatusTag(label: String) {
             color = MaterialTheme.colorScheme.onSurface,
         )
     }
+}
+
+/** Trailing chevron used by the Personal Hub rows. */
+@Composable
+private fun ChevronRight() {
+    Icon(
+        Icons.AutoMirrored.Filled.KeyboardArrowRight,
+        contentDescription = null,
+        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.size(GagaDimens.iconMedium),
+    )
+}
+
+/** Small "Coming Soon" pill used for the not-yet-available Wallet. */
+@Composable
+private fun ComingSoonBadge() {
+    Text(
+        text = "Coming Soon",
+        style = MaterialTheme.typography.labelSmall,
+        color = GagaGreen,
+        fontWeight = FontWeight.SemiBold,
+        modifier = Modifier
+            .clip(RoundedCornerShape(50))
+            .background(GagaGreenContainer)
+            .padding(horizontal = GagaDimens.space8, vertical = GagaDimens.space2),
+    )
 }

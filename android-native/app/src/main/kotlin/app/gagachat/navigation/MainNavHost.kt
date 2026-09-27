@@ -46,8 +46,8 @@ import app.gagachat.feature.wallet.walletGraph
 import app.gagachat.push.PendingDeepLink
 
 /**
- * The four top-level tabs. Matches the reference screenshots exactly:
- * People / Chat / Calls / Profile. [route] is the concrete navigation target;
+ * The four top-level tabs, in the final product order:
+ * Chats / People / Calls / Profile. [route] is the concrete navigation target;
  * [routePattern] is the registered pattern used to detect selection (the Profile
  * route carries an optional argument so its pattern differs from its target).
  */
@@ -57,8 +57,8 @@ private enum class TopLevelDestination(
     val label: String,
     val icon: ImageVector,
 ) {
+    CHAT(HomeRoutes.HOME, HomeRoutes.HOME, "Chats", Icons.AutoMirrored.Filled.Chat),
     PEOPLE(PeopleRoutes.PEOPLE, PeopleRoutes.PEOPLE, "People", Icons.Filled.People),
-    CHAT(HomeRoutes.HOME, HomeRoutes.HOME, "Chat", Icons.AutoMirrored.Filled.Chat),
     CALLS(CallRoutes.CALL_HISTORY, CallRoutes.CALL_HISTORY, "Calls", Icons.Filled.Call),
     PROFILE(ProfileRoutes.profile(), ProfileRoutes.PROFILE, "Profile", Icons.Filled.Person),
 }
@@ -180,6 +180,15 @@ fun MainNavHost(pendingDeepLink: String?) {
                 },
                 onEditProfile = { navController.navigate(SettingsRoutes.EDIT_PROFILE) },
                 onOpenPrivacy = { navController.navigate(SettingsRoutes.PRIVACY) },
+                onOpenMyQr = { navController.navigate(QrRoutes.MY_QR) },
+                onOpenSavedMessages = { navController.navigate(HomeRoutes.HOME) },
+                onOpenWallet = { navController.navigate(WalletRoutes.WALLET) },
+                onOpenSettings = { navController.navigate(SettingsRoutes.SETTINGS) },
+                onOpenBlocked = { navController.navigate(SettingsRoutes.BLOCKED) },
+                onOpenLanguage = { navController.navigate(SettingsRoutes.LANGUAGE) },
+                onOpenStorage = { navController.navigate(SettingsRoutes.STORAGE) },
+                onOpenHelp = { navController.navigate(SettingsRoutes.ABOUT) },
+                onOpenAbout = { navController.navigate(SettingsRoutes.ABOUT) },
             )
             settingsScreen(
                 navController = navController,

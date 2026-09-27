@@ -22,6 +22,15 @@ fun NavGraphBuilder.profileScreen(
     onEditProfile: () -> Unit = {},
     onOpenPrivacy: () -> Unit = {},
     onShare: (String) -> Unit = {},
+    onOpenMyQr: () -> Unit = {},
+    onOpenSavedMessages: () -> Unit = {},
+    onOpenWallet: () -> Unit = {},
+    onOpenSettings: () -> Unit = {},
+    onOpenBlocked: () -> Unit = {},
+    onOpenLanguage: () -> Unit = {},
+    onOpenStorage: () -> Unit = {},
+    onOpenHelp: () -> Unit = {},
+    onOpenAbout: () -> Unit = {},
 ) {
     composable(
         route = ProfileRoutes.PROFILE,
@@ -40,6 +49,15 @@ fun NavGraphBuilder.profileScreen(
             onEditProfile = onEditProfile,
             onOpenPrivacy = onOpenPrivacy,
             onShare = onShare,
+            onOpenMyQr = onOpenMyQr,
+            onOpenSavedMessages = onOpenSavedMessages,
+            onOpenWallet = onOpenWallet,
+            onOpenSettings = onOpenSettings,
+            onOpenBlocked = onOpenBlocked,
+            onOpenLanguage = onOpenLanguage,
+            onOpenStorage = onOpenStorage,
+            onOpenHelp = onOpenHelp,
+            onOpenAbout = onOpenAbout,
         )
     }
 }
