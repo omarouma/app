@@ -14,6 +14,7 @@ dependencies {
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.compose.material.icons.extended)
+    implementation(libs.androidx.compose.animation)
     implementation(libs.coil.compose)
     implementation(libs.coil.video)
     implementation(libs.zxing.core)

@@ -2,12 +2,13 @@ package app.gagachat.feature.home.presentation
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import app.gagachat.core.common.network.NetworkMonitor
 import app.gagachat.core.common.result.AppResult
 import app.gagachat.core.data.repository.AuthRepository
 import app.gagachat.core.data.repository.ConversationRepository
 import app.gagachat.core.data.repository.NotificationRepository
 import app.gagachat.core.model.Conversation
-import app.gagachat.core.ui.util.toUserMessage
+import app.gagachat.core.ui.util.toUserMessageOrNull
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -32,6 +33,7 @@ class HomeViewModel @Inject constructor(
     private val conversationRepository: ConversationRepository,
     private val authRepository: AuthRepository,
     private val notificationRepository: NotificationRepository,
+    private val networkMonitor: NetworkMonitor,
 ) : ViewModel() {
 
     /** Unread in-app notification count, surfaced as a bell badge on Home. */
@@ -124,7 +126,7 @@ class HomeViewModel @Inject constructor(
     private suspend fun sync(isPullToRefresh: Boolean = false) {
         if (isPullToRefresh) refreshing.value = true
         when (val result = conversationRepository.syncConversations()) {
-            is AppResult.Failure -> error.value = result.error.toUserMessage()
+            is AppResult.Failure -> error.value = result.error.toUserMessageOrNull(networkMonitor.isCurrentlyOnline())
             else -> Unit
         }
         refreshing.value = false

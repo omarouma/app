@@ -2,11 +2,12 @@ package app.gagachat.feature.groups
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import app.gagachat.core.common.network.NetworkMonitor
 import app.gagachat.core.common.result.AppResult
 import app.gagachat.core.data.repository.GroupRepository
 import app.gagachat.core.model.Group
 import app.gagachat.core.ui.state.ScreenState
-import app.gagachat.core.ui.util.toUserMessage
+import app.gagachat.core.ui.util.toScreenStateError
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -18,6 +19,7 @@ import javax.inject.Inject
 @HiltViewModel
 class GroupsViewModel @Inject constructor(
     private val groupRepository: GroupRepository,
+    private val networkMonitor: NetworkMonitor,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow<ScreenState<List<Group>>>(ScreenState.Initial)
@@ -44,7 +46,7 @@ class GroupsViewModel @Inject constructor(
             when (val result = groupRepository.refresh()) {
                 is AppResult.Success -> loaded = true
                 is AppResult.Failure -> if (!loaded) {
-                    _state.value = ScreenState.Error(result.error.toUserMessage(), retryable = true)
+                    _state.value = result.error.toScreenStateError(networkMonitor.isCurrentlyOnline())
                 }
                 AppResult.Loading -> Unit
             }
