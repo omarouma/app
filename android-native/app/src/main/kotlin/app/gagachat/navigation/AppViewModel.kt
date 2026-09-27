@@ -3,6 +3,7 @@ package app.gagachat.navigation
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.gagachat.core.common.di.ApplicationScope
+import app.gagachat.core.common.network.NetworkMonitor
 import app.gagachat.core.data.preferences.OnboardingPreferences
 import app.gagachat.core.data.repository.AuthRepository
 import app.gagachat.core.data.sync.RealtimeCoordinator
@@ -30,6 +31,7 @@ class AppViewModel @Inject constructor(
     private val onboardingPreferences: OnboardingPreferences,
     private val syncInitializer: SyncInitializer,
     private val realtimeCoordinator: RealtimeCoordinator,
+    private val networkMonitor: NetworkMonitor,
     @ApplicationScope private val applicationScope: CoroutineScope,
 ) : ViewModel() {
 
@@ -38,6 +40,9 @@ class AppViewModel @Inject constructor(
     /** null = not yet loaded from DataStore; false = show onboarding; true = done. */
     val onboardingCompleted: StateFlow<Boolean?> = onboardingPreferences.completed
         .stateIn(viewModelScope, SharingStarted.Eagerly, null)
+
+    /** Live connectivity, surfaced as the app-wide offline banner (Master Spec §E). */
+    val isOnline: StateFlow<Boolean> = networkMonitor.isOnline
 
     init {
         // Fast, offline-safe bootstrap (no network on the critical path).
@@ -51,5 +56,17 @@ class AppViewModel @Inject constructor(
             // socket may have connected at process start before login existed.
             realtimeCoordinator.restart(applicationScope)
         }
+    }
+
+    /**
+     * Called when connectivity is restored (Master Spec §E — auto-recovery).
+     * Re-arms the background sync and re-establishes the realtime socket so any
+     * messages queued while offline flush immediately and the live fast path
+     * resumes, without the user having to touch anything.
+     */
+    fun onReconnected() {
+        if (!authRepository.isLoggedIn()) return
+        syncInitializer.start()
+        realtimeCoordinator.restart(applicationScope)
     }
 }

@@ -2,11 +2,13 @@ package app.gagachat.feature.wallet
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import app.gagachat.core.common.network.NetworkMonitor
 import app.gagachat.core.common.result.AppResult
 import app.gagachat.core.data.repository.WalletRepository
 import app.gagachat.core.model.CoinActivity
 import app.gagachat.core.model.Wallet
 import app.gagachat.core.ui.state.ScreenState
+import app.gagachat.core.ui.util.toScreenStateError
 import app.gagachat.core.ui.util.toUserMessage
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -24,6 +26,7 @@ data class WalletUi(
 @HiltViewModel
 class WalletViewModel @Inject constructor(
     private val walletRepository: WalletRepository,
+    private val networkMonitor: NetworkMonitor,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow<ScreenState<WalletUi>>(ScreenState.Initial)
@@ -59,7 +62,7 @@ class WalletViewModel @Inject constructor(
                     WalletUi(r.data, walletRepository.activity.value),
                 )
                 is AppResult.Failure -> if (_state.value !is ScreenState.Content) {
-                    _state.value = ScreenState.Error(r.error.toUserMessage(), retryable = true)
+                    _state.value = r.error.toScreenStateError(networkMonitor.isCurrentlyOnline())
                 }
                 AppResult.Loading -> Unit
             }
