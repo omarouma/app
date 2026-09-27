@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Backup rules (PDF §10 — security baseline). The encrypted session store and
+  the Room database are excluded from cloud backup so tokens and private
+  messages never leave the device via Google backup.
+-->
+<full-backup-content>
+    <exclude domain="sharedpref" path="gaga_secure_session.xml" />
+    <exclude domain="database" path="gaga.db" />
+    <exclude domain="database" path="gaga.db-shm" />
+    <exclude domain="database" path="gaga.db-wal" />
+    <exclude domain="file" path="media_cache" />
+</full-backup-content>

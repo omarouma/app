@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="gaga_green">#00C300</color>
+    <color name="gaga_green_dark">#009A00</color>
+    <color name="gaga_teal">#00A884</color>
+    <color name="white">#FFFFFFFF</color>
+    <color name="black">#FF000000</color>
+    <color name="ic_launcher_background">#00C300</color>
+</resources>
