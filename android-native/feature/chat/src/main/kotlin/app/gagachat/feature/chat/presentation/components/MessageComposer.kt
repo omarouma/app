@@ -21,6 +21,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -50,6 +51,7 @@ fun MessageComposer(
     onCancelReply: () -> Unit,
     onAttach: () -> Unit,
     onPickImage: () -> Unit,
+    onPickVideo: () -> Unit,
     onShareLocation: () -> Unit,
     isRecording: Boolean,
     recordingElapsedMs: Long,
@@ -90,6 +92,9 @@ fun MessageComposer(
                     }
                     IconButton(onClick = onPickImage) {
                         Icon(Icons.Filled.Image, contentDescription = "Send photo")
+                    }
+                    IconButton(onClick = onPickVideo) {
+                        Icon(Icons.Filled.Videocam, contentDescription = "Send video")
                     }
                     TextField(
                         value = draft,

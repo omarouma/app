@@ -53,8 +53,14 @@ fun AddByCodeScreen(
                 .padding(GagaDimens.space16),
         ) {
             Text(
-                text = "Enter a GaGa code or @username",
+                text = "Paste or type a GaGa code or @username to find someone.",
                 style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(GagaDimens.space4))
+            Text(
+                text = "Camera scanning is coming soon.",
+                style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Spacer(Modifier.height(GagaDimens.space12))

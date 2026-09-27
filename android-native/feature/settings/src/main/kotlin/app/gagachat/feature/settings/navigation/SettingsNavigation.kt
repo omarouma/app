@@ -4,11 +4,15 @@ import androidx.navigation.NavController
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.compose.composable
 import app.gagachat.feature.settings.presentation.AboutSettingsScreen
+import app.gagachat.feature.settings.presentation.AccessibilitySettingsScreen
+import app.gagachat.feature.settings.presentation.AppPermissionsScreen
 import app.gagachat.feature.settings.presentation.AppearanceSettingsScreen
 import app.gagachat.feature.settings.presentation.BlockedUsersScreen
 import app.gagachat.feature.settings.presentation.EditProfileScreen
+import app.gagachat.feature.settings.presentation.LanguageSettingsScreen
 import app.gagachat.feature.settings.presentation.NotificationsSettingsScreen
 import app.gagachat.feature.settings.presentation.PrivacySettingsScreen
+import app.gagachat.feature.settings.presentation.SecuritySettingsScreen
 import app.gagachat.feature.settings.presentation.SettingsRoute
 import app.gagachat.feature.settings.presentation.StorageSettingsScreen
 
@@ -22,6 +26,10 @@ object SettingsRoutes {
     const val STORAGE = "settings/storage"
     const val BLOCKED = "settings/blocked"
     const val ABOUT = "settings/about"
+    const val PERMISSIONS = "settings/permissions"
+    const val SECURITY = "settings/security"
+    const val ACCESSIBILITY = "settings/accessibility"
+    const val LANGUAGE = "settings/language"
 }
 
 /**
@@ -50,6 +58,10 @@ fun NavGraphBuilder.settingsScreen(
             onOpenStorage = { navController.navigate(SettingsRoutes.STORAGE) },
             onOpenBlocked = { navController.navigate(SettingsRoutes.BLOCKED) },
             onOpenAbout = { navController.navigate(SettingsRoutes.ABOUT) },
+            onOpenPermissions = { navController.navigate(SettingsRoutes.PERMISSIONS) },
+            onOpenSecurity = { navController.navigate(SettingsRoutes.SECURITY) },
+            onOpenAccessibility = { navController.navigate(SettingsRoutes.ACCESSIBILITY) },
+            onOpenLanguage = { navController.navigate(SettingsRoutes.LANGUAGE) },
             onSignedOut = onSignedOut,
         )
     }
@@ -79,5 +91,20 @@ fun NavGraphBuilder.settingsScreen(
     }
     composable(SettingsRoutes.ABOUT) {
         AboutSettingsScreen(onBack = { navController.popBackStack() })
+    }
+    composable(SettingsRoutes.PERMISSIONS) {
+        AppPermissionsScreen(onBack = { navController.popBackStack() })
+    }
+    composable(SettingsRoutes.SECURITY) {
+        SecuritySettingsScreen(
+            onOpenBlocked = { navController.navigate(SettingsRoutes.BLOCKED) },
+            onBack = { navController.popBackStack() },
+        )
+    }
+    composable(SettingsRoutes.ACCESSIBILITY) {
+        AccessibilitySettingsScreen(onBack = { navController.popBackStack() })
+    }
+    composable(SettingsRoutes.LANGUAGE) {
+        LanguageSettingsScreen(onBack = { navController.popBackStack() })
     }
 }

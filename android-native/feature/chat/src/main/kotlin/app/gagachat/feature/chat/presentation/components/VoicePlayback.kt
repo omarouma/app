@@ -30,6 +30,12 @@ class VoicePlayerState internal constructor() {
         val mp = MediaPlayer()
         return try {
             mp.setDataSource(source)
+            mp.setOnPreparedListener {
+                // Guard against a stale player that was released while buffering.
+                if (player !== it) return@setOnPreparedListener
+                runCatching { it.start() }
+                isPlaying = true
+            }
             mp.setOnCompletionListener {
                 it.release()
                 if (player === it) player = null
@@ -41,12 +47,13 @@ class VoicePlayerState internal constructor() {
                 isPlaying = false
                 true
             }
-            mp.prepare()
-            mp.start()
+            // Assign before prepareAsync so the OnPreparedListener can match it.
             player = mp
-            isPlaying = true
+            mp.prepareAsync()
+            isPlaying = false
         } catch (t: Throwable) {
             runCatching { mp.release() }
+            if (player === mp) player = null
             isPlaying = false
         }
     }

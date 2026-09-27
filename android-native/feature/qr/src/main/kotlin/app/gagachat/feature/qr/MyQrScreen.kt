@@ -1,5 +1,9 @@
 package app.gagachat.feature.qr
 
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
+import android.content.Intent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -26,19 +30,21 @@ import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -52,12 +58,13 @@ import app.gagachat.core.ui.state.GagaStateHost
 import app.gagachat.core.ui.theme.GagaDimens
 import app.gagachat.core.ui.theme.GagaGreen
 import app.gagachat.core.ui.theme.GagaGreenContainer
+import kotlinx.coroutines.launch
 
 /** "My QR code" (Master Spec §C): a scannable code that shares your profile. */
 @Composable
 fun MyQrScreen(
     onBack: () -> Unit,
-    onShare: (String) -> Unit,
+    onShare: (String) -> Unit = {},
     onScan: () -> Unit = {},
     viewModel: MyQrViewModel = hiltViewModel(),
 ) {
@@ -65,7 +72,35 @@ fun MyQrScreen(
     var mode by remember { mutableStateOf(0) } // 0 = My QR, 1 = Scan
     var tab by remember { mutableStateOf(0) }
 
-    GagaScaffold(title = "QR Code", onBack = onBack) { padding ->
+    val context = LocalContext.current
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
+
+    fun copyToClipboard(label: String, value: String, message: String) {
+        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+        clipboard?.setPrimaryClip(ClipData.newPlainText(label, value))
+        scope.launch { snackbarHostState.showSnackbar(message) }
+    }
+
+    fun sharePayload(payload: String, name: String) {
+        val text = "Add $name on GaGa Chat: $payload"
+        val sendIntent = Intent(Intent.ACTION_SEND).apply {
+            type = "text/plain"
+            putExtra(Intent.EXTRA_TEXT, text)
+            putExtra(Intent.EXTRA_SUBJECT, "GaGa Chat")
+        }
+        val chooser = Intent.createChooser(sendIntent, "Share your GaGa QR").apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        context.startActivity(chooser)
+        onShare(payload)
+    }
+
+    GagaScaffold(
+        title = "QR Code",
+        onBack = onBack,
+        snackbarHostState = snackbarHostState,
+    ) { padding ->
         GagaStateHost(
             state = state,
             modifier = Modifier.fillMaxSize().padding(padding),
@@ -133,7 +168,15 @@ fun MyQrScreen(
                     Spacer(Modifier.height(GagaDimens.space16))
                     GagaQrCode(content = viewModel.qrPayload, size = 220.dp)
                     Spacer(Modifier.height(GagaDimens.space16))
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(50))
+                            .clickable {
+                                copyToClipboard("GaGa Wallet ID", ui.walletCode, "Wallet ID copied")
+                            }
+                            .padding(horizontal = GagaDimens.space8, vertical = GagaDimens.space4),
+                    ) {
                         Text(
                             text = "Wallet ID",
                             style = MaterialTheme.typography.bodySmall,
@@ -183,13 +226,16 @@ fun MyQrScreen(
                 ) {
                     GagaPrimaryButton(
                         text = "Share",
-                        onClick = { onShare(viewModel.qrPayload) },
+                        onClick = { sharePayload(viewModel.qrPayload, ui.user.displayLabel) },
                         leadingIcon = Icons.Filled.Share,
                         modifier = Modifier.weight(1f),
                     )
                     GagaSecondaryButton(
                         text = "Copy Link",
-                        onClick = { onShare(viewModel.qrPayload) },
+                        onClick = {
+                            copyToClipboard("GaGa QR", viewModel.qrPayload, "Link copied")
+                            onShare(viewModel.qrPayload)
+                        },
                         leadingIcon = Icons.Filled.ContentCopy,
                         modifier = Modifier.weight(1f),
                     )

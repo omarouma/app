@@ -1,5 +1,7 @@
 package app.gagachat.feature.chat.presentation.components
 
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -48,6 +50,7 @@ fun MessageBubble(
     message: Message,
     isOutgoing: Boolean,
     onRetry: () -> Unit,
+    onMediaClick: (Message) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val bubbleColor = if (isOutgoing) {
@@ -82,7 +85,11 @@ fun MessageBubble(
                     color = contentColor.copy(alpha = 0.6f),
                 )
             } else {
-                MessageContent(message = message, contentColor = contentColor)
+                MessageContent(
+                    message = message,
+                    contentColor = contentColor,
+                    onMediaClick = onMediaClick,
+                )
             }
             Spacer(Modifier.height(GagaDimens.space2))
             MessageMeta(
@@ -96,15 +103,27 @@ fun MessageBubble(
 }
 
 @Composable
-private fun MessageContent(message: Message, contentColor: Color) {
+private fun MessageContent(
+    message: Message,
+    contentColor: Color,
+    onMediaClick: (Message) -> Unit,
+) {
     when (message.type) {
         MessageType.TEXT -> Text(
             text = message.text.orEmpty(),
             style = MaterialTheme.typography.bodyLarge,
             color = contentColor,
         )
-        MessageType.IMAGE -> MediaImage(message = message, contentColor = contentColor)
-        MessageType.VIDEO -> MediaVideo(message = message, contentColor = contentColor)
+        MessageType.IMAGE -> MediaImage(
+            message = message,
+            contentColor = contentColor,
+            onClick = { onMediaClick(message) },
+        )
+        MessageType.VIDEO -> MediaVideo(
+            message = message,
+            contentColor = contentColor,
+            onClick = { onMediaClick(message) },
+        )
         MessageType.AUDIO -> AudioContent(message = message, contentColor = contentColor)
         MessageType.FILE -> FileContent(message = message, contentColor = contentColor)
         MessageType.LOCATION -> LocationContent(message = message, contentColor = contentColor)
@@ -117,13 +136,14 @@ private fun MessageContent(message: Message, contentColor: Color) {
 }
 
 @Composable
-private fun MediaImage(message: Message, contentColor: Color) {
+private fun MediaImage(message: Message, contentColor: Color, onClick: () -> Unit) {
     val model = message.localMediaPath ?: message.mediaUrl
     Box(
         modifier = Modifier
             .size(width = 220.dp, height = 160.dp)
             .clip(RoundedCornerShape(12.dp))
-            .background(MaterialTheme.colorScheme.surfaceVariant),
+            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .clickable(enabled = model != null, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
         if (model != null) {
@@ -147,12 +167,13 @@ private fun MediaImage(message: Message, contentColor: Color) {
 }
 
 @Composable
-private fun MediaVideo(message: Message, contentColor: Color) {
+private fun MediaVideo(message: Message, contentColor: Color, onClick: () -> Unit) {
     Box(
         modifier = Modifier
             .size(width = 220.dp, height = 160.dp)
             .clip(RoundedCornerShape(12.dp))
-            .background(MaterialTheme.colorScheme.surfaceVariant),
+            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
         val thumb = message.thumbnailUrl ?: message.localMediaPath
@@ -164,12 +185,20 @@ private fun MediaVideo(message: Message, contentColor: Color) {
                 modifier = Modifier.fillMaxWidth(),
             )
         }
-        Icon(
-            Icons.Filled.PlayArrow,
-            contentDescription = "Play video",
-            tint = Color.White,
-            modifier = Modifier.size(48.dp),
-        )
+        Box(
+            modifier = Modifier
+                .size(56.dp)
+                .clip(androidx.compose.foundation.shape.CircleShape)
+                .background(Color.Black.copy(alpha = 0.45f)),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                Icons.Filled.PlayArrow,
+                contentDescription = "Play video",
+                tint = Color.White,
+                modifier = Modifier.size(40.dp),
+            )
+        }
     }
 }
 
@@ -221,14 +250,44 @@ private fun FileContent(message: Message, contentColor: Color) {
 
 @Composable
 private fun LocationContent(message: Message, contentColor: Color) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val lat = message.latitude
+    val lng = message.longitude
+    val hasCoords = lat != null && lng != null
+    val openMap = {
+        if (hasCoords) {
+            val label = Uri.encode("Shared location")
+            val uri = Uri.parse("geo:$lat,$lng?q=$lat,$lng($label)")
+            val intent = Intent(Intent.ACTION_VIEW, uri).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            runCatching { context.startActivity(intent) }
+        }
+        Unit
+    }
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .clip(RoundedCornerShape(12.dp))
+            .clickable(enabled = hasCoords, onClick = openMap)
+            .padding(vertical = GagaDimens.space2, horizontal = GagaDimens.space2),
+    ) {
         Icon(Icons.Filled.LocationOn, contentDescription = "Location", tint = contentColor)
         Spacer(Modifier.width(GagaDimens.space8))
-        Text(
-            text = "Shared location",
-            style = MaterialTheme.typography.bodyMedium,
-            color = contentColor,
-        )
+        Column {
+            Text(
+                text = "Shared location",
+                style = MaterialTheme.typography.bodyMedium,
+                color = contentColor,
+            )
+            if (hasCoords) {
+                Text(
+                    text = "Tap to open in Maps",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = contentColor.copy(alpha = 0.7f),
+                )
+            }
+        }
     }
 }
 

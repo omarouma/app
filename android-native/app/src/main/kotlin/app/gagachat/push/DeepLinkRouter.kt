@@ -27,26 +27,30 @@ object DeepLinkRouter {
     fun routeForPush(data: Map<String, String>): String? {
         val conversationId = data["conversationId"] ?: data["conversation_id"]
         val type = data["type"]
+        val isVideo = data["callType"] == "video"
         return when {
-            type == "call" && conversationId != null -> "call/active"
+            type == "call" && conversationId != null -> callRoute(conversationId, isVideo)
             conversationId != null -> "chat/$conversationId"
             else -> null
         }
     }
+
+    private fun callRoute(conversationId: String, isVideo: Boolean): String =
+        "call/active?conversationId=$conversationId&video=$isVideo"
 
     private fun routeFor(uri: Uri): String? {
         val segments = uri.pathSegments
         return when {
             uri.scheme == SCHEME -> when (uri.host) {
                 "chat" -> segments.firstOrNull()?.let { "chat/$it" }
-                "call" -> "call/active"
+                "call" -> segments.firstOrNull()?.let { callRoute(it, false) } ?: "call/active"
                 "profile" -> segments.firstOrNull()?.let { "profile?userId=$it" } ?: "profile"
                 else -> null
             }
             uri.scheme == "https" && uri.host == WEB_HOST -> {
                 when (segments.firstOrNull()) {
                     "chat" -> segments.getOrNull(1)?.let { "chat/$it" }
-                    "call" -> "call/active"
+                    "call" -> segments.getOrNull(1)?.let { callRoute(it, false) } ?: "call/active"
                     "profile" -> segments.getOrNull(1)?.let { "profile?userId=$it" } ?: "profile"
                     else -> null
                 }

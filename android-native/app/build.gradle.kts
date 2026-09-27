@@ -145,6 +145,11 @@ dependencies {
     // Serialization for deep-link payloads
     implementation(libs.kotlinx.serialization.json)
 
+    // Coil image loading (app-level ImageLoader registers the video-frame
+    // decoder so video message thumbnails render real frames).
+    implementation(libs.coil.compose)
+    implementation(libs.coil.video)
+
     // Testing
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.test.junit)

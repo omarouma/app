@@ -234,9 +234,23 @@ class CallViewModel @Inject constructor(
         }
     }
 
-    fun toggleMute() = _state.update { it.copy(isMuted = !it.isMuted) }
-    fun toggleSpeaker() = _state.update { it.copy(isSpeakerOn = !it.isSpeakerOn) }
-    fun toggleVideo() = _state.update { it.copy(isVideoEnabled = !it.isVideoEnabled) }
+    fun toggleMute() {
+        val next = !_state.value.isMuted
+        _state.update { it.copy(isMuted = next) }
+        callManager.setMuted(viewModelScope, next)
+    }
+
+    fun toggleSpeaker() {
+        val next = !_state.value.isSpeakerOn
+        _state.update { it.copy(isSpeakerOn = next) }
+        callManager.setSpeaker(viewModelScope, next)
+    }
+
+    fun toggleVideo() {
+        val next = !_state.value.isVideoEnabled
+        _state.update { it.copy(isVideoEnabled = next) }
+        callManager.setCamera(viewModelScope, next)
+    }
 
     fun dismissEnded() {
         _state.update { it.copy(phase = CallPhase.IDLE, activeCall = null, elapsedSeconds = 0L) }

@@ -19,12 +19,10 @@ fun NavGraphBuilder.qrGraph(
     onOpenChat: (String) -> Unit,
 ) {
     composable(QrRoutes.MY_QR) {
+        // Share + copy-link are handled inside MyQrScreen via the system share sheet
+        // and the clipboard, so no host callback is required here.
         MyQrScreen(
             onBack = { navController.popBackStack() },
-            onShare = { payload ->
-                // Sharing is surfaced as a system share sheet from the host app; here
-                // we simply keep the payload available for the caller to consume.
-            },
             onScan = { navController.navigate(QrRoutes.ADD_BY_CODE) },
         )
     }

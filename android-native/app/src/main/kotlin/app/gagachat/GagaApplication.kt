@@ -6,6 +6,9 @@ import androidx.work.Configuration
 import app.gagachat.core.common.di.ApplicationScope
 import app.gagachat.core.data.sync.RealtimeCoordinator
 import app.gagachat.push.NotificationChannels
+import coil.ImageLoader
+import coil.ImageLoaderFactory
+import coil.decode.VideoFrameDecoder
 import dagger.hilt.android.HiltAndroidApp
 import kotlinx.coroutines.CoroutineScope
 import javax.inject.Inject
@@ -20,7 +23,7 @@ import javax.inject.Inject
  * the periodic sync workers acting as the offline safety net (PDF §4).
  */
 @HiltAndroidApp
-class GagaApplication : Application(), Configuration.Provider {
+class GagaApplication : Application(), Configuration.Provider, ImageLoaderFactory {
 
     @Inject
     lateinit var workerFactory: HiltWorkerFactory
@@ -44,5 +47,15 @@ class GagaApplication : Application(), Configuration.Provider {
         get() = Configuration.Builder()
             .setWorkerFactory(workerFactory)
             .setMinimumLoggingLevel(android.util.Log.INFO)
+            .build()
+
+    /**
+     * Registers the [VideoFrameDecoder] so Coil can render a real frame for
+     * video-message thumbnails (the chat bubble shows the first frame before
+     * playback). Everything else uses Coil's sensible defaults.
+     */
+    override fun newImageLoader(): ImageLoader =
+        ImageLoader.Builder(this)
+            .components { add(VideoFrameDecoder.Factory()) }
             .build()
 }

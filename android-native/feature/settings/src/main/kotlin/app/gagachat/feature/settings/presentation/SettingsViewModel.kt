@@ -1,19 +1,30 @@
 package app.gagachat.feature.settings.presentation
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import app.gagachat.core.data.preferences.AppLanguage
 import app.gagachat.core.data.preferences.MediaDownloadPolicy
 import app.gagachat.core.data.preferences.SettingsPreferences
+import app.gagachat.core.data.preferences.TextScale
 import app.gagachat.core.data.preferences.ThemeMode
 import app.gagachat.core.data.repository.AuthRepository
 import app.gagachat.core.data.repository.UserRepository
 import app.gagachat.core.model.User
+import coil.imageLoader
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.io.File
 import javax.inject.Inject
 
 data class SettingsUiState(
@@ -29,12 +40,16 @@ data class SettingsUiState(
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
     val mediaPolicy: MediaDownloadPolicy = MediaDownloadPolicy.WIFI,
     val autoDownloadEnabled: Boolean = true,
+    val appLockEnabled: Boolean = false,
+    val textScale: TextScale = TextScale.DEFAULT,
+    val language: AppLanguage = AppLanguage.ENGLISH,
     val isSigningOut: Boolean = false,
     val signedOut: Boolean = false,
 )
 
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
+    @ApplicationContext private val context: Context,
     private val authRepository: AuthRepository,
     private val userRepository: UserRepository,
     private val settingsPreferences: SettingsPreferences,
@@ -48,6 +63,10 @@ class SettingsViewModel @Inject constructor(
         ),
     )
     val state: StateFlow<SettingsUiState> = _state.asStateFlow()
+
+    /** One-shot user notices (e.g. "Media cache cleared"). */
+    private val _notices = MutableSharedFlow<String>(extraBufferCapacity = 1)
+    val notices: SharedFlow<String> = _notices.asSharedFlow()
 
     init {
         observePreferences()
@@ -85,6 +104,17 @@ class SettingsViewModel @Inject constructor(
             settingsPreferences.autoDownloadEnabled.collect { v ->
                 _state.update { it.copy(autoDownloadEnabled = v) }
             }
+        }
+        viewModelScope.launch {
+            settingsPreferences.appLockEnabled.collect { v ->
+                _state.update { it.copy(appLockEnabled = v) }
+            }
+        }
+        viewModelScope.launch {
+            settingsPreferences.textScale.collect { v -> _state.update { it.copy(textScale = v) } }
+        }
+        viewModelScope.launch {
+            settingsPreferences.language.collect { v -> _state.update { it.copy(language = v) } }
         }
     }
 
@@ -129,6 +159,39 @@ class SettingsViewModel @Inject constructor(
     fun setAutoDownloadEnabled(enabled: Boolean) =
         viewModelScope.launch { settingsPreferences.setAutoDownloadEnabled(enabled) }
 
+    fun setAppLockEnabled(enabled: Boolean) =
+        viewModelScope.launch { settingsPreferences.setAppLockEnabled(enabled) }
+
+    fun setTextScale(scale: TextScale) =
+        viewModelScope.launch { settingsPreferences.setTextScale(scale) }
+
+    fun setLanguage(language: AppLanguage) =
+        viewModelScope.launch { settingsPreferences.setLanguage(language) }
+
+    /** Clears locally cached media (Coil disk cache + cached media directories). */
+    fun clearMediaCache() {
+        viewModelScope.launch {
+            val freedBytes = withContext(Dispatchers.IO) {
+                var freed = 0L
+                runCatching {
+                    context.imageLoader.diskCache?.clear()
+                }
+                val dirs = listOf("image_cache", "video_cache", "media", "coil_cache", "http_cache")
+                dirs.forEach { name ->
+                    val dir = File(context.cacheDir, name)
+                    if (dir.exists()) {
+                        freed += dir.directorySize()
+                        runCatching { dir.deleteRecursively() }
+                    }
+                }
+                freed
+            }
+            val mb = freedBytes / (1024.0 * 1024.0)
+            val label = if (mb >= 0.1) String.format("%.1f MB freed", mb) else "Cache cleared"
+            _notices.tryEmit("Media cache cleared — $label")
+        }
+    }
+
     fun signOut() {
         _state.update { it.copy(isSigningOut = true) }
         viewModelScope.launch {
@@ -137,3 +200,6 @@ class SettingsViewModel @Inject constructor(
         }
     }
 }
+
+private fun File.directorySize(): Long =
+    walkBottomUp().filter { it.isFile }.sumOf { it.length() }

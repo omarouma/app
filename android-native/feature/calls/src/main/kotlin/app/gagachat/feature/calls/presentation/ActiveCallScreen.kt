@@ -39,12 +39,21 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.gagachat.core.model.CallType
 import app.gagachat.core.ui.component.GagaAvatar
+import app.gagachat.core.ui.component.GagaEmptyState
+import app.gagachat.core.ui.component.GagaErrorState
+import app.gagachat.core.ui.component.GagaLoading
+import app.gagachat.core.ui.component.GagaPrimaryButton
 import app.gagachat.core.ui.theme.GagaDimens
 import app.gagachat.core.ui.util.TimeFormat
 
 /**
  * Full-screen call surface. Handles incoming ringing, outgoing ringing and the
  * connected state in a single composable so navigation stays simple.
+ *
+ * The route never renders a blank screen: while the outgoing call is being
+ * resolved it shows a starting state, once ended it shows a dismissible
+ * "call ended" summary, and an unrecoverable failure surfaces an error state
+ * with a way back.
  */
 @Composable
 fun ActiveCallRoute(
@@ -54,7 +63,6 @@ fun ActiveCallRoute(
     viewModel: CallViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    val call = state.activeCall
 
     // Outgoing call initiated from chat/profile: resolve the peer and start.
     LaunchedEffect(conversationId) {
@@ -63,9 +71,65 @@ fun ActiveCallRoute(
         }
     }
 
-    if (call == null || state.phase == CallPhase.IDLE) {
-        return
+    val isActive = state.phase != CallPhase.IDLE && state.phase != CallPhase.ENDED
+
+    when {
+        isActive -> ActiveCallContent(
+            state = state,
+            onAccept = viewModel::acceptCall,
+            onReject = viewModel::rejectCall,
+            onEnd = viewModel::endCall,
+            onToggleMute = viewModel::toggleMute,
+            onToggleSpeaker = viewModel::toggleSpeaker,
+            onToggleVideo = viewModel::toggleVideo,
+        )
+
+        state.phase == CallPhase.ENDED -> CallEndedContent(
+            error = state.error,
+            onDismiss = {
+                viewModel.dismissEnded()
+                onCallFinished()
+            },
+        )
+
+        state.error != null -> GagaErrorState(
+            title = "Call unavailable",
+            description = state.error,
+            onRetry = {
+                viewModel.dismissEnded()
+                onCallFinished()
+            },
+        )
+
+        conversationId != null -> GagaLoading(message = "Starting call\u2026")
+
+        else -> GagaEmptyState(
+            icon = Icons.Filled.Call,
+            title = "No active call",
+            description = "Start a call from a chat or the call history.",
+            action = {
+                GagaPrimaryButton(
+                    text = "Close",
+                    onClick = onCallFinished,
+                    modifier = Modifier.padding(horizontal = GagaDimens.space32),
+                )
+            },
+        )
     }
+}
+
+@Composable
+private fun ActiveCallContent(
+    state: CallUiState,
+    onAccept: () -> Unit,
+    onReject: () -> Unit,
+    onEnd: () -> Unit,
+    onToggleMute: () -> Unit,
+    onToggleSpeaker: () -> Unit,
+    onToggleVideo: () -> Unit,
+) {
+    val call = state.activeCall
+    val peerName = call?.peerName?.takeIf { it.isNotBlank() } ?: "GaGa User"
 
     Box(
         modifier = Modifier
@@ -80,13 +144,13 @@ fun ActiveCallRoute(
             verticalArrangement = Arrangement.Center,
         ) {
             GagaAvatar(
-                imageUrl = call.peerAvatar,
-                name = call.peerName?.takeIf { it.isNotBlank() } ?: "GaGa User",
+                imageUrl = call?.peerAvatar,
+                name = peerName,
                 size = GagaDimens.avatarXLarge,
             )
             Spacer(Modifier.height(GagaDimens.space20))
             Text(
-                text = call.peerName?.takeIf { it.isNotBlank() } ?: "GaGa User",
+                text = peerName,
                 style = MaterialTheme.typography.headlineSmall,
                 textAlign = TextAlign.Center,
             )
@@ -101,18 +165,37 @@ fun ActiveCallRoute(
 
         CallControls(
             state = state,
-            onAccept = viewModel::acceptCall,
-            onReject = viewModel::rejectCall,
-            onEnd = viewModel::endCall,
-            onToggleMute = viewModel::toggleMute,
-            onToggleSpeaker = viewModel::toggleSpeaker,
-            onToggleVideo = viewModel::toggleVideo,
+            onAccept = onAccept,
+            onReject = onReject,
+            onEnd = onEnd,
+            onToggleMute = onToggleMute,
+            onToggleSpeaker = onToggleSpeaker,
+            onToggleVideo = onToggleVideo,
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()
                 .padding(bottom = GagaDimens.space48),
         )
     }
+}
+
+@Composable
+private fun CallEndedContent(
+    error: String?,
+    onDismiss: () -> Unit,
+) {
+    GagaEmptyState(
+        icon = Icons.Filled.CallEnd,
+        title = if (error != null) "Call failed" else "Call ended",
+        description = error ?: "The call has finished.",
+        action = {
+            GagaPrimaryButton(
+                text = "Done",
+                onClick = onDismiss,
+                modifier = Modifier.padding(horizontal = GagaDimens.space32),
+            )
+        },
+    )
 }
 
 @Composable

@@ -28,7 +28,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.gagachat.core.ui.component.GagaDivider
@@ -56,10 +58,16 @@ fun SettingsRoute(
     onOpenStorage: () -> Unit,
     onOpenBlocked: () -> Unit,
     onOpenAbout: () -> Unit,
+    onOpenPermissions: () -> Unit,
+    onOpenSecurity: () -> Unit,
+    onOpenAccessibility: () -> Unit,
+    onOpenLanguage: () -> Unit,
     onSignedOut: () -> Unit,
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+    val versionLabel = remember { appVersionLabel(context) }
 
     LaunchedEffect(state.signedOut) {
         if (state.signedOut) onSignedOut()
@@ -107,7 +115,7 @@ fun SettingsRoute(
                 title = "App permissions",
                 subtitle = "Camera, microphone, contacts and more",
                 leadingIcon = Icons.Filled.Apps,
-                onClick = onOpenNotifications,
+                onClick = onOpenPermissions,
             )
             GagaDivider()
             GagaSettingsRow(
@@ -135,7 +143,7 @@ fun SettingsRoute(
                 title = "Security",
                 subtitle = "App lock, login and blocked users",
                 leadingIcon = Icons.Filled.Security,
-                onClick = onOpenPrivacy,
+                onClick = onOpenSecurity,
             )
             GagaDivider()
             GagaSettingsRow(
@@ -149,14 +157,14 @@ fun SettingsRoute(
                 title = "Accessibility",
                 subtitle = "Text size and display options",
                 leadingIcon = Icons.Filled.Accessibility,
-                onClick = onOpenAppearance,
+                onClick = onOpenAccessibility,
             )
             GagaDivider()
             GagaSettingsRow(
                 title = "Language",
                 subtitle = "App display language",
                 leadingIcon = Icons.Filled.Language,
-                onClick = onOpenAppearance,
+                onClick = onOpenLanguage,
             )
             GagaDivider()
 
@@ -170,7 +178,7 @@ fun SettingsRoute(
             GagaDivider()
             GagaSettingsRow(
                 title = "About GaGa Chat",
-                subtitle = "Version 2.0.0",
+                subtitle = "Version $versionLabel",
                 leadingIcon = Icons.Filled.Info,
                 onClick = onOpenAbout,
             )

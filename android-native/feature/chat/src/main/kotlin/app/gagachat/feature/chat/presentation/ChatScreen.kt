@@ -53,6 +53,7 @@ import app.gagachat.core.ui.component.GagaEmptyState
 import app.gagachat.core.ui.component.GagaScaffold
 import app.gagachat.core.ui.theme.GagaDimens
 import app.gagachat.feature.chat.presentation.components.DateSeparator
+import app.gagachat.feature.chat.presentation.components.MediaViewerOverlay
 import app.gagachat.feature.chat.presentation.components.MessageBubble
 import app.gagachat.feature.chat.presentation.components.MessageComposer
 import app.gagachat.feature.chat.presentation.components.TypingIndicator
@@ -75,6 +76,7 @@ fun ChatRoute(
         onFilePicked = { viewModel.sendMedia(it, "file") },
     )
     val context = LocalContext.current
+    var viewerMessage by remember { mutableStateOf<Message?>(null) }
     // Requests RECORD_AUDIO the first time the mic is tapped, then starts the
     // recording. If the user denies, the ViewModel surfaces an actionable notice.
     val micPermissionLauncher = rememberLauncherForActivityResult(
@@ -171,6 +173,7 @@ fun ChatRoute(
                         listState = listState,
                         onRetry = viewModel::retry,
                         onLongPress = viewModel::setReplyTo,
+                        onMediaClick = { viewerMessage = it },
                     )
                 }
             }
@@ -182,6 +185,7 @@ fun ChatRoute(
                 onCancelReply = { viewModel.setReplyTo(null) },
                 onAttach = mediaPicker.pickFile,
                 onPickImage = mediaPicker.pickImage,
+                onPickVideo = mediaPicker.pickVideo,
                 onShareLocation = { viewModel.shareLocation() },
                 isRecording = state.isRecording,
                 recordingElapsedMs = state.recordingElapsedMs,
@@ -200,6 +204,10 @@ fun ChatRoute(
                 onCancelRecording = viewModel::cancelVoiceRecording,
             )
         }
+    }
+
+    viewerMessage?.let { message ->
+        MediaViewerOverlay(message = message, onDismiss = { viewerMessage = null })
     }
 }
 
@@ -314,6 +322,7 @@ private fun MessageList(
     listState: androidx.compose.foundation.lazy.LazyListState,
     onRetry: (Message) -> Unit,
     onLongPress: (Message) -> Unit,
+    onMediaClick: (Message) -> Unit,
 ) {
     // Newest at the bottom: reverse the list and use reverseLayout so the view
     // stays pinned to the latest message without manual scroll math.
@@ -343,6 +352,7 @@ private fun MessageList(
                     message = message,
                     isOutgoing = isOutgoing,
                     onRetry = { onRetry(message) },
+                    onMediaClick = onMediaClick,
                 )
                 if (showSeparator) {
                     DateSeparator(epochMillis = message.sortTimestamp)

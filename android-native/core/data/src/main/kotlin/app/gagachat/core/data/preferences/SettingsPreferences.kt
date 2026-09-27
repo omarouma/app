@@ -23,6 +23,15 @@ enum class ThemeMode { SYSTEM, LIGHT, DARK }
 /** Media auto-download policy (Master Spec §C — storage & data). */
 enum class MediaDownloadPolicy { ALWAYS, WIFI, NEVER }
 
+/** Text size preference (Master Spec §C — accessibility). */
+enum class TextScale { SMALL, DEFAULT, LARGE }
+
+/** App display language (Master Spec §C — language). */
+enum class AppLanguage(val code: String, val label: String) {
+    ENGLISH("en", "English"),
+    BENGALI("bn", "বাংলা"),
+}
+
 /**
  * User-configurable settings persisted locally (Master Spec §C — full settings).
  * These are device preferences, not account data, so they live in a plain
@@ -39,6 +48,9 @@ class SettingsPreferences @Inject constructor(
     private val themeKey = stringPreferencesKey("theme_mode")
     private val mediaPolicyKey = stringPreferencesKey("media_policy")
     private val autoDownloadKey = booleanPreferencesKey("auto_download_media")
+    private val appLockKey = booleanPreferencesKey("app_lock_enabled")
+    private val textScaleKey = stringPreferencesKey("text_scale")
+    private val languageKey = stringPreferencesKey("app_language")
 
     val notificationsEnabled: Flow<Boolean> =
         context.settingsDataStore.data.map { it[notificationsKey] ?: true }
@@ -67,6 +79,26 @@ class SettingsPreferences @Inject constructor(
     val autoDownloadEnabled: Flow<Boolean> =
         context.settingsDataStore.data.map { it[autoDownloadKey] ?: true }
 
+    val appLockEnabled: Flow<Boolean> =
+        context.settingsDataStore.data.map { it[appLockKey] ?: false }
+
+    val textScale: Flow<TextScale> =
+        context.settingsDataStore.data.map { prefs ->
+            when (prefs[textScaleKey]) {
+                TextScale.SMALL.name -> TextScale.SMALL
+                TextScale.LARGE.name -> TextScale.LARGE
+                else -> TextScale.DEFAULT
+            }
+        }
+
+    val language: Flow<AppLanguage> =
+        context.settingsDataStore.data.map { prefs ->
+            when (prefs[languageKey]) {
+                AppLanguage.BENGALI.code -> AppLanguage.BENGALI
+                else -> AppLanguage.ENGLISH
+            }
+        }
+
     suspend fun setNotificationsEnabled(value: Boolean) =
         context.settingsDataStore.edit { it[notificationsKey] = value }
 
@@ -87,4 +119,13 @@ class SettingsPreferences @Inject constructor(
 
     suspend fun setAutoDownloadEnabled(value: Boolean) =
         context.settingsDataStore.edit { it[autoDownloadKey] = value }
+
+    suspend fun setAppLockEnabled(value: Boolean) =
+        context.settingsDataStore.edit { it[appLockKey] = value }
+
+    suspend fun setTextScale(value: TextScale) =
+        context.settingsDataStore.edit { it[textScaleKey] = value.name }
+
+    suspend fun setLanguage(value: AppLanguage) =
+        context.settingsDataStore.edit { it[languageKey] = value.code }
 }
