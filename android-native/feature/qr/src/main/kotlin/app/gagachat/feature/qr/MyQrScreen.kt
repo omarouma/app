@@ -109,6 +109,8 @@ fun MyQrScreen(
             emptyTitle = "No profile yet",
             emptyDescription = "Complete your profile to share your QR code.",
         ) { ui ->
+            val displayName = ui.user?.displayLabel ?: "GaGa User"
+            val avatarUrl = ui.user?.avatar
             Column(
                 modifier = Modifier
                     .fillMaxSize()
@@ -152,13 +154,20 @@ fun MyQrScreen(
                         .padding(GagaDimens.space20),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
-                    GagaAvatar(imageUrl = ui.user.avatar, name = ui.user.displayLabel, size = 72.dp)
+                    GagaAvatar(imageUrl = avatarUrl, name = displayName, size = 72.dp)
                     Spacer(Modifier.height(GagaDimens.space12))
                     Text(
-                        text = ui.user.displayLabel,
+                        text = displayName,
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold,
                     )
+                    ui.profileError?.let { error ->
+                        Text(
+                            text = error,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                    }
                     Text(
                         text = subtitleFor(tab),
                         style = MaterialTheme.typography.bodyMedium,
@@ -225,7 +234,7 @@ fun MyQrScreen(
                 ) {
                     GagaPrimaryButton(
                         text = "Share",
-                        onClick = { sharePayload(ui.qrPayload, ui.user.displayLabel) },
+                        onClick = { sharePayload(ui.qrPayload, displayName) },
                         leadingIcon = Icons.Filled.Share,
                         modifier = Modifier.weight(1f),
                     )

@@ -16,17 +16,29 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-/** UI payload for the "My QR" screen: the profile plus wallet summary. */
+/**
+ * UI payload for the "My QR" screen: the profile plus wallet summary.
+ *
+ * [user] is nullable because the QR code itself only needs the session id — the
+ * screen renders the scannable code immediately and fills in the name/avatar
+ * and wallet once they resolve, so a slow profile or wallet fetch can never
+ * leave the screen stuck on a spinner.
+ */
 data class MyQrUi(
-    val user: User,
+    val user: User?,
     val walletCode: String,
     val balance: String,
     val qrPayload: String,
+    val profileError: String? = null,
 )
 
 /**
  * "My QR" (Master Spec §C). Renders a scannable code that encodes the current
  * user's id in a `gaga://user/<id>` deep link so any GaGa client can resolve it.
+ *
+ * Rendering strategy: the payload is derived synchronously from the session, so
+ * the code is shown on the very first frame. The profile (cache-first) and the
+ * wallet (a network call) are then loaded in the background and merged in.
  */
 @HiltViewModel
 class MyQrViewModel @Inject constructor(
@@ -38,6 +50,7 @@ class MyQrViewModel @Inject constructor(
     private val _state = MutableStateFlow<ScreenState<MyQrUi>>(ScreenState.Initial)
     val state: StateFlow<ScreenState<MyQrUi>> = _state.asStateFlow()
 
+    /** Canonical `gaga://user/<id>` payload, available synchronously from the session. */
     val qrPayload: String
         get() = authRepository.sessionFlow.value?.userId?.let { QrPayload.encodeUser(it) }.orEmpty()
 
@@ -51,24 +64,58 @@ class MyQrViewModel @Inject constructor(
             _state.value = ScreenState.SessionExpired
             return
         }
+
+        // Surface the QR code immediately — it only depends on the session id,
+        // so it must never wait on the network. Profile + wallet are enrichment.
+        _state.value = ScreenState.Content(
+            MyQrUi(
+                user = null,
+                walletCode = "GC-",
+                balance = "0",
+                qrPayload = QrPayload.encodeUser(me),
+            ),
+        )
+
         viewModelScope.launch {
-            if (_state.value !is ScreenState.Content) _state.value = ScreenState.Loading
-            val walletResult = walletRepository.ensureWallet()
+            loadProfile(me)
+            loadWallet()
+        }
+    }
+
+    /** Resolves the profile (cache-first) and merges it into the visible card. */
+    private suspend fun loadProfile(me: String) {
+        try {
             when (val result = userRepository.getUser(me)) {
-                is AppResult.Success -> {
-                    val wallet = (walletResult as? AppResult.Success)?.data
-                    _state.value = ScreenState.Content(
-                        MyQrUi(
-                            user = result.data,
-                            walletCode = wallet?.walletCode ?: "GC-",
-                            balance = wallet?.formatted ?: "0",
-                            qrPayload = QrPayload.encodeUser(me),
-                        ),
-                    )
-                }
-                is AppResult.Failure -> _state.value = ScreenState.Error(result.error.toUserMessage())
+                is AppResult.Success -> update { it.copy(user = result.data, profileError = null) }
+                is AppResult.Failure -> update { it.copy(profileError = result.error.toUserMessage()) }
                 AppResult.Loading -> Unit
             }
+        } catch (t: Throwable) {
+            update { it.copy(profileError = "Couldn't load your profile.") }
+        }
+    }
+
+    /**
+     * Enriches the visible QR card with the wallet summary. Runs after the QR is
+     * already on screen and swallows every failure so a slow/offline wallet can
+     * never leave the screen stuck on a spinner.
+     */
+    private suspend fun loadWallet() {
+        val result = runCatching { walletRepository.ensureWallet() }.getOrNull() ?: return
+        if (result !is AppResult.Success) return
+        update {
+            it.copy(
+                walletCode = result.data.walletCode.ifBlank { it.walletCode },
+                balance = result.data.formatted.ifBlank { it.balance },
+            )
+        }
+    }
+
+    /** Applies [transform] to the current content payload, if any. */
+    private fun update(transform: (MyQrUi) -> MyQrUi) {
+        val current = _state.value
+        if (current is ScreenState.Content) {
+            _state.value = ScreenState.Content(transform(current.data))
         }
     }
 }
