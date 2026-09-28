@@ -22,9 +22,11 @@ import app.gagachat.feature.onboarding.OnboardingNavHost
  * (PDF §3, Master Spec §C).
  *
  * Order of gates:
- *  1. No session  → Auth graph (login / sign-up).
- *  2. Session + onboarding not done → Onboarding graph (welcome, profile, perms).
- *  3. Session + onboarding done → Main graph (Home and everything else).
+ *  1. No session → Auth graph (login / sign-up).
+ *  2. Session + this account still needs profile setup → Onboarding graph.
+ *     Profile setup is shown ONLY for a freshly created account, never on a
+ *     returning login (see [AppViewModel.needsOnboarding]).
+ *  3. Session + profile setup done → Main graph (Home and everything else).
  *
  * It also owns the app-wide offline banner and the reconnect recovery hook
  * (Master Spec §E): when connectivity returns, the outbox is flushed and the
@@ -36,7 +38,7 @@ fun GagaApp(
     viewModel: AppViewModel = hiltViewModel(),
 ) {
     val session by viewModel.session.collectAsStateWithLifecycle()
-    val onboardingCompleted by viewModel.onboardingCompleted.collectAsStateWithLifecycle()
+    val needsOnboarding by viewModel.needsOnboarding.collectAsStateWithLifecycle()
     val isOnline by viewModel.isOnline.collectAsStateWithLifecycle()
 
     // Fire only on an offline → online transition so we don't restart the socket
@@ -51,10 +53,11 @@ fun GagaApp(
         when {
             session == null -> AuthNavHost()
 
-            // DataStore has not emitted yet — show a neutral splash frame.
-            onboardingCompleted == null -> GagaLoading(modifier = Modifier.fillMaxSize())
+            // Onboarding state has not resolved yet — show a neutral splash frame.
+            needsOnboarding == null -> GagaLoading(modifier = Modifier.fillMaxSize())
 
-            onboardingCompleted == false -> OnboardingNavHost(
+            // Profile setup runs ONLY for a freshly created account (PDF §3).
+            needsOnboarding == true -> OnboardingNavHost(
                 onFinished = { /* flag flip re-renders this composable into the main graph */ },
             )
 

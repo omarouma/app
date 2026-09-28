@@ -4,16 +4,23 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.gagachat.core.common.di.ApplicationScope
 import app.gagachat.core.common.network.NetworkMonitor
+import app.gagachat.core.common.result.AppResult
 import app.gagachat.core.data.preferences.OnboardingPreferences
 import app.gagachat.core.data.repository.AuthRepository
+import app.gagachat.core.data.repository.UserRepository
 import app.gagachat.core.data.sync.RealtimeCoordinator
 import app.gagachat.core.network.session.AuthSession
 import app.gagachat.feature.calls.call.ZegoCallManager
 import app.gagachat.sync.workers.SyncInitializer
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -31,6 +38,7 @@ import javax.inject.Inject
 @HiltViewModel
 class AppViewModel @Inject constructor(
     private val authRepository: AuthRepository,
+    private val userRepository: UserRepository,
     private val onboardingPreferences: OnboardingPreferences,
     private val syncInitializer: SyncInitializer,
     private val realtimeCoordinator: RealtimeCoordinator,
@@ -41,8 +49,51 @@ class AppViewModel @Inject constructor(
 
     val session: StateFlow<AuthSession?> = authRepository.sessionFlow
 
-    /** null = not yet loaded from DataStore; false = show onboarding; true = done. */
-    val onboardingCompleted: StateFlow<Boolean?> = onboardingPreferences.completed
+    /**
+     * Whether the signed-in account still needs to run profile setup.
+     *
+     * Profile setup is **only** for a newly created account, so this is resolved
+     * per account (not per install):
+     *  - `true`  → show the onboarding graph (brand-new account, no profile yet).
+     *  - `false` → go straight to the main graph (returning account / already set up).
+     *  - `null`  → still resolving (show a neutral splash frame).
+     *
+     * Resolution order:
+     *  1. A locally stored per-account status wins (set on sign-up / login /
+     *     onboarding completion).
+     *  2. If unknown (e.g. a session restored on a fresh install), check whether
+     *     the account already has a profile on the backend — an account with a
+     *     username has clearly been set up before, so it skips onboarding.
+     */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val needsOnboarding: StateFlow<Boolean?> = authRepository.sessionFlow
+        .flatMapLatest { session ->
+            if (session == null) {
+                flowOf<Boolean?>(null)
+            } else {
+                flow<Boolean?> {
+                    val userId = session.userId
+                    when (onboardingPreferences.status(userId).first()) {
+                        true -> emit(false)
+                        false -> emit(true)
+                        null -> {
+                            // Unknown → resolve from the account's real profile.
+                            emit(null)
+                            val hasProfile = runCatching {
+                                val result = userRepository.getUser(userId)
+                                (result as? AppResult.Success)?.data?.username?.isNotBlank() == true
+                            }.getOrDefault(false)
+                            if (hasProfile) {
+                                onboardingPreferences.markCompleted(userId)
+                                emit(false)
+                            } else {
+                                emit(true)
+                            }
+                        }
+                    }
+                }
+            }
+        }
         .stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
     /** Live connectivity, surfaced as the app-wide offline banner (Master Spec \u00a7E). */

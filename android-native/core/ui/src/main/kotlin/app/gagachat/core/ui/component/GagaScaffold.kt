@@ -26,6 +26,7 @@ fun GagaScaffold(
     avatarUrl: String? = null,
     avatarStatus: UserStatus? = null,
     onTitleClick: (() -> Unit)? = null,
+    showTopBarDivider: Boolean = title.isNotBlank() || onBack != null,
     snackbarHostState: SnackbarHostState? = null,
     actions: @Composable RowScope.() -> Unit = {},
     floatingActionButton: @Composable () -> Unit = {},
@@ -43,6 +44,7 @@ fun GagaScaffold(
                 avatarUrl = avatarUrl,
                 avatarStatus = avatarStatus,
                 onTitleClick = onTitleClick,
+                showDivider = showTopBarDivider,
                 actions = actions,
             )
         },

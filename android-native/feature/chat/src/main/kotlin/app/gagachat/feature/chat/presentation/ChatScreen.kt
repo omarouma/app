@@ -9,6 +9,9 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -17,6 +20,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -31,6 +35,7 @@ import androidx.compose.material.icons.automirrored.filled.Reply
 import androidx.compose.material.icons.filled.AddReaction
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.Call
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
@@ -76,6 +81,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import app.gagachat.core.data.preferences.ChatBackground
 import app.gagachat.core.model.Message
 import app.gagachat.core.model.MessageType
 import app.gagachat.core.ui.component.GagaEmptyState
@@ -118,6 +124,7 @@ fun ChatRoute(
     )
     val context = LocalContext.current
     var viewerMessage by remember { mutableStateOf<Message?>(null) }
+    var showBackgroundPicker by remember { mutableStateOf(false) }
     // Requests RECORD_AUDIO the first time the mic is tapped, then starts the
     // recording. If the user denies, the ViewModel surfaces an actionable notice.
     val micPermissionLauncher = rememberLauncherForActivityResult(
@@ -188,10 +195,7 @@ fun ChatRoute(
                     onRemoveFriend = viewModel::removeFriend,
                     onSearch = viewModel::toggleSearch,
                     onReport = viewModel::reportUser,
-                    onAction = { label ->
-                        snackbarHostState.currentSnackbarData?.dismiss()
-                        viewModel.showNotice(label)
-                    },
+                    onChatBackground = { showBackgroundPicker = true },
                 )
             },
         ) { padding ->
@@ -208,7 +212,16 @@ fun ChatRoute(
                         onClose = viewModel::toggleSearch,
                     )
                 }
-                Box(modifier = Modifier.weight(1f)) {
+                val darkTheme = isSystemInDarkTheme()
+                val backgroundArgb = state.chatBackground.let { if (darkTheme) it.darkArgb else it.argb }
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .background(
+                            if (backgroundArgb != null) Color(backgroundArgb)
+                            else MaterialTheme.colorScheme.background,
+                        ),
+                ) {
                     val visible = state.visibleMessages
                     val isFiltering = state.isSearching && state.searchQuery.isNotBlank()
                     if (visible.isEmpty() && !state.isLoadingOlder) {
@@ -327,6 +340,90 @@ fun ChatRoute(
                     viewModel.selectMessage(null)
                 },
             )
+        }
+
+        if (showBackgroundPicker) {
+            ChatBackgroundPicker(
+                selected = state.chatBackground,
+                onSelect = {
+                    viewModel.selectChatBackground(it)
+                    showBackgroundPicker = false
+                },
+                onDismiss = { showBackgroundPicker = false },
+            )
+        }
+    }
+}
+
+/** Bottom sheet that lets the user pick a chat wallpaper (applies app-wide). */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ChatBackgroundPicker(
+    selected: ChatBackground,
+    onSelect: (ChatBackground) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val darkTheme = isSystemInDarkTheme()
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = GagaDimens.space20)
+                .padding(bottom = GagaDimens.space24),
+        ) {
+            Text(
+                text = "Chat Background",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.padding(bottom = GagaDimens.space4),
+            )
+            Text(
+                text = "Choose a wallpaper for all your conversations.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(bottom = GagaDimens.space16),
+            )
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 420.dp)
+                    .verticalScroll(rememberScrollState()),
+            ) {
+                ChatBackground.entries.forEach { option ->
+                    val argb = if (darkTheme) option.darkArgb else option.argb
+                    val swatch = argb?.let { Color(it) } ?: MaterialTheme.colorScheme.surfaceVariant
+                    val isSelected = option == selected
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .clickable { onSelect(option) }
+                            .padding(vertical = GagaDimens.space8, horizontal = GagaDimens.space4),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(GagaDimens.space12),
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(44.dp)
+                                .clip(CircleShape)
+                                .background(swatch),
+                        )
+                        Text(
+                            text = option.label,
+                            style = MaterialTheme.typography.bodyLarge,
+                            modifier = Modifier.weight(1f),
+                        )
+                        if (isSelected) {
+                            Icon(
+                                imageVector = Icons.Filled.Check,
+                                contentDescription = "Selected",
+                                tint = MaterialTheme.colorScheme.primary,
+                            )
+                        }
+                    }
+                }
+            }
         }
     }
 }
@@ -503,7 +600,7 @@ private fun ChatOverflowMenu(
     onRemoveFriend: () -> Unit,
     onSearch: () -> Unit,
     onReport: () -> Unit,
-    onAction: (String) -> Unit,
+    onChatBackground: () -> Unit,
 ) {
     var expanded by remember { mutableStateOf(false) }
 
@@ -512,7 +609,7 @@ private fun ChatOverflowMenu(
     }
     DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
         MenuItem("Search Messages") { expanded = false; onSearch() }
-        MenuItem("Chat Background") { expanded = false; onAction("Chat Background") }
+        MenuItem("Chat Background") { expanded = false; onChatBackground() }
         MenuItem("Send Money") {
             expanded = false
             onSendMoney()

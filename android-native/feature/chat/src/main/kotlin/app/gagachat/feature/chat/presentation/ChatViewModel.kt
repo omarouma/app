@@ -18,6 +18,7 @@ import app.gagachat.core.data.repository.FriendsRepository
 import app.gagachat.core.data.repository.MediaRepository
 import app.gagachat.core.data.repository.MessageRepository
 import app.gagachat.core.data.repository.UserRepository
+import app.gagachat.core.data.preferences.ChatBackground
 import kotlinx.coroutines.flow.first
 import app.gagachat.core.model.Conversation
 import app.gagachat.core.model.Message
@@ -80,6 +81,8 @@ data class ChatUiState(
     val isOnline: Boolean = true,
     /** The current user's last-read marker, used to place the unread divider. */
     val myLastReadMessageId: String? = null,
+    /** User-selected chat wallpaper behind the message list. */
+    val chatBackground: ChatBackground = ChatBackground.DEFAULT,
 ) {
     val isEditing: Boolean get() = editingMessage != null
 
@@ -179,9 +182,12 @@ class ChatViewModel @Inject constructor(
         messageRepository.observeMessages(conversationId),
         conversationRepository.observeConversation(conversationId),
         otherUserFlow,
-        combine(loadingOlder, hasMoreOlder, error, searchQuery, isSearching) { l, h, e, q, s ->
-            ChatFlags(isLoadingOlder = l, hasMoreOlder = h, error = e, searchQuery = q, isSearching = s)
-        },
+        combine(
+            combine(loadingOlder, hasMoreOlder, error, searchQuery, isSearching) { l, h, e, q, s ->
+                ChatFlags(isLoadingOlder = l, hasMoreOlder = h, error = e, searchQuery = q, isSearching = s)
+            },
+            settingsPreferences.chatBackground,
+        ) { flags, background -> flags to background },
         combine(
             combine(replyTo, editing, selected) { r, ed, sel -> Triple(r, ed, sel) },
             combine(typingFlow, notice, recording) { t, n, rec -> Triple(t, n, rec) },
@@ -189,7 +195,8 @@ class ChatViewModel @Inject constructor(
         ) { (r, ed, sel), (t, n, rec), online ->
             ComposerState(reply = r, editing = ed, selected = sel, typing = t, notice = n, recording = rec) to online
         },
-    ) { messages, conversation, otherUser, flags, composerAndOnline ->
+    ) { messages, conversation, otherUser, flagsAndBackground, composerAndOnline ->
+        val (flags, chatBackground) = flagsAndBackground
         val (composer, online) = composerAndOnline
         ChatUiState(
             conversationId = conversationId,
@@ -220,6 +227,7 @@ class ChatViewModel @Inject constructor(
             myLastReadMessageId = conversation?.members
                 ?.firstOrNull { it.userId == currentUserId }
                 ?.lastReadMessageId,
+            chatBackground = chatBackground,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ChatUiState(conversationId = conversationId))
 
@@ -577,6 +585,11 @@ class ChatViewModel @Inject constructor(
     /** Surfaces a transient notice for an overflow-menu entry that isn't wired yet. */
     fun showNotice(label: String) {
         notice.value = "$label isn't available yet."
+    }
+
+    /** Persists the user's chat wallpaper choice (applies to every conversation). */
+    fun selectChatBackground(background: ChatBackground) {
+        viewModelScope.launch { settingsPreferences.setChatBackground(background) }
     }
 
     /** Copies a content:// Uri into app cache and returns (path, mime, size). */
