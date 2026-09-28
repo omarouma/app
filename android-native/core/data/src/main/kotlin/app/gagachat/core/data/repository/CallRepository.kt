@@ -47,6 +47,7 @@ class DefaultCallRepository @Inject constructor(
     private val userDao: UserDao,
     private val restApi: SupabaseRestApi,
     private val messageRepository: MessageRepository,
+    private val conversationRepository: ConversationRepository,
     private val authRepository: AuthRepository,
     private val idGenerator: IdGenerator,
     private val timeProvider: TimeProvider,
@@ -99,11 +100,16 @@ class DefaultCallRepository @Inject constructor(
                 restApi.insertCallHistory(
                     CallHistoryRow(
                         id = callId,
-                        conversationId = conversationId,
                         callerId = initiatorId,
                         calleeId = peerId,
                         type = type.name.lowercase(),
-                        status = CallStatus.RINGING.name.lowercase(),
+                        // The backend contract (send-push trigger + zego-token
+                        // participant check) expects the live "calling" status for
+                        // an in-flight call, not the client-side "ringing" enum.
+                        status = "calling",
+                        participantIds = listOf(initiatorId, peerId),
+                        // Transient (not a live column) — kept for local mapping.
+                        conversationId = conversationId,
                         roomId = callId,
                         startedAt = now,
                     ),
@@ -151,11 +157,30 @@ class DefaultCallRepository @Inject constructor(
                 }.getOrDefault(emptyMap())
             }
 
+            // The LIVE call_history schema has no chat_id column, so reconstruct the
+            // direct-conversation link from the peer id. openDirectConversation
+            // resolves from the local cache first and only hits the network for
+            // peers not seen before, so a tap on a call row can still open the chat
+            // and re-dial the peer.
+            val conversationByPeer = mutableMapOf<String, String>()
+            if (me.isNotBlank()) {
+                peerIds.forEach { peer ->
+                    runCatching {
+                        when (val opened = conversationRepository.openDirectConversation(me, peer)) {
+                            is AppResult.Success -> conversationByPeer[peer] = opened.data
+                            is AppResult.Failure -> Unit
+                            AppResult.Loading -> Unit
+                        }
+                    }
+                }
+            }
+
             rows.forEach { row ->
                 val peerId = peerIdOf(row, me)
                 val peer = peerId?.let { usersById[it] }
                 callDao.upsert(
                     row.toDomain(
+                        conversationId = peerId?.let { conversationByPeer[it] },
                         peerId = peerId,
                         peerName = peer?.displayLabel,
                         peerAvatar = peer?.avatar,

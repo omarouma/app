@@ -128,21 +128,33 @@ data class ChatReadRow(
     @SerialName("last_read_at") @Serializable(with = EpochMillisSerializer::class) val lastReadAt: Long? = null,
 )
 
-/** Call history row (call_history). */
+/**
+ * Call history row (call_history).
+ *
+ * IMPORTANT: this mirrors the LIVE `call_history` schema exactly. The live table
+ * only has: id, caller_id, callee_id, type, status, duration, signaling,
+ * participant_ids, created_at, ended_at. It has NO `chat_id`, `room_id` or
+ * `started_at` columns, so those are [Transient] (never serialized to/from the
+ * server) and exist purely for in-memory domain mapping. The conversation link
+ * is reconstructed from the peer id in the data layer.
+ */
 @Serializable
 data class CallHistoryRow(
     val id: String,
-    @SerialName("chat_id") val conversationId: String? = null,
     @SerialName("caller_id") val callerId: String,
     @SerialName("callee_id") val calleeId: String? = null,
     val type: String? = null,
     val status: String? = null,
     val duration: Long? = null,
-    @SerialName("room_id") val roomId: String? = null,
     @SerialName("participant_ids") val participantIds: List<String>? = null,
-    @SerialName("started_at") @Serializable(with = EpochMillisSerializer::class) val startedAt: Long? = null,
     @SerialName("ended_at") @Serializable(with = EpochMillisSerializer::class) val endedAt: Long? = null,
     @SerialName("created_at") @Serializable(with = EpochMillisSerializer::class) val createdAt: Long? = null,
+    /** Derived client-side from the peer; not a live column. */
+    @Transient val conversationId: String? = null,
+    /** Derived client-side from the call id; not a live column. */
+    @Transient val roomId: String? = null,
+    /** Not a live column; falls back to [createdAt] when mapping. */
+    @Transient val startedAt: Long? = null,
 )
 
 /**

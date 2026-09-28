@@ -391,7 +391,9 @@ class SupabaseRestApi @Inject constructor(
         client.get("${config.restUrl}/call_history") {
             auth()
             parameter("select", "*")
-            parameter("order", "started_at.desc")
+            // The live call_history table has no `started_at` column; order by the
+            // server-generated `created_at` instead.
+            parameter("order", "created_at.desc")
             parameter("limit", limit)
         }.body()
 

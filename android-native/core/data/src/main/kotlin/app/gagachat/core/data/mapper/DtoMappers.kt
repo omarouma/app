@@ -126,6 +126,7 @@ private fun JsonObject.string(key: String): String? =
     (this[key] as? JsonPrimitive)?.contentOrNull?.takeIf { it.isNotEmpty() }
 
 fun CallHistoryRow.toDomain(
+    conversationId: String? = null,
     peerId: String? = null,
     peerName: String? = null,
     peerAvatar: String? = null,
@@ -135,7 +136,7 @@ fun CallHistoryRow.toDomain(
     val end = endedAt
     return CallSession(
         id = id,
-        conversationId = conversationId ?: "",
+        conversationId = conversationId ?: this.conversationId ?: "",
         initiatorId = callerId,
         type = type?.let { runCatching { CallType.valueOf(it.uppercase()) }.getOrNull() }
             ?: CallType.AUDIO,

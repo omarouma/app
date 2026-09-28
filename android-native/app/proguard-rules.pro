@@ -41,3 +41,11 @@
     public static *** v(...);
     public static *** d(...);
 }
+
+# ---- ZEGOCLOUD Call Kit / Express / ZIM (reflection + JNI heavy) ----
+-keep class **.zego.** { *; }
+-keep class com.zegocloud.** { *; }
+-keep class im.zego.** { *; }
+-dontwarn com.zegocloud.**
+-dontwarn im.zego.**
+-keep class * extends com.zegocloud.uikit.** { *; }
