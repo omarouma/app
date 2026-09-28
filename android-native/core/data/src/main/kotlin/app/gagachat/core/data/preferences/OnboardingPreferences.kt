@@ -17,9 +17,22 @@ private val Context.onboardingDataStore: DataStore<Preferences> by preferencesDa
 )
 
 /**
- * Persists first-run onboarding completion (Master Spec §C — onboarding gate).
+ * Persists **per-account** profile-setup completion (Master Spec §C — onboarding
+ * gate).
  *
- * Stored in a dedicated DataStore so the flag survives process death and is read
+ * This used to be a single install-wide flag, which caused the profile-setup
+ * screen to appear on *every* login (and for returning users on a fresh
+ * install). Profile setup must run **only once, for a newly created account**,
+ * so the completion state is now keyed by the signed-in user id.
+ *
+ * The stored value is tri-state:
+ *  - `true`  → this account has finished profile setup; never show it again.
+ *  - `false` → this account is a brand-new sign-up that still needs setup.
+ *  - `null`  → unknown (e.g. a session restored on a fresh install). The app
+ *              resolves this by checking whether the account already has a
+ *              profile on the backend (see [app.gagachat.navigation.AppViewModel]).
+ *
+ * Stored in a dedicated DataStore so it survives process death and is read
  * asynchronously without blocking the first frame. It is intentionally separate
  * from the encrypted session store because it is not sensitive.
  */
@@ -27,18 +40,31 @@ private val Context.onboardingDataStore: DataStore<Preferences> by preferencesDa
 class OnboardingPreferences @Inject constructor(
     @ApplicationContext private val context: Context,
 ) {
-    private val completedKey = booleanPreferencesKey("onboarding_completed")
+    private fun keyFor(userId: String) = booleanPreferencesKey("onboarding_completed_$userId")
 
-    /** Emits whether onboarding has been completed for this install. */
-    val completed: Flow<Boolean> = context.onboardingDataStore.data.map { prefs ->
-        prefs[completedKey] ?: false
+    /** Emits the tri-state completion status for [userId] (null = unknown). */
+    fun status(userId: String): Flow<Boolean?> = context.onboardingDataStore.data.map { prefs ->
+        prefs[keyFor(userId)]
     }
 
-    suspend fun markCompleted() {
-        context.onboardingDataStore.edit { prefs -> prefs[completedKey] = true }
+    /** Marks profile setup as done for [userId] so it never shows again. */
+    suspend fun markCompleted(userId: String) {
+        if (userId.isBlank()) return
+        context.onboardingDataStore.edit { prefs -> prefs[keyFor(userId)] = true }
     }
 
-    suspend fun reset() {
-        context.onboardingDataStore.edit { prefs -> prefs[completedKey] = false }
+    /**
+     * Marks [userId] as a freshly-created account that still needs profile setup.
+     * Called on sign-up / OTP verification so the gate shows setup exactly once.
+     */
+    suspend fun markPending(userId: String) {
+        if (userId.isBlank()) return
+        context.onboardingDataStore.edit { prefs -> prefs[keyFor(userId)] = false }
+    }
+
+    /** Forgets any stored status for [userId] (used when an account is deleted). */
+    suspend fun clear(userId: String) {
+        if (userId.isBlank()) return
+        context.onboardingDataStore.edit { prefs -> prefs.remove(keyFor(userId)) }
     }
 }

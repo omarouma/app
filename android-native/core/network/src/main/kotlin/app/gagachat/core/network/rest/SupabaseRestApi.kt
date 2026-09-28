@@ -305,6 +305,26 @@ class SupabaseRestApi @Inject constructor(
         }
     }
 
+    /**
+     * Lightweight presence write: patches only the live-status columns on the
+     * `users` row (never touches the rest of the profile) so peers can render
+     * online/last-seen without a full upsert clobbering unrelated fields.
+     */
+    suspend fun updateUserPresence(userId: String, isOnline: Boolean, lastSeen: Long) {
+        client.patch("${config.restUrl}/users") {
+            auth()
+            parameter("id", "eq.$userId")
+            header("Prefer", "return=minimal")
+            contentType(ContentType.Application.Json)
+            setBody(
+                mapOf(
+                    "status" to if (isOnline) "online" else "offline",
+                    "last_seen" to iso(lastSeen),
+                ),
+            )
+        }
+    }
+
     suspend fun updateMessageReactions(id: String, reactions: JsonObject) {
         client.patch("${config.restUrl}/messages") {
             auth()
@@ -371,7 +391,9 @@ class SupabaseRestApi @Inject constructor(
         client.get("${config.restUrl}/call_history") {
             auth()
             parameter("select", "*")
-            parameter("order", "started_at.desc")
+            // The live call_history table has no `started_at` column; order by the
+            // server-generated `created_at` instead.
+            parameter("order", "created_at.desc")
             parameter("limit", limit)
         }.body()
 
@@ -679,6 +701,22 @@ class SupabaseRestApi @Inject constructor(
                     "updated_at" to iso(System.currentTimeMillis()),
                 ),
             )
+        }
+    }
+
+    // ---- Account ----
+
+    /**
+     * Permanently deletes the signed-in user's account and all owned data via the
+     * `delete_my_account()` RPC (Play Store requirement). The server scopes the
+     * deletion to `auth.uid()`, so this can only ever delete the caller.
+     */
+    suspend fun deleteMyAccount() {
+        client.post("${config.restUrl}/rpc/delete_my_account") {
+            auth()
+            header("Prefer", "return=minimal")
+            contentType(ContentType.Application.Json)
+            setBody(emptyMap<String, String>())
         }
     }
 

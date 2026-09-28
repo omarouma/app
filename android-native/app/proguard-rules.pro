@@ -26,8 +26,26 @@
 
 # Hilt / Dagger generated code is kept automatically.
 
+# ZEGOCLOUD Call Kit / ZIM / Express — the SDK relies on reflection and JNI
+# entry points, so its classes must never be renamed or stripped.
+-keep class **.zego.** { *; }
+-keep class im.zego.** { *; }
+-keep class com.zegocloud.** { *; }
+-keep class com.tencent.mmkv.** { *; }
+-dontwarn im.zego.**
+-dontwarn com.zegocloud.**
+-dontwarn com.tencent.mmkv.**
+
 # Strip verbose logging in release (PDF §10 — no sensitive data in logs).
 -assumenosideeffects class android.util.Log {
     public static *** v(...);
     public static *** d(...);
 }
+
+# ---- ZEGOCLOUD Call Kit / Express / ZIM (reflection + JNI heavy) ----
+-keep class **.zego.** { *; }
+-keep class com.zegocloud.** { *; }
+-keep class im.zego.** { *; }
+-dontwarn com.zegocloud.**
+-dontwarn im.zego.**
+-keep class * extends com.zegocloud.uikit.** { *; }

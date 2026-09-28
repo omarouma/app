@@ -3,7 +3,6 @@ package app.gagachat.feature.calls.presentation
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.gagachat.core.common.result.AppResult
-import app.gagachat.core.data.call.CallManager
 import app.gagachat.core.data.repository.AuthRepository
 import app.gagachat.core.data.repository.CallRepository
 import app.gagachat.core.data.repository.ConversationRepository
@@ -11,6 +10,9 @@ import app.gagachat.core.model.CallSession
 import app.gagachat.core.model.CallStatus
 import app.gagachat.core.model.CallType
 import app.gagachat.core.ui.util.toUserMessage
+import app.gagachat.feature.calls.call.ZegoCallManager
+import com.zegocloud.uikit.prebuilt.call.ZegoUIKitPrebuiltCallService
+import com.zegocloud.uikit.prebuilt.call.event.ZegoCallEndReason
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -23,9 +25,11 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 /**
- * High-level call lifecycle used by the UI (PDF §8). The media path (WebRTC) is
- * intentionally decoupled from this state machine; this drives signaling,
- * session persistence and the CALL_EVENT chat item.
+ * High-level call lifecycle used by the UI (PDF \u00a78). Real audio/video media and
+ * the ringing/accept/hang-up flow are handled by the ZEGOCLOUD Call Kit via
+ * [ZegoCallManager]; this ViewModel owns the *durable* side of calling \u2014 call
+ * history, the CALL_EVENT chat item, and the final status/duration \u2014 so the two
+ * concerns stay cleanly separated.
  */
 enum class CallPhase {
     IDLE,
@@ -46,6 +50,8 @@ data class CallUiState(
     val isSpeakerOn: Boolean = false,
     val isVideoEnabled: Boolean = true,
     val elapsedSeconds: Long = 0L,
+    /** True once the Call Kit UI has been launched for an outgoing call. */
+    val callLaunched: Boolean = false,
 )
 
 @HiltViewModel
@@ -53,7 +59,7 @@ class CallViewModel @Inject constructor(
     private val callRepository: CallRepository,
     private val authRepository: AuthRepository,
     private val conversationRepository: ConversationRepository,
-    private val callManager: CallManager,
+    private val zegoCallManager: ZegoCallManager,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(CallUiState())
@@ -61,41 +67,23 @@ class CallViewModel @Inject constructor(
 
     private var timerJob: Job? = null
 
+    /** The server call id of the in-flight call, persisted when it finishes. */
+    private var activeCallId: String? = null
+
     init {
         observeHistory()
         refreshHistory()
-        callManager.bindScope(viewModelScope)
         observeCallEvents()
     }
 
     /**
-     * Bridges WebRTC signaling/media events (from the data-layer [CallManager])
-     * into the UI call state machine. The media path stays fully decoupled from
-     * the state machine: the ViewModel never touches WebRTC directly.
+     * Persists the outcome of every call the Call Kit reports as finished, so the
+     * call history and the CALL_EVENT chat item always reflect reality even when
+     * the call was answered or ended inside the SDK's own UI.
      */
     private fun observeCallEvents() {
         viewModelScope.launch {
-            callManager.events.collect { event ->
-                when (event) {
-                    is CallManager.CallEvent.RemoteRinging ->
-                        _state.update { it.copy(phase = CallPhase.INCOMING_RINGING) }
-                    is CallManager.CallEvent.RemoteAccepted ->
-                        _state.update { it.copy(phase = CallPhase.CONNECTING) }
-                    is CallManager.CallEvent.Connected -> onMediaConnected()
-                    is CallManager.CallEvent.RemoteRejected,
-                    is CallManager.CallEvent.RemoteBusy,
-                    is CallManager.CallEvent.RemoteHangup ->
-                        endCall()
-                    is CallManager.CallEvent.Failed ->
-                        _state.update {
-                            it.copy(
-                                phase = CallPhase.ENDED,
-                                activeCall = null,
-                                error = event.reason ?: "Call failed",
-                            )
-                        }
-                }
-            }
+            zegoCallManager.callEnded.collect { reason -> onCallEnded(reason) }
         }
     }
 
@@ -117,20 +105,27 @@ class CallViewModel @Inject constructor(
         }
     }
 
-    /** Starts an outgoing call and moves the UI into the ringing phase. */
-    fun startCall(
-        conversationId: String,
-        peerId: String?,
-        peerName: String?,
-        peerAvatar: String?,
-        type: CallType,
-    ) {
-        val initiatorId = authRepository.sessionFlow.value?.userId ?: return
+    /**
+     * Resolves the peer from the conversation, records the call session and hands
+     * the real call over to the ZEGOCLOUD Call Kit (which shows its own outgoing
+     * call UI and performs the media negotiation).
+     */
+    fun startCallForConversation(conversationId: String, isVideo: Boolean) {
+        val currentUserId = authRepository.sessionFlow.value?.userId ?: return
         viewModelScope.launch {
+            _state.update { it.copy(error = null) }
+            val conversation = conversationRepository.observeConversation(conversationId).first()
+            val peer = conversation?.otherMember(currentUserId)
+            val peerId = peer?.userId
+            val peerName = peer?.displayName?.takeIf { it.isNotBlank() }
+                ?: conversation?.displayTitle(currentUserId) ?: "GaGa User"
+            val peerAvatar = peer?.avatar
+            val type = if (isVideo) CallType.VIDEO else CallType.AUDIO
+
             when (
                 val result = callRepository.startCall(
                     conversationId = conversationId,
-                    initiatorId = initiatorId,
+                    initiatorId = currentUserId,
                     peerId = peerId,
                     peerName = peerName,
                     peerAvatar = peerAvatar,
@@ -138,125 +133,117 @@ class CallViewModel @Inject constructor(
                 )
             ) {
                 is AppResult.Success -> {
+                    activeCallId = result.data.id
                     _state.update {
                         it.copy(
                             phase = CallPhase.OUTGOING_RINGING,
                             activeCall = result.data,
-                            isVideoEnabled = type == CallType.VIDEO,
+                            isVideoEnabled = isVideo,
                             elapsedSeconds = 0L,
                         )
                     }
-                    // Begin signaling + media negotiation for the outgoing call.
-                    if (peerId != null) {
-                        callManager.begin(
-                            scope = viewModelScope,
-                            callId = result.data.id,
-                            conversationId = conversationId,
-                            selfUserId = initiatorId,
-                            peerUserId = peerId,
-                            asCaller = true,
-                            video = type == CallType.VIDEO,
-                        )
+                    if (peerId == null) {
+                        _state.update { it.copy(error = "This conversation has no callable peer.") }
+                        return@launch
+                    }
+                    val launched = zegoCallManager.startCall(peerId, peerName, isVideo)
+                    if (launched) {
+                        startTimerIfNeeded()
+                        _state.update { it.copy(callLaunched = true) }
+                    } else {
+                        _state.update {
+                            it.copy(error = "Could not start the call. Please try again.")
+                        }
                     }
                 }
-                is AppResult.Failure -> {
+
+                is AppResult.Failure ->
                     _state.update { it.copy(error = result.error.toUserMessage()) }
-                }
+
                 AppResult.Loading -> Unit
             }
         }
     }
 
-    /**
-     * Resolves the peer from the conversation and starts an outgoing call. Used
-     * when the call is initiated from the chat or profile surface, where only
-     * the conversation id is known.
-     */
-    fun startCallForConversation(conversationId: String, isVideo: Boolean) {
-        val currentUserId = authRepository.sessionFlow.value?.userId ?: return
-        viewModelScope.launch {
-            val conversation = conversationRepository.observeConversation(conversationId).first()
-            val peer = conversation?.otherMember(currentUserId)
-            startCall(
-                conversationId = conversationId,
-                peerId = peer?.userId,
-                peerName = peer?.displayName?.takeIf { it.isNotBlank() }
-                    ?: conversation?.displayTitle(currentUserId) ?: "GaGa User",
-                peerAvatar = peer?.avatar,
-                type = if (isVideo) CallType.VIDEO else CallType.AUDIO,
-            )
-        }
-    }
-
-    /** Accepts an incoming call (signaling ACCEPT + transition to CONNECTING). */
-    fun acceptCall() {
-        val call = _state.value.activeCall ?: return
-        _state.update { it.copy(phase = CallPhase.CONNECTING) }
-        // Media negotiation happens in the WebRTC layer; once connected the
-        // signaling layer flips the phase to CONNECTED via onMediaConnected().
-        callManager.accept(viewModelScope)
-        startTimerIfNeeded(call)
-    }
-
-    /** Rejects an incoming call and records the REJECTED status. */
-    fun rejectCall() {
-        val call = _state.value.activeCall ?: return
-        callManager.reject(viewModelScope)
-        viewModelScope.launch {
-            callRepository.endCall(call.id, CallStatus.REJECTED, null)
-            _state.update { it.copy(phase = CallPhase.ENDED, activeCall = null) }
-            stopTimer()
-        }
-    }
-
-    /** Ends the active call, persisting duration and status. */
+    /** Ends the active call (also stops the Call Kit UI). */
     fun endCall() {
-        val call = _state.value.activeCall ?: return
-        val durationMs = _state.value.elapsedSeconds * 1000L
-        val status = when (_state.value.phase) {
-            CallPhase.CONNECTED, CallPhase.CONNECTING -> CallStatus.ENDED
-            CallPhase.OUTGOING_RINGING -> CallStatus.MISSED
-            else -> CallStatus.ENDED
-        }
-        callManager.hangup(viewModelScope)
-        viewModelScope.launch {
-            callRepository.endCall(call.id, status, durationMs)
-            _state.update { it.copy(phase = CallPhase.ENDED, activeCall = null) }
-            stopTimer()
-        }
+        zegoCallManager.endCall()
+        finalizeCall(CallStatus.ENDED)
     }
 
-    /** Called by the media layer once the peer connection is established. */
-    fun onMediaConnected() {
-        if (_state.value.phase == CallPhase.CONNECTING || _state.value.phase == CallPhase.OUTGOING_RINGING) {
-            _state.update { it.copy(phase = CallPhase.CONNECTED) }
-            _state.value.activeCall?.let { startTimerIfNeeded(it) }
-        }
+    /** Declines/ends an incoming call. */
+    fun rejectCall() {
+        zegoCallManager.endCall()
+        finalizeCall(CallStatus.REJECTED)
     }
+
+    /**
+     * Accepting is handled by the Call Kit's own incoming-call UI, so this is a
+     * no-op kept for API compatibility with the call surface.
+     */
+    fun acceptCall() = Unit
 
     fun toggleMute() {
         val next = !_state.value.isMuted
         _state.update { it.copy(isMuted = next) }
-        callManager.setMuted(viewModelScope, next)
+        runCatching { ZegoUIKitPrebuiltCallService.openMicrophone(!next) }
     }
 
     fun toggleSpeaker() {
         val next = !_state.value.isSpeakerOn
         _state.update { it.copy(isSpeakerOn = next) }
-        callManager.setSpeaker(viewModelScope, next)
+        runCatching { ZegoUIKitPrebuiltCallService.setAudioOutputToSpeaker(next) }
     }
 
     fun toggleVideo() {
         val next = !_state.value.isVideoEnabled
         _state.update { it.copy(isVideoEnabled = next) }
-        callManager.setCamera(viewModelScope, next)
+        runCatching { ZegoUIKitPrebuiltCallService.openCamera(next) }
     }
 
     fun dismissEnded() {
-        _state.update { it.copy(phase = CallPhase.IDLE, activeCall = null, elapsedSeconds = 0L) }
+        _state.update {
+            it.copy(
+                phase = CallPhase.IDLE,
+                activeCall = null,
+                elapsedSeconds = 0L,
+                callLaunched = false,
+                error = null,
+            )
+        }
     }
 
-    private fun startTimerIfNeeded(call: CallSession) {
+    private fun onCallEnded(reason: ZegoCallEndReason) {
+        val status = when (reason) {
+            ZegoCallEndReason.REMOTE_HANGUP -> CallStatus.ENDED
+            ZegoCallEndReason.KICK_OUT -> CallStatus.ENDED
+            ZegoCallEndReason.LOCAL_HANGUP -> CallStatus.ENDED
+            else -> CallStatus.ENDED
+        }
+        finalizeCall(status)
+    }
+
+    /** Persists the final status + duration and resets the UI to the ended state. */
+    private fun finalizeCall(status: CallStatus) {
+        stopTimer()
+        val callId = activeCallId
+        activeCallId = null
+        if (callId == null) {
+            _state.update {
+                it.copy(phase = CallPhase.ENDED, activeCall = null, callLaunched = false)
+            }
+            return
+        }
+        val durationMs = _state.value.elapsedSeconds * 1000L
+        viewModelScope.launch {
+            callRepository.endCall(callId, status, durationMs)
+            _state.update {
+                it.copy(phase = CallPhase.ENDED, activeCall = null, callLaunched = false)
+            }
+        }
+    }
+
+    private fun startTimerIfNeeded() {
         if (timerJob?.isActive == true) return
         timerJob = viewModelScope.launch {
             while (true) {

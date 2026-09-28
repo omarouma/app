@@ -13,8 +13,15 @@ android {
 
     defaultConfig {
         applicationId = "gagachat.app"
-        versionCode = 7
-        versionName = "2.0.4"
+        versionCode = 11
+        versionName = "2.0.9"
+
+        // The ZEGOCLOUD Call Kit ships native RTC libraries for four ABIs. We
+        // only bundle the two that every real Android phone uses, which keeps
+        // the release APK small enough to build and distribute comfortably.
+        ndk {
+            abiFilters += listOf("arm64-v8a", "armeabi-v7a")
+        }
     }
 
     // Release signing (PDF §11 — signing key kept in a secure CI/release
@@ -74,6 +81,7 @@ android {
             "/META-INF/{AL2.0,LGPL2.1}",
             "META-INF/DEPENDENCIES",
             "META-INF/LICENSE*",
+            "META-INF/versions/9/OSGI-INF/MANIFEST.MF",
         )
     }
 }
@@ -149,6 +157,9 @@ dependencies {
     // decoder so video message thumbnails render real frames).
     implementation(libs.coil.compose)
     implementation(libs.coil.video)
+
+    // ZEGOCLOUD Call Kit — real 1:1 audio/video calling with call invitations.
+    implementation(libs.zego.callkit)
 
     // Testing
     testImplementation(libs.junit)

@@ -6,9 +6,15 @@ import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.foundation.layout.Column
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -16,6 +22,11 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import app.gagachat.core.ui.theme.GagaDimens
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
@@ -25,6 +36,7 @@ import app.gagachat.feature.calls.navigation.CallRoutes
 import app.gagachat.feature.calls.navigation.activeCallScreen
 import app.gagachat.feature.calls.navigation.callHistoryScreen
 import app.gagachat.feature.chat.navigation.ChatRoutes
+import app.gagachat.feature.chat.navigation.chatInfoScreen
 import app.gagachat.feature.chat.navigation.chatScreen
 import app.gagachat.feature.contacts.navigation.ContactsRoutes
 import app.gagachat.feature.contacts.navigation.contactsScreen
@@ -79,6 +91,8 @@ fun MainNavHost(pendingDeepLink: String?) {
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route
     val showBottomBar = currentRoute in bottomBarRoutes
+    val viewModel: MainNavViewModel = hiltViewModel()
+    val totalUnread by viewModel.totalUnread.collectAsStateWithLifecycle()
 
     LaunchedEffect(pendingDeepLink) {
         if (!pendingDeepLink.isNullOrBlank()) {
@@ -90,7 +104,11 @@ fun MainNavHost(pendingDeepLink: String?) {
     Scaffold(
         bottomBar = {
             if (showBottomBar) {
-                GagaBottomBar(navController = navController, currentRoute = currentRoute)
+                GagaBottomBar(
+                    navController = navController,
+                    currentRoute = currentRoute,
+                    chatBadgeCount = totalUnread,
+                )
             }
         },
     ) { innerPadding ->
@@ -132,6 +150,15 @@ fun MainNavHost(pendingDeepLink: String?) {
                     navController.navigate(ProfileRoutes.profile(userId))
                 },
                 onSendMoney = { navController.navigate(WalletRoutes.WALLET) },
+            )
+            chatInfoScreen(
+                navController = navController,
+                onStartCall = { conversationId, isVideo ->
+                    navController.navigate(CallRoutes.activeCall(conversationId, isVideo))
+                },
+                onOpenProfile = { userId ->
+                    navController.navigate(ProfileRoutes.profile(userId))
+                },
             )
             peopleGraph(
                 navController = navController,
@@ -203,29 +230,75 @@ fun MainNavHost(pendingDeepLink: String?) {
     }
 }
 
+/**
+ * The app-wide bottom navigation. A hairline divider separates it from content,
+ * the selected tab gets a soft green pill indicator with a bold label, and the
+ * Chats tab carries a live unread badge so the user never misses a message.
+ */
 @Composable
 private fun GagaBottomBar(
     navController: NavHostController,
     currentRoute: String?,
+    chatBadgeCount: Int,
 ) {
-    NavigationBar {
-        TopLevelDestination.entries.forEach { destination ->
-            NavigationBarItem(
-                selected = currentRoute == destination.routePattern,
-                onClick = {
-                    if (currentRoute != destination.routePattern) {
-                        navController.navigate(destination.route) {
-                            popUpTo(navController.graph.findStartDestination().id) {
-                                saveState = true
+    Column {
+        HorizontalDivider(
+            thickness = GagaDimens.hairline,
+            color = MaterialTheme.colorScheme.outlineVariant,
+        )
+        NavigationBar(
+            containerColor = MaterialTheme.colorScheme.surface,
+            tonalElevation = 0.dp,
+        ) {
+            TopLevelDestination.entries.forEach { destination ->
+                val selected = currentRoute == destination.routePattern
+                NavigationBarItem(
+                    selected = selected,
+                    onClick = {
+                        if (currentRoute != destination.routePattern) {
+                            navController.navigate(destination.route) {
+                                popUpTo(navController.graph.findStartDestination().id) {
+                                    saveState = true
+                                }
+                                launchSingleTop = true
+                                restoreState = true
                             }
-                            launchSingleTop = true
-                            restoreState = true
                         }
-                    }
-                },
-                icon = { Icon(destination.icon, contentDescription = destination.label) },
-                label = { Text(destination.label) },
-            )
+                    },
+                    icon = {
+                        if (destination == TopLevelDestination.CHAT && chatBadgeCount > 0) {
+                            BadgedBox(
+                                badge = {
+                                    Badge(
+                                        containerColor = MaterialTheme.colorScheme.primary,
+                                        contentColor = MaterialTheme.colorScheme.onPrimary,
+                                    ) {
+                                        Text(if (chatBadgeCount > 99) "99+" else "$chatBadgeCount")
+                                    }
+                                },
+                            ) {
+                                Icon(destination.icon, contentDescription = destination.label)
+                            }
+                        } else {
+                            Icon(destination.icon, contentDescription = destination.label)
+                        }
+                    },
+                    label = {
+                        Text(
+                            text = destination.label,
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
+                        )
+                    },
+                    colors = NavigationBarItemDefaults.colors(
+                        selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                        selectedTextColor = MaterialTheme.colorScheme.primary,
+                        indicatorColor = MaterialTheme.colorScheme.primaryContainer,
+                        unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                        unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    ),
+                )
+            }
         }
     }
 }

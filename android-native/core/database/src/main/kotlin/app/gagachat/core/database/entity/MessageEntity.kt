@@ -10,6 +10,10 @@ import androidx.room.PrimaryKey
  *
  * `clientMessageId` is UNIQUE — this is the database-level guarantee that one user
  * action can never create two rows (PDF §5.2 duplicate prevention).
+ *
+ * `mediaUrls`, `reactions`, `forwardedFrom`, `contactName` and `contactPhone`
+ * were added in schema v3 to support multi-photo messages, reactions, forwarding
+ * and contact sharing.
  */
 @Entity(
     tableName = "messages",
@@ -46,4 +50,11 @@ data class MessageEntity(
     val mediaDurationMs: Long?,
     val latitude: Double?,
     val longitude: Double?,
+    /** JSON array of extra media urls for multi-photo messages. */
+    val mediaUrls: String? = null,
+    /** JSON object: emoji -> [userIds]. */
+    val reactions: String? = null,
+    val forwardedFrom: String? = null,
+    val contactName: String? = null,
+    val contactPhone: String? = null,
 )

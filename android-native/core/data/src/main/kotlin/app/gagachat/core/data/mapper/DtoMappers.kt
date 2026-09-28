@@ -16,7 +16,10 @@ import app.gagachat.core.network.dto.CallHistoryRow
 import app.gagachat.core.network.dto.ConversationRow
 import app.gagachat.core.network.dto.MessageRow
 import app.gagachat.core.network.dto.UserRow
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonPrimitive
 
 fun UserRow.toDomain(): User = User(
@@ -81,8 +84,13 @@ fun MessageRow.toDomain(): Message {
         type = type,
         text = text,
         mediaUrl = resolvedMedia,
+        mediaUrls = mediaUrls ?: resolvedMedia?.let { listOf(it) } ?: emptyList(),
         thumbnailUrl = thumbnail,
         replyToMessageId = replyToMessageId,
+        reactions = reactions?.toReactionMap() ?: emptyMap(),
+        forwardedFrom = forwardedFrom,
+        contactName = meta?.string("contact_name"),
+        contactPhone = meta?.string("contact_phone"),
         createdAtClient = createdAt ?: 0L,
         createdAtServer = createdAt,
         status = deliveryStatus?.let {
@@ -92,13 +100,33 @@ fun MessageRow.toDomain(): Message {
         deletedAt = if (destroyed == true) updated else null,
         latitude = if (type == MessageType.LOCATION) meta?.double("lat") else null,
         longitude = if (type == MessageType.LOCATION) meta?.double("lng") else null,
+        mediaDurationMs = if (type == MessageType.AUDIO) meta?.long("duration_ms") else null,
     )
 }
+
+/**
+ * Parses the backend `reactions` jsonb column (emoji -> [userIds]) into the
+ * domain map. Tolerates a legacy `emoji -> count` shape by ignoring bare
+ * numbers (which cannot be attributed to a user and therefore cannot be
+ * toggled reliably).
+ */
+internal fun JsonObject.toReactionMap(): Map<String, List<String>> =
+    entries.mapNotNull { (emoji, value) ->
+        val users = (value as? JsonArray)?.mapNotNull { it.jsonPrimitive.contentOrNull }
+        if (users.isNullOrEmpty()) null else emoji to users
+    }.toMap()
 
 private fun JsonObject.double(key: String): Double? =
     this[key]?.jsonPrimitive?.content?.toDoubleOrNull()
 
+private fun JsonObject.long(key: String): Long? =
+    this[key]?.jsonPrimitive?.content?.toLongOrNull()
+
+private fun JsonObject.string(key: String): String? =
+    (this[key] as? JsonPrimitive)?.contentOrNull?.takeIf { it.isNotEmpty() }
+
 fun CallHistoryRow.toDomain(
+    conversationId: String? = null,
     peerId: String? = null,
     peerName: String? = null,
     peerAvatar: String? = null,
@@ -108,7 +136,7 @@ fun CallHistoryRow.toDomain(
     val end = endedAt
     return CallSession(
         id = id,
-        conversationId = conversationId ?: "",
+        conversationId = conversationId ?: this.conversationId ?: "",
         initiatorId = callerId,
         type = type?.let { runCatching { CallType.valueOf(it.uppercase()) }.getOrNull() }
             ?: CallType.AUDIO,

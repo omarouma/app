@@ -14,6 +14,7 @@ import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Apps
 import androidx.compose.material.icons.filled.DarkMode
+import androidx.compose.material.icons.filled.DeleteForever
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.HelpOutline
 import androidx.compose.material.icons.filled.Info
@@ -62,6 +63,7 @@ fun SettingsRoute(
     onOpenSecurity: () -> Unit,
     onOpenAccessibility: () -> Unit,
     onOpenLanguage: () -> Unit,
+    onOpenDeleteAccount: () -> Unit,
     onSignedOut: () -> Unit,
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
@@ -189,6 +191,13 @@ fun SettingsRoute(
                 title = "Sign out",
                 leadingIcon = Icons.AutoMirrored.Filled.Logout,
                 onClick = viewModel::signOut,
+            )
+            GagaDivider()
+            GagaSettingsRow(
+                title = "Delete account",
+                subtitle = "Permanently remove your account and data",
+                leadingIcon = Icons.Filled.DeleteForever,
+                onClick = onOpenDeleteAccount,
             )
             Spacer(Modifier.height(GagaDimens.space48))
             Text(

@@ -199,10 +199,10 @@ class OnboardingViewModel @Inject constructor(
         }
     }
 
-    /** Marks onboarding complete and hands control back to the app shell. */
+    /** Marks profile setup complete for this account and hands control back. */
     fun complete(onDone: () -> Unit) {
         viewModelScope.launch {
-            onboardingPreferences.markCompleted()
+            sessionStore.userId()?.let { onboardingPreferences.markCompleted(it) }
             onDone()
         }
     }

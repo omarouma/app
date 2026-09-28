@@ -9,6 +9,7 @@ import app.gagachat.core.data.preferences.SettingsPreferences
 import app.gagachat.core.data.preferences.TextScale
 import app.gagachat.core.data.preferences.ThemeMode
 import app.gagachat.core.data.repository.AuthRepository
+import app.gagachat.core.common.result.AppResult
 import app.gagachat.core.data.repository.UserRepository
 import app.gagachat.core.model.User
 import coil.imageLoader
@@ -45,6 +46,8 @@ data class SettingsUiState(
     val language: AppLanguage = AppLanguage.ENGLISH,
     val isSigningOut: Boolean = false,
     val signedOut: Boolean = false,
+    val isDeletingAccount: Boolean = false,
+    val accountDeleted: Boolean = false,
 )
 
 @HiltViewModel
@@ -197,6 +200,29 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             authRepository.signOut()
             _state.update { it.copy(isSigningOut = false, signedOut = true) }
+        }
+    }
+
+    /**
+     * Permanently deletes the account (Play Store requirement). On success the
+     * session is cleared by the repository and [SettingsUiState.accountDeleted]
+     * flips so the UI can return to the auth graph.
+     */
+    fun deleteAccount() {
+        _state.update { it.copy(isDeletingAccount = true) }
+        viewModelScope.launch {
+            when (val result = authRepository.deleteAccount()) {
+                is AppResult.Success -> _state.update {
+                    it.copy(isDeletingAccount = false, accountDeleted = true)
+                }
+                is AppResult.Failure -> {
+                    _state.update { it.copy(isDeletingAccount = false) }
+                    _notices.tryEmit(
+                        result.error.message ?: "Could not delete account. Please try again.",
+                    )
+                }
+                AppResult.Loading -> Unit
+            }
         }
     }
 }

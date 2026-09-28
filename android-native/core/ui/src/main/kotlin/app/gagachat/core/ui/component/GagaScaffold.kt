@@ -8,6 +8,7 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import app.gagachat.core.model.UserStatus
 
 /**
  * Thin wrapper over Material 3 [Scaffold] that standardises the top bar and
@@ -22,6 +23,10 @@ fun GagaScaffold(
     subtitle: String? = null,
     onBack: (() -> Unit)? = null,
     brandMark: Boolean = false,
+    avatarUrl: String? = null,
+    avatarStatus: UserStatus? = null,
+    onTitleClick: (() -> Unit)? = null,
+    showTopBarDivider: Boolean = title.isNotBlank() || onBack != null,
     snackbarHostState: SnackbarHostState? = null,
     actions: @Composable RowScope.() -> Unit = {},
     floatingActionButton: @Composable () -> Unit = {},
@@ -36,6 +41,10 @@ fun GagaScaffold(
                 subtitle = subtitle,
                 onBack = onBack,
                 brandMark = brandMark,
+                avatarUrl = avatarUrl,
+                avatarStatus = avatarStatus,
+                onTitleClick = onTitleClick,
+                showDivider = showTopBarDivider,
                 actions = actions,
             )
         },

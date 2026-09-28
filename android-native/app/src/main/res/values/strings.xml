@@ -2,4 +2,7 @@
 <resources>
     <string name="app_name">GaGa</string>
     <string name="default_notification_channel_id">gaga_messages</string>
+    <string name="app_lock_title">GaGa is locked</string>
+    <string name="app_lock_subtitle">Unlock with your device PIN, pattern or biometrics to continue.</string>
+    <string name="app_lock_unlock">Unlock</string>
 </resources>

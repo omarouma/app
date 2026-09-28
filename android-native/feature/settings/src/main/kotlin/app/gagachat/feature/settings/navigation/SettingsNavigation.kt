@@ -8,6 +8,7 @@ import app.gagachat.feature.settings.presentation.AccessibilitySettingsScreen
 import app.gagachat.feature.settings.presentation.AppPermissionsScreen
 import app.gagachat.feature.settings.presentation.AppearanceSettingsScreen
 import app.gagachat.feature.settings.presentation.BlockedUsersScreen
+import app.gagachat.feature.settings.presentation.DeleteAccountSettingsScreen
 import app.gagachat.feature.settings.presentation.EditProfileScreen
 import app.gagachat.feature.settings.presentation.LanguageSettingsScreen
 import app.gagachat.feature.settings.presentation.NotificationInboxScreen
@@ -34,6 +35,7 @@ object SettingsRoutes {
     const val SECURITY = "settings/security"
     const val ACCESSIBILITY = "settings/accessibility"
     const val LANGUAGE = "settings/language"
+    const val DELETE_ACCOUNT = "settings/delete-account"
 }
 
 /**
@@ -66,6 +68,7 @@ fun NavGraphBuilder.settingsScreen(
             onOpenSecurity = { navController.navigate(SettingsRoutes.SECURITY) },
             onOpenAccessibility = { navController.navigate(SettingsRoutes.ACCESSIBILITY) },
             onOpenLanguage = { navController.navigate(SettingsRoutes.LANGUAGE) },
+            onOpenDeleteAccount = { navController.navigate(SettingsRoutes.DELETE_ACCOUNT) },
             onSignedOut = onSignedOut,
         )
     }
@@ -116,5 +119,11 @@ fun NavGraphBuilder.settingsScreen(
     }
     composable(SettingsRoutes.LANGUAGE) {
         LanguageSettingsScreen(onBack = { navController.popBackStack() })
+    }
+    composable(SettingsRoutes.DELETE_ACCOUNT) {
+        DeleteAccountSettingsScreen(
+            onBack = { navController.popBackStack() },
+            onDeleted = onSignedOut,
+        )
     }
 }

@@ -27,6 +27,14 @@ interface UserRepository {
     suspend fun getUser(id: String): AppResult<User>
     suspend fun refreshUser(id: String): AppResult<User>
     suspend fun cacheUsers(users: List<User>)
+
+    /**
+     * Publishes the current user's presence (Phase 8.2). Writes both the
+     * `presence` heartbeat row and the lightweight `users.status`/`last_seen`
+     * columns so peers can render online/last-seen. Best-effort: failures are
+     * swallowed because presence is ephemeral.
+     */
+    suspend fun updatePresence(userId: String, isOnline: Boolean)
 }
 
 @Singleton
@@ -80,6 +88,15 @@ class DefaultUserRepository @Inject constructor(
             AppResult.Failure(ErrorMapper.map(t))
         }
     }
+
+    override suspend fun updatePresence(userId: String, isOnline: Boolean) =
+        withContext(dispatchers.io) {
+            if (userId.isBlank()) return@withContext
+            val now = timeProvider.nowMillis()
+            runCatching { restApi.upsertPresence(userId, isOnline) }
+            runCatching { restApi.updateUserPresence(userId, isOnline, now) }
+            Unit
+        }
 
     override suspend fun cacheUsers(users: List<User>) = withContext(dispatchers.io) {
         val now = timeProvider.nowMillis()

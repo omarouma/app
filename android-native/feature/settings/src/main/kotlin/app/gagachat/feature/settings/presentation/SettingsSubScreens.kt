@@ -40,11 +40,13 @@ import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material3.Icon
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -586,6 +588,91 @@ fun LanguageSettingsScreen(
                 modifier = Modifier.padding(GagaDimens.space16),
             )
         }
+    }
+}
+
+/**
+ * Delete Account (Master Spec §C / Item 40 — Play Store requirement).
+ *
+ * A destructive, irreversible action guarded by an explicit confirmation dialog.
+ * On success the repository clears the session and [onDeleted] returns the app to
+ * the auth graph.
+ */
+@Composable
+fun DeleteAccountSettingsScreen(
+    onBack: () -> Unit,
+    onDeleted: () -> Unit,
+    viewModel: SettingsViewModel = hiltViewModel(),
+) {
+    val state by viewModel.state.collectAsStateWithLifecycle()
+    var confirmVisible by remember { mutableStateOf(false) }
+    val snackbar = remember { SnackbarHostState() }
+
+    LaunchedEffect(state.accountDeleted) {
+        if (state.accountDeleted) onDeleted()
+    }
+    LaunchedEffect(Unit) {
+        viewModel.notices.collect { snackbar.showSnackbar(it) }
+    }
+
+    GagaScaffold(title = "Delete account", onBack = onBack, snackbarHostState = snackbar) { padding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .verticalScroll(rememberScrollState()),
+        ) {
+            Text(
+                text = "Deleting your account is permanent. This removes your profile, " +
+                    "messages, media, friends and call history from GaGa Chat, and signs " +
+                    "you out on every device. This action cannot be undone.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(GagaDimens.space16),
+            )
+            GagaDivider()
+            GagaPrimaryButton(
+                text = "Delete my account",
+                onClick = { confirmVisible = true },
+                enabled = !state.isDeletingAccount,
+                loading = state.isDeletingAccount,
+                leadingIcon = Icons.Filled.DeleteSweep,
+                modifier = Modifier.padding(GagaDimens.space16),
+            )
+        }
+    }
+
+    if (confirmVisible) {
+        AlertDialog(
+            onDismissRequest = { if (!state.isDeletingAccount) confirmVisible = false },
+            icon = { Icon(Icons.Filled.DeleteSweep, contentDescription = null) },
+            title = { Text("Delete account?") },
+            text = {
+                Text(
+                    "This will permanently delete your GaGa Chat account and all of your " +
+                        "data. You cannot undo this.",
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = { viewModel.deleteAccount() },
+                    enabled = !state.isDeletingAccount,
+                ) {
+                    Text(
+                        text = if (state.isDeletingAccount) "Deleting…" else "Delete",
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { confirmVisible = false },
+                    enabled = !state.isDeletingAccount,
+                ) {
+                    Text("Cancel")
+                }
+            },
+        )
     }
 }
 
