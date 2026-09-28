@@ -1,0 +1,48 @@
+name: GaGa Native Android Build
+
+on:
+  push:
+    branches: [gaga-native-production-build]
+    paths:
+      - 'android-native/**'
+      - '.github/workflows/android-native-build.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: android-native
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Build debug APK
+        run: gradle --no-daemon --stacktrace :app:assembleDebug
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: GaGa-Native-debug-apk
+          path: android-native/app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+      - name: Build unsigned release APK and AAB
+        run: |
+          gradle --no-daemon --stacktrace :app:assembleRelease
+          gradle --no-daemon --stacktrace :app:bundleRelease
+      - name: Upload release artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: GaGa-Native-release-artifacts
+          path: |
+            android-native/app/build/outputs/apk/release/*.apk
+            android-native/app/build/outputs/bundle/release/*.aab
+          if-no-files-found: error
