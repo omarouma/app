@@ -16,6 +16,7 @@ import app.gagachat.core.model.MessageType
 import app.gagachat.core.model.PendingUpload
 import app.gagachat.core.model.UploadState
 import app.gagachat.core.network.storage.SupabaseStorageApi
+import app.gagachat.sync.outbox.OutboxScheduler
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
@@ -59,6 +60,7 @@ class DefaultMediaRepository @Inject constructor(
     private val idGenerator: IdGenerator,
     private val timeProvider: TimeProvider,
     private val dispatchers: DispatcherProvider,
+    private val outboxScheduler: OutboxScheduler,
 ) : MediaRepository {
 
     override suspend fun enqueueUpload(
@@ -109,6 +111,9 @@ class DefaultMediaRepository @Inject constructor(
             state = UploadState.QUEUED,
         )
         uploadDao.upsert(upload.toEntity())
+        // Start the durable upload immediately. Previously media could remain QUEUED
+        // forever because nothing scheduled MediaUploadWorker after enqueue.
+        outboxScheduler.enqueueMediaUpload()
         AppResult.Success(message)
     }
 

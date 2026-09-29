@@ -5,6 +5,7 @@ import app.gagachat.core.common.result.AppError
 import app.gagachat.core.common.result.AppResult
 import app.gagachat.core.common.util.AppLogger
 import app.gagachat.core.common.util.TimeProvider
+import app.gagachat.core.data.preferences.OnboardingPreferences
 import app.gagachat.core.network.auth.SupabaseAuthApi
 import app.gagachat.core.network.auth.toSession
 import app.gagachat.core.network.error.ErrorMapper
@@ -43,13 +44,23 @@ interface AuthRepository {
     suspend fun verifyOtp(email: String?, phone: String?, token: String): AppResult<AuthSession>
 
     suspend fun signOut()
+
+    /**
+     * Permanently deletes the signed-in user's account and all owned data
+     * (Play Store requirement). On success the local session is cleared so the
+     * app returns to the auth graph.
+     */
+    suspend fun deleteAccount(): AppResult<Unit>
+
     fun isLoggedIn(): Boolean
 }
 
 @Singleton
 class DefaultAuthRepository @Inject constructor(
     private val authApi: SupabaseAuthApi,
+    private val restApi: app.gagachat.core.network.rest.SupabaseRestApi,
     private val sessionStore: SessionStore,
+    private val onboardingPreferences: OnboardingPreferences,
     private val timeProvider: TimeProvider,
     private val dispatchers: DispatcherProvider,
     private val logger: AppLogger,
@@ -88,7 +99,8 @@ class DefaultAuthRepository @Inject constructor(
         phone: String?,
         password: String,
     ): AppResult<AuthSession> = withContext(dispatchers.io) {
-        runAuth { authApi.signInWithPassword(email, phone, password).toSession() }
+        // Password login ⇒ an existing account. Profile setup must NOT run again.
+        runAuth(newAccount = false) { authApi.signInWithPassword(email, phone, password).toSession() }
     }
 
     override suspend fun signUp(
@@ -97,7 +109,8 @@ class DefaultAuthRepository @Inject constructor(
         password: String,
         displayName: String?,
     ): AppResult<AuthSession> = withContext(dispatchers.io) {
-        runAuth { authApi.signUpWithPassword(email, phone, password, displayName).toSession() }
+        // Fresh sign-up ⇒ a brand-new account that must complete profile setup once.
+        runAuth(newAccount = true) { authApi.signUpWithPassword(email, phone, password, displayName).toSession() }
     }
 
     override suspend fun sendOtp(email: String?, phone: String?): AppResult<Unit> =
@@ -115,7 +128,10 @@ class DefaultAuthRepository @Inject constructor(
         phone: String?,
         token: String,
     ): AppResult<AuthSession> = withContext(dispatchers.io) {
-        runAuth { authApi.verifyOtp(email, phone, token).toSession() }
+        // OTP can be either a new sign-up confirmation or a passwordless login,
+        // so leave the onboarding status unresolved (null) and let the gate
+        // decide from the account's actual profile.
+        runAuth(newAccount = null) { authApi.verifyOtp(email, phone, token).toSession() }
     }
 
     override suspend fun signOut() {
@@ -126,11 +142,38 @@ class DefaultAuthRepository @Inject constructor(
         }
     }
 
+    override suspend fun deleteAccount(): AppResult<Unit> = withContext(dispatchers.io) {
+        try {
+            val uid = sessionStore.userId()
+            restApi.deleteMyAccount()
+            if (uid != null) onboardingPreferences.clear(uid)
+            clearLocalSession()
+            AppResult.Success(Unit)
+        } catch (t: Throwable) {
+            AppResult.Failure(ErrorMapper.map(t))
+        }
+    }
+
     override fun isLoggedIn(): Boolean = sessionStore.load() != null
 
-    private suspend fun runAuth(block: suspend () -> AuthSession): AppResult<AuthSession> = try {
+    /**
+     * Persists the session and records the onboarding intent for the account:
+     *  - [newAccount] `true`  → brand-new sign-up; force profile setup once.
+     *  - [newAccount] `false` → existing login; skip profile setup.
+     *  - [newAccount] `null`  → unresolved (e.g. OTP); let the gate decide from
+     *    the account's actual profile.
+     */
+    private suspend fun runAuth(
+        newAccount: Boolean?,
+        block: suspend () -> AuthSession,
+    ): AppResult<AuthSession> = try {
         val session = block()
         sessionStore.save(session)
+        when (newAccount) {
+            true -> onboardingPreferences.markPending(session.userId)
+            false -> onboardingPreferences.markCompleted(session.userId)
+            null -> Unit
+        }
         _sessionFlow.value = session
         AppResult.Success(session)
     } catch (t: Throwable) {

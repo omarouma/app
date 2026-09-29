@@ -2,7 +2,7 @@ package app.gagachat.core.data.repository
 
 import app.gagachat.core.common.di.DispatcherProvider
 import app.gagachat.core.common.result.AppResult
-import app.gagachat.core.common.util.IdGenerator
+import app.gagachat.core.common.result.AppError
 import app.gagachat.core.common.util.TimeProvider
 import app.gagachat.core.data.mapper.toDomain
 import app.gagachat.core.database.dao.CallDao
@@ -47,8 +47,8 @@ class DefaultCallRepository @Inject constructor(
     private val userDao: UserDao,
     private val restApi: SupabaseRestApi,
     private val messageRepository: MessageRepository,
+    private val conversationRepository: ConversationRepository,
     private val authRepository: AuthRepository,
-    private val idGenerator: IdGenerator,
     private val timeProvider: TimeProvider,
     private val dispatchers: DispatcherProvider,
 ) : CallRepository {
@@ -78,39 +78,37 @@ class DefaultCallRepository @Inject constructor(
         peerAvatar: String?,
         type: CallType,
     ): AppResult<CallSession> = withContext(dispatchers.io) {
-        val now = timeProvider.nowMillis()
-        val callId = idGenerator.newUuid()
-        val session = CallSession(
-            id = callId,
-            conversationId = conversationId,
-            initiatorId = initiatorId,
-            type = type,
-            startedAt = now,
-            status = CallStatus.RINGING,
-            peerId = peerId,
-            peerName = peerName,
-            peerAvatar = peerAvatar,
-            isOutgoing = true,
-        )
-        callDao.upsert(session.toEntity())
-        // call_history.callee_id is NOT NULL, so a server row needs a known peer.
-        if (peerId != null) {
-            runCatching {
-                restApi.insertCallHistory(
-                    CallHistoryRow(
-                        id = callId,
-                        conversationId = conversationId,
-                        callerId = initiatorId,
-                        calleeId = peerId,
-                        type = type.name.lowercase(),
-                        status = CallStatus.RINGING.name.lowercase(),
-                        roomId = callId,
-                        startedAt = now,
-                    ),
-                )
-            }
+        if (peerId.isNullOrBlank()) {
+            return@withContext AppResult.Failure(AppError.Validation("This conversation has no callable peer."))
         }
-        AppResult.Success(session)
+        if (conversationId.isBlank()) {
+            return@withContext AppResult.Failure(AppError.Validation("Missing conversation id."))
+        }
+
+        try {
+            val response = restApi.createCall(
+                conversationId = conversationId,
+                calleeId = peerId,
+                type = if (type == CallType.VIDEO) "video" else "voice",
+            )
+            val now = timeProvider.nowMillis()
+            val session = CallSession(
+                id = response.callId,
+                conversationId = conversationId,
+                initiatorId = initiatorId,
+                type = type,
+                startedAt = now,
+                status = CallStatus.RINGING,
+                peerId = peerId,
+                peerName = peerName,
+                peerAvatar = peerAvatar,
+                isOutgoing = true,
+            )
+            callDao.upsert(session.toEntity())
+            AppResult.Success(session)
+        } catch (t: Throwable) {
+            AppResult.Failure(ErrorMapper.map(t))
+        }
     }
 
     override suspend fun endCall(callId: String, status: CallStatus, durationMs: Long?) =
@@ -151,11 +149,31 @@ class DefaultCallRepository @Inject constructor(
                 }.getOrDefault(emptyMap())
             }
 
+            // Prefer the durable `chat_id` from call_history. For legacy rows that
+            // predate that column, reconstruct the direct conversation from the peer.
+            val conversationByPeer = mutableMapOf<String, String>()
+            if (me.isNotBlank()) {
+                val legacyPeers = rows
+                    .filter { it.conversationId.isNullOrBlank() }
+                    .mapNotNull { peerIdOf(it, me) }
+                    .distinct()
+                legacyPeers.forEach { peer ->
+                    runCatching {
+                        when (val opened = conversationRepository.openDirectConversation(me, peer)) {
+                            is AppResult.Success -> conversationByPeer[peer] = opened.data
+                            is AppResult.Failure -> Unit
+                            AppResult.Loading -> Unit
+                        }
+                    }
+                }
+            }
+
             rows.forEach { row ->
                 val peerId = peerIdOf(row, me)
                 val peer = peerId?.let { usersById[it] }
                 callDao.upsert(
                     row.toDomain(
+                        conversationId = peerId?.let { conversationByPeer[it] },
                         peerId = peerId,
                         peerName = peer?.displayLabel,
                         peerAvatar = peer?.avatar,

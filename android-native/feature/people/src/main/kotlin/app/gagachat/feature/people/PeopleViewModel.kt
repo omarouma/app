@@ -2,6 +2,7 @@ package app.gagachat.feature.people
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import app.gagachat.core.common.network.NetworkMonitor
 import app.gagachat.core.common.result.AppResult
 import app.gagachat.core.data.repository.AuthRepository
 import app.gagachat.core.data.repository.BlockRepository
@@ -11,7 +12,7 @@ import app.gagachat.core.model.Friend
 import app.gagachat.core.model.FriendRequest
 import app.gagachat.core.model.User
 import app.gagachat.core.ui.state.ScreenState
-import app.gagachat.core.ui.util.toUserMessage
+import app.gagachat.core.ui.util.toScreenStateError
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -36,6 +37,7 @@ class PeopleViewModel @Inject constructor(
     private val conversationRepository: ConversationRepository,
     private val blockRepository: BlockRepository,
     private val authRepository: AuthRepository,
+    private val networkMonitor: NetworkMonitor,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow<ScreenState<PeopleData>>(ScreenState.Initial)
@@ -79,7 +81,7 @@ class PeopleViewModel @Inject constructor(
             when (val result = friendsRepository.refresh()) {
                 is AppResult.Success -> loaded = true
                 is AppResult.Failure -> if (!loaded) {
-                    _state.value = ScreenState.Error(result.error.toUserMessage(), retryable = true)
+                    _state.value = result.error.toScreenStateError(networkMonitor.isCurrentlyOnline())
                 }
                 AppResult.Loading -> Unit
             }

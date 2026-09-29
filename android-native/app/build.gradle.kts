@@ -2,10 +2,15 @@ plugins {
     id("gaga.android.application")
     id("gaga.android.hilt")
     alias(libs.plugins.kotlin.serialization)
-    // NOTE: The Google Services plugin is intentionally NOT applied here so the
-    // project builds without committing secrets. When you add a real
-    // google-services.json (PDF §10 — no secrets in the APK), uncomment:
-    // alias(libs.plugins.google.services)
+}
+
+// Apply Google Services only when the Firebase Android config is present.
+// This keeps source control secret-free while ensuring production builds do not
+// silently ship an FCM dependency that was never initialized.
+if (file("google-services.json").exists()) {
+    pluginManager.apply("com.google.gms.google-services")
+} else {
+    logger.warn("[gaga] google-services.json is missing: FCM push/incoming-call notifications will be unavailable in this build.")
 }
 
 android {
@@ -13,8 +18,24 @@ android {
 
     defaultConfig {
         applicationId = "gagachat.app"
-        versionCode = 7
-        versionName = "2.0.4"
+        versionCode = 15
+        versionName = "2.0.13"
+
+        // The ZEGOCLOUD Call Kit ships native RTC libraries for four ABIs. We
+        // bundle the two every real Android phone uses (64-bit and 32-bit ARM).
+        //
+        // IMPORTANT: the Call Kit's transitive MMKV dependency
+        // (com.tencent:mmkv:2.2.2) only publishes arm64-v8a + x86_64 native
+        // libraries -- it has NO armeabi-v7a libmmkv.so. ZEGO's auto-registered
+        // `PrebuiltCallInitializer` ContentProvider calls MMKV.initialize()
+        // during process startup (before Application.onCreate), so on a 32-bit
+        // ARM device the missing library throws UnsatisfiedLinkError and the app
+        // is killed instantly on launch. We pin MMKV to 1.3.17 below (see the
+        // resolution strategy) because that release still ships armeabi-v7a and
+        // exposes the exact same API surface ZEGO uses.
+        ndk {
+            abiFilters += listOf("arm64-v8a", "armeabi-v7a")
+        }
     }
 
     // Release signing (PDF §11 — signing key kept in a secure CI/release
@@ -74,7 +95,27 @@ android {
             "/META-INF/{AL2.0,LGPL2.1}",
             "META-INF/DEPENDENCIES",
             "META-INF/LICENSE*",
+            "META-INF/versions/9/OSGI-INF/MANIFEST.MF",
         )
+    }
+}
+
+// ---- Native library compatibility fix (startup crash) ----
+// The ZEGOCLOUD Call Kit pulls in com.tencent:mmkv:2.2.2 transitively. MMKV 2.x
+// only publishes arm64-v8a + x86_64 native libraries, so on 32-bit ARM devices
+// `libmmkv.so` is missing and ZEGO's auto-run `PrebuiltCallInitializer`
+// ContentProvider (which calls MMKV.initialize() before Application.onCreate)
+// throws UnsatisfiedLinkError -> the app is killed on launch.
+//
+// MMKV 1.3.17 is the last release that ships armeabi-v7a (plus arm64-v8a, x86
+// and x86_64). ZEGO only ever calls the core MMKV API
+// (initialize / mmkvWithID / defaultMMKV / encode / decode* / contains /
+// remove / getString) and those method descriptors are byte-for-byte identical
+// between 1.3.17 and 2.2.2, so pinning 1.3.17 restores the missing 32-bit
+// library without any behavioural or linkage change.
+configurations.configureEach {
+    resolutionStrategy {
+        force("com.tencent:mmkv:1.3.17")
     }
 }
 
@@ -149,6 +190,9 @@ dependencies {
     // decoder so video message thumbnails render real frames).
     implementation(libs.coil.compose)
     implementation(libs.coil.video)
+
+    // ZEGOCLOUD Call Kit — real 1:1 audio/video calling with call invitations.
+    implementation(libs.zego.callkit)
 
     // Testing
     testImplementation(libs.junit)

@@ -37,6 +37,15 @@ data class Message(
     @SerialName("media_duration_ms") val mediaDurationMs: Long? = null,
     @SerialName("latitude") val latitude: Double? = null,
     @SerialName("longitude") val longitude: Double? = null,
+    // Extra media URLs for multi-photo messages (first url lives in [mediaUrl]).
+    @SerialName("media_urls") val mediaUrls: List<String> = emptyList(),
+    // Reactions: emoji -> list of user ids who reacted (PDF §5.4 reactions).
+    @SerialName("reactions") val reactions: Map<String, List<String>> = emptyMap(),
+    // Original author id when this message was forwarded (PDF §5.4 forwarding).
+    @SerialName("forwarded_from") val forwardedFrom: String? = null,
+    // Contact-card payload (MessageType.CONTACT).
+    @SerialName("contact_name") val contactName: String? = null,
+    @SerialName("contact_phone") val contactPhone: String? = null,
 ) {
     /** Authoritative timestamp for ordering: server time when available, else client. */
     val sortTimestamp: Long get() = createdAtServer ?: createdAtClient
@@ -44,6 +53,22 @@ data class Message(
     val isPending: Boolean get() = status == MessageStatus.PENDING
     val isFailed: Boolean get() = status == MessageStatus.FAILED
     val isDeleted: Boolean get() = deletedAt != null
+    val hasReactions: Boolean get() = reactions.isNotEmpty()
+
+    /** True when this message carries more than one image. */
+    val isMultiImage: Boolean
+        get() = type == MessageType.IMAGE && allMediaUrls.size > 1
+
+    /** Every media url for this message (deduplicated, order preserved). */
+    val allMediaUrls: List<String>
+        get() = (listOfNotNull(mediaUrl) + mediaUrls).distinct()
+
+    /** Whether [userId] reacted with [emoji]. */
+    fun hasReaction(emoji: String, userId: String): Boolean =
+        reactions[emoji]?.contains(userId) == true
+
+    /** Total number of individual reactions across all emojis. */
+    val reactionCount: Int get() = reactions.values.sumOf { it.size }
 }
 
 @Serializable
@@ -54,6 +79,7 @@ enum class MessageType {
     @SerialName("audio") AUDIO,
     @SerialName("file") FILE,
     @SerialName("location") LOCATION,
+    @SerialName("contact") CONTACT,
     @SerialName("call_event") CALL_EVENT,
 }
 

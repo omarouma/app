@@ -18,6 +18,10 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
+        // ZEGOCLOUD Call Kit (ZIM signaling + Express media + prebuilt UI).
+        maven { url = uri("https://maven.zego.im") }
+        // ZEGOCLOUD transitive dependencies (e.g. MMKV) are published on JitPack.
+        maven { url = uri("https://www.jitpack.io") }
     }
 }
 

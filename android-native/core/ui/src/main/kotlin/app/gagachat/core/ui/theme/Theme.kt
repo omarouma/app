@@ -112,6 +112,7 @@ object GagaTheme {
 fun GagaTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     dynamicColor: Boolean = false,
+    textScale: Float = 1f,
     content: @Composable () -> Unit,
 ) {
     val context = LocalContext.current
@@ -135,7 +136,7 @@ fun GagaTheme(
     CompositionLocalProvider(LocalGagaExtraColors provides extraColors) {
         MaterialTheme(
             colorScheme = colorScheme,
-            typography = GagaTypography,
+            typography = scaledTypography(textScale),
             shapes = GagaShapes,
             content = content,
         )

@@ -16,6 +16,7 @@ data class SupabaseConfig(
     val restUrl: String get() = "$url/rest/v1"
     val authUrl: String get() = "$url/auth/v1"
     val storageUrl: String get() = "$url/storage/v1"
+    val functionsUrl: String get() = "$url/functions/v1"
     val realtimeUrl: String
         get() {
             val ws = url.replaceFirst("https://", "wss://").replaceFirst("http://", "ws://")

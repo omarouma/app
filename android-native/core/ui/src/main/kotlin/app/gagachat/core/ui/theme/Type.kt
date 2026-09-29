@@ -81,3 +81,33 @@ val GagaTypography = Typography(
         lineHeight = 14.sp,
     ),
 )
+
+/**
+ * Returns the base typography with every size multiplied by [scale]
+ * (Master Spec §C — accessibility / text size). A scale of 1.0 returns the
+ * base typography unchanged; the app clamps the value to a safe range.
+ */
+fun scaledTypography(scale: Float): Typography {
+    if (scale == 1f) return GagaTypography
+    fun TextStyle.scaled(): TextStyle = copy(
+        fontSize = fontSize * scale,
+        lineHeight = lineHeight * scale,
+    )
+    return Typography(
+        displayLarge = GagaTypography.displayLarge.scaled(),
+        displayMedium = GagaTypography.displayMedium.scaled(),
+        displaySmall = GagaTypography.displaySmall.scaled(),
+        headlineLarge = GagaTypography.headlineLarge.scaled(),
+        headlineMedium = GagaTypography.headlineMedium.scaled(),
+        headlineSmall = GagaTypography.headlineSmall.scaled(),
+        titleLarge = GagaTypography.titleLarge.scaled(),
+        titleMedium = GagaTypography.titleMedium.scaled(),
+        titleSmall = GagaTypography.titleSmall.scaled(),
+        bodyLarge = GagaTypography.bodyLarge.scaled(),
+        bodyMedium = GagaTypography.bodyMedium.scaled(),
+        bodySmall = GagaTypography.bodySmall.scaled(),
+        labelLarge = GagaTypography.labelLarge.scaled(),
+        labelMedium = GagaTypography.labelMedium.scaled(),
+        labelSmall = GagaTypography.labelSmall.scaled(),
+    )
+}

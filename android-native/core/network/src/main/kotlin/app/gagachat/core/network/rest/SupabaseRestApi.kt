@@ -4,6 +4,7 @@ import app.gagachat.core.model.CoinActivity
 import app.gagachat.core.network.config.SupabaseConfig
 import app.gagachat.core.network.dto.BlockRow
 import app.gagachat.core.network.dto.CallHistoryRow
+import app.gagachat.core.network.dto.CreateCallResponse
 import app.gagachat.core.network.dto.ChatReadRow
 import app.gagachat.core.network.dto.ConversationInsert
 import app.gagachat.core.network.dto.ConversationRow
@@ -24,6 +25,7 @@ import app.gagachat.core.network.dto.SavedMessageRow
 import app.gagachat.core.network.dto.UserRow
 import app.gagachat.core.network.dto.WalletInsert
 import app.gagachat.core.network.dto.WalletRow
+import app.gagachat.core.network.dto.ZegoTokenResponse
 import app.gagachat.core.network.session.SessionStore
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
@@ -305,6 +307,26 @@ class SupabaseRestApi @Inject constructor(
         }
     }
 
+    /**
+     * Lightweight presence write: patches only the live-status columns on the
+     * `users` row (never touches the rest of the profile) so peers can render
+     * online/last-seen without a full upsert clobbering unrelated fields.
+     */
+    suspend fun updateUserPresence(userId: String, isOnline: Boolean, lastSeen: Long) {
+        client.patch("${config.restUrl}/users") {
+            auth()
+            parameter("id", "eq.$userId")
+            header("Prefer", "return=minimal")
+            contentType(ContentType.Application.Json)
+            setBody(
+                mapOf(
+                    "status" to if (isOnline) "online" else "offline",
+                    "last_seen" to iso(lastSeen),
+                ),
+            )
+        }
+    }
+
     suspend fun updateMessageReactions(id: String, reactions: JsonObject) {
         client.patch("${config.restUrl}/messages") {
             auth()
@@ -338,6 +360,40 @@ class SupabaseRestApi @Inject constructor(
 
     // ---- Calls ----
 
+    /**
+     * Creates a call through the authenticated server boundary. The Edge Function
+     * validates the caller, conversation membership, block state and busy state,
+     * then returns the canonical call/room ids used throughout the app.
+     */
+    suspend fun createCall(
+        conversationId: String,
+        calleeId: String,
+        type: String,
+    ): CreateCallResponse = client.post("${config.functionsUrl}/create-call") {
+        auth()
+        contentType(ContentType.Application.Json)
+        setBody(
+            mapOf(
+                "chat_id" to conversationId,
+                "callee_id" to calleeId,
+                "type" to type,
+            ),
+        )
+    }.body()
+
+    /**
+     * Requests a short-lived ZIM identity token for the signed-in user.
+     * The server cryptographically verifies the Supabase session and never
+     * exposes the ZEGO ServerSecret to the Android client.
+     */
+    suspend fun getZegoZimToken(userId: String, userName: String): ZegoTokenResponse =
+        client.get("${config.functionsUrl}/zego-token") {
+            auth()
+            parameter("type", "zim")
+            parameter("user", userId.filter { it.isLetterOrDigit() || it == '_' }.take(64))
+            parameter("name", userName.take(80))
+        }.body()
+
     suspend fun insertCallHistory(row: CallHistoryRow): CallHistoryRow =
         client.post("${config.restUrl}/call_history") {
             auth()
@@ -361,7 +417,8 @@ class SupabaseRestApi @Inject constructor(
                 buildMap<String, Any> {
                     put("status", status)
                     put("ended_at", iso(endedAt))
-                    duration?.let { put("duration", it) }
+                    // `call_history.duration` is stored in seconds.
+                    duration?.let { put("duration", (it / 1_000L).coerceAtLeast(0L)) }
                 },
             )
         }
@@ -371,7 +428,7 @@ class SupabaseRestApi @Inject constructor(
         client.get("${config.restUrl}/call_history") {
             auth()
             parameter("select", "*")
-            parameter("order", "started_at.desc")
+            parameter("order", "started_at.desc.nullslast,created_at.desc")
             parameter("limit", limit)
         }.body()
 
@@ -679,6 +736,22 @@ class SupabaseRestApi @Inject constructor(
                     "updated_at" to iso(System.currentTimeMillis()),
                 ),
             )
+        }
+    }
+
+    // ---- Account ----
+
+    /**
+     * Permanently deletes the signed-in user's account and all owned data via the
+     * `delete_my_account()` RPC (Play Store requirement). The server scopes the
+     * deletion to `auth.uid()`, so this can only ever delete the caller.
+     */
+    suspend fun deleteMyAccount() {
+        client.post("${config.restUrl}/rpc/delete_my_account") {
+            auth()
+            header("Prefer", "return=minimal")
+            contentType(ContentType.Application.Json)
+            setBody(emptyMap<String, String>())
         }
     }
 

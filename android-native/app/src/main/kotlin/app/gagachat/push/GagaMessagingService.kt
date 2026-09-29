@@ -1,26 +1,35 @@
 package app.gagachat.push
 
+import app.gagachat.core.data.preferences.SettingsPreferences
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 /**
- * FCM entry point (PDF §8). Routes message and call pushes to the correct
- * surface and keeps the device token registered. The service is intentionally
- * thin: it never touches the database directly, it only posts notifications and
- * records the pending deep link so the UI can react when it comes to the
- * foreground.
+ * FCM entry point (PDF §8 / Master Spec §C — notifications). Routes message,
+ * group, call, missed-call, friend and security pushes to the correct surface
+ * and keeps the device token registered.
+ *
+ * Every notification respects the user's in-app preferences: if notifications
+ * are disabled nothing is posted, and if message sounds are disabled the message
+ * notification is silent. The service is intentionally thin: it never touches the
+ * database directly, it only posts notifications and records the pending deep
+ * link so the UI can react when it comes to the foreground.
  */
 @AndroidEntryPoint
 class GagaMessagingService : FirebaseMessagingService() {
 
     @Inject
     lateinit var tokenRegistrar: PushTokenRegistrar
+
+    @Inject
+    lateinit var settingsPreferences: SettingsPreferences
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
@@ -37,24 +46,95 @@ class GagaMessagingService : FirebaseMessagingService() {
         // Record the deep link so a tap routes correctly even from cold start.
         DeepLinkRouter.routeForPush(data)?.let(PendingDeepLink::set)
 
-        val conversationId = data["conversationId"] ?: data["conversation_id"] ?: return
-        val title = data["title"] ?: message.notification?.title ?: "GaGa Chat"
-        val body = data["body"] ?: message.notification?.body ?: "New message"
+        scope.launch {
+            val notificationsEnabled = settingsPreferences.notificationsEnabled.first()
+            val soundsEnabled = settingsPreferences.messageSoundsEnabled.first()
 
-        if (type == "call") {
-            NotificationHelper.showIncomingCall(
-                context = this,
-                conversationId = conversationId,
-                callerName = title,
-                isVideo = data["callType"] == "video",
-            )
-        } else {
-            NotificationHelper.showMessage(
-                context = this,
-                conversationId = conversationId,
-                title = title,
-                body = body,
-            )
+            val conversationId = data["conversationId"]
+                ?: data["conversation_id"]
+                ?: data["chatId"]
+                ?: data["chat_id"]
+            val callerName = data["callerName"]
+                ?: data["caller_name"]
+            val title = data["title"]
+                ?: callerName
+                ?: message.notification?.title
+                ?: "GaGa Chat"
+            val body = data["body"]
+                ?: data["message_preview"]
+                ?: message.notification?.body
+                ?: "New message"
+            val isVideo = data["callType"] == "video"
+                || data["call_type"] == "video"
+                || data["is_video"].equals("true", ignoreCase = true)
+            val isGroup = data["isGroup"] == "true" || type == "group" || type == "group_message"
+
+            when (type) {
+                "call", "incoming_call" -> {
+                    if (conversationId != null) {
+                        NotificationHelper.showIncomingCall(
+                            context = this@GagaMessagingService,
+                            conversationId = conversationId,
+                            callerName = title,
+                            isVideo = isVideo,
+                            notificationsEnabled = notificationsEnabled,
+                        )
+                    }
+                }
+
+                "call_cancel", "call_ended" -> {
+                    conversationId?.let { NotificationHelper.cancelIncomingCall(this@GagaMessagingService, it) }
+                }
+
+                "missed_call" -> {
+                    NotificationHelper.showMissedCall(
+                        context = this@GagaMessagingService,
+                        conversationId = conversationId ?: title,
+                        callerName = title,
+                        isVideo = isVideo,
+                        notificationsEnabled = notificationsEnabled,
+                    )
+                }
+
+                "friend_request", "friend_accepted", "friend" -> {
+                    NotificationHelper.showGeneral(
+                        context = this@GagaMessagingService,
+                        id = (conversationId ?: title).hashCode(),
+                        title = title,
+                        body = body,
+                        route = "requests",
+                        soundEnabled = soundsEnabled,
+                        notificationsEnabled = notificationsEnabled,
+                    )
+                }
+
+                "security" -> {
+                    NotificationHelper.showGeneral(
+                        context = this@GagaMessagingService,
+                        id = (data["id"] ?: title).hashCode(),
+                        title = title,
+                        body = body,
+                        route = "security",
+                        security = true,
+                        soundEnabled = true,
+                        notificationsEnabled = notificationsEnabled,
+                    )
+                }
+
+                else -> {
+                    if (conversationId != null) {
+                        NotificationHelper.showMessage(
+                            context = this@GagaMessagingService,
+                            conversationId = conversationId,
+                            title = title,
+                            body = body,
+                            isGroup = isGroup,
+                            soundEnabled = soundsEnabled,
+                            notificationsEnabled = notificationsEnabled,
+                        )
+                    }
+                }
+            }
         }
     }
 }

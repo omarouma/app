@@ -91,7 +91,7 @@ data class MessageRow(
     @SerialName("media_url") val mediaUrl: String? = null,
     @SerialName("media_urls") val mediaUrls: List<String>? = null,
     @SerialName("reply_to") val replyToMessageId: String? = null,
-    @SerialName("reactions") val reactions: Map<String, Int>? = null,
+    @SerialName("reactions") val reactions: JsonObject? = null,
     @SerialName("forwarded_from") val forwardedFrom: String? = null,
     @SerialName("delivery_status") val deliveryStatus: String? = null,
     @SerialName("destroyed") val destroyed: Boolean? = null,
@@ -115,6 +115,7 @@ data class MessageInsert(
     @SerialName("media_url") val mediaUrl: String? = null,
     @SerialName("media_urls") val mediaUrls: List<String>? = null,
     @SerialName("reply_to") val replyToMessageId: String? = null,
+    @SerialName("forwarded_from") val forwardedFrom: String? = null,
     val metadata: JsonObject? = null,
 )
 
@@ -127,7 +128,17 @@ data class ChatReadRow(
     @SerialName("last_read_at") @Serializable(with = EpochMillisSerializer::class) val lastReadAt: Long? = null,
 )
 
-/** Call history row (call_history). */
+/**
+ * Call history row (`public.call_history`).
+ *
+ * Keep this DTO aligned with the live Supabase schema. In particular, `chat_id`,
+ * `room_id`, and `started_at` are real server columns and form the durable call
+ * correlation contract used by Android, notifications, ZEGO callbacks and chat
+ * call-event history.
+ *
+ * `duration` is stored server-side in **seconds**; the domain model uses
+ * milliseconds and converts at the mapper boundary.
+ */
 @Serializable
 data class CallHistoryRow(
     val id: String,
@@ -136,12 +147,35 @@ data class CallHistoryRow(
     @SerialName("callee_id") val calleeId: String? = null,
     val type: String? = null,
     val status: String? = null,
+    /** Server duration in seconds. */
     val duration: Long? = null,
-    @SerialName("room_id") val roomId: String? = null,
     @SerialName("participant_ids") val participantIds: List<String>? = null,
+    @SerialName("room_id") val roomId: String? = null,
     @SerialName("started_at") @Serializable(with = EpochMillisSerializer::class) val startedAt: Long? = null,
     @SerialName("ended_at") @Serializable(with = EpochMillisSerializer::class) val endedAt: Long? = null,
     @SerialName("created_at") @Serializable(with = EpochMillisSerializer::class) val createdAt: Long? = null,
+)
+
+
+/** Response from the authenticated `create-call` Edge Function. */
+@Serializable
+data class CreateCallResponse(
+    @SerialName("call_id") val callId: String,
+    @SerialName("room_id") val roomId: String,
+    val status: String,
+    @SerialName("app_id") val appId: Long = 0L,
+    @SerialName("caller_id") val callerId: String,
+    @SerialName("callee_id") val calleeId: String,
+    @SerialName("call_type") val callType: String,
+)
+
+/** Server-issued ZEGOCLOUD user token. ServerSecret never ships in the APK. */
+@Serializable
+data class ZegoTokenResponse(
+    @SerialName("zimToken") val zimToken: String,
+    @SerialName("appID") val appId: Long,
+    @SerialName("userID") val userId: String,
+    @SerialName("expireAt") val expireAt: Long,
 )
 
 /**

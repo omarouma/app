@@ -4,52 +4,88 @@ import android.Manifest
 import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Chat
+import androidx.compose.material.icons.automirrored.filled.Forward
+import androidx.compose.material.icons.automirrored.filled.Reply
+import androidx.compose.material.icons.filled.AddReaction
+import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.Call
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import app.gagachat.core.data.preferences.ChatBackground
 import app.gagachat.core.model.Message
+import app.gagachat.core.model.MessageType
 import app.gagachat.core.ui.component.GagaEmptyState
+import app.gagachat.core.ui.component.GagaOfflineBanner
 import app.gagachat.core.ui.component.GagaScaffold
 import app.gagachat.core.ui.theme.GagaDimens
 import app.gagachat.feature.chat.presentation.components.DateSeparator
@@ -57,31 +93,57 @@ import app.gagachat.feature.chat.presentation.components.MediaViewerOverlay
 import app.gagachat.feature.chat.presentation.components.MessageBubble
 import app.gagachat.feature.chat.presentation.components.MessageComposer
 import app.gagachat.feature.chat.presentation.components.TypingIndicator
+import app.gagachat.feature.chat.presentation.components.rememberContactPicker
 import app.gagachat.feature.chat.presentation.components.rememberMediaPicker
+import kotlinx.coroutines.launch
 
+private val QuickReactions = listOf("\uD83D\uDC4D", "\u2764\uFE0F", "\uD83D\uDE02", "\uD83D\uDE2E", "\uD83D\uDE22", "\uD83D\uDE4F")
+
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChatRoute(
     onNavigateBack: () -> Unit,
     onStartCall: (conversationId: String, isVideo: Boolean) -> Unit,
     onOpenProfile: (userId: String) -> Unit,
     onSendMoney: () -> Unit,
+    onOpenChatInfo: (conversationId: String) -> Unit,
     viewModel: ChatViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     val listState = rememberLazyListState()
+    val scope = rememberCoroutineScope()
+    val clipboard = LocalClipboardManager.current
     val mediaPicker = rememberMediaPicker(
-        onImagePicked = { viewModel.sendMedia(it, "image") },
+        onImagesPicked = { uris -> uris.forEach { viewModel.sendMedia(it, "image") } },
         onVideoPicked = { viewModel.sendMedia(it, "video") },
         onFilePicked = { viewModel.sendMedia(it, "file") },
+        onAudioPicked = { viewModel.sendMedia(it, "audio") },
+        onCameraPhotoPicked = { viewModel.sendMedia(it, "image") },
+    )
+    val contactPicker = rememberContactPicker(
+        onContactPicked = { viewModel.shareContact(it.name, it.phone) },
     )
     val context = LocalContext.current
     var viewerMessage by remember { mutableStateOf<Message?>(null) }
+    var showBackgroundPicker by remember { mutableStateOf(false) }
     // Requests RECORD_AUDIO the first time the mic is tapped, then starts the
     // recording. If the user denies, the ViewModel surfaces an actionable notice.
     val micPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission(),
     ) { viewModel.startVoiceRecording() }
+    val cameraPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission(),
+    ) { granted ->
+        if (granted) mediaPicker.takePhoto()
+        else viewModel.showNotice("Camera permission is needed to take a photo.")
+    }
+    val locationPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestMultiplePermissions(),
+    ) { grants ->
+        if (grants.values.any { it }) viewModel.shareLocation()
+        else viewModel.showNotice("Location permission is needed to share your location.")
+    }
 
     LaunchedEffect(state.errorMessage) {
         state.errorMessage?.let {
@@ -108,110 +170,403 @@ fun ChatRoute(
         if (shouldLoadOlder) viewModel.loadOlder()
     }
 
-    GagaScaffold(
-        title = state.title,
-        subtitle = if (state.isOtherTyping) "typing\u2026" else state.subtitle,
-        onBack = onNavigateBack,
-        snackbarHostState = snackbarHostState,
-        actions = {
-            IconButton(onClick = { onStartCall(state.conversationId, false) }) {
-                Icon(Icons.Filled.Call, contentDescription = "Voice call")
-            }
-            IconButton(onClick = { onStartCall(state.conversationId, true) }) {
-                Icon(Icons.Filled.Videocam, contentDescription = "Video call")
-            }
-            ChatOverflowMenu(
-                onViewProfile = {
-                    val id = state.otherUserId
-                    if (id.isNotBlank()) onOpenProfile(id)
-                    else viewModel.showNotice("Couldn't open this profile yet.")
-                },
-                onChatInfo = {
-                    val id = state.otherUserId
-                    if (id.isNotBlank()) onOpenProfile(id)
-                    else viewModel.showNotice("Couldn't open this profile yet.")
-                },
-                onSendMoney = onSendMoney,
-                onBlockUser = viewModel::blockUser,
-                onRemoveFriend = viewModel::removeFriend,
-                onSearch = viewModel::toggleSearch,
-                onReport = viewModel::reportUser,
-                onAction = { label ->
-                    snackbarHostState.currentSnackbarData?.dismiss()
-                    viewModel.showNotice(label)
-                },
-            )
-        },
-    ) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding),
-        ) {
-            if (state.isSearching) {
-                MessageSearchBar(
-                    query = state.searchQuery,
-                    onQueryChange = viewModel::onSearchQueryChange,
-                    onClose = viewModel::toggleSearch,
+    // Jump to the newest message whenever a fresh one arrives while pinned near
+    // the bottom (reverseLayout => index 0 is the newest).
+    val atBottom by remember {
+        derivedStateOf { listState.firstVisibleItemIndex <= 1 }
+    }
+    LaunchedEffect(state.messages.lastOrNull()?.localId) {
+        if (atBottom) listState.animateScrollToItem(0)
+    }
+
+    val openProfile = {
+        val id = state.otherUserId
+        if (id.isNotBlank()) onOpenProfile(id)
+        else viewModel.showNotice("Couldn't open this profile yet.")
+    }
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        GagaScaffold(
+            title = state.title,
+            subtitle = if (state.isOtherTyping) "typing\u2026" else state.subtitle,
+            onBack = onNavigateBack,
+            avatarUrl = state.otherUserAvatar ?: state.avatarUrl,
+            avatarStatus = state.otherUserStatus,
+            onTitleClick = openProfile,
+            snackbarHostState = snackbarHostState,
+            actions = {
+                IconButton(onClick = { onStartCall(state.conversationId, false) }) {
+                    Icon(Icons.Filled.Call, contentDescription = "Voice call")
+                }
+                IconButton(onClick = { onStartCall(state.conversationId, true) }) {
+                    Icon(Icons.Filled.Videocam, contentDescription = "Video call")
+                }
+                ChatOverflowMenu(
+                    onViewProfile = openProfile,
+                    onChatInfo = { onOpenChatInfo(state.conversationId) },
+                    onSendMoney = onSendMoney,
+                    onBlockUser = viewModel::blockUser,
+                    onRemoveFriend = viewModel::removeFriend,
+                    onSearch = viewModel::toggleSearch,
+                    onReport = viewModel::reportUser,
+                    onChatBackground = { showBackgroundPicker = true },
                 )
-            }
-            Box(modifier = Modifier.weight(1f)) {
-                val visible = state.visibleMessages
-                val isFiltering = state.isSearching && state.searchQuery.isNotBlank()
-                if (visible.isEmpty() && !state.isLoadingOlder) {
-                    GagaEmptyState(
-                        icon = Icons.AutoMirrored.Filled.Chat,
-                        title = if (isFiltering) "No matches" else "No messages yet",
-                        description = if (isFiltering) {
-                            "Try a different search term."
-                        } else {
-                            "Say hi to start the conversation."
-                        },
-                    )
-                } else {
-                    MessageList(
-                        messages = visible,
-                        currentUserId = state.currentUserId,
-                        isLoadingOlder = state.isLoadingOlder,
-                        isOtherTyping = state.isOtherTyping && !isFiltering,
-                        listState = listState,
-                        onRetry = viewModel::retry,
-                        onLongPress = viewModel::setReplyTo,
-                        onMediaClick = { viewerMessage = it },
+            },
+        ) { padding ->
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding),
+            ) {
+                GagaOfflineBanner(visible = !state.isOnline)
+                if (state.isSearching) {
+                    MessageSearchBar(
+                        query = state.searchQuery,
+                        onQueryChange = viewModel::onSearchQueryChange,
+                        onClose = viewModel::toggleSearch,
                     )
                 }
-            }
-            MessageComposer(
-                draft = state.draft,
-                onDraftChange = viewModel::onDraftChange,
-                onSend = viewModel::send,
-                replyTo = state.replyTo,
-                onCancelReply = { viewModel.setReplyTo(null) },
-                onAttach = mediaPicker.pickFile,
-                onPickImage = mediaPicker.pickImage,
-                onPickVideo = mediaPicker.pickVideo,
-                onShareLocation = { viewModel.shareLocation() },
-                isRecording = state.isRecording,
-                recordingElapsedMs = state.recordingElapsedMs,
-                onStartRecording = {
-                    val granted = ContextCompat.checkSelfPermission(
-                        context,
-                        Manifest.permission.RECORD_AUDIO,
-                    ) == PackageManager.PERMISSION_GRANTED
-                    if (granted) {
-                        viewModel.startVoiceRecording()
+                val darkTheme = isSystemInDarkTheme()
+                val backgroundArgb = state.chatBackground.let { if (darkTheme) it.darkArgb else it.argb }
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .background(
+                            if (backgroundArgb != null) Color(backgroundArgb)
+                            else MaterialTheme.colorScheme.background,
+                        ),
+                ) {
+                    val visible = state.visibleMessages
+                    val isFiltering = state.isSearching && state.searchQuery.isNotBlank()
+                    if (visible.isEmpty() && !state.isLoadingOlder) {
+                        GagaEmptyState(
+                            icon = Icons.AutoMirrored.Filled.Chat,
+                            title = if (isFiltering) "No matches" else "No messages yet",
+                            description = if (isFiltering) {
+                                "Try a different search term."
+                            } else {
+                                "Say hi to start the conversation."
+                            },
+                        )
                     } else {
-                        micPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                        MessageList(
+                            messages = visible,
+                            currentUserId = state.currentUserId,
+                            myLastReadMessageId = state.myLastReadMessageId,
+                            isLoadingOlder = state.isLoadingOlder,
+                            isOtherTyping = state.isOtherTyping && !isFiltering,
+                            typingAvatarUrl = state.otherUserAvatar ?: state.avatarUrl,
+                            typingName = state.otherUserName.ifBlank { state.title },
+                            listState = listState,
+                            onRetry = viewModel::retry,
+                            onLongPress = viewModel::selectMessage,
+                            onMediaClick = { viewerMessage = it },
+                            onReactionClick = { m, e -> viewModel.toggleReaction(m, e) },
+                            onReplyClick = { target ->
+                                val idx = visible.indexOfFirst {
+                                    it.localId == target.localId
+                                }
+                                if (idx >= 0) {
+                                    scope.launch {
+                                        // reverseLayout: scroll index = size - 1 - idx
+                                        val target0 = visible.size - 1 - idx
+                                        listState.animateScrollToItem(target0)
+                                    }
+                                }
+                            },
+                        )
                     }
+
+                    // Scroll-to-bottom affordance (Phase 12.2): appears the moment
+                    // the user scrolls away from the newest message.
+                    ScrollToBottomButton(
+                        visible = !atBottom,
+                        onClick = { scope.launch { listState.animateScrollToItem(0) } },
+                        modifier = Modifier
+                            .align(Alignment.BottomEnd)
+                            .padding(GagaDimens.space16),
+                    )
+                }
+                MessageComposer(
+                    draft = state.draft,
+                    onDraftChange = viewModel::onDraftChange,
+                    onSend = viewModel::send,
+                    replyTo = state.replyTo,
+                    onCancelReply = { viewModel.setReplyTo(null) },
+                    editingMessage = state.editingMessage,
+                    onCancelEdit = viewModel::cancelEdit,
+                    onAttach = mediaPicker.pickFile,
+                    onPickImage = mediaPicker.pickImages,
+                    onTakePhoto = {
+                        val granted = ContextCompat.checkSelfPermission(
+                            context,
+                            Manifest.permission.CAMERA,
+                        ) == PackageManager.PERMISSION_GRANTED
+                        if (granted) mediaPicker.takePhoto()
+                        else cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+                    },
+                    onPickVideo = mediaPicker.pickVideo,
+                    onPickAudio = mediaPicker.pickAudio,
+                    onShareLocation = {
+                        val fine = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+                        val coarse = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+                        if (fine || coarse) viewModel.shareLocation() else locationPermissionLauncher.launch(arrayOf(
+                            Manifest.permission.ACCESS_FINE_LOCATION,
+                            Manifest.permission.ACCESS_COARSE_LOCATION,
+                        ))
+                    },
+                    onPickContact = contactPicker,
+                    isRecording = state.isRecording,
+                    recordingElapsedMs = state.recordingElapsedMs,
+                    onStartRecording = {
+                        val granted = ContextCompat.checkSelfPermission(
+                            context,
+                            Manifest.permission.RECORD_AUDIO,
+                        ) == PackageManager.PERMISSION_GRANTED
+                        if (granted) {
+                            viewModel.startVoiceRecording()
+                        } else {
+                            micPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                        }
+                    },
+                    onStopRecording = viewModel::stopVoiceRecordingAndSend,
+                    onCancelRecording = viewModel::cancelVoiceRecording,
+                )
+            }
+        }
+
+        viewerMessage?.let { message ->
+            MediaViewerOverlay(message = message, onDismiss = { viewerMessage = null })
+        }
+
+        state.selectedMessage?.let { selected ->
+            MessageActionSheet(
+                message = selected,
+                currentUserId = state.currentUserId,
+                onDismiss = { viewModel.selectMessage(null) },
+                onReply = {
+                    viewModel.setReplyTo(selected)
+                    viewModel.selectMessage(null)
                 },
-                onStopRecording = viewModel::stopVoiceRecordingAndSend,
-                onCancelRecording = viewModel::cancelVoiceRecording,
+                onReact = { emoji ->
+                    viewModel.toggleReaction(selected, emoji)
+                    viewModel.selectMessage(null)
+                },
+                onEdit = {
+                    viewModel.startEdit(selected)
+                    viewModel.selectMessage(null)
+                },
+                onForward = {
+                    viewModel.forwardMessage(selected)
+                    viewModel.selectMessage(null)
+                },
+                onCopy = {
+                    clipboard.setText(AnnotatedString(selected.text.orEmpty()))
+                    viewModel.selectMessage(null)
+                    scope.launch { snackbarHostState.showSnackbar("Copied") }
+                },
+                onDelete = {
+                    viewModel.deleteMessage(selected)
+                    viewModel.selectMessage(null)
+                },
+            )
+        }
+
+        if (showBackgroundPicker) {
+            ChatBackgroundPicker(
+                selected = state.chatBackground,
+                onSelect = {
+                    viewModel.selectChatBackground(it)
+                    showBackgroundPicker = false
+                },
+                onDismiss = { showBackgroundPicker = false },
             )
         }
     }
+}
 
-    viewerMessage?.let { message ->
-        MediaViewerOverlay(message = message, onDismiss = { viewerMessage = null })
+/** Bottom sheet that lets the user pick a chat wallpaper (applies app-wide). */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ChatBackgroundPicker(
+    selected: ChatBackground,
+    onSelect: (ChatBackground) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val darkTheme = isSystemInDarkTheme()
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = GagaDimens.space20)
+                .padding(bottom = GagaDimens.space24),
+        ) {
+            Text(
+                text = "Chat Background",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.padding(bottom = GagaDimens.space4),
+            )
+            Text(
+                text = "Choose a wallpaper for all your conversations.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(bottom = GagaDimens.space16),
+            )
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 420.dp)
+                    .verticalScroll(rememberScrollState()),
+            ) {
+                ChatBackground.entries.forEach { option ->
+                    val argb = if (darkTheme) option.darkArgb else option.argb
+                    val swatch = argb?.let { Color(it) } ?: MaterialTheme.colorScheme.surfaceVariant
+                    val isSelected = option == selected
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .clickable { onSelect(option) }
+                            .padding(vertical = GagaDimens.space8, horizontal = GagaDimens.space4),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(GagaDimens.space12),
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(44.dp)
+                                .clip(CircleShape)
+                                .background(swatch),
+                        )
+                        Text(
+                            text = option.label,
+                            style = MaterialTheme.typography.bodyLarge,
+                            modifier = Modifier.weight(1f),
+                        )
+                        if (isSelected) {
+                            Icon(
+                                imageVector = Icons.Filled.Check,
+                                contentDescription = "Selected",
+                                tint = MaterialTheme.colorScheme.primary,
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** Floating "jump to latest" button shown when the user scrolls up the history. */
+@Composable
+private fun ScrollToBottomButton(
+    visible: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    AnimatedVisibility(
+        visible = visible,
+        enter = fadeIn(),
+        exit = fadeOut(),
+        modifier = modifier,
+    ) {
+        SmallFloatingActionButton(
+            onClick = onClick,
+            containerColor = MaterialTheme.colorScheme.primaryContainer,
+        ) {
+            Icon(Icons.Filled.ArrowDownward, contentDescription = "Jump to latest")
+        }
+    }
+}
+
+/**
+ * Long-press message action sheet (Phase 4.5): quick reactions plus reply, edit,
+ * forward, copy and delete. Edit/delete are only offered for the user's own
+ * messages; copy only for text.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun MessageActionSheet(
+    message: Message,
+    currentUserId: String,
+    onDismiss: () -> Unit,
+    onReply: () -> Unit,
+    onReact: (String) -> Unit,
+    onEdit: () -> Unit,
+    onForward: () -> Unit,
+    onCopy: () -> Unit,
+    onDelete: () -> Unit,
+) {
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val isOwn = message.senderId == currentUserId
+    val canEdit = isOwn && message.type == MessageType.TEXT && !message.isDeleted
+    val canCopy = !message.text.isNullOrBlank() && !message.isDeleted
+    val canDelete = isOwn && !message.isDeleted
+
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
+        Column(modifier = Modifier.padding(bottom = GagaDimens.space16)) {
+            // Quick reaction strip.
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = GagaDimens.space16, vertical = GagaDimens.space8),
+                horizontalArrangement = Arrangement.SpaceEvenly,
+            ) {
+                QuickReactions.forEach { emoji ->
+                    Surface(
+                        shape = CircleShape,
+                        color = if (message.hasReaction(emoji, currentUserId)) {
+                            MaterialTheme.colorScheme.primaryContainer
+                        } else {
+                            MaterialTheme.colorScheme.surfaceVariant
+                        },
+                        modifier = Modifier
+                            .size(48.dp)
+                            .clip(CircleShape)
+                            .clickable { onReact(emoji) },
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Text(text = emoji, style = MaterialTheme.typography.titleLarge)
+                        }
+                    }
+                }
+            }
+            HorizontalDivider()
+            ActionRow(Icons.AutoMirrored.Filled.Reply, "Reply", onReply)
+            ActionRow(Icons.Filled.AddReaction, "React", { onReact(QuickReactions.first()) })
+            if (canEdit) ActionRow(Icons.Filled.Edit, "Edit", onEdit)
+            ActionRow(Icons.AutoMirrored.Filled.Forward, "Forward", onForward)
+            if (canCopy) ActionRow(Icons.Filled.ContentCopy, "Copy", onCopy)
+            if (canDelete) {
+                ActionRow(
+                    icon = Icons.Filled.Delete,
+                    label = "Delete",
+                    onClick = onDelete,
+                    tint = MaterialTheme.colorScheme.error,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ActionRow(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    label: String,
+    onClick: () -> Unit,
+    tint: Color = MaterialTheme.colorScheme.onSurface,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = GagaDimens.space24, vertical = GagaDimens.space12),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(icon, contentDescription = null, tint = tint)
+        Spacer(Modifier.width(GagaDimens.space16))
+        Text(text = label, color = tint, style = MaterialTheme.typography.bodyLarge)
     }
 }
 
@@ -275,7 +630,7 @@ private fun ChatOverflowMenu(
     onRemoveFriend: () -> Unit,
     onSearch: () -> Unit,
     onReport: () -> Unit,
-    onAction: (String) -> Unit,
+    onChatBackground: () -> Unit,
 ) {
     var expanded by remember { mutableStateOf(false) }
 
@@ -284,7 +639,7 @@ private fun ChatOverflowMenu(
     }
     DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
         MenuItem("Search Messages") { expanded = false; onSearch() }
-        MenuItem("Chat Background") { expanded = false; onAction("Chat Background") }
+        MenuItem("Chat Background") { expanded = false; onChatBackground() }
         MenuItem("Send Money") {
             expanded = false
             onSendMoney()
@@ -321,16 +676,40 @@ private fun MenuItem(label: String, onClick: () -> Unit) {
 private fun MessageList(
     messages: List<Message>,
     currentUserId: String,
+    myLastReadMessageId: String?,
     isLoadingOlder: Boolean,
     isOtherTyping: Boolean,
+    typingAvatarUrl: String?,
+    typingName: String?,
     listState: androidx.compose.foundation.lazy.LazyListState,
     onRetry: (Message) -> Unit,
     onLongPress: (Message) -> Unit,
     onMediaClick: (Message) -> Unit,
+    onReactionClick: (Message, String) -> Unit,
+    onReplyClick: (Message) -> Unit,
 ) {
     // Newest at the bottom: reverse the list and use reverseLayout so the view
     // stays pinned to the latest message without manual scroll math.
     val reversed = remember(messages) { messages.asReversed() }
+
+    // The oldest unread incoming message gets the "unread" divider above it.
+    val firstUnreadLocalId = remember(messages, myLastReadMessageId, currentUserId) {
+        if (myLastReadMessageId == null) {
+            null
+        } else {
+            val readIdx = messages.indexOfFirst {
+                it.serverMessageId == myLastReadMessageId ||
+                    it.clientMessageId == myLastReadMessageId
+            }
+            if (readIdx < 0) {
+                null
+            } else {
+                messages.drop(readIdx + 1)
+                    .firstOrNull { it.senderId != currentUserId }
+                    ?.localId
+            }
+        }
+    }
 
     LazyColumn(
         state = listState,
@@ -338,7 +717,9 @@ private fun MessageList(
         modifier = Modifier.fillMaxSize(),
     ) {
         if (isOtherTyping) {
-            item(key = "typing") { TypingIndicator() }
+            item(key = "typing") {
+                TypingIndicator(avatarUrl = typingAvatarUrl, name = typingName)
+            }
         }
         items(
             count = reversed.size,
@@ -350,16 +731,30 @@ private fun MessageList(
             val older = reversed.getOrNull(index + 1)
             val showSeparator = older == null ||
                 !isSameDay(older.sortTimestamp, message.sortTimestamp)
+            val repliedMessage = message.replyToMessageId?.let { id ->
+                messages.firstOrNull {
+                    it.serverMessageId == id || it.clientMessageId == id
+                }
+            }
+            val showUnreadDivider = message.localId == firstUnreadLocalId
 
             Column(modifier = Modifier.fillMaxWidth()) {
                 MessageBubble(
                     message = message,
                     isOutgoing = isOutgoing,
+                    currentUserId = currentUserId,
+                    repliedMessage = repliedMessage,
                     onRetry = { onRetry(message) },
                     onMediaClick = onMediaClick,
+                    onLongPress = onLongPress,
+                    onReactionClick = onReactionClick,
+                    onReplyClick = onReplyClick,
                 )
                 if (showSeparator) {
                     DateSeparator(epochMillis = message.sortTimestamp)
+                }
+                if (showUnreadDivider) {
+                    UnreadDivider()
                 }
             }
         }
@@ -375,6 +770,30 @@ private fun MessageList(
                 }
             }
         }
+    }
+}
+
+/** A thin "New messages" rule separating read from unread history. */
+@Composable
+private fun UnreadDivider() {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = GagaDimens.space16, vertical = GagaDimens.space8),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        HorizontalDivider(modifier = Modifier.weight(1f))
+        Text(
+            text = "New messages",
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.padding(horizontal = GagaDimens.space8),
+            textAlign = TextAlign.Center,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        HorizontalDivider(modifier = Modifier.weight(1f))
     }
 }
 

@@ -6,6 +6,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.gagachat.core.common.di.DispatcherProvider
+import app.gagachat.core.common.network.NetworkMonitor
 import app.gagachat.core.common.result.AppResult
 import app.gagachat.core.data.repository.AuthRepository
 import app.gagachat.core.data.repository.FriendsRepository
@@ -14,6 +15,7 @@ import app.gagachat.core.model.Friend
 import app.gagachat.core.model.Group
 import app.gagachat.core.network.storage.SupabaseStorageApi
 import app.gagachat.core.ui.state.ScreenState
+import app.gagachat.core.ui.util.toScreenStateError
 import app.gagachat.core.ui.util.toUserMessage
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -38,6 +40,7 @@ data class GroupActionState(
 class GroupInfoViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
     private val groupRepository: GroupRepository,
+    private val networkMonitor: NetworkMonitor,
     private val friendsRepository: FriendsRepository,
     private val authRepository: AuthRepository,
     private val storageApi: SupabaseStorageApi,
@@ -71,7 +74,7 @@ class GroupInfoViewModel @Inject constructor(
             if (_state.value !is ScreenState.Content) _state.value = ScreenState.Loading
             when (val result = groupRepository.getGroup(groupId)) {
                 is AppResult.Success -> _state.value = ScreenState.Content(result.data)
-                is AppResult.Failure -> _state.value = ScreenState.Error(result.error.toUserMessage())
+                is AppResult.Failure -> _state.value = result.error.toScreenStateError(networkMonitor.isCurrentlyOnline())
                 AppResult.Loading -> Unit
             }
         }

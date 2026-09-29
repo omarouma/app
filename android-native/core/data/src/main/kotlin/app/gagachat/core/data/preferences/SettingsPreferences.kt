@@ -33,6 +33,19 @@ enum class AppLanguage(val code: String, val label: String) {
 }
 
 /**
+ * Chat wallpaper. [argb] is the light-mode tint; [darkArgb] the dark-mode tint.
+ * [DEFAULT] keeps the theme background untouched.
+ */
+enum class ChatBackground(val label: String, val argb: Long?, val darkArgb: Long?) {
+    DEFAULT("Default", null, null),
+    SAND("Sand", 0xFFF3E9D2, 0xFF2A2620),
+    MINT("Mint", 0xFFE4F3E6, 0xFF16241B),
+    SKY("Sky", 0xFFE4EEF7, 0xFF14202B),
+    ROSE("Rose", 0xFFF7E7ED, 0xFF261A20),
+    GRAPHITE("Graphite", 0xFFEDEFF2, 0xFF0B141A),
+}
+
+/**
  * User-configurable settings persisted locally (Master Spec §C — full settings).
  * These are device preferences, not account data, so they live in a plain
  * DataStore and are read reactively by the settings screens.
@@ -51,6 +64,7 @@ class SettingsPreferences @Inject constructor(
     private val appLockKey = booleanPreferencesKey("app_lock_enabled")
     private val textScaleKey = stringPreferencesKey("text_scale")
     private val languageKey = stringPreferencesKey("app_language")
+    private val chatBackgroundKey = stringPreferencesKey("chat_background")
 
     val notificationsEnabled: Flow<Boolean> =
         context.settingsDataStore.data.map { it[notificationsKey] ?: true }
@@ -126,6 +140,19 @@ class SettingsPreferences @Inject constructor(
     suspend fun setTextScale(value: TextScale) =
         context.settingsDataStore.edit { it[textScaleKey] = value.name }
 
-    suspend fun setLanguage(value: AppLanguage) =
+    val chatBackground: Flow<ChatBackground> =
+        context.settingsDataStore.data.map { prefs ->
+            ChatBackground.entries.firstOrNull { it.name == prefs[chatBackgroundKey] }
+                ?: ChatBackground.DEFAULT
+        }
+
+    suspend fun setChatBackground(value: ChatBackground) {
+        context.settingsDataStore.edit { it[chatBackgroundKey] = value.name }
+    }
+
+    suspend fun setLanguage(value: AppLanguage) {
         context.settingsDataStore.edit { it[languageKey] = value.code }
+        // Mirror synchronously so the locale can be applied in attachBaseContext.
+        AppLocaleStore.persist(context, value.code)
+    }
 }

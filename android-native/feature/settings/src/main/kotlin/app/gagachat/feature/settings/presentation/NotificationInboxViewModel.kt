@@ -2,11 +2,12 @@ package app.gagachat.feature.settings.presentation
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import app.gagachat.core.common.network.NetworkMonitor
 import app.gagachat.core.common.result.AppResult
 import app.gagachat.core.data.repository.NotificationRepository
 import app.gagachat.core.model.AppNotification
 import app.gagachat.core.ui.state.ScreenState
-import app.gagachat.core.ui.util.toUserMessage
+import app.gagachat.core.ui.util.toScreenStateError
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -23,6 +24,7 @@ import javax.inject.Inject
 @HiltViewModel
 class NotificationInboxViewModel @Inject constructor(
     private val notificationRepository: NotificationRepository,
+    private val networkMonitor: NetworkMonitor,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow<ScreenState<List<AppNotification>>>(ScreenState.Initial)
@@ -50,7 +52,7 @@ class NotificationInboxViewModel @Inject constructor(
                     val items = notificationRepository.notifications.value
                     _state.value = if (items.isEmpty()) ScreenState.Empty else ScreenState.Content(items)
                 }
-                is AppResult.Failure -> _state.value = ScreenState.Error(r.error.toUserMessage())
+                is AppResult.Failure -> _state.value = r.error.toScreenStateError(networkMonitor.isCurrentlyOnline())
                 AppResult.Loading -> Unit
             }
         }
