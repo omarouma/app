@@ -1,6 +1,7 @@
 package app.gagachat
 
 import android.app.Application
+import android.util.Log
 import androidx.hilt.work.HiltWorkerFactory
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
@@ -11,6 +12,7 @@ import app.gagachat.core.data.repository.AuthRepository
 import app.gagachat.core.data.repository.UserRepository
 import app.gagachat.core.data.preferences.SettingsPreferences
 import app.gagachat.core.data.sync.RealtimeCoordinator
+import app.gagachat.diagnostics.CrashReporter
 import app.gagachat.push.NotificationChannels
 import coil.ImageLoader
 import coil.ImageLoaderFactory
@@ -63,12 +65,21 @@ class GagaApplication : Application(), Configuration.Provider, ImageLoaderFactor
 
     override fun onCreate() {
         super.onCreate()
-        NotificationChannels.createAll(this)
+        // Install crash capture first (idempotent with the androidx.startup
+        // initializer) so any failure below is written to a retrievable file.
+        CrashReporter.install(this)
+        // None of the work below is required to show the first frame, so a
+        // failure here must never take the whole app down.
+        runCatching { NotificationChannels.createAll(this) }
+            .onFailure { Log.w(TAG, "Notification channel setup failed", it) }
         // Connect the realtime fast path for the app lifetime. Safe to call
         // before a session exists: subscriptions are re-joined on reconnect.
-        realtimeCoordinator.start(applicationScope)
-        observePrivacyForPresence()
-        observeAppLifecycleForPresence()
+        runCatching { realtimeCoordinator.start(applicationScope) }
+            .onFailure { Log.w(TAG, "Realtime start failed", it) }
+        runCatching { observePrivacyForPresence() }
+            .onFailure { Log.w(TAG, "Privacy observer failed", it) }
+        runCatching { observeAppLifecycleForPresence() }
+            .onFailure { Log.w(TAG, "Lifecycle observer failed", it) }
     }
 
     /**
@@ -138,6 +149,7 @@ class GagaApplication : Application(), Configuration.Provider, ImageLoaderFactor
             .build()
 
     private companion object {
+        const val TAG = "GagaApplication"
         const val PRESENCE_HEARTBEAT_MS = 45_000L
     }
 }

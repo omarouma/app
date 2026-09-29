@@ -114,6 +114,11 @@
                 android:name="androidx.work.WorkManagerInitializer"
                 android:value="androidx.startup"
                 tools:node="remove" />
+            <!-- Installs the crash reporter before any other ContentProvider
+                 (incl. ZEGO's PrebuiltCallInitializer) runs. -->
+            <meta-data
+                android:name="app.gagachat.diagnostics.CrashReportingInitializer"
+                android:value="androidx.startup" />
         </provider>
     </application>
 </manifest>

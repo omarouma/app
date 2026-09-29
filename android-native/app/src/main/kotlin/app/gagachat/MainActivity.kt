@@ -14,6 +14,7 @@ import app.gagachat.core.data.preferences.SettingsPreferences
 import app.gagachat.core.data.preferences.TextScale
 import app.gagachat.core.data.preferences.ThemeMode
 import app.gagachat.core.ui.theme.GagaTheme
+import app.gagachat.diagnostics.CrashReportGate
 import app.gagachat.navigation.GagaApp
 import app.gagachat.push.DeepLinkRouter
 import app.gagachat.push.PendingDeepLink

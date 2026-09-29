@@ -18,8 +18,8 @@ android {
 
     defaultConfig {
         applicationId = "gagachat.app"
-        versionCode = 15
-        versionName = "2.0.13"
+        versionCode = 16
+        versionName = "2.0.14"
 
         // The ZEGOCLOUD Call Kit ships native RTC libraries for four ABIs. We
         // bundle the two every real Android phone uses (64-bit and 32-bit ARM).
@@ -72,8 +72,16 @@ android {
             isMinifyEnabled = false
         }
         release {
-            isMinifyEnabled = true
-            isShrinkResources = true
+            // R8 minification + resource shrinking are DISABLED for this build.
+            //
+            // The app was reported to crash on launch ("GaGa has stopped") even
+            // though the start-up path is defensively coded and every native
+            // library/resource is present. The remaining plausible cause is an
+            // R8 optimisation/stripping side effect, so we ship an un-minified
+            // release to rule that out, together with the CrashReporter that
+            // captures any residual failure to a retrievable file.
+            isMinifyEnabled = false
+            isShrinkResources = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
