@@ -264,12 +264,20 @@ class SupabaseRestApi @Inject constructor(
      */
     suspend fun insertMessage(payload: MessageInsert): MessageRow {
         getMessageByLocalId(payload.clientMessageId)?.let { return it }
-        return client.post("${config.restUrl}/messages") {
+        val rows: List<MessageRow> = client.post("${config.restUrl}/messages") {
             auth()
             header("Prefer", "return=representation")
             contentType(ContentType.Application.Json)
             setBody(payload)
-        }.body<List<MessageRow>>().first()
+        }.body()
+        // PostgREST can answer 201 with an empty array when the inserted row is
+        // not visible back through the SELECT policy. Re-read by local id and
+        // only then give up, instead of crashing on List.first().
+        return rows.firstOrNull()
+            ?: getMessageByLocalId(payload.clientMessageId)
+            ?: throw IllegalStateException(
+                "Message insert returned no row for local id ${payload.clientMessageId}",
+            )
     }
 
     suspend fun updateMessageText(id: String, text: String) {

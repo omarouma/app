@@ -1,5 +1,7 @@
 package app.gagachat.core.network.di
 
+import app.gagachat.core.network.auth.AuthTokenInterceptor
+import app.gagachat.core.network.auth.AuthTokenRefresher
 import app.gagachat.core.network.config.SupabaseConfig
 import app.gagachat.core.network.session.EncryptedSessionStore
 import app.gagachat.core.network.session.SessionStore
@@ -39,8 +41,20 @@ object NetworkModule {
 
     @Provides
     @Singleton
-    fun provideHttpClient(json: Json): HttpClient = HttpClient(OkHttp) {
+    fun provideHttpClient(
+        json: Json,
+        config: SupabaseConfig,
+        tokenRefresher: AuthTokenRefresher,
+    ): HttpClient = HttpClient(OkHttp) {
         expectSuccess = true
+        // Guarantee a valid access token on every backend call (and self-heal on
+        // 401). Without this the app kept using the token captured at sign-in,
+        // so once it expired every chat/media/call request failed together.
+        engine {
+            config {
+                addInterceptor(AuthTokenInterceptor(tokenRefresher, config))
+            }
+        }
         install(ContentNegotiation) { json(json) }
         install(WebSockets)
         install(HttpTimeout) {

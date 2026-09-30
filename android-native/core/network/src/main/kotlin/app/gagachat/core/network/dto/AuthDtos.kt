@@ -59,6 +59,26 @@ data class TokenResponse(
     val user: AuthUser? = null,
 )
 
+/**
+ * Normalises the token expiry to absolute **milliseconds**.
+ *
+ * Supabase GoTrue returns `expires_at` as a Unix timestamp in **seconds**
+ * (e.g. `1790752857`) while `expires_in` is a relative duration. The app stores
+ * absolute milliseconds, so a raw seconds value must be widened by 1000.
+ * Treating it as millis put the expiry in 1970, which made
+ * [app.gagachat.core.network.session.AuthSession.needsRefresh] permanently true
+ * and left the client unable to reason about token freshness at all.
+ */
+fun TokenResponse.expiryMillisOr(nowMillis: Long): Long {
+    val raw = expiresAt
+    return when {
+        raw == null || raw <= 0L -> nowMillis + expiresIn * 1000L
+        // Anything below ~year 5138 in millis must be a seconds value.
+        raw < 100_000_000_000L -> raw * 1000L
+        else -> raw
+    }
+}
+
 @Serializable
 data class AuthErrorResponse(
     val error: String? = null,
