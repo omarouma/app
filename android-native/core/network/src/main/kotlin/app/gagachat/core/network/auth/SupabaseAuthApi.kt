@@ -7,6 +7,7 @@ import app.gagachat.core.network.dto.SignInRequest
 import app.gagachat.core.network.dto.SignUpRequest
 import app.gagachat.core.network.dto.TokenResponse
 import app.gagachat.core.network.dto.VerifyOtpRequest
+import app.gagachat.core.network.dto.expiryMillisOr
 import app.gagachat.core.network.session.AuthSession
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
@@ -95,7 +96,7 @@ fun TokenResponse.toSession(): AuthSession {
         userId = user?.id ?: "",
         accessToken = accessToken,
         refreshToken = refreshToken,
-        expiresAtMillis = expiresAt ?: (now + expiresIn * 1000),
+        expiresAtMillis = expiryMillisOr(now),
         email = user?.email,
         phone = user?.phone,
         displayName = user?.userMetadata?.get("display_name"),

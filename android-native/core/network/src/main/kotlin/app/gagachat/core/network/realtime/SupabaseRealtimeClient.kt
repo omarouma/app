@@ -1,6 +1,7 @@
 package app.gagachat.core.network.realtime
 
 import app.gagachat.core.common.util.AppLogger
+import app.gagachat.core.network.auth.AuthTokenRefresher
 import app.gagachat.core.network.config.SupabaseConfig
 import app.gagachat.core.network.session.SessionStore
 import io.ktor.client.HttpClient
@@ -46,6 +47,7 @@ class SupabaseRealtimeClient @Inject constructor(
     private val config: SupabaseConfig,
     private val sessionStore: SessionStore,
     private val logger: AppLogger,
+    private val tokenRefresher: AuthTokenRefresher,
 ) {
 
     private val json = Json { ignoreUnknownKeys = true }
@@ -169,6 +171,11 @@ class SupabaseRealtimeClient @Inject constructor(
         var backoff = 1_000L
         while (true) {
             try {
+                // Realtime joins are authenticated with the access token, so make
+                // sure it is fresh before (re)connecting -- otherwise the socket
+                // connects but every channel join is rejected and live message
+                // delivery silently stops until the app is restarted.
+                runCatching { tokenRefresher.ensureFresh() }
                 val url = "${config.realtimeUrl}?apikey=${config.anonKey}&vsn=1.0.0"
                 val session = client.webSocketSession(url)
                 try {

@@ -8,6 +8,7 @@ import app.gagachat.core.common.util.TimeProvider
 import app.gagachat.core.data.preferences.OnboardingPreferences
 import app.gagachat.core.network.auth.SupabaseAuthApi
 import app.gagachat.core.network.auth.toSession
+import app.gagachat.core.network.dto.expiryMillisOr
 import app.gagachat.core.network.error.ErrorMapper
 import app.gagachat.core.network.session.AuthSession
 import app.gagachat.core.network.session.SessionStore
@@ -79,7 +80,7 @@ class DefaultAuthRepository @Inject constructor(
             sessionStore.updateTokens(
                 accessToken = tokens.accessToken,
                 refreshToken = tokens.refreshToken,
-                expiresAtMillis = tokens.expiresAt ?: (timeProvider.nowMillis() + tokens.expiresIn * 1000),
+                expiresAtMillis = tokens.expiryMillisOr(timeProvider.nowMillis()),
             )
             _sessionFlow.value = sessionStore.load()
             AppResult.Success(Unit)
