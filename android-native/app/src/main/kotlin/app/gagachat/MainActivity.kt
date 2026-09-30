@@ -76,8 +76,13 @@ class MainActivity : ComponentActivity() {
 
             GagaTheme(darkTheme = darkTheme, textScale = textScale.factor()) {
                 ready = true
-                AppLockGate(enabled = appLockEnabled) {
-                    GagaApp(pendingDeepLink = PendingDeepLink.current)
+                // Surface the previous run's crash (if any) so the exact stack
+                // trace can be copied/screenshotted even when we cannot attach a
+                // debugger. The report is also written to Downloads/gaga_crash.txt.
+                CrashReportGate {
+                    AppLockGate(enabled = appLockEnabled) {
+                        GagaApp(pendingDeepLink = PendingDeepLink.current)
+                    }
                 }
             }
         }

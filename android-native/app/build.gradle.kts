@@ -9,6 +9,12 @@ plugins {
 // silently ship an FCM dependency that was never initialized.
 if (file("google-services.json").exists()) {
     pluginManager.apply("com.google.gms.google-services")
+    // The Crashlytics Gradle plugin MUST be applied whenever the Crashlytics
+    // SDK (firebase-crashlytics-ktx) is on the runtime classpath. Without it
+    // the SDK throws at startup inside FirebaseInitProvider:
+    //   "The Crashlytics build ID is missing..."
+    // which crashes the whole process before any UI is shown.
+    pluginManager.apply("com.google.firebase.crashlytics")
 } else {
     logger.warn("[gaga] google-services.json is missing: FCM push/incoming-call notifications will be unavailable in this build.")
 }
@@ -18,8 +24,8 @@ android {
 
     defaultConfig {
         applicationId = "gagachat.app"
-        versionCode = 16
-        versionName = "2.0.14"
+        versionCode = 18
+        versionName = "2.0.16"
 
         // The ZEGOCLOUD Call Kit ships native RTC libraries for four ABIs. We
         // bundle the two every real Android phone uses (64-bit and 32-bit ARM).

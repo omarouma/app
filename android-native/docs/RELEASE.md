@@ -10,7 +10,14 @@ optimized AAB/APK, running Play testing tracks, monitoring, and staged rollout.
 | Variant | applicationId | Minify | Signing | Purpose |
 | --- | --- | --- | --- | --- |
 | `debug` | `gagachat.app.debug` | No | Debug key | Local development |
-| `release` | `gagachat.app` | R8 + resource shrink | Release keystore | Play / distribution |
+| `release` | `gagachat.app` | R8 + resource shrink **off** (see note) | Release keystore | Play / distribution |
+
+> **Note on minification:** the release variant currently ships with
+> `isMinifyEnabled = false` / `isShrinkResources = false`. This is a deliberate
+> choice: the app relies on reflection-heavy libraries (Hilt, Ktor,
+> kotlinx-serialization, the ZEGOCLOUD Call Kit) and the launch crash that was
+> fixed in 2.0.15 was only ruled out *after* disabling R8. Enabling R8 later
+> requires a full keep-rule pass plus on-device regression testing.
 
 The debug variant carries an `.debug` suffix so it can be installed alongside a
 production build on the same device.
