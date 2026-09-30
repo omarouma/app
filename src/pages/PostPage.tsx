@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import { ArrowLeft, Loader, MessageCircle, X, Copy, Share2, Mail } from 'lucide-react';
 import { useAuthStore } from '@/store/useAuthStore';
 import { isFirestoreAvailable, COLLECTIONS, increment, updateDocById, subscribeToDoc } from '@/lib/firestore';
+import { getDb } from '@/lib/supabaseDb';
 import TimelineCard from '@/components/features/timeline/TimelineCard';
 import EmptyState from '@/components/EmptyState';
 import { getDefaultAvatar } from '@/lib/utils';
@@ -117,7 +118,13 @@ export default function PostPage() {
         if (!viewed) {
           viewed = true;
           try {
-            updateDocById(COLLECTIONS.POSTS, id, { viewCount: increment(1) }).catch(() => { /* ignore */ });
+            // Server-authoritative view increment (RLS-safe on any user's post).
+            const db = getDb();
+            if (db) {
+              db.rpc('increment_post_view', { p_post_id: id }).then(() => undefined, () => undefined);
+            } else {
+              updateDocById(COLLECTIONS.POSTS, id, { viewCount: increment(1) }).catch(() => { /* ignore */ });
+            }
           } catch { /* ignore */ }
         }
       }

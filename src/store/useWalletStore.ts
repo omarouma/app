@@ -279,10 +279,10 @@ export const useWalletStore = create<WalletStore>((set, get) => ({
       return false;
     }
     try {
-      // SECURITY: Server verifies challenge completion before awarding coins.
+      // SECURITY: Server verifies challenge completion and reads the reward
+      // from `daily_challenges`; the client-supplied amount is ignored.
       const ok = await callWalletRpc<boolean>('claim_challenge_coins', {
         p_challenge_id: challengeId,
-        p_amount: amount,
       });
       if (!ok) {
         set({ lastError: 'Failed to claim challenge reward.' });

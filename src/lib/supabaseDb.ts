@@ -688,13 +688,25 @@ export function subscribeToDoc(
   const supabase = getDb();
   if (!supabase) return () => { };
 
-  // Initial fetch
-  supabase.from(table).select('*').eq('id', id).single().then(({ data }) => {
-    if (data) onData({ ...toCamel(data), id: data.id });
-  }, () => { });
+  let initialFetchDone = false;
+  const fetchOnce = () => {
+    supabase.from(table).select('*').eq('id', id).single().then(({ data }) => {
+      if (data) onData({ ...toCamel(data), id: data.id });
+      initialFetchDone = true;
+    }, () => { initialFetchDone = true; });
+  };
 
+  // Initial fetch
+  fetchOnce();
+
+  // Unique channel name per subscription. A deterministic name (e.g.
+  // `users:id=<userId>`) collides when the same doc is subscribed twice
+  // (App-level + page-level), causing Supabase to reject adding a callback
+  // "after subscribe()". The module-level counter guarantees uniqueness.
+  const channelId = `${table}:id=${id}:${++channelSeq}`;
+  let wasSubscribed = false;
   const channel = supabase
-    .channel(`${table}:id=${id}`)
+    .channel(channelId)
     .on(
       'postgres_changes',
       { event: '*', schema: 'public', table, filter: `id=eq.${id}` },
@@ -704,7 +716,17 @@ export function subscribeToDoc(
         }
       },
     )
-    .subscribe();
+    .subscribe((status) => {
+      // After a reconnect, refetch to pick up any changes missed while the
+      // socket was down (Supabase does not replay events for us).
+      if (status === 'SUBSCRIBED' && wasSubscribed && initialFetchDone) {
+        fetchOnce();
+      } else if (status === 'SUBSCRIBED') {
+        wasSubscribed = true;
+      } else if (status === 'CLOSED' || status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+        wasSubscribed = false;
+      }
+    });
 
   return () => { supabase.removeChannel(channel); };
 }

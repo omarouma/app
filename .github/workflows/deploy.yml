@@ -64,9 +64,9 @@ jobs:
           VITE_PEXELS_API_KEY: ${{ secrets.VITE_PEXELS_API_KEY }}
           # ZEGO App ID is public client configuration. Keep the token secret
           # server-side in Firebase Secret Manager; never add it here.
-          VITE_ZEGO_APP_ID: ${{ secrets.VITE_ZEGO_APP_ID || '1895317974' }}
-          VITE_ZEGO_TOKEN_SERVER_URL: https://alzwgikndwbecuqmlrca.supabase.co/functions/v1/zego-token
-          VITE_ZEGO_SERVER_URL: ${{ secrets.VITE_ZEGO_SERVER_URL }}
+          VITE_ZEGO_APP_ID: ${{ secrets.VITE_ZEGO_APP_ID || '372536818' }}
+          VITE_ZEGO_TOKEN_SERVER_URL: https://fcjgbbmfqdkucfpqjxae.supabase.co/functions/v1/zego-token
+          VITE_ZEGO_SERVER_URL: ${{ secrets.VITE_ZEGO_SERVER_URL || 'wss://webliveroom372536818-api.coolzcloud.com/ws' }}
 
       - name: Deploy Hosting to Firebase
         uses: FirebaseExtended/action-hosting-deploy@v0

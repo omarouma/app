@@ -15,6 +15,7 @@ import {
 } from '@/lib/firestore';
 import { toast } from 'sonner';
 import { where, orderBy, limit } from '@/lib/firestore';
+import { getDb } from '@/lib/supabaseDb';
 import type { User, TimelinePost, UserReport, AdminDashboardStats } from '@/types';
 
 type Tab = 'reports' | 'users' | 'content' | 'analytics';
@@ -132,7 +133,13 @@ export default function AdminPage() {
     setProcessingReportId(reportId);
     try {
       if (banUserId) {
-        await updateDocById(COLLECTIONS.USERS, banUserId, { status: 'banned' });
+        const db = getDb();
+        if (!db) throw new Error('Backend unavailable');
+        const { error: banErr } = await db.rpc('admin_update_user', {
+          p_user_id: banUserId,
+          p_status: 'banned',
+        });
+        if (banErr) throw banErr;
       }
       await updateDocById(COLLECTIONS.REPORTS, reportId, {
         status,
@@ -187,11 +194,31 @@ export default function AdminPage() {
     if (!isFirestoreAvailable() || !user?.isAdmin) return;
     setProcessingUserId(targetUser.id);
     try {
-      await updateDocById(COLLECTIONS.USERS, targetUser.id, updates);
+      // SECURITY: moderation writes to ANOTHER user's row, which RLS
+      // (`users_update_own`) rejects. Route through the admin-only RPC.
+      const db = getDb();
+      if (!db) throw new Error('Backend unavailable');
+      const { data, error } = await db.rpc('admin_update_user', {
+        p_user_id: targetUser.id,
+        p_status: typeof updates.status === 'string' ? updates.status : null,
+        p_is_verified: typeof updates.verified === 'boolean' ? updates.verified : null,
+        p_is_admin: typeof updates.isAdmin === 'boolean' ? updates.isAdmin : null,
+      });
+      if (error) throw error;
+      const res = data as { ok?: boolean; reason?: string } | null;
+      if (res && res.ok === false) {
+        const msg =
+          res.reason === 'not_admin' ? 'You are not authorized'
+          : res.reason === 'cannot_moderate_self' ? 'You cannot moderate yourself'
+          : res.reason === 'cannot_demote_self' ? 'You cannot remove your own admin access'
+          : res.reason === 'user_not_found' ? 'User not found'
+          : 'Action failed';
+        throw new Error(msg);
+      }
       toast.success(`${targetUser.name} ${actionLabel}`);
       fetchUsers();
-    } catch {
-      toast.error('Failed to update user');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to update user');
     }
     setProcessingUserId(null);
   };

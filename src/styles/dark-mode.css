@@ -98,3 +98,49 @@ html.dark [class*="rounded-xl bg-white"] {
 
 html.dark ::-webkit-scrollbar-track { background: hsl(var(--background)); }
 html.dark ::-webkit-scrollbar-thumb { background: hsl(var(--border)); }
+
+/* ── Legacy gray-scale text overrides ──────────────────────────
+   Many legacy components use hardcoded Tailwind gray text colors
+   (text-gray-900/800/700/600/500/400) which are invisible or
+   unreadable on the dark background. Map them onto the theme
+   tokens so text stays legible in dark mode.
+   ────────────────────────────────────────────────────────────── */
+html.dark [class*="text-gray-900"],
+html.dark [class*="text-gray-800"],
+html.dark [class*="text-gray-700"] {
+  color: hsl(var(--foreground)) !important;
+}
+
+html.dark [class*="text-gray-600"],
+html.dark [class*="text-gray-500"] {
+  color: hsl(var(--muted-foreground)) !important;
+}
+
+html.dark [class*="text-gray-400"],
+html.dark [class*="text-gray-300"] {
+  color: hsl(var(--muted-foreground) / 0.75) !important;
+}
+
+/* ── Legacy gray-scale surface overrides ─────────────────────── */
+html.dark [class*="bg-gray-100"],
+html.dark [class*="bg-gray-200"] {
+  background-color: hsl(var(--secondary)) !important;
+}
+
+html.dark [class*="hover:bg-gray-100"]:hover,
+html.dark [class*="hover:bg-gray-200"]:hover,
+html.dark [class*="hover:bg-gray-300"]:hover,
+html.dark [class*="active:bg-gray-100"]:active,
+html.dark [class*="active:bg-gray-50"]:active {
+  background-color: hsl(var(--accent)) !important;
+}
+
+html.dark [class*="border-gray-100"],
+html.dark [class*="border-gray-200"] {
+  border-color: hsl(var(--border)) !important;
+}
+
+/* Placeholder text used by legacy inputs */
+html.dark [class*="placeholder-gray-400"]::placeholder {
+  color: hsl(var(--muted-foreground)) !important;
+}

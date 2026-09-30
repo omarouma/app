@@ -1,18 +1,16 @@
 import { create } from 'zustand';
-import { v4 as uuidv4 } from 'uuid';
 import {
   COLLECTIONS,
   getDocById,
-  setDocById,
   updateDocById,
   addDocToCollection,
   queryCollection,
   subscribeToDoc,
   serverTimestamp,
-  increment,
+  getDb,
 } from '@/lib/firestore';
 import { where, orderBy, limit } from '@/lib/firestore';
-import type { PremiumPlan, PremiumSubscription, ReferralRecord, TipRecord } from '@/types';
+import type { PremiumPlan, PremiumSubscription, TipRecord } from '@/types';
 import { toast } from 'sonner';
 
 export type PremiumTier = 'free' | 'premium' | 'vip' | 'creator';
@@ -294,34 +292,29 @@ export const usePremiumStore = create<PremiumStoreState & PremiumStoreActions>((
       const durationDays = plan.duration === 'monthly' ? 30 : plan.duration === 'quarterly' ? 90 : plan.duration === 'yearly' ? 365 : 36500;
       const expiresAt = new Date(now.getTime() + durationDays * 24 * 60 * 60 * 1000);
 
-      // Update user document with premium info
-      await updateDocById(COLLECTIONS.USERS, userId, {
-        premiumTier: planId,
-        premiumStartedAt: now.toISOString(),
-        premiumExpiresAt: expiresAt.toISOString(),
-        premiumPrice: price,
-        premiumCurrency: currency,
-        autoRenew: true,
-        isPremium: true,
-        updatedAt: serverTimestamp(),
+      // SECURITY: premium activation is server-authoritative. The client cannot
+      // write is_premium / premium_expires_at (frozen by a DB guard trigger).
+      // The RPC validates the plan, deducts coins for the coins path, and
+      // records the subscription. It is also the choke point for a future
+      // payment gateway on the USD path.
+      const db = getDb();
+      if (!db) throw new Error('Database not available');
+      const { data: rpcRes, error: rpcErr } = await db.rpc('activate_premium', {
+        p_plan_id: planId,
+        p_currency: currency === 'coins' ? 'coins' : 'usd',
       });
-
-      // Record subscription in subscriptions collection
-      try {
-        await setDocById(PREMIUM_COLLECTIONS.SUBSCRIPTIONS, `sub_${userId}_${uuidv4()}`, {
-          userId,
-          planId,
-          status: 'active',
-          startedAt: now.toISOString(),
-          expiresAt: expiresAt.toISOString(),
-          autoRenew: true,
-          price,
-          currency,
-          createdAt: serverTimestamp(),
-        });
-      } catch {
-        // non-critical
+      if (rpcErr) throw rpcErr;
+      const res = (rpcRes as { ok: boolean; reason?: string; expires_at?: string }) || { ok: false };
+      if (!res.ok) {
+        if (res.reason === 'insufficient_coins') {
+          toast.error('Not enough coins for this plan');
+        } else {
+          toast.error('Upgrade failed. Please try again.');
+        }
+        set({ loading: false, error: res.reason || 'Upgrade failed' });
+        return false;
       }
+      const serverExpires = res.expires_at ? new Date(res.expires_at) : expiresAt;
 
       set({
         currentTier: planId as PremiumTier,
@@ -332,7 +325,7 @@ export const usePremiumStore = create<PremiumStoreState & PremiumStoreActions>((
           planId,
           status: 'active',
           startedAt: now,
-          expiresAt,
+          expiresAt: serverExpires,
           autoRenew: true,
           price,
           currency,
@@ -351,15 +344,15 @@ export const usePremiumStore = create<PremiumStoreState & PremiumStoreActions>((
     }
   },
 
-  cancelSubscription: async (userId) => {
+  cancelSubscription: async (_userId) => {
     try {
       set({ loading: true });
-      await updateDocById(COLLECTIONS.USERS, userId, {
-        premiumTier: 'free',
-        autoRenew: false,
-        isPremium: false,
-        updatedAt: serverTimestamp(),
-      });
+      // SECURITY: server-authoritative cancellation (is_premium is frozen client-side).
+      const db = getDb();
+      if (db) {
+        const { error: rpcErr } = await db.rpc('cancel_premium');
+        if (rpcErr) throw rpcErr;
+      }
 
       set({
         currentTier: 'free',
@@ -391,61 +384,34 @@ export const usePremiumStore = create<PremiumStoreState & PremiumStoreActions>((
     return code;
   },
 
-  applyReferralCode: async (userId, code, _referredByName) => {
+  applyReferralCode: async (_userId, code, _referredByName) => {
     try {
       if (!code || !code.startsWith('GAGA-')) {
         toast.error('Invalid referral code');
         return false;
       }
-      // Extract referrer ID from code (GAGA-XXXXX...)
-      const referrerIdPrefix = code.replace('GAGA-', '').toLowerCase();
 
-      // Find referrer by matching referral code prefix against user IDs
-      const users = await queryCollection(COLLECTIONS.USERS, []);
-      const referrer = users.find((u: any) => u.id?.toLowerCase().startsWith(referrerIdPrefix));
-
-      if (!referrer) {
-        toast.error('Referrer not found');
+      // SECURITY: the whole referral flow runs server-side (resolves the
+      // referrer, blocks self/repeat referrals, sets referred_by, increments
+      // referral_count, records a referrals row). The client cannot write
+      // another user's row nor the frozen referral_count column.
+      const db = getDb();
+      if (!db) throw new Error('Database not available');
+      const { data: rpcRes, error: rpcErr } = await db.rpc('apply_referral', { p_code: code });
+      if (rpcErr) throw rpcErr;
+      const res = (rpcRes as { ok: boolean; reason?: string }) || { ok: false };
+      if (!res.ok) {
+        switch (res.reason) {
+          case 'invalid_code': toast.error('Invalid referral code'); break;
+          case 'referrer_not_found': toast.error('Referrer not found'); break;
+          case 'self_referral': toast.error('Cannot refer yourself'); break;
+          case 'already_referred': toast.error('You have already used a referral code'); break;
+          default: toast.error('Failed to apply referral code');
+        }
         return false;
       }
-      if (referrer.id === userId) {
-        toast.error('Cannot refer yourself');
-        return false;
-      }
 
-      // Record referral
-      const referralRecord: Omit<ReferralRecord, 'id'> = {
-        referrerId: referrer.id,
-        referredId: userId,
-        status: 'rewarded',
-        rewardAmount: REFERRAL_REWARD_COINS,
-        currency: 'coins',
-        timestamp: new Date(),
-      };
-
-      await addDocToCollection(PREMIUM_COLLECTIONS.REFERRALS, {
-        ...referralRecord,
-        createdAt: serverTimestamp(),
-      });
-
-      // NOTE: Referral rewards are now awarded server-side via admin_award_coins.
-      // This requires server-side verification that the referral is legitimate.
-      // For now, referral rewards are disabled pending backend implementation.
-      console.info('[usePremiumStore.redeemReferral] Referral rewards require server-side verification');
-
-      // Update referrer count
-      await updateDocById(COLLECTIONS.USERS, referrer.id, {
-        referralCount: increment(1),
-        updatedAt: serverTimestamp(),
-      });
-
-      // Update referred user
-      await updateDocById(COLLECTIONS.USERS, userId, {
-        referredBy: referrer.id,
-        updatedAt: serverTimestamp(),
-      });
-
-      toast.success(`Referral applied! ${referrer.name || 'Your friend'} earned ${REFERRAL_REWARD_COINS} coins.`);
+      toast.success(`Referral applied! ${_referredByName || 'Your friend'} earned ${REFERRAL_REWARD_COINS} coins.`);
       return true;
     } catch (error) {
       console.error('applyReferralCode error:', error);

@@ -97,7 +97,7 @@ export function usePhoneContacts(userId: string | undefined): UsePhoneContactsRe
         import('@/lib/firestore'),
         import('@/lib/contactMatching'),
       ]);
-      const { queryCollection, where, limit: qLimit } = fsLib;
+      const { getDb } = fsLib;
       const { dedupeContactEntries, normalizeEmailForMatching, normalizePhoneForMatching } = cmLib;
 
       const cleanedContacts = dedupeContactEntries(phoneContacts);
@@ -108,20 +108,31 @@ export function usePhoneContacts(userId: string | undefined): UsePhoneContactsRe
         .map((c) => normalizePhoneForMatching(c.phone))
         .filter(Boolean) as string[];
 
+      // SECURITY: matching runs server-side (public.match_contacts). This keeps
+      // phone/email out of the public_profiles view while still matching every
+      // contact (no client-side truncation).
+      const db = getDb();
       const foundUsers: User[] = [];
-      const emailQueries = emails.slice(0, 10).map(async (email) => {
-        const data = await queryCollection('users', [where('email', '==', email), qLimit(1)]);
-        foundUsers.push(...(data as unknown as User[]));
-      });
-      const phoneQueries = phones.slice(0, 10).map(async (phone) => {
-        const data = await queryCollection('users', [
-          where('phone', '>=', phone),
-          where('phone', '<=', phone + '\uf8ff'),
-          qLimit(5),
-        ]);
-        foundUsers.push(...(data as unknown as User[]));
-      });
-      await Promise.all([...emailQueries, ...phoneQueries]);
+      if (db) {
+        const { data, error } = await db.rpc('match_contacts', {
+          p_emails: emails,
+          p_phones: phones,
+        });
+        if (error) throw error;
+        for (const r of (data as Array<Record<string, unknown>>) || []) {
+          foundUsers.push({
+            id: r.id as string,
+            name: (r.name as string) || '',
+            displayName: (r.display_name as string) || undefined,
+            username: (r.username as string) || undefined,
+            avatar: (r.avatar as string) || undefined,
+            email: (r.email as string) || '',
+            phone: (r.phone as string) || '',
+            verified: (r.is_verified as boolean) || false,
+            isPremium: (r.is_premium as boolean) || false,
+          } as unknown as User);
+        }
+      }
 
       const unique = Array.from(new Map(foundUsers.map((u) => [u.id, u])).values()).filter(
         (u) => u.id !== userId,
