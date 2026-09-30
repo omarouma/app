@@ -2,12 +2,16 @@ package app.gagachat.core.data.sync
 
 import app.gagachat.core.common.util.AppLogger
 import app.gagachat.core.data.repository.MessageRepository
+import app.gagachat.core.data.repository.ConversationRepository
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineStart
 import app.gagachat.core.network.realtime.ChangeType
 import app.gagachat.core.network.realtime.RealtimeEvent
 import app.gagachat.core.network.realtime.SupabaseRealtimeClient
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.first
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -24,6 +28,7 @@ import javax.inject.Singleton
 class RealtimeCoordinator @Inject constructor(
     private val realtime: SupabaseRealtimeClient,
     private val messageRepository: MessageRepository,
+    private val conversationRepository: ConversationRepository,
     private val logger: AppLogger,
 ) {
 
@@ -37,13 +42,17 @@ class RealtimeCoordinator @Inject constructor(
         if (started) return
         started = true
         scope = appScope
+        eventJob = appScope.launch(start = CoroutineStart.UNDISPATCHED) {
+            realtime.events.collect { event ->
+                try { handleEvent(event) }
+                catch (cancelled: CancellationException) { throw cancelled }
+                catch (error: Exception) { logger.w(TAG, "Could not apply realtime event", error) }
+            }
+        }
         realtime.connect(appScope)
         realtime.subscribe(TABLE_MESSAGES)
         realtime.subscribe(TABLE_CHATS)
         realtime.subscribe(TABLE_TYPING)
-        eventJob = appScope.launch {
-            realtime.events.collect { event -> handleEvent(event) }
-        }
         logger.i(TAG, "Realtime coordinator started")
     }
 
@@ -84,8 +93,16 @@ class RealtimeCoordinator @Inject constructor(
                         ChangeType.INSERT, ChangeType.UPDATE -> messageRepository.applyTypingEvent(event.record)
                         ChangeType.DELETE -> Unit
                     }
-                    TABLE_CHATS -> Unit // conversation previews reconciled by the worker
+                    TABLE_CHATS -> conversationRepository.syncConversations()
                     else -> Unit
+                }
+            }
+            is RealtimeEvent.Subscribed -> {
+                if (event.topic == "realtime:public:messages") {
+                    conversationRepository.syncConversations()
+                    conversationRepository.observeConversations().first().forEach {
+                        messageRepository.syncNewMessages(it.id)
+                    }
                 }
             }
             is RealtimeEvent.ConnectionError ->

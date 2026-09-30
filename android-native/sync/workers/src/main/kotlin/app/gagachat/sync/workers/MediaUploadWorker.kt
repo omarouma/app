@@ -25,6 +25,7 @@ class MediaUploadWorker @AssistedInject constructor(
             mediaRepository.processQueue()
             Result.success()
         }.getOrElse {
+            if (it is kotlinx.coroutines.CancellationException) throw it
             if (runAttemptCount < 5) Result.retry() else Result.failure()
         }
     }

@@ -1,5 +1,9 @@
 package app.gagachat.feature.calls.call
 
+import app.gagachat.core.model.CallStatus
+import com.zegocloud.uikit.prebuilt.call.invite.internal.ZegoInvitationCallListener
+import com.zegocloud.uikit.prebuilt.call.invite.internal.ZegoCallUser
+import com.zegocloud.uikit.prebuilt.call.invite.internal.ZegoCallType
 import android.app.Activity
 import android.app.Application
 import android.content.Context
@@ -18,6 +22,14 @@ import com.zegocloud.uikit.prebuilt.call.invite.ZegoUIKitPrebuiltCallInvitationC
 import com.zegocloud.uikit.prebuilt.call.invite.internal.ZegoUIKitPrebuiltCallConfigProvider
 import com.zegocloud.uikit.service.defines.ZegoUIKitUser
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlin.coroutines.resume
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
@@ -48,9 +60,16 @@ class ZegoCallManager @Inject constructor(
     private val restApi: SupabaseRestApi,
 ) {
 
+    private val initMutex = Mutex()
+    private var tokenExpiresAt = 0L
+    var lastError: String? = null
+        private set
+    private val _durationSeconds = MutableStateFlow(0L)
+    val durationSeconds = _durationSeconds.asStateFlow()
+
     /** Emits every time a call finishes, so the UI can persist the final status. */
-    private val _callEnded = MutableSharedFlow<ZegoCallEndReason>(extraBufferCapacity = 8)
-    val callEnded: SharedFlow<ZegoCallEndReason> = _callEnded.asSharedFlow()
+    private val _callEnded = MutableSharedFlow<CallStatus>(extraBufferCapacity = 8)
+    val callEnded: SharedFlow<CallStatus> = _callEnded.asSharedFlow()
 
     /** The most recently resumed Activity, needed to launch the Call Kit UI. */
     private var currentActivity: WeakReference<Activity>? = null
@@ -86,16 +105,16 @@ class ZegoCallManager @Inject constructor(
      * Initialises the Call Kit for [userId]. Idempotent: repeated calls for the
      * same user are ignored, and switching users re-initialises cleanly.
      */
-    suspend fun init(userId: String, userName: String) {
+    suspend fun init(userId: String, userName: String) = initMutex.withLock {
         val safeId = sanitizeUserId(userId)
         if (safeId.isBlank()) {
             logger.w(TAG, "init skipped: empty user id")
-            return
+            return@withLock
         }
-        if (initialized && currentUserId == safeId) return
+        if (initialized && currentUserId == safeId && tokenExpiresAt > System.currentTimeMillis() / 1000 + 60) return@withLock
 
-        val app = context.applicationContext as? Application ?: return
-        if (initialized && currentUserId != safeId) uninit()
+        val app = context.applicationContext as? Application ?: return@withLock
+        if (initialized) uninit()
 
         val config = ZegoUIKitPrebuiltCallInvitationConfig().apply {
             // Incoming calls show both Accept and Decline.
@@ -117,7 +136,10 @@ class ZegoCallManager @Inject constructor(
         try {
             val displayName = userName.ifBlank { "GaGa User" }
             val token = restApi.getZegoZimToken(safeId, displayName)
-            val resolvedAppId = token.appId.takeIf { it > 0L } ?: APP_ID
+            require(token.appId > 0 && token.zimToken.startsWith("04") && token.userId == safeId) {
+                "Calling server returned an invalid token. Please contact support."
+            }
+            val resolvedAppId = token.appId
             ZegoUIKitPrebuiltCallService.initWithToken(
                 app,
                 resolvedAppId,
@@ -129,13 +151,28 @@ class ZegoCallManager @Inject constructor(
             ZegoUIKitPrebuiltCallService.events.callEvents.setCallEndListener(
                 CallEndListener { reason, _ ->
                     logger.i(TAG, "Call ended: $reason")
-                    _callEnded.tryEmit(reason)
+                    _callEnded.tryEmit(if (reason == ZegoCallEndReason.KICK_OUT) CallStatus.FAILED else CallStatus.ENDED)
                 },
             )
+            ZegoUIKitPrebuiltCallService.events.invitationEvents.setInvitationListener(
+                object : ZegoInvitationCallListener {
+                    override fun onIncomingCallReceived(callID: String, caller: ZegoCallUser, callType: ZegoCallType, callees: MutableList<ZegoCallUser>) = Unit
+                    override fun onIncomingCallCanceled(callID: String, caller: ZegoCallUser) = Unit
+                    override fun onIncomingCallTimeout(callID: String, caller: ZegoCallUser) = Unit
+                    override fun onOutgoingCallAccepted(callID: String, callee: ZegoCallUser) = Unit
+                    override fun onOutgoingCallRejectedCauseBusy(callID: String, callee: ZegoCallUser) { _callEnded.tryEmit(CallStatus.BUSY) }
+                    override fun onOutgoingCallDeclined(callID: String, callee: ZegoCallUser) { _callEnded.tryEmit(CallStatus.REJECTED) }
+                    override fun onOutgoingCallTimeout(callID: String, callees: MutableList<ZegoCallUser>) { _callEnded.tryEmit(CallStatus.MISSED) }
+                },
+            )
+            tokenExpiresAt = token.expireAt
+            lastError = null
             initialized = true
             currentUserId = safeId
             logger.i(TAG, "ZEGO Call Kit initialised for user $safeId")
         } catch (t: Throwable) {
+            if (t is CancellationException) throw t
+            lastError = "Calling could not authenticate. Check the calling server configuration and your connection."
             logger.e(TAG, "ZEGO Call Kit init failed", t)
         }
     }
@@ -154,7 +191,12 @@ class ZegoCallManager @Inject constructor(
      * Returns true if the invitation was dispatched (a foreground Activity was
      * available and the peer id was valid).
      */
-    fun startCall(peerId: String, peerName: String, isVideo: Boolean): Boolean {
+    suspend fun startCall(peerId: String, peerName: String, isVideo: Boolean, callId: String): Boolean {
+        if (!initialized) {
+            lastError = lastError ?: "Calling is still connecting. Please try again."
+            return false
+        }
+        _durationSeconds.value = 0L
         val activity = currentActivity?.get()
         if (activity == null) {
             logger.w(TAG, "startCall skipped: no foreground Activity")
@@ -168,16 +210,27 @@ class ZegoCallManager @Inject constructor(
         val invitee = ZegoUIKitUser(safePeer, peerName.ifBlank { "GaGa User" })
         val type = if (isVideo) ZegoInvitationType.VIDEO_CALL else ZegoInvitationType.VOICE_CALL
         return try {
-            ZegoUIKitPrebuiltCallService.sendInvitationWithUIChange(
-                activity,
-                listOf(invitee),
-                type,
-                PluginCallbackListener { result ->
-                    logger.i(TAG, "Invitation dispatched: $result")
-                },
-            )
-            true
+            withTimeoutOrNull(20_000L) {
+                suspendCancellableCoroutine { continuation ->
+                    ZegoUIKitPrebuiltCallService.sendInvitationWithUIChange(
+                        activity, listOf(invitee), type, "", "call_$callId", null,
+                        PluginCallbackListener { result ->
+                            val code = (result["code"] as? Number)?.toInt()
+                            val failedPeers = result["errorInvitees"] as? Collection<*>
+                            val success = code == 0 && failedPeers.isNullOrEmpty()
+                            lastError = if (success) null else "Could not reach this contact (calling error ${code ?: -1})."
+                            if (continuation.isActive) continuation.resume(success)
+                        },
+                    )
+                }
+            } ?: run {
+                lastError = "The call invitation timed out. Please try again."
+                endCall()
+                false
+            }
         } catch (t: Throwable) {
+            if (t is CancellationException) throw t
+            lastError = "Could not send the call invitation. Please try again."
             logger.e(TAG, "startCall failed", t)
             false
         }
@@ -200,7 +253,13 @@ class ZegoCallManager @Inject constructor(
         raw.filter { it.isLetterOrDigit() || it == '_' }.take(64)
 
     private fun defaultCallConfig(data: ZegoCallInvitationData): ZegoUIKitPrebuiltCallConfig =
-        ZegoUIKitPrebuiltCallInvitationConfig.generateDefaultConfig(data)
+        ZegoUIKitPrebuiltCallInvitationConfig.generateDefaultConfig(data).apply {
+            durationConfig = com.zegocloud.uikit.prebuilt.call.config.ZegoCallDurationConfig().apply {
+                durationUpdateListener = com.zegocloud.uikit.prebuilt.call.config.DurationUpdateListener { seconds ->
+                    _durationSeconds.value = seconds
+                }
+            }
+        }
 
     companion object {
         private const val TAG = "ZegoCallManager"

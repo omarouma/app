@@ -88,13 +88,12 @@
         </activity>
 
         <!-- FCM push routing (PDF §8) -->
-        <service
-            android:name=".push.GagaMessagingService"
-            android:exported="false">
+        <!-- ZEGO owns the FCM service and forwards ordinary app pushes here. -->
+        <receiver android:name=".push.GagaPushReceiver" android:exported="false">
             <intent-filter>
-                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+                <action android:name="com.zegocloud.zegouikit.call.fcm" />
             </intent-filter>
-        </service>
+        </receiver>
 
         <!-- Default notification channel metadata -->
         <meta-data

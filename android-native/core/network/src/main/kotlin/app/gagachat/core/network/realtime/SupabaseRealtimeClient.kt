@@ -11,6 +11,10 @@ import io.ktor.websocket.Frame
 import io.ktor.websocket.close
 import io.ktor.websocket.readText
 import io.ktor.websocket.send
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.currentCoroutineContext
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicInteger
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.BufferOverflow
@@ -61,9 +65,10 @@ class SupabaseRealtimeClient @Inject constructor(
 
     private var connectionJob: Job? = null
     private var scope: CoroutineScope? = null
-    private var activeSession: DefaultClientWebSocketSession? = null
-    private val activeTopics = mutableSetOf<String>()
-    private var refCounter = 0
+    @Volatile private var activeSession: DefaultClientWebSocketSession? = null
+    private val activeTopics = ConcurrentHashMap.newKeySet<String>()
+    private val broadcastTopics = ConcurrentHashMap.newKeySet<String>()
+    private val refCounter = AtomicInteger()
 
     @Synchronized
     fun connect(scope: CoroutineScope) {
@@ -77,6 +82,8 @@ class SupabaseRealtimeClient @Inject constructor(
         connectionJob?.cancel()
         connectionJob = null
         activeTopics.clear()
+        broadcastTopics.clear()
+        activeSession = null
     }
 
     /**
@@ -94,7 +101,7 @@ class SupabaseRealtimeClient @Inject constructor(
         val session = activeSession
         if (session != null) {
             currentScope.launch {
-                runCatching { session.send(Frame.Text(joinMessage(topic))) }
+                runCatching { session.send(Frame.Text(if (topic in broadcastTopics) joinBroadcastMessage(topic) else joinMessage(topic))) }
             }
         }
     }
@@ -118,6 +125,7 @@ class SupabaseRealtimeClient @Inject constructor(
      */
     @Synchronized
     fun subscribeBroadcast(topic: String) {
+        broadcastTopics.add(topic)
         if (!activeTopics.add(topic)) return
         val currentScope = scope ?: return
         connect(currentScope)
@@ -132,6 +140,7 @@ class SupabaseRealtimeClient @Inject constructor(
     /** Leaves a raw broadcast topic. */
     @Synchronized
     fun unsubscribeBroadcast(topic: String) {
+        broadcastTopics.remove(topic)
         if (!activeTopics.remove(topic)) return
         val session = activeSession ?: return
         val currentScope = scope ?: return
@@ -157,7 +166,7 @@ class SupabaseRealtimeClient @Inject constructor(
                 put("event", event)
                 put("payload", payload)
             })
-            put("ref", (++refCounter).toString())
+            put("ref", refCounter.incrementAndGet().toString())
         }.toString()
         currentScope.launch {
             runCatching { session.send(Frame.Text(message)) }
@@ -169,7 +178,7 @@ class SupabaseRealtimeClient @Inject constructor(
 
     private suspend fun runConnectionLoop() {
         var backoff = 1_000L
-        while (true) {
+        while (currentCoroutineContext().isActive) {
             try {
                 // Realtime joins are authenticated with the access token, so make
                 // sure it is fresh before (re)connecting -- otherwise the socket
@@ -184,7 +193,7 @@ class SupabaseRealtimeClient @Inject constructor(
                     activeSession = session
                     // Join all currently active topics.
                     activeTopics.toList().forEach { topic ->
-                        session.send(Frame.Text(joinMessage(topic)))
+                        session.send(Frame.Text(if (topic in broadcastTopics) joinBroadcastMessage(topic) else joinMessage(topic)))
                     }
                     // Heartbeat loop. `session` is a CoroutineScope, so the
                     // heartbeat is scoped to the lifetime of the connection.
@@ -192,11 +201,22 @@ class SupabaseRealtimeClient @Inject constructor(
                         while (isActive) {
                             delay(25_000)
                             session.send(Frame.Text(heartbeatMessage()))
+                            tokenRefresher.ensureFresh()
+                            val token = sessionStore.accessToken()
+                            activeTopics.toList().forEach { topic ->
+                                session.send(Frame.Text(buildJsonObject {
+                                    put("topic", topic)
+                                    put("event", "access_token")
+                                    putJsonObject("payload") { token?.let { put("access_token", it) } }
+                                    put("ref", refCounter.incrementAndGet().toString())
+                                }.toString()))
+                            }
                         }
                     }
                     for (frame in session.incoming) {
                         if (frame is Frame.Text) {
-                            handleFrame(frame.readText())
+                            runCatching { handleFrame(frame.readText()) }
+                                .onFailure { logger.w(TAG, "Ignoring malformed realtime frame", it) }
                         }
                     }
                     heartbeat.cancel()
@@ -205,6 +225,7 @@ class SupabaseRealtimeClient @Inject constructor(
                     runCatching { session.close() }
                 }
             } catch (t: Throwable) {
+                if (t is CancellationException) throw t
                 activeSession = null
                 logger.w(TAG, "Realtime disconnected: ${t.message}")
                 _events.tryEmit(RealtimeEvent.ConnectionError(t.message ?: "disconnected"))
@@ -221,6 +242,7 @@ class SupabaseRealtimeClient @Inject constructor(
         when (event) {
             "phx_reply" -> {
                 val status = obj["payload"]?.jsonObject?.get("status")?.jsonPrimitive?.content
+                if (topic == "phoenix") return
                 if (status == "ok") _events.tryEmit(RealtimeEvent.Subscribed(topic))
                 else _events.tryEmit(RealtimeEvent.Failure(topic, status ?: "error"))
             }
@@ -271,7 +293,7 @@ class SupabaseRealtimeClient @Inject constructor(
             put("topic", topic)
             put("event", "phx_join")
             put("payload", payload)
-            put("ref", (++refCounter).toString())
+            put("ref", refCounter.incrementAndGet().toString())
         }.toString()
     }
 
@@ -287,7 +309,7 @@ class SupabaseRealtimeClient @Inject constructor(
             put("topic", topic)
             put("event", "phx_join")
             put("payload", payload)
-            put("ref", (++refCounter).toString())
+            put("ref", refCounter.incrementAndGet().toString())
         }.toString()
     }
 
@@ -295,14 +317,14 @@ class SupabaseRealtimeClient @Inject constructor(
         put("topic", topic)
         put("event", "phx_leave")
         put("payload", buildJsonObject {})
-        put("ref", (++refCounter).toString())
+        put("ref", refCounter.incrementAndGet().toString())
     }.toString()
 
     private fun heartbeatMessage(): String = buildJsonObject {
         put("topic", "phoenix")
         put("event", "heartbeat")
         put("payload", buildJsonObject {})
-        put("ref", (++refCounter).toString())
+        put("ref", refCounter.incrementAndGet().toString())
     }.toString()
 
     private companion object {

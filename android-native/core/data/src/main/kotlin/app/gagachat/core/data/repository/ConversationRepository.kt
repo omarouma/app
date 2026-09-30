@@ -105,11 +105,17 @@ class DefaultConversationRepository @Inject constructor(
     override suspend fun syncConversations(): AppResult<Unit> = withContext(dispatchers.io) {
         try {
             val cursor = syncStateDao.get(KEY)?.lastSyncedAt
-            val rows = if (cursor == null) {
-                restApi.getConversations(Constants.CONVERSATION_PAGE_SIZE, 0)
-            } else {
-                restApi.getConversationsUpdatedSince(cursor, Constants.CONVERSATION_PAGE_SIZE)
-            }
+            val rows = mutableListOf<ConversationRow>()
+            var offset = 0
+            do {
+                val page = if (cursor == null) {
+                    restApi.getConversations(Constants.CONVERSATION_PAGE_SIZE, offset)
+                } else {
+                    restApi.getConversationsUpdatedSince(cursor, Constants.CONVERSATION_PAGE_SIZE, offset)
+                }
+                rows.addAll(page)
+                offset += page.size
+            } while (page.size == Constants.CONVERSATION_PAGE_SIZE)
             val now = timeProvider.nowMillis()
             conversationDao.upsertAll(rows.map { it.toDomain().toEntity(now) })
 
@@ -121,7 +127,9 @@ class DefaultConversationRepository @Inject constructor(
             if (memberEntities.isNotEmpty()) {
                 conversationDao.upsertMembers(memberEntities)
             }
-            syncStateDao.upsert(SyncStateEntity(KEY, now, null))
+            rows.mapNotNull { it.updatedAt ?: it.createdAt }.maxOrNull()?.let { timestamp ->
+                syncStateDao.upsert(SyncStateEntity(KEY, maxOf(cursor ?: timestamp, timestamp), null))
+            }
             AppResult.Success(Unit)
         } catch (t: Throwable) {
             AppResult.Failure(ErrorMapper.map(t))

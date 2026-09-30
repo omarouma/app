@@ -1,0 +1,72 @@
+name: Android repair release
+
+on:
+  push:
+    branches: [codex/android-repair-2.0.18]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Configure existing public backend
+        run: python3 android-native/ci/prepare.py
+      - name: Compile release and test messaging
+        working-directory: android-native
+        run: gradle --no-daemon --max-workers=2 -Pksp.incremental=false :app:assembleRelease :app:bundleRelease :core:data:testReleaseUnitTest
+      - name: Package release artifacts
+        run: |
+          mkdir -p deliverables
+          cp android-native/app/build/outputs/apk/release/app-release-unsigned.apk deliverables/GaGa-2.0.18-release-unsigned.apk
+          cp android-native/app/build/outputs/bundle/release/app-release.aab deliverables/GaGa-2.0.18-release-unsigned.aab
+      - name: Sign only with the matching release key
+        env:
+          KEYSTORE_BASE64: ${{ secrets.GAGA_RELEASE_KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.GAGA_RELEASE_STORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.GAGA_RELEASE_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.GAGA_RELEASE_KEY_PASSWORD }}
+        shell: bash
+        run: |
+          if [ -z "$KEYSTORE_BASE64" ]; then
+            echo 'Release signing key is unavailable; artifacts are explicitly unsigned.' > deliverables/SIGNING-REQUIRED.txt
+            exit 0
+          fi
+          keyfile="$RUNNER_TEMP/gaga-release.jks"
+          trap 'rm -f "$keyfile"' EXIT
+          printf '%s' "$KEYSTORE_BASE64" | base64 -d > "$keyfile"
+          actual=$(keytool -exportcert -keystore "$keyfile" -storepass:env STORE_PASSWORD -alias "$KEY_ALIAS" | sha256sum | cut -d' ' -f1)
+          expected=f8f4c1142ada2f402aa7694ec48ce5293607ac7d3b07c2e43f8273eff1dd68ce
+          if [ "$actual" != "$expected" ]; then
+            echo 'The configured signing certificate does not match the supplied 2.0.17 app. No replacement key was used.' > deliverables/SIGNING-REQUIRED.txt
+            exit 0
+          fi
+          signer=$(find "$ANDROID_HOME/build-tools" -name apksigner | sort -V | tail -1)
+          "$signer" sign --ks "$keyfile" --ks-key-alias "$KEY_ALIAS" --ks-pass env:STORE_PASSWORD --key-pass env:KEY_PASSWORD --out deliverables/GaGa-2.0.18-release.apk deliverables/GaGa-2.0.18-release-unsigned.apk
+          cp deliverables/GaGa-2.0.18-release-unsigned.aab deliverables/GaGa-2.0.18-release.aab
+          jarsigner -keystore "$keyfile" -storepass:env STORE_PASSWORD -keypass:env KEY_PASSWORD deliverables/GaGa-2.0.18-release.aab "$KEY_ALIAS"
+          "$signer" verify --verbose --print-certs deliverables/GaGa-2.0.18-release.apk > deliverables/signature-verification.txt
+      - name: Checksums
+        run: cd deliverables && sha256sum *.apk *.aab > SHA256SUMS.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: GaGa-2.0.18-release-and-tests
+          path: |
+            deliverables/
+            android-native/core/data/build/reports/tests/testReleaseUnitTest/
+            android-native/core/data/build/test-results/testReleaseUnitTest/
+          if-no-files-found: warn
+          retention-days: 14

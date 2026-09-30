@@ -1,7 +1,9 @@
 package app.gagachat.push
 
 import app.gagachat.core.data.preferences.SettingsPreferences
-import com.google.firebase.messaging.FirebaseMessagingService
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
 import com.google.firebase.messaging.RemoteMessage
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
@@ -23,7 +25,7 @@ import javax.inject.Inject
  * link so the UI can react when it comes to the foreground.
  */
 @AndroidEntryPoint
-class GagaMessagingService : FirebaseMessagingService() {
+class GagaPushReceiver : BroadcastReceiver() {
 
     @Inject
     lateinit var tokenRegistrar: PushTokenRegistrar
@@ -33,20 +35,17 @@ class GagaMessagingService : FirebaseMessagingService() {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
-    override fun onNewToken(token: String) {
-        super.onNewToken(token)
-        scope.launch { tokenRegistrar.register(token) }
-    }
-
-    override fun onMessageReceived(message: RemoteMessage) {
-        super.onMessageReceived(message)
+    @Suppress("DEPRECATION")
+    override fun onReceive(context: Context, intent: Intent) {
+        val message = intent.getParcelableExtra<RemoteMessage>("remoteMessage") ?: return
+        val pending = goAsync()
         val data = message.data
         val type = data["type"]
 
-        // Record the deep link so a tap routes correctly even from cold start.
-        DeepLinkRouter.routeForPush(data)?.let(PendingDeepLink::set)
+        // Navigation is captured only from a notification tap, never on receipt.
 
         scope.launch {
+          try {
             val notificationsEnabled = settingsPreferences.notificationsEnabled.first()
             val soundsEnabled = settingsPreferences.messageSoundsEnabled.first()
 
@@ -73,7 +72,7 @@ class GagaMessagingService : FirebaseMessagingService() {
                 "call", "incoming_call" -> {
                     if (conversationId != null) {
                         NotificationHelper.showIncomingCall(
-                            context = this@GagaMessagingService,
+                            context = context,
                             conversationId = conversationId,
                             callerName = title,
                             isVideo = isVideo,
@@ -83,12 +82,12 @@ class GagaMessagingService : FirebaseMessagingService() {
                 }
 
                 "call_cancel", "call_ended" -> {
-                    conversationId?.let { NotificationHelper.cancelIncomingCall(this@GagaMessagingService, it) }
+                    conversationId?.let { NotificationHelper.cancelIncomingCall(context, it) }
                 }
 
                 "missed_call" -> {
                     NotificationHelper.showMissedCall(
-                        context = this@GagaMessagingService,
+                        context = context,
                         conversationId = conversationId ?: title,
                         callerName = title,
                         isVideo = isVideo,
@@ -98,7 +97,7 @@ class GagaMessagingService : FirebaseMessagingService() {
 
                 "friend_request", "friend_accepted", "friend" -> {
                     NotificationHelper.showGeneral(
-                        context = this@GagaMessagingService,
+                        context = context,
                         id = (conversationId ?: title).hashCode(),
                         title = title,
                         body = body,
@@ -110,7 +109,7 @@ class GagaMessagingService : FirebaseMessagingService() {
 
                 "security" -> {
                     NotificationHelper.showGeneral(
-                        context = this@GagaMessagingService,
+                        context = context,
                         id = (data["id"] ?: title).hashCode(),
                         title = title,
                         body = body,
@@ -124,7 +123,7 @@ class GagaMessagingService : FirebaseMessagingService() {
                 else -> {
                     if (conversationId != null) {
                         NotificationHelper.showMessage(
-                            context = this@GagaMessagingService,
+                            context = context,
                             conversationId = conversationId,
                             title = title,
                             body = body,
@@ -135,6 +134,7 @@ class GagaMessagingService : FirebaseMessagingService() {
                     }
                 }
             }
+          } finally { pending.finish() }
         }
     }
 }

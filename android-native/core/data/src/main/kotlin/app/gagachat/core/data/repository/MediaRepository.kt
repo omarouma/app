@@ -120,6 +120,13 @@ class DefaultMediaRepository @Inject constructor(
     override suspend fun processQueue() = withContext(dispatchers.io) {
         val queued = uploadDao.getQueued()
         for (upload in queued) {
+            val uploadedUrl = upload.remoteUrl
+            if (uploadedUrl != null) {
+                messageDao.updateMedia(upload.clientMessageId, uploadedUrl, upload.thumbnailUrl)
+                outboxScheduler.enqueueMessageSend(upload.clientMessageId)
+                uploadDao.delete(upload.uploadId)
+                continue
+            }
             uploadDao.updateState(upload.uploadId, UploadState.UPLOADING.name, upload.attempts, null, null)
             try {
                 val bytes = File(upload.localPath).readBytes()
@@ -175,9 +182,17 @@ class DefaultMediaRepository @Inject constructor(
                     null,
                 )
                 // Now dispatch the message with its durable media URL.
-                messageRepository.retry(upload.clientMessageId)
-                uploadDao.delete(upload.uploadId)
+                when (messageRepository.retry(upload.clientMessageId)) {
+                    is AppResult.Success -> uploadDao.delete(upload.uploadId)
+                    else -> {
+                        // Upload is durable; hand message delivery to the outbox.
+                        // Keep the uploaded row until delivery scheduling succeeds.
+                        outboxScheduler.enqueueMessageSend(upload.clientMessageId)
+                        uploadDao.delete(upload.uploadId)
+                    }
+                }
             } catch (t: Throwable) {
+                if (t is kotlinx.coroutines.CancellationException) throw t
                 val attempts = upload.attempts + 1
                 val state = if (attempts >= app.gagachat.core.common.Constants.OUTBOX_MAX_ATTEMPTS) {
                     UploadState.FAILED
@@ -190,6 +205,7 @@ class DefaultMediaRepository @Inject constructor(
                 }
             }
         }
+        if (uploadDao.getQueued().isNotEmpty()) throw java.io.IOException("Media uploads pending retry")
     }
 
     override fun observeUpload(clientMessageId: String): Flow<PendingUpload?> =

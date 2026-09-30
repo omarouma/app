@@ -40,6 +40,8 @@ import io.ktor.client.request.setBody
 import io.ktor.http.ContentType
 import io.ktor.http.contentType
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 import java.time.Instant
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -136,11 +138,12 @@ class SupabaseRestApi @Inject constructor(
             parameter("offset", offset)
         }.body()
 
-    suspend fun getConversationsUpdatedSince(since: Long, limit: Int): List<ConversationRow> =
+    suspend fun getConversationsUpdatedSince(since: Long, limit: Int, offset: Int = 0): List<ConversationRow> =
         client.get("${config.restUrl}/chats") {
             auth()
             parameter("select", "*")
-            parameter("updated_at", "gt.${iso(since)}")
+            parameter("updated_at", "gte.${iso(since)}")
+            parameter("offset", offset)
             parameter("order", "updated_at.desc")
             parameter("limit", limit)
         }.body()
@@ -178,7 +181,7 @@ class SupabaseRestApi @Inject constructor(
         archived: Boolean? = null,
         unreadCount: Int? = null,
     ) {
-        val body = buildMap<String, Any> {
+        val body = buildJsonObject {
             pinned?.let { put("pinned", it) }
             muted?.let { put("is_muted", it) }
             archived?.let { put("archived", it) }
@@ -201,7 +204,7 @@ class SupabaseRestApi @Inject constructor(
         avatar: String? = null,
         description: String? = null,
     ) {
-        val body = buildMap<String, Any> {
+        val body = buildJsonObject {
             title?.let { put("name", it) }
             avatar?.let { put("avatar", it) }
             description?.let { put("description", it) }
@@ -240,13 +243,14 @@ class SupabaseRestApi @Inject constructor(
         parameter("limit", limit)
     }.body()
 
-    suspend fun getMessagesSince(conversationId: String, since: Long, limit: Int): List<MessageRow> =
+    suspend fun getMessagesSince(conversationId: String, since: Long, limit: Int, offset: Int = 0): List<MessageRow> =
         client.get("${config.restUrl}/messages") {
             auth()
             parameter("select", "*")
             parameter("chat_id", "eq.$conversationId")
-            parameter("created_at", "gt.${iso(since)}")
-            parameter("order", "created_at.asc")
+            parameter("created_at", "gte.${iso(since)}")
+            parameter("order", "created_at.asc,id.asc")
+            parameter("offset", offset)
             parameter("limit", limit)
         }.body()
 
@@ -286,7 +290,10 @@ class SupabaseRestApi @Inject constructor(
             parameter("id", "eq.$id")
             header("Prefer", "return=minimal")
             contentType(ContentType.Application.Json)
-            setBody(mapOf("content" to text, "edited" to true))
+            setBody(kotlinx.serialization.json.buildJsonObject {
+                put("content", kotlinx.serialization.json.JsonPrimitive(text))
+                put("edited", kotlinx.serialization.json.JsonPrimitive(true))
+            })
         }
     }
 
@@ -296,12 +303,17 @@ class SupabaseRestApi @Inject constructor(
             parameter("id", "eq.$id")
             header("Prefer", "return=minimal")
             contentType(ContentType.Application.Json)
-            setBody(mapOf("content" to null, "destroyed" to true, "media_url" to null))
+            setBody(kotlinx.serialization.json.buildJsonObject {
+                put("content", kotlinx.serialization.json.JsonNull)
+                put("destroyed", kotlinx.serialization.json.JsonPrimitive(true))
+                put("media_url", kotlinx.serialization.json.JsonNull)
+                put("media_urls", kotlinx.serialization.json.JsonNull)
+            })
         }
     }
 
     suspend fun updateMessageDelivery(id: String, status: String, deliveredAt: Long?, readAt: Long?) {
-        val body = buildMap<String, Any?> {
+        val body = buildJsonObject {
             put("delivery_status", status)
             deliveredAt?.let { put("delivered_at", iso(it)) }
             readAt?.let { put("read_at", iso(it)) }
@@ -422,7 +434,7 @@ class SupabaseRestApi @Inject constructor(
             header("Prefer", "return=minimal")
             contentType(ContentType.Application.Json)
             setBody(
-                buildMap<String, Any> {
+                buildJsonObject {
                     put("status", status)
                     put("ended_at", iso(endedAt))
                     // `call_history.duration` is stored in seconds.
@@ -634,7 +646,7 @@ class SupabaseRestApi @Inject constructor(
         }.body<List<GroupRow>>().first()
 
     suspend fun updateGroup(id: String, name: String?, description: String?, avatar: String?) {
-        val body = buildMap<String, Any> {
+        val body = buildJsonObject {
             name?.let { put("name", it) }
             description?.let { put("description", it) }
             avatar?.let { put("avatar", it) }

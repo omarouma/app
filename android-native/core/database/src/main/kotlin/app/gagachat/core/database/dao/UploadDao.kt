@@ -12,7 +12,7 @@ interface UploadDao {
     @Upsert
     suspend fun upsert(upload: PendingUploadEntity)
 
-    @Query("SELECT * FROM pending_uploads WHERE state IN ('QUEUED', 'UPLOADING') ORDER BY rowid ASC")
+    @Query("SELECT * FROM pending_uploads WHERE state IN ('QUEUED', 'UPLOADING', 'UPLOADED') ORDER BY rowid ASC")
     suspend fun getQueued(): List<PendingUploadEntity>
 
     @Query("SELECT * FROM pending_uploads WHERE clientMessageId = :clientMessageId LIMIT 1")

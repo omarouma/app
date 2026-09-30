@@ -145,6 +145,12 @@ class ChatViewModel @Inject constructor(
     private val conversationId: String = savedStateHandle.get<String>("conversationId").orEmpty()
 
     private val draft = MutableStateFlow("")
+    private val messageLimit = MutableStateFlow(Constants.INITIAL_MESSAGE_PAGE_SIZE)
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    private val visibleMessageFlow = messageLimit.flatMapLatest { limit ->
+        messageRepository.observeMessages(conversationId, limit)
+    }
     private val loadingOlder = MutableStateFlow(false)
     private val hasMoreOlder = MutableStateFlow(true)
     private val error = MutableStateFlow<String?>(null)
@@ -181,7 +187,7 @@ class ChatViewModel @Inject constructor(
         .flatMapLatest { id -> if (id.isBlank()) flowOf(null) else userRepository.observeUser(id) }
 
     val state: StateFlow<ChatUiState> = combine(
-        messageRepository.observeMessages(conversationId),
+        visibleMessageFlow,
         conversationRepository.observeConversation(conversationId),
         otherUserFlow,
         combine(
@@ -231,7 +237,8 @@ class ChatViewModel @Inject constructor(
                 ?.lastReadMessageId,
             chatBackground = chatBackground,
         )
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ChatUiState(conversationId = conversationId))
+    }.combine(draft) { ui, text -> ui.copy(draft = text) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ChatUiState(conversationId = conversationId))
 
     init {
         viewModelScope.launch {
@@ -299,7 +306,11 @@ class ChatViewModel @Inject constructor(
         }
         val text = draft.value.trim()
         if (text.isEmpty()) return
-        val replyId = replyTo.value?.serverMessageId ?: replyTo.value?.clientMessageId
+        val replyId = replyTo.value?.serverMessageId
+        if (replyTo.value != null && replyId == null) {
+            error.value = "Wait until that message is sent before replying."
+            return
+        }
         draft.value = ""
         replyTo.value = null
         typingJob?.cancel()
@@ -321,7 +332,7 @@ class ChatViewModel @Inject constructor(
     fun sendMedia(uri: Uri, kind: String) {
         viewModelScope.launch {
             val session = authRepository.sessionFlow.value
-            var resolved = resolveUri(uri) ?: run {
+            var resolved = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { resolveUri(uri) } ?: run {
                 error.value = "Couldn't read the selected file."
                 return@launch
             }
@@ -340,11 +351,11 @@ class ChatViewModel @Inject constructor(
                     error.value = "This photo is too large. Choose a photo under 25 MB."
                     return@launch
                 }
-                resolved = compressLargeImage(resolved)
+                resolved = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { compressLargeImage(resolved) }
             }
             var durationMs: Long? = null
             if (type == MessageType.VIDEO || type == MessageType.AUDIO) {
-                durationMs = mediaDuration(resolved.first)
+                durationMs = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { mediaDuration(resolved.first) }
             }
             if (type == MessageType.VIDEO) {
                 if (resolved.third > Constants.MAX_UPLOAD_BYTES) {
@@ -662,7 +673,10 @@ class ChatViewModel @Inject constructor(
         loadingOlder.value = true
         viewModelScope.launch {
             when (val result = messageRepository.loadOlder(conversationId, oldest.sortTimestamp)) {
-                is AppResult.Success -> if (result.data.isEmpty()) hasMoreOlder.value = false
+                is AppResult.Success -> {
+                    messageLimit.value += result.data.size
+                    if (result.data.size < Constants.MESSAGE_PAGE_SIZE) hasMoreOlder.value = false
+                }
                 is AppResult.Failure -> error.value = result.error.toUserMessage()
                 AppResult.Loading -> Unit
             }

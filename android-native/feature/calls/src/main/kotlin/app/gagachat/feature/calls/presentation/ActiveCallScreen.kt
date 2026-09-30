@@ -42,8 +42,12 @@ fun ActiveCallRoute(
     }
 
     // The Call Kit owns the call UI; once it is up we pop this launcher.
-    LaunchedEffect(state.callLaunched) {
-        if (state.callLaunched) onCallFinished()
+    LaunchedEffect(state.phase, state.error) {
+        if (state.phase == CallPhase.ENDED && state.error == null) onCallFinished()
+    }
+
+    androidx.activity.compose.BackHandler(enabled = state.phase != CallPhase.IDLE && state.phase != CallPhase.ENDED) {
+        viewModel.endCall()
     }
 
     val error = state.error
@@ -70,6 +74,6 @@ fun ActiveCallRoute(
             },
         )
 
-        else -> GagaLoading(message = "Starting call\u2026")
+        else -> GagaLoading(message = if (state.callLaunched) "Call in progress" else "Starting call\u2026")
     }
 }

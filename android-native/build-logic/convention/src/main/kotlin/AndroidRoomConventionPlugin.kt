@@ -14,7 +14,7 @@ class AndroidRoomConventionPlugin : Plugin<Project> {
             pluginManager.apply("com.google.devtools.ksp")
 
             extensions.configure<KspExtension> {
-                arg("room.generateKotlin", "true")
+                arg("room.generateKotlin", "false")
                 arg("room.schemaLocation", "$projectDir/schemas")
             }
 

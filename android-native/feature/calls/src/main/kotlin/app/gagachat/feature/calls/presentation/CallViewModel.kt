@@ -74,6 +74,13 @@ class CallViewModel @Inject constructor(
         observeHistory()
         refreshHistory()
         observeCallEvents()
+        viewModelScope.launch {
+            zegoCallManager.durationSeconds.collect { seconds ->
+                if (activeCallId != null) _state.update {
+                    it.copy(elapsedSeconds = seconds, phase = if (seconds > 0) CallPhase.CONNECTED else it.phase)
+                }
+            }
+        }
     }
 
     /**
@@ -111,8 +118,16 @@ class CallViewModel @Inject constructor(
      * call UI and performs the media negotiation).
      */
     fun startCallForConversation(conversationId: String, isVideo: Boolean) {
-        val currentUserId = authRepository.sessionFlow.value?.userId ?: return
+        val session = authRepository.sessionFlow.value ?: return
+        val currentUserId = session.userId
+        if (_state.value.phase in setOf(CallPhase.CONNECTING, CallPhase.OUTGOING_RINGING, CallPhase.CONNECTED)) return
+        _state.update { it.copy(phase = CallPhase.CONNECTING, error = null) }
         viewModelScope.launch {
+            zegoCallManager.init(currentUserId, session.displayName ?: "GaGa User")
+            if (!zegoCallManager.isInitialized()) {
+                _state.update { it.copy(phase = CallPhase.ENDED, error = zegoCallManager.lastError) }
+                return@launch
+            }
             _state.update { it.copy(error = null) }
             val conversation = conversationRepository.observeConversation(conversationId).first()
             val peer = conversation?.otherMember(currentUserId)
@@ -146,9 +161,9 @@ class CallViewModel @Inject constructor(
                         _state.update { it.copy(error = "This conversation has no callable peer.") }
                         return@launch
                     }
-                    val launched = zegoCallManager.startCall(peerId, peerName, isVideo)
+                    val launched = zegoCallManager.startCall(peerId, peerName, isVideo, result.data.id)
                     if (launched) {
-                        startTimerIfNeeded()
+                        // Duration comes from the SDK, excluding ring time.
                         _state.update { it.copy(callLaunched = true) }
                     } else {
                         // Do not leave a durable server row stuck in ringing when
@@ -161,14 +176,14 @@ class CallViewModel @Inject constructor(
                                 phase = CallPhase.ENDED,
                                 activeCall = null,
                                 callLaunched = false,
-                                error = "Could not start the call. Please try again.",
+                                error = zegoCallManager.lastError ?: "Could not start the call. Please try again.",
                             )
                         }
                     }
                 }
 
                 is AppResult.Failure ->
-                    _state.update { it.copy(error = result.error.toUserMessage()) }
+                    _state.update { it.copy(phase = CallPhase.ENDED, error = result.error.toUserMessage()) }
 
                 AppResult.Loading -> Unit
             }
@@ -223,19 +238,8 @@ class CallViewModel @Inject constructor(
         }
     }
 
-    private fun onCallEnded(reason: ZegoCallEndReason) {
-        // SDK enum names vary across Call Kit releases. Map by semantic name so
-        // newer reasons (decline/timeout/busy/failure) do not silently become
-        // successful calls in history.
-        val name = reason.toString().uppercase()
-        val status = when {
-            "DECLINE" in name || "REJECT" in name -> CallStatus.REJECTED
-            "BUSY" in name -> CallStatus.BUSY
-            "TIMEOUT" in name || "NO_ANSWER" in name || "MISSED" in name -> CallStatus.MISSED
-            "FAIL" in name || "ERROR" in name || "KICK" in name -> CallStatus.FAILED
-            else -> CallStatus.ENDED
-        }
-        finalizeCall(status)
+    private fun onCallEnded(status: CallStatus) {
+        if (activeCallId != null) finalizeCall(status)
     }
 
     /** Persists the final status + duration and resets the UI to the ended state. */

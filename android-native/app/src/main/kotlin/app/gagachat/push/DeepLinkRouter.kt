@@ -40,7 +40,7 @@ object DeepLinkRouter {
             || data["call_type"] == "video"
             || data["is_video"].equals("true", ignoreCase = true)
         return when (type) {
-            "call", "incoming_call" -> conversationId?.let { callRoute(it, isVideo) } ?: "calls"
+            "call", "incoming_call" -> "calls"
             "missed_call" -> "calls"
             "friend_request", "friend_accepted", "friend" -> "people"
             "security" -> "settings/security"
@@ -50,7 +50,7 @@ object DeepLinkRouter {
     }
 
     private fun callRoute(conversationId: String, isVideo: Boolean): String =
-        "call/active?conversationId=$conversationId&video=$isVideo"
+        "calls" // Incoming/deep-linked calls must never originate a new outgoing call.
 
     private fun routeFor(uri: Uri): String? {
         val segments = uri.pathSegments

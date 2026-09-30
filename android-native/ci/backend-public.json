@@ -1,0 +1,11 @@
+{
+  "SUPABASE_URL": "https://fcjgbbmfqdkucfpqjxae.supabase.co",
+  "SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZjamdiYm1mcWRrdWNmcHFqeGFlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODcyNTYyOTAsImV4cCI6MjEwMjgzMjI5MH0.aB0eNNa9O8Kzg6dXJoF-ccJhXzz0t0bRchO6j6rupMs",
+  "firebase": {
+    "google_app_id": "1:545448312835:android:d57316588ac5a8f9cd8e36",
+    "google_api_key": "AIzaSyDae1gz_UQ0jHMyekzLkHpBJaauha_xgQM",
+    "project_id": "oumagachat",
+    "gcm_defaultSenderId": "545448312835",
+    "google_storage_bucket": "oumagachat.appspot.com"
+  }
+}

@@ -125,8 +125,14 @@ class AppViewModel @Inject constructor(
      */
     private fun observeSessionForCalling() {
         viewModelScope.launch {
+            var syncedUserId: String? = null
             authRepository.sessionFlow.collect { session ->
                 if (session != null) {
+                    if (syncedUserId != session.userId) {
+                        syncInitializer.start()
+                        realtimeCoordinator.restart(applicationScope)
+                        syncedUserId = session.userId
+                    }
                     zegoCallManager.init(
                         userId = session.userId,
                         userName = session.displayName?.takeIf { it.isNotBlank() }
@@ -145,6 +151,8 @@ class AppViewModel @Inject constructor(
                             }
                     }
                 } else {
+                    realtimeCoordinator.stop()
+                    syncedUserId = null
                     zegoCallManager.uninit()
                 }
             }
@@ -161,5 +169,10 @@ class AppViewModel @Inject constructor(
         if (!authRepository.isLoggedIn()) return
         syncInitializer.start()
         realtimeCoordinator.restart(applicationScope)
+        session.value?.let { current ->
+            viewModelScope.launch {
+                zegoCallManager.init(current.userId, current.displayName ?: "GaGa User")
+            }
+        }
     }
 }

@@ -1,3 +1,4 @@
+import { generateToken04 } from './token04.ts';
 // @ts-nocheck - Supabase Edge Functions run on the Deno runtime.
 // Supabase Edge Function: zego-token
 // Server-only ZEGO token minting without exposing the ZEGO secret to the client.
@@ -31,24 +32,6 @@ function json(req: Request, body: Record<string, unknown>, status = 200): Respon
     status,
     headers: { ...corsHeaders(req), 'Content-Type': 'application/json; charset=utf-8' },
   });
-}
-
-function base64Url(value: Uint8Array): string {
-  let binary = '';
-  value.forEach((byte) => { binary += String.fromCharCode(byte); });
-  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
-}
-
-async function signZegoToken(payload: Record<string, unknown>, secret: string): Promise<string> {
-  const encoder = new TextEncoder();
-  const header = base64Url(encoder.encode(JSON.stringify({ typ: 'JWT', alg: 'HS256', verify: '0' })));
-  const body = base64Url(encoder.encode(JSON.stringify(payload)));
-  const data = `${header}.${body}`;
-  const key = await crypto.subtle.importKey(
-    'raw', encoder.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign'],
-  );
-  const signature = new Uint8Array(await crypto.subtle.sign('HMAC', key, encoder.encode(data)));
-  return `${data}.${base64Url(signature)}`;
 }
 
 async function authenticate(req: Request): Promise<string | null> {
@@ -109,18 +92,27 @@ Deno.serve(async (req: Request) => {
   const url = new URL(req.url);
   const room = (url.searchParams.get('room') ?? '').trim();
   const user = (url.searchParams.get('user') ?? '').trim();
-  if (!room || !user) return json(req, { error: 'MISSING_PARAMS' }, 400);
-  if (room.length > 64 || !/^[A-Za-z0-9_-]+$/.test(room)) return json(req, { error: 'INVALID_ROOM' }, 400);
+  const isZim = url.searchParams.get('type') === 'zim';
+  if (!user || (!isZim && !room)) return json(req, { error: 'MISSING_PARAMS' }, 400);
+  if (!isZim && (room.length > 64 || !/^[A-Za-z0-9_-]+$/.test(room))) return json(req, { error: 'INVALID_ROOM' }, 400);
 
-  const sanitizedCaller = callerId.replace(/[^A-Za-z0-9_-]/g, '_').slice(0, 64);
+  const sanitizedCaller = callerId.replace(/[^A-Za-z0-9_]/g, '').slice(0, 64);
   if (user !== callerId && user !== sanitizedCaller) return json(req, { error: 'FORBIDDEN' }, 403);
-  if (!(await isCallParticipant(req, callerId, room))) {
+  if (!isZim && !(await isCallParticipant(req, callerId, room))) {
     return json(req, { error: 'CALL_ACCESS_DENIED' }, 403);
   }
-  if (!ZEGO_APP_ID || !ZEGO_SERVER_SECRET) return json(req, { error: 'ZEGO_NOT_CONFIGURED' }, 500);
+  if (!ZEGO_APP_ID || new TextEncoder().encode(ZEGO_SERVER_SECRET).length !== 32) return json(req, { error: 'ZEGO_NOT_CONFIGURED' }, 500);
 
-  const now = Math.floor(Date.now() / 1000);
-  const expireAt = now + 24 * 60 * 60;
-  const token = await signZegoToken({ app_id: ZEGO_APP_ID, user_id: user, ctime: now, expire: expireAt, room_id: room }, ZEGO_SERVER_SECRET);
-  return json(req, { token, appID: ZEGO_APP_ID, roomID: room, userID: user, expireAt });
+  const expireAt = Math.floor(Date.now() / 1000) + 3600;
+  try {
+    const payload = isZim ? '' : JSON.stringify({
+      room_id: room,
+      privilege: { 1: 1, 2: 1 },
+      stream_id_list: null,
+    });
+    const token = await generateToken04(ZEGO_APP_ID, user, ZEGO_SERVER_SECRET, expireAt, payload);
+    return json(req, { token, zimToken: token, appID: ZEGO_APP_ID, roomID: room, userID: user, expireAt });
+  } catch {
+    return json(req, { error: 'TOKEN_MINT_FAILED' }, 500);
+  }
 });
