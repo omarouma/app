@@ -129,7 +129,15 @@ class DefaultMediaRepository @Inject constructor(
             }
             uploadDao.updateState(upload.uploadId, UploadState.UPLOADING.name, upload.attempts, null, null)
             try {
-                val bytes = File(upload.localPath).readBytes()
+                val file = File(upload.localPath)
+                if (!file.exists() || file.length() == 0L) {
+                    // The cached copy vanished (e.g. the OS cleared the cache
+                    // dir). Fail the row deterministically instead of retrying a
+                    // file that will never come back.
+                    uploadDao.updateState(upload.uploadId, UploadState.FAILED.name, upload.attempts + 1, null, null)
+                    messageDao.updateStatus(upload.clientMessageId, MessageStatus.FAILED.name, null, null)
+                    continue
+                }
                 val extension = upload.mime.substringAfterLast('/', "bin")
                 // The storage bucket's RLS policy scopes writes to the caller's own
                 // top-level folder (`<userId>/...`), so the path MUST be prefixed with
@@ -166,7 +174,7 @@ class DefaultMediaRepository @Inject constructor(
                     }
                 }
                 val url = try {
-                    storageApi.upload(objectPath, bytes, upload.mime) { progress ->
+                    storageApi.uploadFile(objectPath, file, upload.mime) { progress ->
                         progressChannel.trySend(progress)
                     }
                 } finally {

@@ -1,5 +1,6 @@
 package app.gagachat.navigation
 
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Chat
@@ -115,7 +116,15 @@ fun MainNavHost(pendingDeepLink: String?) {
         NavHost(
             navController = navController,
             startDestination = HomeRoutes.HOME,
-            modifier = Modifier.padding(innerPadding),
+            // F02: the outer Scaffold already reserves the status-bar and
+            // navigation-bar space via `innerPadding`. Consume those insets so
+            // each destination's own TopAppBar/Scaffold does NOT apply the
+            // status-bar inset a second time (which produced the excessive empty
+            // space above every header). Keyboard (IME) insets are intentionally
+            // left untouched for the chat composer to handle.
+            modifier = Modifier
+                .padding(innerPadding)
+                .consumeWindowInsets(innerPadding),
         ) {
             homeScreen(
                 navController = navController,

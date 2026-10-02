@@ -159,11 +159,16 @@ fun ChatRoute(
         }
     }
 
-    // Load older messages when the user scrolls near the top of the history.
+    // Load older messages when the user scrolls near the oldest end of the
+    // history. The list uses reverseLayout, so index 0 is the newest message at
+    // the bottom and the oldest messages live at the highest indices -- the
+    // trigger must therefore watch the *last* visible item, not the first.
     val shouldLoadOlder by remember {
         derivedStateOf {
-            val firstVisible = listState.firstVisibleItemIndex
-            firstVisible <= 2 && state.hasMoreOlder && !state.isLoadingOlder
+            val info = listState.layoutInfo
+            val lastVisible = info.visibleItemsInfo.lastOrNull()?.index
+                ?: return@derivedStateOf false
+            lastVisible >= info.totalItemsCount - 3 && state.hasMoreOlder && !state.isLoadingOlder
         }
     }
     LaunchedEffect(shouldLoadOlder) {
@@ -739,6 +744,15 @@ private fun MessageList(
             val showUnreadDivider = message.localId == firstUnreadLocalId
 
             Column(modifier = Modifier.fillMaxWidth()) {
+                // The list is reversed, so a day's first (oldest) message sits at
+                // the top of that day's group: the date separator and the unread
+                // divider must be drawn *above* the bubble, not below it.
+                if (showSeparator) {
+                    DateSeparator(epochMillis = message.sortTimestamp)
+                }
+                if (showUnreadDivider) {
+                    UnreadDivider()
+                }
                 MessageBubble(
                     message = message,
                     isOutgoing = isOutgoing,
@@ -750,12 +764,6 @@ private fun MessageList(
                     onReactionClick = onReactionClick,
                     onReplyClick = onReplyClick,
                 )
-                if (showSeparator) {
-                    DateSeparator(epochMillis = message.sortTimestamp)
-                }
-                if (showUnreadDivider) {
-                    UnreadDivider()
-                }
             }
         }
         if (isLoadingOlder) {

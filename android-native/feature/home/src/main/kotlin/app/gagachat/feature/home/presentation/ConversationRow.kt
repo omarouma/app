@@ -61,7 +61,6 @@ fun ConversationRow(
     onTogglePin: () -> Unit,
     onToggleMute: () -> Unit,
     onMarkRead: () -> Unit,
-    onDelete: () -> Unit,
     onRequestDelete: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -75,11 +74,12 @@ fun ConversationRow(
     val dismissState = rememberSwipeToDismissBoxState(
         confirmValueChange = { value ->
             if (value == SwipeToDismissBoxValue.EndToStart) {
-                onDelete()
-                true
-            } else {
-                false
+                // F20: a swipe must not delete on its own. Route it through the
+                // same confirmation the long-press menu uses and keep the row in
+                // place until the user confirms.
+                onRequestDelete()
             }
+            false
         },
     )
 

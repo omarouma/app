@@ -157,12 +157,6 @@ fun HomeRoute(
                                 onTogglePin = { viewModel.onTogglePin(conversation) },
                                 onToggleMute = { viewModel.onToggleMute(conversation) },
                                 onMarkRead = { viewModel.onMarkRead(conversation) },
-                                onDelete = {
-                                    viewModel.onDelete(conversation)
-                                    scope.launch {
-                                        snackbarHostState.showSnackbar("Conversation deleted")
-                                    }
-                                },
                                 onRequestDelete = { pendingDelete = conversation },
                             )
                         }

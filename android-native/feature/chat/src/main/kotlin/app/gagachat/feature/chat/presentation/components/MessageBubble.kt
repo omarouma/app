@@ -30,6 +30,7 @@ import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -134,6 +135,10 @@ fun MessageBubble(
                     isOutgoing = isOutgoing,
                     contentColor = contentColor,
                     onRetry = onRetry,
+                    // Trailing-aligned but content-sized: the meta row must not
+                    // stretch the bubble to its 320dp cap (F03). A short message
+                    // now hugs its text instead of filling a wide bubble.
+                    modifier = Modifier.align(Alignment.End),
                 )
             }
             if (message.hasReactions) {
@@ -312,6 +317,47 @@ private fun MediaImage(message: Message, contentColor: Color, onClick: () -> Uni
                     color = Color.White,
                 )
             }
+        }
+        UploadStatusOverlay(message)
+    }
+}
+
+/**
+ * Distinguishes the media upload lifecycle inside a bubble (F04): preparing,
+ * uploading with a percentage, and failed. A bare percentage with a pending
+ * clock gave the user no explanation or recovery affordance.
+ */
+@Composable
+private fun UploadStatusOverlay(message: Message) {
+    // Only meaningful while the media has not been committed to the server.
+    if (message.mediaUrl != null || (!message.isPending && !message.isFailed)) return
+    val progress = message.uploadProgress
+    val label = when {
+        message.isFailed -> "Failed \u2014 tap to retry"
+        progress == null || progress <= 0 -> "Preparing\u2026"
+        progress < 100 -> "$progress%"
+        else -> "Finishing\u2026"
+    }
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black.copy(alpha = 0.38f)),
+        contentAlignment = Alignment.Center,
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            if (!message.isFailed) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(16.dp),
+                    strokeWidth = 2.dp,
+                    color = Color.White,
+                )
+                Spacer(Modifier.width(6.dp))
+            }
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelMedium,
+                color = Color.White,
+            )
         }
     }
 }
@@ -565,9 +611,10 @@ private fun MessageMeta(
     isOutgoing: Boolean,
     contentColor: Color,
     onRetry: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier,
         horizontalArrangement = Arrangement.End,
         verticalAlignment = Alignment.CenterVertically,
     ) {
