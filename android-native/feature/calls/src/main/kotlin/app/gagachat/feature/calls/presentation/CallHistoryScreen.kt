@@ -17,16 +17,21 @@ import androidx.compose.material.icons.automirrored.filled.CallMade
 import androidx.compose.material.icons.automirrored.filled.CallMissed
 import androidx.compose.material.icons.automirrored.filled.CallReceived
 import androidx.compose.material.icons.filled.Call
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material.icons.filled.Videocam
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -43,9 +48,17 @@ import app.gagachat.core.ui.component.GagaEmptyState
 import app.gagachat.core.ui.component.GagaErrorState
 import app.gagachat.core.ui.component.GagaLoading
 import app.gagachat.core.ui.component.GagaScaffold
+import app.gagachat.core.ui.component.GagaSearchBar
+import app.gagachat.core.ui.component.GagaSectionHeader
 import app.gagachat.core.ui.theme.GagaDimens
 import app.gagachat.core.ui.util.TimeFormat
+import java.util.Locale
 
+/**
+ * Call history surface (screenshot 173830). Shows a summary subtitle
+ * ("N total • M missed"), a name search field, All/Missed tabs, and the list
+ * grouped under TODAY / YESTERDAY / date section headers.
+ */
 @Composable
 fun CallHistoryRoute(
     onNavigateBack: () -> Unit,
@@ -55,17 +68,58 @@ fun CallHistoryRoute(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     var selectedTab by remember { mutableIntStateOf(0) }
+    var query by remember { mutableStateOf("") }
+    var confirmClear by remember { mutableStateOf(false) }
 
-    val visibleCalls = remember(state.history, selectedTab) {
-        if (selectedTab == 1) state.history.filter { it.isMissedCall() } else state.history
+    val allCalls = state.history
+    val missedCount = remember(allCalls) { allCalls.count { it.isMissedCall() } }
+    val subtitle = if (allCalls.isEmpty()) {
+        null
+    } else {
+        "${allCalls.size} total \u2022 $missedCount missed"
     }
 
-    GagaScaffold(title = "Calls", onBack = onNavigateBack) { padding ->
+    val visibleCalls = remember(allCalls, selectedTab, query) {
+        allCalls
+            .filter { selectedTab == 0 || it.isMissedCall() }
+            .filter {
+                query.isBlank() ||
+                    (it.peerName ?: "").contains(query, ignoreCase = true)
+            }
+    }
+
+    // History arrives sorted newest-first, so grouping preserves TODAY → YESTERDAY → older.
+    val sections = remember(visibleCalls) {
+        visibleCalls
+            .groupBy { TimeFormat.daySeparator(it.startedAt).uppercase(Locale.getDefault()) }
+            .toList()
+    }
+
+    GagaScaffold(
+        title = "Calls",
+        subtitle = subtitle,
+        onBack = onNavigateBack,
+        actions = {
+            if (allCalls.isNotEmpty()) {
+                IconButton(onClick = { confirmClear = true }) {
+                    Icon(
+                        imageVector = Icons.Filled.DeleteSweep,
+                        contentDescription = "Clear call history",
+                    )
+                }
+            }
+        },
+    ) { padding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding),
         ) {
+            GagaSearchBar(
+                query = query,
+                onQueryChange = { query = it },
+                placeholder = "Search by name...",
+            )
             TabRow(selectedTabIndex = selectedTab) {
                 Tab(
                     selected = selectedTab == 0,
@@ -79,10 +133,10 @@ fun CallHistoryRoute(
                 )
             }
             when {
-                state.isLoading && state.history.isEmpty() -> {
+                state.isLoading && allCalls.isEmpty() -> {
                     GagaLoading(modifier = Modifier.padding(top = GagaDimens.space24))
                 }
-                state.error != null && state.history.isEmpty() -> {
+                state.error != null && allCalls.isEmpty() -> {
                     GagaErrorState(
                         title = "Couldn't load calls",
                         description = state.error,
@@ -92,29 +146,58 @@ fun CallHistoryRoute(
                 visibleCalls.isEmpty() -> {
                     GagaEmptyState(
                         icon = Icons.Filled.Call,
-                        title = if (selectedTab == 1) "No missed calls" else "No calls yet",
-                        description = if (selectedTab == 1) {
-                            "You're all caught up."
-                        } else {
-                            "Your voice and video call history will appear here."
+                        title = when {
+                            query.isNotBlank() -> "No matching calls"
+                            selectedTab == 1 -> "No missed calls"
+                            else -> "No calls yet"
+                        },
+                        description = when {
+                            query.isNotBlank() -> "Try a different name."
+                            selectedTab == 1 -> "You're all caught up."
+                            else -> "Your voice and video call history will appear here."
                         },
                     )
                 }
                 else -> {
                     LazyColumn(modifier = Modifier.fillMaxSize()) {
-                        items(visibleCalls, key = { it.id }) { call ->
-                            CallHistoryRow(
-                                call = call,
-                                onClick = { onOpenConversation(call.conversationId) },
-                                onCall = { onStartCall(call.conversationId, false) },
-                                onVideoCall = { onStartCall(call.conversationId, true) },
-                            )
-                            GagaDivider()
+                        sections.forEach { (label, calls) ->
+                            item(key = "header_$label") {
+                                GagaSectionHeader(text = label)
+                            }
+                            items(calls, key = { it.id }) { call ->
+                                CallHistoryRow(
+                                    call = call,
+                                    onClick = { onOpenConversation(call.conversationId) },
+                                    onCall = { onStartCall(call.conversationId, false) },
+                                    onVideoCall = { onStartCall(call.conversationId, true) },
+                                    onDelete = { viewModel.deleteCall(call.id) },
+                                )
+                                GagaDivider()
+                            }
                         }
                     }
                 }
             }
         }
+    }
+
+    if (confirmClear) {
+        AlertDialog(
+            onDismissRequest = { confirmClear = false },
+            title = { Text("Clear call history?") },
+            text = { Text("This removes every call from your history on this device.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.clearHistory()
+                        confirmClear = false
+                    },
+                ) { Text("Clear") }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmClear = false }) { Text("Cancel") }
+            },
+        )
     }
 }
 
@@ -124,6 +207,7 @@ private fun CallHistoryRow(
     onClick: () -> Unit,
     onCall: () -> Unit,
     onVideoCall: () -> Unit,
+    onDelete: () -> Unit,
 ) {
     val missed = call.isMissedCall()
     val directionIcon = when {
@@ -137,7 +221,7 @@ private fun CallHistoryRow(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .padding(start = GagaDimens.space16, end = GagaDimens.space8, top = GagaDimens.space12, bottom = GagaDimens.space12),
+            .padding(start = GagaDimens.space16, end = GagaDimens.space4, top = GagaDimens.space12, bottom = GagaDimens.space12),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         GagaAvatar(
@@ -185,22 +269,30 @@ private fun CallHistoryRow(
                 tint = MaterialTheme.colorScheme.primary,
             )
         }
+        IconButton(onClick = onDelete) {
+            Icon(
+                imageVector = Icons.Filled.Delete,
+                contentDescription = "Delete",
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
     }
 }
 
 private fun CallSession.isMissedCall(): Boolean =
     status == CallStatus.MISSED || status == CallStatus.REJECTED || status == CallStatus.BUSY
 
+/** e.g. "Missed • Voice • 5h ago" or "Outgoing • Video • 1:27". */
 private fun callSubtitle(call: CallSession): String {
-    val time = TimeFormat.conversationTime(call.startedAt)
-    val detail = when (call.status) {
-        CallStatus.MISSED -> "Missed"
-        CallStatus.REJECTED -> "Declined"
-        CallStatus.BUSY -> "Busy"
-        CallStatus.FAILED -> "Failed"
-        CallStatus.RINGING -> "Ringing"
-        CallStatus.CONNECTING -> "Connecting"
-        else -> call.durationMs?.let { TimeFormat.callDuration(it) } ?: "Ended"
+    val direction = when {
+        call.isMissedCall() -> "Missed"
+        call.isOutgoing -> "Outgoing"
+        else -> "Incoming"
     }
-    return "$detail \u2022 $time"
+    val kind = if (call.type == CallType.VIDEO) "Video" else "Voice"
+    val tail = call.durationMs
+        ?.takeIf { it > 0L }
+        ?.let { TimeFormat.callDuration(it) }
+        ?: TimeFormat.callRelativeTime(call.startedAt)
+    return "$direction \u2022 $kind \u2022 $tail"
 }

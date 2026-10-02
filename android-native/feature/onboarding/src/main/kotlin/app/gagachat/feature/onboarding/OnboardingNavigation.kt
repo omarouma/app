@@ -41,6 +41,7 @@ fun OnboardingNavHost(onFinished: () -> Unit) {
         composable(OnboardingRoutes.PERMISSIONS) {
             PermissionsScreen(
                 onFinish = { viewModel.complete(onFinished) },
+                onBack = { navController.popBackStack() },
             )
         }
     }

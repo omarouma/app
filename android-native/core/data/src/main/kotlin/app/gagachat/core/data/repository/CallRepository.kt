@@ -39,6 +39,12 @@ interface CallRepository {
 
     suspend fun endCall(callId: String, status: CallStatus, durationMs: Long?)
     suspend fun syncHistory()
+
+    /** Removes a single entry from the local call history. */
+    suspend fun deleteCall(callId: String)
+
+    /** Clears the entire local call history. */
+    suspend fun clearHistory()
 }
 
 @Singleton
@@ -129,8 +135,7 @@ class DefaultCallRepository @Inject constructor(
             }
         }
 
-    override suspend fun syncHistory() = withContext(dispatchers.io) {
-        runCatching {
+    override suspend fun syncHistory() = withContext(dispatchers.io) {        runCatching {
             val me = authRepository.sessionFlow.value?.userId.orEmpty()
             val rows = restApi.getCallHistory(100)
 
@@ -183,6 +188,14 @@ class DefaultCallRepository @Inject constructor(
             }
         }
         Unit
+    }
+
+    override suspend fun deleteCall(callId: String) = withContext(dispatchers.io) {
+        callDao.deleteById(callId)
+    }
+
+    override suspend fun clearHistory() = withContext(dispatchers.io) {
+        callDao.deleteAll()
     }
 
     /** The other participant of a call relative to the signed-in user. */

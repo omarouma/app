@@ -37,6 +37,7 @@ fun NavGraphBuilder.peopleGraph(
             onOpenProfile = onOpenProfile,
             onBack = { navController.popBackStack() },
             onOpenAddByCode = onOpenAddByCode,
+            onOpenMyQr = onOpenMyQr,
         )
     }
 }

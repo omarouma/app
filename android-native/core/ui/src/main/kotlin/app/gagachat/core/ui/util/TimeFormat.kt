@@ -64,6 +64,19 @@ object TimeFormat {
         return String.format(Locale.getDefault(), "%02d:%02d", minutes, seconds)
     }
 
+    /** Relative "5h ago" / "Yesterday" label for call history rows. */
+    fun callRelativeTime(epochMillis: Long): String {
+        val now = System.currentTimeMillis()
+        val diff = now - epochMillis
+        return when {
+            diff < TimeUnit.MINUTES.toMillis(1) -> "just now"
+            diff < TimeUnit.HOURS.toMillis(1) -> "${TimeUnit.MILLISECONDS.toMinutes(diff)}m ago"
+            isSameDay(epochMillis, now) -> "${TimeUnit.MILLISECONDS.toHours(diff)}h ago"
+            isYesterday(epochMillis, now) -> "Yesterday"
+            else -> dayFormat.get()!!.format(Date(epochMillis))
+        }
+    }
+
     private fun isSameDay(a: Long, b: Long): Boolean {
         val calA = Calendar.getInstance().apply { timeInMillis = a }
         val calB = Calendar.getInstance().apply { timeInMillis = b }

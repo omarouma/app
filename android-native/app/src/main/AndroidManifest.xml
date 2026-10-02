@@ -25,6 +25,9 @@
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
 
+    <!-- Contacts: find friends already on GaGa (reference screenshot 173528) -->
+    <uses-permission android:name="android.permission.READ_CONTACTS" />
+
     <!-- Calling (PDF §8) -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CAMERA" />

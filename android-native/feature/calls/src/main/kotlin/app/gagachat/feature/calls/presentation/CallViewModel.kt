@@ -112,6 +112,20 @@ class CallViewModel @Inject constructor(
         }
     }
 
+    /** Removes a single entry from the call history list. */
+    fun deleteCall(callId: String) {
+        viewModelScope.launch {
+            runCatching { callRepository.deleteCall(callId) }
+        }
+    }
+
+    /** Clears the entire call history list. */
+    fun clearHistory() {
+        viewModelScope.launch {
+            runCatching { callRepository.clearHistory() }
+        }
+    }
+
     /**
      * Resolves the peer from the conversation, records the call session and hands
      * the real call over to the ZEGOCLOUD Call Kit (which shows its own outgoing

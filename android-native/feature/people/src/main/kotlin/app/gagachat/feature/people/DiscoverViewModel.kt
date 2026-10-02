@@ -6,6 +6,7 @@ import app.gagachat.core.common.result.AppResult
 import app.gagachat.core.data.repository.AuthRepository
 import app.gagachat.core.data.repository.FriendsRepository
 import app.gagachat.core.data.repository.UserRepository
+import app.gagachat.core.model.FriendRequest
 import app.gagachat.core.model.User
 import app.gagachat.core.ui.util.toUserMessage
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -24,6 +25,8 @@ data class DiscoverUiState(
     val isSearching: Boolean = false,
     val friendIds: Set<String> = emptySet(),
     val sentIds: Set<String> = emptySet(),
+    val incoming: List<FriendRequest> = emptyList(),
+    val profileLink: String = "",
     val error: String? = null,
     val searched: Boolean = false,
 )
@@ -41,15 +44,28 @@ class DiscoverViewModel @Inject constructor(
     private var searchJob: Job? = null
 
     init {
+        // Seed the current user's shareable profile link.
+        authRepository.sessionFlow.value?.userId?.let { me ->
+            _state.update { it.copy(profileLink = profileLink(me)) }
+        }
         // Seed friend ids so we can render "Already friends" without a round-trip.
         viewModelScope.launch {
             friendsRepository.friends.collect { friends ->
                 _state.update { it.copy(friendIds = friends.map { f -> f.user.id }.toSet()) }
             }
         }
+        // Incoming friend requests power the "Requests" tab.
+        viewModelScope.launch {
+            friendsRepository.incomingRequests.collect { requests ->
+                _state.update { it.copy(incoming = requests) }
+            }
+        }
         // Make sure the friend set is fresh even if People wasn't opened first.
         viewModelScope.launch { runCatching { friendsRepository.refresh() } }
     }
+
+    /** Public, shareable profile link used by the "Your Profile Link" card. */
+    fun profileLink(userId: String): String = "https://gagachat.app/profile/$userId"
 
     fun onQueryChange(value: String) {
         _state.update { it.copy(query = value, error = null) }
@@ -88,5 +104,13 @@ class DiscoverViewModel @Inject constructor(
                 AppResult.Loading -> Unit
             }
         }
+    }
+
+    fun accept(request: FriendRequest) = viewModelScope.launch {
+        friendsRepository.acceptRequest(request.id, request.fromUserId)
+    }
+
+    fun decline(request: FriendRequest) = viewModelScope.launch {
+        friendsRepository.declineRequest(request.id)
     }
 }

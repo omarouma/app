@@ -27,6 +27,9 @@ interface CallDao {
     )
     suspend fun finalize(id: String, status: String, endedAt: Long, durationMs: Long?)
 
+    @Query("DELETE FROM call_sessions WHERE id = :id")
+    suspend fun deleteById(id: String)
+
     @Query("DELETE FROM call_sessions")
     suspend fun deleteAll()
 }
