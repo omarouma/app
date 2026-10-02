@@ -51,3 +51,6 @@ supabase/.env.keys
 Thumbs.db
 *.orig
 *.rej
+
+# ---- Generated preview bundle (relative-path copy for S3 preview) ----
+hosting-preview/

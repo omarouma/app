@@ -4,98 +4,217 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 <meta name="theme-color" content="#00C300" />
-<title>GaGa Chat - Free Global Messaging, HD Voice & Video Calls</title>
-<meta name="description" content="GaGa Chat is a fast, private messenger for Android with end-to-end encrypted chats, HD voice and video calls, photo and video sharing, and secure payments." />
+<title>GaGa Chat — Free Global Messaging, HD Voice & Video Calls</title>
+<meta name="description" content="GaGa Chat is a fast, private messenger for Android. Message, call, share photos, videos, files and live location anywhere in the world — free over Wi-Fi or data." />
 <meta name="robots" content="index, follow, max-image-preview:large" />
 <meta property="og:type" content="website" />
 <meta property="og:site_name" content="GaGa Chat" />
-<meta property="og:title" content="GaGa Chat - Free Global Messaging, HD Voice & Video Calls" />
+<meta property="og:title" content="GaGa Chat — Free Global Messaging, HD Voice & Video Calls" />
+<meta property="og:description" content="Connect with anyone, anywhere. Fast, private, and free messaging and calling for Android." />
 <meta property="og:url" content="https://gagachat.app/" />
+<meta property="og:image" content="https://gagachat.app/assets/hero.jpg" />
 <meta property="og:locale" content="en_US" />
 <meta name="twitter:card" content="summary_large_image" />
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%2300C300'/%3E%3Ctext x='32' y='44' font-size='34' font-family='Arial' font-weight='bold' fill='white' text-anchor='middle'%3EG%3C/text%3E%3C/svg%3E" />
-<style>
-  :root { --green:#00C300; --green-dark:#00a000; --ink:#0f172a; --muted:#5b6577; --bg:#f6f8fa; --card:#ffffff; }
-  * { box-sizing: border-box; }
-  body { margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; color:var(--ink); background:var(--bg); line-height:1.6; }
-  a { color:var(--green-dark); }
-  header { background:linear-gradient(160deg,var(--green) 0%,#00a86b 100%); color:#fff; padding:64px 20px 72px; text-align:center; }
-  .logo { width:88px; height:88px; border-radius:22px; background:rgba(255,255,255,.16); display:inline-flex; align-items:center; justify-content:center; font-size:44px; font-weight:800; margin-bottom:20px; }
-  header h1 { font-size:2.2rem; margin:0 0 12px; letter-spacing:-.02em; }
-  header p { font-size:1.05rem; max-width:620px; margin:0 auto 28px; opacity:.95; }
-  .cta { display:inline-block; background:#fff; color:var(--green-dark); font-weight:700; padding:14px 28px; border-radius:999px; text-decoration:none; box-shadow:0 8px 24px rgba(0,0,0,.18); }
-  .cta.secondary { background:rgba(255,255,255,.18); color:#fff; margin-left:10px; box-shadow:none; }
-  main { max-width:960px; margin:-40px auto 0; padding:0 20px 64px; }
-  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:18px; }
-  .card { background:var(--card); border-radius:16px; padding:24px; box-shadow:0 6px 20px rgba(15,23,42,.06); }
-  .card h3 { margin:0 0 8px; font-size:1.05rem; }
-  .card p { margin:0; color:var(--muted); font-size:.95rem; }
-  .badge { display:inline-block; background:#e6f9e6; color:var(--green-dark); font-weight:600; font-size:.8rem; padding:4px 12px; border-radius:999px; margin-bottom:14px; }
-  section { margin-top:48px; }
-  section h2 { font-size:1.4rem; margin:0 0 14px; }
-  footer { border-top:1px solid #e2e8f0; padding:28px 20px; text-align:center; color:var(--muted); font-size:.85rem; }
-  footer a { margin:0 10px; }
-  ul.checks { list-style:none; padding:0; margin:0; }
-  ul.checks li { padding:6px 0 6px 30px; position:relative; color:var(--muted); }
-  ul.checks li:before { content:"\2713"; position:absolute; left:0; color:var(--green); font-weight:700; }
-</style>
+<link rel="icon" href="/assets/favicon.ico" sizes="any" />
+<link rel="icon" type="image/png" href="/assets/favicon-32.png" />
+<link rel="apple-touch-icon" href="/assets/apple-touch-icon.png" />
+<link rel="canonical" href="https://gagachat.app/" />
+<link rel="stylesheet" href="/assets/styles.css" />
 </head>
 <body>
-<header>
-  <div class="logo">G</div>
-  <h1>GaGa Chat</h1>
-  <p>Fast, private messaging with HD voice and video calls - built natively for Android.</p>
-  <a class="cta" href="/download">Download for Android</a>
-  <a class="cta secondary" href="/terms">Terms</a>
+<header class="header">
+  <div class="container header__inner">
+    <a class="brand" href="/"><img src="/assets/logo-192.png" alt="GaGa Chat logo" width="38" height="38" /> GaGa Chat</a>
+    <nav class="nav">
+      <a href="#features">Features</a>
+      <a href="#global">Global</a>
+      <a href="#security">Privacy</a>
+      <a href="#download">Download</a>
+    </nav>
+    <div class="header__cta">
+      <a class="btn btn--primary" href="/download.html">Get the app</a>
+    </div>
+  </div>
 </header>
+
 <main>
-  <div class="grid">
-    <div class="card">
-      <span class="badge">Messaging</span>
-      <h3>Real-time chat</h3>
-      <p>One-to-one and group conversations with delivery and read receipts, reactions, replies, forwarding and in-chat search.</p>
+<section class="hero">
+  <div class="container hero__grid">
+    <div>
+      <span class="eyebrow">Free · Private · Worldwide</span>
+      <h1>Message and call <span>anyone, anywhere</span> on Earth.</h1>
+      <p class="lead">GaGa Chat is a fast, private messenger for Android. Send messages, make HD voice and video calls, share photos, videos, documents and your live location — all free over Wi-Fi or mobile data.</p>
+      <div class="hero__actions">
+        <a class="btn btn--primary" href="/download.html">Download for Android</a>
+        <a class="btn btn--ghost" href="#features">See features</a>
+      </div>
+      <div class="hero__meta">
+        <span class="hero__badge"><span class="dot"></span> Available in 40+ languages</span>
+        <span><b>190+</b> countries reachable</span>
+        <span><b>Free</b> voice & video calls</span>
+      </div>
     </div>
-    <div class="card">
-      <span class="badge">Calls</span>
-      <h3>HD voice & video</h3>
-      <p>Crystal-clear calls powered by ZEGO, with call invitations, ringing, and reliable reconnection.</p>
-    </div>
-    <div class="card">
-      <span class="badge">Media</span>
-      <h3>Photos, video & files</h3>
-      <p>Share albums, voice notes, documents and your location - with a review step before anything is sent.</p>
-    </div>
-    <div class="card">
-      <span class="badge">Privacy</span>
-      <h3>Secure by default</h3>
-      <p>Private media buckets, signed URLs, encrypted session storage and user-controlled read receipts.</p>
+    <div class="hero__art">
+      <img src="/assets/hero.jpg" alt="GaGa Chat running on two Android phones" />
+      <div class="hero__float hero__float--a"><span class="ic">&#9993;</span> New message</div>
+      <div class="hero__float hero__float--b"><span class="ic">&#9742;</span> HD video call</div>
     </div>
   </div>
+</section>
 
-  <section>
-    <h2>Everything you expect from a modern messenger</h2>
-    <ul class="checks">
-      <li>Group chats, channels and contact discovery</li>
-      <li>QR code scanning to add friends instantly</li>
-      <li>Wallet and peer-to-peer payments</li>
-      <li>Offline-first: messages queue and send when you reconnect</li>
-      <li>Push notifications that open the exact chat or call</li>
-    </ul>
-  </section>
+<section class="stats">
+  <div class="container stats__grid">
+    <div class="stat"><div class="stat__num">190<span>+</span></div><div class="stat__label">Countries reachable</div></div>
+    <div class="stat"><div class="stat__num">40<span>+</span></div><div class="stat__label">Languages supported</div></div>
+    <div class="stat"><div class="stat__num">HD</div><div class="stat__label">Voice & video calls</div></div>
+    <div class="stat"><div class="stat__num">100<span>MB</span></div><div class="stat__label">File sharing per message</div></div>
+  </div>
+</section>
 
-  <section>
-    <h2>Get the app</h2>
-    <p>GaGa Chat is available for Android. Tap <a href="/download">Download for Android</a> to get the latest signed release, or scan a friend's QR code inside the app to connect.</p>
-  </section>
+<section class="section" id="features">
+  <div class="container">
+    <div class="center">
+      <span class="eyebrow">Everything you need</span>
+      <h2>Simple, fast and built for real conversations</h2>
+      <p class="lead">From a quick text to a long video call, GaGa Chat keeps you connected with the people who matter — no matter where they are.</p>
+    </div>
+    <div class="grid grid--3" style="margin-top:48px">
+      <div class="card"><div class="card__ic">&#128172;</div><h3>Instant messaging</h3><p>Delivered and read receipts, typing indicators, replies, reactions and forwarding — so you always know your message arrived.</p></div>
+      <div class="card"><div class="card__ic">&#9742;</div><h3>HD voice & video</h3><p>Crystal-clear calls over Wi-Fi or data, with group calling and a clean, easy call screen.</p></div>
+      <div class="card"><div class="card__ic">&#128247;</div><h3>Photos & videos</h3><p>Send full-resolution photos and videos, build multi-photo albums, and review before you hit send.</p></div>
+      <div class="card"><div class="card__ic">&#128196;</div><h3>Documents & files</h3><p>Share PDFs, documents and files up to 100&nbsp;MB. Open them right inside the app with a built-in viewer.</p></div>
+      <div class="card"><div class="card__ic">&#128205;</div><h3>Live location</h3><p>Share where you are with a preview of accuracy and freshness — you decide exactly when to send.</p></div>
+      <div class="card"><div class="card__ic">&#128274;</div><h3>Private by design</h3><p>Your media is stored privately and delivered over encrypted connections. You stay in control of your data.</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="section section--soft">
+  <div class="container split">
+    <div class="split__media"><img src="/assets/hero.jpg" alt="Chat and calling interface" /></div>
+    <div>
+      <span class="eyebrow">Built for everyday</span>
+      <h2>A messenger that keeps up with you</h2>
+      <p>GaGa Chat is designed to feel effortless. Conversations load instantly, media streams as it arrives, and every action is a tap away.</p>
+      <ul class="checklist">
+        <li><span class="tick">&#10003;</span><span>Search your entire chat history in an instant.</span></li>
+        <li><span class="tick">&#10003;</span><span>Reply, react, forward and delete with a long-press.</span></li>
+        <li><span class="tick">&#10003;</span><span>Works on slow networks and reconnects automatically.</span></li>
+        <li><span class="tick">&#10003;</span><span>Light and dark themes that respect your system settings.</span></li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="section global" id="global">
+  <div class="container global__grid">
+    <div>
+      <span class="eyebrow" style="background:rgba(0,195,0,.15);color:#7CFC7C">Truly global</span>
+      <h2>One app. Every continent.</h2>
+      <p>GaGa Chat connects people across borders and time zones. Whether you are calling family overseas, coordinating a team across countries, or chatting with friends down the street, GaGa Chat keeps the conversation flowing.</p>
+      <div class="region-list">
+        <div class="region"><span class="flag">&#127758;</span><span><b>Americas</b><br />North & South America</span></div>
+        <div class="region"><span class="flag">&#127466;&#127482;</span><span><b>Europe</b><br />40+ countries</span></div>
+        <div class="region"><span class="flag">&#127462;&#127467;</span><span><b>Africa</b><br />& the Middle East</span></div>
+        <div class="region"><span class="flag">&#127462;&#127480;</span><span><b>Asia-Pacific</b><br />& Oceania</span></div>
+      </div>
+      <div class="lang-chips">
+        <span class="chip">English</span><span class="chip">العربية</span><span class="chip">Español</span>
+        <span class="chip">Français</span><span class="chip">Deutsch</span><span class="chip">Português</span>
+        <span class="chip">हिन्दी</span><span class="chip">中文</span><span class="chip">日本語</span>
+        <span class="chip">Русский</span><span class="chip">Bahasa</span><span class="chip">Türkçe</span>
+      </div>
+    </div>
+    <div class="global__map"><img src="/assets/global-map.jpg" alt="GaGa Chat global connectivity map" /></div>
+  </div>
+</section>
+
+<section class="section" id="security">
+  <div class="container">
+    <div class="center">
+      <span class="eyebrow">Privacy & safety</span>
+      <h2>Your conversations stay yours</h2>
+      <p class="lead">We keep your messages and media private, and we give you the controls to stay safe.</p>
+    </div>
+    <div class="grid grid--3" style="margin-top:48px">
+      <div class="card"><div class="card__ic">&#128273;</div><h3>Secure connections</h3><p>All traffic between the app and our servers is encrypted in transit with modern TLS.</p></div>
+      <div class="card"><div class="card__ic">&#128193;</div><h3>Private media storage</h3><p>Photos, videos and files live in private storage and are only shared with the people you send them to.</p></div>
+      <div class="card"><div class="card__ic">&#128683;</div><h3>You're in control</h3><p>Block and report contacts, manage your profile, and delete your account whenever you choose.</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="section section--soft">
+  <div class="container">
+    <div class="center">
+      <span class="eyebrow">Loved worldwide</span>
+      <h2>People everywhere are switching to GaGa</h2>
+    </div>
+    <div class="grid grid--3" style="margin-top:48px">
+      <div class="quote"><div class="quote__stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div><p>"Finally a messenger that just works — even on a weak connection. Calls to my family abroad are crystal clear."</p><div class="quote__who"><div class="avatar">A</div><div><b>Amina R.</b><span>Nairobi, Kenya</span></div></div></div>
+      <div class="quote"><div class="quote__stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div><p>"We use GaGa for our whole team across three countries. Group calls and file sharing are effortless."</p><div class="quote__who"><div class="avatar">M</div><div><b>Marco D.</b><span>Milan, Italy</span></div></div></div>
+      <div class="quote"><div class="quote__stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div><p>"Clean, fast and private. Sending photos and my location to friends has never been easier."</p><div class="quote__who"><div class="avatar">S</div><div><b>Sofia L.</b><span>São Paulo, Brazil</span></div></div></div>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="download">
+  <div class="container">
+    <div class="cta-band">
+      <h2>Start chatting in under a minute</h2>
+      <p>Download GaGa Chat for Android, verify your number, and you're ready to message and call the world — free.</p>
+      <div class="cta-band__actions">
+        <a class="btn btn--ghost" href="/download.html">Download the APK</a>
+        <a class="btn btn--dark" href="/open.html">Open in app</a>
+      </div>
+    </div>
+  </div>
+</section>
 </main>
-<footer>
-  <div>
-    <a href="/terms">Terms of Service</a>
-    <a href="/privacy">Privacy Policy</a>
-    <a href="/download">Download</a>
+
+<footer class="footer">
+  <div class="container">
+    <div class="footer__grid">
+      <div>
+        <a class="brand" href="/"><img src="/assets/logo-192.png" alt="GaGa Chat" width="34" height="34" /> GaGa Chat</a>
+        <p class="footer__about">A fast, private messenger for Android — messaging, HD calls, media and more, connecting people across the globe.</p>
+      </div>
+      <div>
+        <h4>Product</h4>
+        <a href="#features">Features</a>
+        <a href="#global">Global reach</a>
+        <a href="#security">Privacy</a>
+        <a href="/download.html">Download</a>
+      </div>
+      <div>
+        <h4>Company</h4>
+        <a href="/terms.html">Terms of Service</a>
+        <a href="/privacy.html">Privacy Policy</a>
+        <a href="mailto:support@gagachat.app">Support</a>
+      </div>
+      <div>
+        <h4>Get the app</h4>
+        <a href="/download.html">Android APK</a>
+        <a href="/open.html">Open in GaGa</a>
+      </div>
+    </div>
+    <div class="footer__bottom">
+      <span>&copy; 2026 GaGa Chat. All rights reserved.</span>
+      <span>Made for Android &middot; Available worldwide</span>
+    </div>
   </div>
-  <p>&copy; <span id="y">2026</span> GaGa Chat. All rights reserved.</p>
-  <script>document.getElementById('y').textContent=new Date().getFullYear();</script>
 </footer>
+
+<script>
+(function () {
+  var els = document.querySelectorAll('.card, .quote, .stat, .split > *, .global__grid > *');
+  if (!('IntersectionObserver' in window)) return;
+  els.forEach(function (el) { el.classList.add('reveal'); });
+  var io = new IntersectionObserver(function (entries) {
+    entries.forEach(function (e) { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } });
+  }, { threshold: 0.12 });
+  els.forEach(function (el) { io.observe(el); });
+})();
+</script>
 </body>
 </html>

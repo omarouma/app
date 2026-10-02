@@ -2,26 +2,72 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 <meta name="theme-color" content="#00C300" />
 <title>Download GaGa Chat for Android</title>
+<meta name="description" content="Download GaGa Chat for Android — free messaging, HD voice and video calls, media sharing and more." />
+<link rel="icon" href="/assets/favicon.ico" sizes="any" />
+<link rel="apple-touch-icon" href="/assets/apple-touch-icon.png" />
+<link rel="stylesheet" href="/assets/styles.css" />
 <style>
-  body { margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif; background:#f6f8fa; color:#0f172a; display:flex; min-height:100vh; align-items:center; justify-content:center; text-align:center; padding:24px; }
-  .box { background:#fff; border-radius:18px; padding:36px 26px; max-width:460px; box-shadow:0 8px 28px rgba(15,23,42,.08); }
-  .logo { width:80px; height:80px; border-radius:20px; background:#00C300; color:#fff; font-size:40px; font-weight:800; display:inline-flex; align-items:center; justify-content:center; margin-bottom:18px; }
-  h1 { font-size:1.4rem; margin:0 0 8px; }
-  p { color:#5b6577; margin:0 0 22px; }
-  a.btn { display:inline-block; background:#00C300; color:#fff; font-weight:700; padding:14px 28px; border-radius:999px; text-decoration:none; }
-  .meta { margin-top:18px; font-size:.82rem; color:#8a94a6; }
+  .dl-wrap { background: radial-gradient(60% 55% at 80% 5%, rgba(0,195,0,.12), transparent 60%), #fbfefb; }
+  .dl-hero { display:grid; grid-template-columns: 1fr 1fr; gap:44px; align-items:center; }
+  .dl-card { background:#fff; border:1px solid var(--line); border-radius:22px; padding:30px; box-shadow: var(--shadow); }
+  .dl-card img.app { width:72px; height:72px; border-radius:18px; box-shadow: var(--shadow-sm); margin-bottom:16px; }
+  .dl-card .btn { width:100%; justify-content:center; }
+  .steps { counter-reset: s; list-style:none; padding:0; margin:24px 0 0; display:grid; gap:16px; }
+  .steps li { position:relative; padding-left:46px; color:var(--ink-2); }
+  .steps li::before { counter-increment:s; content:counter(s); position:absolute; left:0; top:0;
+    width:30px; height:30px; border-radius:50%; background:var(--green-050); color:var(--green-700);
+    font-weight:800; display:grid; place-items:center; font-size:.9rem; }
+  .meta { display:flex; gap:18px; flex-wrap:wrap; margin-top:14px; font-size:.86rem; color:var(--muted); }
+  .meta b { color:var(--ink); }
+  @media (max-width: 860px) { .dl-hero { grid-template-columns:1fr; gap:30px; } }
 </style>
 </head>
 <body>
-  <div class="box">
-    <div class="logo">G</div>
-    <h1>GaGa Chat for Android</h1>
-    <p>Native Android messenger with HD voice and video calls.</p>
-    <a class="btn" href="/downloads/gaga-latest.apk" download>Download APK</a>
-    <div class="meta">Package: gagachat.app &middot; Requires Android 8.0 (API 26) or newer</div>
+<header class="header">
+  <div class="container header__inner">
+    <a class="brand" href="/"><img src="/assets/logo-192.png" alt="GaGa Chat logo" width="38" height="38" /> GaGa Chat</a>
+    <div class="header__cta"><a class="btn btn--ghost" href="/">Back to home</a></div>
   </div>
+</header>
+
+<main class="dl-wrap">
+<section class="section">
+  <div class="container dl-hero">
+    <div>
+      <span class="eyebrow">Android app</span>
+      <h1>Download GaGa Chat</h1>
+      <p class="lead">Get the free GaGa Chat app for Android. Message, call and share with anyone, anywhere — free over Wi-Fi or mobile data.</p>
+      <ol class="steps">
+        <li>Tap <b>Download APK</b> to get the latest version.</li>
+        <li>Open the downloaded file and allow installation when prompted.</li>
+        <li>Verify your phone number and start chatting.</li>
+      </ol>
+    </div>
+    <div class="dl-card">
+      <img class="app" src="/assets/logo-192.png" alt="GaGa Chat app icon" />
+      <h3>GaGa Chat for Android</h3>
+      <p>Version 2.0.18 &middot; Android 8.0 and up</p>
+      <a class="btn btn--primary" href="/downloads/gaga-latest.apk" download>Download APK</a>
+      <div class="meta">
+        <span><b>Free</b></span>
+        <span><b>~90 MB</b></span>
+        <span><b>No ads</b></span>
+      </div>
+    </div>
+  </div>
+</section>
+</main>
+
+<footer class="footer">
+  <div class="container">
+    <div class="footer__bottom" style="border:0;margin:0;padding:0">
+      <span>&copy; 2026 GaGa Chat. All rights reserved.</span>
+      <span><a href="/terms.html" style="display:inline">Terms</a> &middot; <a href="/privacy.html" style="display:inline">Privacy</a></span>
+    </div>
+  </div>
+</footer>
 </body>
 </html>
