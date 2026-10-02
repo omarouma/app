@@ -346,6 +346,17 @@ fun ChatRoute(
                         ))
                     },
                     onPickContact = contactPicker,
+                    onShareLiveLocation = {
+                        val fine = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+                        val coarse = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+                        if (fine || coarse) viewModel.shareLocation() else locationPermissionLauncher.launch(arrayOf(
+                            Manifest.permission.ACCESS_FINE_LOCATION,
+                            Manifest.permission.ACCESS_COARSE_LOCATION,
+                        ))
+                    },
+                    onSendPoll = { viewModel.showNotice("Polls") },
+                    onEmojiClick = { viewModel.showNotice("Emoji picker") },
+                    onScheduleClick = { viewModel.showNotice("Scheduled messages") },
                     isRecording = state.isRecording,
                     recordingElapsedMs = state.recordingElapsedMs,
                     onStartRecording = {

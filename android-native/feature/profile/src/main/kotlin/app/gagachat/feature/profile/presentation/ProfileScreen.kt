@@ -1,6 +1,7 @@
 package app.gagachat.feature.profile.presentation
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -26,12 +27,15 @@ import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Chat
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.HelpOutline
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Language
+import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.QrCode2
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Settings
@@ -41,6 +45,7 @@ import androidx.compose.material.icons.filled.Verified
 import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material.icons.filled.WorkspacePremium
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHostState
@@ -53,6 +58,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -62,15 +68,24 @@ import app.gagachat.core.model.User
 import app.gagachat.core.ui.component.GagaAvatar
 import app.gagachat.core.ui.component.GagaDivider
 import app.gagachat.core.ui.component.GagaLoading
-import app.gagachat.core.ui.component.GagaPrimaryButton
 import app.gagachat.core.ui.component.GagaScaffold
-import app.gagachat.core.ui.component.GagaSecondaryButton
 import app.gagachat.core.ui.component.GagaSectionHeader
 import app.gagachat.core.ui.component.GagaSettingsRow
 import app.gagachat.core.ui.theme.GagaDimens
 import app.gagachat.core.ui.theme.GagaGreen
 import app.gagachat.core.ui.theme.GagaGreenContainer
 import app.gagachat.core.ui.util.TimeFormat
+
+/** Warm gold used for the avatar ring + PRO badge (reference 173846). */
+private val ProfileGold = Color(0xFFF5A623)
+
+// Coloured leading icons for the Personal Hub / Account rows (reference 173846).
+private val HubPurple = Color(0xFF7E57C2)
+private val HubTeal = Color(0xFF26A69A)
+private val HubAmber = Color(0xFFF2B705)
+private val HubBlue = Color(0xFF2F80ED)
+private val HubGreen = Color(0xFF00A651)
+private val HubRed = Color(0xFFEB5757)
 
 @Composable
 fun ProfileRoute(
@@ -81,6 +96,7 @@ fun ProfileRoute(
     onOpenPrivacy: () -> Unit = {},
     onShare: (String) -> Unit = {},
     // Personal Hub (self profile only).
+    onOpenMore: () -> Unit = {},
     onOpenMyQr: () -> Unit = {},
     onOpenSavedMessages: () -> Unit = {},
     onOpenWallet: () -> Unit = {},
@@ -106,6 +122,17 @@ fun ProfileRoute(
         title = if (state.isSelf) "My Profile" else "Profile",
         onBack = onNavigateBack,
         snackbarHostState = snackbarHostState,
+        actions = {
+            // The More menu lives here (inside the profile), not on the chat tab.
+            IconButton(onClick = onOpenMore) {
+                Icon(Icons.Filled.MoreVert, contentDescription = "More")
+            }
+            if (state.isSelf) {
+                IconButton(onClick = onOpenSettings) {
+                    Icon(Icons.Filled.Settings, contentDescription = "Settings")
+                }
+            }
+        },
     ) { padding ->
         val user = state.user
         if (state.isLoading && user == null) {
@@ -121,9 +148,6 @@ fun ProfileRoute(
             ProfileHeader(
                 user = user,
                 isSelf = state.isSelf,
-                friendsCount = state.friendsCount,
-                followersCount = state.followersCount,
-                followingCount = state.followingCount,
                 onEditPhoto = onEditProfile,
             )
 
@@ -134,59 +158,60 @@ fun ProfileRoute(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = GagaDimens.space16),
-                horizontalArrangement = Arrangement.spacedBy(GagaDimens.space12),
+                horizontalArrangement = Arrangement.spacedBy(GagaDimens.space8),
             ) {
                 if (state.isSelf) {
-                    GagaPrimaryButton(
-                        text = "Edit Profile",
+                    ProfileActionButton(
+                        icon = Icons.Filled.Edit,
+                        label = "Edit Profile",
+                        primary = true,
                         onClick = onEditProfile,
-                        leadingIcon = Icons.Filled.Edit,
                         modifier = Modifier.weight(1f),
                     )
-                    GagaSecondaryButton(
-                        text = "Privacy",
+                    ProfileActionButton(
+                        icon = Icons.Filled.Lock,
+                        label = "Privacy",
                         onClick = onOpenPrivacy,
-                        leadingIcon = Icons.Filled.Lock,
+                        modifier = Modifier.weight(1f),
+                    )
+                    ProfileActionButton(
+                        icon = Icons.Filled.Share,
+                        label = "Share",
+                        onClick = {
+                            onShare("https://gagachat.app/u/${user?.username ?: user?.id.orEmpty()}")
+                        },
                         modifier = Modifier.weight(1f),
                     )
                 } else {
-                    GagaPrimaryButton(
-                        text = "Message",
+                    ProfileActionButton(
+                        icon = Icons.Filled.Chat,
+                        label = "Message",
+                        primary = true,
                         onClick = { viewModel.openChat(onOpenConversation) },
-                        leadingIcon = Icons.Filled.Chat,
                         modifier = Modifier.weight(1f),
                     )
-                    GagaSecondaryButton(
-                        text = "Call",
+                    ProfileActionButton(
+                        icon = Icons.Filled.Call,
+                        label = "Call",
                         onClick = { viewModel.startCall(false, onStartCall) },
-                        leadingIcon = Icons.Filled.Call,
                         modifier = Modifier.weight(1f),
                     )
-                }
-            }
-            Spacer(Modifier.height(GagaDimens.space8))
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = GagaDimens.space16),
-                horizontalArrangement = Arrangement.spacedBy(GagaDimens.space12),
-            ) {
-                if (state.isSelf) {
-                    GagaSecondaryButton(
-                        text = "Share",
-                        onClick = { onShare("https://gagachat.app/u/${user?.username ?: user?.id.orEmpty()}") },
-                        leadingIcon = Icons.Filled.Share,
-                        modifier = Modifier.weight(1f),
-                    )
-                } else {
-                    GagaSecondaryButton(
-                        text = "Video call",
+                    ProfileActionButton(
+                        icon = Icons.Filled.Videocam,
+                        label = "Video",
                         onClick = { viewModel.startCall(true, onStartCall) },
-                        leadingIcon = Icons.Filled.Videocam,
                         modifier = Modifier.weight(1f),
                     )
                 }
             }
+
+            // Stats card (Friends / Followers / Following) -------------------
+            Spacer(Modifier.height(GagaDimens.space16))
+            ProfileStatsCard(
+                friendsCount = state.friendsCount,
+                followersCount = state.followersCount,
+                followingCount = state.followingCount,
+            )
 
             // Profile completeness (self only) -------------------------------
             if (state.isSelf) {
@@ -200,7 +225,7 @@ fun ProfileRoute(
             // public, non-sensitive identity facts.
             Spacer(Modifier.height(GagaDimens.space16))
             GagaDivider()
-            GagaSectionHeader("Contact Info")
+            GagaSectionHeader("Contact info")
             if (state.isSelf) {
                 GagaSettingsRow(title = "Email", subtitle = user?.email ?: "Not added")
                 GagaDivider()
@@ -227,6 +252,7 @@ fun ProfileRoute(
                     title = "My QR",
                     subtitle = "Share and scan",
                     leadingIcon = Icons.Filled.QrCode2,
+                    leadingIconTint = HubPurple,
                     trailing = { ChevronRight() },
                     onClick = onOpenMyQr,
                 )
@@ -235,6 +261,7 @@ fun ProfileRoute(
                     title = "Saved Messages",
                     subtitle = "Your private notes and bookmarks",
                     leadingIcon = Icons.Filled.Bookmark,
+                    leadingIconTint = HubTeal,
                     trailing = { ChevronRight() },
                     onClick = onOpenSavedMessages,
                 )
@@ -243,7 +270,8 @@ fun ProfileRoute(
                     title = "GaGa Wallet",
                     subtitle = "GaGa Coin and payments",
                     leadingIcon = Icons.Filled.AccountBalanceWallet,
-                    trailing = { ComingSoonBadge() },
+                    leadingIconTint = HubAmber,
+                    trailing = { ChevronRight() },
                     onClick = onOpenWallet,
                 )
                 GagaDivider()
@@ -253,6 +281,7 @@ fun ProfileRoute(
                     title = "Settings",
                     subtitle = "Theme, language, privacy, data & more",
                     leadingIcon = Icons.Filled.Settings,
+                    leadingIconTint = HubBlue,
                     trailing = { ChevronRight() },
                     onClick = onOpenSettings,
                 )
@@ -260,6 +289,7 @@ fun ProfileRoute(
                 GagaSettingsRow(
                     title = "Privacy & Security",
                     leadingIcon = Icons.Filled.Security,
+                    leadingIconTint = HubGreen,
                     trailing = { ChevronRight() },
                     onClick = onOpenPrivacy,
                 )
@@ -267,6 +297,7 @@ fun ProfileRoute(
                 GagaSettingsRow(
                     title = "Blocked Users",
                     leadingIcon = Icons.Filled.Block,
+                    leadingIconTint = HubRed,
                     trailing = { ChevronRight() },
                     onClick = onOpenBlocked,
                 )
@@ -312,13 +343,11 @@ fun ProfileRoute(
 private fun ProfileHeader(
     user: User?,
     isSelf: Boolean,
-    friendsCount: Int,
-    followersCount: Int,
-    followingCount: Int,
     onEditPhoto: () -> Unit,
 ) {
     Box(modifier = Modifier.fillMaxWidth()) {
-        // Mint cover banner
+        // Mint cover banner (falls back to the brand mint; a custom cover image
+        // is layered on top when the user has set one).
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -332,31 +361,43 @@ private fun ProfileHeader(
                     .padding(GagaDimens.space12),
                 horizontalArrangement = Arrangement.spacedBy(GagaDimens.space8),
             ) {
-                // Opens the edit-profile flow, which hosts the avatar picker.
-                CoverChip("Edit photo", onClick = onEditPhoto)
+                // Reference 173846 shows two upload chips on the cover.
+                CoverChip("Photo", onClick = onEditPhoto)
+                CoverChip("Video", onClick = onEditPhoto)
             }
         }
 
-        // Overlapping avatar
+        // Overlapping avatar with a gold ring + verified check.
         Box(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .offset(y = 48.dp),
         ) {
-            GagaAvatar(
-                imageUrl = user?.avatar,
-                name = user?.displayLabel,
-                size = GagaDimens.avatarXLarge,
-                status = user?.status,
-                showStatus = false,
-            )
+            Box(
+                modifier = Modifier
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.surface)
+                    .padding(3.dp)
+                    .clip(CircleShape)
+                    .border(width = 3.dp, color = ProfileGold, shape = CircleShape)
+                    .padding(2.dp),
+            ) {
+                GagaAvatar(
+                    imageUrl = user?.avatar,
+                    name = user?.displayLabel,
+                    size = GagaDimens.avatarXLarge,
+                    status = user?.status,
+                    showStatus = false,
+                )
+            }
             if (isSelf) {
                 Box(
                     modifier = Modifier
                         .align(Alignment.BottomEnd)
-                        .size(28.dp)
+                        .size(30.dp)
                         .clip(CircleShape)
                         .background(GagaGreen)
+                        .border(width = 2.dp, color = MaterialTheme.colorScheme.surface, shape = CircleShape)
                         .clickable(onClick = onEditPhoto),
                     contentAlignment = Alignment.Center,
                 ) {
@@ -365,6 +406,23 @@ private fun ProfileHeader(
                         contentDescription = "Change photo",
                         tint = Color.White,
                         modifier = Modifier.size(GagaDimens.iconSmall),
+                    )
+                }
+            } else if (user?.isVerified == true) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .size(28.dp)
+                        .clip(CircleShape)
+                        .background(GagaGreen)
+                        .border(width = 2.dp, color = MaterialTheme.colorScheme.surface, shape = CircleShape),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        Icons.Filled.Check,
+                        contentDescription = "Verified",
+                        tint = Color.White,
+                        modifier = Modifier.size(16.dp),
                     )
                 }
             }
@@ -407,7 +465,10 @@ private fun ProfileHeader(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        user?.bio?.let {
+        // Presence / status line (e.g. "GaGa Appears"), then the bio.
+        val presence = user?.statusMessage?.takeIf { it.isNotBlank() }
+            ?: user?.bio?.takeIf { it.isNotBlank() }
+        presence?.let {
             Spacer(Modifier.height(GagaDimens.space8))
             Text(
                 text = it,
@@ -415,16 +476,51 @@ private fun ProfileHeader(
                 textAlign = TextAlign.Center,
             )
         }
-
-        Spacer(Modifier.height(GagaDimens.space16))
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceEvenly,
-        ) {
-            StatColumn(friendsCount, "Friends")
-            StatColumn(followersCount, "Followers")
-            StatColumn(followingCount, "Following")
+        user?.website?.takeIf { it.isNotBlank() }?.let { site ->
+            Spacer(Modifier.height(GagaDimens.space4))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    Icons.Filled.Link,
+                    contentDescription = null,
+                    tint = GagaGreen,
+                    modifier = Modifier.size(GagaDimens.iconSmall),
+                )
+                Spacer(Modifier.width(GagaDimens.space4))
+                Text(
+                    text = site.removePrefix("https://").removePrefix("http://").trimEnd('/'),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = GagaGreen,
+                    fontWeight = FontWeight.Medium,
+                )
+            }
         }
+    }
+}
+
+/**
+ * Distinct white rounded card holding the Friends / Followers / Following
+ * counters (reference 173846). Sits below the action-button row.
+ */
+@Composable
+private fun ProfileStatsCard(
+    friendsCount: Int,
+    followersCount: Int,
+    followingCount: Int,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = GagaDimens.space16)
+            .clip(RoundedCornerShape(16.dp))
+            .background(MaterialTheme.colorScheme.surface)
+            .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(16.dp))
+            .padding(vertical = GagaDimens.space16),
+        horizontalArrangement = Arrangement.SpaceEvenly,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        StatColumn(friendsCount, "Friends")
+        StatColumn(followersCount, "Followers")
+        StatColumn(followingCount, "Following")
     }
 }
 
@@ -440,6 +536,39 @@ private fun StatColumn(value: Int, label: String) {
             text = label,
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+/** Compact pill action used in the profile's three-button row (reference 173846). */
+@Composable
+private fun ProfileActionButton(
+    icon: ImageVector,
+    label: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    primary: Boolean = false,
+) {
+    val container = if (primary) GagaGreen else MaterialTheme.colorScheme.surfaceVariant
+    val content = if (primary) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
+    Row(
+        modifier = modifier
+            .height(46.dp)
+            .clip(RoundedCornerShape(14.dp))
+            .background(container)
+            .clickable(onClick = onClick)
+            .padding(horizontal = GagaDimens.space8),
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(icon, contentDescription = null, tint = content, modifier = Modifier.size(18.dp))
+        Spacer(Modifier.width(GagaDimens.space6))
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelMedium,
+            color = content,
+            fontWeight = FontWeight.SemiBold,
+            maxLines = 1,
         )
     }
 }
@@ -462,7 +591,7 @@ private fun ProBadge() {
     Row(
         modifier = Modifier
             .clip(RoundedCornerShape(50))
-            .background(Color(0xFFF5A623))
+            .background(ProfileGold)
             .padding(horizontal = GagaDimens.space6, vertical = 2.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -492,11 +621,20 @@ private fun CompletenessCard(percent: Int) {
             .background(MaterialTheme.colorScheme.surfaceVariant)
             .padding(GagaDimens.space16),
     ) {
-        Text(
-            text = "Profile completeness",
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.SemiBold,
-        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = "Profile completeness",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.weight(1f),
+            )
+            Text(
+                text = "$percent%",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = GagaGreen,
+            )
+        }
         Spacer(Modifier.height(GagaDimens.space4))
         Text(
             text = "Add a bio, photo, and links to make your profile feel complete.",
@@ -512,12 +650,6 @@ private fun CompletenessCard(percent: Int) {
                 .clip(RoundedCornerShape(50)),
             color = GagaGreen,
             trackColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
-        )
-        Spacer(Modifier.height(GagaDimens.space4))
-        Text(
-            text = "$percent% complete",
-            style = MaterialTheme.typography.labelMedium,
-            color = GagaGreen,
         )
         Spacer(Modifier.height(GagaDimens.space12))
         Row(horizontalArrangement = Arrangement.spacedBy(GagaDimens.space8)) {
@@ -562,7 +694,7 @@ private fun ChevronRight() {
     )
 }
 
-/** Small "Coming Soon" pill used for the not-yet-available Wallet. */
+/** Small "Coming Soon" pill used for not-yet-available features. */
 @Composable
 private fun ComingSoonBadge() {
     Text(

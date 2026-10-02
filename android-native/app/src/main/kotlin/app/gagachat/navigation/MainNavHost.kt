@@ -130,7 +130,6 @@ fun MainNavHost(pendingDeepLink: String?) {
                 navController = navController,
                 onOpenConversation = { id -> navController.navigate(ChatRoutes.chat(id)) },
                 onOpenNewChat = { navController.navigate(PeopleRoutes.PEOPLE) },
-                onOpenMore = { navController.navigate(HomeRoutes.MORE) },
                 onOpenNotifications = { navController.navigate(SettingsRoutes.NOTIFICATIONS_INBOX) },
             )
             moreScreen(
@@ -149,6 +148,7 @@ fun MainNavHost(pendingDeepLink: String?) {
                 onOpenPrivacy = { navController.navigate(SettingsRoutes.PRIVACY) },
                 onOpenSearch = { navController.navigate(PeopleRoutes.DISCOVER) },
                 onOpenHelp = { navController.navigate(SettingsRoutes.ABOUT) },
+                onBack = { navController.popBackStack() },
             )
             chatScreen(
                 navController = navController,
@@ -217,6 +217,7 @@ fun MainNavHost(pendingDeepLink: String?) {
                 },
                 onEditProfile = { navController.navigate(SettingsRoutes.EDIT_PROFILE) },
                 onOpenPrivacy = { navController.navigate(SettingsRoutes.PRIVACY) },
+                onOpenMore = { navController.navigate(HomeRoutes.MORE) },
                 onOpenMyQr = { navController.navigate(QrRoutes.MY_QR) },
                 onOpenSavedMessages = { navController.navigate(SettingsRoutes.SAVED_MESSAGES) },
                 onOpenWallet = { navController.navigate(WalletRoutes.WALLET) },

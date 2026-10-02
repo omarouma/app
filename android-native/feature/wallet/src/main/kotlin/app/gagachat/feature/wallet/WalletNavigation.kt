@@ -7,23 +7,24 @@ import androidx.navigation.compose.composable
 /** Routes for the Wallet feature (Master Spec §C). */
 object WalletRoutes {
     const val WALLET = "wallet"
-
-    /**
-     * Retained for the future release, but intentionally NOT registered in the
-     * graph while the wallet is "Coming Soon" — exposing an unreachable route
-     * would leak unfinished send-coins transfers into the navigation surface.
-     */
     const val SEND = "wallet/send"
 }
 
 /**
- * Registers the Wallet graph. Until the coin wallet ships, the single entry
- * point renders a "Coming Soon" placeholder so unfinished deposit / withdraw /
- * send / staking flows are never exposed to users (Master Spec §C).
+ * Registers the Wallet graph. The coin wallet is backed by the LIVE `wallets`
+ * table (one row per user) and the `transactions` jsonb ledger, so balance and
+ * activity are authoritative on the server and shared across devices.
  */
 fun NavGraphBuilder.walletGraph(navController: NavController) {
     composable(WalletRoutes.WALLET) {
-        WalletComingSoonScreen(
+        WalletScreen(
+            onSendCoins = { navController.navigate(WalletRoutes.SEND) },
+            onBack = { navController.popBackStack() },
+        )
+    }
+    composable(WalletRoutes.SEND) {
+        SendCoinsScreen(
+            onSent = { navController.popBackStack() },
             onBack = { navController.popBackStack() },
         )
     }

@@ -31,6 +31,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -45,6 +46,7 @@ import app.gagachat.core.ui.theme.GagaDimens
  * Settings screen (screenshot 174151): an account block followed by the
  * preference rows — App permissions, Appearance, Notifications, Privacy,
  * Security, Data & Storage, Accessibility, Language — and a Help entry.
+ * Each row carries a distinct coloured leading icon, matching the reference.
  */
 @Composable
 fun SettingsRoute(
@@ -87,6 +89,7 @@ fun SettingsRoute(
                 title = state.displayName ?: "My profile",
                 subtitle = state.email ?: state.phone,
                 leadingIcon = Icons.Filled.AccountCircle,
+                leadingIconTint = IconGreen,
                 onClick = onOpenProfile,
             )
             GagaDivider()
@@ -94,6 +97,7 @@ fun SettingsRoute(
                 title = "Edit profile",
                 subtitle = "Name, username, bio, photo",
                 leadingIcon = Icons.Filled.Edit,
+                leadingIconTint = IconBlue,
                 onClick = onOpenEditProfile,
             )
             GagaDivider()
@@ -101,6 +105,7 @@ fun SettingsRoute(
                 title = "Wallet",
                 subtitle = "Coins and activity",
                 leadingIcon = Icons.Filled.AccountBalanceWallet,
+                leadingIconTint = IconAmber,
                 onClick = onOpenWallet,
             )
             GagaDivider()
@@ -108,6 +113,7 @@ fun SettingsRoute(
                 title = "My QR code",
                 subtitle = "Let others add you instantly",
                 leadingIcon = Icons.Filled.QrCode2,
+                leadingIconTint = IconPurple,
                 onClick = onOpenMyQr,
             )
             GagaDivider()
@@ -117,6 +123,7 @@ fun SettingsRoute(
                 title = "App permissions",
                 subtitle = "Camera, microphone, contacts and more",
                 leadingIcon = Icons.Filled.Apps,
+                leadingIconTint = IconBlue,
                 onClick = onOpenPermissions,
             )
             GagaDivider()
@@ -124,6 +131,7 @@ fun SettingsRoute(
                 title = "Appearance",
                 subtitle = "Theme: ${state.themeMode.name.lowercase().replaceFirstChar { it.uppercase() }}",
                 leadingIcon = Icons.Filled.DarkMode,
+                leadingIconTint = IconPurple,
                 onClick = onOpenAppearance,
             )
             GagaDivider()
@@ -131,6 +139,7 @@ fun SettingsRoute(
                 title = "Notifications",
                 subtitle = "Message and call alerts",
                 leadingIcon = Icons.Filled.Notifications,
+                leadingIconTint = IconOrange,
                 onClick = onOpenNotifications,
             )
             GagaDivider()
@@ -138,6 +147,7 @@ fun SettingsRoute(
                 title = "Privacy",
                 subtitle = "Read receipts, last seen, blocked users",
                 leadingIcon = Icons.Filled.Lock,
+                leadingIconTint = IconTeal,
                 onClick = onOpenPrivacy,
             )
             GagaDivider()
@@ -145,6 +155,7 @@ fun SettingsRoute(
                 title = "Security",
                 subtitle = "App lock, login and blocked users",
                 leadingIcon = Icons.Filled.Security,
+                leadingIconTint = IconRed,
                 onClick = onOpenSecurity,
             )
             GagaDivider()
@@ -152,6 +163,7 @@ fun SettingsRoute(
                 title = "Data & Storage",
                 subtitle = "Media auto-download and cache",
                 leadingIcon = Icons.Filled.Storage,
+                leadingIconTint = IconIndigo,
                 onClick = onOpenStorage,
             )
             GagaDivider()
@@ -159,6 +171,7 @@ fun SettingsRoute(
                 title = "Accessibility",
                 subtitle = "Text size and display options",
                 leadingIcon = Icons.Filled.Accessibility,
+                leadingIconTint = IconCyan,
                 onClick = onOpenAccessibility,
             )
             GagaDivider()
@@ -166,6 +179,7 @@ fun SettingsRoute(
                 title = "Language",
                 subtitle = "App display language",
                 leadingIcon = Icons.Filled.Language,
+                leadingIconTint = IconGreen,
                 onClick = onOpenLanguage,
             )
             GagaDivider()
@@ -175,6 +189,7 @@ fun SettingsRoute(
                 title = "Help",
                 subtitle = "FAQs and support",
                 leadingIcon = Icons.Filled.HelpOutline,
+                leadingIconTint = IconBlue,
                 onClick = onOpenAbout,
             )
             GagaDivider()
@@ -182,6 +197,7 @@ fun SettingsRoute(
                 title = "About GaGa Chat",
                 subtitle = "Version $versionLabel",
                 leadingIcon = Icons.Filled.Info,
+                leadingIconTint = IconGrey,
                 onClick = onOpenAbout,
             )
             GagaDivider()
@@ -190,6 +206,7 @@ fun SettingsRoute(
             GagaSettingsRow(
                 title = "Sign out",
                 leadingIcon = Icons.AutoMirrored.Filled.Logout,
+                leadingIconTint = IconRed,
                 onClick = viewModel::signOut,
             )
             GagaDivider()
@@ -197,6 +214,7 @@ fun SettingsRoute(
                 title = "Delete account",
                 subtitle = "Permanently remove your account and data",
                 leadingIcon = Icons.Filled.DeleteForever,
+                leadingIconTint = IconRed,
                 onClick = onOpenDeleteAccount,
             )
             Spacer(Modifier.height(GagaDimens.space48))
@@ -209,3 +227,14 @@ fun SettingsRoute(
         }
     }
 }
+
+private val IconGreen = Color(0xFF00A651)
+private val IconBlue = Color(0xFF2F80ED)
+private val IconPurple = Color(0xFF7E57C2)
+private val IconOrange = Color(0xFFF2994A)
+private val IconTeal = Color(0xFF26A69A)
+private val IconRed = Color(0xFFEB5757)
+private val IconIndigo = Color(0xFF5C6BC0)
+private val IconCyan = Color(0xFF00ACC1)
+private val IconAmber = Color(0xFFF2B705)
+private val IconGrey = Color(0xFF8A94A6)

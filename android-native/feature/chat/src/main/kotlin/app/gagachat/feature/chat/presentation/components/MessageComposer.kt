@@ -17,16 +17,20 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
-import androidx.compose.material.icons.filled.AttachFile
-import androidx.compose.material.icons.filled.CameraAlt
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Audiotrack
+import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.EmojiEmotions
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.NearMe
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Poll
+import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledIconButton
@@ -54,14 +58,18 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import app.gagachat.core.model.Message
 import app.gagachat.core.ui.theme.GagaDimens
+import app.gagachat.core.ui.theme.GagaGreen
+import app.gagachat.core.ui.theme.GagaGreenContainer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import app.gagachat.core.ui.util.TimeFormat
 
 /**
- * The message composer. Shows a reply quote or an edit banner above the field
- * when active, an attachment bottom sheet for media/location/contact, and swaps
- * the field for a recording strip while a voice clip is being captured.
+ * The message composer (reference screenshot 174452). A round "+" opens the
+ * attachment sheet, the field carries emoji + mic affordances, and a schedule
+ * (timer) button sits on the far right. Shows a reply quote or an edit banner
+ * above the field when active and swaps the field for a recording strip while a
+ * voice clip is being captured.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -85,6 +93,10 @@ fun MessageComposer(
     onStartRecording: () -> Unit,
     onStopRecording: () -> Unit,
     onCancelRecording: () -> Unit,
+    onShareLiveLocation: () -> Unit = onShareLocation,
+    onSendPoll: () -> Unit = {},
+    onEmojiClick: () -> Unit = {},
+    onScheduleClick: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     var showAttachSheet by remember { mutableStateOf(false) }
@@ -120,9 +132,22 @@ fun MessageComposer(
                         .padding(horizontal = GagaDimens.space8, vertical = GagaDimens.space6),
                     verticalAlignment = Alignment.Bottom,
                 ) {
-                    IconButton(onClick = { showAttachSheet = true }) {
-                        Icon(Icons.Filled.AttachFile, contentDescription = "Attach")
+                    // Round "+" affordance that opens the share sheet.
+                    Box(
+                        modifier = Modifier
+                            .size(46.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.surfaceVariant)
+                            .clickable { showAttachSheet = true },
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            Icons.Filled.Add,
+                            contentDescription = "Attach",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
                     }
+                    Spacer(Modifier.width(GagaDimens.space8))
                     TextField(
                         value = draft,
                         onValueChange = onDraftChange,
@@ -137,11 +162,43 @@ fun MessageComposer(
                             unfocusedIndicatorColor = Color.Transparent,
                         ),
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Default),
+                        trailingIcon = {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                IconButton(onClick = onEmojiClick) {
+                                    Icon(
+                                        Icons.Filled.EmojiEmotions,
+                                        contentDescription = "Emoji",
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                                if (draft.isBlank() && editingMessage == null) {
+                                    IconButton(onClick = onStartRecording) {
+                                        Icon(
+                                            Icons.Filled.Mic,
+                                            contentDescription = "Record voice message",
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                    }
+                                }
+                            }
+                        },
                     )
                     Spacer(Modifier.width(GagaDimens.space4))
                     if (draft.isBlank() && editingMessage == null) {
-                        IconButton(onClick = onStartRecording) {
-                            Icon(Icons.Filled.Mic, contentDescription = "Record voice message")
+                        // Schedule / timer affordance on the far right.
+                        Box(
+                            modifier = Modifier
+                                .size(46.dp)
+                                .clip(CircleShape)
+                                .background(MaterialTheme.colorScheme.surfaceVariant)
+                                .clickable(onClick = onScheduleClick),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Icon(
+                                Icons.Filled.Schedule,
+                                contentDescription = "Schedule message",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
                         }
                     } else {
                         FilledIconButton(
@@ -174,24 +231,32 @@ fun MessageComposer(
                 onTakePhoto = { showAttachSheet = false; onTakePhoto() },
                 onPickVideo = { showAttachSheet = false; onPickVideo() },
                 onPickAudio = { showAttachSheet = false; onPickAudio() },
-                onPickFile = { showAttachSheet = false; onAttach() },
-                onShareLocation = { showAttachSheet = false; onShareLocation() },
                 onPickContact = { showAttachSheet = false; onPickContact() },
+                onShareLocation = { showAttachSheet = false; onShareLocation() },
+                onShareLiveLocation = { showAttachSheet = false; onShareLiveLocation() },
+                onPickFile = { showAttachSheet = false; onAttach() },
+                onSendPoll = { showAttachSheet = false; onSendPoll() },
             )
         }
     }
 }
 
-/** Grid of attachment options shown in the bottom sheet. */
+/**
+ * Attachment grid (reference screenshot 174602): three rows of green icons on
+ * light-green circular tiles -- Photos / Camera / Video / Audio, Contact /
+ * Location / Live Location / File, then Poll.
+ */
 @Composable
 private fun AttachmentSheet(
     onPickImage: () -> Unit,
     onTakePhoto: () -> Unit,
     onPickVideo: () -> Unit,
     onPickAudio: () -> Unit,
-    onPickFile: () -> Unit,
-    onShareLocation: () -> Unit,
     onPickContact: () -> Unit,
+    onShareLocation: () -> Unit,
+    onShareLiveLocation: () -> Unit,
+    onPickFile: () -> Unit,
+    onSendPoll: () -> Unit,
 ) {
     Column(modifier = Modifier.padding(bottom = GagaDimens.space24)) {
         Text(
@@ -210,17 +275,29 @@ private fun AttachmentSheet(
             AttachOption(Icons.Filled.Videocam, "Video", onPickVideo)
             AttachOption(Icons.Filled.Audiotrack, "Audio", onPickAudio)
         }
-        Spacer(Modifier.size(GagaDimens.space12))
+        Spacer(Modifier.size(GagaDimens.space16))
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = GagaDimens.space16),
             horizontalArrangement = Arrangement.SpaceEvenly,
         ) {
-            AttachOption(Icons.Filled.Description, "Document", onPickFile)
-            AttachOption(Icons.Filled.LocationOn, "Location", onShareLocation)
             AttachOption(Icons.Filled.Person, "Contact", onPickContact)
-            Spacer(Modifier.width(60.dp))
+            AttachOption(Icons.Filled.LocationOn, "Location", onShareLocation)
+            AttachOption(Icons.Filled.NearMe, "Live Location", onShareLiveLocation)
+            AttachOption(Icons.Filled.Description, "File", onPickFile)
+        }
+        Spacer(Modifier.size(GagaDimens.space16))
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = GagaDimens.space16),
+            horizontalArrangement = Arrangement.SpaceEvenly,
+        ) {
+            AttachOption(Icons.Filled.Poll, "Poll", onSendPoll)
+            Spacer(Modifier.width(72.dp))
+            Spacer(Modifier.width(72.dp))
+            Spacer(Modifier.width(72.dp))
         }
     }
 }
@@ -230,21 +307,22 @@ private fun AttachOption(icon: ImageVector, label: String, onClick: () -> Unit) 
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier
+            .width(72.dp)
             .clip(MaterialTheme.shapes.medium)
             .clickable(onClick = onClick)
             .padding(GagaDimens.space4),
     ) {
         Box(
             modifier = Modifier
-                .size(46.dp)
+                .size(52.dp)
                 .clip(CircleShape)
-                .background(MaterialTheme.colorScheme.primaryContainer),
+                .background(GagaGreenContainer),
             contentAlignment = Alignment.Center,
         ) {
-            Icon(icon, contentDescription = label, tint = MaterialTheme.colorScheme.onPrimaryContainer)
+            Icon(icon, contentDescription = label, tint = GagaGreen)
         }
         Spacer(Modifier.size(GagaDimens.space4))
-        Text(text = label, style = MaterialTheme.typography.labelSmall)
+        Text(text = label, style = MaterialTheme.typography.labelSmall, maxLines = 1)
     }
 }
 

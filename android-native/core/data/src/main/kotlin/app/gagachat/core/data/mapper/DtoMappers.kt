@@ -36,6 +36,9 @@ fun UserRow.toDomain(): User = User(
     phone = phone,
     email = email,
     bio = bio,
+    statusMessage = statusMessage?.trim()?.takeIf { it.isNotEmpty() },
+    website = website?.trim()?.takeIf { it.isNotEmpty() },
+    coverImage = coverImage?.trim()?.takeIf { it.isNotEmpty() },
     status = status?.let { runCatching { UserStatus.valueOf(it.uppercase()) }.getOrNull() }
         ?: UserStatus.OFFLINE,
     lastSeen = lastSeen,

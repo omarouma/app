@@ -26,8 +26,11 @@ import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.CallSplit
 import androidx.compose.material.icons.filled.Campaign
+import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Redeem
 import androidx.compose.material.icons.filled.RequestPage
 import androidx.compose.material.icons.filled.Savings
 import androidx.compose.material.icons.filled.Security
@@ -105,15 +108,49 @@ fun WalletScreen(
                 item { ValueCard(ui.wallet) }
                 item { StakingCard() }
                 item { ActionGrid() }
+                item {
+                    Column(modifier = Modifier.padding(top = GagaDimens.space8)) {
+                        WalletOptionRow(
+                            icon = Icons.Filled.Redeem,
+                            iconTint = GagaGreen,
+                            title = "Redeem Promo Code",
+                            subtitle = "Get free Gaga Coins",
+                        )
+                        WalletOptionRow(
+                            icon = Icons.Filled.Lock,
+                            iconTint = Color(0xFF7E57C2),
+                            title = "Wallet Security",
+                            subtitle = "Set up PIN protection",
+                        )
+                    }
+                }
                 item { GagaSectionHeader("Recent Transactions") }
                 if (ui.activity.isEmpty()) {
                     item {
-                        Text(
-                            text = "No transactions yet.",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(GagaDimens.space16),
-                        )
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = GagaDimens.space24),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                        ) {
+                            Icon(
+                                Icons.Filled.History,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(40.dp),
+                            )
+                            Spacer(Modifier.height(GagaDimens.space8))
+                            Text(
+                                text = "No transactions yet",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.SemiBold,
+                            )
+                            Text(
+                                text = "Start depositing to see your history",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
                     }
                 } else {
                     items(ui.activity, key = { it.id }) { entry -> ActivityRow(entry) }
@@ -406,6 +443,39 @@ private fun ActionGrid() {
             }
         }
     }
+}
+
+@Composable
+private fun WalletOptionRow(
+    icon: ImageVector,
+    iconTint: Color,
+    title: String,
+    subtitle: String,
+    onClick: () -> Unit = {},
+) {
+    GagaListRow(
+        title = title,
+        subtitle = subtitle,
+        onClick = onClick,
+        avatar = {
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(CircleShape)
+                    .background(iconTint.copy(alpha = 0.14f)),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(icon, contentDescription = null, tint = iconTint, modifier = Modifier.size(20.dp))
+            }
+        },
+        trailing = {
+            Icon(
+                Icons.Filled.ChevronRight,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        },
+    )
 }
 
 @Composable

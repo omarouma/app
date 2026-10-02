@@ -13,6 +13,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AlternateEmail
 import androidx.compose.material.icons.filled.Badge
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Link
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -20,6 +21,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.gagachat.core.ui.component.GagaAvatarPicker
@@ -101,6 +103,23 @@ fun EditProfileScreen(
                 label = "Bio",
                 singleLine = false,
                 imeAction = ImeAction.Default,
+            )
+            Spacer(Modifier.height(GagaDimens.space12))
+            GagaTextField(
+                value = state.statusMessage,
+                onValueChange = viewModel::onStatusMessageChange,
+                label = "Status",
+                leadingIcon = Icons.Filled.Info,
+                imeAction = ImeAction.Next,
+            )
+            Spacer(Modifier.height(GagaDimens.space12))
+            GagaTextField(
+                value = state.website,
+                onValueChange = viewModel::onWebsiteChange,
+                label = "Website",
+                leadingIcon = Icons.Filled.Link,
+                keyboardType = KeyboardType.Uri,
+                imeAction = ImeAction.Done,
             )
             if (state.error != null) {
                 Spacer(Modifier.height(GagaDimens.space12))

@@ -9,7 +9,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.filled.ChatBubbleOutline
-import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Badge
@@ -45,7 +44,6 @@ import kotlinx.coroutines.launch
 fun HomeRoute(
     onOpenConversation: (conversationId: String) -> Unit,
     onOpenNewChat: () -> Unit,
-    onOpenMore: () -> Unit,
     onOpenNotifications: () -> Unit = {},
     viewModel: HomeViewModel = hiltViewModel(),
 ) {
@@ -104,9 +102,6 @@ fun HomeRoute(
                 ) {
                     Icon(Icons.Filled.Notifications, contentDescription = "Notifications")
                 }
-            }
-            IconButton(onClick = onOpenMore) {
-                Icon(Icons.Filled.MoreVert, contentDescription = "More")
             }
         },
         floatingActionButton = {

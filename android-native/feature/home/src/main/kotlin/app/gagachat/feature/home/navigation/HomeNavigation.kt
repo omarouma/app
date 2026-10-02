@@ -15,14 +15,12 @@ fun NavGraphBuilder.homeScreen(
     navController: NavController,
     onOpenConversation: (String) -> Unit,
     onOpenNewChat: () -> Unit,
-    onOpenMore: () -> Unit,
     onOpenNotifications: () -> Unit = {},
 ) {
     composable(HomeRoutes.HOME) {
         HomeRoute(
             onOpenConversation = onOpenConversation,
             onOpenNewChat = onOpenNewChat,
-            onOpenMore = onOpenMore,
             onOpenNotifications = onOpenNotifications,
         )
     }
@@ -49,6 +47,7 @@ fun NavGraphBuilder.moreScreen(
     onOpenPrivacy: () -> Unit,
     onOpenSearch: () -> Unit,
     onOpenHelp: () -> Unit,
+    onBack: () -> Unit = {},
 ) {
     composable(HomeRoutes.MORE) {
         MoreRoute(
@@ -66,6 +65,7 @@ fun NavGraphBuilder.moreScreen(
             onOpenPrivacy = onOpenPrivacy,
             onOpenSearch = onOpenSearch,
             onOpenHelp = onOpenHelp,
+            onBack = onBack,
         )
     }
 }

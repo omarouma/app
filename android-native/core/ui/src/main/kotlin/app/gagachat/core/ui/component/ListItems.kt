@@ -17,6 +17,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextOverflow
 import app.gagachat.core.ui.theme.GagaDimens
@@ -31,6 +32,7 @@ fun GagaSettingsRow(
     modifier: Modifier = Modifier,
     subtitle: String? = null,
     leadingIcon: ImageVector? = null,
+    leadingIconTint: Color = MaterialTheme.colorScheme.onSurfaceVariant,
     trailing: (@Composable () -> Unit)? = null,
     onClick: (() -> Unit)? = null,
 ) {
@@ -46,7 +48,7 @@ fun GagaSettingsRow(
             Icon(
                 imageVector = leadingIcon,
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                tint = leadingIconTint,
                 modifier = Modifier.size(GagaDimens.iconMedium),
             )
             Spacer(Modifier.width(GagaDimens.space16))

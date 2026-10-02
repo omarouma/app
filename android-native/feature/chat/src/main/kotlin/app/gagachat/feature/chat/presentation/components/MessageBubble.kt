@@ -2,6 +2,7 @@ package app.gagachat.feature.chat.presentation.components
 
 import android.content.Intent
 import android.net.Uri
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -22,9 +23,11 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.DoneAll
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.NearMe
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PlayArrow
@@ -32,6 +35,7 @@ import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -39,8 +43,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -49,11 +56,18 @@ import app.gagachat.core.model.Message
 import app.gagachat.core.model.MessageStatus
 import app.gagachat.core.model.MessageType
 import app.gagachat.core.ui.theme.GagaDimens
+import app.gagachat.core.ui.theme.GagaGreen
 import app.gagachat.core.ui.theme.GagaTheme
 import app.gagachat.core.ui.theme.IncomingBubbleShape
 import app.gagachat.core.ui.theme.OutgoingBubbleShape
 import app.gagachat.core.ui.util.TimeFormat
 import coil.compose.AsyncImage
+import java.util.Locale
+import kotlin.math.PI
+import kotlin.math.cos
+import kotlin.math.ln
+import kotlin.math.pow
+import kotlin.math.tan
 
 /**
  * A single chat bubble. Renders every message type, an optional quoted reply, a
@@ -520,9 +534,15 @@ private fun FileContent(message: Message, contentColor: Color) {
 @Composable
 private fun LocationContent(message: Message, contentColor: Color) {
     val context = androidx.compose.ui.platform.LocalContext.current
+    val clipboard = LocalClipboardManager.current
     val lat = message.latitude
     val lng = message.longitude
     val hasCoords = lat != null && lng != null
+    val coordsText = if (hasCoords) {
+        String.format(Locale.US, "%.5f, %.5f", lat, lng)
+    } else {
+        "Location"
+    }
     val openMap = {
         if (hasCoords) {
             val label = Uri.encode("Shared location")
@@ -534,30 +554,130 @@ private fun LocationContent(message: Message, contentColor: Color) {
         }
         Unit
     }
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
+    val copyCoords = {
+        if (hasCoords) clipboard.setText(AnnotatedString(coordsText))
+        Unit
+    }
+    val tileUrl = if (hasCoords) osmTileUrl(lat!!, lng!!, 16) else null
+
+    Box(
         modifier = Modifier
-            .clip(RoundedCornerShape(12.dp))
-            .clickable(enabled = hasCoords, onClick = openMap)
-            .padding(vertical = GagaDimens.space2, horizontal = GagaDimens.space2),
+            .size(width = 240.dp, height = 190.dp)
+            .clip(RoundedCornerShape(14.dp))
+            .background(Color(0xFFE7EDE3))
+            .clickable(enabled = hasCoords, onClick = openMap),
     ) {
-        Icon(Icons.Filled.LocationOn, contentDescription = "Location", tint = contentColor)
-        Spacer(Modifier.width(GagaDimens.space8))
-        Column {
-            Text(
-                text = "Shared location",
-                style = MaterialTheme.typography.bodyMedium,
-                color = contentColor,
+        // Stylised map base so the card always reads as a map, even offline.
+        StylisedMap(modifier = Modifier.fillMaxSize())
+        if (tileUrl != null) {
+            AsyncImage(
+                model = tileUrl,
+                contentDescription = "Map",
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize(),
             )
-            if (hasCoords) {
+        }
+        // Red pin centred on the shared point.
+        Icon(
+            Icons.Filled.LocationOn,
+            contentDescription = null,
+            tint = Color(0xFFE53935),
+            modifier = Modifier
+                .align(Alignment.Center)
+                .size(40.dp),
+        )
+        // Green banner: title, coordinates and copy / navigate actions.
+        Row(
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .fillMaxWidth()
+                .padding(GagaDimens.space8)
+                .clip(RoundedCornerShape(10.dp))
+                .background(GagaGreen)
+                .padding(
+                    start = GagaDimens.space12,
+                    end = GagaDimens.space4,
+                    top = GagaDimens.space6,
+                    bottom = GagaDimens.space6,
+                ),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = "Tap to open in Maps",
+                    text = "Shared Location",
+                    color = Color.White,
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Text(
+                    text = coordsText,
+                    color = Color.White.copy(alpha = 0.9f),
                     style = MaterialTheme.typography.labelSmall,
-                    color = contentColor.copy(alpha = 0.7f),
+                )
+            }
+            IconButton(onClick = copyCoords) {
+                Icon(
+                    Icons.Filled.ContentCopy,
+                    contentDescription = "Copy coordinates",
+                    tint = Color.White,
+                    modifier = Modifier.size(18.dp),
+                )
+            }
+            IconButton(onClick = openMap) {
+                Icon(
+                    Icons.Filled.NearMe,
+                    contentDescription = "Navigate",
+                    tint = Color.White,
+                    modifier = Modifier.size(18.dp),
                 )
             }
         }
     }
+}
+
+/**
+ * A lightweight, dependency-free map sketch (water, blocks and streets) drawn
+ * with a Canvas. It sits beneath the live tile so the location card is never
+ * blank when the tile service is unreachable.
+ */
+@Composable
+private fun StylisedMap(modifier: Modifier = Modifier) {
+    Canvas(modifier = modifier) {
+        val w = size.width
+        val h = size.height
+        drawRect(color = Color(0xFFEDE7DC))
+        // Waterway across the top-left corner.
+        drawRect(
+            color = Color(0xFFA9CCE3),
+            topLeft = Offset(0f, h * 0.10f),
+            size = androidx.compose.ui.geometry.Size(w * 0.55f, h * 0.12f),
+        )
+        // Green park block.
+        drawRect(
+            color = Color(0xFFCDE6C5),
+            topLeft = Offset(w * 0.62f, h * 0.08f),
+            size = androidx.compose.ui.geometry.Size(w * 0.34f, h * 0.22f),
+        )
+        // Street grid.
+        val street = Color.White
+        for (i in 1..4) {
+            val y = h * i / 5f
+            drawRect(color = street, topLeft = Offset(0f, y), size = androidx.compose.ui.geometry.Size(w, 4f))
+        }
+        for (i in 1..5) {
+            val x = w * i / 6f
+            drawRect(color = street, topLeft = Offset(x, 0f), size = androidx.compose.ui.geometry.Size(4f, h))
+        }
+    }
+}
+
+/** Builds an OpenStreetMap raster tile URL centred on the given coordinates. */
+private fun osmTileUrl(lat: Double, lng: Double, zoom: Int): String {
+    val n = 2.0.pow(zoom)
+    val x = ((lng + 180.0) / 360.0 * n).toInt()
+    val latRad = Math.toRadians(lat)
+    val y = ((1.0 - ln(tan(latRad) + 1.0 / cos(latRad)) / PI) / 2.0 * n).toInt()
+    return "https://tile.openstreetmap.org/$zoom/$x/$y.png"
 }
 
 /** Contact-card bubble: avatar glyph, name and tappable phone number. */

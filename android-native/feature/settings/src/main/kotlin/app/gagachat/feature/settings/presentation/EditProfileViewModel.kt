@@ -37,6 +37,8 @@ data class EditProfileUiState(
     val displayName: String = "",
     val username: String = "",
     val bio: String = "",
+    val statusMessage: String = "",
+    val website: String = "",
     val avatarUrl: String = "",
     val phone: String = "",
     val email: String = "",
@@ -86,6 +88,8 @@ class EditProfileViewModel @Inject constructor(
                         displayName = user?.displayName ?: current.displayName,
                         username = user?.username ?: current.username,
                         bio = user?.bio ?: current.bio,
+                        statusMessage = user?.statusMessage ?: current.statusMessage,
+                        website = user?.website ?: current.website,
                         avatarUrl = user?.avatar ?: current.avatarUrl,
                         phone = user?.phone ?: current.phone,
                         email = user?.email ?: current.email,
@@ -105,6 +109,8 @@ class EditProfileViewModel @Inject constructor(
     }
 
     fun onBioChange(value: String) = _state.update { it.copy(bio = value, error = null) }
+    fun onStatusMessageChange(value: String) = _state.update { it.copy(statusMessage = value, error = null) }
+    fun onWebsiteChange(value: String) = _state.update { it.copy(website = value, error = null) }
     fun onAvatarUrlChange(value: String) = _state.update { it.copy(avatarUrl = value, error = null) }
 
     /**
@@ -195,6 +201,8 @@ class EditProfileViewModel @Inject constructor(
                             displayName = snapshot.displayName.ifBlank { null },
                             username = snapshot.username.ifBlank { null },
                             bio = snapshot.bio.ifBlank { null },
+                            statusMessage = snapshot.statusMessage.ifBlank { null },
+                            website = snapshot.website.ifBlank { null },
                             avatar = snapshot.avatarUrl.ifBlank { null },
                         ),
                     )

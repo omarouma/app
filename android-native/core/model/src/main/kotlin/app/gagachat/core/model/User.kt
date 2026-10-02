@@ -16,6 +16,12 @@ data class User(
     val phone: String? = null,
     val email: String? = null,
     val bio: String? = null,
+    /** Short presence line shown under the handle (e.g. "GaGa Appears"). */
+    @SerialName("status_message") val statusMessage: String? = null,
+    /** Public website / link rendered as a green link on the profile header. */
+    val website: String? = null,
+    /** Optional cover banner image (falls back to the brand mint gradient). */
+    @SerialName("cover_image") val coverImage: String? = null,
     val status: UserStatus = UserStatus.OFFLINE,
     @SerialName("last_seen") val lastSeen: Long? = null,
     @SerialName("created_at") val createdAt: Long = 0L,

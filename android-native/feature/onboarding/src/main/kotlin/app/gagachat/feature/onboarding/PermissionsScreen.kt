@@ -40,6 +40,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
@@ -54,6 +55,7 @@ import app.gagachat.core.ui.theme.GagaGreen
 private data class PermissionEntry(
     val permission: String,
     val icon: ImageVector,
+    val tint: Color,
     val title: String,
     val description: String,
 )
@@ -79,6 +81,7 @@ fun PermissionsScreen(
                     PermissionEntry(
                         permission = Manifest.permission.POST_NOTIFICATIONS,
                         icon = Icons.Filled.Notifications,
+                        tint = Color(0xFF26A69A),
                         title = "Notifications",
                         description = "Get alerts for new messages and incoming calls, even when the app is closed.",
                     ),
@@ -88,6 +91,7 @@ fun PermissionsScreen(
                 PermissionEntry(
                     permission = Manifest.permission.RECORD_AUDIO,
                     icon = Icons.Filled.Mic,
+                    tint = Color(0xFF7E57C2),
                     title = "Microphone",
                     description = "Required for voice calls and sending voice messages to your friends.",
                 ),
@@ -96,6 +100,7 @@ fun PermissionsScreen(
                 PermissionEntry(
                     permission = Manifest.permission.CAMERA,
                     icon = Icons.Filled.CameraAlt,
+                    tint = Color(0xFF42A5F5),
                     title = "Camera",
                     description = "Required for video calls and sharing photos & videos in chats.",
                 ),
@@ -104,6 +109,7 @@ fun PermissionsScreen(
                 PermissionEntry(
                     permission = Manifest.permission.ACCESS_FINE_LOCATION,
                     icon = Icons.Filled.LocationOn,
+                    tint = Color(0xFFFF7043),
                     title = "Location",
                     description = "Share your live location with friends in chats when you choose to.",
                 ),
@@ -112,6 +118,7 @@ fun PermissionsScreen(
                 PermissionEntry(
                     permission = Manifest.permission.READ_CONTACTS,
                     icon = Icons.Filled.Contacts,
+                    tint = Color(0xFFFFA726),
                     title = "Contacts",
                     description = "Find friends from your device contacts who are already on GaGa.",
                 ),
@@ -154,6 +161,7 @@ fun PermissionsScreen(
             entries.forEach { entry ->
                 PermissionRow(
                     icon = entry.icon,
+                    tint = entry.tint,
                     title = entry.title,
                     description = entry.description,
                     granted = grantedMap[entry.permission] == true,
@@ -193,6 +201,13 @@ fun PermissionsScreen(
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+            Spacer(Modifier.height(GagaDimens.space8))
+            Text(
+                text = "Step 10 of 10",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.fillMaxWidth(),
+            )
         }
     }
 }
@@ -200,6 +215,7 @@ fun PermissionsScreen(
 @Composable
 private fun PermissionRow(
     icon: ImageVector,
+    tint: Color,
     title: String,
     description: String,
     granted: Boolean,
@@ -216,7 +232,7 @@ private fun PermissionRow(
         Icon(
             imageVector = icon,
             contentDescription = null,
-            tint = MaterialTheme.colorScheme.primary,
+            tint = tint,
             modifier = Modifier.size(28.dp),
         )
         Spacer(Modifier.width(GagaDimens.space12))
