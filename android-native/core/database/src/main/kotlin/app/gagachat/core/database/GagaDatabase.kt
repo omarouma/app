@@ -37,7 +37,7 @@ import app.gagachat.core.database.entity.UserEntity
         BlockEntity::class,
         SyncStateEntity::class,
     ],
-    version = 3,
+    version = 4,
     exportSchema = true,
 )
 abstract class GagaDatabase : RoomDatabase() {
@@ -76,6 +76,20 @@ abstract class GagaDatabase : RoomDatabase() {
                 db.execSQL("ALTER TABLE messages ADD COLUMN forwardedFrom TEXT")
                 db.execSQL("ALTER TABLE messages ADD COLUMN contactName TEXT")
                 db.execSQL("ALTER TABLE messages ADD COLUMN contactPhone TEXT")
+            }
+        }
+
+        /**
+         * v3 → v4: add the profile cover image plus the `statusMessage` / `website`
+         * columns to `users` so the profile header can render a real cover and the
+         * "about"/link lines straight from the cache. Additive only — every column
+         * is nullable so existing rows keep rendering unchanged.
+         */
+        val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE users ADD COLUMN coverImage TEXT")
+                db.execSQL("ALTER TABLE users ADD COLUMN statusMessage TEXT")
+                db.execSQL("ALTER TABLE users ADD COLUMN website TEXT")
             }
         }
     }

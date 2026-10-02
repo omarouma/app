@@ -178,6 +178,15 @@ class SupabaseStorageApi @Inject constructor(
      */
     fun avatarObjectPath(userId: String, extension: String): String =
         "$userId/avatar.$extension"
+
+    /**
+     * Deterministic profile cover path (photo or video). Scoped to the caller's
+     * own top-level folder so it satisfies the storage RLS policy
+     * (`split_part(name,'/',1) = auth.uid()`), and overwrites on re-upload so a
+     * user never accumulates orphaned covers. [kind] is `photo` or `video`.
+     */
+    fun coverObjectPath(userId: String, kind: String, extension: String): String =
+        "$userId/cover_$kind.$extension"
 }
 
 /** Request body for `POST /object/sign/{bucket}/{path}`. */

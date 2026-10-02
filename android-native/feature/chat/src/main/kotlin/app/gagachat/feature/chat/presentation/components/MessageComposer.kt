@@ -2,17 +2,23 @@ package app.gagachat.feature.chat.presentation.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -40,6 +46,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -56,6 +63,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import app.gagachat.core.model.Message
 import app.gagachat.core.ui.theme.GagaDimens
 import app.gagachat.core.ui.theme.GagaGreen
@@ -95,11 +103,11 @@ fun MessageComposer(
     onCancelRecording: () -> Unit,
     onShareLiveLocation: () -> Unit = onShareLocation,
     onSendPoll: () -> Unit = {},
-    onEmojiClick: () -> Unit = {},
     onScheduleClick: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     var showAttachSheet by remember { mutableStateOf(false) }
+    var showEmojiPanel by remember { mutableStateOf(false) }
     val sheetState = rememberModalBottomSheetState()
     val haptics = LocalHapticFeedback.current
 
@@ -118,6 +126,9 @@ fun MessageComposer(
                 EditBanner(message = editingMessage, onCancel = onCancelEdit)
             } else if (replyTo != null && !isRecording) {
                 ReplyPreview(message = replyTo, onCancel = onCancelReply)
+            }
+            if (showEmojiPanel && !isRecording) {
+                EmojiPanel(onPick = { emoji -> onDraftChange(draft + emoji) })
             }
             if (isRecording) {
                 RecordingBar(
@@ -164,11 +175,15 @@ fun MessageComposer(
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Default),
                         trailingIcon = {
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                IconButton(onClick = onEmojiClick) {
+                                IconButton(onClick = { showEmojiPanel = !showEmojiPanel }) {
                                     Icon(
                                         Icons.Filled.EmojiEmotions,
                                         contentDescription = "Emoji",
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        tint = if (showEmojiPanel) {
+                                            MaterialTheme.colorScheme.primary
+                                        } else {
+                                            MaterialTheme.colorScheme.onSurfaceVariant
+                                        },
                                     )
                                 }
                                 if (draft.isBlank() && editingMessage == null) {
@@ -422,6 +437,131 @@ private fun EditBanner(message: Message, onCancel: () -> Unit) {
         }
         IconButton(onClick = onCancel) {
             Icon(Icons.Filled.Close, contentDescription = "Cancel edit")
+        }
+    }
+}
+
+/**
+ * A real, self-contained emoji picker (no external dependency). Tapping an emoji
+ * appends it to the current draft via [onPick]. Categories switch with a
+ * horizontally scrollable tab strip, and the emoji grid is a lazy 8-column layout
+ * so only the visible glyphs are composed.
+ */
+private data class EmojiCategory(val label: String, val emojis: List<String>)
+
+private val emojiCategories: List<EmojiCategory> = listOf(
+    EmojiCategory(
+        "Smileys",
+        listOf(
+            "😀", "😃", "😄", "😁", "😆", "😅", "😂", "🤣", "😊", "😇", "🙂", "🙃",
+            "😉", "😌", "😍", "🥰", "😘", "😗", "😙", "😚", "😋", "😛", "😝", "😜",
+            "🤪", "🤨", "🧐", "🤓", "😎", "🥳", "🤩", "😏", "😒", "😞", "😔", "😟",
+            "😕", "🙁", "😣", "😖", "😫", "😩", "🥺", "😢", "😭", "😤", "😠", "😡",
+            "🤬", "🤯", "😳", "🥵", "🥶", "😱", "😨", "😰", "😥", "😓", "🤗", "🤔",
+            "🤭", "🤫", "🤥", "😶", "😐", "😑", "😬", "🙄", "😯", "😦", "😧", "😮",
+            "😲", "🥱", "😴", "🤤", "😪", "😵", "🤐", "🥴", "🤢", "🤮", "🤧", "😷",
+        ),
+    ),
+    EmojiCategory(
+        "Gestures",
+        listOf(
+            "👍", "👎", "👌", "✌️", "🤞", "🤟", "🤘", "🤙", "👈", "👉", "👆", "👇",
+            "☝️", "✋", "🤚", "🖐️", "🖖", "👋", "🤝", "🙏", "✊", "👊", "🤛", "🤜",
+            "👏", "🙌", "👐", "🤲", "💪", "🦾", "✍️", "💅", "🤳", "🧑", "👶", "🧒",
+            "👦", "👧", "🧓", "👨", "👩", "👴", "👵", "🙈", "🙉", "🙊", "💁", "🙅",
+            "🙆", "🙋", "🧏", "🙇", "🤦", "🤷", "👮", "🕵️", "💂", "👷", "🤴", "👸",
+        ),
+    ),
+    EmojiCategory(
+        "Symbols",
+        listOf(
+            "❤️", "🧡", "💛", "💚", "💙", "💜", "🖤", "🤍", "🤎", "💔", "❣️", "💕",
+            "💞", "💓", "💗", "💖", "💘", "💝", "💟", "✨", "⭐", "🌟", "💫", "⚡",
+            "🔥", "💥", "💯", "🎉", "🎊", "🎈", "🎁", "🏆", "🥇", "✅", "❌", "❗",
+            "❓", "💤", "💢", "💬", "💭", "♻️", "🔰", "✳️", "❇️", "🔱", "⚜️", "🆗",
+            "🆒", "🆕", "🔝", "🔙", "🔜", "🔚", "⭕", "🚫", "💲", "➕", "➖", "✔️",
+        ),
+    ),
+    EmojiCategory(
+        "Nature",
+        listOf(
+            "🐶", "🐱", "🐭", "🐹", "🐰", "🦊", "🐻", "🐼", "🐨", "🐯", "🦁", "🐮",
+            "🐷", "🐸", "🐵", "🐔", "🐧", "🐦", "🐤", "🦆", "🦅", "🦉", "🦇", "🐺",
+            "🐗", "🐴", "🦄", "🐝", "🐛", "🦋", "🐌", "🐞", "🐜", "🦗", "🐢", "🐍",
+            "🦎", "🦖", "🦕", "🐙", "🦑", "🦐", "🦞", "🦀", "🐡", "🐠", "🐟", "🐬",
+            "🐳", "🐋", "🦈", "🌵", "🎄", "🌲", "🌳", "🌴", "🌱", "🌿", "☘️", "🍀",
+        ),
+    ),
+    EmojiCategory(
+        "Food",
+        listOf(
+            "🍏", "🍎", "🍐", "🍊", "🍋", "🍌", "🍉", "🍇", "🍓", "🍈", "🍒", "🍑",
+            "🥭", "🍍", "🥥", "🥝", "🍅", "🥑", "🥦", "🥕", "🌽", "🌶️", "🥒", "🥬",
+            "🧄", "🧅", "🍄", "🥜", "🍞", "🥐", "🥖", "🥨", "🧀", "🥚", "🍳", "🥞",
+            "🧇", "🥓", "🍔", "🍟", "🍕", "🌭", "🥪", "🌮", "🌯", "🥙", "🍜", "🍝",
+            "🍣", "🍱", "🍤", "🍚", "🍦", "🍰", "🎂", "🍫", "🍬", "🍭", "☕", "🧋",
+        ),
+    ),
+    EmojiCategory(
+        "Activity",
+        listOf(
+            "⚽", "🏀", "🏈", "⚾", "🥎", "🎾", "🏐", "🏉", "🎱", "🏓", "🏸", "🏒",
+            "🏑", "🥍", "🏏", "🥅", "⛳", "🪁", "🏹", "🎣", "🤿", "🥊", "🥋", "🎽",
+            "🛹", "🛼", "🛷", "⛸️", "🥌", "🎿", "⛷️", "🏂", "🪂", "🏋️", "🤼", "🤸",
+            "⛹️", "🤺", "🤾", "🏌️", "🏇", "🧘", "🏄", "🏊", "🤽", "🚣", "🧗", "🚵",
+            "📱", "💻", "⌚", "📷", "🎧", "🎮", "🕹️", "🎲", "🧩", "🎯", "🎳", "🎨",
+        ),
+    ),
+)
+
+@Composable
+private fun EmojiPanel(onPick: (String) -> Unit) {
+    var category by remember { mutableStateOf(0) }
+    Surface(
+        color = MaterialTheme.colorScheme.surfaceVariant,
+        tonalElevation = 1.dp,
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Column(modifier = Modifier.fillMaxWidth()) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState())
+                    .padding(horizontal = GagaDimens.space8, vertical = GagaDimens.space4),
+            ) {
+                emojiCategories.forEachIndexed { index, item ->
+                    TextButton(onClick = { category = index }) {
+                        Text(
+                            text = item.label,
+                            style = MaterialTheme.typography.labelMedium,
+                            color = if (index == category) {
+                                MaterialTheme.colorScheme.primary
+                            } else {
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                            },
+                        )
+                    }
+                }
+            }
+            LazyVerticalGrid(
+                columns = GridCells.Fixed(8),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(220.dp)
+                    .padding(horizontal = GagaDimens.space8),
+            ) {
+                items(emojiCategories[category].emojis) { emoji ->
+                    Box(
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(CircleShape)
+                            .clickable { onPick(emoji) },
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(text = emoji, fontSize = 22.sp)
+                    }
+                }
+            }
         }
     }
 }

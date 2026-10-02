@@ -29,6 +29,7 @@ import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.HelpOutline
 import androidx.compose.material.icons.filled.Info
@@ -75,6 +76,29 @@ import app.gagachat.core.ui.theme.GagaDimens
 import app.gagachat.core.ui.theme.GagaGreen
 import app.gagachat.core.ui.theme.GagaGreenContainer
 import app.gagachat.core.ui.util.TimeFormat
+import android.graphics.Bitmap
+import android.media.MediaMetadataRetriever
+import android.net.Uri
+import android.widget.MediaController
+import android.widget.VideoView
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import coil.compose.AsyncImage
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 /** Warm gold used for the avatar ring + PRO badge (reference 173846). */
 private val ProfileGold = Color(0xFFF5A623)
@@ -118,6 +142,24 @@ fun ProfileRoute(
         }
     }
 
+    LaunchedEffect(state.coverUploadError) {
+        state.coverUploadError?.let {
+            snackbarHostState.showSnackbar(it)
+            viewModel.consumeCoverError()
+        }
+    }
+
+    // Real cover pickers: the photo chip opens the image-only system picker and
+    // the video chip the video-only one. Both hand the Uri to the ViewModel, which
+    // uploads to Storage and persists `users.cover_image`.
+    val coverPhotoPicker = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia(),
+    ) { uri -> uri?.let(viewModel::onCoverPhotoPicked) }
+    val coverVideoPicker = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia(),
+    ) { uri -> uri?.let(viewModel::onCoverVideoPicked) }
+    var coverViewerUrl by remember { mutableStateOf<String?>(null) }
+
     GagaScaffold(
         title = if (state.isSelf) "My Profile" else "Profile",
         onBack = onNavigateBack,
@@ -148,6 +190,19 @@ fun ProfileRoute(
             ProfileHeader(
                 user = user,
                 isSelf = state.isSelf,
+                isUploadingCover = state.isUploadingCover,
+                coverUploadProgress = state.coverUploadProgress,
+                onPickCoverPhoto = {
+                    coverPhotoPicker.launch(
+                        PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly),
+                    )
+                },
+                onPickCoverVideo = {
+                    coverVideoPicker.launch(
+                        PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.VideoOnly),
+                    )
+                },
+                onOpenCover = { url -> coverViewerUrl = url },
                 onEditPhoto = onEditProfile,
             )
 
@@ -335,6 +390,11 @@ fun ProfileRoute(
             }
             Spacer(Modifier.height(GagaDimens.space48))
         }
+
+        // Full-screen cover-video playback (opened by tapping the cover video).
+        coverViewerUrl?.let { url ->
+            CoverVideoDialog(url = url, onDismiss = { coverViewerUrl = null })
+        }
     }
 }
 
@@ -343,18 +403,46 @@ fun ProfileRoute(
 private fun ProfileHeader(
     user: User?,
     isSelf: Boolean,
+    isUploadingCover: Boolean,
+    coverUploadProgress: Int,
+    onPickCoverPhoto: () -> Unit,
+    onPickCoverVideo: () -> Unit,
+    onOpenCover: (String) -> Unit,
     onEditPhoto: () -> Unit,
 ) {
     Box(modifier = Modifier.fillMaxWidth()) {
-        // Mint cover banner (falls back to the brand mint; a custom cover image
-        // is layered on top when the user has set one).
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(150.dp)
-                .background(GagaGreenContainer),
+        // Cover banner: renders the user's cover media (photo or video) when set,
+        // otherwise the brand mint fallback.
+        CoverBanner(
+            coverImage = user?.coverImage,
+            onOpenVideo = onOpenCover,
         )
-        if (isSelf) {
+
+        if (isUploadingCover) {
+            // Upload progress overlay so a slow cover upload is never ambiguous.
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(150.dp)
+                    .background(Color.Black.copy(alpha = 0.45f)),
+                contentAlignment = Alignment.Center,
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    CircularProgressIndicator(
+                        color = Color.White,
+                        progress = { coverUploadProgress / 100f },
+                    )
+                    Spacer(Modifier.height(GagaDimens.space8))
+                    Text(
+                        text = "Uploading $coverUploadProgress%",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = Color.White,
+                    )
+                }
+            }
+        }
+
+        if (isSelf && !isUploadingCover) {
             Row(
                 modifier = Modifier
                     .align(Alignment.TopEnd)
@@ -362,8 +450,8 @@ private fun ProfileHeader(
                 horizontalArrangement = Arrangement.spacedBy(GagaDimens.space8),
             ) {
                 // Reference 173846 shows two upload chips on the cover.
-                CoverChip("Photo", onClick = onEditPhoto)
-                CoverChip("Video", onClick = onEditPhoto)
+                CoverChip("Photo", onClick = onPickCoverPhoto)
+                CoverChip("Video", onClick = onPickCoverVideo)
             }
         }
 
@@ -586,6 +674,133 @@ private fun CoverChip(label: String, onClick: () -> Unit) {
     }
 }
 
+/** True when a cover URL points at a video object (by file extension). */
+private fun looksLikeVideo(url: String): Boolean {
+    val path = url.substringBefore('?').lowercase()
+    return path.endsWith(".mp4") || path.endsWith(".mov") || path.endsWith(".m4v") ||
+        path.endsWith(".webm") || path.endsWith(".3gp") || path.endsWith(".mkv")
+}
+
+/**
+ * Renders the profile cover: a photo via Coil, a video as an extracted first
+ * frame with a play affordance, or the brand mint fallback when nothing is set.
+ */
+@Composable
+private fun CoverBanner(coverImage: String?, onOpenVideo: (String) -> Unit) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(150.dp)
+            .background(GagaGreenContainer),
+    ) {
+        if (coverImage.isNullOrBlank()) return@Box
+        if (looksLikeVideo(coverImage)) {
+            CoverVideoThumbnail(url = coverImage, onClick = { onOpenVideo(coverImage) })
+        } else {
+            AsyncImage(
+                model = coverImage,
+                contentDescription = "Profile cover",
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
+    }
+}
+
+/** Extracts the first video frame and overlays a play button. */
+@Composable
+private fun CoverVideoThumbnail(url: String, onClick: () -> Unit) {
+    val context = LocalContext.current
+    val frame by produceState<Bitmap?>(initialValue = null, url) {
+        value = withContext(Dispatchers.IO) {
+            runCatching {
+                val retriever = MediaMetadataRetriever()
+                try {
+                    if (url.startsWith("http")) {
+                        retriever.setDataSource(url, HashMap())
+                    } else {
+                        retriever.setDataSource(context, Uri.parse(url))
+                    }
+                    retriever.getFrameAtTime(0, MediaMetadataRetriever.OPTION_CLOSEST_SYNC)
+                } finally {
+                    retriever.release()
+                }
+            }.getOrNull()
+        }
+    }
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black.copy(alpha = 0.2f))
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        frame?.let {
+            Image(
+                bitmap = it.asImageBitmap(),
+                contentDescription = "Profile cover video",
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
+        Box(
+            modifier = Modifier
+                .size(48.dp)
+                .clip(CircleShape)
+                .background(Color.Black.copy(alpha = 0.45f)),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                Icons.Filled.PlayArrow,
+                contentDescription = "Play cover video",
+                tint = Color.White,
+                modifier = Modifier.size(28.dp),
+            )
+        }
+    }
+}
+
+/** Full-screen cover-video player (platform VideoView with media controls). */
+@Composable
+private fun CoverVideoDialog(url: String, onDismiss: () -> Unit) {
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false),
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black),
+            contentAlignment = Alignment.Center,
+        ) {
+            AndroidView(
+                modifier = Modifier.fillMaxSize(),
+                factory = { context ->
+                    VideoView(context).apply {
+                        setMediaController(MediaController(context).also { it.setAnchorView(this) })
+                        if (url.startsWith("content://") || url.startsWith("http")) {
+                            setVideoURI(Uri.parse(url))
+                        } else {
+                            setVideoPath(url)
+                        }
+                        setOnPreparedListener { it.isLooping = true }
+                        setOnErrorListener { _, _, _ -> true }
+                        start()
+                    }
+                },
+            )
+            IconButton(
+                onClick = onDismiss,
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(GagaDimens.space12),
+            ) {
+                Icon(Icons.Filled.Close, contentDescription = "Close", tint = Color.White)
+            }
+        }
+    }
+}
+
 @Composable
 private fun ProBadge() {
     Row(
@@ -691,20 +906,5 @@ private fun ChevronRight() {
         contentDescription = null,
         tint = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.size(GagaDimens.iconMedium),
-    )
-}
-
-/** Small "Coming Soon" pill used for not-yet-available features. */
-@Composable
-private fun ComingSoonBadge() {
-    Text(
-        text = "Coming Soon",
-        style = MaterialTheme.typography.labelSmall,
-        color = GagaGreen,
-        fontWeight = FontWeight.SemiBold,
-        modifier = Modifier
-            .clip(RoundedCornerShape(50))
-            .background(GagaGreenContainer)
-            .padding(horizontal = GagaDimens.space8, vertical = GagaDimens.space2),
     )
 }

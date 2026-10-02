@@ -4,9 +4,13 @@ import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Chat
+import androidx.compose.material.icons.automirrored.outlined.Chat
 import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.outlined.Call
+import androidx.compose.material.icons.outlined.People
+import androidx.compose.material.icons.outlined.Person
 import androidx.compose.foundation.layout.Column
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
@@ -68,12 +72,19 @@ private enum class TopLevelDestination(
     val route: String,
     val routePattern: String,
     val label: String,
-    val icon: ImageVector,
+    val selectedIcon: ImageVector,
+    val unselectedIcon: ImageVector,
 ) {
-    CHAT(HomeRoutes.HOME, HomeRoutes.HOME, "Chats", Icons.AutoMirrored.Filled.Chat),
-    PEOPLE(PeopleRoutes.PEOPLE, PeopleRoutes.PEOPLE, "People", Icons.Filled.People),
-    CALLS(CallRoutes.CALL_HISTORY, CallRoutes.CALL_HISTORY, "Calls", Icons.Filled.Call),
-    PROFILE(ProfileRoutes.profile(), ProfileRoutes.PROFILE, "Profile", Icons.Filled.Person),
+    CHAT(
+        HomeRoutes.HOME,
+        HomeRoutes.HOME,
+        "Chats",
+        Icons.AutoMirrored.Filled.Chat,
+        Icons.AutoMirrored.Outlined.Chat,
+    ),
+    PEOPLE(PeopleRoutes.PEOPLE, PeopleRoutes.PEOPLE, "People", Icons.Filled.People, Icons.Outlined.People),
+    CALLS(CallRoutes.CALL_HISTORY, CallRoutes.CALL_HISTORY, "Calls", Icons.Filled.Call, Icons.Outlined.Call),
+    PROFILE(ProfileRoutes.profile(), ProfileRoutes.PROFILE, "Profile", Icons.Filled.Person, Icons.Outlined.Person),
 }
 
 /** Routes that keep the bottom bar visible (top-level tabs + the More menu). */
@@ -94,6 +105,8 @@ fun MainNavHost(pendingDeepLink: String?) {
     val showBottomBar = currentRoute in bottomBarRoutes
     val viewModel: MainNavViewModel = hiltViewModel()
     val totalUnread by viewModel.totalUnread.collectAsStateWithLifecycle()
+    val pendingRequests by viewModel.pendingRequests.collectAsStateWithLifecycle()
+    val missedCalls by viewModel.missedCalls.collectAsStateWithLifecycle()
 
     LaunchedEffect(pendingDeepLink) {
         if (!pendingDeepLink.isNullOrBlank()) {
@@ -109,6 +122,8 @@ fun MainNavHost(pendingDeepLink: String?) {
                     navController = navController,
                     currentRoute = currentRoute,
                     chatBadgeCount = totalUnread,
+                    peopleBadgeCount = pendingRequests,
+                    callsBadgeCount = missedCalls,
                 )
             }
         },
@@ -242,14 +257,18 @@ fun MainNavHost(pendingDeepLink: String?) {
 
 /**
  * The app-wide bottom navigation. A hairline divider separates it from content,
- * the selected tab gets a soft green pill indicator with a bold label, and the
- * Chats tab carries a live unread badge so the user never misses a message.
+ * the selected tab gets a soft green pill indicator with a bold label, and each
+ * tab can carry its own live badge (unread chats / pending requests / missed
+ * calls) so the user never misses a signal. Selected tabs use the filled icon
+ * and unselected tabs the outlined variant, per the Material 3 spec.
  */
 @Composable
 private fun GagaBottomBar(
     navController: NavHostController,
     currentRoute: String?,
     chatBadgeCount: Int,
+    peopleBadgeCount: Int,
+    callsBadgeCount: Int,
 ) {
     Column {
         HorizontalDivider(
@@ -276,21 +295,28 @@ private fun GagaBottomBar(
                         }
                     },
                     icon = {
-                        if (destination == TopLevelDestination.CHAT && chatBadgeCount > 0) {
+                        val badgeCount = when (destination) {
+                            TopLevelDestination.CHAT -> chatBadgeCount
+                            TopLevelDestination.PEOPLE -> peopleBadgeCount
+                            TopLevelDestination.CALLS -> callsBadgeCount
+                            TopLevelDestination.PROFILE -> 0
+                        }
+                        val icon = if (selected) destination.selectedIcon else destination.unselectedIcon
+                        if (badgeCount > 0) {
                             BadgedBox(
                                 badge = {
                                     Badge(
                                         containerColor = MaterialTheme.colorScheme.primary,
                                         contentColor = MaterialTheme.colorScheme.onPrimary,
                                     ) {
-                                        Text(if (chatBadgeCount > 99) "99+" else "$chatBadgeCount")
+                                        Text(if (badgeCount > 99) "99+" else "$badgeCount")
                                     }
                                 },
                             ) {
-                                Icon(destination.icon, contentDescription = destination.label)
+                                Icon(icon, contentDescription = destination.label)
                             }
                         } else {
-                            Icon(destination.icon, contentDescription = destination.label)
+                            Icon(icon, contentDescription = destination.label)
                         }
                     },
                     label = {

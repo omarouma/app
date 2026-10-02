@@ -355,7 +355,6 @@ fun ChatRoute(
                         ))
                     },
                     onSendPoll = { viewModel.showNotice("Polls") },
-                    onEmojiClick = { viewModel.showNotice("Emoji picker") },
                     onScheduleClick = { viewModel.showNotice("Scheduled messages") },
                     isRecording = state.isRecording,
                     recordingElapsedMs = state.recordingElapsedMs,

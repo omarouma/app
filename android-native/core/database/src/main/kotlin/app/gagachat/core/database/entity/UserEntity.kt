@@ -16,9 +16,15 @@ data class UserEntity(
     val displayName: String,
     val username: String?,
     val avatar: String?,
+    /** Profile cover media URL (photo or video) shown behind the avatar. */
+    val coverImage: String? = null,
     val phone: String?,
     val email: String?,
     val bio: String?,
+    /** Free-text "about" line shown under the display name. */
+    val statusMessage: String? = null,
+    /** Optional personal website / link shown on the profile. */
+    val website: String? = null,
     val status: String,
     val lastSeen: Long?,
     val createdAt: Long,
