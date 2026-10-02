@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  F11/F12: paths the app may hand out as content:// URIs via FileProvider.
+  Only app-private cache subdirectories are exposed, never the whole filesystem.
+-->
+<paths>
+    <!-- Full-resolution camera captures (F11). -->
+    <cache-path
+        name="chat_camera"
+        path="chat_camera/" />
+    <!-- Documents downloaded for external viewing (F12). -->
+    <cache-path
+        name="documents"
+        path="documents/" />
+</paths>

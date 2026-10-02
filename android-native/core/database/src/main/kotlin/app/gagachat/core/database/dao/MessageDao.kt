@@ -95,6 +95,20 @@ interface MessageDao {
     )
     suspend fun updateMedia(localId: String, url: String, thumbnail: String?)
 
+    /**
+     * F13: stores the full ordered set of media URLs for an album message. The
+     * first URL is also mirrored into [mediaUrl] so single-image consumers keep
+     * working, while [urls] (a JSON array) preserves the user's chosen order.
+     */
+    @Query(
+        """
+        UPDATE messages
+        SET mediaUrl = :url, mediaUrls = :urls, uploadProgress = 100
+        WHERE localId = :localId
+        """,
+    )
+    suspend fun updateMediaAlbum(localId: String, url: String, urls: String?)
+
     @Query("UPDATE messages SET text = :text, editedAt = :editedAt WHERE localId = :localId")
     suspend fun updateText(localId: String, text: String, editedAt: Long)
 

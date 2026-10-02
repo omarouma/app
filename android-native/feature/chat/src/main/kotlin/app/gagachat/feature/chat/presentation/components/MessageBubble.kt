@@ -292,7 +292,8 @@ private fun MessageContent(
 
 @Composable
 private fun MediaImage(message: Message, contentColor: Color, onClick: () -> Unit) {
-    val model = message.localMediaPath ?: message.mediaUrl
+    val signed = rememberSignedMediaUrl(message.mediaUrl)
+    val model = message.localMediaPath ?: signed
     Box(
         modifier = Modifier
             .size(width = 220.dp, height = 160.dp)
@@ -369,7 +370,8 @@ private fun UploadStatusOverlay(message: Message) {
 @Composable
 private fun MultiImageGrid(message: Message, onClick: () -> Unit) {
     val urls = message.allMediaUrls
-    val shown = urls.take(4)
+    val signedUrls = rememberSignedMediaUrls(urls)
+    val shown = signedUrls.take(4)
     Column(
         modifier = Modifier
             .width(220.dp)
@@ -377,10 +379,10 @@ private fun MultiImageGrid(message: Message, onClick: () -> Unit) {
             .clickable(onClick = onClick),
         verticalArrangement = Arrangement.spacedBy(2.dp),
     ) {
-        shown.chunked(2).forEach { rowItems ->
+        shown.chunked(2).forEachIndexed { rowIndex, rowItems ->
             Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-                rowItems.forEachIndexed { idx, url ->
-                    val globalIndex = shown.indexOf(url)
+                rowItems.forEachIndexed { colIndex, url ->
+                    val globalIndex = rowIndex * 2 + colIndex
                     Box(
                         modifier = Modifier
                             .size(width = 109.dp, height = 109.dp)
@@ -421,6 +423,7 @@ private fun MultiImageGrid(message: Message, onClick: () -> Unit) {
 
 @Composable
 private fun MediaVideo(message: Message, contentColor: Color, onClick: () -> Unit) {
+    val signedThumb = rememberSignedMediaUrl(message.thumbnailUrl)
     Box(
         modifier = Modifier
             .size(width = 220.dp, height = 160.dp)
@@ -429,7 +432,7 @@ private fun MediaVideo(message: Message, contentColor: Color, onClick: () -> Uni
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
-        val thumb = message.thumbnailUrl ?: message.localMediaPath
+        val thumb = signedThumb ?: message.localMediaPath
         if (thumb != null) {
             AsyncImage(
                 model = thumb,
@@ -458,7 +461,8 @@ private fun MediaVideo(message: Message, contentColor: Color, onClick: () -> Uni
 @Composable
 private fun AudioContent(message: Message, contentColor: Color) {
     val player = rememberVoicePlayer()
-    val source = message.mediaUrl ?: message.localMediaPath
+    val signed = rememberSignedMediaUrl(message.mediaUrl)
+    val source = signed ?: message.localMediaPath
     val playable = !source.isNullOrBlank()
     Row(
         verticalAlignment = Alignment.CenterVertically,

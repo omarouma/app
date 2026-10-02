@@ -70,7 +70,7 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
 
-            <!-- Deep links (PDF §8): gagachat://chat/<id>, https://oumagachat.web.app/chat/<id> -->
+            <!-- Deep links (PDF §8): gagachat://chat/<id>, https://gagachat.app/chat/<id> -->
             <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
@@ -83,7 +83,7 @@
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="https" android:host="oumagachat.web.app" />
+                <data android:scheme="https" android:host="gagachat.app" />
             </intent-filter>
         </activity>
 
@@ -118,6 +118,19 @@
             <meta-data
                 android:name="app.gagachat.diagnostics.CrashReportingInitializer"
                 android:value="androidx.startup" />
+        </provider>
+
+        <!-- F11/F12: exposes cached camera captures and downloaded documents to
+             external viewer/camera apps through a content:// URI, so no broad
+             storage permission is ever required. -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
         </provider>
     </application>
 </manifest>

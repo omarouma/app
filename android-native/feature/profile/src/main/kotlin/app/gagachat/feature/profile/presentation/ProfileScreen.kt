@@ -174,7 +174,7 @@ fun ProfileRoute(
                 if (state.isSelf) {
                     GagaSecondaryButton(
                         text = "Share",
-                        onClick = { onShare("https://oumagachat.web.app/u/${user?.username ?: user?.id.orEmpty()}") },
+                        onClick = { onShare("https://gagachat.app/u/${user?.username ?: user?.id.orEmpty()}") },
                         leadingIcon = Icons.Filled.Share,
                         modifier = Modifier.weight(1f),
                     )

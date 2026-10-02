@@ -1,0 +1,33 @@
+{
+  "hosting": {
+    "public": "public",
+    "ignore": [
+      "firebase.json",
+      "**/node_modules/**"
+    ],
+    "cleanUrls": true,
+    "headers": [
+      {
+        "source": "/.well-known/assetlinks.json",
+        "headers": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Cache-Control", "value": "public, max-age=3600" }
+        ]
+      },
+      {
+        "source": "**/*.@(png|jpg|jpeg|svg|webp|ico|css|js)",
+        "headers": [
+          { "key": "Cache-Control", "value": "public, max-age=604800" }
+        ]
+      }
+    ],
+    "rewrites": [
+      { "source": "/chat/**", "destination": "/open.html" },
+      { "source": "/call/**", "destination": "/open.html" },
+      { "source": "/u/**", "destination": "/open.html" },
+      { "source": "/profile/**", "destination": "/open.html" },
+      { "source": "/app", "destination": "/open.html" },
+      { "source": "/download", "destination": "/open.html" }
+    ]
+  }
+}

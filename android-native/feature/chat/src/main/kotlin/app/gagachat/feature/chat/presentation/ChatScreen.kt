@@ -2,6 +2,7 @@ package app.gagachat.feature.chat.presentation
 
 import android.Manifest
 import android.content.pm.PackageManager
+import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
@@ -89,11 +90,16 @@ import app.gagachat.core.ui.component.GagaOfflineBanner
 import app.gagachat.core.ui.component.GagaScaffold
 import app.gagachat.core.ui.theme.GagaDimens
 import app.gagachat.feature.chat.presentation.components.DateSeparator
+import app.gagachat.feature.chat.presentation.components.DocumentOpenOverlay
+import app.gagachat.feature.chat.presentation.components.ForwardPickerSheet
+import app.gagachat.feature.chat.presentation.components.LocationPreviewDialog
+import app.gagachat.feature.chat.presentation.components.MediaReviewSheet
 import app.gagachat.feature.chat.presentation.components.MediaViewerOverlay
 import app.gagachat.feature.chat.presentation.components.MessageBubble
 import app.gagachat.feature.chat.presentation.components.MessageComposer
 import app.gagachat.feature.chat.presentation.components.TypingIndicator
 import app.gagachat.feature.chat.presentation.components.rememberContactPicker
+import app.gagachat.feature.chat.presentation.components.rememberDocumentOpener
 import app.gagachat.feature.chat.presentation.components.rememberMediaPicker
 import kotlinx.coroutines.launch
 
@@ -110,12 +116,21 @@ fun ChatRoute(
     viewModel: ChatViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val pendingLocation by viewModel.pendingLocation.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
     val clipboard = LocalClipboardManager.current
+    // F10/F13: photos staged for the review/reorder/caption step before sending.
+    var reviewUris by remember { mutableStateOf<List<Uri>?>(null) }
     val mediaPicker = rememberMediaPicker(
-        onImagesPicked = { uris -> uris.forEach { viewModel.sendMedia(it, "image") } },
+        onImagesPicked = { uris ->
+            if (uris.size > 1) {
+                reviewUris = uris
+            } else {
+                uris.firstOrNull()?.let { viewModel.sendMedia(it, "image") }
+            }
+        },
         onVideoPicked = { viewModel.sendMedia(it, "video") },
         onFilePicked = { viewModel.sendMedia(it, "file") },
         onAudioPicked = { viewModel.sendMedia(it, "audio") },
@@ -125,7 +140,9 @@ fun ChatRoute(
         onContactPicked = { viewModel.shareContact(it.name, it.phone) },
     )
     val context = LocalContext.current
+    val documentOpener = rememberDocumentOpener()
     var viewerMessage by remember { mutableStateOf<Message?>(null) }
+    var forwardingMessage by remember { mutableStateOf<Message?>(null) }
     var showBackgroundPicker by remember { mutableStateOf(false) }
     // Requests RECORD_AUDIO the first time the mic is tapped, then starts the
     // recording. If the user denies, the ViewModel surfaces an actionable notice.
@@ -265,7 +282,15 @@ fun ChatRoute(
                             listState = listState,
                             onRetry = viewModel::retry,
                             onLongPress = viewModel::selectMessage,
-                            onMediaClick = { viewerMessage = it },
+                            onMediaClick = { msg ->
+                                // F12: documents open in an external viewer; only
+                                // photos/videos use the in-app full-screen viewer.
+                                if (msg.type == MessageType.FILE) {
+                                    documentOpener.open(msg)
+                                } else {
+                                    viewerMessage = msg
+                                }
+                            },
                             onReactionClick = { m, e -> viewModel.toggleReaction(m, e) },
                             onReplyClick = { target ->
                                 val idx = visible.indexOfFirst {
@@ -344,6 +369,42 @@ fun ChatRoute(
             MediaViewerOverlay(message = message, onDismiss = { viewerMessage = null })
         }
 
+        DocumentOpenOverlay(state = documentOpener.state, onDismiss = documentOpener::dismiss)
+
+        pendingLocation?.let { preview ->
+            LocationPreviewDialog(
+                preview = preview,
+                onConfirm = viewModel::confirmShareLocation,
+                onDismiss = viewModel::dismissLocationPreview,
+            )
+        }
+
+        reviewUris?.let { uris ->
+            MediaReviewSheet(
+                uris = uris,
+                onDismiss = { reviewUris = null },
+                onSend = { ordered, caption ->
+                    viewModel.sendImageAlbum(ordered, caption)
+                    reviewUris = null
+                },
+            )
+        }
+
+        forwardingMessage?.let { message ->
+            ForwardPickerSheet(
+                message = message,
+                onDismiss = { forwardingMessage = null },
+                onForwarded = { conversation ->
+                    forwardingMessage = null
+                    scope.launch {
+                        snackbarHostState.showSnackbar(
+                            "Forwarded to ${conversation.displayTitle(state.currentUserId)}",
+                        )
+                    }
+                },
+            )
+        }
+
         state.selectedMessage?.let { selected ->
             MessageActionSheet(
                 message = selected,
@@ -362,7 +423,9 @@ fun ChatRoute(
                     viewModel.selectMessage(null)
                 },
                 onForward = {
-                    viewModel.forwardMessage(selected)
+                    // F14: open a recipient picker instead of re-sending into the
+                    // current conversation.
+                    forwardingMessage = selected
                     viewModel.selectMessage(null)
                 },
                 onCopy = {

@@ -3,7 +3,9 @@ package app.gagachat.feature.chat.presentation
 import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
+import android.location.Location
 import android.location.LocationManager
+import android.os.Build
 import android.media.MediaMetadataRetriever
 import android.graphics.BitmapFactory
 import android.net.Uri
@@ -13,6 +15,7 @@ import androidx.lifecycle.viewModelScope
 import app.gagachat.core.common.Constants
 import app.gagachat.core.common.network.NetworkMonitor
 import app.gagachat.core.common.result.AppResult
+import app.gagachat.core.data.repository.AlbumUploadItem
 import app.gagachat.core.data.repository.AuthRepository
 import app.gagachat.core.data.repository.BlockRepository
 import app.gagachat.core.data.repository.ConversationRepository
@@ -37,6 +40,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -47,7 +51,11 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withTimeoutOrNull
+import java.util.function.Consumer
 import javax.inject.Inject
+import kotlin.coroutines.resume
 
 /**
  * Complete UI state for the Chat Room. Everything the screen renders flows from
@@ -85,17 +93,26 @@ data class ChatUiState(
     val myLastReadMessageId: String? = null,
     /** User-selected chat wallpaper behind the message list. */
     val chatBackground: ChatBackground = ChatBackground.DEFAULT,
+    /** F22: server-side search hits across the full history. */
+    val searchResults: List<Message> = emptyList(),
 ) {
     val isEditing: Boolean get() = editingMessage != null
 
     /** True when at least one outgoing message is still queued for delivery. */
     val hasQueued: Boolean get() = messages.any { it.status == MessageStatus.PENDING }
 
-    /** Messages matching the active in-chat search query (empty query = all). */
+    /**
+     * Messages matching the active in-chat search query (empty query = all).
+     * F22: merges the locally-cached matches with server-side hits so results
+     * cover the whole history, not just the pages already loaded.
+     */
     val visibleMessages: List<Message>
         get() = if (isSearching && searchQuery.isNotBlank()) {
             val q = searchQuery.trim()
-            messages.filter { it.text?.contains(q, ignoreCase = true) == true }
+            val local = messages.filter { it.text?.contains(q, ignoreCase = true) == true }
+            (local + searchResults)
+                .distinctBy { it.localId }
+                .sortedBy { it.sortTimestamp }
         } else {
             messages
         }
@@ -105,6 +122,19 @@ data class ChatUiState(
 data class RecordingState(
     val isActive: Boolean = false,
     val elapsedMs: Long = 0L,
+)
+
+/**
+ * F21: a located fix waiting for the user to confirm before it is shared. The
+ * age and accuracy are surfaced in the confirmation sheet so the user knows how
+ * fresh/reliable the pin is (a stale or very coarse fix is a privacy risk).
+ */
+data class LocationPreview(
+    val latitude: Double,
+    val longitude: Double,
+    val accuracyMeters: Float?,
+    val ageMillis: Long,
+    val provider: String?,
 )
 
 /** Bundled composer-side state (reply target, edit target, selection, typing, notices, recording). */
@@ -124,6 +154,7 @@ private data class ChatFlags(
     val error: String?,
     val searchQuery: String,
     val isSearching: Boolean,
+    val searchResults: List<Message> = emptyList(),
 )
 
 @HiltViewModel
@@ -161,6 +192,13 @@ class ChatViewModel @Inject constructor(
     private val recording = MutableStateFlow(RecordingState())
     private val isSearching = MutableStateFlow(false)
     private val searchQuery = MutableStateFlow("")
+    // F22: server-backed search hits (full history), merged with local matches.
+    private val searchResults = MutableStateFlow<List<Message>>(emptyList())
+    private var searchJob: Job? = null
+
+    // F21: a fix captured by [shareLocation] that is awaiting user confirmation.
+    private val _pendingLocation = MutableStateFlow<LocationPreview?>(null)
+    val pendingLocation: StateFlow<LocationPreview?> = _pendingLocation.asStateFlow()
 
     private val voiceRecorder = VoiceRecorder(context)
     private var recordingTicker: Job? = null
@@ -191,9 +229,12 @@ class ChatViewModel @Inject constructor(
         conversationRepository.observeConversation(conversationId),
         otherUserFlow,
         combine(
-            combine(loadingOlder, hasMoreOlder, error, searchQuery, isSearching) { l, h, e, q, s ->
-                ChatFlags(isLoadingOlder = l, hasMoreOlder = h, error = e, searchQuery = q, isSearching = s)
-            },
+            combine(
+                combine(loadingOlder, hasMoreOlder, error, searchQuery, isSearching) { l, h, e, q, s ->
+                    ChatFlags(isLoadingOlder = l, hasMoreOlder = h, error = e, searchQuery = q, isSearching = s)
+                },
+                searchResults,
+            ) { flags, results -> flags.copy(searchResults = results) },
             settingsPreferences.chatBackground,
         ) { flags, background -> flags to background },
         combine(
@@ -231,6 +272,7 @@ class ChatViewModel @Inject constructor(
             recordingElapsedMs = composer.recording.elapsedMs,
             isSearching = flags.isSearching,
             searchQuery = flags.searchQuery,
+            searchResults = flags.searchResults,
             isOnline = online,
             myLastReadMessageId = conversation?.members
                 ?.firstOrNull { it.userId == currentUserId }
@@ -377,6 +419,39 @@ class ChatViewModel @Inject constructor(
                 size = resolved.third,
                 type = type,
                 durationMs = durationMs,
+            )
+            if (result is AppResult.Failure) error.value = result.error.toUserMessage()
+        }
+    }
+
+    /**
+     * F13: sends the reviewed photo selection as a single ordered album message.
+     * Each photo is resolved and (if very large) compressed exactly like a single
+     * image send, then queued together so the recipient sees one album bubble.
+     */
+    fun sendImageAlbum(uris: List<Uri>, caption: String?) {
+        if (uris.isEmpty()) return
+        viewModelScope.launch {
+            val session = authRepository.sessionFlow.value
+            val resolved = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                uris.mapNotNull { uri ->
+                    val base = resolveUri(uri) ?: return@mapNotNull null
+                    if (base.third > 25L * 1024 * 1024) return@mapNotNull null
+                    compressLargeImage(base)
+                }
+            }
+            if (resolved.isEmpty()) {
+                error.value = "Couldn't read the selected photos."
+                return@launch
+            }
+            val items = resolved.map { AlbumUploadItem(it.first, it.second, it.third) }
+            val result = mediaRepository.enqueueAlbumUpload(
+                conversationId = conversationId,
+                senderId = currentUserId,
+                senderName = session?.displayName,
+                senderAvatar = null,
+                items = items,
+                caption = caption,
             )
             if (result is AppResult.Failure) error.value = result.error.toUserMessage()
         }
@@ -597,9 +672,10 @@ class ChatViewModel @Inject constructor(
     }
 
     /**
-     * Shares the device's last known location as a LOCATION message. Reads the
-     * cached fix from the platform [LocationManager]; if permission is missing or
-     * no fix is cached a notice is surfaced instead of failing silently.
+     * F21: captures the device's current (or most recent) location and stages it
+     * for confirmation. The user sees a preview with the fix's age and accuracy
+     * and must tap "Send" before anything leaves the device — a stale or very
+     * coarse fix is a privacy risk, so we never send silently.
      */
     fun shareLocation() {
         viewModelScope.launch {
@@ -609,36 +685,111 @@ class ChatViewModel @Inject constructor(
                 notice.value = "Enable location permission to share your location."
                 return@launch
             }
-            val manager = context.getSystemService(Context.LOCATION_SERVICE) as? LocationManager
-            val location = runCatching {
-                manager?.getLastKnownLocation(LocationManager.GPS_PROVIDER)
-                    ?: manager?.getLastKnownLocation(LocationManager.NETWORK_PROVIDER)
-            }.getOrNull()
+            val location = acquireLocation()
             if (location == null) {
                 notice.value = "Couldn't get your current location yet."
                 return@launch
             }
+            _pendingLocation.value = LocationPreview(
+                latitude = location.latitude,
+                longitude = location.longitude,
+                accuracyMeters = if (location.hasAccuracy()) location.accuracy else null,
+                ageMillis = (System.currentTimeMillis() - location.time).coerceAtLeast(0L),
+                provider = location.provider,
+            )
+        }
+    }
+
+    /** F21: user confirmed the staged fix — send it as a LOCATION message. */
+    fun confirmShareLocation() {
+        val preview = _pendingLocation.value ?: return
+        _pendingLocation.value = null
+        viewModelScope.launch {
             val session = authRepository.sessionFlow.value
             val result = messageRepository.sendLocation(
                 conversationId = conversationId,
                 senderId = currentUserId,
                 senderName = session?.displayName,
                 senderAvatar = null,
-                latitude = location.latitude,
-                longitude = location.longitude,
+                latitude = preview.latitude,
+                longitude = preview.longitude,
             )
             if (result is AppResult.Failure) error.value = result.error.toUserMessage()
         }
     }
 
+    /** F21: user dismissed the confirmation sheet without sharing. */
+    fun dismissLocationPreview() {
+        _pendingLocation.value = null
+    }
+
+    /**
+     * Returns a location fix, preferring a fresh one. On API 30+ we ask the
+     * platform for a single current fix (short timeout); if that fails or is
+     * unavailable we fall back to the most recent cached fix across providers.
+     */
+    private suspend fun acquireLocation(): Location? {
+        val manager = context.getSystemService(Context.LOCATION_SERVICE) as? LocationManager
+            ?: return null
+        val providers = listOf(LocationManager.GPS_PROVIDER, LocationManager.NETWORK_PROVIDER)
+            .filter { runCatching { manager.isProviderEnabled(it) }.getOrDefault(false) }
+            .ifEmpty { listOf(LocationManager.NETWORK_PROVIDER, LocationManager.GPS_PROVIDER) }
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            val fresh = withTimeoutOrNull(8_000) {
+                suspendCancellableCoroutine { cont ->
+                    val consumer = Consumer<Location> { loc -> if (cont.isActive) cont.resume(loc) }
+                    try {
+                        manager.getCurrentLocation(
+                            providers.first(),
+                            null,
+                            context.mainExecutor,
+                            consumer,
+                        )
+                    } catch (_: Throwable) {
+                        if (cont.isActive) cont.resume(null)
+                    }
+                }
+            }
+            if (fresh != null) return fresh
+        }
+
+        return providers
+            .mapNotNull { provider -> runCatching { manager.getLastKnownLocation(provider) }.getOrNull() }
+            .maxByOrNull { it.time }
+    }
+
     /** Toggles the in-chat message search bar. */
     fun toggleSearch() {
         isSearching.update { !it }
-        if (!isSearching.value) searchQuery.value = ""
+        if (!isSearching.value) {
+            searchQuery.value = ""
+            searchResults.value = emptyList()
+            searchJob?.cancel()
+        }
     }
 
+    /**
+     * F22: debounced server-side search. Local matches render instantly; the
+     * server query then backfills hits from the rest of the history.
+     */
     fun onSearchQueryChange(value: String) {
         searchQuery.value = value
+        searchJob?.cancel()
+        val q = value.trim()
+        if (q.isEmpty()) {
+            searchResults.value = emptyList()
+            return
+        }
+        searchJob = viewModelScope.launch {
+            delay(300)
+            when (val result = messageRepository.searchMessages(conversationId, q)) {
+                is AppResult.Success -> searchResults.value = result.data
+                // Search is best-effort: on failure the local matches still show.
+                is AppResult.Failure -> Unit
+                AppResult.Loading -> Unit
+            }
+        }
     }
 
     /** Records a report against the other participant for moderation review. */

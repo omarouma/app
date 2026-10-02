@@ -63,6 +63,12 @@ interface MessageRepository {
     suspend fun loadOlder(conversationId: String, beforeTimestamp: Long): AppResult<List<Message>>
     suspend fun syncNewMessages(conversationId: String): AppResult<Unit>
 
+    /**
+     * F22: searches the conversation's full history on the server. Results are
+     * cached locally so tapping one opens the surrounding thread.
+     */
+    suspend fun searchMessages(conversationId: String, query: String): AppResult<List<Message>>
+
     suspend fun sendText(
         conversationId: String,
         senderId: String,
@@ -190,6 +196,23 @@ class DefaultMessageRepository @Inject constructor(
             val rows = restApi.getMessages(conversationId, Constants.MESSAGE_PAGE_SIZE, beforeTimestamp)
             val messages = rows.map { it.toDomain() }
             messageDao.upsertAll(messages.map { it.toEntity() })
+            AppResult.Success(messages)
+        } catch (t: Throwable) {
+            if (t is CancellationException) throw t
+            AppResult.Failure(ErrorMapper.map(t))
+        }
+    }
+
+    override suspend fun searchMessages(
+        conversationId: String,
+        query: String,
+    ): AppResult<List<Message>> = withContext(dispatchers.io) {
+        try {
+            val rows = restApi.searchMessages(conversationId, query)
+            val messages = rows.map { it.toDomain() }
+            if (messages.isNotEmpty()) {
+                messageDao.upsertAll(messages.map { it.toEntity() })
+            }
             AppResult.Success(messages)
         } catch (t: Throwable) {
             if (t is CancellationException) throw t

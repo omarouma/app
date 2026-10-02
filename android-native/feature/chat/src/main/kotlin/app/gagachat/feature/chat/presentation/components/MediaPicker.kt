@@ -1,12 +1,15 @@
 package app.gagachat.feature.chat.presentation.components
 
-import android.graphics.Bitmap
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
+import androidx.core.content.FileProvider
 import java.io.File
 
 /**
@@ -48,20 +51,16 @@ fun rememberMediaPicker(
         contract = ActivityResultContracts.OpenDocument(),
     ) { uri -> uri?.let(onAudioPicked) }
 
-    // TakePicturePreview avoids exposing a file URI and works on the broadest
-    // Android device range. The preview bitmap is persisted to app cache before
-    // entering the normal media-upload pipeline.
+    // F11: capture at the camera's full resolution via TakePicture + a
+    // FileProvider content:// URI. TakePicturePreview only returned a low-res
+    // thumbnail bitmap, so captured photos looked blurry. The file lands in the
+    // app-private cache and flows into the normal media-upload pipeline.
+    var pendingCameraUri by remember { mutableStateOf<Uri?>(null) }
     val cameraLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.TakePicturePreview(),
-    ) { bitmap: Bitmap? ->
-        if (bitmap != null) {
-            runCatching {
-                val dir = File(context.cacheDir, "chat_camera").apply { mkdirs() }
-                val file = File(dir, "gaga_${System.currentTimeMillis()}.jpg")
-                file.outputStream().use { bitmap.compress(Bitmap.CompressFormat.JPEG, 92, it) }
-                Uri.fromFile(file)
-            }.getOrNull()?.let(onCameraPhotoPicked)
-        }
+        contract = ActivityResultContracts.TakePicture(),
+    ) { success ->
+        val uri = pendingCameraUri
+        if (success && uri != null) onCameraPhotoPicked(uri)
     }
 
     return remember(imagesLauncher, videoLauncher, fileLauncher, audioLauncher, cameraLauncher) {
@@ -76,7 +75,20 @@ fun rememberMediaPicker(
                 "application/zip", "application/octet-stream",
             )) },
             pickAudio = { audioLauncher.launch(arrayOf("audio/*")) },
-            takePhoto = { cameraLauncher.launch(null) },
+            takePhoto = {
+                runCatching {
+                    val dir = File(context.cacheDir, "chat_camera").apply { mkdirs() }
+                    val file = File(dir, "gaga_${System.currentTimeMillis()}.jpg")
+                    FileProvider.getUriForFile(
+                        context,
+                        "${context.packageName}.fileprovider",
+                        file,
+                    )
+                }.getOrNull()?.let { uri ->
+                    pendingCameraUri = uri
+                    cameraLauncher.launch(uri)
+                }
+            },
         )
     }
 }

@@ -254,6 +254,34 @@ class SupabaseRestApi @Inject constructor(
             parameter("limit", limit)
         }.body()
 
+    /**
+     * F22: server-backed in-conversation text search. Uses PostgREST's `ilike`
+     * filter so matches are found across the *entire* history, not just the pages
+     * already cached on the device. Wildcards/specials are stripped from the
+     * query so user input can't break the filter expression.
+     */
+    suspend fun searchMessages(
+        conversationId: String,
+        query: String,
+        limit: Int = 50,
+    ): List<MessageRow> {
+        val safe = query
+            .replace(",", " ")
+            .replace("(", " ")
+            .replace(")", " ")
+            .replace("*", " ")
+            .trim()
+        if (safe.isEmpty()) return emptyList()
+        return client.get("${config.restUrl}/messages") {
+            auth()
+            parameter("select", "*")
+            parameter("chat_id", "eq.$conversationId")
+            parameter("text", "ilike.*$safe*")
+            parameter("order", "created_at.desc")
+            parameter("limit", limit)
+        }.body()
+    }
+
     suspend fun getMessageByLocalId(localId: String): MessageRow? =
         client.get("${config.restUrl}/messages") {
             auth()

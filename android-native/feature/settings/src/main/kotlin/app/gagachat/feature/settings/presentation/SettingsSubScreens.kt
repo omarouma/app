@@ -677,5 +677,5 @@ fun DeleteAccountSettingsScreen(
 }
 
 /** Hosted legal pages for GaGa Chat (same host used by the app's deep links). */
-private const val TERMS_URL = "https://oumagachat.web.app/terms"
-private const val PRIVACY_URL = "https://oumagachat.web.app/privacy"
+private const val TERMS_URL = "https://gagachat.app/terms"
+private const val PRIVACY_URL = "https://gagachat.app/privacy"

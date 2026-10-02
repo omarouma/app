@@ -13,7 +13,7 @@ import android.net.Uri
  *  - gagachat://requests                   → the People screen (friend requests)
  *  - gagachat://profile/<userId>           → a user profile
  *  - gagachat://security                   → Security settings
- *  - https://oumagachat.web.app/chat/<id>  → same as the gagachat scheme
+ *  - https://gagachat.app/chat/<id>        → same as the gagachat scheme
  *
  * The rule is that a tap never simply opens Home: it resolves to the exact
  * destination the notification is about.
@@ -21,7 +21,7 @@ import android.net.Uri
 object DeepLinkRouter {
 
     private const val SCHEME = "gagachat"
-    private const val WEB_HOST = "oumagachat.web.app"
+    private const val WEB_HOST = "gagachat.app"
 
     /** Parses an [Intent] and stores any resulting route as pending. */
     fun capture(intent: Intent?) {

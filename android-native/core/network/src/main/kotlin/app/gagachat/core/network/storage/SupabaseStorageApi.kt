@@ -3,6 +3,7 @@ package app.gagachat.core.network.storage
 import app.gagachat.core.network.config.SupabaseConfig
 import app.gagachat.core.network.session.SessionStore
 import io.ktor.client.HttpClient
+import io.ktor.client.call.body
 import io.ktor.client.plugins.onUpload
 import io.ktor.client.plugins.timeout
 import io.ktor.client.request.forms.InputProvider
@@ -15,6 +16,7 @@ import io.ktor.utils.io.streams.asInput
 import java.io.File
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlinx.serialization.Serializable
 
 /**
  * Supabase Storage uploads (PDF §6). Uploads are retry-safe: the caller supplies a
@@ -42,6 +44,9 @@ class SupabaseStorageApi @Inject constructor(
         const val UPLOAD_REQUEST_TIMEOUT_MS = 10 * 60 * 1000L // 10 minutes
         const val UPLOAD_SOCKET_TIMEOUT_MS = 60 * 1000L // 60 s idle
         const val UPLOAD_CONNECT_TIMEOUT_MS = 30 * 1000L
+
+        /** F18: lifetime of a minted media signed URL (1 hour). */
+        const val DEFAULT_SIGNED_URL_TTL_SECONDS = 60 * 60
     }
 
     suspend fun upload(
@@ -138,6 +143,30 @@ class SupabaseStorageApi @Inject constructor(
     fun publicUrlForBucket(bucket: String, objectPath: String): String =
         "${config.storageUrl}/object/public/$bucket/$objectPath"
 
+    /**
+     * F18: chat media lives in PRIVATE buckets (`chat-media`, `voice-messages`),
+     * so the `/object/public/...` URL written at upload time returns HTTP 400 and
+     * a recipient can never load the photo/video/voice note. This mints a
+     * short-lived signed URL that Coil / VideoView / MediaPlayer can fetch with
+     * no extra auth headers. The caller's JWT is required and the storage RLS
+     * policy (`gaga_objects_chat_read`) authorises the read.
+     *
+     * Returns the absolute URL (Supabase returns a relative `/object/sign/...`).
+     */
+    suspend fun createSignedUrl(
+        bucket: String,
+        objectPath: String,
+        expiresInSeconds: Int = DEFAULT_SIGNED_URL_TTL_SECONDS,
+    ): String {
+        val response: SignedUrlResponse = client.post("${config.storageUrl}/object/sign/$bucket/$objectPath") {
+            header("apikey", config.anonKey)
+            sessionStore.accessToken()?.let { header("Authorization", "Bearer $it") }
+            contentType(ContentType.Application.Json)
+            setBody(SignRequest(expiresInSeconds))
+        }.body()
+        return "${config.storageUrl}${response.signedURL}"
+    }
+
     /** Deterministic object path so retries overwrite rather than duplicate. */
     fun objectPath(userId: String, uploadId: String, extension: String): String =
         "$userId/$uploadId.$extension"
@@ -150,3 +179,11 @@ class SupabaseStorageApi @Inject constructor(
     fun avatarObjectPath(userId: String, extension: String): String =
         "$userId/avatar.$extension"
 }
+
+/** Request body for `POST /object/sign/{bucket}/{path}`. */
+@Serializable
+internal data class SignRequest(val expiresIn: Int)
+
+/** Response body: `{ "signedURL": "/object/sign/{bucket}/{path}?token=..." }`. */
+@Serializable
+internal data class SignedUrlResponse(val signedURL: String)

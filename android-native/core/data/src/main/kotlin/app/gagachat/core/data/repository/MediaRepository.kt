@@ -23,9 +23,25 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import java.io.File
 import javax.inject.Inject
 import javax.inject.Singleton
+
+private val mediaUrlsJson = Json { ignoreUnknownKeys = true }
+
+/** Serializes an ordered album's URLs to the JSON array stored in `mediaUrls`. */
+private fun encodeMediaUrls(urls: List<String>): String = mediaUrlsJson.encodeToString(urls)
+
+/**
+ * One item in an ordered multi-photo album (F13).
+ */
+data class AlbumUploadItem(
+    val localPath: String,
+    val mime: String,
+    val size: Long,
+)
 
 /**
  * Media upload pipeline (PDF §6): local preview → optional compression → upload
@@ -42,6 +58,20 @@ interface MediaRepository {
         size: Long,
         type: MessageType,
         durationMs: Long? = null,
+    ): AppResult<Message>
+
+    /**
+     * F13: queues an ordered album of photos as a *single* message. Each photo is
+     * uploaded in the user-chosen order and the resulting URLs are stored on the
+     * one message's `mediaUrls` list, so the recipient sees one album bubble.
+     */
+    suspend fun enqueueAlbumUpload(
+        conversationId: String,
+        senderId: String,
+        senderName: String?,
+        senderAvatar: String?,
+        items: List<AlbumUploadItem>,
+        caption: String?,
     ): AppResult<Message>
 
     /** Processes the durable upload queue; safe to call from a background worker. */
@@ -117,99 +147,167 @@ class DefaultMediaRepository @Inject constructor(
         AppResult.Success(message)
     }
 
+    override suspend fun enqueueAlbumUpload(
+        conversationId: String,
+        senderId: String,
+        senderName: String?,
+        senderAvatar: String?,
+        items: List<AlbumUploadItem>,
+        caption: String?,
+    ): AppResult<Message> = withContext(dispatchers.io) {
+        if (items.isEmpty()) {
+            return@withContext AppResult.Failure(AppError.Validation("No photos selected"))
+        }
+        if (items.any { it.size > app.gagachat.core.common.Constants.MAX_UPLOAD_BYTES }) {
+            return@withContext AppResult.Failure(AppError.Validation("File too large"))
+        }
+        val clientMessageId = idGenerator.newClientMessageId()
+        val now = timeProvider.nowMillis()
+        val message = Message(
+            localId = clientMessageId,
+            clientMessageId = clientMessageId,
+            conversationId = conversationId,
+            senderId = senderId,
+            type = MessageType.IMAGE,
+            text = caption?.trim()?.takeIf { it.isNotEmpty() },
+            createdAtClient = now,
+            status = MessageStatus.PENDING,
+            senderName = senderName,
+            senderAvatar = senderAvatar,
+            uploadProgress = 0,
+            localMediaPath = items.first().localPath,
+            mediaMime = items.first().mime,
+            mediaSize = items.sumOf { it.size },
+        )
+        messageDao.upsert(message.toEntity())
+
+        // One durable upload row per photo. Rows are inserted in the user's chosen
+        // order and drained by rowid, so the album preserves that order (F13).
+        items.forEach { item ->
+            val upload = PendingUpload(
+                uploadId = idGenerator.newUploadId(),
+                clientMessageId = clientMessageId,
+                conversationId = conversationId,
+                localPath = item.localPath,
+                mime = item.mime,
+                size = item.size,
+                type = MessageType.IMAGE,
+                state = UploadState.QUEUED,
+            )
+            uploadDao.upsert(upload.toEntity())
+        }
+        outboxScheduler.enqueueMediaUpload()
+        AppResult.Success(message)
+    }
+
     override suspend fun processQueue() = withContext(dispatchers.io) {
         val queued = uploadDao.getQueued()
-        for (upload in queued) {
-            val uploadedUrl = upload.remoteUrl
-            if (uploadedUrl != null) {
-                messageDao.updateMedia(upload.clientMessageId, uploadedUrl, upload.thumbnailUrl)
-                outboxScheduler.enqueueMessageSend(upload.clientMessageId)
-                uploadDao.delete(upload.uploadId)
+        // Group by target message, preserving rowid (insertion) order so album
+        // photos upload and are stored in the exact order the user chose (F13).
+        val groups = queued.groupBy { it.clientMessageId }
+
+        for ((clientMessageId, uploads) in groups) {
+            // The storage bucket's RLS policy scopes writes to the caller's own
+            // top-level folder (`<userId>/...`), so the path MUST be prefixed with
+            // the SENDER's user id -- not the conversation id.
+            val senderId = messageDao.getByClientMessageId(clientMessageId)?.senderId
+            if (senderId.isNullOrBlank()) {
+                uploads.forEach {
+                    uploadDao.updateState(it.uploadId, UploadState.FAILED.name, it.attempts + 1, null, null)
+                }
+                messageDao.updateStatus(clientMessageId, MessageStatus.FAILED.name, null, null)
                 continue
             }
-            uploadDao.updateState(upload.uploadId, UploadState.UPLOADING.name, upload.attempts, null, null)
-            try {
-                val file = File(upload.localPath)
-                if (!file.exists() || file.length() == 0L) {
-                    // The cached copy vanished (e.g. the OS cleared the cache
-                    // dir). Fail the row deterministically instead of retrying a
-                    // file that will never come back.
-                    uploadDao.updateState(upload.uploadId, UploadState.FAILED.name, upload.attempts + 1, null, null)
-                    messageDao.updateStatus(upload.clientMessageId, MessageStatus.FAILED.name, null, null)
+
+            val urls = ArrayList<String>(uploads.size)
+            var failed = false
+            for (upload in uploads) {
+                val existing = upload.remoteUrl
+                if (existing != null) {
+                    urls.add(existing)
                     continue
                 }
-                val extension = upload.mime.substringAfterLast('/', "bin")
-                // The storage bucket's RLS policy scopes writes to the caller's own
-                // top-level folder (`<userId>/...`), so the path MUST be prefixed with
-                // the SENDER's user id -- not the conversation id.
-                val senderId = messageDao.getByClientMessageId(upload.clientMessageId)?.senderId
-                if (senderId.isNullOrBlank()) {
+                uploadDao.updateState(upload.uploadId, UploadState.UPLOADING.name, upload.attempts, null, null)
+                try {
+                    val file = File(upload.localPath)
+                    if (!file.exists() || file.length() == 0L) {
+                        // The cached copy vanished (e.g. the OS cleared the cache
+                        // dir). Fail the row deterministically instead of retrying a
+                        // file that will never come back.
+                        uploadDao.updateState(
+                            upload.uploadId,
+                            UploadState.FAILED.name,
+                            upload.attempts + 1,
+                            null,
+                            null,
+                        )
+                        messageDao.updateStatus(clientMessageId, MessageStatus.FAILED.name, null, null)
+                        failed = true
+                        break
+                    }
+                    val extension = upload.mime.substringAfterLast('/', "bin")
+                    val objectPath = storageApi.objectPath(
+                        userId = senderId,
+                        uploadId = upload.uploadId,
+                        extension = extension,
+                    )
+                    // Persist progress from a sibling coroutine instead of blocking the
+                    // upload thread with runBlocking.
+                    val progressChannel = Channel<Int>(Channel.CONFLATED)
+                    val writer = launch {
+                        for (progress in progressChannel) {
+                            messageDao.updateUploadProgress(clientMessageId, progress)
+                            uploadDao.updateProgress(upload.uploadId, progress)
+                        }
+                    }
+                    val url = try {
+                        storageApi.uploadFile(objectPath, file, upload.mime) { progress ->
+                            progressChannel.trySend(progress)
+                        }
+                    } finally {
+                        progressChannel.close()
+                        writer.join()
+                    }
+                    urls.add(url)
                     uploadDao.updateState(
                         upload.uploadId,
-                        UploadState.FAILED.name,
-                        upload.attempts + 1,
-                        null,
-                        null,
-                    )
-                    messageDao.updateStatus(
-                        upload.clientMessageId,
-                        MessageStatus.FAILED.name,
-                        null,
+                        UploadState.UPLOADED.name,
+                        upload.attempts,
+                        url,
                         null,
                     )
-                    continue
-                }
-                val objectPath = storageApi.objectPath(
-                    userId = senderId,
-                    uploadId = upload.uploadId,
-                    extension = extension,
-                )
-                // Persist progress from a sibling coroutine instead of blocking the
-                // upload thread with runBlocking.
-                val progressChannel = Channel<Int>(Channel.CONFLATED)
-                val writer = launch {
-                    for (progress in progressChannel) {
-                        messageDao.updateUploadProgress(upload.clientMessageId, progress)
-                        uploadDao.updateProgress(upload.uploadId, progress)
+                } catch (t: Throwable) {
+                    if (t is kotlinx.coroutines.CancellationException) throw t
+                    val attempts = upload.attempts + 1
+                    val state = if (attempts >= app.gagachat.core.common.Constants.OUTBOX_MAX_ATTEMPTS) {
+                        UploadState.FAILED
+                    } else {
+                        UploadState.QUEUED
                     }
-                }
-                val url = try {
-                    storageApi.uploadFile(objectPath, file, upload.mime) { progress ->
-                        progressChannel.trySend(progress)
+                    uploadDao.updateState(upload.uploadId, state.name, attempts, null, null)
+                    if (state == UploadState.FAILED) {
+                        messageDao.updateStatus(clientMessageId, MessageStatus.FAILED.name, null, null)
                     }
-                } finally {
-                    progressChannel.close()
-                    writer.join()
+                    failed = true
+                    break
                 }
-                messageDao.updateMedia(upload.clientMessageId, url, null)
-                uploadDao.updateState(
-                    upload.uploadId,
-                    UploadState.UPLOADED.name,
-                    upload.attempts,
-                    url,
-                    null,
-                )
-                // Now dispatch the message with its durable media URL.
-                when (messageRepository.retry(upload.clientMessageId)) {
-                    is AppResult.Success -> uploadDao.delete(upload.uploadId)
-                    else -> {
-                        // Upload is durable; hand message delivery to the outbox.
-                        // Keep the uploaded row until delivery scheduling succeeds.
-                        outboxScheduler.enqueueMessageSend(upload.clientMessageId)
-                        uploadDao.delete(upload.uploadId)
-                    }
-                }
-            } catch (t: Throwable) {
-                if (t is kotlinx.coroutines.CancellationException) throw t
-                val attempts = upload.attempts + 1
-                val state = if (attempts >= app.gagachat.core.common.Constants.OUTBOX_MAX_ATTEMPTS) {
-                    UploadState.FAILED
-                } else {
-                    UploadState.QUEUED
-                }
-                uploadDao.updateState(upload.uploadId, state.name, attempts, null, null)
-                if (state == UploadState.FAILED) {
-                    messageDao.updateStatus(upload.clientMessageId, MessageStatus.FAILED.name, null, null)
+            }
+
+            // Only dispatch once every photo in the group has a durable URL.
+            if (failed || urls.size != uploads.size) continue
+
+            if (urls.size == 1) {
+                messageDao.updateMedia(clientMessageId, urls.first(), null)
+            } else {
+                messageDao.updateMediaAlbum(clientMessageId, urls.first(), encodeMediaUrls(urls))
+            }
+
+            when (messageRepository.retry(clientMessageId)) {
+                is AppResult.Success -> uploads.forEach { uploadDao.delete(it.uploadId) }
+                else -> {
+                    // Upload is durable; hand message delivery to the outbox.
+                    outboxScheduler.enqueueMessageSend(clientMessageId)
+                    uploads.forEach { uploadDao.delete(it.uploadId) }
                 }
             }
         }
