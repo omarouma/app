@@ -18,6 +18,7 @@ import coil.ImageLoader
 import coil.ImageLoaderFactory
 import coil.decode.VideoFrameDecoder
 import dagger.hilt.android.HiltAndroidApp
+import okhttp3.OkHttpClient
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -141,15 +142,28 @@ class GagaApplication : Application(), Configuration.Provider, ImageLoaderFactor
     /**
      * Registers the [VideoFrameDecoder] so Coil can render a real frame for
      * video-message thumbnails (the chat bubble shows the first frame before
-     * playback). Everything else uses Coil's sensible defaults.
+     * playback), and installs an identifying User-Agent on every outbound image
+     * request. The User-Agent matters for third-party imagery hosts (e.g. the
+     * basemap used by location messages) that reject anonymous/generic clients.
      */
-    override fun newImageLoader(): ImageLoader =
-        ImageLoader.Builder(this)
-            .components { add(VideoFrameDecoder.Factory()) }
+    override fun newImageLoader(): ImageLoader {
+        val client = OkHttpClient.Builder()
+            .addInterceptor { chain ->
+                val request = chain.request().newBuilder()
+                    .header("User-Agent", USER_AGENT)
+                    .build()
+                chain.proceed(request)
+            }
             .build()
+        return ImageLoader.Builder(this)
+            .components { add(VideoFrameDecoder.Factory()) }
+            .okHttpClient(client)
+            .build()
+    }
 
     private companion object {
         const val TAG = "GagaApplication"
         const val PRESENCE_HEARTBEAT_MS = 45_000L
+        const val USER_AGENT = "GaGaChat/2.0.18 (Android)"
     }
 }

@@ -27,7 +27,6 @@ import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.DoneAll
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.LocationOn
-import androidx.compose.material.icons.filled.NearMe
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PlayArrow
@@ -39,7 +38,12 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -47,6 +51,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -62,6 +67,7 @@ import app.gagachat.core.ui.theme.IncomingBubbleShape
 import app.gagachat.core.ui.theme.OutgoingBubbleShape
 import app.gagachat.core.ui.util.TimeFormat
 import coil.compose.AsyncImage
+import coil.compose.AsyncImagePainter
 import java.util.Locale
 import kotlin.math.PI
 import kotlin.math.cos
@@ -294,7 +300,7 @@ private fun MessageContent(
         )
         MessageType.AUDIO -> AudioContent(message = message, contentColor = contentColor)
         MessageType.FILE -> FileContent(message = message, contentColor = contentColor)
-        MessageType.LOCATION -> LocationContent(message = message, contentColor = contentColor)
+        MessageType.LOCATION -> LocationContent(message = message)
         MessageType.CONTACT -> ContactContent(message = message, contentColor = contentColor)
         MessageType.CALL_EVENT -> Text(
             text = message.text.orEmpty(),
@@ -532,8 +538,8 @@ private fun FileContent(message: Message, contentColor: Color) {
 }
 
 @Composable
-private fun LocationContent(message: Message, contentColor: Color) {
-    val context = androidx.compose.ui.platform.LocalContext.current
+private fun LocationContent(message: Message) {
+    val context = LocalContext.current
     val clipboard = LocalClipboardManager.current
     val lat = message.latitude
     val lng = message.longitude
@@ -543,9 +549,13 @@ private fun LocationContent(message: Message, contentColor: Color) {
     } else {
         "Location"
     }
+    // A place label may be supplied as the message text (e.g. a picked address);
+    // fall back to a neutral title so the card is never blank.
+    val placeLabel = message.text?.takeIf { it.isNotBlank() } ?: "Shared location"
+
     val openMap = {
         if (hasCoords) {
-            val label = Uri.encode("Shared location")
+            val label = Uri.encode(placeLabel)
             val uri = Uri.parse("geo:$lat,$lng?q=$lat,$lng($label)")
             val intent = Intent(Intent.ACTION_VIEW, uri).apply {
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
@@ -554,85 +564,164 @@ private fun LocationContent(message: Message, contentColor: Color) {
         }
         Unit
     }
+    val directions = {
+        if (hasCoords) {
+            val uri = Uri.parse("google.navigation:q=$lat,$lng")
+            val intent = Intent(Intent.ACTION_VIEW, uri).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            // Some devices have no navigation handler; fall back to the geo: view.
+            if (runCatching { context.startActivity(intent) }.isFailure) openMap()
+        }
+        Unit
+    }
     val copyCoords = {
         if (hasCoords) clipboard.setText(AnnotatedString(coordsText))
         Unit
     }
-    val tileUrl = if (hasCoords) osmTileUrl(lat!!, lng!!, 16) else null
 
-    Box(
+    // The basemap tile is fetched live; if it cannot be loaded we keep the
+    // locally-drawn stylised map and label it, so a location message never shows
+    // a broken or blocked tile image.
+    var tileLoaded by remember(message.localId) { mutableStateOf(false) }
+    var tileFailed by remember(message.localId) { mutableStateOf(false) }
+
+    Column(
         modifier = Modifier
-            .size(width = 240.dp, height = 190.dp)
+            .width(240.dp)
             .clip(RoundedCornerShape(14.dp))
-            .background(Color(0xFFE7EDE3))
-            .clickable(enabled = hasCoords, onClick = openMap),
+            .background(MaterialTheme.colorScheme.surfaceVariant),
     ) {
-        // Stylised map base so the card always reads as a map, even offline.
-        StylisedMap(modifier = Modifier.fillMaxSize())
-        if (tileUrl != null) {
-            AsyncImage(
-                model = tileUrl,
-                contentDescription = "Map",
-                contentScale = ContentScale.Crop,
-                modifier = Modifier.fillMaxSize(),
-            )
-        }
-        // Red pin centred on the shared point.
-        Icon(
-            Icons.Filled.LocationOn,
-            contentDescription = null,
-            tint = Color(0xFFE53935),
+        Box(
             modifier = Modifier
-                .align(Alignment.Center)
-                .size(40.dp),
-        )
-        // Green banner: title, coordinates and copy / navigate actions.
+                .fillMaxWidth()
+                .height(124.dp)
+                .clickable(enabled = hasCoords, onClick = openMap),
+        ) {
+            // Stylised map base so the card always reads as a map, even offline.
+            StylisedMap(modifier = Modifier.fillMaxSize())
+            if (hasCoords) {
+                AsyncImage(
+                    model = mapTileUrl(lat!!, lng!!, 16),
+                    contentDescription = "Map preview",
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize(),
+                    onState = { state ->
+                        when (state) {
+                            is AsyncImagePainter.State.Success -> {
+                                tileLoaded = true
+                                tileFailed = false
+                            }
+                            is AsyncImagePainter.State.Error -> {
+                                tileLoaded = false
+                                tileFailed = true
+                            }
+                            else -> Unit
+                        }
+                    },
+                )
+            }
+            // Red pin centred on the shared point.
+            Icon(
+                Icons.Filled.LocationOn,
+                contentDescription = null,
+                tint = Color(0xFFE53935),
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .size(34.dp),
+            )
+            when {
+                hasCoords && tileFailed -> MapChip(
+                    text = "Map preview unavailable",
+                    modifier = Modifier
+                        .align(Alignment.BottomStart)
+                        .padding(GagaDimens.space6),
+                )
+                hasCoords && !tileLoaded -> MapChip(
+                    text = "Loading map…",
+                    modifier = Modifier
+                        .align(Alignment.BottomStart)
+                        .padding(GagaDimens.space6),
+                )
+                else -> MapChip(
+                    text = "© Esri",
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(GagaDimens.space6),
+                )
+            }
+        }
+        // Compact info row: place label + coordinates + copy affordance.
         Row(
             modifier = Modifier
-                .align(Alignment.TopCenter)
                 .fillMaxWidth()
-                .padding(GagaDimens.space8)
-                .clip(RoundedCornerShape(10.dp))
-                .background(GagaGreen)
-                .padding(
-                    start = GagaDimens.space12,
-                    end = GagaDimens.space4,
-                    top = GagaDimens.space6,
-                    bottom = GagaDimens.space6,
-                ),
+                .padding(horizontal = GagaDimens.space12, vertical = GagaDimens.space8),
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            Icon(
+                Icons.Filled.LocationOn,
+                contentDescription = null,
+                tint = GagaGreen,
+                modifier = Modifier.size(GagaDimens.iconSmall),
+            )
+            Spacer(Modifier.width(GagaDimens.space8))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = "Shared Location",
-                    color = Color.White,
-                    style = MaterialTheme.typography.labelLarge,
+                    text = placeLabel,
+                    style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
                 Text(
                     text = coordsText,
-                    color = Color.White.copy(alpha = 0.9f),
                     style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
             }
-            IconButton(onClick = copyCoords) {
+            IconButton(onClick = copyCoords, modifier = Modifier.size(32.dp)) {
                 Icon(
                     Icons.Filled.ContentCopy,
                     contentDescription = "Copy coordinates",
-                    tint = Color.White,
-                    modifier = Modifier.size(18.dp),
-                )
-            }
-            IconButton(onClick = openMap) {
-                Icon(
-                    Icons.Filled.NearMe,
-                    contentDescription = "Navigate",
-                    tint = Color.White,
-                    modifier = Modifier.size(18.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(16.dp),
                 )
             }
         }
+        // Action row: open in a maps app, or start turn-by-turn directions.
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(
+                    start = GagaDimens.space4,
+                    end = GagaDimens.space4,
+                    bottom = GagaDimens.space4,
+                ),
+        ) {
+            TextButton(onClick = openMap, enabled = hasCoords, modifier = Modifier.weight(1f)) {
+                Text("Open map")
+            }
+            TextButton(onClick = directions, enabled = hasCoords, modifier = Modifier.weight(1f)) {
+                Text("Directions")
+            }
+        }
     }
+}
+
+/** Small translucent label chip used over the map thumbnail. */
+@Composable
+private fun MapChip(text: String, modifier: Modifier = Modifier) {
+    Text(
+        text = text,
+        color = Color.White,
+        style = MaterialTheme.typography.labelSmall,
+        modifier = modifier
+            .clip(RoundedCornerShape(4.dp))
+            .background(Color.Black.copy(alpha = 0.45f))
+            .padding(horizontal = 6.dp, vertical = 2.dp),
+    )
 }
 
 /**
@@ -671,13 +760,29 @@ private fun StylisedMap(modifier: Modifier = Modifier) {
     }
 }
 
-/** Builds an OpenStreetMap raster tile URL centred on the given coordinates. */
-private fun osmTileUrl(lat: Double, lng: Double, zoom: Int): String {
+/**
+ * Builds a raster basemap tile URL for the given coordinates.
+ *
+ * We deliberately do NOT use OpenStreetMap's `tile.openstreetmap.org` volunteer
+ * servers: their tile usage policy forbids app traffic and they return a
+ * "403 Access blocked" placeholder tile for in-app requests, which is exactly
+ * the broken image that was appearing inside location messages. Instead we use
+ * the Esri ArcGIS "World Street Map" basemap, which is available without an API
+ * key and is intended for application use (attribution shown on the card).
+ *
+ * Note the Esri path order is `{z}/{y}/{x}` (y before x), unlike OSM's
+ * `{z}/{x}/{y}`.
+ */
+private fun mapTileUrl(lat: Double, lng: Double, zoom: Int): String {
     val n = 2.0.pow(zoom)
-    val x = ((lng + 180.0) / 360.0 * n).toInt()
+    val maxIndex = n.toInt() - 1
+    val x = ((lng + 180.0) / 360.0 * n).toInt().coerceIn(0, maxIndex)
     val latRad = Math.toRadians(lat)
-    val y = ((1.0 - ln(tan(latRad) + 1.0 / cos(latRad)) / PI) / 2.0 * n).toInt()
-    return "https://tile.openstreetmap.org/$zoom/$x/$y.png"
+    val y = ((1.0 - ln(tan(latRad) + 1.0 / cos(latRad)) / PI) / 2.0 * n)
+        .toInt()
+        .coerceIn(0, maxIndex)
+    return "https://server.arcgisonline.com/ArcGIS/rest/services/" +
+        "World_Street_Map/MapServer/tile/$zoom/$y/$x"
 }
 
 /** Contact-card bubble: avatar glyph, name and tappable phone number. */

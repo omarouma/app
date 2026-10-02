@@ -26,11 +26,13 @@ import app.gagachat.core.data.repository.UserRepository
 import app.gagachat.core.data.preferences.ChatBackground
 import kotlinx.coroutines.flow.first
 import app.gagachat.core.model.Conversation
+import app.gagachat.core.model.ConversationType
 import app.gagachat.core.model.Message
 import app.gagachat.core.model.MessageStatus
 import app.gagachat.core.model.MessageType
 import app.gagachat.core.model.User
 import app.gagachat.core.model.UserStatus
+import app.gagachat.core.ui.util.TimeFormat
 import app.gagachat.core.ui.util.toUserMessage
 import app.gagachat.feature.chat.presentation.components.VoiceRecorder
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -856,8 +858,12 @@ class ChatViewModel @Inject constructor(
     }
 
     /**
-     * Header subtitle: online / away / busy presence wins; otherwise fall back to
-     * the peer's resolved name so the header is never blank.
+     * Header subtitle. This must NEVER repeat the peer's name (the title
+     * already shows it) — it communicates presence instead:
+     *   - groups/channels  -> "N members"
+     *   - online/away/busy -> the presence word
+     *   - offline          -> "last seen …" when known, else "Offline"
+     * The "typing…" state is layered on top in the screen.
      */
     private fun presenceSubtitle(
         conversation: Conversation?,
@@ -865,13 +871,17 @@ class ChatViewModel @Inject constructor(
         currentUserId: String,
     ): String? {
         if (conversation == null) return null
-        val member = conversation.otherMember(currentUserId) ?: return null
-        val name = otherUser?.displayLabel?.takeIf { it.isNotBlank() } ?: member.displayName
+        if (conversation.type != ConversationType.DIRECT) {
+            val count = conversation.members.size
+            return if (count > 0) "$count members" else null
+        }
+        // Direct chat: presence of the other participant.
+        if (conversation.otherMember(currentUserId) == null) return null
         return when (otherUser?.status) {
             UserStatus.ONLINE -> "Online"
             UserStatus.AWAY -> "Away"
             UserStatus.BUSY -> "Busy"
-            else -> name
+            else -> otherUser?.lastSeen?.let { TimeFormat.lastSeen(it) } ?: "Offline"
         }
     }
 }

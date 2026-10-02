@@ -60,6 +60,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -69,7 +70,9 @@ import app.gagachat.core.ui.theme.GagaDimens
 import app.gagachat.core.ui.theme.GagaGreen
 import app.gagachat.core.ui.theme.GagaGreenContainer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import app.gagachat.core.ui.util.TimeFormat
 
 /**
@@ -110,6 +113,8 @@ fun MessageComposer(
     var showEmojiPanel by remember { mutableStateOf(false) }
     val sheetState = rememberModalBottomSheetState()
     val haptics = LocalHapticFeedback.current
+    val focusManager = LocalFocusManager.current
+    val keyboardController = LocalSoftwareKeyboardController.current
 
     Surface(
         modifier = modifier.fillMaxWidth(),
@@ -143,13 +148,20 @@ fun MessageComposer(
                         .padding(horizontal = GagaDimens.space8, vertical = GagaDimens.space6),
                     verticalAlignment = Alignment.Bottom,
                 ) {
-                    // Round "+" affordance that opens the share sheet.
+                    // Round "+" affordance that opens the attachment sheet.
                     Box(
                         modifier = Modifier
                             .size(46.dp)
                             .clip(CircleShape)
                             .background(MaterialTheme.colorScheme.surfaceVariant)
-                            .clickable { showAttachSheet = true },
+                            .clickable {
+                                // Dismiss the keyboard first so the sheet is not
+                                // pushed off-screen; the draft is preserved in
+                                // the hoisted state.
+                                focusManager.clearFocus()
+                                keyboardController?.hide()
+                                showAttachSheet = true
+                            },
                         contentAlignment = Alignment.Center,
                     ) {
                         Icon(
@@ -257,9 +269,9 @@ fun MessageComposer(
 }
 
 /**
- * Attachment grid (reference screenshot 174602): three rows of green icons on
- * light-green circular tiles -- Photos / Camera / Video / Audio, Contact /
- * Location / Live Location / File, then Poll.
+ * Attachment grid (reference screenshot 174602): a four-column grid of green
+ * icons on light-green circular tiles — Photos / Camera / Video / Audio file,
+ * Contact / Location / Live location / Document, then Poll.
  */
 @Composable
 private fun AttachmentSheet(
@@ -273,46 +285,44 @@ private fun AttachmentSheet(
     onPickFile: () -> Unit,
     onSendPoll: () -> Unit,
 ) {
-    Column(modifier = Modifier.padding(bottom = GagaDimens.space24)) {
+    val options = listOf(
+        Triple(Icons.Filled.Image, "Photos", onPickImage),
+        Triple(Icons.Filled.CameraAlt, "Camera", onTakePhoto),
+        Triple(Icons.Filled.Videocam, "Video", onPickVideo),
+        Triple(Icons.Filled.Audiotrack, "Audio file", onPickAudio),
+        Triple(Icons.Filled.Person, "Contact", onPickContact),
+        Triple(Icons.Filled.LocationOn, "Location", onShareLocation),
+        Triple(Icons.Filled.NearMe, "Live location", onShareLiveLocation),
+        Triple(Icons.Filled.Description, "Document", onPickFile),
+        Triple(Icons.Filled.Poll, "Poll", onSendPoll),
+    )
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(bottom = GagaDimens.space24),
+    ) {
         Text(
-            text = "Share",
+            text = "Add attachment",
             style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.SemiBold,
             modifier = Modifier.padding(horizontal = GagaDimens.space16, vertical = GagaDimens.space8),
         )
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = GagaDimens.space16),
-            horizontalArrangement = Arrangement.SpaceEvenly,
-        ) {
-            AttachOption(Icons.Filled.Image, "Photos", onPickImage)
-            AttachOption(Icons.Filled.CameraAlt, "Camera", onTakePhoto)
-            AttachOption(Icons.Filled.Videocam, "Video", onPickVideo)
-            AttachOption(Icons.Filled.Audiotrack, "Audio", onPickAudio)
-        }
-        Spacer(Modifier.size(GagaDimens.space16))
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = GagaDimens.space16),
-            horizontalArrangement = Arrangement.SpaceEvenly,
-        ) {
-            AttachOption(Icons.Filled.Person, "Contact", onPickContact)
-            AttachOption(Icons.Filled.LocationOn, "Location", onShareLocation)
-            AttachOption(Icons.Filled.NearMe, "Live Location", onShareLiveLocation)
-            AttachOption(Icons.Filled.Description, "File", onPickFile)
-        }
-        Spacer(Modifier.size(GagaDimens.space16))
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = GagaDimens.space16),
-            horizontalArrangement = Arrangement.SpaceEvenly,
-        ) {
-            AttachOption(Icons.Filled.Poll, "Poll", onSendPoll)
-            Spacer(Modifier.width(72.dp))
-            Spacer(Modifier.width(72.dp))
-            Spacer(Modifier.width(72.dp))
+        options.chunked(4).forEach { row ->
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = GagaDimens.space8, vertical = GagaDimens.space4),
+                horizontalArrangement = Arrangement.SpaceEvenly,
+            ) {
+                row.forEach { (icon, label, onClick) ->
+                    AttachOption(icon = icon, label = label, onClick = onClick)
+                }
+                // Pad the final (partial) row so its items stay aligned to the
+                // four-column grid instead of drifting to the centre.
+                repeat(4 - row.size) {
+                    Spacer(Modifier.width(72.dp))
+                }
+            }
         }
     }
 }

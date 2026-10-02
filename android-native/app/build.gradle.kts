@@ -204,6 +204,9 @@ dependencies {
     // decoder so video message thumbnails render real frames).
     implementation(libs.coil.compose)
     implementation(libs.coil.video)
+    // OkHttp is used to customise Coil's HTTP client (identifying User-Agent for
+    // third-party basemap tiles + shared connection pool).
+    implementation(libs.okhttp)
 
     // ZEGOCLOUD Call Kit — real 1:1 audio/video calling with call invitations.
     implementation(libs.zego.callkit)
