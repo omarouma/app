@@ -1,9 +1,0 @@
--- DEPRECATED — DO NOT RUN THIS FILE.
--- Superseded by supabase/migrations/20260819_security_hardening.sql
--- which fixes wallet RLS, user column exposure, group admin authz,
--- invalid NEW/OLD trigger references, and all other security hardening
--- in one consolidated migration.
---
--- If you need schema setup (tables, indexes, realtime), run:
---   supabase_full_setup.sql  (for initial schema creation)
--- then apply the consolidated security migration.

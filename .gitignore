@@ -1,51 +1,53 @@
-# Logs
-logs
-*.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-lerna-debug.log*
+# GaGa Chat — native Android app (.gitignore)
 
-node_modules
-dist
-dist-ssr
-*.local
+# ---- Gradle / Android build output ----
+.gradle/
+build/
+*/build/
+**/build/
+captures/
+.externalNativeBuild/
+.cxx/
+*.apk
+*.aab
+*.ap_
+*.dex
+*.class
+release/
+debug/
 
-# Firebase Cloud Functions (compiled output — functions/ is not used; app is Supabase-only)
-functions/lib
-
-# Environment variables
+# ---- Local configuration & secrets (never commit) ----
+local.properties
+local.properties.bak
+google-services.json
+GoogleService-Info.plist
+*.jks
+*.keystore
+keystore.properties
 .env
 .env.local
 .env.*.local
+secrets.properties
 
-# Editor directories and files
-.vscode/*
-!.vscode/extensions.json
-.idea
+# ---- IDE / editor ----
+.idea/
+.vscode/
+*.iml
+*.hprof
 .DS_Store
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
-.copilot-assistant/
+*.swp
 
-# Sensitive credential files
-"supabase for gaga chat app.Project id alzwgikndwbecuqmlrca.txt"
-supabase for gaga chat app*.txt
-google-services.json
-GoogleService-Info.plist
-*.txt
+# ---- Logs ----
 *.log
-eslint-*.json
-auth_*.txt
-build_*.txt
-deploy_*.txt
-eslint-*.txt
-frontend_build_*.txt
-backend-*.log
-firebase-debug.log
-lint-output.log"deployed_index.html"  
-"supabase/.temp/"  
+logs/
+npm-debug.log*
+
+# ---- Supabase CLI local state ----
+supabase/.temp/
+supabase/.branches/
+supabase/.env.keys
+
+# ---- OS / misc ----
+Thumbs.db
+*.orig
+*.rej

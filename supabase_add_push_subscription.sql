@@ -1,3 +1,0 @@
--- DEPRECATED — DO NOT RUN THIS FILE.
--- Superseded by supabase/migrations/20260819_security_hardening.sql
--- which consolidates all schema patches and security hardening.

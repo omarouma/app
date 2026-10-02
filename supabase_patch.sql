@@ -1,2 +1,0 @@
--- DEPRECATED — DO NOT RUN THIS FILE.
--- All patches have been merged into supabase_full_setup.sql.

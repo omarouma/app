@@ -1,3 +1,0 @@
--- DEPRECATED — DO NOT RUN THIS FILE.
--- This file had bare CREATE POLICY statements that cause "policy already exists" errors on re-run.
--- Use supabase_full_setup.sql instead (fully idempotent master file).

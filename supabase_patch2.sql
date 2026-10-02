@@ -1,4 +1,0 @@
--- DEPRECATED — DO NOT RUN THIS FILE.
--- Superseded by supabase/migrations/20260819_security_hardening.sql
--- which fixes wallet RLS, user column exposure, group admin authz,
--- and all other security hardening in one consolidated migration.

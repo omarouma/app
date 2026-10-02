@@ -1,2 +1,0 @@
--- DEPRECATED — DO NOT RUN THIS FILE.
--- Superseded by supabase_full_setup.sql (fully idempotent master file).
