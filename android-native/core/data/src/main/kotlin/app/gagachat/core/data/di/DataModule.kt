@@ -10,6 +10,7 @@ import app.gagachat.core.data.repository.DefaultCallRepository
 import app.gagachat.core.data.repository.DefaultConversationRepository
 import app.gagachat.core.data.repository.DefaultFriendsRepository
 import app.gagachat.core.data.repository.DefaultGroupRepository
+import app.gagachat.core.data.repository.DefaultLinkPreviewRepository
 import app.gagachat.core.data.repository.DefaultMediaRepository
 import app.gagachat.core.data.repository.DefaultMessageRepository
 import app.gagachat.core.data.repository.DefaultNotificationRepository
@@ -18,6 +19,7 @@ import app.gagachat.core.data.repository.DefaultUserRepository
 import app.gagachat.core.data.repository.DefaultWalletRepository
 import app.gagachat.core.data.repository.FriendsRepository
 import app.gagachat.core.data.repository.GroupRepository
+import app.gagachat.core.data.repository.LinkPreviewRepository
 import app.gagachat.core.data.repository.MediaRepository
 import app.gagachat.core.data.repository.MessageRepository
 import app.gagachat.core.data.repository.NotificationRepository
@@ -86,4 +88,8 @@ abstract class DataModule {
     @Binds
     @Singleton
     abstract fun bindBlockRepository(impl: DefaultBlockRepository): BlockRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindLinkPreviewRepository(impl: DefaultLinkPreviewRepository): LinkPreviewRepository
 }

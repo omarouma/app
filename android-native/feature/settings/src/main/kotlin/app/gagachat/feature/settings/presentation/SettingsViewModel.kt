@@ -44,6 +44,8 @@ data class SettingsUiState(
     val appLockEnabled: Boolean = false,
     val textScale: TextScale = TextScale.DEFAULT,
     val language: AppLanguage = AppLanguage.ENGLISH,
+    /** Human-readable size of the on-device media cache (spec area 16). */
+    val cacheSizeLabel: String? = null,
     val isSigningOut: Boolean = false,
     val signedOut: Boolean = false,
     val isDeletingAccount: Boolean = false,
@@ -51,6 +53,7 @@ data class SettingsUiState(
 )
 
 @HiltViewModel
+@OptIn(coil.annotation.ExperimentalCoilApi::class)
 class SettingsViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
     private val authRepository: AuthRepository,
@@ -74,6 +77,27 @@ class SettingsViewModel @Inject constructor(
     init {
         observePreferences()
         loadProfile()
+        refreshCacheSize()
+    }
+
+    /**
+     * Spec area 16: computes the current media-cache footprint so the storage
+     * screen can show a real "cache budget" figure next to Clear cache. Runs on
+     * the IO dispatcher (never the main thread) and tolerates missing dirs.
+     */
+    fun refreshCacheSize() {
+        viewModelScope.launch {
+            val bytes = withContext(Dispatchers.IO) {
+                var total = 0L
+                runCatching { total += context.imageLoader.diskCache?.size ?: 0L }
+                CACHE_DIRS.forEach { name ->
+                    val dir = File(context.cacheDir, name)
+                    if (dir.exists()) total += dir.directorySize()
+                }
+                total
+            }
+            _state.update { it.copy(cacheSizeLabel = formatBytes(bytes)) }
+        }
     }
 
     private fun observePreferences() {
@@ -179,8 +203,7 @@ class SettingsViewModel @Inject constructor(
                 runCatching {
                     context.imageLoader.diskCache?.clear()
                 }
-                val dirs = listOf("image_cache", "video_cache", "media", "coil_cache", "http_cache")
-                dirs.forEach { name ->
+                CACHE_DIRS.forEach { name ->
                     val dir = File(context.cacheDir, name)
                     if (dir.exists()) {
                         freed += dir.directorySize()
@@ -192,6 +215,7 @@ class SettingsViewModel @Inject constructor(
             val mb = freedBytes / (1024.0 * 1024.0)
             val label = if (mb >= 0.1) String.format("%.1f MB freed", mb) else "Cache cleared"
             _notices.tryEmit("Media cache cleared — $label")
+            refreshCacheSize()
         }
     }
 
@@ -225,6 +249,27 @@ class SettingsViewModel @Inject constructor(
             }
         }
     }
+
+    private companion object {
+        /**
+         * Local cache directories counted toward the spec-area-16 "cache budget".
+         * Kept in one place so Clear cache and the size read-out stay in sync.
+         */
+        val CACHE_DIRS = listOf("image_cache", "video_cache", "media", "coil_cache", "http_cache")
+    }
+}
+
+/** Formats a byte count as a compact human-readable string (e.g. "12.4 MB"). */
+private fun formatBytes(bytes: Long): String {
+    if (bytes <= 0L) return "0 B"
+    val units = listOf("B", "KB", "MB", "GB")
+    var value = bytes.toDouble()
+    var unit = 0
+    while (value >= 1024.0 && unit < units.lastIndex) {
+        value /= 1024.0
+        unit++
+    }
+    return if (unit == 0) "${bytes} B" else String.format("%.1f %s", value, units[unit])
 }
 
 private fun File.directorySize(): Long =

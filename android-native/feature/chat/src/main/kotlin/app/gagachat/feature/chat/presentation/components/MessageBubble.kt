@@ -26,6 +26,7 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.DoneAll
 import androidx.compose.material.icons.filled.ErrorOutline
+import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.NearMe
 import androidx.compose.material.icons.filled.Pause
@@ -43,6 +44,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
@@ -61,6 +63,8 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import app.gagachat.core.common.util.LinkDetector
+import app.gagachat.core.model.LinkPreview
 import app.gagachat.core.model.Message
 import app.gagachat.core.model.MessageStatus
 import app.gagachat.core.model.MessageType
@@ -98,6 +102,8 @@ fun MessageBubble(
     onReplyClick: (Message) -> Unit,
     onVotePoll: (Message, Int) -> Unit = { _, _ -> },
     onStopLiveLocation: (Message) -> Unit = {},
+    linkPreview: LinkPreview? = null,
+    onRequestLinkPreview: (String) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val bubbleColor = if (isOutgoing) {
@@ -156,6 +162,8 @@ fun MessageBubble(
                         currentUserId = currentUserId,
                         onVotePoll = onVotePoll,
                         onStopLiveLocation = onStopLiveLocation,
+                        linkPreview = linkPreview,
+                        onRequestLinkPreview = onRequestLinkPreview,
                     )
                 }
                 Spacer(Modifier.height(GagaDimens.space2))
@@ -289,6 +297,8 @@ private fun MessageContent(
     currentUserId: String,
     onVotePoll: (Message, Int) -> Unit,
     onStopLiveLocation: (Message) -> Unit,
+    linkPreview: LinkPreview?,
+    onRequestLinkPreview: (String) -> Unit,
 ) {
     if (message.isPoll) {
         PollContent(
@@ -308,10 +318,11 @@ private fun MessageContent(
         return
     }
     when (message.type) {
-        MessageType.TEXT -> Text(
-            text = message.text.orEmpty(),
-            style = MaterialTheme.typography.bodyLarge,
-            color = contentColor,
+        MessageType.TEXT -> TextWithLinkPreview(
+            message = message,
+            contentColor = contentColor,
+            linkPreview = linkPreview,
+            onRequestLinkPreview = onRequestLinkPreview,
         )
         MessageType.IMAGE -> if (message.isMultiImage) {
             MultiImageGrid(message = message, onClick = { onMediaClick(message) })
@@ -336,6 +347,109 @@ private fun MessageContent(
             style = MaterialTheme.typography.bodyMedium,
             color = contentColor.copy(alpha = 0.85f),
         )
+    }
+}
+
+/**
+ * Text message body plus an optional rich link preview card (spec area 13).
+ * The preview is requested lazily the first time the bubble composes; a card is
+ * shown only once metadata has arrived, so the text never waits on the network.
+ */
+@Composable
+private fun TextWithLinkPreview(
+    message: Message,
+    contentColor: Color,
+    linkPreview: LinkPreview?,
+    onRequestLinkPreview: (String) -> Unit,
+) {
+    val text = message.text.orEmpty()
+    val url = remember(text) { LinkDetector.firstUrl(text) }
+    LaunchedEffect(url) {
+        if (url != null && linkPreview == null) onRequestLinkPreview(url)
+    }
+    Column {
+        Text(
+            text = text,
+            style = MaterialTheme.typography.bodyLarge,
+            color = contentColor,
+        )
+        if (url != null && linkPreview != null && linkPreview.hasContent) {
+            Spacer(Modifier.height(GagaDimens.space8))
+            LinkPreviewCard(preview = linkPreview, contentColor = contentColor)
+        }
+    }
+}
+
+@Composable
+private fun LinkPreviewCard(preview: LinkPreview, contentColor: Color) {
+    val context = LocalContext.current
+    val title = preview.title?.takeIf { it.isNotBlank() }
+    val description = preview.description?.takeIf { it.isNotBlank() }
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(contentColor.copy(alpha = 0.08f))
+            .clickable {
+                runCatching {
+                    context.startActivity(
+                        Intent(Intent.ACTION_VIEW, Uri.parse(preview.url))
+                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                    )
+                }
+            },
+    ) {
+        if (!preview.imageUrl.isNullOrBlank()) {
+            AsyncImage(
+                model = preview.imageUrl,
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(140.dp)
+                    .clip(RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp))
+                    .background(contentColor.copy(alpha = 0.06f)),
+            )
+        }
+        Column(modifier = Modifier.padding(GagaDimens.space8)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    Icons.Filled.Language,
+                    contentDescription = null,
+                    tint = contentColor.copy(alpha = 0.7f),
+                    modifier = Modifier.size(12.dp),
+                )
+                Spacer(Modifier.width(GagaDimens.space4))
+                Text(
+                    text = preview.siteName?.takeIf { it.isNotBlank() } ?: preview.displayHost,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = contentColor.copy(alpha = 0.7f),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            if (title != null) {
+                Spacer(Modifier.height(GagaDimens.space2))
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = contentColor,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            if (description != null) {
+                Spacer(Modifier.height(GagaDimens.space2))
+                Text(
+                    text = description,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = contentColor.copy(alpha = 0.8f),
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
     }
 }
 

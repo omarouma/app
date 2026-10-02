@@ -20,6 +20,7 @@ import app.gagachat.core.data.repository.AuthRepository
 import app.gagachat.core.data.repository.BlockRepository
 import app.gagachat.core.data.repository.ConversationRepository
 import app.gagachat.core.data.repository.FriendsRepository
+import app.gagachat.core.data.repository.LinkPreviewRepository
 import app.gagachat.core.data.repository.MediaRepository
 import app.gagachat.core.data.repository.MessageRepository
 import app.gagachat.core.data.repository.UserRepository
@@ -28,6 +29,7 @@ import app.gagachat.core.data.preferences.DraftStore
 import kotlinx.coroutines.flow.first
 import app.gagachat.core.model.Conversation
 import app.gagachat.core.model.ConversationType
+import app.gagachat.core.model.LinkPreview
 import app.gagachat.core.model.Message
 import app.gagachat.core.model.MessageStatus
 import app.gagachat.core.model.MessageType
@@ -169,6 +171,7 @@ class ChatViewModel @Inject constructor(
     private val conversationRepository: ConversationRepository,
     private val userRepository: UserRepository,
     private val mediaRepository: MediaRepository,
+    private val linkPreviewRepository: LinkPreviewRepository,
     private val authRepository: AuthRepository,
     private val blockRepository: BlockRepository,
     private val friendsRepository: FriendsRepository,
@@ -211,6 +214,15 @@ class ChatViewModel @Inject constructor(
     // F21: a fix captured by [shareLocation] that is awaiting user confirmation.
     private val _pendingLocation = MutableStateFlow<LocationPreview?>(null)
     val pendingLocation: StateFlow<LocationPreview?> = _pendingLocation.asStateFlow()
+
+    /**
+     * Rich link previews keyed by URL (spec area 13). Kept out of [ChatUiState]
+     * so a slow/absent preview never blocks message rendering; the bubble reads
+     * from this map and shows a card only when an entry exists.
+     */
+    private val _linkPreviews = MutableStateFlow<Map<String, LinkPreview>>(emptyMap())
+    val linkPreviews: StateFlow<Map<String, LinkPreview>> = _linkPreviews.asStateFlow()
+    private val requestedPreviews = mutableSetOf<String>()
 
     // F21b: refreshes an active live-location share until it expires.
     private var liveLocationJob: Job? = null
@@ -778,6 +790,23 @@ class ChatViewModel @Inject constructor(
     /** F21: user dismissed the confirmation sheet without sharing. */
     fun dismissLocationPreview() {
         _pendingLocation.value = null
+    }
+
+    /**
+     * Spec area 13: lazily resolves a rich preview for a URL found in a text
+     * message. The result is cached (process-wide, in the repository) and the
+     * in-flight set dedupes repeated requests from recomposition.
+     */
+    fun requestLinkPreview(url: String) {
+        if (url.isBlank()) return
+        if (_linkPreviews.value.containsKey(url)) return
+        if (!requestedPreviews.add(url)) return
+        viewModelScope.launch {
+            val preview = runCatching { linkPreviewRepository.preview(url) }.getOrNull()
+            if (preview != null) {
+                _linkPreviews.update { it + (url to preview) }
+            }
+        }
     }
 
     /**

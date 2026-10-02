@@ -1,5 +1,72 @@
 # GaGa Chat 2.0.18 — Build Report
 
+## This build — Link previews, performance/accessibility/settings & verification plan (spec areas 13, 16, 17)
+
+### 1. Link previews with SSRF protection (Area 13)
+- New `LinkPreview` model (`core/model`) with `hasContent` and a `displayHost` that
+  strips the leading `www.`.
+- New `LinkPreviewFetcher` (`core/network`) built on OkHttp with strict timeouts
+  (connect 6 s / read 8 s / call 12 s) and redirects followed manually (max 5 hops,
+  each hop re-validated). It only accepts `http`/`https` and `text/html` bodies, caps
+  the body at 512 KB, and parses OpenGraph / Twitter-card / `<title>` /
+  `link rel=image_src` metadata with HTML-entity decoding and URL absolutisation.
+- **SSRF guard:** the host is resolved with `InetAddress.getAllByName` and every
+  address is rejected if it is loopback, any-local, link-local, site-local, multicast,
+  or in the IPv4 `0.0.0.0/8`, `100.64/10`, `192.0.0.0/24`, `198.18/15`, `240/4` or
+  IPv6 `fc00::/7` ranges; `localhost`/`.local`/`.internal`/`.home.arpa` are blocked
+  outright. The fetcher never throws — failures return `null`.
+- New `LinkDetector` (`core/common`) extracts the first URL from a message body.
+- New `LinkPreviewRepository` (`core/data`) with a `Mutex`-guarded bounded LRU cache
+  (64 entries) that caches both hits and negatives, wired through `DataModule`.
+- `ChatViewModel.requestLinkPreview(url)` fetches once per URL; `MessageBubble`
+  renders a `LinkPreviewCard` (image, site name, title, description) under the first
+  URL in a TEXT message, tappable to open externally. `ChatScreen` threads the preview
+  map through `MessageList`.
+
+### 2. Performance, accessibility & settings (Area 16)
+- **Cache budget + Clear cache:** `SettingsViewModel.refreshCacheSize()` sums the Coil
+  disk cache and the app's media cache directories on the IO dispatcher and formats a
+  human-readable size; the Storage screen shows it as the *"Currently using …"*
+  subtitle on **Clear media cache**, and the size is recomputed after clearing.
+- **Chinese locale:** `AppLanguage` now offers **English, Bengali and Chinese**
+  (`zh` / 中文), mapped in `SettingsPreferences` and applied through the existing
+  `AppLocaleStore` / `LocaleHelper` path.
+- **Verified present and unchanged:** auto-download controls + policy
+  (`MediaDownloadPolicy`), dark mode (`ThemeMode`), large fonts (`TextScale`), the
+  screen-reader labels on delivery ticks and live-location state (status is never
+  colour-only), message pagination (`loadOlder` + `MESSAGE_PAGE_SIZE`), and
+  size-bounded image thumbnails via Coil.
+
+### 3. Two-account verification plan (Area 17)
+- Added `docs/TWO_ACCOUNT_VERIFICATION_PLAN.md`: the twelve required two-account
+  tests (attachments, interrupted upload, kill/reopen, denied permissions, slow
+  network, failed tiles, live-location stop/expiry, concurrent voting, unauthorised
+  access, foreground/background calls, large text + mixed languages, long
+  media-heavy scroll) with exact steps, the passing result, the implementing code
+  path, and a result matrix.
+
+### Build & verification
+- `:core:data`, `:feature:settings`, `:app:compileReleaseKotlin` → BUILD SUCCESSFUL
+- `:app:assembleRelease` → BUILD SUCCESSFUL (signed)
+- APK metadata, signature, alignment and embedded backend ids all verified.
+
+### Source
+- Branch `codex/android-repair-2.0.18`.
+- Files touched this build: `core/model/.../LinkPreview.kt` (new),
+  `core/network/.../linkpreview/LinkPreviewFetcher.kt` (new),
+  `core/common/.../util/LinkDetector.kt` (new),
+  `core/data/.../repository/LinkPreviewRepository.kt` (new),
+  `core/data/.../di/DataModule.kt`,
+  `core/data/.../preferences/SettingsPreferences.kt`,
+  `feature/chat/.../presentation/ChatViewModel.kt`,
+  `feature/chat/.../presentation/ChatScreen.kt`,
+  `feature/chat/.../presentation/components/MessageBubble.kt`,
+  `feature/settings/.../presentation/SettingsViewModel.kt`,
+  `feature/settings/.../presentation/SettingsSubScreens.kt`,
+  `docs/TWO_ACCOUNT_VERIFICATION_PLAN.md` (new).
+
+---
+
 ## This build — Message actions, Polls & Live location (spec areas 8, 10, 11, 13)
 
 ### 1. Message actions (Area 13)

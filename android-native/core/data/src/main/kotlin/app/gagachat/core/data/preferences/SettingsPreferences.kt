@@ -30,6 +30,7 @@ enum class TextScale { SMALL, DEFAULT, LARGE }
 enum class AppLanguage(val code: String, val label: String) {
     ENGLISH("en", "English"),
     BENGALI("bn", "বাংলা"),
+    CHINESE("zh", "中文"),
 }
 
 /**
@@ -109,6 +110,7 @@ class SettingsPreferences @Inject constructor(
         context.settingsDataStore.data.map { prefs ->
             when (prefs[languageKey]) {
                 AppLanguage.BENGALI.code -> AppLanguage.BENGALI
+                AppLanguage.CHINESE.code -> AppLanguage.CHINESE
                 else -> AppLanguage.ENGLISH
             }
         }

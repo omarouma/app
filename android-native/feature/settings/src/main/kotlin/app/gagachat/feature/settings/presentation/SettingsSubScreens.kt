@@ -245,9 +245,14 @@ fun StorageSettingsScreen(
                 }
             }
             GagaDivider()
+            val cacheLabel = state.cacheSizeLabel
             GagaSettingsRow(
                 title = "Clear media cache",
-                subtitle = "Free up space used by downloaded media",
+                subtitle = if (cacheLabel != null) {
+                    "Currently using $cacheLabel - tap to free up space"
+                } else {
+                    "Free up space used by downloaded media"
+                },
                 leadingIcon = Icons.Filled.DeleteSweep,
                 onClick = viewModel::clearMediaCache,
             )

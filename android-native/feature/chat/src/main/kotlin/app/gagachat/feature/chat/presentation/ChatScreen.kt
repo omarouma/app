@@ -83,6 +83,7 @@ import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.gagachat.core.data.preferences.ChatBackground
+import app.gagachat.core.model.LinkPreview
 import app.gagachat.core.model.Message
 import app.gagachat.core.model.MessageType
 import app.gagachat.core.ui.component.GagaEmptyState
@@ -119,6 +120,7 @@ fun ChatRoute(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val pendingLocation by viewModel.pendingLocation.collectAsStateWithLifecycle()
+    val linkPreviews by viewModel.linkPreviews.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
@@ -309,6 +311,8 @@ fun ChatRoute(
                             onReactionClick = { m, e -> viewModel.toggleReaction(m, e) },
                             onVotePoll = { m, i -> viewModel.votePoll(m, i) },
                             onStopLiveLocation = { m -> viewModel.stopLiveLocation(m) },
+                            linkPreviews = linkPreviews,
+                            onRequestLinkPreview = viewModel::requestLinkPreview,
                             onReplyClick = { target ->
                                 val idx = visible.indexOfFirst {
                                     it.localId == target.localId
@@ -823,6 +827,8 @@ private fun MessageList(
     onReplyClick: (Message) -> Unit,
     onVotePoll: (Message, Int) -> Unit,
     onStopLiveLocation: (Message) -> Unit,
+    linkPreviews: Map<String, LinkPreview>,
+    onRequestLinkPreview: (String) -> Unit,
 ) {
     // Newest at the bottom: reverse the list and use reverseLayout so the view
     // stays pinned to the latest message without manual scroll math.
@@ -894,6 +900,12 @@ private fun MessageList(
                     onLongPress = onLongPress,
                     onReactionClick = onReactionClick,
                     onReplyClick = onReplyClick,
+                    onVotePoll = onVotePoll,
+                    onStopLiveLocation = onStopLiveLocation,
+                    linkPreview = message.text
+                        ?.let { app.gagachat.core.common.util.LinkDetector.firstUrl(it) }
+                        ?.let { linkPreviews[it] },
+                    onRequestLinkPreview = onRequestLinkPreview,
                 )
             }
         }
