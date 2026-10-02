@@ -174,6 +174,7 @@ fun MessageEntity.toDomain(): Message = Message(
     forwardedFrom = forwardedFrom,
     contactName = contactName,
     contactPhone = contactPhone,
+    hiddenForMe = hiddenForMe,
 )
 
 fun Message.toEntity(): MessageEntity = MessageEntity(
@@ -207,6 +208,7 @@ fun Message.toEntity(): MessageEntity = MessageEntity(
     forwardedFrom = forwardedFrom,
     contactName = contactName,
     contactPhone = contactPhone,
+    hiddenForMe = hiddenForMe,
 )
 
 // ---- Attachment ----

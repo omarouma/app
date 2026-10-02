@@ -46,6 +46,8 @@ data class Message(
     // Contact-card payload (MessageType.CONTACT).
     @SerialName("contact_name") val contactName: String? = null,
     @SerialName("contact_phone") val contactPhone: String? = null,
+    // Local-only "delete for me" flag \u2014 never sent to the backend.
+    @SerialName("hidden_for_me") val hiddenForMe: Boolean = false,
 ) {
     /** Authoritative timestamp for ordering: server time when available, else client. */
     val sortTimestamp: Long get() = createdAtServer ?: createdAtClient

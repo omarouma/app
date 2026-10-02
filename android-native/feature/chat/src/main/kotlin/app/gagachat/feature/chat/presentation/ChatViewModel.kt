@@ -96,6 +96,8 @@ data class ChatUiState(
     val myLastReadMessageId: String? = null,
     /** User-selected chat wallpaper behind the message list. */
     val chatBackground: ChatBackground = ChatBackground.DEFAULT,
+    /** Whether notifications are muted for this conversation. */
+    val isMuted: Boolean = false,
     /** F22: server-side search hits across the full history. */
     val searchResults: List<Message> = emptyList(),
 ) {
@@ -288,6 +290,7 @@ class ChatViewModel @Inject constructor(
                 ?.firstOrNull { it.userId == currentUserId }
                 ?.lastReadMessageId,
             chatBackground = chatBackground,
+            isMuted = conversation?.isMuted ?: false,
         )
     }.combine(draft) { ui, text -> ui.copy(draft = text) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ChatUiState(conversationId = conversationId))
@@ -616,6 +619,32 @@ class ChatViewModel @Inject constructor(
                 is AppResult.Failure -> error.value = result.error.toUserMessage()
                 else -> Unit
             }
+        }
+    }
+
+    /** Hides a message on this device only ("delete for me"); the peer keeps their copy. */
+    fun deleteForMe(message: Message) {
+        selected.value = null
+        if (editing.value?.localId == message.localId) cancelEdit()
+        viewModelScope.launch {
+            messageRepository.deleteForMe(message.localId)
+        }
+    }
+
+    /** Clears every locally-cached message for this conversation ("clear chat"). */
+    fun clearChat() {
+        viewModelScope.launch {
+            messageRepository.clearConversation(conversationId)
+            notice.value = "Chat cleared"
+        }
+    }
+
+    /** Mutes or unmutes notifications for this conversation. */
+    fun toggleMute() {
+        val muted = !state.value.isMuted
+        viewModelScope.launch {
+            conversationRepository.setMuted(conversationId, muted)
+            notice.value = if (muted) "Notifications muted" else "Notifications unmuted"
         }
     }
 

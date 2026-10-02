@@ -57,4 +57,9 @@ data class MessageEntity(
     val forwardedFrom: String? = null,
     val contactName: String? = null,
     val contactPhone: String? = null,
+    /**
+     * "Delete for me" \u2014 hides this row from this device only without touching the
+     * server copy (added in schema v5). Defaults to false so existing rows render.
+     */
+    val hiddenForMe: Boolean = false,
 )

@@ -37,7 +37,7 @@ import app.gagachat.core.database.entity.UserEntity
         BlockEntity::class,
         SyncStateEntity::class,
     ],
-    version = 4,
+    version = 5,
     exportSchema = true,
 )
 abstract class GagaDatabase : RoomDatabase() {
@@ -90,6 +90,17 @@ abstract class GagaDatabase : RoomDatabase() {
                 db.execSQL("ALTER TABLE users ADD COLUMN coverImage TEXT")
                 db.execSQL("ALTER TABLE users ADD COLUMN statusMessage TEXT")
                 db.execSQL("ALTER TABLE users ADD COLUMN website TEXT")
+            }
+        }
+
+        /**
+         * v4 \u2192 v5: add the local-only `hiddenForMe` flag to `messages` so a user can
+         * "delete for me" without touching the server copy. Additive, NOT NULL with a
+         * default of 0 so existing rows keep rendering.
+         */
+        val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE messages ADD COLUMN hiddenForMe INTEGER NOT NULL DEFAULT 0")
             }
         }
     }

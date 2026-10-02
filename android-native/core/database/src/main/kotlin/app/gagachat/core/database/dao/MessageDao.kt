@@ -41,6 +41,7 @@ interface MessageDao {
         """
         SELECT * FROM messages
         WHERE conversationId = :conversationId AND sortTimestamp < :beforeTimestamp
+            AND hiddenForMe = 0
         ORDER BY sortTimestamp DESC
         LIMIT :limit
         """,
@@ -121,7 +122,15 @@ interface MessageDao {
     @Query("UPDATE messages SET deletedAt = :deletedAt, text = NULL WHERE localId = :localId")
     suspend fun markDeleted(localId: String, deletedAt: Long)
 
-    @Query("SELECT COUNT(*) FROM messages WHERE conversationId = :conversationId")
+    /** "Delete for me" \u2014 hides the row locally without touching the server copy. */
+    @Query("UPDATE messages SET hiddenForMe = 1 WHERE localId = :localId")
+    suspend fun hideForMe(localId: String)
+
+    /** Restores a locally-hidden row (used when a chat is re-synced). */
+    @Query("UPDATE messages SET hiddenForMe = 0 WHERE conversationId = :conversationId")
+    suspend fun unhideAllInConversation(conversationId: String)
+
+    @Query("SELECT COUNT(*) FROM messages WHERE conversationId = :conversationId AND hiddenForMe = 0")
     suspend fun countInConversation(conversationId: String): Int
 
     @Query("DELETE FROM messages WHERE conversationId = :conversationId")

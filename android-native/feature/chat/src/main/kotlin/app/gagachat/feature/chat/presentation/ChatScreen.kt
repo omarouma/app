@@ -232,6 +232,9 @@ fun ChatRoute(
                     onSearch = viewModel::toggleSearch,
                     onReport = viewModel::reportUser,
                     onChatBackground = { showBackgroundPicker = true },
+                    isMuted = state.isMuted,
+                    onToggleMute = viewModel::toggleMute,
+                    onClearChat = viewModel::clearChat,
                 )
             },
         ) { padding ->
@@ -447,6 +450,10 @@ fun ChatRoute(
                     viewModel.deleteMessage(selected)
                     viewModel.selectMessage(null)
                 },
+                onDeleteForMe = {
+                    viewModel.deleteForMe(selected)
+                    viewModel.selectMessage(null)
+                },
             )
         }
 
@@ -575,6 +582,7 @@ private fun MessageActionSheet(
     onForward: () -> Unit,
     onCopy: () -> Unit,
     onDelete: () -> Unit,
+    onDeleteForMe: () -> Unit,
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val isOwn = message.senderId == currentUserId
@@ -619,11 +627,17 @@ private fun MessageActionSheet(
             if (canDelete) {
                 ActionRow(
                     icon = Icons.Filled.Delete,
-                    label = "Delete",
+                    label = "Delete for everyone",
                     onClick = onDelete,
                     tint = MaterialTheme.colorScheme.error,
                 )
             }
+            ActionRow(
+                icon = Icons.Filled.Delete,
+                label = "Delete for me",
+                onClick = onDeleteForMe,
+                tint = MaterialTheme.colorScheme.error,
+            )
         }
     }
 }
@@ -709,6 +723,9 @@ private fun ChatOverflowMenu(
     onSearch: () -> Unit,
     onReport: () -> Unit,
     onChatBackground: () -> Unit,
+    isMuted: Boolean,
+    onToggleMute: () -> Unit,
+    onClearChat: () -> Unit,
 ) {
     var expanded by remember { mutableStateOf(false) }
 
@@ -717,6 +734,10 @@ private fun ChatOverflowMenu(
     }
     DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
         MenuItem("Search Messages") { expanded = false; onSearch() }
+        MenuItem(if (isMuted) "Unmute Notifications" else "Mute Notifications") {
+            expanded = false
+            onToggleMute()
+        }
         MenuItem("Chat Background") { expanded = false; onChatBackground() }
         MenuItem("Send Money") {
             expanded = false
@@ -730,6 +751,7 @@ private fun ChatOverflowMenu(
             expanded = false
             onChatInfo()
         }
+        MenuItem("Clear Chat") { expanded = false; onClearChat() }
         MenuItem("Remove Friend") {
             expanded = false
             onRemoveFriend()

@@ -101,6 +101,12 @@ interface MessageRepository {
     suspend fun editMessage(localId: String, text: String): AppResult<Unit>
     suspend fun deleteMessage(localId: String): AppResult<Unit>
 
+    /** Hides a message on this device only ("delete for me"); the server copy is untouched. */
+    suspend fun deleteForMe(localId: String)
+
+    /** Removes every locally-cached message for [conversationId] ("clear chat"). */
+    suspend fun clearConversation(conversationId: String)
+
     /** Toggles [userId]'s [emoji] reaction on a message (add or remove). */
     suspend fun toggleReaction(localId: String, emoji: String, userId: String): AppResult<Unit>
 
@@ -402,6 +408,14 @@ class DefaultMessageRepository @Inject constructor(
             }
             AppResult.Success(Unit)
         }
+
+    override suspend fun deleteForMe(localId: String) = withContext(dispatchers.io) {
+        messageDao.hideForMe(localId)
+    }
+
+    override suspend fun clearConversation(conversationId: String) = withContext(dispatchers.io) {
+        messageDao.deleteByConversation(conversationId)
+    }
 
     override suspend fun toggleReaction(
         localId: String,
