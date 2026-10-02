@@ -17,7 +17,12 @@ import com.zegocloud.uikit.prebuilt.call.ZegoUIKitPrebuiltCallService
 import com.zegocloud.uikit.prebuilt.call.config.ZegoNotificationConfig
 import com.zegocloud.uikit.prebuilt.call.core.invite.ZegoCallInvitationData
 import com.zegocloud.uikit.prebuilt.call.event.CallEndListener
+import com.zegocloud.uikit.prebuilt.call.event.ErrorEventsListener
+import com.zegocloud.uikit.prebuilt.call.event.SignalPluginConnectListener
 import com.zegocloud.uikit.prebuilt.call.event.ZegoCallEndReason
+import im.zego.zim.enums.ZIMConnectionEvent
+import im.zego.zim.enums.ZIMConnectionState
+import org.json.JSONObject
 import com.zegocloud.uikit.prebuilt.call.invite.ZegoUIKitPrebuiltCallInvitationConfig
 import com.zegocloud.uikit.prebuilt.call.invite.internal.ZegoUIKitPrebuiltCallConfigProvider
 import com.zegocloud.uikit.service.defines.ZegoUIKitUser
@@ -32,7 +37,9 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlin.coroutines.resume
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.first
 import java.lang.ref.WeakReference
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -53,6 +60,10 @@ import javax.inject.Singleton
  * logout (driven from `AppViewModel`). The manager tracks the current foreground
  * [Activity] because the Call Kit's UI launcher requires one.
  */
+
+/** Coarse ZIM signaling-channel state, surfaced to the call UI. */
+enum class ZimConnection { UNKNOWN, DISCONNECTED, CONNECTING, CONNECTED }
+
 @Singleton
 class ZegoCallManager @Inject constructor(
     @ApplicationContext private val context: Context,
@@ -66,6 +77,14 @@ class ZegoCallManager @Inject constructor(
         private set
     private val _durationSeconds = MutableStateFlow(0L)
     val durationSeconds = _durationSeconds.asStateFlow()
+
+    /** Live ZIM signaling state — invitations can only be sent when CONNECTED. */
+    private val _connection = MutableStateFlow(ZimConnection.UNKNOWN)
+    val connection: StateFlow<ZimConnection> = _connection.asStateFlow()
+
+    /** Last ZIM error code observed (init or invitation), for diagnostics. */
+    private val _lastErrorCode = MutableStateFlow<Int?>(null)
+    val lastErrorCode: StateFlow<Int?> = _lastErrorCode.asStateFlow()
 
     /** Emits every time a call finishes, so the UI can persist the final status. */
     private val _callEnded = MutableSharedFlow<CallStatus>(extraBufferCapacity = 8)
@@ -140,6 +159,7 @@ class ZegoCallManager @Inject constructor(
                 "Calling server returned an invalid token. Please contact support."
             }
             val resolvedAppId = token.appId
+            _connection.value = ZimConnection.CONNECTING
             ZegoUIKitPrebuiltCallService.initWithToken(
                 app,
                 resolvedAppId,
@@ -147,6 +167,37 @@ class ZegoCallManager @Inject constructor(
                 safeId,
                 displayName,
                 config,
+            )
+            // Surface every SDK error (init + runtime) so failures are diagnosable
+            // and the UI can react instead of silently hanging.
+            ZegoUIKitPrebuiltCallService.events.setErrorEventsListener(
+                object : ErrorEventsListener {
+                    override fun onError(errorCode: Int, message: String?) {
+                        logger.w(TAG, "ZEGO error $errorCode: ${message.orEmpty()}")
+                        _lastErrorCode.value = errorCode
+                    }
+                },
+            )
+            // Track the signaling channel: invitations can only be delivered once
+            // it reports CONNECTED (this is the fix for the opaque 6000011 path).
+            ZegoUIKitPrebuiltCallService.events.invitationEvents.setPluginConnectListener(
+                object : SignalPluginConnectListener {
+                    override fun onSignalPluginConnectionStateChanged(
+                        state: ZIMConnectionState,
+                        event: ZIMConnectionEvent,
+                        extendedData: JSONObject?,
+                    ) {
+                        _connection.value = when (state) {
+                            ZIMConnectionState.CONNECTED -> ZimConnection.CONNECTED
+                            ZIMConnectionState.CONNECTING,
+                            ZIMConnectionState.RECONNECTING,
+                            -> ZimConnection.CONNECTING
+                            ZIMConnectionState.DISCONNECTED -> ZimConnection.DISCONNECTED
+                            else -> ZimConnection.UNKNOWN
+                        }
+                        logger.i(TAG, "ZIM signaling: $state ($event)")
+                    }
+                },
             )
             ZegoUIKitPrebuiltCallService.events.callEvents.setCallEndListener(
                 CallEndListener { reason, _ ->
@@ -172,6 +223,7 @@ class ZegoCallManager @Inject constructor(
             logger.i(TAG, "ZEGO Call Kit initialised for user $safeId")
         } catch (t: Throwable) {
             if (t is CancellationException) throw t
+            _connection.value = ZimConnection.DISCONNECTED
             lastError = "Calling could not authenticate. Check the calling server configuration and your connection."
             logger.e(TAG, "ZEGO Call Kit init failed", t)
         }
@@ -184,6 +236,7 @@ class ZegoCallManager @Inject constructor(
             .onFailure { logger.w(TAG, "ZEGO unInit failed", it) }
         initialized = false
         currentUserId = null
+        _connection.value = ZimConnection.UNKNOWN
     }
 
     /**
@@ -194,6 +247,13 @@ class ZegoCallManager @Inject constructor(
     suspend fun startCall(peerId: String, peerName: String, isVideo: Boolean, callId: String): Boolean {
         if (!initialized) {
             lastError = lastError ?: "Calling is still connecting. Please try again."
+            return false
+        }
+        // The signaling channel must be CONNECTED before an invitation can be
+        // delivered. Wait briefly for it to come up (fresh login / reconnect)
+        // rather than firing an invitation the SDK will reject with a raw code.
+        if (!awaitConnection()) {
+            lastError = "Calling is still connecting. Check your connection and try again."
             return false
         }
         _durationSeconds.value = 0L
@@ -244,6 +304,31 @@ class ZegoCallManager @Inject constructor(
 
     /** True when the Call Kit has been initialised for a user. */
     fun isInitialized(): Boolean = initialized
+
+    /** True when the signaling channel is connected and calls can be placed. */
+    fun isReady(): Boolean = initialized && _connection.value == ZimConnection.CONNECTED
+
+    /**
+     * Suspends until the ZIM signaling channel reports CONNECTED, or [timeoutMs]
+     * elapses. Returns true when invitations can be delivered.
+     */
+    suspend fun awaitConnection(timeoutMs: Long = 8_000L): Boolean {
+        if (_connection.value == ZimConnection.CONNECTED) return true
+        return withTimeoutOrNull(timeoutMs) {
+            connection.first { it == ZimConnection.CONNECTED }
+            true
+        } ?: false
+    }
+
+    /** Turns a raw ZIM invitation error into an actionable, human message. */
+    private fun describeInviteFailure(code: Int?, message: String?): String = when (code) {
+        // 6000011: the callee's ZIM user id has never signed in — ZIM registers a
+        // user only on first login, so the invitation cannot be delivered.
+        6000011 -> "This contact can't receive calls yet. Ask them to open GaGa Chat once, then try again."
+        else -> message?.takeIf { it.isNotBlank() }
+            ?.let { "Could not reach this contact ($it)." }
+            ?: "Could not reach this contact (error ${code ?: -1}). Please try again."
+    }
 
     /**
      * ZEGO user ids may only contain letters, digits and underscores. Supabase

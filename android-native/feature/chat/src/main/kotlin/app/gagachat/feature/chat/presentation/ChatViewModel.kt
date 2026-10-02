@@ -24,6 +24,7 @@ import app.gagachat.core.data.repository.MediaRepository
 import app.gagachat.core.data.repository.MessageRepository
 import app.gagachat.core.data.repository.UserRepository
 import app.gagachat.core.data.preferences.ChatBackground
+import app.gagachat.core.data.preferences.DraftStore
 import kotlinx.coroutines.flow.first
 import app.gagachat.core.model.Conversation
 import app.gagachat.core.model.ConversationType
@@ -171,13 +172,20 @@ class ChatViewModel @Inject constructor(
     private val friendsRepository: FriendsRepository,
     private val networkMonitor: NetworkMonitor,
     private val settingsPreferences: app.gagachat.core.data.preferences.SettingsPreferences,
+    private val draftStore: DraftStore,
     private val soundPlayer: app.gagachat.core.data.media.GagaSoundPlayer,
     @ApplicationContext private val context: Context,
 ) : ViewModel() {
 
     private val conversationId: String = savedStateHandle.get<String>("conversationId").orEmpty()
 
-    private val draft = MutableStateFlow("")
+    // Restore this conversation's unsent draft so leaving and returning never
+    // loses what the user was typing (per-conversation drafts).
+    private val draft = MutableStateFlow(draftStore.draft(conversationId))
+
+    /** Debounces media sends so a double-tap can't enqueue the same file twice. */
+    @Volatile
+    private var lastMediaSendAt = 0L
     private val messageLimit = MutableStateFlow(Constants.INITIAL_MESSAGE_PAGE_SIZE)
 
     @OptIn(ExperimentalCoroutinesApi::class)
@@ -320,6 +328,7 @@ class ChatViewModel @Inject constructor(
 
     fun onDraftChange(value: String) {
         draft.value = value
+        draftStore.set(conversationId, value)
         // Broadcast typing: on while the user is composing, off once they pause.
         if (value.isBlank()) {
             typingJob?.cancel()
@@ -356,6 +365,7 @@ class ChatViewModel @Inject constructor(
             return
         }
         draft.value = ""
+        draftStore.clear(conversationId)
         replyTo.value = null
         typingJob?.cancel()
         broadcastTyping(false)
@@ -374,6 +384,7 @@ class ChatViewModel @Inject constructor(
     }
 
     fun sendMedia(uri: Uri, kind: String) {
+        if (!beginMediaSend()) return
         viewModelScope.launch {
             val session = authRepository.sessionFlow.value
             var resolved = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { resolveUri(uri) } ?: run {
@@ -433,6 +444,7 @@ class ChatViewModel @Inject constructor(
      */
     fun sendImageAlbum(uris: List<Uri>, caption: String?) {
         if (uris.isEmpty()) return
+        if (!beginMediaSend()) return
         viewModelScope.launch {
             val session = authRepository.sessionFlow.value
             val resolved = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
@@ -457,6 +469,14 @@ class ChatViewModel @Inject constructor(
             )
             if (result is AppResult.Failure) error.value = result.error.toUserMessage()
         }
+    }
+
+    /** True when enough time has passed since the last media send (anti double-tap). */
+    private fun beginMediaSend(): Boolean {
+        val now = System.currentTimeMillis()
+        if (now - lastMediaSendAt < 700L) return false
+        lastMediaSendAt = now
+        return true
     }
 
     private fun mediaDuration(path: String): Long? = runCatching {
@@ -562,12 +582,14 @@ class ChatViewModel @Inject constructor(
         editing.value = message
         replyTo.value = null
         draft.value = message.text.orEmpty()
+        draftStore.set(conversationId, message.text.orEmpty())
         selected.value = null
     }
 
     fun cancelEdit() {
         editing.value = null
         draft.value = ""
+        draftStore.clear(conversationId)
     }
 
     private fun submitEdit() {
@@ -575,6 +597,7 @@ class ChatViewModel @Inject constructor(
         val text = draft.value.trim()
         if (text.isEmpty()) return
         draft.value = ""
+        draftStore.clear(conversationId)
         editing.value = null
         viewModelScope.launch {
             when (val result = messageRepository.editMessage(target.localId, text)) {

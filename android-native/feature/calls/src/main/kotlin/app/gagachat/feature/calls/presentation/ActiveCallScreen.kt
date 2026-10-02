@@ -6,6 +6,9 @@ import androidx.compose.material.icons.filled.Call
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -34,8 +37,12 @@ fun ActiveCallRoute(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
 
+    // Bumping this re-runs the launcher so "Retry" genuinely re-attempts the call
+    // (e.g. after the contact registers with calling, or the network recovers).
+    var attempt by remember { mutableIntStateOf(0) }
+
     // Resolve the peer and start the real call once the route is composed.
-    LaunchedEffect(conversationId) {
+    LaunchedEffect(conversationId, attempt) {
         if (conversationId != null) {
             viewModel.startCallForConversation(conversationId, isVideo)
         }
@@ -74,6 +81,12 @@ fun ActiveCallRoute(
             },
         )
 
-        else -> GagaLoading(message = if (state.callLaunched) "Call in progress" else "Starting call\u2026")
+        else -> GagaLoading(
+            message = when {
+                state.callLaunched -> "Call in progress"
+                state.phase == CallPhase.CONNECTING && !state.callingReady -> "Connecting\u2026"
+                else -> "Starting call\u2026"
+            },
+        )
     }
 }

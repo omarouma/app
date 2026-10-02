@@ -11,6 +11,7 @@ import app.gagachat.core.model.CallStatus
 import app.gagachat.core.model.CallType
 import app.gagachat.core.ui.util.toUserMessage
 import app.gagachat.feature.calls.call.ZegoCallManager
+import app.gagachat.feature.calls.call.ZimConnection
 import com.zegocloud.uikit.prebuilt.call.ZegoUIKitPrebuiltCallService
 import com.zegocloud.uikit.prebuilt.call.event.ZegoCallEndReason
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -52,6 +53,8 @@ data class CallUiState(
     val elapsedSeconds: Long = 0L,
     /** True once the Call Kit UI has been launched for an outgoing call. */
     val callLaunched: Boolean = false,
+    /** True when the ZIM signaling channel is connected and calls can be placed. */
+    val callingReady: Boolean = false,
 )
 
 @HiltViewModel
@@ -79,6 +82,11 @@ class CallViewModel @Inject constructor(
                 if (activeCallId != null) _state.update {
                     it.copy(elapsedSeconds = seconds, phase = if (seconds > 0) CallPhase.CONNECTED else it.phase)
                 }
+            }
+        }
+        viewModelScope.launch {
+            zegoCallManager.connection.collect { conn ->
+                _state.update { it.copy(callingReady = conn == ZimConnection.CONNECTED) }
             }
         }
     }
