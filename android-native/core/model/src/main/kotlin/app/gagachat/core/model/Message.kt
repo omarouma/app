@@ -48,6 +48,12 @@ data class Message(
     @SerialName("contact_phone") val contactPhone: String? = null,
     // Local-only "delete for me" flag \u2014 never sent to the backend.
     @SerialName("hidden_for_me") val hiddenForMe: Boolean = false,
+    // Live location: when set, this LOCATION message is a live share that expires
+    // at this epoch-millis instant (null = a one-shot static pin).
+    @SerialName("live_expires_at") val liveExpiresAt: Long? = null,
+    // Poll payload - rendered when [pollQuestion] is non-blank.
+    @SerialName("poll_question") val pollQuestion: String? = null,
+    @SerialName("poll_options") val pollOptions: List<String> = emptyList(),
 ) {
     /** Authoritative timestamp for ordering: server time when available, else client. */
     val sortTimestamp: Long get() = createdAtServer ?: createdAtClient
@@ -71,6 +77,32 @@ data class Message(
 
     /** Total number of individual reactions across all emojis. */
     val reactionCount: Int get() = reactions.values.sumOf { it.size }
+
+    /** True when this message is a poll (question + at least one option). */
+    val isPoll: Boolean get() = !pollQuestion.isNullOrBlank() && pollOptions.isNotEmpty()
+
+    /** True when this LOCATION message is a live share (has an expiry). */
+    val isLiveLocation: Boolean get() = type == MessageType.LOCATION && liveExpiresAt != null
+
+    /** True when a live share has not yet expired at [now] (epoch millis). */
+    fun isLiveActive(now: Long): Boolean = isLiveLocation && (liveExpiresAt ?: 0L) > now
+
+    /**
+     * Poll votes, keyed by option index. Stored in the shared `reactions` jsonb
+     * under `opt:<index>` keys so votes sync through the existing realtime path
+     * without a dedicated backend table.
+     */
+    val pollVotes: Map<Int, List<String>>
+        get() = reactions.entries
+            .mapNotNull { (key, users) ->
+                key.removePrefix("opt:").takeIf { key.startsWith("opt:") }
+                    ?.toIntOrNull()?.let { it to users }
+            }
+            .toMap()
+
+    /** The current user's selected poll option index, or null if they haven't voted. */
+    fun pollSelection(userId: String): Int? =
+        pollVotes.entries.firstOrNull { it.value.contains(userId) }?.key
 }
 
 @Serializable

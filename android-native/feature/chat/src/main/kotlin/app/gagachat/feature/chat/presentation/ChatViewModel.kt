@@ -212,6 +212,9 @@ class ChatViewModel @Inject constructor(
     private val _pendingLocation = MutableStateFlow<LocationPreview?>(null)
     val pendingLocation: StateFlow<LocationPreview?> = _pendingLocation.asStateFlow()
 
+    // F21b: refreshes an active live-location share until it expires.
+    private var liveLocationJob: Job? = null
+
     private val voiceRecorder = VoiceRecorder(context)
     private var recordingTicker: Job? = null
     private var typingJob: Job? = null
@@ -775,6 +778,97 @@ class ChatViewModel @Inject constructor(
     /** F21: user dismissed the confirmation sheet without sharing. */
     fun dismissLocationPreview() {
         _pendingLocation.value = null
+    }
+
+    /**
+     * F25: creates a poll. A valid poll needs a non-blank question and at least
+     * two distinct options; duplicates and blanks are dropped and the list is
+     * capped at ten so the bubble stays readable.
+     */
+    fun sendPoll(question: String, options: List<String>) {
+        val q = question.trim()
+        val clean = options.map { it.trim() }.filter { it.isNotEmpty() }.distinct().take(10)
+        if (q.isEmpty() || clean.size < 2) {
+            notice.value = "A poll needs a question and at least two options."
+            return
+        }
+        viewModelScope.launch {
+            val session = authRepository.sessionFlow.value
+            val result = messageRepository.sendPoll(
+                conversationId = conversationId,
+                senderId = currentUserId,
+                senderName = session?.displayName,
+                senderAvatar = null,
+                question = q,
+                options = clean,
+            )
+            if (result is AppResult.Failure) error.value = result.error.toUserMessage()
+        }
+    }
+
+    /** F25: records the current user's single-choice vote on a poll. */
+    fun votePoll(message: Message, optionIndex: Int) {
+        viewModelScope.launch {
+            messageRepository.votePoll(message.localId, optionIndex, currentUserId)
+        }
+    }
+
+    /**
+     * F21b: starts a live-location share that expires after [durationMillis]. The
+     * first fix uses the same privacy gate as a static share; subsequent fixes are
+     * pushed every 30s while the share stays active so the recipient sees a moving
+     * pin, and the share auto-stops once [expiresAt] passes.
+     */
+    fun shareLiveLocation(durationMillis: Long) {
+        viewModelScope.launch {
+            val fine = context.checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION)
+            val coarse = context.checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION)
+            if (fine != PackageManager.PERMISSION_GRANTED && coarse != PackageManager.PERMISSION_GRANTED) {
+                notice.value = "Enable location permission to share your location."
+                return@launch
+            }
+            val location = acquireLocation()
+            if (location == null) {
+                notice.value = "Couldn't get your current location yet."
+                return@launch
+            }
+            val session = authRepository.sessionFlow.value
+            val expiresAt = System.currentTimeMillis() + durationMillis
+            when (
+                val result = messageRepository.sendLiveLocation(
+                    conversationId = conversationId,
+                    senderId = currentUserId,
+                    senderName = session?.displayName,
+                    senderAvatar = null,
+                    latitude = location.latitude,
+                    longitude = location.longitude,
+                    expiresAt = expiresAt,
+                )
+            ) {
+                is AppResult.Success -> startLiveLocationUpdates(result.data.localId, expiresAt)
+                is AppResult.Failure -> error.value = result.error.toUserMessage()
+                AppResult.Loading -> Unit
+            }
+        }
+    }
+
+    /** F21b: stops an active live-location share early. */
+    fun stopLiveLocation(message: Message) {
+        liveLocationJob?.cancel()
+        liveLocationJob = null
+        viewModelScope.launch { messageRepository.stopLiveLocation(message.localId) }
+    }
+
+    private fun startLiveLocationUpdates(localId: String, expiresAt: Long) {
+        liveLocationJob?.cancel()
+        liveLocationJob = viewModelScope.launch {
+            while (System.currentTimeMillis() < expiresAt) {
+                delay(30_000)
+                if (System.currentTimeMillis() >= expiresAt) break
+                val loc = acquireLocation() ?: continue
+                messageRepository.updateLiveLocation(localId, loc.latitude, loc.longitude)
+            }
+        }
     }
 
     /**

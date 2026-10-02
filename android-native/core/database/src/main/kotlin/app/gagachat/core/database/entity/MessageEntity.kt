@@ -62,4 +62,10 @@ data class MessageEntity(
      * server copy (added in schema v5). Defaults to false so existing rows render.
      */
     val hiddenForMe: Boolean = false,
+    /** Live-location expiry (epoch millis); null for a static pin. */
+    val liveExpiresAt: Long? = null,
+    /** Poll question (non-blank => poll message). */
+    val pollQuestion: String? = null,
+    /** JSON array of poll option labels. */
+    val pollOptions: String? = null,
 )

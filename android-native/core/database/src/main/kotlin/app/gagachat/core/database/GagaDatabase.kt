@@ -101,6 +101,9 @@ abstract class GagaDatabase : RoomDatabase() {
         val MIGRATION_4_5 = object : Migration(4, 5) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE messages ADD COLUMN hiddenForMe INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE messages ADD COLUMN liveExpiresAt INTEGER")
+                db.execSQL("ALTER TABLE messages ADD COLUMN pollQuestion TEXT")
+                db.execSQL("ALTER TABLE messages ADD COLUMN pollOptions TEXT")
             }
         }
     }

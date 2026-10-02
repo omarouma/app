@@ -385,6 +385,21 @@ class SupabaseRestApi @Inject constructor(
         }
     }
 
+    /**
+     * Patches only the `metadata` jsonb column on a message. Used by live-location
+     * updates (fresh coordinates + expiry) and poll edits, so the rest of the row
+     * (content, media, reactions) is never clobbered.
+     */
+    suspend fun updateMessageMetadata(id: String, metadata: JsonObject) {
+        client.patch("${config.restUrl}/messages") {
+            auth()
+            parameter("id", "eq.$id")
+            header("Prefer", "return=minimal")
+            contentType(ContentType.Application.Json)
+            setBody(mapOf("metadata" to metadata))
+        }
+    }
+
     // ---- Chat reads ----
 
     suspend fun upsertChatRead(row: ChatReadRow) {

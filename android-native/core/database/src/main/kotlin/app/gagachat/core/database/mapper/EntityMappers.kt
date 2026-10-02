@@ -175,6 +175,9 @@ fun MessageEntity.toDomain(): Message = Message(
     contactName = contactName,
     contactPhone = contactPhone,
     hiddenForMe = hiddenForMe,
+    liveExpiresAt = liveExpiresAt,
+    pollQuestion = pollQuestion,
+    pollOptions = parseStringList(pollOptions),
 )
 
 fun Message.toEntity(): MessageEntity = MessageEntity(
@@ -209,6 +212,9 @@ fun Message.toEntity(): MessageEntity = MessageEntity(
     contactName = contactName,
     contactPhone = contactPhone,
     hiddenForMe = hiddenForMe,
+    liveExpiresAt = liveExpiresAt,
+    pollQuestion = pollQuestion,
+    pollOptions = encodeStringList(pollOptions),
 )
 
 // ---- Attachment ----

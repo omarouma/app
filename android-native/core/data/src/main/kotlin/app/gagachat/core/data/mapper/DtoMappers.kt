@@ -104,6 +104,9 @@ fun MessageRow.toDomain(): Message {
         latitude = if (type == MessageType.LOCATION) meta?.double("lat") else null,
         longitude = if (type == MessageType.LOCATION) meta?.double("lng") else null,
         mediaDurationMs = if (type == MessageType.AUDIO) meta?.long("duration_ms") else null,
+        liveExpiresAt = meta?.long("live_expires_at"),
+        pollQuestion = meta?.obj("poll")?.string("question"),
+        pollOptions = meta?.obj("poll")?.stringList("options") ?: emptyList(),
     )
 }
 
@@ -121,6 +124,11 @@ internal fun JsonObject.toReactionMap(): Map<String, List<String>> =
 
 private fun JsonObject.double(key: String): Double? =
     this[key]?.jsonPrimitive?.content?.toDoubleOrNull()
+
+private fun JsonObject.obj(key: String): JsonObject? = this[key] as? JsonObject
+
+private fun JsonObject.stringList(key: String): List<String> =
+    (this[key] as? JsonArray)?.mapNotNull { it.jsonPrimitive.contentOrNull } ?: emptyList()
 
 private fun JsonObject.long(key: String): Long? =
     this[key]?.jsonPrimitive?.content?.toLongOrNull()

@@ -126,6 +126,14 @@ interface MessageDao {
     @Query("UPDATE messages SET hiddenForMe = 1 WHERE localId = :localId")
     suspend fun hideForMe(localId: String)
 
+    /** Live-location: pushes fresh coordinates onto an existing live share. */
+    @Query("UPDATE messages SET latitude = :latitude, longitude = :longitude WHERE localId = :localId")
+    suspend fun updateLiveLocation(localId: String, latitude: Double, longitude: Double)
+
+    /** Live-location: sets/clears the expiry (a past value ends the share). */
+    @Query("UPDATE messages SET liveExpiresAt = :expiresAt WHERE localId = :localId")
+    suspend fun updateLiveExpiry(localId: String, expiresAt: Long?)
+
     /** Restores a locally-hidden row (used when a chat is re-synced). */
     @Query("UPDATE messages SET hiddenForMe = 0 WHERE conversationId = :conversationId")
     suspend fun unhideAllInConversation(conversationId: String)

@@ -93,9 +93,11 @@ import app.gagachat.feature.chat.presentation.components.DateSeparator
 import app.gagachat.feature.chat.presentation.components.DocumentOpenOverlay
 import app.gagachat.feature.chat.presentation.components.ForwardPickerSheet
 import app.gagachat.feature.chat.presentation.components.LocationPreviewDialog
+import app.gagachat.feature.chat.presentation.components.LiveLocationDurationDialog
 import app.gagachat.feature.chat.presentation.components.MediaReviewSheet
 import app.gagachat.feature.chat.presentation.components.MediaViewerOverlay
 import app.gagachat.feature.chat.presentation.components.MessageBubble
+import app.gagachat.feature.chat.presentation.components.PollComposerDialog
 import app.gagachat.feature.chat.presentation.components.MessageComposer
 import app.gagachat.feature.chat.presentation.components.TypingIndicator
 import app.gagachat.feature.chat.presentation.components.rememberContactPicker
@@ -144,6 +146,8 @@ fun ChatRoute(
     var viewerMessage by remember { mutableStateOf<Message?>(null) }
     var forwardingMessage by remember { mutableStateOf<Message?>(null) }
     var showBackgroundPicker by remember { mutableStateOf(false) }
+    var showPollComposer by remember { mutableStateOf(false) }
+    var showLiveLocationPicker by remember { mutableStateOf(false) }
     // Requests RECORD_AUDIO the first time the mic is tapped, then starts the
     // recording. If the user denies, the ViewModel surfaces an actionable notice.
     val micPermissionLauncher = rememberLauncherForActivityResult(
@@ -159,6 +163,14 @@ fun ChatRoute(
         contract = ActivityResultContracts.RequestMultiplePermissions(),
     ) { grants ->
         if (grants.values.any { it }) viewModel.shareLocation()
+        else viewModel.showNotice("Location permission is needed to share your location.")
+    }
+    // F21b: after the permission grant we open the duration picker rather than
+    // sending immediately, so the user chooses how long to share.
+    val liveLocationPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestMultiplePermissions(),
+    ) { grants ->
+        if (grants.values.any { it }) showLiveLocationPicker = true
         else viewModel.showNotice("Location permission is needed to share your location.")
     }
 
@@ -295,6 +307,8 @@ fun ChatRoute(
                                 }
                             },
                             onReactionClick = { m, e -> viewModel.toggleReaction(m, e) },
+                            onVotePoll = { m, i -> viewModel.votePoll(m, i) },
+                            onStopLiveLocation = { m -> viewModel.stopLiveLocation(m) },
                             onReplyClick = { target ->
                                 val idx = visible.indexOfFirst {
                                     it.localId == target.localId
@@ -352,12 +366,12 @@ fun ChatRoute(
                     onShareLiveLocation = {
                         val fine = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
                         val coarse = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
-                        if (fine || coarse) viewModel.shareLocation() else locationPermissionLauncher.launch(arrayOf(
+                        if (fine || coarse) showLiveLocationPicker = true else liveLocationPermissionLauncher.launch(arrayOf(
                             Manifest.permission.ACCESS_FINE_LOCATION,
                             Manifest.permission.ACCESS_COARSE_LOCATION,
                         ))
                     },
-                    onSendPoll = { viewModel.showNotice("Polls") },
+                    onSendPoll = { showPollComposer = true },
                     onScheduleClick = { viewModel.showNotice("Scheduled messages") },
                     isRecording = state.isRecording,
                     recordingElapsedMs = state.recordingElapsedMs,
@@ -453,6 +467,26 @@ fun ChatRoute(
                 onDeleteForMe = {
                     viewModel.deleteForMe(selected)
                     viewModel.selectMessage(null)
+                },
+            )
+        }
+
+        if (showPollComposer) {
+            PollComposerDialog(
+                onDismiss = { showPollComposer = false },
+                onSend = { question, options ->
+                    viewModel.sendPoll(question, options)
+                    showPollComposer = false
+                },
+            )
+        }
+
+        if (showLiveLocationPicker) {
+            LiveLocationDurationDialog(
+                onDismiss = { showLiveLocationPicker = false },
+                onSelect = { duration ->
+                    viewModel.shareLiveLocation(duration)
+                    showLiveLocationPicker = false
                 },
             )
         }
@@ -787,6 +821,8 @@ private fun MessageList(
     onMediaClick: (Message) -> Unit,
     onReactionClick: (Message, String) -> Unit,
     onReplyClick: (Message) -> Unit,
+    onVotePoll: (Message, Int) -> Unit,
+    onStopLiveLocation: (Message) -> Unit,
 ) {
     // Newest at the bottom: reverse the list and use reverseLayout so the view
     // stays pinned to the latest message without manual scroll math.

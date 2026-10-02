@@ -27,21 +27,25 @@ import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.DoneAll
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.NearMe
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Poll
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -92,6 +96,8 @@ fun MessageBubble(
     onLongPress: (Message) -> Unit,
     onReactionClick: (Message, String) -> Unit,
     onReplyClick: (Message) -> Unit,
+    onVotePoll: (Message, Int) -> Unit = { _, _ -> },
+    onStopLiveLocation: (Message) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val bubbleColor = if (isOutgoing) {
@@ -147,6 +153,9 @@ fun MessageBubble(
                         message = message,
                         contentColor = contentColor,
                         onMediaClick = onMediaClick,
+                        currentUserId = currentUserId,
+                        onVotePoll = onVotePoll,
+                        onStopLiveLocation = onStopLiveLocation,
                     )
                 }
                 Spacer(Modifier.height(GagaDimens.space2))
@@ -277,7 +286,27 @@ private fun MessageContent(
     message: Message,
     contentColor: Color,
     onMediaClick: (Message) -> Unit,
+    currentUserId: String,
+    onVotePoll: (Message, Int) -> Unit,
+    onStopLiveLocation: (Message) -> Unit,
 ) {
+    if (message.isPoll) {
+        PollContent(
+            message = message,
+            contentColor = contentColor,
+            currentUserId = currentUserId,
+            onVotePoll = onVotePoll,
+        )
+        return
+    }
+    if (message.isLiveLocation) {
+        LiveLocationContent(
+            message = message,
+            contentColor = contentColor,
+            onStopLiveLocation = onStopLiveLocation,
+        )
+        return
+    }
     when (message.type) {
         MessageType.TEXT -> Text(
             text = message.text.orEmpty(),
@@ -906,19 +935,259 @@ private fun StatusTick(status: MessageStatus, onRetry: () -> Unit) {
 }
 
 /** Short, human-readable preview of a message used in reply quotes. */
-internal fun Message.previewText(): String = when (type) {
-    MessageType.TEXT -> text.orEmpty()
-    MessageType.IMAGE -> "\uD83D\uDCF7 Photo"
-    MessageType.VIDEO -> "\uD83C\uDFA5 Video"
-    MessageType.AUDIO -> "\uD83C\uDFA4 Voice message"
-    MessageType.FILE -> text ?: "\uD83D\uDCCE Attachment"
-    MessageType.LOCATION -> "\uD83D\uDCCD Location"
-    MessageType.CONTACT -> "\uD83D\uDC64 ${contactName ?: "Contact"}"
-    MessageType.CALL_EVENT -> text ?: "Call"
+internal fun Message.previewText(): String = when {
+    isPoll -> "\uD83D\uDCCA Poll: ${pollQuestion.orEmpty()}"
+    isLiveLocation -> "\uD83D\uDCCD Live location"
+    else -> when (type) {
+        MessageType.TEXT -> text.orEmpty()
+        MessageType.IMAGE -> "\uD83D\uDCF7 Photo"
+        MessageType.VIDEO -> "\uD83C\uDFA5 Video"
+        MessageType.AUDIO -> "\uD83C\uDFA4 Voice message"
+        MessageType.FILE -> text ?: "\uD83D\uDCCE Attachment"
+        MessageType.LOCATION -> "\uD83D\uDCCD Location"
+        MessageType.CONTACT -> "\uD83D\uDC64 ${contactName ?: "Contact"}"
+        MessageType.CALL_EVENT -> text ?: "Call"
+    }
 }
 
 private fun formatBytes(bytes: Long): String = when {
     bytes < 1024 -> "$bytes B"
     bytes < 1024 * 1024 -> "${bytes / 1024} KB"
     else -> String.format("%.1f MB", bytes / (1024.0 * 1024.0))
+}
+
+/**
+ * F25: a poll card. Renders the question, each option with a proportional vote
+ * bar and count, and highlights the current user's single choice. Tapping an
+ * option casts (or moves) the user's vote.
+ */
+@Composable
+private fun PollContent(
+    message: Message,
+    contentColor: Color,
+    currentUserId: String,
+    onVotePoll: (Message, Int) -> Unit,
+) {
+    val votes = message.pollVotes
+    val totalVotes = votes.values.sumOf { it.size }
+    val mySelection = message.pollSelection(currentUserId)
+
+    Column(
+        modifier = Modifier
+            .width(260.dp)
+            .clip(RoundedCornerShape(14.dp))
+            .background(contentColor.copy(alpha = 0.08f))
+            .padding(GagaDimens.space12),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(
+                Icons.Filled.Poll,
+                contentDescription = null,
+                tint = GagaGreen,
+                modifier = Modifier.size(18.dp),
+            )
+            Spacer(Modifier.width(GagaDimens.space6))
+            Text(
+                text = "Poll",
+                style = MaterialTheme.typography.labelMedium,
+                color = contentColor.copy(alpha = 0.7f),
+                fontWeight = FontWeight.SemiBold,
+            )
+        }
+        Spacer(Modifier.height(GagaDimens.space6))
+        Text(
+            text = message.pollQuestion.orEmpty(),
+            style = MaterialTheme.typography.bodyLarge,
+            color = contentColor,
+            fontWeight = FontWeight.SemiBold,
+        )
+        Spacer(Modifier.height(GagaDimens.space8))
+        message.pollOptions.forEachIndexed { index, label ->
+            val count = votes[index]?.size ?: 0
+            val fraction = if (totalVotes == 0) 0f else count.toFloat() / totalVotes.toFloat()
+            val mine = mySelection == index
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = GagaDimens.space2)
+                    .clip(RoundedCornerShape(8.dp))
+                    .clickable { onVotePoll(message, index) }
+                    .padding(horizontal = GagaDimens.space8, vertical = GagaDimens.space6),
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    RadioButton(
+                        selected = mine,
+                        onClick = { onVotePoll(message, index) },
+                        modifier = Modifier.size(22.dp),
+                    )
+                    Spacer(Modifier.width(GagaDimens.space6))
+                    Text(
+                        text = label,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = contentColor,
+                        fontWeight = if (mine) FontWeight.SemiBold else FontWeight.Normal,
+                        modifier = Modifier.weight(1f),
+                    )
+                    Text(
+                        text = count.toString(),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = contentColor.copy(alpha = 0.7f),
+                    )
+                }
+                Spacer(Modifier.height(GagaDimens.space4))
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(6.dp)
+                        .clip(RoundedCornerShape(3.dp))
+                        .background(contentColor.copy(alpha = 0.15f)),
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth(fraction)
+                            .height(6.dp)
+                            .clip(RoundedCornerShape(3.dp))
+                            .background(if (mine) GagaGreen else GagaGreen.copy(alpha = 0.6f)),
+                    )
+                }
+            }
+        }
+        Spacer(Modifier.height(GagaDimens.space4))
+        Text(
+            text = if (totalVotes == 1) "1 vote" else "$totalVotes votes",
+            style = MaterialTheme.typography.labelSmall,
+            color = contentColor.copy(alpha = 0.7f),
+        )
+    }
+}
+
+/**
+ * F21b: a live-location card. Shows a live pin, a countdown to expiry and, while
+ * the share is active, a "Stop" action. The countdown ticks once a second; once
+ * the share lapses the card degrades to a static location card.
+ */
+@Composable
+private fun LiveLocationContent(
+    message: Message,
+    contentColor: Color,
+    onStopLiveLocation: (Message) -> Unit,
+) {
+    val context = LocalContext.current
+    val lat = message.latitude
+    val lng = message.longitude
+    val hasCoords = lat != null && lng != null
+    val expiresAt = message.liveExpiresAt ?: 0L
+
+    val now by produceState(initialValue = System.currentTimeMillis(), key1 = message.localId) {
+        while (true) {
+            value = System.currentTimeMillis()
+            kotlinx.coroutines.delay(1_000)
+        }
+    }
+    val remaining = (expiresAt - now).coerceAtLeast(0L)
+    val active = remaining > 0L
+
+    val openMap = {
+        if (hasCoords) {
+            val uri = Uri.parse("geo:$lat,$lng?q=$lat,$lng")
+            val intent = Intent(Intent.ACTION_VIEW, uri).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            runCatching { context.startActivity(intent) }
+        }
+        Unit
+    }
+
+    Column(
+        modifier = Modifier
+            .width(240.dp)
+            .clip(RoundedCornerShape(14.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant),
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(124.dp)
+                .clickable(enabled = hasCoords, onClick = openMap),
+        ) {
+            StylisedMap(modifier = Modifier.fillMaxSize())
+            if (hasCoords) {
+                AsyncImage(
+                    model = mapTileUrl(lat!!, lng!!, 16),
+                    contentDescription = "Live location",
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize(),
+                )
+            }
+            Icon(
+                Icons.Filled.LocationOn,
+                contentDescription = null,
+                tint = if (active) GagaGreen else Color(0xFFE53935),
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .size(34.dp),
+            )
+            MapChip(
+                text = if (active) "LIVE" else "Ended",
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .padding(GagaDimens.space6),
+            )
+        }
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = GagaDimens.space12, vertical = GagaDimens.space8),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                Icons.Filled.NearMe,
+                contentDescription = null,
+                tint = if (active) GagaGreen else MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(GagaDimens.iconSmall),
+            )
+            Spacer(Modifier.width(GagaDimens.space8))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = if (active) "Live location" else "Live location ended",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Text(
+                    text = if (active) {
+                        "Updates for ${formatRemaining(remaining)}"
+                    } else {
+                        "Sharing stopped"
+                    },
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(
+                    start = GagaDimens.space4,
+                    end = GagaDimens.space4,
+                    bottom = GagaDimens.space4,
+                ),
+        ) {
+            TextButton(onClick = openMap, enabled = hasCoords, modifier = Modifier.weight(1f)) {
+                Text("Open map")
+            }
+            if (active) {
+                TextButton(onClick = { onStopLiveLocation(message) }, modifier = Modifier.weight(1f)) {
+                    Text("Stop")
+                }
+            }
+        }
+    }
+}
+
+private fun formatRemaining(millis: Long): String {
+    val totalSeconds = (millis / 1000).coerceAtLeast(0)
+    val minutes = totalSeconds / 60
+    val seconds = totalSeconds % 60
+    return if (minutes > 0) "${minutes}m ${seconds}s" else "${seconds}s"
 }

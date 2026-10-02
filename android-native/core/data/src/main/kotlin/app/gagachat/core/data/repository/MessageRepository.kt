@@ -44,6 +44,8 @@ import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.putJsonArray
+import kotlinx.serialization.json.putJsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.put
@@ -86,6 +88,43 @@ interface MessageRepository {
         latitude: Double,
         longitude: Double,
     ): AppResult<Message>
+
+    /**
+     * Shares a live location that expires at [expiresAt] (epoch millis). The
+     * sender updates it via [updateLiveLocation] and can end it early with
+     * [stopLiveLocation]; recipients render a "Live" badge + countdown.
+     */
+    suspend fun sendLiveLocation(
+        conversationId: String,
+        senderId: String,
+        senderName: String?,
+        senderAvatar: String?,
+        latitude: Double,
+        longitude: Double,
+        expiresAt: Long,
+    ): AppResult<Message>
+
+    /** Pushes fresh coordinates for an existing live-location message. */
+    suspend fun updateLiveLocation(localId: String, latitude: Double, longitude: Double)
+
+    /** Ends a live-location share early (expiry set to now). */
+    suspend fun stopLiveLocation(localId: String)
+
+    /** Sends a poll message (question + 2..10 options). */
+    suspend fun sendPoll(
+        conversationId: String,
+        senderId: String,
+        senderName: String?,
+        senderAvatar: String?,
+        question: String,
+        options: List<String>,
+    ): AppResult<Message>
+
+    /**
+     * Records [userId]'s vote for [optionIndex] on a poll message. Single-choice:
+     * any previous selection by the same user is cleared first.
+     */
+    suspend fun votePoll(localId: String, optionIndex: Int, userId: String)
 
     suspend fun sendCallEvent(
         conversationId: String,
@@ -321,6 +360,125 @@ class DefaultMessageRepository @Inject constructor(
         updateConversationPreview(conversationId, clientMessageId, "\uD83D\uDCCD Location", now)
         outboxScheduler.enqueueMessageSend(clientMessageId)
         dispatchOrQueue(pending)
+    }
+
+    override suspend fun sendLiveLocation(
+        conversationId: String,
+        senderId: String,
+        senderName: String?,
+        senderAvatar: String?,
+        latitude: Double,
+        longitude: Double,
+        expiresAt: Long,
+    ): AppResult<Message> = withContext(dispatchers.io) {
+        val clientMessageId = idGenerator.newClientMessageId()
+        val now = timeProvider.nowMillis()
+        val pending = Message(
+            localId = clientMessageId,
+            clientMessageId = clientMessageId,
+            conversationId = conversationId,
+            senderId = senderId,
+            type = MessageType.LOCATION,
+            text = "Live location",
+            latitude = latitude,
+            longitude = longitude,
+            liveExpiresAt = expiresAt,
+            createdAtClient = now,
+            status = MessageStatus.PENDING,
+            senderName = senderName,
+            senderAvatar = senderAvatar,
+        )
+        messageDao.upsert(pending.toEntity())
+        updateConversationPreview(conversationId, clientMessageId, "\uD83D\uDCCD Live location", now)
+        outboxScheduler.enqueueMessageSend(clientMessageId)
+        dispatchOrQueue(pending)
+    }
+
+    override suspend fun updateLiveLocation(localId: String, latitude: Double, longitude: Double) {
+        withContext(dispatchers.io) {
+            val entity = messageDao.getByLocalId(localId) ?: return@withContext
+            val expiresAt = entity.liveExpiresAt ?: return@withContext
+            messageDao.updateLiveLocation(localId, latitude, longitude)
+            entity.serverMessageId?.let { serverId ->
+                val meta = buildJsonObject {
+                    put("lat", latitude)
+                    put("lng", longitude)
+                    put("live_expires_at", expiresAt)
+                }
+                runCatching { restApi.updateMessageMetadata(serverId, meta) }
+            }
+        }
+    }
+
+    override suspend fun stopLiveLocation(localId: String) {
+        withContext(dispatchers.io) {
+            val entity = messageDao.getByLocalId(localId) ?: return@withContext
+            val now = timeProvider.nowMillis()
+            messageDao.updateLiveExpiry(localId, now)
+            entity.serverMessageId?.let { serverId ->
+                val meta = buildJsonObject {
+                    entity.latitude?.let { put("lat", it) }
+                    entity.longitude?.let { put("lng", it) }
+                    put("live_expires_at", now)
+                }
+                runCatching { restApi.updateMessageMetadata(serverId, meta) }
+            }
+        }
+    }
+
+    override suspend fun sendPoll(
+        conversationId: String,
+        senderId: String,
+        senderName: String?,
+        senderAvatar: String?,
+        question: String,
+        options: List<String>,
+    ): AppResult<Message> = withContext(dispatchers.io) {
+        val cleanOptions = options.map { it.trim() }.filter { it.isNotEmpty() }.take(10)
+        val clientMessageId = idGenerator.newClientMessageId()
+        val now = timeProvider.nowMillis()
+        val pending = Message(
+            localId = clientMessageId,
+            clientMessageId = clientMessageId,
+            conversationId = conversationId,
+            senderId = senderId,
+            type = MessageType.TEXT,
+            text = question.trim(),
+            pollQuestion = question.trim(),
+            pollOptions = cleanOptions,
+            createdAtClient = now,
+            status = MessageStatus.PENDING,
+            senderName = senderName,
+            senderAvatar = senderAvatar,
+        )
+        messageDao.upsert(pending.toEntity())
+        updateConversationPreview(conversationId, clientMessageId, "\uD83D\uDCCA Poll: ${question.trim()}", now)
+        outboxScheduler.enqueueMessageSend(clientMessageId)
+        dispatchOrQueue(pending)
+    }
+
+    override suspend fun votePoll(localId: String, optionIndex: Int, userId: String) {
+        withContext(dispatchers.io) {
+            val entity = messageDao.getByLocalId(localId) ?: return@withContext
+            val current = parseReactions(entity.reactions)
+            val updated = current.toMutableMap()
+            // Single-choice: drop this user's other poll selections first.
+            updated.keys.toList().forEach { key ->
+                if (key.startsWith("opt:")) {
+                    val users = updated[key].orEmpty().filterNot { it == userId }
+                    if (users.isEmpty()) updated.remove(key) else updated[key] = users
+                }
+            }
+            val key = "opt:$optionIndex"
+            val wasSelected = current[key]?.contains(userId) == true
+            if (!wasSelected) {
+                updated[key] = (updated[key].orEmpty() + userId).distinct()
+            }
+            messageDao.updateReactions(localId, encodeReactions(updated))
+            entity.serverMessageId?.let { serverId ->
+                runCatching { restApi.updateMessageReactions(serverId, reactionsToJson(updated)) }
+            }
+        }
     }
 
     override suspend fun sendCallEvent(
@@ -680,6 +838,13 @@ class DefaultMessageRepository @Inject constructor(
             if (message.type == MessageType.CONTACT) {
                 message.contactName?.let { put("contact_name", it) }
                 message.contactPhone?.let { put("contact_phone", it) }
+            }
+            message.liveExpiresAt?.let { put("live_expires_at", it) }
+            if (!message.pollQuestion.isNullOrBlank() && message.pollOptions.isNotEmpty()) {
+                putJsonObject("poll") {
+                    put("question", message.pollQuestion.orEmpty())
+                    putJsonArray("options") { message.pollOptions.forEach { add(JsonPrimitive(it)) } }
+                }
             }
         }
         return if (obj.isEmpty()) null else obj
