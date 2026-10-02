@@ -22,6 +22,18 @@
         ]
       }
     ],
+    "redirects": [
+      {
+        "source": "/downloads/gaga-latest.apk",
+        "destination": "https://github.com/omarouma/app/releases/download/android-2.0.18/GaGa-2.0.18-release.apk",
+        "type": 302
+      },
+      {
+        "source": "/downloads/gaga-latest.aab",
+        "destination": "https://github.com/omarouma/app/releases/download/android-2.0.18/GaGa-2.0.18-release.aab",
+        "type": 302
+      }
+    ],
     "rewrites": [
       { "source": "/chat/**", "destination": "/open.html" },
       { "source": "/call/**", "destination": "/open.html" },
