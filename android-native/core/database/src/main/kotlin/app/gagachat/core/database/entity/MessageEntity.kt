@@ -68,4 +68,10 @@ data class MessageEntity(
     val pollQuestion: String? = null,
     /** JSON array of poll option labels. */
     val pollOptions: String? = null,
+    /**
+     * Scheduled send time (epoch millis). When non-null the row is held with
+     * status `SCHEDULED` and delivered by [ScheduledMessageWorker] at this
+     * instant. Added in schema v7.
+     */
+    val scheduledAt: Long? = null,
 )

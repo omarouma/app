@@ -1,5 +1,6 @@
 package app.gagachat.feature.chat.presentation.components
 
+import android.media.AudioAttributes
 import android.media.MediaPlayer
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -29,6 +30,16 @@ class VoicePlayerState internal constructor() {
         }
         val mp = MediaPlayer()
         return try {
+            // Route voice notes through the *media* stream with a speech content
+            // type. Without explicit attributes the platform can pick an
+            // earpiece/ring stream on some OEM builds, which is why voice notes
+            // played "silently". Attributes MUST be set before prepare().
+            mp.setAudioAttributes(
+                AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_MEDIA)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+                    .build(),
+            )
             mp.setDataSource(source)
             mp.setOnPreparedListener {
                 // Guard against a stale player that was released while buffering.

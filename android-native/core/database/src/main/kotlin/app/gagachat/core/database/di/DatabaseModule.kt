@@ -33,6 +33,8 @@ object DatabaseModule {
                 GagaDatabase.MIGRATION_2_3,
                 GagaDatabase.MIGRATION_3_4,
                 GagaDatabase.MIGRATION_4_5,
+                GagaDatabase.MIGRATION_5_6,
+                GagaDatabase.MIGRATION_6_7,
             )
             .fallbackToDestructiveMigrationOnDowngrade()
             .build()

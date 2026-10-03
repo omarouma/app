@@ -21,6 +21,12 @@ data class UserRow(
     val username: String? = null,
     val avatar: String? = null,
     @SerialName("cover_image") val coverImage: String? = null,
+    /**
+     * Separate cover *video* column. The backend keeps photo and video covers in
+     * two distinct columns (`cover_image` / `cover_video`); writing a video URL
+     * into `cover_image` (the old behaviour) is why cover videos never rendered.
+     */
+    @SerialName("cover_video") val coverVideo: String? = null,
     val phone: String? = null,
     val email: String? = null,
     val bio: String? = null,

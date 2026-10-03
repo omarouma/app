@@ -90,4 +90,23 @@ class DefaultOutboxScheduler @Inject constructor(
             request,
         )
     }
+
+    override fun enqueueScheduledMessage(clientMessageId: String, delayMillis: Long) {
+        val request = OneTimeWorkRequestBuilder<ScheduledMessageWorker>()
+            .setInitialDelay(delayMillis.coerceAtLeast(0L), TimeUnit.MILLISECONDS)
+            .setConstraints(networkConstraints)
+            .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 15, TimeUnit.SECONDS)
+            .setInputData(workDataOf(OutboxWork.KEY_CLIENT_MESSAGE_ID to clientMessageId))
+            .addTag(OutboxWork.SCHEDULED_SEND)
+            .build()
+        workManager.enqueueUniqueWork(
+            "${OutboxWork.SCHEDULED_SEND}_$clientMessageId",
+            ExistingWorkPolicy.REPLACE,
+            request,
+        )
+    }
+
+    override fun cancelScheduledMessage(clientMessageId: String) {
+        workManager.cancelUniqueWork("${OutboxWork.SCHEDULED_SEND}_$clientMessageId")
+    }
 }

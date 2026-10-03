@@ -54,12 +54,17 @@ data class Message(
     // Poll payload - rendered when [pollQuestion] is non-blank.
     @SerialName("poll_question") val pollQuestion: String? = null,
     @SerialName("poll_options") val pollOptions: List<String> = emptyList(),
+    // Local-only scheduled-send instant (epoch millis). Non-null only while the
+    // message is waiting in the SCHEDULED state; never serialised to the backend.
+    @SerialName("scheduled_at") val scheduledAt: Long? = null,
 ) {
     /** Authoritative timestamp for ordering: server time when available, else client. */
     val sortTimestamp: Long get() = createdAtServer ?: createdAtClient
 
     val isPending: Boolean get() = status == MessageStatus.PENDING
     val isFailed: Boolean get() = status == MessageStatus.FAILED
+    /** True while this message is waiting to be delivered at [scheduledAt]. */
+    val isScheduled: Boolean get() = status == MessageStatus.SCHEDULED
     val isDeleted: Boolean get() = deletedAt != null
     val hasReactions: Boolean get() = reactions.isNotEmpty()
 
@@ -120,6 +125,7 @@ enum class MessageType {
 @Serializable
 enum class MessageStatus {
     @SerialName("pending") PENDING,
+    @SerialName("scheduled") SCHEDULED,
     @SerialName("sent") SENT,
     @SerialName("delivered") DELIVERED,
     @SerialName("read") READ,

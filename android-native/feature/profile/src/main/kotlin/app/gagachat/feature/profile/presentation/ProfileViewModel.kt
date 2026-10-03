@@ -158,13 +158,13 @@ class ProfileViewModel @Inject constructor(
                 }
                 return@launch
             }
-            persistCover(uid, url)
+            persistCover(uid, url, isVideo = false)
         }
     }
 
     /**
      * Copies the picked video into cache, validates size/duration, streams it to
-     * the public `media` bucket and persists `users.cover_image`. Cover videos are
+     * the public `media` bucket and persists `users.cover_video`. Cover videos are
      * bounded (100 MB / 60 s) so the profile header stays fast to load.
      */
     fun onCoverVideoPicked(uri: Uri) {
@@ -215,14 +215,22 @@ class ProfileViewModel @Inject constructor(
                 }
                 return@launch
             }
-            persistCover(uid, url)
+            persistCover(uid, url, isVideo = true)
         }
     }
 
-    /** Writes the uploaded cover URL to `users.cover_image` and refreshes the cache. */
-    private suspend fun persistCover(uid: String, url: String) {
+    /**
+     * Writes the uploaded cover URL to the correct backend column \u2014
+     * `users.cover_video` for a video, `users.cover_image` for a photo \u2014 and
+     * refreshes the cache. Previously both were written to `cover_image`, so a
+     * cover video never rendered (and clobbered the photo). Because the Ktor JSON
+     * config uses `explicitNulls = false`, the untouched column is not serialised
+     * and therefore never nulled out.
+     */
+    private suspend fun persistCover(uid: String, url: String, isVideo: Boolean) {
+        val row = if (isVideo) UserRow(id = uid, coverVideo = url) else UserRow(id = uid, coverImage = url)
         val ok = withContext(dispatchers.io) {
-            runCatching { restApi.upsertUser(UserRow(id = uid, coverImage = url)) }.isSuccess
+            runCatching { restApi.upsertUser(row) }.isSuccess
         }
         if (ok) {
             withContext(dispatchers.io) { runCatching { userRepository.refreshUser(uid) } }

@@ -22,6 +22,8 @@ data class User(
     val website: String? = null,
     /** Optional cover banner image (falls back to the brand mint gradient). */
     @SerialName("cover_image") val coverImage: String? = null,
+    /** Optional cover banner *video* (looping clip) shown behind the avatar. */
+    @SerialName("cover_video") val coverVideo: String? = null,
     val status: UserStatus = UserStatus.OFFLINE,
     @SerialName("last_seen") val lastSeen: Long? = null,
     @SerialName("created_at") val createdAt: Long = 0L,

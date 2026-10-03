@@ -634,11 +634,22 @@ private fun AudioContent(message: Message, contentColor: Color) {
             .clickable(enabled = playable) { player.toggle(source) }
             .padding(vertical = GagaDimens.space2, horizontal = GagaDimens.space2),
     ) {
-        Icon(
-            imageVector = if (player.isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
-            contentDescription = if (player.isPlaying) "Pause audio" else "Play audio",
-            tint = contentColor,
-        )
+        // While a private-bucket voice note is being exchanged for a signed URL
+        // the source is null; show a spinner instead of a dead play button so a
+        // tap is never silently ignored.
+        if (!playable) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(20.dp),
+                strokeWidth = 2.dp,
+                color = contentColor,
+            )
+        } else {
+            Icon(
+                imageVector = if (player.isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
+                contentDescription = if (player.isPlaying) "Pause audio" else "Play audio",
+                tint = contentColor,
+            )
+        }
         Spacer(Modifier.width(GagaDimens.space8))
         Text(
             text = message.mediaDurationMs?.let { TimeFormat.callDuration(it) } ?: "Voice message",
@@ -998,6 +1009,14 @@ private fun MessageMeta(
             )
             Spacer(Modifier.width(GagaDimens.space4))
         }
+        if (message.isScheduled) {
+            Text(
+                text = "Scheduled",
+                style = MaterialTheme.typography.labelSmall,
+                color = contentColor.copy(alpha = 0.6f),
+            )
+            Spacer(Modifier.width(GagaDimens.space4))
+        }
         Text(
             text = TimeFormat.messageTime(message.sortTimestamp),
             style = MaterialTheme.typography.labelSmall,
@@ -1013,6 +1032,12 @@ private fun MessageMeta(
 @Composable
 private fun StatusTick(status: MessageStatus, onRetry: () -> Unit) {
     when (status) {
+        MessageStatus.SCHEDULED -> Icon(
+            Icons.Filled.Schedule,
+            contentDescription = "Scheduled",
+            modifier = Modifier.size(14.dp),
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
         MessageStatus.PENDING -> Icon(
             Icons.Filled.Schedule,
             contentDescription = "Sending",

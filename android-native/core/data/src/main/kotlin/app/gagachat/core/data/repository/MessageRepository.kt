@@ -137,6 +137,30 @@ interface MessageRepository {
     /** Marks a message as terminally FAILED once the outbox has exhausted retries. */
     suspend fun markFailed(localId: String)
 
+    /**
+     * Schedules a text message for delivery at [scheduledAt] (epoch millis). The
+     * row is persisted locally with [MessageStatus.SCHEDULED] and a durable
+     * WorkManager job promotes it into the normal send path when the time
+     * arrives. If [scheduledAt] is already in the past the message is sent now.
+     */
+    suspend fun scheduleMessage(
+        conversationId: String,
+        senderId: String,
+        senderName: String?,
+        senderAvatar: String?,
+        text: String,
+        scheduledAt: Long,
+    ): AppResult<Message>
+
+    /** Cancels a not-yet-sent scheduled message (removes the row and its job). */
+    suspend fun cancelScheduled(localId: String)
+
+    /**
+     * Invoked by the scheduled-send worker at the due time: promotes the row out
+     * of SCHEDULED and runs the normal idempotent send path.
+     */
+    suspend fun dispatchScheduled(clientMessageId: String): AppResult<Unit>
+
     suspend fun editMessage(localId: String, text: String): AppResult<Unit>
     suspend fun deleteMessage(localId: String): AppResult<Unit>
 
@@ -534,6 +558,72 @@ class DefaultMessageRepository @Inject constructor(
         }
         messageDao.updateStatus(localId, MessageStatus.FAILED.name, null, null)
     }
+
+    override suspend fun scheduleMessage(
+        conversationId: String,
+        senderId: String,
+        senderName: String?,
+        senderAvatar: String?,
+        text: String,
+        scheduledAt: Long,
+    ): AppResult<Message> = withContext(dispatchers.io) {
+        val trimmed = text.trim()
+        if (trimmed.isEmpty()) {
+            return@withContext AppResult.Failure(AppError.Validation("Message is empty"))
+        }
+        val now = timeProvider.nowMillis()
+        if (scheduledAt <= now) {
+            // A time in the past is meaningless to schedule — just send it now.
+            return@withContext sendText(conversationId, senderId, senderName, senderAvatar, trimmed)
+        }
+        val clientMessageId = idGenerator.newClientMessageId()
+        val scheduled = Message(
+            localId = clientMessageId,
+            clientMessageId = clientMessageId,
+            conversationId = conversationId,
+            senderId = senderId,
+            type = MessageType.TEXT,
+            text = trimmed,
+            createdAtClient = now,
+            status = MessageStatus.SCHEDULED,
+            scheduledAt = scheduledAt,
+            senderName = senderName,
+            senderAvatar = senderAvatar,
+        )
+        messageDao.upsert(scheduled.toEntity())
+        updateConversationPreview(conversationId, clientMessageId, trimmed, now)
+        // Durable one-shot job; survives process death and fires when due.
+        outboxScheduler.enqueueScheduledMessage(clientMessageId, scheduledAt - now)
+        AppResult.Success(scheduled)
+    }
+
+    override suspend fun cancelScheduled(localId: String) = withContext(dispatchers.io) {
+        val entity = messageDao.getByLocalId(localId) ?: return@withContext
+        // Only scheduled rows can be cancelled; never delete a live message.
+        if (entity.status != MessageStatus.SCHEDULED.name) return@withContext
+        messageDao.deleteScheduled(localId)
+        outboxScheduler.cancelScheduledMessage(entity.clientMessageId)
+    }
+
+    override suspend fun dispatchScheduled(clientMessageId: String): AppResult<Unit> =
+        withContext(dispatchers.io) {
+            val entity = messageDao.getByLocalId(clientMessageId)
+                ?: return@withContext AppResult.Success(Unit) // cancelled / removed already
+            // Idempotency: if it already reached the server, there is nothing to do.
+            if (entity.status == MessageStatus.SENT.name || entity.serverMessageId != null) {
+                return@withContext AppResult.Success(Unit)
+            }
+            // Promote out of SCHEDULED (guards against a manual retry racing the worker).
+            if (entity.status == MessageStatus.SCHEDULED.name) {
+                messageDao.updateStatus(entity.localId, MessageStatus.PENDING.name, null, null)
+            }
+            val refreshed = messageDao.getByLocalId(clientMessageId) ?: entity
+            when (val result = dispatch(refreshed.toDomain())) {
+                is AppResult.Success -> AppResult.Success(Unit)
+                is AppResult.Failure -> result
+                AppResult.Loading -> AppResult.Loading
+            }
+        }
 
     override suspend fun editMessage(localId: String, text: String): AppResult<Unit> =
         withContext(dispatchers.io) {

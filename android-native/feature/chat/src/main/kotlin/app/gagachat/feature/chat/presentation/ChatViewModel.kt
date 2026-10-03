@@ -401,6 +401,52 @@ class ChatViewModel @Inject constructor(
         }
     }
 
+    /**
+     * "Send later": queues the current draft for delivery at [scheduledAt] (epoch
+     * millis). The row is written locally with status SCHEDULED and a durable
+     * WorkManager job promotes it into the normal idempotent send path when due.
+     */
+    fun scheduleSend(scheduledAt: Long) {
+        if (editing.value != null) {
+            submitEdit()
+            return
+        }
+        val text = draft.value.trim()
+        if (text.isEmpty()) {
+            notice.value = "Type a message before scheduling it."
+            return
+        }
+        draft.value = ""
+        draftStore.clear(conversationId)
+        replyTo.value = null
+        typingJob?.cancel()
+        broadcastTyping(false)
+        viewModelScope.launch {
+            val session = authRepository.sessionFlow.value
+            val result = messageRepository.scheduleMessage(
+                conversationId = conversationId,
+                senderId = currentUserId,
+                senderName = session?.displayName,
+                senderAvatar = null,
+                text = text,
+                scheduledAt = scheduledAt,
+            )
+            when (result) {
+                is AppResult.Failure -> error.value = result.error.toUserMessage()
+                is AppResult.Success -> notice.value = "Message scheduled"
+                AppResult.Loading -> Unit
+            }
+        }
+    }
+
+    /** Cancels a message that is still waiting to be delivered at its scheduled time. */
+    fun cancelScheduled(message: Message) {
+        viewModelScope.launch {
+            messageRepository.cancelScheduled(message.localId)
+            notice.value = "Scheduled message cancelled"
+        }
+    }
+
     fun sendMedia(uri: Uri, kind: String) {
         if (!beginMediaSend()) return
         viewModelScope.launch {

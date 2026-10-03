@@ -53,6 +53,7 @@ fun UserEntity.toDomain(): User = User(
     username = username,
     avatar = avatar,
     coverImage = coverImage,
+    coverVideo = coverVideo,
     phone = phone,
     email = email,
     bio = bio,
@@ -73,6 +74,7 @@ fun User.toEntity(cachedAt: Long): UserEntity = UserEntity(
     username = username,
     avatar = avatar,
     coverImage = coverImage,
+    coverVideo = coverVideo,
     phone = phone,
     email = email,
     bio = bio,
@@ -178,6 +180,7 @@ fun MessageEntity.toDomain(): Message = Message(
     liveExpiresAt = liveExpiresAt,
     pollQuestion = pollQuestion,
     pollOptions = parseStringList(pollOptions),
+    scheduledAt = scheduledAt,
 )
 
 fun Message.toEntity(): MessageEntity = MessageEntity(

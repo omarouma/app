@@ -99,6 +99,7 @@ import app.gagachat.feature.chat.presentation.components.MediaReviewSheet
 import app.gagachat.feature.chat.presentation.components.MediaViewerOverlay
 import app.gagachat.feature.chat.presentation.components.MessageBubble
 import app.gagachat.feature.chat.presentation.components.PollComposerDialog
+import app.gagachat.feature.chat.presentation.components.ScheduleMessageDialog
 import app.gagachat.feature.chat.presentation.components.MessageComposer
 import app.gagachat.feature.chat.presentation.components.TypingIndicator
 import app.gagachat.feature.chat.presentation.components.rememberContactPicker
@@ -150,6 +151,7 @@ fun ChatRoute(
     var showBackgroundPicker by remember { mutableStateOf(false) }
     var showPollComposer by remember { mutableStateOf(false) }
     var showLiveLocationPicker by remember { mutableStateOf(false) }
+    var showSchedulePicker by remember { mutableStateOf(false) }
     // Requests RECORD_AUDIO the first time the mic is tapped, then starts the
     // recording. If the user denies, the ViewModel surfaces an actionable notice.
     val micPermissionLauncher = rememberLauncherForActivityResult(
@@ -376,7 +378,7 @@ fun ChatRoute(
                         ))
                     },
                     onSendPoll = { showPollComposer = true },
-                    onScheduleClick = { viewModel.showNotice("Scheduled messages") },
+                    onScheduleClick = { showSchedulePicker = true },
                     isRecording = state.isRecording,
                     recordingElapsedMs = state.recordingElapsedMs,
                     onStartRecording = {
@@ -491,6 +493,16 @@ fun ChatRoute(
                 onSelect = { duration ->
                     viewModel.shareLiveLocation(duration)
                     showLiveLocationPicker = false
+                },
+            )
+        }
+
+        if (showSchedulePicker) {
+            ScheduleMessageDialog(
+                onDismiss = { showSchedulePicker = false },
+                onSchedule = { scheduledAt ->
+                    viewModel.scheduleSend(scheduledAt)
+                    showSchedulePicker = false
                 },
             )
         }

@@ -37,7 +37,7 @@ import app.gagachat.core.database.entity.UserEntity
         BlockEntity::class,
         SyncStateEntity::class,
     ],
-    version = 5,
+    version = 7,
     exportSchema = true,
 )
 abstract class GagaDatabase : RoomDatabase() {
@@ -104,6 +104,30 @@ abstract class GagaDatabase : RoomDatabase() {
                 db.execSQL("ALTER TABLE messages ADD COLUMN liveExpiresAt INTEGER")
                 db.execSQL("ALTER TABLE messages ADD COLUMN pollQuestion TEXT")
                 db.execSQL("ALTER TABLE messages ADD COLUMN pollOptions TEXT")
+            }
+        }
+
+        /**
+         * v5 \u2192 v6: add the dedicated `coverVideo` column to `users` so a cover
+         * *video* is cached separately from the cover *photo* (`coverImage`). The
+         * backend stores these in two distinct columns; caching them together made
+         * the video/photo covers clobber each other. Additive + nullable so
+         * existing rows keep rendering unchanged.
+         */
+        val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE users ADD COLUMN coverVideo TEXT")
+            }
+        }
+
+        /**
+         * v6 \u2192 v7: add the local-only `scheduledAt` column to `messages` so a
+         * message can be queued for future delivery. Nullable, so every existing
+         * row is treated as an ordinary (immediately-sent) message.
+         */
+        val MIGRATION_6_7 = object : Migration(6, 7) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE messages ADD COLUMN scheduledAt INTEGER")
             }
         }
     }

@@ -415,6 +415,7 @@ private fun ProfileHeader(
         // otherwise the brand mint fallback.
         CoverBanner(
             coverImage = user?.coverImage,
+            coverVideo = user?.coverVideo,
             onOpenVideo = onOpenCover,
         )
 
@@ -686,19 +687,23 @@ private fun looksLikeVideo(url: String): Boolean {
  * frame with a play affordance, or the brand mint fallback when nothing is set.
  */
 @Composable
-private fun CoverBanner(coverImage: String?, onOpenVideo: (String) -> Unit) {
+private fun CoverBanner(coverImage: String?, coverVideo: String?, onOpenVideo: (String) -> Unit) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .height(150.dp)
             .background(GagaGreenContainer),
     ) {
-        if (coverImage.isNullOrBlank()) return@Box
-        if (looksLikeVideo(coverImage)) {
-            CoverVideoThumbnail(url = coverImage, onClick = { onOpenVideo(coverImage) })
-        } else {
-            AsyncImage(
-                model = coverImage,
+        // A dedicated cover *video* always wins; otherwise fall back to the photo.
+        // We also tolerate legacy rows where a video URL was previously written
+        // into `cover_image` (before the columns were split).
+        val video = coverVideo?.takeIf { it.isNotBlank() }
+            ?: coverImage?.takeIf { it.isNotBlank() && looksLikeVideo(it) }
+        val photo = coverImage?.takeIf { it.isNotBlank() && !looksLikeVideo(it) }
+        when {
+            video != null -> CoverVideoThumbnail(url = video, onClick = { onOpenVideo(video) })
+            photo != null -> AsyncImage(
+                model = photo,
                 contentDescription = "Profile cover",
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize(),

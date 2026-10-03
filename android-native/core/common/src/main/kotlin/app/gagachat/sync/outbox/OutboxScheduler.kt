@@ -9,6 +9,7 @@ object OutboxWork {
     const val CONVERSATION_SYNC = "gaga_conversation_sync"
     const val MESSAGE_SYNC = "gaga_message_sync"
     const val PERIODIC_SYNC = "gaga_periodic_sync"
+    const val SCHEDULED_SEND = "gaga_scheduled_send"
 
     const val KEY_CLIENT_MESSAGE_ID = "client_message_id"
     const val KEY_CONVERSATION_ID = "conversation_id"
@@ -31,4 +32,13 @@ interface OutboxScheduler {
     fun enqueueConversationSync()
     fun enqueueMessageSync(conversationId: String)
     fun schedulePeriodicSync()
+
+    /**
+     * Queues a durable one-shot job that delivers a previously scheduled message
+     * once [delayMillis] elapses (used by the "send later" feature).
+     */
+    fun enqueueScheduledMessage(clientMessageId: String, delayMillis: Long)
+
+    /** Cancels a pending scheduled-send job (the user un-scheduled the message). */
+    fun cancelScheduledMessage(clientMessageId: String)
 }

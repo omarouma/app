@@ -67,6 +67,23 @@ interface MessageDao {
     @Query("SELECT * FROM messages WHERE status = 'FAILED' ORDER BY createdAtClient ASC")
     suspend fun getFailed(): List<MessageEntity>
 
+    /** All messages still waiting to be delivered on a schedule, oldest first. */
+    @Query("SELECT * FROM messages WHERE status = 'SCHEDULED' ORDER BY scheduledAt ASC")
+    suspend fun getScheduled(): List<MessageEntity>
+
+    /** Scheduled messages whose delivery time has arrived at [now] (epoch millis). */
+    @Query(
+        "SELECT * FROM messages WHERE status = 'SCHEDULED' AND scheduledAt IS NOT NULL " +
+            "AND scheduledAt <= :now ORDER BY scheduledAt ASC",
+    )
+    suspend fun getDueScheduled(now: Long): List<MessageEntity>
+
+    @Query("UPDATE messages SET scheduledAt = :scheduledAt WHERE localId = :localId")
+    suspend fun updateScheduledAt(localId: String, scheduledAt: Long?)
+
+    @Query("DELETE FROM messages WHERE localId = :localId AND status = 'SCHEDULED'")
+    suspend fun deleteScheduled(localId: String)
+
     @Query(
         """
         UPDATE messages

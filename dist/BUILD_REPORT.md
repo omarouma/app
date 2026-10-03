@@ -1,6 +1,89 @@
 # GaGa Chat 2.0.18 — Build Report
 
-## This build — Link previews, performance/accessibility/settings & verification plan (spec areas 13, 16, 17)
+## This build — Cover media upload, real audio, video calling & scheduled messages
+
+### 1. Cover photo **and** cover video upload (fixed)
+The profile banner previously stored a single `cover_image` string and the uploader
+could not tell a photo from a video, so cover videos silently failed (the file was
+written to the image path and the UI rendered a broken image). Cover media is now a
+first-class, split field:
+
+- **Model/DB:** new nullable `coverVideo` column on `UserRow` (network DTO), `User`
+  (domain model) and `UserEntity` (Room). `GagaDatabase` bumped **5 → 6** with a
+  `MIGRATION_5_6` that `ALTER TABLE users ADD COLUMN cover_video TEXT`; the migration is
+  registered in `DatabaseModule`. Mappers (`DtoMappers`, `EntityMappers`) carry the new
+  field both ways.
+- **Uploader:** `ProfileViewModel.persistCover(uid, url, isVideo)` writes
+  `UserRow(id = uid, coverVideo = url)` for a video and `UserRow(id = uid, coverImage = url)`
+  for a photo, so the two never overwrite each other. Because the Ktor `Json` config uses
+  `explicitNulls = false`, the partial upsert updates only the intended column.
+- **Rendering:** `ProfileScreen.CoverBanner(coverImage, coverVideo, onOpenVideo)` prefers
+  the dedicated `coverVideo`, falls back to the photo, and tolerates legacy rows that
+  stored a video URL inside `cover_image` (detected via `looksLikeVideo`). Tapping a cover
+  video opens it in the full-screen player.
+
+### 2. Real audio — voice-message playback (fixed)
+Voice notes were routed through the default audio stream, so on many devices they played
+over the earpiece at the wrong volume, or were treated as a ringtone/notification and
+ducked. `VoicePlayback` now configures the `MediaPlayer` with
+`AudioAttributes(USAGE_MEDIA, CONTENT_TYPE_SPEECH)`, so clips play through the media
+stream at speech tuning with correct routing and no ducking. `MessageBubble` shows a
+progress spinner while an `AudioContent` clip is preparing, so the play button no longer
+looks inert during buffering.
+
+### 3. Video calling — runtime permissions (fixed)
+`ActiveCallScreen` now gates the in-call UI on the runtime permissions the call actually
+needs: it computes `requiredPermissions` (camera for video calls, microphone for all
+calls), launches `permissionLauncher`, waits on `permissionsResolved`, and shows an
+explicit `permissionDenied` state with a path back to Settings. Previously a video call
+could start with the camera permission never granted, producing a black local preview.
+
+### 4. Scheduled messages (implemented)
+The composer's schedule action was a stub. It is now a complete, durable feature:
+
+- **Model/DB:** `Message.scheduledAt: Long?` (local-only; never serialised to the backend)
+  plus a new `MessageStatus.SCHEDULED` value. `MessageEntity` gains `scheduled_at`;
+  `GagaDatabase` bumped **6 → 7** with `MIGRATION_6_7` registered in `DatabaseModule`.
+- **DAO:** `MessageDao` adds `getScheduled`, `getDueScheduled`, `updateScheduledAt` and
+  `deleteScheduled`. The list queries deliberately have **no status filter**, so a
+  scheduled row still renders in the thread (with a "Scheduled" label and a clock tick).
+- **Outbox:** `OutboxScheduler` gains `enqueue`/`cancel` for scheduled sends, implemented
+  by `DefaultOutboxScheduler`; a new `@HiltWorker` `ScheduledMessageWorker` calls
+  `MessageRepository.dispatchScheduled(clientMessageId)` when the due time arrives.
+- **Repository:** `MessageRepository.scheduleMessage(...)`, `cancelScheduled(localId)` and
+  `dispatchScheduled(clientMessageId)` (interface declarations included).
+- **UI:** new `ScheduleMessageDialog` (in `PollAndLiveDialogs.kt`) with native
+  `DatePickerDialog`/`TimePickerDialog` and presets (In 1 hour / In 3 hours / Tonight 8PM /
+  Tomorrow 9AM); confirm stays disabled until the chosen instant is in the future.
+  `ChatScreen` opens it from the schedule action and calls `ChatViewModel.scheduleSend(...)`;
+  `ChatViewModel.cancelScheduled(...)` removes a pending send. `MessageBubble.StatusTick`
+  handles the new `SCHEDULED` state (exhaustive `when`) and `MessageMeta` shows the label.
+
+## Build & verification
+- `:app:compileReleaseKotlin` → **BUILD SUCCESSFUL** (0 errors)
+- `:app:assembleRelease` → **BUILD SUCCESSFUL** (signed)
+- APK: `gagachat.app`, versionCode **20**, versionName **2.0.18**, minSdk 26, targetSdk 35,
+  compileSdk 35; signer DN `CN=GaGa Chat, OU=Mobile, O=GaGa, L=Dhaka, ST=Dhaka, C=BD`;
+  certificate SHA-256 `D5:9A:FA:7C:53:72:C3:63:2D:58:F0:B3:11:56:95:4B:5F:22:00:87:13:17:FF:AF:42:DE:30:54:48:DA:86:63`.
+- APK SHA-256 `2b1e5fcb868465fe8a45e891e44ffbf35b076e926b21dfc376505d4ff203c576` (94,744,640 bytes).
+
+## Source
+- Branch `codex/android-repair-2.0.18`.
+- Files touched this build: `core/model/.../Message.kt`, `core/model/.../User.kt`,
+  `core/network/.../dto/RowDtos.kt`, `core/database/.../entity/{MessageEntity,UserEntity}.kt`,
+  `core/database/.../GagaDatabase.kt`, `core/database/.../dao/MessageDao.kt`,
+  `core/database/.../mapper/EntityMappers.kt`, `core/database/.../di/DatabaseModule.kt`,
+  `core/data/.../mapper/DtoMappers.kt`, `core/data/.../repository/MessageRepository.kt`,
+  `core/common/.../sync/outbox/OutboxScheduler.kt`,
+  `sync/workers/.../DefaultOutboxScheduler.kt`, `sync/workers/.../ScheduledMessageWorker.kt` (new),
+  `feature/profile/.../presentation/{ProfileScreen,ProfileViewModel}.kt`,
+  `feature/chat/.../presentation/{ChatScreen,ChatViewModel}.kt`,
+  `feature/chat/.../presentation/components/{MessageBubble,PollAndLiveDialogs,VoicePlayback}.kt`,
+  `feature/calls/.../presentation/ActiveCallScreen.kt`.
+
+---
+
+## Prior build (commit `33e4da4`) — Link previews, performance/accessibility/settings & verification plan (spec areas 13, 16, 17)
 
 ### 1. Link previews with SSRF protection (Area 13)
 - New `LinkPreview` model (`core/model`) with `hasContent` and a `displayHost` that
