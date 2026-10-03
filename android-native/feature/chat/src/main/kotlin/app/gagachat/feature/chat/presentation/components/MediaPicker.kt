@@ -78,7 +78,10 @@ fun rememberMediaPicker(
             takePhoto = {
                 runCatching {
                     val dir = File(context.cacheDir, "chat_camera").apply { mkdirs() }
-                    val file = File(dir, "gaga_${System.currentTimeMillis()}.jpg")
+                    val file = File(
+                        dir,
+                        "gaga_${System.currentTimeMillis()}_${java.util.UUID.randomUUID().toString().take(8)}.jpg",
+                    )
                     FileProvider.getUriForFile(
                         context,
                         "${context.packageName}.fileprovider",

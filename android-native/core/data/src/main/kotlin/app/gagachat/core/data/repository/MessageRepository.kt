@@ -882,7 +882,10 @@ class DefaultMessageRepository @Inject constructor(
                 type = pending.type.name.lowercase(),
                 text = pending.text,
                 mediaUrl = pending.mediaUrl,
-                mediaUrls = pending.mediaUrls.takeIf { it.isNotEmpty() } ?: pending.mediaUrl?.let { listOf(it) },
+                mediaUrls = pending.mediaUrls
+                    .filter { it.startsWith("http") }
+                    .takeIf { it.isNotEmpty() }
+                    ?: pending.mediaUrl?.let { listOf(it) },
                 replyToMessageId = pending.replyToMessageId,
                 forwardedFrom = pending.forwardedFrom,
                 metadata = messageMetadata(pending),
@@ -925,6 +928,9 @@ class DefaultMessageRepository @Inject constructor(
             if (message.type == MessageType.AUDIO) {
                 message.mediaDurationMs?.let { put("duration_ms", it) }
             }
+            // Persist a poster frame URL (videos) so recipients can render a
+            // preview without downloading the clip.
+            message.thumbnailUrl?.takeIf { it.startsWith("http") }?.let { put("thumbnail", it) }
             if (message.type == MessageType.CONTACT) {
                 message.contactName?.let { put("contact_name", it) }
                 message.contactPhone?.let { put("contact_phone", it) }

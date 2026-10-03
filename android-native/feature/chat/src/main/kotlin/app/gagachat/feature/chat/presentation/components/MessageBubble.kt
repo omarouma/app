@@ -456,7 +456,7 @@ private fun LinkPreviewCard(preview: LinkPreview, contentColor: Color) {
 @Composable
 private fun MediaImage(message: Message, contentColor: Color, onClick: () -> Unit) {
     val signed = rememberSignedMediaUrl(message.mediaUrl)
-    val model = message.localMediaPath ?: signed
+    val model = rememberExistingLocalMedia(message.localMediaPath) ?: signed
     Box(
         modifier = Modifier
             .size(width = 220.dp, height = 160.dp)
@@ -535,58 +535,78 @@ private fun MultiImageGrid(message: Message, onClick: () -> Unit) {
     val urls = message.allMediaUrls
     val signedUrls = rememberSignedMediaUrls(urls)
     val shown = signedUrls.take(4)
-    Column(
+    Box(
         modifier = Modifier
             .width(220.dp)
             .clip(RoundedCornerShape(12.dp))
             .clickable(onClick = onClick),
-        verticalArrangement = Arrangement.spacedBy(2.dp),
     ) {
-        shown.chunked(2).forEachIndexed { rowIndex, rowItems ->
-            Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-                rowItems.forEachIndexed { colIndex, url ->
-                    val globalIndex = rowIndex * 2 + colIndex
-                    Box(
-                        modifier = Modifier
-                            .size(width = 109.dp, height = 109.dp)
-                            .background(MaterialTheme.colorScheme.surfaceVariant),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        AsyncImage(
-                            model = url,
-                            contentDescription = "Photo",
-                            contentScale = ContentScale.Crop,
-                            modifier = Modifier.fillMaxSize(),
-                        )
-                        if (urls.size > 4 && globalIndex == 3) {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(109.dp)
-                                    .background(Color.Black.copy(alpha = 0.45f)),
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                Text(
-                                    text = "+${urls.size - 4}",
-                                    style = MaterialTheme.typography.titleLarge,
-                                    color = Color.White,
+        Column(
+            modifier = Modifier.width(220.dp),
+            verticalArrangement = Arrangement.spacedBy(2.dp),
+        ) {
+            shown.chunked(2).forEachIndexed { rowIndex, rowItems ->
+                Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                    rowItems.forEachIndexed { colIndex, url ->
+                        val globalIndex = rowIndex * 2 + colIndex
+                        Box(
+                            modifier = Modifier
+                                .size(width = 109.dp, height = 109.dp)
+                                .background(MaterialTheme.colorScheme.surfaceVariant),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            if (url != null) {
+                                AsyncImage(
+                                    model = url,
+                                    contentDescription = "Photo",
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier.fillMaxSize(),
                                 )
+                            } else {
+                                // Still being signed / uploaded — show a spinner
+                                // rather than an empty grey tile.
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(18.dp),
+                                    strokeWidth = 2.dp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                            if (urls.size > 4 && globalIndex == 3) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(109.dp)
+                                        .background(Color.Black.copy(alpha = 0.45f)),
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    Text(
+                                        text = "+${urls.size - 4}",
+                                        style = MaterialTheme.typography.titleLarge,
+                                        color = Color.White,
+                                    )
+                                }
                             }
                         }
                     }
-                }
-                // Pad an odd final row so tiles stay square.
-                if (rowItems.size == 1) {
-                    Spacer(Modifier.size(width = 109.dp, height = 109.dp))
+                    // Pad an odd final row so tiles stay square.
+                    if (rowItems.size == 1) {
+                        Spacer(Modifier.size(width = 109.dp, height = 109.dp))
+                    }
                 }
             }
         }
+        // Album upload lifecycle (preparing / % / failed) over the whole grid.
+        UploadStatusOverlay(message)
     }
 }
 
 @Composable
 private fun MediaVideo(message: Message, contentColor: Color, onClick: () -> Unit) {
-    val signedThumb = rememberSignedMediaUrl(message.thumbnailUrl)
+    // Prefer a local frame (instant, offline), then the signed remote thumbnail,
+    // then the local video file itself so a pending upload still shows a frame.
+    val thumb = rememberExistingLocalMedia(message.thumbnailUrl)
+        ?: rememberSignedMediaUrl(message.thumbnailUrl)
+        ?: rememberExistingLocalMedia(message.localMediaPath)
     Box(
         modifier = Modifier
             .size(width = 220.dp, height = 160.dp)
@@ -595,13 +615,19 @@ private fun MediaVideo(message: Message, contentColor: Color, onClick: () -> Uni
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
-        val thumb = signedThumb ?: message.localMediaPath
         if (thumb != null) {
             AsyncImage(
                 model = thumb,
                 contentDescription = "Video",
                 contentScale = ContentScale.Crop,
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxSize(),
+            )
+        } else {
+            Icon(
+                Icons.Filled.PlayArrow,
+                contentDescription = null,
+                tint = contentColor.copy(alpha = 0.4f),
+                modifier = Modifier.size(48.dp),
             )
         }
         Box(
@@ -618,6 +644,26 @@ private fun MediaVideo(message: Message, contentColor: Color, onClick: () -> Uni
                 modifier = Modifier.size(40.dp),
             )
         }
+        // Duration badge so the recipient knows the clip length up front.
+        message.mediaDurationMs?.let { ms ->
+            if (ms > 0) {
+                Surface(
+                    color = Color.Black.copy(alpha = 0.55f),
+                    shape = RoundedCornerShape(6.dp),
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(6.dp),
+                ) {
+                    Text(
+                        text = TimeFormat.callDuration(ms),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Color.White,
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                    )
+                }
+            }
+        }
+        UploadStatusOverlay(message)
     }
 }
 
@@ -625,7 +671,7 @@ private fun MediaVideo(message: Message, contentColor: Color, onClick: () -> Uni
 private fun AudioContent(message: Message, contentColor: Color) {
     val player = rememberVoicePlayer()
     val signed = rememberSignedMediaUrl(message.mediaUrl)
-    val source = signed ?: message.localMediaPath
+    val source = rememberExistingLocalMedia(message.localMediaPath) ?: signed
     val playable = !source.isNullOrBlank()
     Row(
         verticalAlignment = Alignment.CenterVertically,

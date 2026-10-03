@@ -1,5 +1,96 @@
 # GaGa Chat 2.0.18 — Build Report
 
+## This build — Chatroom media reliability: photo & video sending + rendering
+
+Focus: the chatroom screen. Root-caused and fixed the long-standing "photo/video
+won't send / shows broken" reports, then polished the whole media experience.
+Full analysis in `android-native/AUDIT_chat_media.md`.
+
+### 1. Photos silently corrupted on multi-select (FIXED — root cause)
+`ChatViewModel.resolveUri` copied each picked `content://` Uri into the app cache
+using a filename derived **only** from `System.currentTimeMillis()`
+(`upload_<ts>.<ext>`). Selecting several photos for one album — or two quick
+sends in the same millisecond — made every copy resolve to the *same* path, so
+earlier files were clobbered before their upload began. The album then showed the
+wrong image repeated, or an upload failed because the file had vanished. Cache
+names are now unique (`<ts>_<8-char random>`), and the same fix is applied to the
+compressed-photo path (`compressLargeImage`) and the camera capture
+(`MediaPicker.takePhoto`).
+
+### 2. Robust MIME / extension resolution (FIXED)
+`contentResolver.getType(uri)` returns null for some providers, which produced
+`application/octet-stream` and an object path ending `.octet-stream`; Storage then
+served the wrong Content-Type and the photo/video could not render. `resolveUri`
+now falls back to a MIME guessed from the Uri path (`guessMime`) and derives a
+sane extension (`extensionFor`), normalising `jpeg→jpg`, `mpeg→mp3`,
+`quicktime→mov`, `x-matroska→mkv`.
+
+### 3. Broken bubbles after the OS cleared the cache (FIXED — root cause)
+Every renderer preferred `message.localMediaPath` over the resolved signed URL.
+Once Android reclaimed the cache directory the local file was gone, so the
+sender's own photo/video rendered as a broken/blank bubble **even though a valid
+signed URL existed** — the single most likely reason users reported "it didn't
+send". A new `rememberExistingLocalMedia(path)` returns the local path *only while
+the file still exists*, and `MediaImage`, `MediaVideo`, `AudioContent` and the
+full-screen `MediaViewer` now try it first and fall back to the signed remote URL.
+
+### 4. Videos had no preview (FIXED)
+The backend derives a thumbnail from `mediaUrls[1]`, which is null for a single
+video, so a video bubble was a bare grey box. `MediaRepository.processQueue` now
+extracts a poster frame (`MediaMetadataRetriever.getFrameAtTime`, downscaled to
+512 px) and uploads it as a sibling object (`<uploadId>_thumb.jpg`), best-effort so
+a failure never fails the clip. The URL is persisted in message `metadata.thumbnail`
+and read back by `DtoMappers`; `MediaVideo` shows the frame plus a duration badge.
+
+### 5. Album grid rendered blank while uploading (FIXED)
+`enqueueAlbumUpload` now stores the local copies on the optimistic row's
+`mediaUrls`, so `MultiImageGrid` shows every tile instantly (with a spinner on any
+tile still being signed) and an album-level upload overlay (Preparing / % / Failed).
+`dispatchLocked` strips any local references from `mediaUrls` so only `http(s)`
+URLs are ever sent to the backend.
+
+### 6. Stale `mediaUrls` on single-media commit (FIXED)
+`MessageDao.updateMedia` now also clears `mediaUrls`, so a single photo/video (or
+an album the user reduced to one photo in the review step) never carries leftover
+local paths that would flip it into grid rendering.
+
+### 7. Video review + captions (IMPROVED)
+A picked video now opens a new `VideoReviewSheet` (poster frame via Coil's
+`VideoFrameDecoder`, play affordance, caption field) instead of uploading
+immediately. `enqueueUpload`/`sendMedia` gained an optional `caption`, so videos
+(and any single media) can carry a caption.
+
+### 8. Data integrity
+`Message.toEntity()` was dropping `scheduledAt`, so a scheduled message lost its
+send time on any re-persist. Fixed.
+
+## Build & verification
+- `:app:assembleRelease` → **BUILD SUCCESSFUL** in 7m 1s (511 tasks).
+- APK: `gagachat.app` · versionName **2.0.18** · versionCode **20** · minSdk 26 · targetSdk 35.
+- Signed (v2/v3) with cert `CN=GaGa Chat, OU=Mobile, O=GaGa, L=Dhaka, ST=Dhaka, C=BD`
+  (SHA-256 `d59afa7c5372c3632d58f0b31156954b5f2200871317ffaf42de305448da8663`).
+- Artifact: `GaGa-2.0.18-chatfix-release.apk` (94,761,026 bytes),
+  SHA-256 `4cc668591728f7ac6b8c41df01c184991a58770a1fbeb7de90ec39bd983e7154`.
+
+## Source (this build)
+- `feature/chat/.../presentation/ChatViewModel.kt` — collision-safe `resolveUri`,
+  `guessMime`, `extensionFor`, unique compressed-photo name, `sendMedia(caption)`.
+- `feature/chat/.../presentation/components/SignedMedia.kt` — `rememberExistingLocalMedia`.
+- `feature/chat/.../presentation/components/MessageBubble.kt` — renderer fallbacks,
+  video duration badge, grid placeholders + overlay.
+- `feature/chat/.../presentation/components/MediaViewer.kt` — renderer fallbacks.
+- `feature/chat/.../presentation/components/MediaPicker.kt` — unique camera name.
+- `feature/chat/.../presentation/components/VideoReviewSheet.kt` (new).
+- `feature/chat/.../presentation/ChatScreen.kt` — video review wiring.
+- `core/data/.../repository/MediaRepository.kt` — video thumbnail, album local
+  paths, caption, `updateMedia` thumbnail.
+- `core/data/.../repository/MessageRepository.kt` — metadata thumbnail, local-ref filter.
+- `core/data/.../mapper/DtoMappers.kt` — thumbnail from metadata.
+- `core/database/.../dao/MessageDao.kt` — `updateMedia` clears `mediaUrls`.
+- `core/database/.../mapper/EntityMappers.kt` — persist `scheduledAt`.
+
+---
+
 ## This build — Cover media upload, real audio, video calling & scheduled messages
 
 ### 1. Cover photo **and** cover video upload (fixed)

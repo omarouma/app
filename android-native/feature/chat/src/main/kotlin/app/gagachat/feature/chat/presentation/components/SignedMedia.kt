@@ -61,6 +61,32 @@ fun rememberSignedMediaUrls(raw: List<String>): List<String?> {
     return raw.map { rememberSignedMediaUrl(it) }
 }
 
+/**
+ * Returns [path] only while the local file it points at still exists.
+ *
+ * Optimistic bubbles carry a `localMediaPath` (a cache copy) so the sender sees
+ * their own photo/video instantly with no network round-trip. But the OS may
+ * reclaim the cache at any time; blindly trusting the path then renders a broken
+ * bubble even though a perfectly good signed remote URL is available. Renderers
+ * therefore try this first and fall back to the resolved remote URL.
+ *
+ * `content://` URIs (e.g. a fresh camera capture) are always treated as valid —
+ * existence cannot be probed cheaply and they are short-lived by nature.
+ */
+@Composable
+fun rememberExistingLocalMedia(path: String?): String? {
+    if (path.isNullOrBlank()) return null
+    if (!isLocalReference(path)) return null
+    return remember(path) {
+        when {
+            path.startsWith("content://") -> path
+            path.startsWith("file://") -> path.removePrefix("file://").let { java.io.File(it).exists() }
+                .let { if (it) path else null }
+            else -> if (java.io.File(path).exists()) path else null
+        }
+    }
+}
+
 private fun isLocalReference(value: String): Boolean =
     value.startsWith("content://") ||
         value.startsWith("file://") ||

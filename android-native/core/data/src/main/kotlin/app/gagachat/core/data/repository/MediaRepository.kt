@@ -58,6 +58,7 @@ interface MediaRepository {
         size: Long,
         type: MessageType,
         durationMs: Long? = null,
+        caption: String? = null,
     ): AppResult<Message>
 
     /**
@@ -103,6 +104,7 @@ class DefaultMediaRepository @Inject constructor(
         size: Long,
         type: MessageType,
         durationMs: Long?,
+        caption: String?,
     ): AppResult<Message> = withContext(dispatchers.io) {
         if (size > app.gagachat.core.common.Constants.MAX_UPLOAD_BYTES) {
             return@withContext AppResult.Failure(AppError.Validation("File too large"))
@@ -117,7 +119,7 @@ class DefaultMediaRepository @Inject constructor(
             conversationId = conversationId,
             senderId = senderId,
             type = type,
-            text = null,
+            text = caption?.trim()?.takeIf { it.isNotEmpty() },
             createdAtClient = now,
             status = MessageStatus.PENDING,
             senderName = senderName,
@@ -178,6 +180,10 @@ class DefaultMediaRepository @Inject constructor(
             localMediaPath = items.first().localPath,
             mediaMime = items.first().mime,
             mediaSize = items.sumOf { it.size },
+            // Local copies let the album grid render every tile instantly while
+            // the uploads are in flight; they are replaced by the durable remote
+            // URLs in [processQueue] once every photo has landed.
+            mediaUrls = items.map { it.localPath },
         )
         messageDao.upsert(message.toEntity())
 
@@ -220,11 +226,13 @@ class DefaultMediaRepository @Inject constructor(
             }
 
             val urls = ArrayList<String>(uploads.size)
+            val thumbUrls = ArrayList<String?>(uploads.size)
             var failed = false
             for (upload in uploads) {
                 val existing = upload.remoteUrl
                 if (existing != null) {
                     urls.add(existing)
+                    thumbUrls.add(upload.thumbnailUrl)
                     continue
                 }
                 uploadDao.updateState(upload.uploadId, UploadState.UPLOADING.name, upload.attempts, null, null)
@@ -269,12 +277,21 @@ class DefaultMediaRepository @Inject constructor(
                         writer.join()
                     }
                     urls.add(url)
+                    // A poster frame for videos so the bubble renders a preview
+                    // without downloading the clip. Best-effort: a failure here
+                    // never fails the video upload itself.
+                    val thumbUrl = if (upload.type == MessageType.VIDEO.name) {
+                        uploadVideoThumbnail(senderId, upload.localPath, upload.uploadId)
+                    } else {
+                        null
+                    }
+                    thumbUrls.add(thumbUrl)
                     uploadDao.updateState(
                         upload.uploadId,
                         UploadState.UPLOADED.name,
                         upload.attempts,
                         url,
-                        null,
+                        thumbUrl,
                     )
                 } catch (t: Throwable) {
                     if (t is kotlinx.coroutines.CancellationException) throw t
@@ -297,7 +314,7 @@ class DefaultMediaRepository @Inject constructor(
             if (failed || urls.size != uploads.size) continue
 
             if (urls.size == 1) {
-                messageDao.updateMedia(clientMessageId, urls.first(), null)
+                messageDao.updateMedia(clientMessageId, urls.first(), thumbUrls.firstOrNull())
             } else {
                 messageDao.updateMediaAlbum(clientMessageId, urls.first(), encodeMediaUrls(urls))
             }
@@ -313,6 +330,58 @@ class DefaultMediaRepository @Inject constructor(
         }
         if (uploadDao.getQueued().isNotEmpty()) throw java.io.IOException("Media uploads pending retry")
     }
+
+    /**
+     * Generates and uploads a poster frame for a video so the bubble can render a
+     * preview without downloading the clip. Best-effort: any failure (decode,
+     * upload, no frame) returns null and leaves the video upload untouched.
+     */
+    private suspend fun uploadVideoThumbnail(senderId: String, localPath: String, uploadId: String): String? {
+        val frame = extractVideoFrame(localPath, uploadId) ?: return null
+        return try {
+            val objectPath = storageApi.objectPath(senderId, "${uploadId}_thumb", "jpg")
+            storageApi.uploadFile(objectPath, frame, "image/jpeg")
+        } catch (t: Throwable) {
+            if (t is kotlinx.coroutines.CancellationException) throw t
+            null
+        } finally {
+            frame.delete()
+        }
+    }
+
+    /**
+     * Decodes a single frame from a local video file and writes it to a small JPEG
+     * in the app cache. Returns null when no frame can be decoded. Never throws.
+     */
+    private fun extractVideoFrame(videoPath: String, uploadId: String): File? = runCatching {
+        val retriever = android.media.MediaMetadataRetriever()
+        try {
+            retriever.setDataSource(videoPath)
+            val frame = retriever.getFrameAtTime(0, android.media.MediaMetadataRetriever.OPTION_CLOSEST_SYNC)
+                ?: retriever.getFrameAtTime()
+                ?: return null
+            val maxDimen = app.gagachat.core.common.Constants.THUMBNAIL_MAX_DIMEN_PX
+            val longest = maxOf(frame.width, frame.height).coerceAtLeast(1)
+            val scaled = if (longest > maxDimen) {
+                val ratio = maxDimen.toFloat() / longest
+                android.graphics.Bitmap.createScaledBitmap(
+                    frame,
+                    (frame.width * ratio).toInt().coerceAtLeast(1),
+                    (frame.height * ratio).toInt().coerceAtLeast(1),
+                    true,
+                )
+            } else {
+                frame
+            }
+            val out = File(context.cacheDir, "thumb_$uploadId.jpg")
+            out.outputStream().use { scaled.compress(android.graphics.Bitmap.CompressFormat.JPEG, 80, it) }
+            if (scaled !== frame) scaled.recycle()
+            frame.recycle()
+            out.takeIf { it.length() > 0L }
+        } finally {
+            retriever.release()
+        }
+    }.getOrNull()
 
     override fun observeUpload(clientMessageId: String): Flow<PendingUpload?> =
         uploadDao.observeByClientMessageId(clientMessageId).map { it?.toDomain() }

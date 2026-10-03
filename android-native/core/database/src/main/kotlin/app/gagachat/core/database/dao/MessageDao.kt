@@ -107,7 +107,7 @@ interface MessageDao {
     @Query(
         """
         UPDATE messages
-        SET mediaUrl = :url, thumbnailUrl = :thumbnail, uploadProgress = 100
+        SET mediaUrl = :url, thumbnailUrl = :thumbnail, mediaUrls = NULL, uploadProgress = 100
         WHERE localId = :localId
         """,
     )

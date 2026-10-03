@@ -90,7 +90,7 @@ fun MediaViewerOverlay(
 @Composable
 private fun ImagePane(message: Message) {
     val signed = rememberSignedMediaUrl(message.mediaUrl)
-    val model = message.localMediaPath ?: signed
+    val model = rememberExistingLocalMedia(message.localMediaPath) ?: signed
     var scale by remember { mutableFloatStateOf(1f) }
     var offsetX by remember { mutableFloatStateOf(0f) }
     var offsetY by remember { mutableFloatStateOf(0f) }
@@ -132,7 +132,7 @@ private fun ImagePane(message: Message) {
 @Composable
 private fun VideoPane(message: Message) {
     val signed = rememberSignedMediaUrl(message.mediaUrl)
-    val source = message.localMediaPath ?: signed
+    val source = rememberExistingLocalMedia(message.localMediaPath) ?: signed
     if (source.isNullOrBlank()) {
         ViewerMessage("Video unavailable")
         return

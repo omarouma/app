@@ -97,6 +97,7 @@ import app.gagachat.feature.chat.presentation.components.LocationPreviewDialog
 import app.gagachat.feature.chat.presentation.components.LiveLocationDurationDialog
 import app.gagachat.feature.chat.presentation.components.MediaReviewSheet
 import app.gagachat.feature.chat.presentation.components.MediaViewerOverlay
+import app.gagachat.feature.chat.presentation.components.VideoReviewSheet
 import app.gagachat.feature.chat.presentation.components.MessageBubble
 import app.gagachat.feature.chat.presentation.components.PollComposerDialog
 import app.gagachat.feature.chat.presentation.components.ScheduleMessageDialog
@@ -128,6 +129,8 @@ fun ChatRoute(
     val clipboard = LocalClipboardManager.current
     // F10/F13: photos staged for the review/reorder/caption step before sending.
     var reviewUris by remember { mutableStateOf<List<Uri>?>(null) }
+    // A picked video is staged for a preview/caption step before upload.
+    var videoReviewUri by remember { mutableStateOf<Uri?>(null) }
     val mediaPicker = rememberMediaPicker(
         onImagesPicked = { uris ->
             if (uris.size > 1) {
@@ -136,7 +139,7 @@ fun ChatRoute(
                 uris.firstOrNull()?.let { viewModel.sendMedia(it, "image") }
             }
         },
-        onVideoPicked = { viewModel.sendMedia(it, "video") },
+        onVideoPicked = { videoReviewUri = it },
         onFilePicked = { viewModel.sendMedia(it, "file") },
         onAudioPicked = { viewModel.sendMedia(it, "audio") },
         onCameraPhotoPicked = { viewModel.sendMedia(it, "image") },
@@ -419,6 +422,17 @@ fun ChatRoute(
                 onSend = { ordered, caption ->
                     viewModel.sendImageAlbum(ordered, caption)
                     reviewUris = null
+                },
+            )
+        }
+
+        videoReviewUri?.let { uri ->
+            VideoReviewSheet(
+                uri = uri,
+                onDismiss = { videoReviewUri = null },
+                onSend = { caption ->
+                    viewModel.sendMedia(uri, "video", caption)
+                    videoReviewUri = null
                 },
             )
         }

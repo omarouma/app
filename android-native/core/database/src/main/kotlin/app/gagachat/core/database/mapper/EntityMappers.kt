@@ -218,6 +218,7 @@ fun Message.toEntity(): MessageEntity = MessageEntity(
     liveExpiresAt = liveExpiresAt,
     pollQuestion = pollQuestion,
     pollOptions = encodeStringList(pollOptions),
+    scheduledAt = scheduledAt,
 )
 
 // ---- Attachment ----

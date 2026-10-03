@@ -447,7 +447,7 @@ class ChatViewModel @Inject constructor(
         }
     }
 
-    fun sendMedia(uri: Uri, kind: String) {
+    fun sendMedia(uri: Uri, kind: String, caption: String? = null) {
         if (!beginMediaSend()) return
         viewModelScope.launch {
             val session = authRepository.sessionFlow.value
@@ -496,6 +496,7 @@ class ChatViewModel @Inject constructor(
                 size = resolved.third,
                 type = type,
                 durationMs = durationMs,
+                caption = caption,
             )
             if (result is AppResult.Failure) error.value = result.error.toUserMessage()
         }
@@ -560,7 +561,10 @@ class ChatViewModel @Inject constructor(
             while (options.outWidth / sample > 2048 || options.outHeight / sample > 2048) sample *= 2
             val bitmap = BitmapFactory.decodeFile(input.first, BitmapFactory.Options().apply { inSampleSize = sample })
                 ?: return input
-            val out = java.io.File(context.cacheDir, "gaga_photo_${System.currentTimeMillis()}.jpg")
+            val out = java.io.File(
+                context.cacheDir,
+                "gaga_photo_${System.currentTimeMillis()}_${java.util.UUID.randomUUID().toString().take(8)}.jpg",
+            )
             out.outputStream().use { bitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, 88, it) }
             bitmap.recycle()
             Triple(out.absolutePath, "image/jpeg", out.length())
@@ -1030,16 +1034,74 @@ class ChatViewModel @Inject constructor(
         viewModelScope.launch { settingsPreferences.setChatBackground(background) }
     }
 
-    /** Copies a content:// Uri into app cache and returns (path, mime, size). */
+    /**
+     * Copies a content:// Uri into app cache and returns (path, mime, size).
+     *
+     * The cache filename is made unique (timestamp + random suffix) so selecting
+     * several photos for one album — or sending two attachments in the same
+     * millisecond — can never overwrite an earlier copy. Colliding names were a
+     * real cause of "wrong photo / photo not sending": the second write clobbered
+     * the first file before its upload had started.
+     */
     private fun resolveUri(uri: Uri): Triple<String, String, Long>? = runCatching {
-        val mime = context.contentResolver.getType(uri) ?: "application/octet-stream"
-        val ext = mime.substringAfterLast('/', "bin")
-        val target = java.io.File(context.cacheDir, "upload_${System.currentTimeMillis()}.$ext")
-        context.contentResolver.openInputStream(uri)?.use { input ->
+        val resolver = context.contentResolver
+        val mime = (resolver.getType(uri)?.takeIf { it.isNotBlank() } ?: guessMime(uri)).lowercase()
+        val ext = extensionFor(mime, uri)
+        val unique = "${System.currentTimeMillis()}_${java.util.UUID.randomUUID().toString().take(8)}"
+        val target = java.io.File(context.cacheDir, "upload_$unique.$ext")
+        resolver.openInputStream(uri)?.use { input ->
             target.outputStream().use { output -> input.copyTo(output) }
         } ?: return null
+        if (!target.exists() || target.length() == 0L) {
+            target.delete()
+            return null
+        }
         Triple(target.absolutePath, mime, target.length())
     }.getOrNull()
+
+    /** Best-effort MIME guess from the Uri path/extension when the provider is silent. */
+    private fun guessMime(uri: Uri): String {
+        val path = uri.lastPathSegment ?: uri.toString()
+        return when (path.substringAfterLast('.', "").lowercase()) {
+            "jpg", "jpeg" -> "image/jpeg"
+            "png" -> "image/png"
+            "gif" -> "image/gif"
+            "webp" -> "image/webp"
+            "heic", "heif" -> "image/heic"
+            "bmp" -> "image/bmp"
+            "mp4", "m4v" -> "video/mp4"
+            "mov" -> "video/quicktime"
+            "3gp" -> "video/3gpp"
+            "webm" -> "video/webm"
+            "mkv" -> "video/x-matroska"
+            "m4a" -> "audio/mp4"
+            "mp3" -> "audio/mpeg"
+            "wav" -> "audio/wav"
+            "ogg", "oga" -> "audio/ogg"
+            "aac" -> "audio/aac"
+            "pdf" -> "application/pdf"
+            else -> "application/octet-stream"
+        }
+    }
+
+    /** Maps a MIME type to a storage-friendly file extension (never blank). */
+    private fun extensionFor(mime: String, uri: Uri): String {
+        val fromMime = mime.substringAfterLast('/', "").lowercase()
+        if (fromMime.isNotBlank() && fromMime.length <= 5 && fromMime.all { it.isLetterOrDigit() }) {
+            return when (fromMime) {
+                "jpeg" -> "jpg"
+                "quicktime" -> "mov"
+                "mpeg" -> "mp3"
+                "x-matroska" -> "mkv"
+                else -> fromMime
+            }
+        }
+        val fromPath = (uri.lastPathSegment ?: "").substringAfterLast('.', "").lowercase()
+        if (fromPath.isNotBlank() && fromPath.length <= 5 && fromPath.all { it.isLetterOrDigit() }) {
+            return fromPath
+        }
+        return "bin"
+    }
 
     fun loadOlder() {
         if (loadingOlder.value || !hasMoreOlder.value) return
