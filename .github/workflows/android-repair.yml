@@ -2,7 +2,7 @@ name: Android repair release
 
 on:
   push:
-    branches: [codex/android-repair-2.0.18]
+    branches: [codex/android-repair-2.0.18, codex/fix-calls-media-2.0.19]
   workflow_dispatch:
 
 permissions:
@@ -26,14 +26,19 @@ jobs:
           gradle-version: '8.11.1'
       - name: Configure existing public backend
         run: python3 android-native/ci/prepare.py
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Test call request boundary without contacting users
+        run: node --experimental-strip-types supabase/functions/create-call/handler.test.ts
       - name: Compile release and test messaging
         working-directory: android-native
-        run: gradle --no-daemon --max-workers=2 -Pksp.incremental=false :app:assembleRelease :app:bundleRelease :core:data:testReleaseUnitTest
+        run: gradle --no-daemon --max-workers=2 -Pksp.incremental=false :app:assembleRelease :app:bundleRelease :core:data:testReleaseUnitTest :core:network:testReleaseUnitTest
       - name: Package release artifacts
         run: |
           mkdir -p deliverables
-          cp android-native/app/build/outputs/apk/release/app-release-unsigned.apk deliverables/GaGa-2.0.18-release-unsigned.apk
-          cp android-native/app/build/outputs/bundle/release/app-release.aab deliverables/GaGa-2.0.18-release-unsigned.aab
+          cp android-native/app/build/outputs/apk/release/app-release-unsigned.apk deliverables/GaGa-2.0.19-release-unsigned.apk
+          cp android-native/app/build/outputs/bundle/release/app-release.aab deliverables/GaGa-2.0.19-release-unsigned.aab
       - name: Sign only with the matching release key
         env:
           KEYSTORE_BASE64: ${{ secrets.GAGA_RELEASE_KEYSTORE_BASE64 }}
@@ -50,25 +55,28 @@ jobs:
           trap 'rm -f "$keyfile"' EXIT
           printf '%s' "$KEYSTORE_BASE64" | base64 -d > "$keyfile"
           actual=$(keytool -exportcert -keystore "$keyfile" -storepass:env STORE_PASSWORD -alias "$KEY_ALIAS" | sha256sum | cut -d' ' -f1)
-          expected=f8f4c1142ada2f402aa7694ec48ce5293607ac7d3b07c2e43f8273eff1dd68ce
+          expected=d59afa7c5372c3632d58f0b31156954b5f2200871317ffaf42de305448da8663
           if [ "$actual" != "$expected" ]; then
-            echo 'The configured signing certificate does not match the supplied 2.0.17 app. No replacement key was used.' > deliverables/SIGNING-REQUIRED.txt
+            echo 'The configured signing certificate does not match the supplied October 3 2.0.18 app. No replacement key was used.' > deliverables/SIGNING-REQUIRED.txt
             exit 0
           fi
           signer=$(find "$ANDROID_HOME/build-tools" -name apksigner | sort -V | tail -1)
-          "$signer" sign --ks "$keyfile" --ks-key-alias "$KEY_ALIAS" --ks-pass env:STORE_PASSWORD --key-pass env:KEY_PASSWORD --out deliverables/GaGa-2.0.18-release.apk deliverables/GaGa-2.0.18-release-unsigned.apk
-          cp deliverables/GaGa-2.0.18-release-unsigned.aab deliverables/GaGa-2.0.18-release.aab
-          jarsigner -keystore "$keyfile" -storepass:env STORE_PASSWORD -keypass:env KEY_PASSWORD deliverables/GaGa-2.0.18-release.aab "$KEY_ALIAS"
-          "$signer" verify --verbose --print-certs deliverables/GaGa-2.0.18-release.apk > deliverables/signature-verification.txt
+          "$signer" sign --ks "$keyfile" --ks-key-alias "$KEY_ALIAS" --ks-pass env:STORE_PASSWORD --key-pass env:KEY_PASSWORD --out deliverables/GaGa-2.0.19-release.apk deliverables/GaGa-2.0.19-release-unsigned.apk
+          cp deliverables/GaGa-2.0.19-release-unsigned.aab deliverables/GaGa-2.0.19-release.aab
+          jarsigner -keystore "$keyfile" -storepass:env STORE_PASSWORD -keypass:env KEY_PASSWORD deliverables/GaGa-2.0.19-release.aab "$KEY_ALIAS"
+          "$signer" verify --verbose --print-certs deliverables/GaGa-2.0.19-release.apk > deliverables/signature-verification.txt
       - name: Checksums
         run: cd deliverables && sha256sum *.apk *.aab > SHA256SUMS.txt
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: GaGa-2.0.18-release-and-tests
+          name: GaGa-2.0.19-release-and-tests
           path: |
             deliverables/
             android-native/core/data/build/reports/tests/testReleaseUnitTest/
             android-native/core/data/build/test-results/testReleaseUnitTest/
+            android-native/core/network/build/reports/tests/testReleaseUnitTest/
+            android-native/core/network/build/test-results/testReleaseUnitTest/
           if-no-files-found: warn
           retention-days: 14
+

@@ -113,20 +113,23 @@ class DefaultCallRepository @Inject constructor(
             callDao.upsert(session.toEntity())
             AppResult.Success(session)
         } catch (t: Throwable) {
+            if (t is kotlinx.coroutines.CancellationException) throw t
             AppResult.Failure(ErrorMapper.map(t))
         }
     }
 
     override suspend fun endCall(callId: String, status: CallStatus, durationMs: Long?) =
         withContext(dispatchers.io) {
+            val previous = callDao.getById(callId)?.toDomain()
+            if (previous?.endedAt != null) return@withContext
             val now = timeProvider.nowMillis()
             callDao.finalize(callId, status.name, now, durationMs)
             runCatching {
-                restApi.updateCallHistory(callId, status.name.lowercase(), now, durationMs)
+                restApi.finishCall(callId, status.name.lowercase(), (durationMs ?: 0L) / 1000L)
             }
             // Persist a CALL_EVENT into chat history.
             val session = callDao.getById(callId)?.toDomain()
-            if (session != null) {
+            if (session != null && session.initiatorId == authRepository.sessionFlow.value?.userId) {
                 messageRepository.sendCallEvent(
                     conversationId = session.conversationId,
                     senderId = session.initiatorId,
@@ -220,3 +223,4 @@ class DefaultCallRepository @Inject constructor(
         }
     }
 }
+

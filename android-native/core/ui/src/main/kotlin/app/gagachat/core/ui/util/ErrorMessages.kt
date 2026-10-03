@@ -117,6 +117,10 @@ internal fun friendlyConflictMessage(raw: String?): String? {
     val lower = raw?.trim()?.lowercase().orEmpty()
     if (lower.isEmpty()) return null
     return when {
+        lower == "busy" || lower.contains("callee_busy") ->
+            "This contact is on another call. Please try again shortly."
+        lower.contains("caller_busy") ->
+            "You already have an active call. End it before starting another."
         lower.contains("users_username_key") ||
             (lower.contains("username") && lower.contains("duplicate")) ->
             "That username is already taken. Please choose another."

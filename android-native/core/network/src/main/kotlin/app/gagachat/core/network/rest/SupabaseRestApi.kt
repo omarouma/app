@@ -432,6 +432,7 @@ class SupabaseRestApi @Inject constructor(
         conversationId: String,
         calleeId: String,
         type: String,
+        requestId: String = java.util.UUID.randomUUID().toString(),
     ): CreateCallResponse = client.post("${config.functionsUrl}/create-call") {
         auth()
         contentType(ContentType.Application.Json)
@@ -440,6 +441,7 @@ class SupabaseRestApi @Inject constructor(
                 "chat_id" to conversationId,
                 "callee_id" to calleeId,
                 "type" to type,
+                "request_id" to requestId,
             ),
         )
     }.body()
@@ -455,6 +457,24 @@ class SupabaseRestApi @Inject constructor(
             parameter("type", "zim")
             parameter("user", userId.filter { it.isLetterOrDigit() || it == '_' }.take(64))
             parameter("name", userName.take(80))
+        }.body()
+
+    /** Participant-only RPCs; finishing twice cannot overwrite the first outcome. */
+    suspend fun touchCall(callId: String): Boolean = client.post("${config.restUrl}/rpc/gaga_touch_call") {
+        auth()
+        contentType(ContentType.Application.Json)
+        setBody(mapOf("p_call_id" to callId))
+    }.body()
+
+    suspend fun finishCall(callId: String, status: String, durationSeconds: Long): Boolean =
+        client.post("${config.restUrl}/rpc/gaga_finish_call") {
+            auth()
+            contentType(ContentType.Application.Json)
+            setBody(buildJsonObject {
+                put("p_call_id", callId)
+                put("p_status", if (status == "rejected") "declined" else status)
+                put("p_duration_seconds", durationSeconds.coerceIn(0, 86_400))
+            })
         }.body()
 
     suspend fun insertCallHistory(row: CallHistoryRow): CallHistoryRow =
@@ -842,3 +862,4 @@ class SupabaseRestApi @Inject constructor(
         }
     }
 }
+

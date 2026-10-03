@@ -131,7 +131,7 @@ fun MessageBubble(
                     .clip(shape)
                     .background(bubbleColor)
                     .combinedClickable(
-                        onClick = { if (message.type != MessageType.TEXT) onMediaClick(message) },
+                        onClick = { if (message.isFailed) onRetry() else if (message.type != MessageType.TEXT) onMediaClick(message) },
                         onLongClick = { onLongPress(message) },
                     )
                     .padding(horizontal = GagaDimens.space12, vertical = GagaDimens.space8),
@@ -158,13 +158,16 @@ fun MessageBubble(
                     MessageContent(
                         message = message,
                         contentColor = contentColor,
-                        onMediaClick = onMediaClick,
+                        onMediaClick = { if (it.isFailed) onRetry() else onMediaClick(it) },
                         currentUserId = currentUserId,
                         onVotePoll = onVotePoll,
                         onStopLiveLocation = onStopLiveLocation,
                         linkPreview = linkPreview,
                         onRequestLinkPreview = onRequestLinkPreview,
                     )
+                }
+                if (message.isFailed && isOutgoing) {
+                    TextButton(onClick = onRetry) { Text("Retry sending") }
                 }
                 Spacer(Modifier.height(GagaDimens.space2))
                 MessageMeta(
@@ -498,7 +501,7 @@ private fun UploadStatusOverlay(message: Message) {
     val progress = message.uploadProgress
     val label = when {
         message.isFailed -> "Failed \u2014 tap to retry"
-        progress == null || progress <= 0 -> "Preparing\u2026"
+        progress == null || progress <= 0 -> "Waiting to upload\u2026"
         progress < 100 -> "$progress%"
         else -> "Finishing\u2026"
     }
@@ -1376,3 +1379,4 @@ private fun formatRemaining(millis: Long): String {
     val seconds = totalSeconds % 60
     return if (minutes > 0) "${minutes}m ${seconds}s" else "${seconds}s"
 }
+

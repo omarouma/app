@@ -77,4 +77,7 @@ dependencies {
     implementation(libs.okhttp.logging)
 
     testImplementation(libs.ktor.client.mock)
+    testImplementation(libs.junit)
+    testImplementation(libs.mockk)
+    testImplementation(libs.kotlinx.coroutines.test)
 }

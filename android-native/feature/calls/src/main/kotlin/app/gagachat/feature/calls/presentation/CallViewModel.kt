@@ -1,5 +1,7 @@
 package app.gagachat.feature.calls.presentation
 
+import app.gagachat.core.common.di.ApplicationScope
+import kotlinx.coroutines.CoroutineScope
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.gagachat.core.common.result.AppResult
@@ -63,6 +65,7 @@ class CallViewModel @Inject constructor(
     private val authRepository: AuthRepository,
     private val conversationRepository: ConversationRepository,
     private val zegoCallManager: ZegoCallManager,
+    @ApplicationScope private val applicationScope: CoroutineScope,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(CallUiState())
@@ -220,7 +223,7 @@ class CallViewModel @Inject constructor(
 
     /** Declines/ends an incoming call. */
     fun rejectCall() {
-        zegoCallManager.endCall()
+        zegoCallManager.endCall(CallStatus.REJECTED)
         finalizeCall(CallStatus.REJECTED)
     }
 
@@ -276,7 +279,7 @@ class CallViewModel @Inject constructor(
             return
         }
         val durationMs = _state.value.elapsedSeconds * 1000L
-        viewModelScope.launch {
+        applicationScope.launch {
             callRepository.endCall(callId, status, durationMs)
             _state.update {
                 it.copy(phase = CallPhase.ENDED, activeCall = null, callLaunched = false)
@@ -304,3 +307,4 @@ class CallViewModel @Inject constructor(
         super.onCleared()
     }
 }
+
