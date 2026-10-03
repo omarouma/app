@@ -1126,6 +1126,17 @@ class ChatViewModel @Inject constructor(
                 is AppResult.Failure -> error.value = result.error.toUserMessage()
                 else -> Unit
             }
+            // If this was a media message, nudge the upload queue immediately so a
+            // stuck "Preparing…" bubble recovers without waiting on WorkManager.
+            launch {
+                try {
+                    mediaRepository.processQueue()
+                } catch (t: kotlinx.coroutines.CancellationException) {
+                    throw t
+                } catch (_: Throwable) {
+                    // Best-effort; the durable WorkManager job retries.
+                }
+            }
         }
     }
 

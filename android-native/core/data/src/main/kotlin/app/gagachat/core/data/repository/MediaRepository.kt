@@ -1,6 +1,7 @@
 package app.gagachat.core.data.repository
 
 import android.content.Context
+import app.gagachat.core.common.di.ApplicationScope
 import app.gagachat.core.common.di.DispatcherProvider
 import app.gagachat.core.common.result.AppError
 import app.gagachat.core.common.result.AppResult
@@ -18,10 +19,13 @@ import app.gagachat.core.model.UploadState
 import app.gagachat.core.network.storage.SupabaseStorageApi
 import app.gagachat.sync.outbox.OutboxScheduler
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -92,7 +96,14 @@ class DefaultMediaRepository @Inject constructor(
     private val timeProvider: TimeProvider,
     private val dispatchers: DispatcherProvider,
     private val outboxScheduler: OutboxScheduler,
+    @ApplicationScope private val applicationScope: CoroutineScope,
 ) : MediaRepository {
+
+    /**
+     * Serialises [processQueue] so the immediate in-process drain and the
+     * WorkManager worker can never upload the same row concurrently.
+     */
+    private val queueMutex = Mutex()
 
     override suspend fun enqueueUpload(
         conversationId: String,
@@ -145,7 +156,7 @@ class DefaultMediaRepository @Inject constructor(
         uploadDao.upsert(upload.toEntity())
         // Start the durable upload immediately. Previously media could remain QUEUED
         // forever because nothing scheduled MediaUploadWorker after enqueue.
-        outboxScheduler.enqueueMediaUpload()
+        kickOffUpload()
         AppResult.Success(message)
     }
 
@@ -202,11 +213,40 @@ class DefaultMediaRepository @Inject constructor(
             )
             uploadDao.upsert(upload.toEntity())
         }
-        outboxScheduler.enqueueMediaUpload()
+        kickOffUpload()
         AppResult.Success(message)
     }
 
-    override suspend fun processQueue() = withContext(dispatchers.io) {
+    /**
+     * Starts draining the upload queue. Schedules the durable WorkManager job
+     * (survives process death and retries in the background) AND immediately
+     * kicks off an in-process drain so the upload begins the instant the user
+     * hits send.
+     *
+     * Media previously depended *only* on WorkManager, so any hiccup there left
+     * the bubble stuck on "Preparing…" forever — unlike text messages, which
+     * already had an inline send path ([MessageRepository] `dispatchOrQueue`).
+     * Scheduling is best-effort: if WorkManager is unavailable for any reason we
+     * still upload inline.
+     */
+    private fun kickOffUpload() {
+        runCatching { outboxScheduler.enqueueMediaUpload() }
+        applicationScope.launch {
+            try {
+                processQueue()
+            } catch (t: kotlinx.coroutines.CancellationException) {
+                throw t
+            } catch (_: Throwable) {
+                // Best-effort: the durable WorkManager job retries in the background.
+            }
+        }
+    }
+
+    override suspend fun processQueue() = queueMutex.withLock {
+        drainQueue()
+    }
+
+    private suspend fun drainQueue() = withContext(dispatchers.io) {
         val queued = uploadDao.getQueued()
         // Group by target message, preserving rowid (insertion) order so album
         // photos upload and are stored in the exact order the user chose (F13).
