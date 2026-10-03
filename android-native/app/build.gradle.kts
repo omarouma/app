@@ -186,10 +186,11 @@ dependencies {
     // Hilt navigation (hiltViewModel() in the root composable)
     implementation(libs.hilt.navigation.compose)
 
-    // WorkManager + Hilt integration
+    // WorkManager + Hilt integration. The AndroidX Hilt compiler (which generates
+    // the @HiltWorker assisted factories) is provided by the `gaga.android.hilt`
+    // convention plugin, so it is not declared again here.
     implementation(libs.androidx.work.runtime.ktx)
     implementation(libs.androidx.hilt.work)
-    ksp(libs.androidx.hilt.compiler)
 
     // Firebase push (PDF §8). Requires google-services.json to initialize.
     implementation(platform(libs.firebase.bom))

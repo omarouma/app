@@ -1,6 +1,73 @@
 # GaGa Chat 2.0.18 — Build Report
 
-## This build — Chatroom media reliability: photo & video sending + rendering
+## LATEST — Media stuck at "Preparing…": missing AndroidX Hilt compiler (ROOT CAUSE)
+
+Reported symptom: photos/videos sent from the chatroom show the local preview but
+sit forever behind a **"Preparing…"** spinner and never deliver (screenshot
+`Screenshot_20261003-174128.jpg`).
+
+### Root cause
+Every WorkManager worker in `:sync:workers` is a Hilt worker (`@HiltWorker` +
+`@AssistedInject`): `MediaUploadWorker`, `MessageSendWorker`, `MessageSyncWorker`,
+`ConversationSyncWorker`, `PeriodicSyncWorker`, `ScheduledMessageWorker`. Hilt's
+`HiltWorkerFactory` resolves them through generated `<Worker>_AssistedFactory`
+classes, which are produced **only** by the AndroidX Hilt compiler
+(`androidx.hilt:hilt-compiler`).
+
+The shared `gaga.android.hilt` convention plugin added **only Dagger's** Hilt
+compiler (`com.google.dagger:hilt-android-compiler`). The AndroidX compiler was
+declared solely in the `app` module, which owns no workers, so **no worker assisted
+factories were ever generated**. At runtime `HiltWorkerFactory.createWorker()`
+could not instantiate `MediaUploadWorker`, so `MediaUploadWorker.doWork()` never
+ran, `processQueue()` never drained the durable upload queue, and the optimistic
+message stayed `PENDING` with `uploadProgress = 0` → the bubble rendered
+"Preparing…" indefinitely.
+
+This also silently disabled **all** background work: message retry/outbox,
+conversation/message sync, periodic sync, and scheduled ("send later") messages.
+
+Evidence: the previously shipped APK contained `MediaUploadWorker_Factory`
+(Dagger) but **no** `MediaUploadWorker_AssistedFactory`, and the
+`:sync:workers` KSP processor classpath contained only
+`com.google.dagger:hilt-android-compiler`.
+
+### Fix
+- `build-logic/.../AndroidHiltConventionPlugin.kt`: also add
+  `ksp(androidx.hilt:hilt-compiler)` so every Hilt module generates worker
+  assisted factories.
+- `app/build.gradle.kts`: drop the now-redundant per-module
+  `ksp(libs.androidx.hilt.compiler)` (provided by the convention plugin).
+
+### Verification
+The rebuilt APK now contains all six assisted factories:
+`MediaUploadWorker_AssistedFactory`, `MessageSendWorker_AssistedFactory`,
+`MessageSyncWorker_AssistedFactory`, `ConversationSyncWorker_AssistedFactory`,
+`PeriodicSyncWorker_AssistedFactory`, `ScheduledMessageWorker_AssistedFactory`.
+
+### Server-side audit (Supabase + Firebase) — no blocking issues found
+- **Supabase Storage**: `chat-media`/`voice-messages` (private) and
+  `avatars`/`media`/`posts`/`stories`/`reels` (public) all exist. Authenticated
+  upload to `chat-media/<uid>/...` → 200; signed-URL read → 200; public URL on a
+  private bucket → 400 (correct); cross-user folder write → 403 (RLS correct).
+  12 MB upload succeeds (bucket limit ≥ 12 MB).
+- **Supabase DB**: all app tables present (`chats`, `chat_reads`, `messages`,
+  `call_history`, `user_devices`, `blocked_users`, `saved_messages`,
+  `group_members`, `groups`, `notifications`, `wallets`, `wallet_transactions`,
+  `profiles`, `users`, `presence`, `friendships`, `friend_requests`, `typing`).
+  RPC `delete_own_account` → 204. Edge function `zego-token` mints a valid ZIM
+  token (200, `appID` + `zimToken`).
+- **Firebase**: project `oumagachat` ACTIVE; Android app
+  `1:545448312835:android:d71f67bf2c8f96f4cd8e36` (`gagachat.app`) registered;
+  admin SDK key valid; FCM available. The app uses Firebase only for FCM push +
+  Crashlytics (no RTDB / Firebase Auth).
+
+### APK
+`GaGa-2.0.18-mediafix-release.apk` — 94,761,034 bytes —
+SHA-256 `8d0177516210996be170e49641ec19e89eeac2c8077590e992e47d2edfa5464c`,
+signed v2/v3 with `CN=GaGa Chat`
+(SHA-256 `d59afa7c5372c3632d58f0b31156954b5f2200871317ffaf42de305448da8663`).
+
+## Previous — Chatroom media reliability: photo & video sending + rendering
 
 Focus: the chatroom screen. Root-caused and fixed the long-standing "photo/video
 won't send / shows broken" reports, then polished the whole media experience.
