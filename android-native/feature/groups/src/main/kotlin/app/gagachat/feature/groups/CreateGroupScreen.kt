@@ -1,6 +1,10 @@
 package app.gagachat.feature.groups
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,8 +22,9 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Groups
-import androidx.compose.material.icons.filled.Notes
+import androidx.compose.material.icons.automirrored.filled.Notes
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -50,6 +55,10 @@ fun CreateGroupScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
 
+    val photoPicker = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia(),
+    ) { uri -> uri?.let(viewModel::onAvatarPicked) }
+
     GagaScaffold(
         title = "New Group",
         onBack = onBack,
@@ -73,15 +82,28 @@ fun CreateGroupScreen(
                     modifier = Modifier
                         .size(72.dp)
                         .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.surfaceVariant),
+                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                        .clickable(enabled = !state.isUploadingAvatar) {
+                            photoPicker.launch(
+                                PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly),
+                            )
+                        },
                     contentAlignment = Alignment.Center,
                 ) {
-                    Icon(
-                        Icons.Filled.CameraAlt,
-                        contentDescription = "Add group photo",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(28.dp),
-                    )
+                    when {
+                        state.isUploadingAvatar -> CircularProgressIndicator(modifier = Modifier.size(24.dp))
+                        state.avatarUrl != null -> GagaAvatar(
+                            imageUrl = state.avatarUrl,
+                            name = state.name.ifBlank { "Group" },
+                            size = 72.dp,
+                        )
+                        else -> Icon(
+                            Icons.Filled.CameraAlt,
+                            contentDescription = "Add group photo",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(28.dp),
+                        )
+                    }
                 }
                 Spacer(Modifier.width(GagaDimens.space12))
                 Column(modifier = Modifier.weight(1f)) {
@@ -97,7 +119,7 @@ fun CreateGroupScreen(
                         value = state.description,
                         onValueChange = viewModel::onDescriptionChange,
                         label = "Description (optional)",
-                        leadingIcon = Icons.Filled.Notes,
+                        leadingIcon = Icons.AutoMirrored.Filled.Notes,
                         singleLine = false,
                         imeAction = ImeAction.Done,
                     )

@@ -161,6 +161,8 @@ fun MainNavHost(pendingDeepLink: String?) {
                 onOpenSettings = { navController.navigate(SettingsRoutes.SETTINGS) },
                 onOpenNotifications = { navController.navigate(SettingsRoutes.NOTIFICATIONS) },
                 onOpenPrivacy = { navController.navigate(SettingsRoutes.PRIVACY) },
+                onOpenSecurity = { navController.navigate(SettingsRoutes.SECURITY) },
+                onOpenSavedMessages = { navController.navigate(SettingsRoutes.SAVED_MESSAGES) },
                 onOpenSearch = { navController.navigate(PeopleRoutes.DISCOVER) },
                 onOpenHelp = { navController.navigate(SettingsRoutes.ABOUT) },
                 onBack = { navController.popBackStack() },

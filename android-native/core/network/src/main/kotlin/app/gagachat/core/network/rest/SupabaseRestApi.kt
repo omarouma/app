@@ -20,6 +20,7 @@ import app.gagachat.core.network.dto.GroupRow
 import app.gagachat.core.network.dto.MessageInsert
 import app.gagachat.core.network.dto.MessageRow
 import app.gagachat.core.network.dto.NotificationRow
+import app.gagachat.core.network.dto.ReportRow
 import app.gagachat.core.network.dto.SavedMessageInsert
 import app.gagachat.core.network.dto.SavedMessageRow
 import app.gagachat.core.network.dto.UserRow
@@ -558,6 +559,21 @@ class SupabaseRestApi @Inject constructor(
             auth()
             parameter("blocker_id", "eq.$ownerId")
             parameter("blocked_id", "eq.$targetId")
+        }
+    }
+
+    // ---- Reports ----
+
+    /**
+     * Files an abuse report. Write-only from the client: the row is reviewed by
+     * moderators out-of-band, so we never read it back.
+     */
+    suspend fun submitReport(row: ReportRow) {
+        client.post("${config.restUrl}/reports") {
+            auth()
+            header("Prefer", "return=minimal")
+            contentType(ContentType.Application.Json)
+            setBody(row)
         }
     }
 

@@ -16,7 +16,7 @@ import androidx.compose.material.icons.filled.Apps
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.DeleteForever
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.HelpOutline
+import androidx.compose.material.icons.automirrored.filled.HelpOutline
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Lock
@@ -188,7 +188,7 @@ fun SettingsRoute(
             GagaSettingsRow(
                 title = "Help",
                 subtitle = "FAQs and support",
-                leadingIcon = Icons.Filled.HelpOutline,
+                leadingIcon = Icons.AutoMirrored.Filled.HelpOutline,
                 leadingIconTint = IconBlue,
                 onClick = onOpenAbout,
             )

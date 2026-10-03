@@ -210,3 +210,21 @@ data class BlockRow(
     val reason: String? = null,
     @SerialName("created_at") @Serializable(with = EpochMillisSerializer::class) val createdAt: Long? = null,
 )
+
+/**
+ * Report row (`reports`). An abuse report a user files against another user,
+ * optionally scoped to a conversation for context. Written by the reporter and
+ * read only by moderators (see the `reports` RLS policies); the client never
+ * reads it back.
+ */
+@Serializable
+data class ReportRow(
+    val id: String? = null,
+    @SerialName("reporter_id") val reporterId: String,
+    @SerialName("target_id") val targetId: String,
+    @SerialName("conversation_id") val conversationId: String? = null,
+    val reason: String? = null,
+    val details: String? = null,
+    val status: String = "open",
+    @SerialName("created_at") @Serializable(with = EpochMillisSerializer::class) val createdAt: Long? = null,
+)

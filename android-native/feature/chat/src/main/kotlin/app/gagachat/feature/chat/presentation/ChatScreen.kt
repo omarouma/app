@@ -773,9 +773,9 @@ private fun MessageSearchBar(
 /**
  * The conversation overflow menu (reference screenshot 174606): Search Messages,
  * Chat Background, Send Money, View Profile, Chat Info, Remove Friend, Block User
- * and Report User. "Search Messages", "View Profile", "Block User", "Remove
- * Friend" and "Report User" are wired; "Chat Background" surfaces a transient
- * notice until its owning feature lands (deferred to the UI-polish phase).
+ * and Report User. Every entry is wired: Search / View Profile / Block / Remove
+ * Friend / Report drive their repositories, and Chat Background opens the
+ * wallpaper picker (persisted via SettingsPreferences).
  */
 @Composable
 private fun ChatOverflowMenu(

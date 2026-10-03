@@ -33,7 +33,12 @@ interface GroupRepository {
 
     suspend fun refresh(): AppResult<Unit>
     suspend fun getGroup(groupId: String): AppResult<Group>
-    suspend fun createGroup(name: String, description: String?, memberIds: List<String>): AppResult<Group>
+    suspend fun createGroup(
+        name: String,
+        description: String?,
+        memberIds: List<String>,
+        avatar: String? = null,
+    ): AppResult<Group>
     suspend fun updateGroup(groupId: String, name: String?, description: String?, avatar: String?): AppResult<Unit>
     suspend fun addMembers(groupId: String, userIds: List<String>): AppResult<Unit>
     suspend fun removeMember(groupId: String, userId: String): AppResult<Unit>
@@ -86,6 +91,7 @@ class DefaultGroupRepository @Inject constructor(
         name: String,
         description: String?,
         memberIds: List<String>,
+        avatar: String?,
     ): AppResult<Group> = withContext(dispatchers.io) {
         val me = currentUserId
         if (me.isBlank()) return@withContext AppResult.Failure(AppError.Unauthorized())
@@ -93,7 +99,13 @@ class DefaultGroupRepository @Inject constructor(
         try {
             val groupId = idGenerator.newConversationId()
             val row = restApi.insertGroup(
-                GroupInsert(id = groupId, name = name.trim(), description = description?.trim()?.ifBlank { null }, createdBy = me),
+                GroupInsert(
+                    id = groupId,
+                    name = name.trim(),
+                    description = description?.trim()?.ifBlank { null },
+                    avatar = avatar?.ifBlank { null },
+                    createdBy = me,
+                ),
             )
             // Owner + initial members.
             restApi.insertGroupMember(GroupMemberInsert(groupId = groupId, userId = me, role = "owner"))
@@ -110,6 +122,7 @@ class DefaultGroupRepository @Inject constructor(
                         type = "group",
                         participants = participants,
                         title = name.trim(),
+                        avatar = avatar?.ifBlank { null },
                         description = description?.trim(),
                         createdBy = me,
                         admins = listOf(me),

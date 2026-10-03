@@ -24,8 +24,6 @@ import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
-import androidx.compose.material.icons.filled.CallSplit
-import androidx.compose.material.icons.filled.Campaign
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.History
@@ -33,8 +31,7 @@ import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Redeem
 import androidx.compose.material.icons.filled.RequestPage
 import androidx.compose.material.icons.filled.Savings
-import androidx.compose.material.icons.filled.Security
-import androidx.compose.material.icons.filled.Send
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material3.Icon
@@ -43,14 +40,13 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -74,7 +70,7 @@ fun WalletScreen(
     viewModel: WalletViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    val message by viewModel.topUpMessage.collectAsStateWithLifecycle()
+    val notice by viewModel.notice.collectAsStateWithLifecycle()
 
     GagaScaffold(
         title = "My Wallet",
@@ -103,11 +99,15 @@ fun WalletScreen(
             emptyDescription = "Your coin balance will appear here.",
         ) { ui ->
             LazyColumn(modifier = Modifier.fillMaxSize()) {
-                item { WalletHeader(ui.wallet) }
-                item { ActionRow(onDeposit = { viewModel.topUp(500L) }, onSend = onSendCoins) }
-                item { ValueCard(ui.wallet) }
+                item { WalletHeader(ui.wallet, ui.activity) }
+                item {
+                    ActionRow(
+                        onDeposit = { viewModel.topUp(500L) },
+                        onSend = onSendCoins,
+                        onUnavailable = viewModel::showNotice,
+                    )
+                }
                 item { StakingCard() }
-                item { ActionGrid() }
                 item {
                     Column(modifier = Modifier.padding(top = GagaDimens.space8)) {
                         WalletOptionRow(
@@ -115,12 +115,14 @@ fun WalletScreen(
                             iconTint = GagaGreen,
                             title = "Redeem Promo Code",
                             subtitle = "Get free Gaga Coins",
+                            onClick = { viewModel.showNotice("Promo code redemption is coming soon") },
                         )
                         WalletOptionRow(
                             icon = Icons.Filled.Lock,
                             iconTint = Color(0xFF7E57C2),
                             title = "Wallet Security",
                             subtitle = "Set up PIN protection",
+                            onClick = { viewModel.showNotice("Wallet PIN protection is coming soon") },
                         )
                     }
                 }
@@ -155,10 +157,10 @@ fun WalletScreen(
                 } else {
                     items(ui.activity, key = { it.id }) { entry -> ActivityRow(entry) }
                 }
-                if (message != null) {
+                if (notice != null) {
                     item {
                         Text(
-                            text = message!!,
+                            text = notice!!,
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.padding(
@@ -173,19 +175,26 @@ fun WalletScreen(
         }
     }
 
-    LaunchedEffect(message) {
-        if (message != null) {
+    LaunchedEffect(notice) {
+        if (notice != null) {
             kotlinx.coroutines.delay(2500)
-            viewModel.consumeTopUpMessage()
+            viewModel.consumeNotice()
         }
     }
 }
 
-/** Green header: currency tabs, balance, metrics and wallet id. */
+/**
+ * Green header: balance, live activity stats and a copyable wallet id.
+ *
+ * The wallet is GAGA-only and the server exposes no fiat exchange rate, so the
+ * header shows real, derivable figures (received / sent / activity count)
+ * instead of placeholder values.
+ */
 @Composable
-private fun WalletHeader(wallet: Wallet) {
-    val currencies = listOf("GAGA", "USD", "BDT", "RMB", "INR")
-    var selected by remember { mutableStateOf("GAGA") }
+private fun WalletHeader(wallet: Wallet, activity: List<CoinActivity>) {
+    val clipboard = LocalClipboardManager.current
+    val received = activity.filter { it.type != CoinActivityType.SENT }.sumOf { it.amount }
+    val sent = activity.filter { it.type == CoinActivityType.SENT }.sumOf { it.amount }
 
     Column(
         modifier = Modifier
@@ -193,47 +202,31 @@ private fun WalletHeader(wallet: Wallet) {
             .background(GagaGreen)
             .padding(horizontal = GagaDimens.space16, vertical = GagaDimens.space16),
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(GagaDimens.space8),
-        ) {
-            currencies.forEach { currency ->
-                CurrencyTab(
-                    label = currency,
-                    selected = currency == selected,
-                    onClick = { selected = currency },
-                )
-            }
-        }
-        Spacer(Modifier.height(GagaDimens.space16))
         Text(
             text = "Gaga Coins",
             style = MaterialTheme.typography.bodyMedium,
             color = Color.White.copy(alpha = 0.9f),
         )
-        Row(verticalAlignment = Alignment.Bottom) {
-            Text(
-                text = "${wallet.formatted} GAGA",
-                style = MaterialTheme.typography.displaySmall,
-                fontWeight = FontWeight.Bold,
-                color = Color.White,
-            )
-        }
         Text(
-            text = "≈ \$0.00 USD",
-            style = MaterialTheme.typography.bodyMedium,
-            color = Color.White.copy(alpha = 0.9f),
+            text = "${wallet.formatted} GAGA",
+            style = MaterialTheme.typography.displaySmall,
+            fontWeight = FontWeight.Bold,
+            color = Color.White,
         )
         Spacer(Modifier.height(GagaDimens.space12))
         Row(horizontalArrangement = Arrangement.spacedBy(GagaDimens.space16)) {
-            HeaderMetric("0%", "APY")
-            HeaderMetric("None", "Tier")
-            HeaderMetric("+0", "/day")
+            HeaderMetric("+%,d".format(received), "Received")
+            HeaderMetric("-%,d".format(sent), "Sent")
+            HeaderMetric(activity.size.toString(), "Activity")
         }
         Spacer(Modifier.height(GagaDimens.space12))
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .clip(RoundedCornerShape(50))
+                .clickable { clipboard.setText(AnnotatedString(wallet.walletCode)) }
+                .padding(horizontal = GagaDimens.space4, vertical = GagaDimens.space4),
+        ) {
             Text(
                 text = "ID: ${wallet.walletCode}",
                 style = MaterialTheme.typography.bodySmall,
@@ -247,24 +240,6 @@ private fun WalletHeader(wallet: Wallet) {
                 modifier = Modifier.size(16.dp),
             )
         }
-    }
-}
-
-@Composable
-private fun CurrencyTab(label: String, selected: Boolean, onClick: () -> Unit) {
-    Box(
-        modifier = Modifier
-            .clip(RoundedCornerShape(50))
-            .background(if (selected) Color.White else Color.White.copy(alpha = 0.2f))
-            .clickable(onClick = onClick)
-            .padding(horizontal = GagaDimens.space16, vertical = GagaDimens.space6),
-    ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelLarge,
-            color = if (selected) GagaGreen else Color.White,
-            fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
-        )
     }
 }
 
@@ -286,12 +261,16 @@ private fun HeaderMetric(value: String, label: String) {
 }
 
 @Composable
-private fun ActionRow(onDeposit: () -> Unit, onSend: () -> Unit) {
+private fun ActionRow(
+    onDeposit: () -> Unit,
+    onSend: () -> Unit,
+    onUnavailable: (String) -> Unit,
+) {
     val actions = listOf(
         "Deposit" to Icons.Filled.Add,
         "Withdraw" to Icons.Filled.ArrowUpward,
         "Convert" to Icons.Filled.SwapHoriz,
-        "Send" to Icons.Filled.Send,
+        "Send" to Icons.AutoMirrored.Filled.Send,
         "Request" to Icons.Filled.RequestPage,
         "Earn" to Icons.Filled.Savings,
     )
@@ -310,7 +289,7 @@ private fun ActionRow(onDeposit: () -> Unit, onSend: () -> Unit) {
                     when (label) {
                         "Deposit" -> onDeposit()
                         "Send" -> onSend()
-                        else -> Unit
+                        else -> onUnavailable("$label is coming soon")
                     }
                 },
             )
@@ -342,38 +321,12 @@ private fun ActionChip(label: String, icon: ImageVector, onClick: () -> Unit) {
     }
 }
 
-@Composable
-private fun ValueCard(wallet: Wallet) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = GagaDimens.space16)
-            .clip(RoundedCornerShape(16.dp))
-            .background(MaterialTheme.colorScheme.surfaceVariant)
-            .padding(GagaDimens.space16),
-    ) {
-        Text("Gaga Coins Value", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-        Text(
-            "Your total portfolio value",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Spacer(Modifier.height(GagaDimens.space12))
-        Row(verticalAlignment = Alignment.Bottom) {
-            Text(
-                "${wallet.formatted} GAGA",
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.Bold,
-            )
-            Spacer(Modifier.width(GagaDimens.space8))
-            Text("\$0 USD", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-    }
-}
-
+/**
+ * Staking has no server-side implementation yet, so this card states that
+ * plainly rather than showing placeholder APY / tier / reward figures.
+ */
 @Composable
 private fun StakingCard() {
-    val tiers = listOf("Bronze", "Silver", "Gold", "Platinum")
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -387,9 +340,13 @@ private fun StakingCard() {
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Column {
-                Text("None Tier", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                Text("0% APY staking reward", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Column(modifier = Modifier.weight(1f)) {
+                Text("Staking", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Text(
+                    "Earn rewards on your coins — coming soon",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
             Box(
                 modifier = Modifier
@@ -397,49 +354,7 @@ private fun StakingCard() {
                     .background(GagaGreen)
                     .padding(horizontal = GagaDimens.space12, vertical = GagaDimens.space6),
             ) {
-                Text("Claim +0", style = MaterialTheme.typography.labelMedium, color = Color.White)
-            }
-        }
-        Spacer(Modifier.height(GagaDimens.space12))
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(GagaDimens.space8),
-        ) {
-            tiers.forEach { tier ->
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(50))
-                        .background(Color.White)
-                        .padding(horizontal = GagaDimens.space12, vertical = GagaDimens.space4),
-                ) {
-                    Text(tier, style = MaterialTheme.typography.labelMedium, color = GagaGreen)
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun ActionGrid() {
-    val items = listOf(
-        "Convert" to Icons.Filled.SwapHoriz,
-        "Withdraw" to Icons.Filled.ArrowUpward,
-        "Deposit" to Icons.Filled.Add,
-        "Send" to Icons.Filled.Send,
-        "Request" to Icons.Filled.RequestPage,
-        "Split" to Icons.Filled.CallSplit,
-        "Promo" to Icons.Filled.Campaign,
-        "Security" to Icons.Filled.Security,
-    )
-    Column(modifier = Modifier.padding(horizontal = GagaDimens.space16)) {
-        items.chunked(4).forEach { row ->
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceEvenly,
-            ) {
-                row.forEach { (label, icon) -> ActionChip(label = label, icon = icon, onClick = {}) }
+                Text("Soon", style = MaterialTheme.typography.labelMedium, color = Color.White)
             }
         }
     }
@@ -451,7 +366,7 @@ private fun WalletOptionRow(
     iconTint: Color,
     title: String,
     subtitle: String,
-    onClick: () -> Unit = {},
+    onClick: (() -> Unit)? = null,
 ) {
     GagaListRow(
         title = title,
