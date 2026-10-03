@@ -23,6 +23,7 @@ import app.gagachat.core.data.repository.FriendsRepository
 import app.gagachat.core.data.repository.LinkPreviewRepository
 import app.gagachat.core.data.repository.MediaRepository
 import app.gagachat.core.data.repository.MessageRepository
+import app.gagachat.core.data.repository.ReportRepository
 import app.gagachat.core.data.repository.UserRepository
 import app.gagachat.core.data.preferences.ChatBackground
 import app.gagachat.core.data.preferences.DraftStore
@@ -174,6 +175,7 @@ class ChatViewModel @Inject constructor(
     private val linkPreviewRepository: LinkPreviewRepository,
     private val authRepository: AuthRepository,
     private val blockRepository: BlockRepository,
+    private val reportRepository: ReportRepository,
     private val friendsRepository: FriendsRepository,
     private val networkMonitor: NetworkMonitor,
     private val settingsPreferences: app.gagachat.core.data.preferences.SettingsPreferences,
@@ -1019,9 +1021,20 @@ class ChatViewModel @Inject constructor(
         }
     }
 
-    /** Records a report against the other participant for moderation review. */
+    /** Files an abuse report against the other participant for moderator review. */
     fun reportUser() {
-        notice.value = "Thanks \u2014 your report has been submitted for review."
+        val target = state.value.otherUserId
+        if (target.isBlank()) {
+            notice.value = "Couldn't resolve this contact to report."
+            return
+        }
+        viewModelScope.launch {
+            when (val result = reportRepository.submitReport(target, conversationId = conversationId)) {
+                is AppResult.Success -> notice.value = "Thanks \u2014 your report has been submitted for review."
+                is AppResult.Failure -> error.value = result.error.toUserMessage()
+                AppResult.Loading -> Unit
+            }
+        }
     }
 
     /** Surfaces a transient notice for an overflow-menu entry that isn't wired yet. */

@@ -32,8 +32,8 @@ class WalletViewModel @Inject constructor(
     private val _state = MutableStateFlow<ScreenState<WalletUi>>(ScreenState.Initial)
     val state: StateFlow<ScreenState<WalletUi>> = _state.asStateFlow()
 
-    private val _topUpMessage = MutableStateFlow<String?>(null)
-    val topUpMessage: StateFlow<String?> = _topUpMessage.asStateFlow()
+    private val _notice = MutableStateFlow<String?>(null)
+    val notice: StateFlow<String?> = _notice.asStateFlow()
 
     init {
         viewModelScope.launch {
@@ -73,11 +73,18 @@ class WalletViewModel @Inject constructor(
 
     fun topUp(amount: Long) = viewModelScope.launch {
         when (val r = walletRepository.topUp(amount)) {
-            is AppResult.Success -> _topUpMessage.value = "Added ${amount} coins"
-            is AppResult.Failure -> _topUpMessage.value = r.error.toUserMessage()
+            is AppResult.Success -> _notice.value = "Added ${amount} coins"
+            is AppResult.Failure -> _notice.value = r.error.toUserMessage()
             AppResult.Loading -> Unit
         }
     }
 
-    fun consumeTopUpMessage() { _topUpMessage.value = null }
+    /**
+     * Surface a short, transient message to the user. Used by wallet actions
+     * that have no server-side implementation yet (withdraw, convert, request,
+     * earn, promo, security) so the UI never presents a dead control.
+     */
+    fun showNotice(message: String) { _notice.value = message }
+
+    fun consumeNotice() { _notice.value = null }
 }

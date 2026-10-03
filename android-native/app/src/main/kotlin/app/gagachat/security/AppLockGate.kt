@@ -27,7 +27,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
@@ -72,6 +72,12 @@ fun AppLockGate(
         if (result.resultCode == Activity.RESULT_OK) unlocked = true
     }
 
+    // `createConfirmDeviceCredentialIntent` is deprecated in API 29 in favour of
+    // BiometricPrompt with the DEVICE_CREDENTIAL authenticator. We keep the
+    // platform call for now because it needs no extra dependency and still works
+    // on every supported API level; the BiometricPrompt migration is tracked
+    // separately (it requires adding androidx.biometric).
+    @Suppress("DEPRECATION")
     fun promptUnlock() {
         val km = context.getSystemService(Context.KEYGUARD_SERVICE) as? KeyguardManager
         val intent = if (km != null && km.isDeviceSecure) {
