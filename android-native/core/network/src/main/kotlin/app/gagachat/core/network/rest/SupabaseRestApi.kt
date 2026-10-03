@@ -276,7 +276,11 @@ class SupabaseRestApi @Inject constructor(
             auth()
             parameter("select", "*")
             parameter("chat_id", "eq.$conversationId")
-            parameter("text", "ilike.*$safe*")
+            // The LIVE `messages` table stores the body in `content` (mapped to
+            // `text` only in the domain/DTO layer). Filtering on `text` produced a
+            // PostgREST 400 ("column messages.text does not exist"), so F22 search
+            // always returned nothing. Verified against the live schema.
+            parameter("content", "ilike.*$safe*")
             parameter("order", "created_at.desc")
             parameter("limit", limit)
         }.body()
