@@ -276,8 +276,13 @@ class CallViewModel @Inject constructor(
             return
         }
         val durationMs = _state.value.elapsedSeconds * 1000L
+        // A call that never connected (0 seconds of media) is not a completed
+        // call. Recording it as ENDED produced the misleading "Voice call · 0m 0s"
+        // bubble; classifying it as MISSED is what the user actually experienced.
+        val effectiveStatus =
+            if (status == CallStatus.ENDED && durationMs <= 0L) CallStatus.MISSED else status
         viewModelScope.launch {
-            callRepository.endCall(callId, status, durationMs)
+            callRepository.endCall(callId, effectiveStatus, durationMs)
             _state.update {
                 it.copy(phase = CallPhase.ENDED, activeCall = null, callLaunched = false)
             }

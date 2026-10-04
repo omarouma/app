@@ -7,6 +7,10 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import app.gagachat.core.common.network.NetworkMonitor
+import app.gagachat.core.data.preferences.MediaDownloadPolicy
+import app.gagachat.core.data.preferences.SettingsPreferences
 import app.gagachat.core.network.storage.MediaUrlResolver
 import dagger.hilt.EntryPoint
 import dagger.hilt.InstallIn
@@ -18,6 +22,8 @@ import dagger.hilt.components.SingletonComponent
 @InstallIn(SingletonComponent::class)
 interface MediaResolverEntryPoint {
     fun mediaUrlResolver(): MediaUrlResolver
+    fun settingsPreferences(): SettingsPreferences
+    fun networkMonitor(): NetworkMonitor
 }
 
 /**
@@ -29,9 +35,14 @@ interface MediaResolverEntryPoint {
  * returned (null on first load), so the caller just shows its loading state.
  */
 @Composable
-fun rememberSignedMediaUrl(raw: String?): String? {
+fun rememberSignedMediaUrl(raw: String?, autoDownload: Boolean = true): String? {
     if (raw.isNullOrBlank()) return null
     if (isLocalReference(raw)) return raw
+    // When the user has disabled auto-download (or is on a metered network with a
+    // Wi-Fi-only policy) we deliberately do NOT mint a signed URL, which is the
+    // step that actually triggers the network fetch. The caller renders a
+    // "tap to load" affordance and re-invokes with autoDownload = true.
+    if (!autoDownload) return null
 
     val context = LocalContext.current
     val resolver = remember(context) {
@@ -51,14 +62,52 @@ fun rememberSignedMediaUrl(raw: String?): String? {
 }
 
 /**
+ * Whether chat media may be fetched automatically right now, honouring the
+ * "Data & Storage" preferences (Master Spec §C):
+ *
+ *  - the master **Auto-download media** switch, and
+ *  - the **When to auto-download** policy (Always / Wi-Fi only / Never).
+ *
+ * The decision is reactive: toggling a setting, losing connectivity, or moving
+ * between Wi-Fi and mobile data re-evaluates it and re-renders the bubbles.
+ * `Never` (or the master switch off) always wins; `Wi-Fi only` blocks metered
+ * networks; `Always` permits everything while online.
+ */
+@Composable
+fun rememberAutoDownloadAllowed(): Boolean {
+    val context = LocalContext.current
+    val entryPoint = remember(context) {
+        EntryPointAccessors.fromApplication(
+            context.applicationContext,
+            MediaResolverEntryPoint::class.java,
+        )
+    }
+    val prefs = remember(entryPoint) { entryPoint.settingsPreferences() }
+    val monitor = remember(entryPoint) { entryPoint.networkMonitor() }
+
+    val enabled by prefs.autoDownloadEnabled.collectAsStateWithLifecycle(initialValue = true)
+    val policy by prefs.mediaPolicy.collectAsStateWithLifecycle(initialValue = MediaDownloadPolicy.WIFI)
+    val online by monitor.isOnline.collectAsStateWithLifecycle()
+    val metered by monitor.isMetered.collectAsStateWithLifecycle()
+
+    return when {
+        !enabled -> false
+        policy == MediaDownloadPolicy.NEVER -> false
+        !online -> false
+        policy == MediaDownloadPolicy.WIFI -> !metered
+        else -> true
+    }
+}
+
+/**
  * Resolves a list of remote media URLs (multi-photo albums). Order is preserved;
  * entries that are still being signed come back as null so the caller can render
  * its own placeholder rather than a broken image.
  */
 @Composable
-fun rememberSignedMediaUrls(raw: List<String>): List<String?> {
+fun rememberSignedMediaUrls(raw: List<String>, autoDownload: Boolean = true): List<String?> {
     if (raw.isEmpty()) return emptyList()
-    return raw.map { rememberSignedMediaUrl(it) }
+    return raw.map { rememberSignedMediaUrl(it, autoDownload = autoDownload) }
 }
 
 /**

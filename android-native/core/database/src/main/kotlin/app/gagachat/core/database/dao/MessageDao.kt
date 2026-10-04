@@ -127,6 +127,24 @@ interface MessageDao {
     )
     suspend fun updateMediaAlbum(localId: String, url: String, urls: String?)
 
+    /**
+     * Safety net for the media upload queue: fails any media message that is
+     * still PENDING with a local file but has no corresponding queue row, so a
+     * bubble that can never make progress (e.g. the process died between the
+     * message insert and the upload-row insert) becomes a tappable retry instead
+     * of an eternal "Preparing…" spinner. [cutoff] is an epoch-millis lower
+     * bound that gives in-flight sends a grace period.
+     */
+    @Query(
+        """
+        UPDATE messages SET status = 'FAILED'
+        WHERE status = 'PENDING' AND localMediaPath IS NOT NULL AND mediaUrl IS NULL
+            AND createdAtClient < :cutoff
+            AND clientMessageId NOT IN (SELECT clientMessageId FROM pending_uploads)
+        """,
+    )
+    suspend fun failOrphanedMedia(cutoff: Long)
+
     @Query("UPDATE messages SET text = :text, editedAt = :editedAt WHERE localId = :localId")
     suspend fun updateText(localId: String, text: String, editedAt: Long)
 

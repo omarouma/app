@@ -27,6 +27,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import java.io.File
@@ -243,7 +244,19 @@ class DefaultMediaRepository @Inject constructor(
     }
 
     override suspend fun processQueue() = queueMutex.withLock {
+        reconcileOrphanedMedia()
         drainQueue()
+    }
+
+    /**
+     * Safety net against an eternal "Preparing…" bubble. A media message that is
+     * still PENDING with a local file but has *no* queue row can never make
+     * progress (its row was lost — e.g. the process died between the two inserts,
+     * or the row was pruned). Failing it hands the user a real retry affordance
+     * instead of a spinner that never resolves.
+     */
+    private suspend fun reconcileOrphanedMedia() {
+        runCatching { messageDao.failOrphanedMedia(timeProvider.nowMillis() - ORPHAN_GRACE_MS) }
     }
 
     private suspend fun drainQueue() = withContext(dispatchers.io) {
@@ -309,9 +322,18 @@ class DefaultMediaRepository @Inject constructor(
                         }
                     }
                     val url = try {
-                        storageApi.uploadFile(objectPath, file, upload.mime) { progress ->
-                            progressChannel.trySend(progress)
-                        }
+                        // Hard ceiling on a single upload. Without it, one stalled
+                        // socket can hold the queue mutex forever, wedging every
+                        // later bubble on "Preparing…". On timeout we throw, which
+                        // the catch below turns into a QUEUED retry (or FAILED once
+                        // attempts are exhausted).
+                        withTimeoutOrNull(UPLOAD_TIMEOUT_MS) {
+                            storageApi.uploadFile(objectPath, file, upload.mime) { progress ->
+                                progressChannel.trySend(progress)
+                            }
+                        } ?: throw java.io.IOException(
+                            "Upload timed out after ${UPLOAD_TIMEOUT_MS / 1000}s",
+                        )
                     } finally {
                         progressChannel.close()
                         writer.join()
@@ -425,4 +447,12 @@ class DefaultMediaRepository @Inject constructor(
 
     override fun observeUpload(clientMessageId: String): Flow<PendingUpload?> =
         uploadDao.observeByClientMessageId(clientMessageId).map { it?.toDomain() }
+
+    private companion object {
+        /** Hard ceiling on a single storage upload before it is retried. */
+        const val UPLOAD_TIMEOUT_MS = 10 * 60 * 1000L
+
+        /** Grace period before a queue-less PENDING media message is failed. */
+        const val ORPHAN_GRACE_MS = 30_000L
+    }
 }

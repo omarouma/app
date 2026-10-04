@@ -32,25 +32,33 @@ class AndroidNetworkMonitor @Inject constructor(
     private val _isOnline = MutableStateFlow(readCurrentConnectivity())
     override val isOnline: StateFlow<Boolean> = _isOnline.asStateFlow()
 
+    private val _isMetered = MutableStateFlow(readCurrentMetered())
+    override val isMetered: StateFlow<Boolean> = _isMetered.asStateFlow()
+
     private val callback = object : ConnectivityManager.NetworkCallback() {
         override fun onAvailable(network: Network) {
-            _isOnline.value = readCurrentConnectivity()
+            refresh()
         }
 
         override fun onLost(network: Network) {
-            _isOnline.value = readCurrentConnectivity()
+            refresh()
         }
 
         override fun onCapabilitiesChanged(
             network: Network,
             networkCapabilities: NetworkCapabilities,
         ) {
-            _isOnline.value = readCurrentConnectivity()
+            refresh()
         }
 
         override fun onUnavailable() {
-            _isOnline.value = readCurrentConnectivity()
+            refresh()
         }
+    }
+
+    private fun refresh() {
+        _isOnline.value = readCurrentConnectivity()
+        _isMetered.value = readCurrentMetered()
     }
 
     init {
@@ -60,6 +68,21 @@ class AndroidNetworkMonitor @Inject constructor(
     }
 
     override fun isCurrentlyOnline(): Boolean = readCurrentConnectivity()
+
+    override fun isCurrentlyMetered(): Boolean = readCurrentMetered()
+
+    /**
+     * A network is treated as metered unless it advertises
+     * [NetworkCapabilities.NET_CAPABILITY_NOT_METERED]. Unknown connectivity is
+     * reported as unmetered so an explicit user choice is never silently
+     * overridden.
+     */
+    private fun readCurrentMetered(): Boolean {
+        val manager = connectivityManager ?: return false
+        val network = manager.activeNetwork ?: return false
+        val capabilities = manager.getNetworkCapabilities(network) ?: return false
+        return !capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED)
+    }
 
     /**
      * Reads connectivity from the active network. We require only

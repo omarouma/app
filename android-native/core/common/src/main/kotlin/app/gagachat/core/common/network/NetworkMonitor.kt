@@ -19,8 +19,20 @@ interface NetworkMonitor {
     val isOnline: StateFlow<Boolean>
 
     /**
+     * Emits `true` while the active network is metered (mobile data / hotspot).
+     * Used by the "Data & Storage" media auto-download policy to decide whether
+     * a Wi-Fi-only user should be spared a cellular download. When connectivity
+     * is unknown we report `false` (unmetered) so we never wrongly block a fetch
+     * that the user explicitly allowed.
+     */
+    val isMetered: StateFlow<Boolean>
+
+    /**
      * Synchronous snapshot of the current connectivity, for one-shot decisions
      * taken while mapping an error to a screen state.
      */
     fun isCurrentlyOnline(): Boolean
+
+    /** Synchronous snapshot of whether the active network is metered. */
+    fun isCurrentlyMetered(): Boolean
 }

@@ -21,6 +21,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.BatteryAlert
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
@@ -33,6 +34,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -45,6 +47,10 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import app.gagachat.core.common.system.BatteryOptimization
 import app.gagachat.core.ui.component.GagaPrimaryButton
 import app.gagachat.core.ui.component.GagaScaffold
 import app.gagachat.core.ui.component.GagaSecondaryButton
@@ -134,6 +140,21 @@ fun PermissionsScreen(
     }
     var pending by remember { mutableStateOf<String?>(null) }
 
+    // Battery-optimization exemption (settings grant, not a runtime permission):
+    // without it Doze defers the push that rings an incoming call. Re-read on
+    // resume so returning from the system dialog updates the row.
+    var batteryExempt by remember { mutableStateOf(BatteryOptimization.isIgnoring(context)) }
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                batteryExempt = BatteryOptimization.isIgnoring(context)
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
     val singleLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission(),
     ) { isGrantedNow ->
@@ -172,6 +193,17 @@ fun PermissionsScreen(
                 )
                 Spacer(Modifier.height(GagaDimens.space8))
             }
+
+            // Reliability (not counted in the permission tally — it is a settings
+            // grant): lets incoming calls ring while the app is idle.
+            PermissionRow(
+                icon = Icons.Filled.BatteryAlert,
+                tint = Color(0xFF8D6E63),
+                title = "Background reliability",
+                description = "Allow GaGa to ring for calls even when the app is closed.",
+                granted = batteryExempt,
+                onAllow = { BatteryOptimization.request(context) },
+            )
 
             Spacer(Modifier.height(GagaDimens.space8))
             Text(

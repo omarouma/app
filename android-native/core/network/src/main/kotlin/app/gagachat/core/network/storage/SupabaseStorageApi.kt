@@ -6,13 +6,14 @@ import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.plugins.onUpload
 import io.ktor.client.plugins.timeout
-import io.ktor.client.request.forms.InputProvider
 import io.ktor.client.request.header
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.http.ContentType
+import io.ktor.http.content.OutgoingContent
 import io.ktor.http.contentType
-import io.ktor.utils.io.streams.asInput
+import io.ktor.util.cio.readChannel
+import io.ktor.utils.io.ByteReadChannel
 import java.io.File
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -130,10 +131,11 @@ class SupabaseStorageApi @Inject constructor(
                 socketTimeoutMillis = UPLOAD_SOCKET_TIMEOUT_MS
                 connectTimeoutMillis = UPLOAD_CONNECT_TIMEOUT_MS
             }
-            setBody(InputProvider(file.length()) { file.inputStream().asInput() })
+            setBody(FileReadChannelContent(file, ContentType.parse(mime)))
             onUpload { sent, total ->
-                if (total != null && total > 0) {
-                    onProgress(((sent * 100) / total).toInt().coerceIn(0, 100))
+                val size = total ?: file.length()
+                if (size > 0) {
+                    onProgress(((sent * 100) / size).toInt().coerceIn(0, 100))
                 }
             }
         }
@@ -187,6 +189,29 @@ class SupabaseStorageApi @Inject constructor(
      */
     fun coverObjectPath(userId: String, kind: String, extension: String): String =
         "$userId/cover_$kind.$extension"
+}
+
+/**
+ * Streams a file straight from disk as the raw request body.
+ *
+ * Ktor 3 changed how request bodies are rendered: the default transformers only
+ * accept `String`, `ByteArray`, `ByteReadChannel`, `OutgoingContent` and
+ * `InputStream`. `InputProvider` is now valid *only* inside a multipart
+ * `formData { }` builder — passing it to `setBody` yields a body Ktor cannot
+ * render, so the request is rejected before a single byte leaves the device.
+ *
+ * That is exactly why every chat photo, video and voice note sat on
+ * "Preparing…" forever (and eventually "Failed — tap to retry"): the streaming
+ * upload path never actually sent anything. This content type is the supported
+ * way to stream a file with a known length, which also lets `onUpload` report
+ * real byte progress.
+ */
+private class FileReadChannelContent(
+    private val file: File,
+    override val contentType: ContentType,
+) : OutgoingContent.ReadChannelContent() {
+    override val contentLength: Long get() = file.length()
+    override fun readFrom(): ByteReadChannel = file.readChannel()
 }
 
 /** Request body for `POST /object/sign/{bucket}/{path}`. */
