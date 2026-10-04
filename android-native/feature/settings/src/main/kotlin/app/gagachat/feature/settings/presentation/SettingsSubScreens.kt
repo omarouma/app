@@ -319,50 +319,61 @@ fun AboutSettingsScreen(onBack: () -> Unit) {
 }
 
 /**
- * App permissions (Master Spec §C). Shows the runtime status for each capability
- * GaGa uses and lets the user grant them or open system settings.
+ * App permissions (spec §1 P0 / §6). Every row shows a *readable* state — Allowed,
+ * Not allowed, Selected photos only, or Managed by Android — as text plus an icon,
+ * never colour alone. States refresh whenever the screen resumes so returning from
+ * a system dialog is reflected immediately. Background reliability is presented
+ * separately as a troubleshooting row: it is a battery-settings grant, not a
+ * runtime permission, and it cannot guarantee that calls will ring.
  */
 @Composable
 fun AppPermissionsScreen(onBack: () -> Unit) {
     val context = LocalContext.current
     var refreshTick by remember { mutableStateOf(0) }
-    val items = remember {
+    val rows = remember {
         listOf(
-            PermissionItem(
-                "Notifications",
-                "Message and call alerts",
-                notificationPermissions(),
-                Icons.Filled.NotificationsActive,
+            PermRow(
+                label = "Notifications",
+                description = "Message and call alerts",
+                permissions = notificationPermissions(),
+                icon = Icons.Filled.NotificationsActive,
+                // Before Android 13 notifications are an OS setting, not a prompt.
+                managed = Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU,
             ),
-            PermissionItem(
-                "Camera",
-                "Video calls and QR scanning",
-                listOf(Manifest.permission.CAMERA),
-                Icons.Filled.CameraAlt,
+            PermRow(
+                label = "Camera",
+                description = "Video calls and QR scanning",
+                permissions = listOf(Manifest.permission.CAMERA),
+                icon = Icons.Filled.CameraAlt,
             ),
-            PermissionItem(
-                "Microphone",
-                "Voice messages and calls",
-                listOf(Manifest.permission.RECORD_AUDIO),
-                Icons.Filled.Mic,
+            PermRow(
+                label = "Microphone",
+                description = "Voice messages and calls",
+                permissions = listOf(Manifest.permission.RECORD_AUDIO),
+                icon = Icons.Filled.Mic,
             ),
-            PermissionItem(
-                "Contacts",
-                "Find friends already on GaGa",
-                listOf(Manifest.permission.READ_CONTACTS),
-                Icons.Filled.Contacts,
+            PermRow(
+                label = "Contacts",
+                description = "Optional — you can also add people by GaGa ID or QR",
+                permissions = listOf(Manifest.permission.READ_CONTACTS),
+                icon = Icons.Filled.Contacts,
             ),
-            PermissionItem(
-                "Photos & media",
-                "Send and save photos and videos",
-                mediaPermissions(),
-                Icons.Filled.PhotoLibrary,
+            PermRow(
+                label = "Photos & media",
+                description = "Send and save photos and videos",
+                permissions = mediaPermissions(),
+                icon = Icons.Filled.PhotoLibrary,
+                partialPermission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                    Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED
+                } else {
+                    null
+                },
             ),
-            PermissionItem(
-                "Location",
-                "Share your location in chats",
-                listOf(Manifest.permission.ACCESS_FINE_LOCATION),
-                Icons.Filled.LocationOn,
+            PermRow(
+                label = "Location",
+                description = "Share your location in chats",
+                permissions = listOf(Manifest.permission.ACCESS_FINE_LOCATION),
+                icon = Icons.Filled.LocationOn,
             ),
         )
     }
@@ -371,14 +382,15 @@ fun AppPermissionsScreen(onBack: () -> Unit) {
     ) { refreshTick++ }
 
     // Battery-optimization exemption is a settings grant, not a runtime
-    // permission. Re-read it whenever the screen resumes so returning from the
-    // system dialog reflects the new state.
+    // permission. Re-read it (and every permission row) on resume so returning
+    // from the system dialog reflects the new state.
     var batteryExempt by remember { mutableStateOf(BatteryOptimization.isIgnoring(context)) }
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
                 batteryExempt = BatteryOptimization.isIgnoring(context)
+                refreshTick++
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -390,51 +402,65 @@ fun AppPermissionsScreen(onBack: () -> Unit) {
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .verticalScroll(rememberScrollState()),
+                .verticalScroll(rememberScrollState())
+                .padding(bottom = GagaDimens.space32),
         ) {
             Text(
-                text = "Control what GaGa Chat can access. Tap a permission to grant it.",
+                text = "Control what GaGa Chat can access. Every permission is optional — " +
+                    "text chat keeps working without them. Tap a row to change it.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(GagaDimens.space16),
             )
-            items.forEach { item ->
-                val granted = refreshTick.let { item.isGranted(context) }
-                GagaSettingsRow(
-                    title = item.label,
-                    subtitle = if (granted) "Granted" else item.description,
-                    leadingIcon = item.icon,
-                    onClick = { launcher.launch(item.permissions.toTypedArray()) },
-                    trailing = {
-                        Icon(
-                            imageVector = if (granted) Icons.Filled.CheckCircle else Icons.Filled.Close,
-                            contentDescription = if (granted) "Granted" else "Not granted",
-                            tint = if (granted) MaterialTheme.colorScheme.primary
-                            else MaterialTheme.colorScheme.error,
-                        )
+            rows.forEach { row ->
+                // Reading refreshTick forces recomposition after a request/resume.
+                val state = refreshTick.let { row.state(context) }
+                PermissionStatusRow(
+                    row = row,
+                    state = state,
+                    onRequest = {
+                        if (row.permissions.isNotEmpty()) {
+                            launcher.launch(row.permissions.toTypedArray())
+                        }
                     },
                 )
                 GagaDivider()
             }
+
+            GagaSectionHeader("TROUBLESHOOTING")
+            // Background reliability is deliberately NOT a permission row: it is a
+            // battery-optimisation setting, and it cannot guarantee ringing.
             GagaSettingsRow(
                 title = "Background reliability",
                 subtitle = if (batteryExempt) {
-                    "Granted — calls can ring even when the app is closed"
+                    "Allowed. Calls can ring while the app is idle. Some device makers " +
+                        "still delay background apps."
                 } else {
-                    "Allow GaGa to ring for calls while the app is idle"
+                    "Not allowed. Android may delay calls when the app is idle. Tap to open " +
+                        "battery settings and let GaGa run in the background."
                 },
                 leadingIcon = Icons.Filled.BatteryAlert,
+                leadingIconTint = MaterialTheme.colorScheme.onSurfaceVariant,
                 onClick = { BatteryOptimization.request(context) },
                 trailing = {
                     Icon(
-                        imageVector = if (batteryExempt) Icons.Filled.CheckCircle else Icons.Filled.Close,
-                        contentDescription = if (batteryExempt) "Granted" else "Not granted",
+                        imageVector = if (batteryExempt) Icons.Filled.CheckCircle else Icons.Filled.Info,
+                        contentDescription = if (batteryExempt) "Allowed" else "Action needed",
                         tint = if (batteryExempt) MaterialTheme.colorScheme.primary
-                        else MaterialTheme.colorScheme.error,
+                        else MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 },
             )
             GagaDivider()
+            Text(
+                text = "Background reliability depends on your device's battery settings and " +
+                    "cannot be guaranteed by any app. If calls don't ring when GaGa is closed, " +
+                    "open your device settings and disable battery optimisation for GaGa Chat.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(GagaDimens.space16),
+            )
+
             Spacer(Modifier.height(GagaDimens.space16))
             GagaPrimaryButton(
                 text = "Open app settings",
@@ -455,15 +481,85 @@ fun AppPermissionsScreen(onBack: () -> Unit) {
     }
 }
 
-private data class PermissionItem(
+/** Human-readable permission state — never conveyed by colour alone (spec §6). */
+private enum class PermState { ALLOWED, PARTIAL, DENIED, MANAGED }
+
+private fun PermState.label(): String = when (this) {
+    PermState.ALLOWED -> "Allowed"
+    PermState.PARTIAL -> "Selected photos only"
+    PermState.DENIED -> "Not allowed"
+    PermState.MANAGED -> "Managed by Android"
+}
+
+private data class PermRow(
     val label: String,
     val description: String,
     val permissions: List<String>,
     val icon: ImageVector,
+    /** True when the OS owns this capability and there is no runtime prompt. */
+    val managed: Boolean = false,
+    /** Android 14+ partial-access permission ("Selected photos only"). */
+    val partialPermission: String? = null,
 ) {
-    fun isGranted(context: Context): Boolean = permissions.all {
-        ContextCompat.checkSelfPermission(context, it) == PackageManager.PERMISSION_GRANTED
+    fun state(context: Context): PermState {
+        if (managed || permissions.isEmpty()) return PermState.MANAGED
+        val allGranted = permissions.all {
+            ContextCompat.checkSelfPermission(context, it) == PackageManager.PERMISSION_GRANTED
+        }
+        if (allGranted) return PermState.ALLOWED
+        if (partialPermission != null &&
+            ContextCompat.checkSelfPermission(context, partialPermission) ==
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            return PermState.PARTIAL
+        }
+        return PermState.DENIED
     }
+}
+
+/**
+ * A permission row that shows its state as text + icon (never colour alone).
+ * Denied rows are tappable to re-request; granted / managed rows are informational.
+ */
+@Composable
+private fun PermissionStatusRow(
+    row: PermRow,
+    state: PermState,
+    onRequest: () -> Unit,
+) {
+    val statusColor = when (state) {
+        PermState.ALLOWED -> MaterialTheme.colorScheme.primary
+        PermState.PARTIAL -> MaterialTheme.colorScheme.tertiary
+        PermState.DENIED -> MaterialTheme.colorScheme.error
+        PermState.MANAGED -> MaterialTheme.colorScheme.onSurfaceVariant
+    }
+    val statusIcon = when (state) {
+        PermState.ALLOWED -> Icons.Filled.CheckCircle
+        PermState.PARTIAL -> Icons.Filled.PhotoLibrary
+        PermState.DENIED -> Icons.Filled.Close
+        PermState.MANAGED -> Icons.Filled.Info
+    }
+    GagaSettingsRow(
+        title = row.label,
+        subtitle = row.description,
+        leadingIcon = row.icon,
+        onClick = if (state == PermState.DENIED) onRequest else null,
+        trailing = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = statusIcon,
+                    contentDescription = null,
+                    tint = statusColor,
+                )
+                Spacer(Modifier.width(GagaDimens.space4))
+                Text(
+                    text = state.label(),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = statusColor,
+                )
+            }
+        },
+    )
 }
 
 private fun notificationPermissions(): List<String> =
@@ -514,13 +610,9 @@ fun SecuritySettingsScreen(
                 },
             )
             GagaDivider()
-            GagaSettingsRow(
-                title = "Blocked users",
-                subtitle = "People you've blocked",
-                leadingIcon = Icons.Filled.Security,
-                onClick = onOpenBlocked,
-            )
-            GagaDivider()
+            // NOTE: Blocked users lives under Privacy (single source of truth).
+            // Security focuses on device/app protection only, so the two screens
+            // no longer duplicate the same entry (spec §1 de-duplication).
             Text(
                 text = "Messages and calls are protected in transit. GaGa Chat never " +
                     "stores your password on the device.",

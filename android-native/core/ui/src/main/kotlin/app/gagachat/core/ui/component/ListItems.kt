@@ -19,12 +19,18 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import app.gagachat.core.ui.theme.GagaDimens
 
 /**
  * Generic settings/menu row: leading icon, title, optional subtitle, optional
  * trailing content. Used by settings, profile, and contact detail screens.
+ *
+ * Spacing is intentionally compact (8dp vertical) so dense settings trees fit
+ * more rows per screen, while [GagaDimens.listItemMinHeight] guarantees an
+ * accessible touch target. Subtitles use a medium weight for stronger
+ * legibility (spec §1 readability).
  */
 @Composable
 fun GagaSettingsRow(
@@ -41,7 +47,7 @@ fun GagaSettingsRow(
             .fillMaxWidth()
             .heightIn(min = GagaDimens.listItemMinHeight)
             .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
-            .padding(horizontal = GagaDimens.space16, vertical = GagaDimens.space12),
+            .padding(horizontal = GagaDimens.space16, vertical = GagaDimens.space8),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (leadingIcon != null) {
@@ -64,6 +70,7 @@ fun GagaSettingsRow(
                 Text(
                     text = subtitle,
                     style = MaterialTheme.typography.bodySmall,
+                    fontWeight = FontWeight.Medium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
@@ -80,6 +87,7 @@ fun GagaSettingsRow(
 /**
  * Two-line list row used for conversations and contacts: avatar + title +
  * preview + trailing meta. Kept generic so both features share one layout.
+ * Compact vertical padding + a medium-weight preview improve scannability.
  */
 @Composable
 fun GagaListRow(
@@ -95,7 +103,7 @@ fun GagaListRow(
             .fillMaxWidth()
             .heightIn(min = GagaDimens.listItemMinHeight)
             .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
-            .padding(horizontal = GagaDimens.space16, vertical = GagaDimens.space12),
+            .padding(horizontal = GagaDimens.space16, vertical = GagaDimens.space8),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.Start,
     ) {
@@ -114,6 +122,7 @@ fun GagaListRow(
                 Text(
                     text = subtitle,
                     style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Medium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,

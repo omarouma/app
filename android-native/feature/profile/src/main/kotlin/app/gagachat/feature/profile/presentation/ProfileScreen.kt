@@ -120,7 +120,6 @@ fun ProfileRoute(
     onOpenPrivacy: () -> Unit = {},
     onShare: (String) -> Unit = {},
     // Personal Hub (self profile only).
-    onOpenMore: () -> Unit = {},
     onOpenMyQr: () -> Unit = {},
     onOpenSavedMessages: () -> Unit = {},
     onOpenWallet: () -> Unit = {},
@@ -161,14 +160,12 @@ fun ProfileRoute(
     var coverViewerUrl by remember { mutableStateOf<String?>(null) }
 
     GagaScaffold(
-        title = if (state.isSelf) "My Profile" else "Profile",
+        title = if (state.isSelf) "Me" else "Profile",
         onBack = onNavigateBack,
         snackbarHostState = snackbarHostState,
         actions = {
-            // The More menu lives here (inside the profile), not on the chat tab.
-            IconButton(onClick = onOpenMore) {
-                Icon(Icons.Filled.MoreVert, contentDescription = "More")
-            }
+            // The Me tab IS the account hub now (the old "More" menu was removed),
+            // so a single Settings shortcut is all that belongs here.
             if (state.isSelf) {
                 IconButton(onClick = onOpenSettings) {
                     Icon(Icons.Filled.Settings, contentDescription = "Settings")
@@ -296,18 +293,21 @@ fun ProfileRoute(
                 GagaSettingsRow(title = "Last seen", subtitle = TimeFormat.lastSeen(it))
             }
 
-            // Personal Hub (self only). This is the "Profile = My Profile +
-            // Personal Hub" architecture: the separate "Me" screen is gone and
-            // all personal/account destinations live here.
+            // "Me" hub (self only). Per the agreed navigation (Chats · People ·
+            // Calls · Me), the old standalone "More" screen is gone and the Me
+            // tab is the single account hub. Settings owns the full preference
+            // tree, so Me only surfaces the essentials — QR, Saved Messages,
+            // Settings and Support — instead of duplicating every settings row.
+            // All non-destructive leading icons share the one GaGa brand green.
             if (state.isSelf) {
                 Spacer(Modifier.height(GagaDimens.space8))
                 GagaDivider()
-                GagaSectionHeader("PERSONAL")
+                GagaSectionHeader("MY ACCOUNT")
                 GagaSettingsRow(
-                    title = "My QR",
-                    subtitle = "Share and scan",
+                    title = "My QR Code",
+                    subtitle = "Let others add you instantly",
                     leadingIcon = Icons.Filled.QrCode2,
-                    leadingIconTint = HubPurple,
+                    leadingIconTint = GagaGreen,
                     trailing = { ChevronRight() },
                     onClick = onOpenMyQr,
                 )
@@ -316,66 +316,27 @@ fun ProfileRoute(
                     title = "Saved Messages",
                     subtitle = "Your private notes and bookmarks",
                     leadingIcon = Icons.Filled.Bookmark,
-                    leadingIconTint = HubTeal,
+                    leadingIconTint = GagaGreen,
                     trailing = { ChevronRight() },
                     onClick = onOpenSavedMessages,
                 )
                 GagaDivider()
                 GagaSettingsRow(
-                    title = "GaGa Wallet",
-                    subtitle = "GaGa Coin and payments",
-                    leadingIcon = Icons.Filled.AccountBalanceWallet,
-                    leadingIconTint = HubAmber,
-                    trailing = { ChevronRight() },
-                    onClick = onOpenWallet,
-                )
-                GagaDivider()
-
-                GagaSectionHeader("ACCOUNT & APP")
-                GagaSettingsRow(
                     title = "Settings",
-                    subtitle = "Theme, language, privacy, data & more",
+                    subtitle = "Privacy, security, notifications, data & more",
                     leadingIcon = Icons.Filled.Settings,
-                    leadingIconTint = HubBlue,
+                    leadingIconTint = GagaGreen,
                     trailing = { ChevronRight() },
                     onClick = onOpenSettings,
-                )
-                GagaDivider()
-                GagaSettingsRow(
-                    title = "Privacy & Security",
-                    leadingIcon = Icons.Filled.Security,
-                    leadingIconTint = HubGreen,
-                    trailing = { ChevronRight() },
-                    onClick = onOpenPrivacy,
-                )
-                GagaDivider()
-                GagaSettingsRow(
-                    title = "Blocked Users",
-                    leadingIcon = Icons.Filled.Block,
-                    leadingIconTint = HubRed,
-                    trailing = { ChevronRight() },
-                    onClick = onOpenBlocked,
-                )
-                GagaDivider()
-                GagaSettingsRow(
-                    title = "Language",
-                    leadingIcon = Icons.Filled.Language,
-                    trailing = { ChevronRight() },
-                    onClick = onOpenLanguage,
-                )
-                GagaDivider()
-                GagaSettingsRow(
-                    title = "Storage & Data",
-                    leadingIcon = Icons.Filled.Storage,
-                    trailing = { ChevronRight() },
-                    onClick = onOpenStorage,
                 )
                 GagaDivider()
 
                 GagaSectionHeader("SUPPORT")
                 GagaSettingsRow(
                     title = "Help & Support",
+                    subtitle = "FAQs, guides and contact",
                     leadingIcon = Icons.Filled.HelpOutline,
+                    leadingIconTint = GagaGreen,
                     trailing = { ChevronRight() },
                     onClick = onOpenHelp,
                 )
@@ -383,6 +344,7 @@ fun ProfileRoute(
                 GagaSettingsRow(
                     title = "About GaGa",
                     leadingIcon = Icons.Filled.Info,
+                    leadingIconTint = GagaGreen,
                     trailing = { ChevronRight() },
                     onClick = onOpenAbout,
                 )

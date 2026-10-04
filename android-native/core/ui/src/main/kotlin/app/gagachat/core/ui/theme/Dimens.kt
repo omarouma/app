@@ -27,7 +27,10 @@ object GagaDimens {
     val iconMedium = 24.dp
     val iconLarge = 32.dp
 
-    val listItemMinHeight = 64.dp
+    // Compact list rows: 56dp keeps a comfortable, accessible touch target
+    // (>=48dp per Material a11y guidance) while tightening vertical rhythm so
+    // more rows fit on screen. Spec §1 "compact row spacing".
+    val listItemMinHeight = 56.dp
     val composerMinHeight = 52.dp
     val topBarHeight = 56.dp
 

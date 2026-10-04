@@ -4,6 +4,45 @@ All notable changes to the GaGa Chat native Android app are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 the project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.0.24] — versionCode 26
+
+Release-readiness pass: navigation consolidation, a complete settings tree, a
+state-aware permissions screen, and visual polish. No behavioural regressions to
+messaging, calling or auth — this release is about making every visible control
+reliable and honest.
+
+### Changed
+- **Navigation consolidated to four tabs: Chats · People · Calls · Me.** The
+  standalone "More" screen is removed from navigation (its route is no longer
+  registered), and the bottom bar no longer treats it as a top-level tab. The
+  profile tab is now labelled **Me** and *is* the account hub.
+- **"Me" hub trimmed to essentials** — My QR Code, Saved Messages, Settings and
+  Support (Help & Support, About GaGa). Duplicated settings rows and the Wallet
+  entry were removed from Me; the full preference tree lives in Settings.
+- **Settings regrouped** into Account · Privacy · Security · Notifications &
+  Sounds · Data & Storage · Appearance · Language & Accessibility · Permissions ·
+  Help & About. Sign out / Delete account stay red at the bottom.
+- **Privacy/Security de-duplicated.** Blocked users now lives only under Privacy;
+  Security is limited to device/app protection (App lock). Subtitles were made
+  accurate to the features that actually exist.
+
+### Added
+- **State-aware App permissions screen.** Each permission shows a plain-text
+  state — *Allowed*, *Not allowed*, *Selected photos only* (Android 14+ partial
+  media access) or *Managed by Android* (notifications pre-Android 13) — with an
+  icon, so status is never conveyed by colour alone. States refresh on resume.
+- **Background reliability troubleshooting row**, separate from the permission
+  list, explaining battery-optimisation settings and that ringing cannot be
+  guaranteed while the app is force-stopped.
+- **Open app settings** action for permanently-denied permissions.
+
+### Changed (visual)
+- Compact list rows (56dp min height, 8dp vertical padding) while keeping an
+  accessible ≥48dp touch target; subtitles use a medium weight for stronger
+  legibility.
+- One GaGa brand green (#00C300) for all non-destructive leading icons; red is
+  reserved for destructive actions.
+
 ## [2.0.16] — versionCode 18
 
 ### Fixed

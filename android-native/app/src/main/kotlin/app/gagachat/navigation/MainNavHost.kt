@@ -49,7 +49,6 @@ import app.gagachat.feature.groups.GroupsRoutes
 import app.gagachat.feature.groups.groupsGraph
 import app.gagachat.feature.home.navigation.HomeRoutes
 import app.gagachat.feature.home.navigation.homeScreen
-import app.gagachat.feature.home.navigation.moreScreen
 import app.gagachat.feature.people.PeopleRoutes
 import app.gagachat.feature.people.peopleGraph
 import app.gagachat.feature.profile.navigation.ProfileRoutes
@@ -84,13 +83,13 @@ private enum class TopLevelDestination(
     ),
     PEOPLE(PeopleRoutes.PEOPLE, PeopleRoutes.PEOPLE, "People", Icons.Filled.People, Icons.Outlined.People),
     CALLS(CallRoutes.CALL_HISTORY, CallRoutes.CALL_HISTORY, "Calls", Icons.Filled.Call, Icons.Outlined.Call),
-    PROFILE(ProfileRoutes.profile(), ProfileRoutes.PROFILE, "Profile", Icons.Filled.Person, Icons.Outlined.Person),
+    PROFILE(ProfileRoutes.profile(), ProfileRoutes.PROFILE, "Me", Icons.Filled.Person, Icons.Outlined.Person),
 }
 
-/** Routes that keep the bottom bar visible (top-level tabs + the More menu). */
+/** Routes that keep the bottom bar visible (the four top-level tabs only). */
 private val bottomBarRoutes: Set<String> = TopLevelDestination.entries
     .map { it.routePattern }
-    .toSet() + HomeRoutes.MORE
+    .toSet()
 
 /**
  * Main graph (PDF §2.1). Hosts the four top-level destinations behind a bottom
@@ -146,24 +145,6 @@ fun MainNavHost(pendingDeepLink: String?) {
                 onOpenConversation = { id -> navController.navigate(ChatRoutes.chat(id)) },
                 onOpenNewChat = { navController.navigate(PeopleRoutes.PEOPLE) },
                 onOpenNotifications = { navController.navigate(SettingsRoutes.NOTIFICATIONS_INBOX) },
-            )
-            moreScreen(
-                navController = navController,
-                onOpenProfile = { navController.navigate(ProfileRoutes.profile()) },
-                onOpenConversations = { navController.navigate(HomeRoutes.HOME) },
-                onOpenCalls = { navController.navigate(CallRoutes.CALL_HISTORY) },
-                onOpenContacts = { navController.navigate(ContactsRoutes.CONTACTS) },
-                onOpenAddFriends = { navController.navigate(PeopleRoutes.DISCOVER) },
-                onOpenPeople = { navController.navigate(PeopleRoutes.PEOPLE) },
-                onOpenWallet = { navController.navigate(WalletRoutes.WALLET) },
-                onOpenMyQr = { navController.navigate(QrRoutes.MY_QR) },
-                onOpenBlocked = { navController.navigate(SettingsRoutes.BLOCKED) },
-                onOpenSettings = { navController.navigate(SettingsRoutes.SETTINGS) },
-                onOpenNotifications = { navController.navigate(SettingsRoutes.NOTIFICATIONS) },
-                onOpenPrivacy = { navController.navigate(SettingsRoutes.PRIVACY) },
-                onOpenSearch = { navController.navigate(PeopleRoutes.DISCOVER) },
-                onOpenHelp = { navController.navigate(SettingsRoutes.ABOUT) },
-                onBack = { navController.popBackStack() },
             )
             chatScreen(
                 navController = navController,
@@ -232,7 +213,6 @@ fun MainNavHost(pendingDeepLink: String?) {
                 },
                 onEditProfile = { navController.navigate(SettingsRoutes.EDIT_PROFILE) },
                 onOpenPrivacy = { navController.navigate(SettingsRoutes.PRIVACY) },
-                onOpenMore = { navController.navigate(HomeRoutes.MORE) },
                 onOpenMyQr = { navController.navigate(QrRoutes.MY_QR) },
                 onOpenSavedMessages = { navController.navigate(SettingsRoutes.SAVED_MESSAGES) },
                 onOpenWallet = { navController.navigate(WalletRoutes.WALLET) },

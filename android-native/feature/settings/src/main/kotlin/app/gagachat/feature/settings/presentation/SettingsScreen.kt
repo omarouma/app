@@ -13,6 +13,7 @@ import androidx.compose.material.icons.filled.Accessibility
 import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Apps
+import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.DeleteForever
 import androidx.compose.material.icons.filled.Edit
@@ -84,6 +85,9 @@ fun SettingsRoute(
                 .padding(padding)
                 .verticalScroll(rememberScrollState()),
         ) {
+            // Grouped exactly as agreed (spec §2). Every row leads to a working
+            // screen — no dead entries. All non-destructive leading icons share
+            // the one GaGa brand green; red is reserved for destructive actions.
             GagaSectionHeader(text = "ACCOUNT")
             GagaSettingsRow(
                 title = state.displayName ?: "My profile",
@@ -97,84 +101,70 @@ fun SettingsRoute(
                 title = "Edit profile",
                 subtitle = "Name, username, bio, photo",
                 leadingIcon = Icons.Filled.Edit,
-                leadingIconTint = IconBlue,
+                leadingIconTint = IconGreen,
                 onClick = onOpenEditProfile,
             )
             GagaDivider()
-            GagaSettingsRow(
-                title = "Wallet",
-                subtitle = "Coins and activity",
-                leadingIcon = Icons.Filled.AccountBalanceWallet,
-                leadingIconTint = IconAmber,
-                onClick = onOpenWallet,
-            )
-            GagaDivider()
-            GagaSettingsRow(
-                title = "My QR code",
-                subtitle = "Let others add you instantly",
-                leadingIcon = Icons.Filled.QrCode2,
-                leadingIconTint = IconPurple,
-                onClick = onOpenMyQr,
-            )
-            GagaDivider()
 
-            GagaSectionHeader(text = "PREFERENCES")
-            GagaSettingsRow(
-                title = "App permissions",
-                subtitle = "Camera, microphone, contacts and more",
-                leadingIcon = Icons.Filled.Apps,
-                leadingIconTint = IconBlue,
-                onClick = onOpenPermissions,
-            )
-            GagaDivider()
-            GagaSettingsRow(
-                title = "Appearance",
-                subtitle = "Theme: ${state.themeMode.name.lowercase().replaceFirstChar { it.uppercase() }}",
-                leadingIcon = Icons.Filled.DarkMode,
-                leadingIconTint = IconPurple,
-                onClick = onOpenAppearance,
-            )
-            GagaDivider()
-            GagaSettingsRow(
-                title = "Notifications",
-                subtitle = "Message and call alerts",
-                leadingIcon = Icons.Filled.Notifications,
-                leadingIconTint = IconOrange,
-                onClick = onOpenNotifications,
-            )
-            GagaDivider()
+            GagaSectionHeader(text = "PRIVACY")
             GagaSettingsRow(
                 title = "Privacy",
-                subtitle = "Read receipts, last seen, blocked users",
+                subtitle = "Read receipts, last seen and blocked users",
                 leadingIcon = Icons.Filled.Lock,
-                leadingIconTint = IconTeal,
+                leadingIconTint = IconGreen,
                 onClick = onOpenPrivacy,
             )
             GagaDivider()
             GagaSettingsRow(
+                title = "Blocked users",
+                subtitle = "People you've blocked",
+                leadingIcon = Icons.Filled.Block,
+                leadingIconTint = IconGreen,
+                onClick = onOpenBlocked,
+            )
+            GagaDivider()
+
+            GagaSectionHeader(text = "SECURITY")
+            GagaSettingsRow(
                 title = "Security",
-                subtitle = "App lock, login and blocked users",
+                subtitle = "App lock and account protection",
                 leadingIcon = Icons.Filled.Security,
-                leadingIconTint = IconRed,
+                leadingIconTint = IconGreen,
                 onClick = onOpenSecurity,
             )
             GagaDivider()
+
+            GagaSectionHeader(text = "NOTIFICATIONS & SOUNDS")
+            GagaSettingsRow(
+                title = "Notifications",
+                subtitle = "Messages, groups, calls, previews, sound & vibration",
+                leadingIcon = Icons.Filled.Notifications,
+                leadingIconTint = IconGreen,
+                onClick = onOpenNotifications,
+            )
+            GagaDivider()
+
+            GagaSectionHeader(text = "DATA & STORAGE")
             GagaSettingsRow(
                 title = "Data & Storage",
-                subtitle = "Media auto-download and cache",
+                subtitle = "Auto-download, upload quality, storage management",
                 leadingIcon = Icons.Filled.Storage,
-                leadingIconTint = IconIndigo,
+                leadingIconTint = IconGreen,
                 onClick = onOpenStorage,
             )
             GagaDivider()
+
+            GagaSectionHeader(text = "APPEARANCE")
             GagaSettingsRow(
-                title = "Accessibility",
-                subtitle = "Text size and display options",
-                leadingIcon = Icons.Filled.Accessibility,
-                leadingIconTint = IconCyan,
-                onClick = onOpenAccessibility,
+                title = "Appearance",
+                subtitle = "Theme: ${state.themeMode.name.lowercase().replaceFirstChar { it.uppercase() }}",
+                leadingIcon = Icons.Filled.DarkMode,
+                leadingIconTint = IconGreen,
+                onClick = onOpenAppearance,
             )
             GagaDivider()
+
+            GagaSectionHeader(text = "LANGUAGE & ACCESSIBILITY")
             GagaSettingsRow(
                 title = "Language",
                 subtitle = "App display language",
@@ -183,13 +173,31 @@ fun SettingsRoute(
                 onClick = onOpenLanguage,
             )
             GagaDivider()
+            GagaSettingsRow(
+                title = "Accessibility",
+                subtitle = "Text size and display options",
+                leadingIcon = Icons.Filled.Accessibility,
+                leadingIconTint = IconGreen,
+                onClick = onOpenAccessibility,
+            )
+            GagaDivider()
 
-            GagaSectionHeader(text = "ABOUT")
+            GagaSectionHeader(text = "PERMISSIONS")
+            GagaSettingsRow(
+                title = "App permissions",
+                subtitle = "Camera, microphone, contacts, media and more",
+                leadingIcon = Icons.Filled.Apps,
+                leadingIconTint = IconGreen,
+                onClick = onOpenPermissions,
+            )
+            GagaDivider()
+
+            GagaSectionHeader(text = "HELP & ABOUT")
             GagaSettingsRow(
                 title = "Help",
                 subtitle = "FAQs and support",
                 leadingIcon = Icons.Filled.HelpOutline,
-                leadingIconTint = IconBlue,
+                leadingIconTint = IconGreen,
                 onClick = onOpenAbout,
             )
             GagaDivider()
@@ -197,7 +205,7 @@ fun SettingsRoute(
                 title = "About GaGa Chat",
                 subtitle = "Version $versionLabel",
                 leadingIcon = Icons.Filled.Info,
-                leadingIconTint = IconGrey,
+                leadingIconTint = IconGreen,
                 onClick = onOpenAbout,
             )
             GagaDivider()
@@ -228,7 +236,9 @@ fun SettingsRoute(
     }
 }
 
-private val IconGreen = Color(0xFF00A651)
+// Single brand green for every non-destructive leading icon (spec §1: one GaGa
+// primary green). Red (IconRed) is reserved for destructive actions only.
+private val IconGreen = Color(0xFF00C300)
 private val IconBlue = Color(0xFF2F80ED)
 private val IconPurple = Color(0xFF7E57C2)
 private val IconOrange = Color(0xFFF2994A)
