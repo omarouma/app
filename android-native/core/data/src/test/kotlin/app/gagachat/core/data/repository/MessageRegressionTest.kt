@@ -8,6 +8,7 @@ import app.gagachat.core.common.util.TimeProvider
 import app.gagachat.core.database.dao.*
 import app.gagachat.core.database.entity.*
 import app.gagachat.core.database.mapper.toEntity
+import app.gagachat.core.firebase.FirestoreChatMirror
 import app.gagachat.core.model.*
 import app.gagachat.core.network.dto.MessageRow
 import app.gagachat.core.network.rest.SupabaseRestApi
