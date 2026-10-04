@@ -1,6 +1,8 @@
 package app.gagachat.feature.settings.presentation
 
 import android.Manifest
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -9,16 +11,22 @@ import android.os.Build
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Accessibility
@@ -28,7 +36,10 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Contacts
+import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.DeleteSweep
+import androidx.compose.material.icons.filled.Description
+import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.LocationOn
@@ -39,6 +50,7 @@ import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.OpenInNew
 import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material.icons.filled.Security
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material3.Icon
 import androidx.compose.material3.AlertDialog
@@ -54,9 +66,12 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
@@ -69,6 +84,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.gagachat.core.common.system.BatteryOptimization
 import app.gagachat.core.data.preferences.AppLanguage
+import app.gagachat.core.data.preferences.ChatBackground
 import app.gagachat.core.data.preferences.MediaDownloadPolicy
 import app.gagachat.core.data.preferences.TextScale
 import app.gagachat.core.data.preferences.ThemeMode
@@ -78,6 +94,7 @@ import app.gagachat.core.ui.component.GagaScaffold
 import app.gagachat.core.ui.component.GagaSectionHeader
 import app.gagachat.core.ui.component.GagaSettingsRow
 import app.gagachat.core.ui.theme.GagaDimens
+import kotlinx.coroutines.launch
 
 /** Notifications settings (Master Spec §C). */
 @Composable
@@ -158,7 +175,7 @@ fun PrivacySettingsScreen(
     }
 }
 
-/** Appearance settings (Master Spec §C). */
+/** Appearance settings (Master Spec §C + spec §11 completeness). */
 @Composable
 fun AppearanceSettingsScreen(
     onBack: () -> Unit,
@@ -166,7 +183,12 @@ fun AppearanceSettingsScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     GagaScaffold(title = "Appearance", onBack = onBack) { padding ->
-        Column(modifier = Modifier.fillMaxSize().padding(padding)) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .verticalScroll(rememberScrollState()),
+        ) {
             GagaSectionHeader("THEME")
             ThemeMode.entries.forEach { mode ->
                 Row(
@@ -184,14 +206,79 @@ fun AppearanceSettingsScreen(
                         onClick = { viewModel.setThemeMode(mode) },
                     )
                     Spacer(Modifier.width(GagaDimens.space8))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(text = mode.title(), style = MaterialTheme.typography.bodyLarge)
+                        Text(
+                            text = mode.description(),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            }
+            GagaDivider()
+
+            GagaSectionHeader("CHAT WALLPAPER")
+            ChatBackground.entries.forEach { background ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .selectable(
+                            selected = state.chatBackground == background,
+                            onClick = { viewModel.setChatBackground(background) },
+                        )
+                        .padding(horizontal = GagaDimens.space16, vertical = GagaDimens.space12),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    RadioButton(
+                        selected = state.chatBackground == background,
+                        onClick = { viewModel.setChatBackground(background) },
+                    )
+                    Spacer(Modifier.width(GagaDimens.space8))
                     Text(
-                        text = mode.name.lowercase().replaceFirstChar { it.uppercase() },
+                        text = background.label,
                         style = MaterialTheme.typography.bodyLarge,
+                        modifier = Modifier.weight(1f),
+                    )
+                    Box(
+                        modifier = Modifier
+                            .size(GagaDimens.iconMedium)
+                            .clip(CircleShape)
+                            .background(
+                                background.argb?.let { Color(it.toInt()) }
+                                    ?: MaterialTheme.colorScheme.surfaceVariant,
+                            )
+                            .border(
+                                width = 1.dp,
+                                color = MaterialTheme.colorScheme.outlineVariant,
+                                shape = CircleShape,
+                            ),
                     )
                 }
             }
+            GagaDivider()
+            Text(
+                text = "The wallpaper applies to all chats. You can also change it from " +
+                    "the menu inside any chat.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(GagaDimens.space16),
+            )
+            Spacer(Modifier.height(GagaDimens.space32))
         }
     }
+}
+
+private fun ThemeMode.title(): String = when (this) {
+    ThemeMode.SYSTEM -> "System default"
+    ThemeMode.LIGHT -> "Light"
+    ThemeMode.DARK -> "Dark"
+}
+
+private fun ThemeMode.description(): String = when (this) {
+    ThemeMode.SYSTEM -> "Match your device's light or dark setting"
+    ThemeMode.LIGHT -> "Always use the light theme"
+    ThemeMode.DARK -> "Always use the dark theme"
 }
 
 /** Storage & data settings (Master Spec §C). */
@@ -267,13 +354,17 @@ fun StorageSettingsScreen(
     }
 }
 
-/** About screen (Master Spec §C). */
+/** About screen (Master Spec §C + spec §11 completeness). */
 @Composable
 fun AboutSettingsScreen(onBack: () -> Unit) {
     val uriHandler = LocalUriHandler.current
     val context = LocalContext.current
     val versionLabel = remember { appVersionLabel(context) }
-    GagaScaffold(title = "About", onBack = onBack) { padding ->
+    val snackbar = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
+    var showLicenses by remember { mutableStateOf(false) }
+
+    GagaScaffold(title = "About", onBack = onBack, snackbarHostState = snackbar) { padding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -303,19 +394,96 @@ fun AboutSettingsScreen(onBack: () -> Unit) {
             )
             Spacer(Modifier.height(GagaDimens.space16))
             GagaSettingsRow(
+                title = "Rate GaGa Chat",
+                subtitle = "Leave a review on Google Play",
+                leadingIcon = Icons.Filled.Star,
+                leadingIconTint = AboutGreen,
+                onClick = { openPlayStore(context) },
+            )
+            GagaDivider()
+            GagaSettingsRow(
+                title = "Contact support",
+                subtitle = SUPPORT_EMAIL,
+                leadingIcon = Icons.Filled.Email,
+                leadingIconTint = AboutGreen,
+                onClick = { emailSupport(context) },
+            )
+            GagaDivider()
+            GagaSettingsRow(
+                title = "Open-source licences",
+                subtitle = "Libraries used in this app",
+                leadingIcon = Icons.Filled.Description,
+                leadingIconTint = AboutGreen,
+                onClick = { showLicenses = true },
+            )
+            GagaDivider()
+            GagaSettingsRow(
                 title = "Terms of service",
                 leadingIcon = Icons.Filled.Check,
+                leadingIconTint = AboutGreen,
                 onClick = { runCatching { uriHandler.openUri(TERMS_URL) } },
             )
             GagaDivider()
             GagaSettingsRow(
                 title = "Privacy policy",
                 leadingIcon = Icons.Filled.Lock,
+                leadingIconTint = AboutGreen,
                 onClick = { runCatching { uriHandler.openUri(PRIVACY_URL) } },
             )
             GagaDivider()
+            GagaSettingsRow(
+                title = "Copy version info",
+                subtitle = "Version $versionLabel",
+                leadingIcon = Icons.Filled.ContentCopy,
+                leadingIconTint = AboutGreen,
+                onClick = {
+                    copyToClipboard(context, "GaGa Chat version", versionLabel)
+                    scope.launch { snackbar.showSnackbar("Version copied") }
+                },
+            )
+            GagaDivider()
+            Spacer(Modifier.height(GagaDimens.space32))
         }
     }
+
+    if (showLicenses) {
+        AlertDialog(
+            onDismissRequest = { showLicenses = false },
+            title = { Text("Open-source licences") },
+            text = {
+                Column(
+                    modifier = Modifier
+                        .heightIn(max = 360.dp)
+                        .verticalScroll(rememberScrollState()),
+                ) {
+                    Text(text = LICENSES_TEXT, style = MaterialTheme.typography.bodySmall)
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showLicenses = false }) { Text("Close") }
+            },
+        )
+    }
+}
+
+/** Copies [text] to the system clipboard under [label]. */
+private fun copyToClipboard(context: Context, label: String, text: String) {
+    runCatching {
+        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+        clipboard.setPrimaryClip(ClipData.newPlainText(label, text))
+    }
+}
+
+/** Opens the GaGa Chat Play Store listing (falls back to the web listing). */
+private fun openPlayStore(context: Context) {
+    val market = Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=${context.packageName}"))
+        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    val web = Intent(
+        Intent.ACTION_VIEW,
+        Uri.parse("https://play.google.com/store/apps/details?id=${context.packageName}"),
+    ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    runCatching { context.startActivity(market) }
+        .onFailure { runCatching { context.startActivity(web) } }
 }
 
 /**
@@ -820,3 +988,24 @@ fun DeleteAccountSettingsScreen(
 /** Hosted legal pages for GaGa Chat (same host used by the app's deep links). */
 private const val TERMS_URL = "https://gagachat.app/terms"
 private const val PRIVACY_URL = "https://gagachat.app/privacy"
+
+// Single brand green for non-destructive leading icons (spec §1).
+private val AboutGreen = Color(0xFF00C300)
+
+/**
+ * The principal open-source components that make up GaGa Chat. Full licence
+ * texts ship with each project; this is a human-readable acknowledgement.
+ */
+private const val LICENSES_TEXT =
+    "GaGa Chat is built on open-source software. It includes:\n\n" +
+        "• Jetpack Compose & AndroidX — Apache License 2.0\n" +
+        "• Kotlin & Kotlin Coroutines — Apache License 2.0\n" +
+        "• Ktor — Apache License 2.0\n" +
+        "• kotlinx.serialization — Apache License 2.0\n" +
+        "• Hilt / Dagger — Apache License 2.0\n" +
+        "• Room — Apache License 2.0\n" +
+        "• Coil — Apache License 2.0\n" +
+        "• OkHttp — Apache License 2.0\n" +
+        "• ZEGOCLOUD Call Kit — ZEGOCLOUD SDK License\n\n" +
+        "Full licence texts are available from each project's repository. " +
+        "Thank you to the maintainers of these projects."

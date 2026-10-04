@@ -220,14 +220,12 @@ fun MainNavHost(pendingDeepLink: String?) {
                 onOpenBlocked = { navController.navigate(SettingsRoutes.BLOCKED) },
                 onOpenLanguage = { navController.navigate(SettingsRoutes.LANGUAGE) },
                 onOpenStorage = { navController.navigate(SettingsRoutes.STORAGE) },
-                onOpenHelp = { navController.navigate(SettingsRoutes.ABOUT) },
+                onOpenHelp = { navController.navigate(SettingsRoutes.HELP) },
                 onOpenAbout = { navController.navigate(SettingsRoutes.ABOUT) },
             )
             settingsScreen(
                 navController = navController,
                 onOpenProfile = { navController.navigate(ProfileRoutes.profile()) },
-                onOpenWallet = { navController.navigate(WalletRoutes.WALLET) },
-                onOpenMyQr = { navController.navigate(QrRoutes.MY_QR) },
                 onSignedOut = { /* session flow swaps to auth graph */ },
             )
             walletGraph(navController = navController)

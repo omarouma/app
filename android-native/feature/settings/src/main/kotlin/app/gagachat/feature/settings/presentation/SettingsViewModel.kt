@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.gagachat.core.data.preferences.AppLanguage
+import app.gagachat.core.data.preferences.ChatBackground
 import app.gagachat.core.data.preferences.MediaDownloadPolicy
 import app.gagachat.core.data.preferences.SettingsPreferences
 import app.gagachat.core.data.preferences.TextScale
@@ -39,6 +40,7 @@ data class SettingsUiState(
     val readReceiptsEnabled: Boolean = true,
     val shareLastSeenEnabled: Boolean = true,
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
+    val chatBackground: ChatBackground = ChatBackground.DEFAULT,
     val mediaPolicy: MediaDownloadPolicy = MediaDownloadPolicy.WIFI,
     val autoDownloadEnabled: Boolean = true,
     val appLockEnabled: Boolean = false,
@@ -125,6 +127,11 @@ class SettingsViewModel @Inject constructor(
             settingsPreferences.themeMode.collect { v -> _state.update { it.copy(themeMode = v) } }
         }
         viewModelScope.launch {
+            settingsPreferences.chatBackground.collect { v ->
+                _state.update { it.copy(chatBackground = v) }
+            }
+        }
+        viewModelScope.launch {
             settingsPreferences.mediaPolicy.collect { v -> _state.update { it.copy(mediaPolicy = v) } }
         }
         viewModelScope.launch {
@@ -179,6 +186,9 @@ class SettingsViewModel @Inject constructor(
 
     fun setThemeMode(mode: ThemeMode) =
         viewModelScope.launch { settingsPreferences.setThemeMode(mode) }
+
+    fun setChatBackground(background: ChatBackground) =
+        viewModelScope.launch { settingsPreferences.setChatBackground(background) }
 
     fun setMediaPolicy(policy: MediaDownloadPolicy) =
         viewModelScope.launch { settingsPreferences.setMediaPolicy(policy) }

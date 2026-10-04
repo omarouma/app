@@ -10,6 +10,7 @@ import app.gagachat.feature.settings.presentation.AppearanceSettingsScreen
 import app.gagachat.feature.settings.presentation.BlockedUsersScreen
 import app.gagachat.feature.settings.presentation.DeleteAccountSettingsScreen
 import app.gagachat.feature.settings.presentation.EditProfileScreen
+import app.gagachat.feature.settings.presentation.HelpSupportScreen
 import app.gagachat.feature.settings.presentation.LanguageSettingsScreen
 import app.gagachat.feature.settings.presentation.NotificationInboxScreen
 import app.gagachat.feature.settings.presentation.NotificationsSettingsScreen
@@ -30,6 +31,7 @@ object SettingsRoutes {
     const val APPEARANCE = "settings/appearance"
     const val STORAGE = "settings/storage"
     const val BLOCKED = "settings/blocked"
+    const val HELP = "settings/help"
     const val ABOUT = "settings/about"
     const val PERMISSIONS = "settings/permissions"
     const val SECURITY = "settings/security"
@@ -40,15 +42,13 @@ object SettingsRoutes {
 
 /**
  * Registers the full settings graph. The hub ([SettingsRoute]) fans out to every
- * sub-surface; wallet and QR are owned by their own feature graphs and reached
- * through the [onOpenWallet] / [onOpenMyQr] callbacks so there is a single
- * source of truth for those routes.
+ * sub-surface, including the Help & Support screen ([SettingsRoutes.HELP]). The
+ * profile route is owned by the profile feature graph and reached through
+ * [onOpenProfile] so there is a single source of truth for it.
  */
 fun NavGraphBuilder.settingsScreen(
     navController: NavController,
     onOpenProfile: () -> Unit,
-    onOpenWallet: () -> Unit,
-    onOpenMyQr: () -> Unit,
     onSignedOut: () -> Unit,
 ) {
     composable(SettingsRoutes.SETTINGS) {
@@ -56,13 +56,12 @@ fun NavGraphBuilder.settingsScreen(
             onNavigateBack = { navController.popBackStack() },
             onOpenProfile = onOpenProfile,
             onOpenEditProfile = { navController.navigate(SettingsRoutes.EDIT_PROFILE) },
-            onOpenWallet = onOpenWallet,
-            onOpenMyQr = onOpenMyQr,
             onOpenNotifications = { navController.navigate(SettingsRoutes.NOTIFICATIONS) },
             onOpenPrivacy = { navController.navigate(SettingsRoutes.PRIVACY) },
             onOpenAppearance = { navController.navigate(SettingsRoutes.APPEARANCE) },
             onOpenStorage = { navController.navigate(SettingsRoutes.STORAGE) },
             onOpenBlocked = { navController.navigate(SettingsRoutes.BLOCKED) },
+            onOpenHelp = { navController.navigate(SettingsRoutes.HELP) },
             onOpenAbout = { navController.navigate(SettingsRoutes.ABOUT) },
             onOpenPermissions = { navController.navigate(SettingsRoutes.PERMISSIONS) },
             onOpenSecurity = { navController.navigate(SettingsRoutes.SECURITY) },
@@ -104,6 +103,13 @@ fun NavGraphBuilder.settingsScreen(
     }
     composable(SettingsRoutes.ABOUT) {
         AboutSettingsScreen(onBack = { navController.popBackStack() })
+    }
+    composable(SettingsRoutes.HELP) {
+        HelpSupportScreen(
+            onBack = { navController.popBackStack() },
+            onOpenPermissions = { navController.navigate(SettingsRoutes.PERMISSIONS) },
+            onOpenAbout = { navController.navigate(SettingsRoutes.ABOUT) },
+        )
     }
     composable(SettingsRoutes.PERMISSIONS) {
         AppPermissionsScreen(onBack = { navController.popBackStack() })

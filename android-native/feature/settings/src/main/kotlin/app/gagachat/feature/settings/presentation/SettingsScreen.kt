@@ -54,13 +54,12 @@ fun SettingsRoute(
     onNavigateBack: () -> Unit,
     onOpenProfile: () -> Unit,
     onOpenEditProfile: () -> Unit,
-    onOpenWallet: () -> Unit,
-    onOpenMyQr: () -> Unit,
     onOpenNotifications: () -> Unit,
     onOpenPrivacy: () -> Unit,
     onOpenAppearance: () -> Unit,
     onOpenStorage: () -> Unit,
     onOpenBlocked: () -> Unit,
+    onOpenHelp: () -> Unit,
     onOpenAbout: () -> Unit,
     onOpenPermissions: () -> Unit,
     onOpenSecurity: () -> Unit,
@@ -194,11 +193,11 @@ fun SettingsRoute(
 
             GagaSectionHeader(text = "HELP & ABOUT")
             GagaSettingsRow(
-                title = "Help",
-                subtitle = "FAQs and support",
+                title = "Help & Support",
+                subtitle = "FAQs and contact support",
                 leadingIcon = Icons.Filled.HelpOutline,
                 leadingIconTint = IconGreen,
-                onClick = onOpenAbout,
+                onClick = onOpenHelp,
             )
             GagaDivider()
             GagaSettingsRow(

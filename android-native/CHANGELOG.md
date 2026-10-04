@@ -4,6 +4,33 @@ All notable changes to the GaGa Chat native Android app are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 the project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.0.25] — versionCode 27
+
+Release-readiness completion: the final §11 gaps (support, appearance, about)
+are closed and the §13 acceptance record is added. No behavioural changes to
+messaging, calling, auth or sync.
+
+### Added
+- **Help & Support screen.** The Settings "Help" row previously opened About, so
+  there was no real support surface. There is now a dedicated screen with an
+  expandable FAQ (ringing, stuck messages, media, adding people, storage,
+  privacy, account deletion), a one-tap **Contact support** email action, and
+  shortcuts to App permissions and About.
+- **Chat wallpaper in Appearance.** The wallpaper (previously reachable only from
+  the in-chat menu) is now a "CHAT WALLPAPER" section in Appearance with colour
+  swatches, wired through `SettingsViewModel`.
+- **About screen completeness** — Rate GaGa Chat (Play Store), Contact support,
+  an Open-source licences dialog, and a tappable **Copy version info** row.
+- **`docs/RELEASE_ACCEPTANCE.md`** — the §13 final release acceptance checklist
+  covering all 13 specification sections, with per-item status and evidence.
+
+### Changed
+- **Theme options now describe themselves** (System default / Light / Dark) with
+  a short explanation of each.
+- **Settings "Help" row** renamed to "Help & Support" and routed to the new
+  screen; the **Me → Help & Support** row now also opens it (was About).
+- Removed dead `onOpenWallet`/`onOpenMyQr` parameters from the settings hub.
+
 ## [2.0.24] — versionCode 26
 
 Release-readiness pass: navigation consolidation, a complete settings tree, a
