@@ -24,8 +24,8 @@ android {
 
     defaultConfig {
         applicationId = "gagachat.app"
-        versionCode = 20
-        versionName = "2.0.18"
+        versionCode = 24
+        versionName = "2.0.22"
 
         // The ZEGOCLOUD Call Kit ships native RTC libraries for four ABIs. We
         // bundle the two every real Android phone uses (64-bit and 32-bit ARM).
@@ -141,6 +141,8 @@ dependencies {
     implementation(project(":core:network"))
     implementation(project(":core:data"))
     implementation(project(":core:ui"))
+    // Firebase Hybrid transport (auth bridge + Firestore/RTDB mirror).
+    implementation(project(":core:firebase"))
 
     // Features
     implementation(project(":feature:onboarding"))

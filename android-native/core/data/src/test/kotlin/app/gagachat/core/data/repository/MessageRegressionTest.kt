@@ -29,6 +29,8 @@ class MessageRegressionTest {
     private val scheduler = mockk<OutboxScheduler>(relaxed = true)
     private val ids = mockk<IdGenerator>()
     private val clock = mockk<TimeProvider>()
+    private val firebaseMirror = mockk<FirestoreChatMirror>(relaxed = true)
+    private val appScope = CoroutineScope(Dispatchers.Unconfined)
     private fun repo(dispatcher: CoroutineDispatcher): DefaultMessageRepository {
         every { clock.nowMillis() } returns 999999L
         every { ids.newClientMessageId() } returns "local"
@@ -38,7 +40,10 @@ class MessageRegressionTest {
             override val default = dispatcher
             override val computation = dispatcher
         }
-        return DefaultMessageRepository(messages, conversations, cursors, api, scheduler, ids, clock, dispatchers)
+        return DefaultMessageRepository(
+            messages, conversations, cursors, api, scheduler, ids, clock, dispatchers,
+            firebaseMirror, appScope,
+        )
     }
 
     @Test fun nullLocalIdsRemainDistinctAndReadStatusSurvives() = runTest {

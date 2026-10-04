@@ -25,6 +25,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.DoneAll
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.LocationOn
@@ -49,6 +50,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -453,16 +455,79 @@ private fun LinkPreviewCard(preview: LinkPreview, contentColor: Color) {
     }
 }
 
+/**
+ * Result of applying the "Data & Storage" auto-download policy to a single
+ * remote media URL. [url] is null while the fetch is gated; [needsPrompt] tells
+ * the caller to render a "tap to load" affordance; [requestLoad] flips the
+ * per-message escape hatch so the next recomposition resolves the URL.
+ */
+private class GatedMediaUrl(
+    val url: String?,
+    val needsPrompt: Boolean,
+    val requestLoad: () -> Unit,
+)
+
+/**
+ * Resolves [raw] through the signed-URL resolver but honours the user's
+ * auto-download policy. A per-message "load anyway" flag lets a single bubble be
+ * fetched on demand without changing the global preference.
+ */
+@Composable
+private fun rememberGatedRemoteUrl(key: String, raw: String?): GatedMediaUrl {
+    val autoAllowed = rememberAutoDownloadAllowed()
+    var manualLoad by rememberSaveable(key) { mutableStateOf(false) }
+    val allowed = autoAllowed || manualLoad
+    val resolved = rememberSignedMediaUrl(raw, autoDownload = allowed)
+    val remote = !raw.isNullOrBlank() && raw.startsWith("http")
+    return GatedMediaUrl(
+        url = resolved,
+        needsPrompt = remote && !allowed,
+        requestLoad = { manualLoad = true },
+    )
+}
+
+/**
+ * Overlay shown on a media bubble whose fetch is paused by the auto-download
+ * policy. Tapping it loads just this item.
+ */
+@Composable
+private fun MediaDownloadPrompt(onClick: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black.copy(alpha = 0.38f))
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Icon(
+                Icons.Filled.Download,
+                contentDescription = null,
+                tint = Color.White,
+                modifier = Modifier.size(28.dp),
+            )
+            Spacer(Modifier.height(4.dp))
+            Text(
+                text = "Tap to load",
+                style = MaterialTheme.typography.labelMedium,
+                color = Color.White,
+            )
+        }
+    }
+}
+
 @Composable
 private fun MediaImage(message: Message, contentColor: Color, onClick: () -> Unit) {
-    val signed = rememberSignedMediaUrl(message.mediaUrl)
-    val model = rememberExistingLocalMedia(message.localMediaPath) ?: signed
+    val gate = rememberGatedRemoteUrl(message.localId, message.mediaUrl)
+    val model = rememberExistingLocalMedia(message.localMediaPath) ?: gate.url
     Box(
         modifier = Modifier
             .size(width = 220.dp, height = 160.dp)
             .clip(RoundedCornerShape(12.dp))
             .background(MaterialTheme.colorScheme.surfaceVariant)
-            .clickable(enabled = model != null, onClick = onClick),
+            .clickable(enabled = model != null || gate.needsPrompt) {
+                if (gate.needsPrompt) gate.requestLoad() else onClick()
+            },
         contentAlignment = Alignment.Center,
     ) {
         if (model != null) {
@@ -472,6 +537,8 @@ private fun MediaImage(message: Message, contentColor: Color, onClick: () -> Uni
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxWidth(),
             )
+        } else if (gate.needsPrompt) {
+            MediaDownloadPrompt(onClick = gate.requestLoad)
         }
         message.uploadProgress?.let { progress ->
             if (progress in 0..99) {
@@ -533,13 +600,19 @@ private fun UploadStatusOverlay(message: Message) {
 @Composable
 private fun MultiImageGrid(message: Message, onClick: () -> Unit) {
     val urls = message.allMediaUrls
-    val signedUrls = rememberSignedMediaUrls(urls)
+    val autoAllowed = rememberAutoDownloadAllowed()
+    var manualLoad by rememberSaveable(message.localId) { mutableStateOf(false) }
+    val allowed = autoAllowed || manualLoad
+    val signedUrls = rememberSignedMediaUrls(urls, autoDownload = allowed)
     val shown = signedUrls.take(4)
+    val needsPrompt = !allowed && urls.any { it.startsWith("http") }
     Box(
         modifier = Modifier
             .width(220.dp)
             .clip(RoundedCornerShape(12.dp))
-            .clickable(onClick = onClick),
+            .clickable {
+                if (needsPrompt) manualLoad = true else onClick()
+            },
     ) {
         Column(
             modifier = Modifier.width(220.dp),
@@ -562,7 +635,7 @@ private fun MultiImageGrid(message: Message, onClick: () -> Unit) {
                                     contentScale = ContentScale.Crop,
                                     modifier = Modifier.fillMaxSize(),
                                 )
-                            } else {
+                            } else if (!needsPrompt) {
                                 // Still being signed / uploaded — show a spinner
                                 // rather than an empty grey tile.
                                 CircularProgressIndicator(
@@ -597,6 +670,10 @@ private fun MultiImageGrid(message: Message, onClick: () -> Unit) {
         }
         // Album upload lifecycle (preparing / % / failed) over the whole grid.
         UploadStatusOverlay(message)
+        // Auto-download gate for the whole album.
+        if (needsPrompt) {
+            MediaDownloadPrompt(onClick = { manualLoad = true })
+        }
     }
 }
 
@@ -604,15 +681,18 @@ private fun MultiImageGrid(message: Message, onClick: () -> Unit) {
 private fun MediaVideo(message: Message, contentColor: Color, onClick: () -> Unit) {
     // Prefer a local frame (instant, offline), then the signed remote thumbnail,
     // then the local video file itself so a pending upload still shows a frame.
+    val gate = rememberGatedRemoteUrl(message.localId, message.thumbnailUrl)
     val thumb = rememberExistingLocalMedia(message.thumbnailUrl)
-        ?: rememberSignedMediaUrl(message.thumbnailUrl)
+        ?: gate.url
         ?: rememberExistingLocalMedia(message.localMediaPath)
     Box(
         modifier = Modifier
             .size(width = 220.dp, height = 160.dp)
             .clip(RoundedCornerShape(12.dp))
             .background(MaterialTheme.colorScheme.surfaceVariant)
-            .clickable(onClick = onClick),
+            .clickable {
+                if (gate.needsPrompt) gate.requestLoad() else onClick()
+            },
         contentAlignment = Alignment.Center,
     ) {
         if (thumb != null) {
@@ -664,26 +744,40 @@ private fun MediaVideo(message: Message, contentColor: Color, onClick: () -> Uni
             }
         }
         UploadStatusOverlay(message)
+        if (gate.needsPrompt) {
+            MediaDownloadPrompt(onClick = gate.requestLoad)
+        }
     }
 }
 
 @Composable
 private fun AudioContent(message: Message, contentColor: Color) {
     val player = rememberVoicePlayer()
-    val signed = rememberSignedMediaUrl(message.mediaUrl)
-    val source = rememberExistingLocalMedia(message.localMediaPath) ?: signed
+    val gate = rememberGatedRemoteUrl(message.localId, message.mediaUrl)
+    val source = rememberExistingLocalMedia(message.localMediaPath) ?: gate.url
     val playable = !source.isNullOrBlank()
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
             .clip(RoundedCornerShape(12.dp))
-            .clickable(enabled = playable) { player.toggle(source) }
+            .clickable(enabled = playable || gate.needsPrompt) {
+                if (gate.needsPrompt) gate.requestLoad() else player.toggle(source)
+            }
             .padding(vertical = GagaDimens.space2, horizontal = GagaDimens.space2),
     ) {
         // While a private-bucket voice note is being exchanged for a signed URL
         // the source is null; show a spinner instead of a dead play button so a
-        // tap is never silently ignored.
-        if (!playable) {
+        // tap is never silently ignored. When the fetch is gated by the
+        // auto-download policy we show a download glyph instead, since a tap
+        // will start the download rather than play.
+        if (gate.needsPrompt) {
+            Icon(
+                Icons.Filled.Download,
+                contentDescription = "Tap to load voice message",
+                tint = contentColor,
+                modifier = Modifier.size(20.dp),
+            )
+        } else if (!playable) {
             CircularProgressIndicator(
                 modifier = Modifier.size(20.dp),
                 strokeWidth = 2.dp,

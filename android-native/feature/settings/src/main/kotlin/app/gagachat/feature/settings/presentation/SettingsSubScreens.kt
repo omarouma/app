@@ -22,6 +22,7 @@ import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Accessibility
+import androidx.compose.material.icons.filled.BatteryAlert
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
@@ -48,6 +49,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -61,7 +63,11 @@ import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import app.gagachat.core.common.system.BatteryOptimization
 import app.gagachat.core.data.preferences.AppLanguage
 import app.gagachat.core.data.preferences.MediaDownloadPolicy
 import app.gagachat.core.data.preferences.TextScale
@@ -364,6 +370,21 @@ fun AppPermissionsScreen(onBack: () -> Unit) {
         ActivityResultContracts.RequestMultiplePermissions(),
     ) { refreshTick++ }
 
+    // Battery-optimization exemption is a settings grant, not a runtime
+    // permission. Re-read it whenever the screen resumes so returning from the
+    // system dialog reflects the new state.
+    var batteryExempt by remember { mutableStateOf(BatteryOptimization.isIgnoring(context)) }
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                batteryExempt = BatteryOptimization.isIgnoring(context)
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
     GagaScaffold(title = "App permissions", onBack = onBack) { padding ->
         Column(
             modifier = Modifier
@@ -395,6 +416,25 @@ fun AppPermissionsScreen(onBack: () -> Unit) {
                 )
                 GagaDivider()
             }
+            GagaSettingsRow(
+                title = "Background reliability",
+                subtitle = if (batteryExempt) {
+                    "Granted — calls can ring even when the app is closed"
+                } else {
+                    "Allow GaGa to ring for calls while the app is idle"
+                },
+                leadingIcon = Icons.Filled.BatteryAlert,
+                onClick = { BatteryOptimization.request(context) },
+                trailing = {
+                    Icon(
+                        imageVector = if (batteryExempt) Icons.Filled.CheckCircle else Icons.Filled.Close,
+                        contentDescription = if (batteryExempt) "Granted" else "Not granted",
+                        tint = if (batteryExempt) MaterialTheme.colorScheme.primary
+                        else MaterialTheme.colorScheme.error,
+                    )
+                },
+            )
+            GagaDivider()
             Spacer(Modifier.height(GagaDimens.space16))
             GagaPrimaryButton(
                 text = "Open app settings",

@@ -138,6 +138,9 @@ class ZegoCallManager @Inject constructor(
         val config = ZegoUIKitPrebuiltCallInvitationConfig().apply {
             // Incoming calls show both Accept and Decline.
             showDeclineButton = true
+            // End the callee's call automatically when the caller hangs up, so a
+            // caller-side hang-up never leaves the peer stuck in a ghost call.
+            endCallWhenInitiatorLeave = true
             // Ring-back / ringtone channel matches the app's high-importance call
             // channel so incoming calls bypass Do-Not-Disturb like a real phone.
             notificationConfig = ZegoNotificationConfig().apply {
@@ -278,7 +281,11 @@ class ZegoCallManager @Inject constructor(
                             val code = (result["code"] as? Number)?.toInt()
                             val failedPeers = result["errorInvitees"] as? Collection<*>
                             val success = code == 0 && failedPeers.isNullOrEmpty()
-                            lastError = if (success) null else "Could not reach this contact (calling error ${code ?: -1})."
+                            lastError = if (success) {
+                                null
+                            } else {
+                                describeInviteFailure(code, result["message"] as? String)
+                            }
                             if (continuation.isActive) continuation.resume(success)
                         },
                     )

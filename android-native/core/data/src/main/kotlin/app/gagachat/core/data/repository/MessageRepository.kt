@@ -1,6 +1,7 @@
 package app.gagachat.core.data.repository
 
 import app.gagachat.core.common.Constants
+import app.gagachat.core.common.di.ApplicationScope
 import app.gagachat.core.common.di.DispatcherProvider
 import app.gagachat.core.common.result.AppError
 import app.gagachat.core.common.result.AppResult
@@ -8,6 +9,7 @@ import app.gagachat.core.common.util.IdGenerator
 import app.gagachat.core.common.util.TimeProvider
 import app.gagachat.core.data.mapper.toDomain
 import app.gagachat.core.data.sync.SyncPolicy
+import app.gagachat.core.firebase.FirestoreChatMirror
 import app.gagachat.core.database.dao.ConversationDao
 import app.gagachat.core.database.dao.MessageDao
 import app.gagachat.core.database.dao.SyncStateDao
@@ -26,6 +28,8 @@ import app.gagachat.core.network.error.ErrorMapper
 import app.gagachat.core.network.rest.SupabaseRestApi
 import app.gagachat.sync.outbox.OutboxScheduler
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.delay
@@ -218,6 +222,8 @@ class DefaultMessageRepository @Inject constructor(
     private val idGenerator: IdGenerator,
     private val timeProvider: TimeProvider,
     private val dispatchers: DispatcherProvider,
+    private val firebaseMirror: FirestoreChatMirror,
+    @ApplicationScope private val appScope: CoroutineScope,
 ) : MessageRepository {
 
     /** Ephemeral typing cache: "chatId:userId" -> last known typing state. */
@@ -817,6 +823,13 @@ class DefaultMessageRepository @Inject constructor(
             if (conversationId.isBlank() || userId.isBlank()) return@withContext
             // Best-effort: typing is ephemeral, so a failed broadcast is harmless.
             runCatching { restApi.upsertTyping(conversationId, userId, isTyping) }
+            // Mirror the typing state into Firestore as well (no-op unless the
+            // Hybrid flag is on). Fire-and-forget on the application scope.
+            if (firebaseMirror.enabled) {
+                appScope.launch {
+                    runCatching { firebaseMirror.mirrorTyping(conversationId, userId, isTyping) }
+                }
+            }
             Unit
         }
     }
@@ -897,6 +910,9 @@ class DefaultMessageRepository @Inject constructor(
             serverMessageId = row.id,
             createdAtServer = row.createdAt,
         )
+        // Best-effort Firebase mirror (no-op unless the Hybrid flag is on). Runs
+        // off the send path so a slow/failed mirror never delays the message.
+        mirrorToFirestore(pending, row.id)
         AppResult.Success(
             pending.copy(
                 serverMessageId = row.id,
@@ -957,4 +973,32 @@ class DefaultMessageRepository @Inject constructor(
 
     private fun recordToMessage(record: JsonObject): Message =
         reactionsJson.decodeFromJsonElement<MessageRow>(record).toDomain()
+
+    /**
+     * Mirrors a just-sent message into Firestore (`chats/{id}/messages/{id}`),
+     * creating the parent chat document first. Strictly best-effort: it runs on
+     * the application scope and swallows every error, so the authoritative
+     * Supabase path is never affected.
+     */
+    private fun mirrorToFirestore(pending: Message, serverMessageId: String) {
+        if (!firebaseMirror.enabled) return
+        appScope.launch {
+            runCatching {
+                val members = conversationDao.getMembers(pending.conversationId).map { it.userId }
+                val participants = (members + pending.senderId).distinct()
+                val type = conversationDao.getById(pending.conversationId)?.type ?: "DIRECT"
+                firebaseMirror.ensureChat(pending.conversationId, participants, type)
+                firebaseMirror.mirrorMessage(
+                    FirestoreChatMirror.MirrorMessage(
+                        messageId = serverMessageId,
+                        conversationId = pending.conversationId,
+                        senderId = pending.senderId,
+                        type = pending.type.name.lowercase(),
+                        text = pending.text,
+                        createdAt = pending.createdAtClient,
+                    ),
+                )
+            }
+        }
+    }
 }
