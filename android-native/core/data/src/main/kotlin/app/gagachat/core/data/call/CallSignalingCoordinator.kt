@@ -121,7 +121,7 @@ class CallSignalingCoordinator @Inject constructor(
             }
         }
         selfUserId = sanitized
-        val topic = inboxTopicFor(sanitized)
+        val topic = inboxTopicFor(sanitized) ?: return
         if (inboxTopic != topic) {
             inboxTopic?.let { runCatching { realtime.unsubscribeBroadcast(it) } }
             inboxTopic = topic

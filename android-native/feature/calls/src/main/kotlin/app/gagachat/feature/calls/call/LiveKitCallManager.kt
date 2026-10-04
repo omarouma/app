@@ -18,6 +18,7 @@ import io.livekit.android.room.participant.ConnectionQuality
 import io.livekit.android.room.participant.Participant
 import io.livekit.android.room.participant.RemoteParticipant
 import io.livekit.android.room.track.CameraPosition
+import io.livekit.android.room.track.LocalVideoTrack
 import io.livekit.android.room.track.Track
 import io.livekit.android.room.track.VideoTrack
 import io.livekit.android.util.LoggingLevel
@@ -434,10 +435,10 @@ class LiveKitCallManager @Inject constructor(
     }
 
     /** The local camera track, if the camera is currently published. */
-    fun localVideoTrack(): VideoTrack? =
+    fun localVideoTrack(): LocalVideoTrack? =
         room?.localParticipant
             ?.getTrackPublication(Track.Source.CAMERA)
-            ?.track as? VideoTrack
+            ?.track as? LocalVideoTrack
 
     /** The camera track published by [identity], if subscribed. */
     fun remoteVideoTrack(identity: String?): VideoTrack? {
@@ -453,7 +454,7 @@ class LiveKitCallManager @Inject constructor(
     fun hasRemotePeer(): Boolean = _peers.value.isNotEmpty()
 
     private fun remoteParticipant(identity: String): RemoteParticipant? =
-        room?.remoteParticipants?.values?.firstOrNull { it.identity.value == identity }
+        room?.remoteParticipants?.values?.firstOrNull { it.identity?.value == identity }
 
     // ---- Internals ---------------------------------------------------------
 
@@ -553,9 +554,10 @@ class LiveKitCallManager @Inject constructor(
             _peers.value = emptyList()
             return
         }
-        val activeSpeakers = current.activeSpeakers.map { it.identity.value }.toSet()
+        val activeSpeakers = current.activeSpeakers.mapNotNull { it.identity?.value }.toSet()
         val peers = current.remoteParticipants.values.map { participant ->
-            participant.toCallPeer(isSpeaking = participant.identity.value in activeSpeakers)
+            val peerIdentity = participant.identity?.value
+            participant.toCallPeer(isSpeaking = peerIdentity != null && peerIdentity in activeSpeakers)
         }
         val hadPeer = _peers.value.isNotEmpty()
         _peers.value = peers
@@ -593,14 +595,17 @@ class LiveKitCallManager @Inject constructor(
         }
     }
 
-    private fun Participant.toCallPeer(isSpeaking: Boolean): CallPeer = CallPeer(
-        identity = identity.value,
-        name = name?.takeIf { it.isNotBlank() } ?: identity.value,
-        isSpeaking = isSpeaking || this.isSpeaking,
-        isCameraEnabled = isCameraEnabled,
-        isMicrophoneEnabled = isMicrophoneEnabled,
-        connectionQuality = connectionQuality,
-    )
+    private fun Participant.toCallPeer(isSpeaking: Boolean): CallPeer {
+        val identityValue = identity?.value ?: sid.value
+        return CallPeer(
+            identity = identityValue,
+            name = name?.takeIf { it.isNotBlank() } ?: identityValue,
+            isSpeaking = isSpeaking || this.isSpeaking,
+            isCameraEnabled = isCameraEnabled,
+            isMicrophoneEnabled = isMicrophoneEnabled,
+            connectionQuality = connectionQuality,
+        )
+    }
 
     private fun startTimer() {
         if (timerJob?.isActive == true) return
