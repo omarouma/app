@@ -163,7 +163,7 @@ class LiveKitCallManager @Inject constructor(
             if (sdkInitialized) return
             try {
                 LiveKit.init(context)
-                LiveKit.setLoggingLevel(if (BuildConfig.DEBUG) LoggingLevel.DEBUG else LoggingLevel.WARN)
+                LiveKit.loggingLevel = if (BuildConfig.DEBUG) LoggingLevel.DEBUG else LoggingLevel.WARN
                 sdkInitialized = true
                 logger.i(TAG, "LiveKit SDK initialised")
             } catch (t: Throwable) {
@@ -385,11 +385,16 @@ class LiveKitCallManager @Inject constructor(
         _isSpeakerOn.value = enabled
         val handler = room?.audioSwitchHandler ?: return
         try {
-            val wanted: AudioDevice =
-                if (enabled) AudioDevice.Speakerphone() else AudioDevice.Earpiece()
+            // `AudioDevice.Speakerphone`/`Earpiece` have internal constructors in
+            // audioswitch, so we select the matching *instance* from the handler's
+            // live device list instead of building one ourselves.
             val available = handler.availableAudioDevices
-            val match = available.firstOrNull { it::class == wanted::class } ?: wanted
-            handler.selectDevice(match)
+            val match = if (enabled) {
+                available.firstOrNull { it is AudioDevice.Speakerphone }
+            } else {
+                available.firstOrNull { it is AudioDevice.Earpiece }
+            }
+            if (match != null) handler.selectDevice(match)
         } catch (t: Throwable) {
             logger.w(TAG, "Audio routing change failed", t)
         }

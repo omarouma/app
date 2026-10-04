@@ -13,6 +13,12 @@ dependencies {
     implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.lifecycle.process)
 
+    // `CallViewModel` builds the JSON invite payload (`buildJsonObject`) that the
+    // Supabase Realtime signalling channel carries, so this module needs the
+    // serialization runtime on its own classpath (core:data exposes it only as an
+    // `implementation` dependency).
+    implementation(libs.kotlinx.serialization.json)
+
     // LiveKit Android SDK — WebRTC media transport for 1:1 audio/video calls.
     // Call invitations/signaling travel over our own Supabase Realtime channel
     // and access tokens are minted server-side by the `livekit-token` Edge
