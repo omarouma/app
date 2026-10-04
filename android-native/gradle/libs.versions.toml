@@ -38,6 +38,7 @@ profileinstaller = "1.4.1"
 desugar = "2.1.3"
 zxing = "3.5.3"
 cameraX = "1.4.1"
+guava = "32.1.3-android"
 zegoCallKit = "3.0.4"
 
 [libraries]
@@ -122,6 +123,12 @@ androidx-camera-camera2 = { group = "androidx.camera", name = "camera-camera2", 
 androidx-camera-lifecycle = { group = "androidx.camera", name = "camera-lifecycle", version.ref = "cameraX" }
 androidx-camera-view = { group = "androidx.camera", name = "camera-view", version.ref = "cameraX" }
 
+# Guava — provides com.google.common.util.concurrent.ListenableFuture for CameraX.
+# Firebase pins the standalone com.google.guava:listenablefuture artifact to the
+# EMPTY 9999.0 version (to avoid clashing with guava), which strips ListenableFuture
+# from CameraX's classpath; supplying guava restores it without a duplicate class.
+guava = { group = "com.google.guava", name = "guava", version.ref = "guava" }
+
 # ZEGOCLOUD Call Kit (real 1:1 audio/video calling: ZIM signaling + Express media + prebuilt UI)
 zego-callkit = { group = "im.zego", name = "zego_uikit_prebuilt_call_android", version.ref = "zegoCallKit" }
 
@@ -133,6 +140,10 @@ firebase-bom = { group = "com.google.firebase", name = "firebase-bom", version.r
 firebase-messaging = { group = "com.google.firebase", name = "firebase-messaging-ktx" }
 firebase-analytics = { group = "com.google.firebase", name = "firebase-analytics-ktx" }
 firebase-crashlytics = { group = "com.google.firebase", name = "firebase-crashlytics-ktx" }
+# Firebase Hybrid transport (auth bridge + Firestore/RTDB mirror)
+firebase-auth = { group = "com.google.firebase", name = "firebase-auth-ktx" }
+firebase-firestore = { group = "com.google.firebase", name = "firebase-firestore-ktx" }
+firebase-database = { group = "com.google.firebase", name = "firebase-database-ktx" }
 
 # OkHttp
 okhttp = { group = "com.squareup.okhttp3", name = "okhttp", version.ref = "okhttp" }
