@@ -1,5 +1,6 @@
 package app.gagachat.feature.chat.presentation.components
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -140,6 +141,7 @@ fun MessageComposer(
             if (isRecording) {
                 RecordingBar(
                     elapsedMs = recordingElapsedMs,
+                    levels = recordingLevels,
                     onCancel = onCancelRecording,
                     onSend = onStopRecording,
                 )
@@ -364,6 +366,7 @@ private fun AttachOption(icon: ImageVector, label: String, onClick: () -> Unit) 
 @Composable
 private fun RecordingBar(
     elapsedMs: Long,
+    levels: List<Float>,
     onCancel: () -> Unit,
     onSend: () -> Unit,
 ) {
@@ -376,25 +379,69 @@ private fun RecordingBar(
         IconButton(onClick = onCancel) {
             Icon(Icons.Filled.Close, contentDescription = "Cancel recording")
         }
-        Box(
-            modifier = Modifier
-                .size(10.dp)
-                .clip(CircleShape)
-                .background(MaterialTheme.colorScheme.error),
-        )
+        Column(modifier = Modifier.weight(1f)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(10.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.error),
+                )
+                Spacer(Modifier.width(GagaDimens.space8))
+                Text(
+                    text = "Recording \u2022 ${TimeFormat.callDuration(elapsedMs)}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            Spacer(Modifier.height(GagaDimens.space4))
+            RecordingWaveform(
+                levels = levels,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(28.dp),
+            )
+        }
         Spacer(Modifier.width(GagaDimens.space8))
-        Text(
-            text = "Recording \u2022 ${TimeFormat.callDuration(elapsedMs)}",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.weight(1f),
-        )
         FilledIconButton(
             onClick = onSend,
             shape = CircleShape,
             modifier = Modifier.size(48.dp),
         ) {
             Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Send voice message")
+        }
+    }
+}
+
+/**
+ * Live amplitude waveform for the active recording. A fixed number of slots is
+ * drawn so the bars scroll right-to-left as new samples arrive; quiet slots are
+ * shown as faint tracks. This gives real visual feedback that the mic is
+ * capturing audio (P1) instead of a static "Recording" label.
+ */
+@Composable
+private fun RecordingWaveform(levels: List<Float>, modifier: Modifier = Modifier) {
+    val barColor = MaterialTheme.colorScheme.error
+    val trackColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.25f)
+    Canvas(modifier = modifier) {
+        val slots = 40
+        val gap = 3.dp.toPx()
+        val barWidth = ((size.width - gap * (slots - 1)) / slots).coerceAtLeast(1f)
+        val recent = if (levels.size > slots) levels.takeLast(slots) else levels
+        val offset = slots - recent.size
+        for (i in 0 until slots) {
+            val levelIndex = i - offset
+            val inRange = levelIndex in recent.indices
+            val level = if (inRange) recent[levelIndex].coerceIn(0f, 1f) else 0f
+            val barHeight = (size.height * level).coerceAtLeast(barWidth * 0.5f)
+            val x = i * (barWidth + gap)
+            val top = (size.height - barHeight) / 2f
+            drawRoundRect(
+                color = if (inRange) barColor else trackColor,
+                topLeft = Offset(x, top),
+                size = Size(barWidth, barHeight),
+                cornerRadius = CornerRadius(barWidth / 2f, barWidth / 2f),
+            )
         }
     }
 }

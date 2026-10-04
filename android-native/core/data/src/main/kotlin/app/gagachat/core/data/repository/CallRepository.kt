@@ -207,16 +207,25 @@ class DefaultCallRepository @Inject constructor(
             ?: row.callerId
     }
 
+    /**
+     * Human-readable CALL_EVENT line. The wording is deliberately stable so the
+     * chat bubble can parse the outcome back out of [Message.text]: only a
+     * connected call carries the "\u2022 duration" suffix, so its presence is the
+     * "was answered" signal (P0).
+     */
     private fun callEventText(session: CallSession, status: CallStatus, durationMs: Long?): String {
-        val kind = if (session.type == CallType.VIDEO) "Video call" else "Voice call"
-        return when (status) {
-            CallStatus.MISSED -> "Missed $kind"
-            CallStatus.REJECTED -> "Declined $kind"
-            CallStatus.BUSY -> "Missed $kind (busy)"
-            else -> {
+        val kind = if (session.type == CallType.VIDEO) "video call" else "voice call"
+        val answered = status == CallStatus.ENDED && (durationMs ?: 0L) > 0L
+        return when {
+            answered -> {
                 val secs = (durationMs ?: 0L) / 1000
-                "$kind \u2022 ${secs / 60}m ${secs % 60}s"
+                "Answered $kind \u2022 ${secs / 60}m ${secs % 60}s"
             }
+            status == CallStatus.MISSED || status == CallStatus.BUSY -> "Missed $kind"
+            status == CallStatus.REJECTED -> "Declined $kind"
+            status == CallStatus.FAILED -> "Failed $kind"
+            status == CallStatus.ENDED && session.isOutgoing -> "Cancelled $kind"
+            else -> "Missed $kind"
         }
     }
 }

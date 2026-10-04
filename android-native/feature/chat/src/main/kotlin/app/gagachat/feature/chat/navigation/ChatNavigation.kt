@@ -21,7 +21,6 @@ fun NavGraphBuilder.chatScreen(
     navController: NavController,
     onStartCall: (conversationId: String, isVideo: Boolean) -> Unit,
     onOpenProfile: (userId: String) -> Unit,
-    onSendMoney: () -> Unit,
 ) {
     composable(
         route = ChatRoutes.CHAT,
@@ -31,7 +30,6 @@ fun NavGraphBuilder.chatScreen(
             onNavigateBack = { navController.popBackStack() },
             onStartCall = onStartCall,
             onOpenProfile = onOpenProfile,
-            onSendMoney = onSendMoney,
             onOpenChatInfo = { conversationId ->
                 navController.navigate(ChatRoutes.chatInfo(conversationId))
             },
@@ -43,6 +41,7 @@ fun NavGraphBuilder.chatInfoScreen(
     navController: NavController,
     onStartCall: (conversationId: String, isVideo: Boolean) -> Unit,
     onOpenProfile: (userId: String) -> Unit,
+    onSendMoney: () -> Unit,
 ) {
     composable(
         route = ChatRoutes.CHAT_INFO,
@@ -52,6 +51,7 @@ fun NavGraphBuilder.chatInfoScreen(
             onNavigateBack = { navController.popBackStack() },
             onStartCall = onStartCall,
             onOpenProfile = onOpenProfile,
+            onSendMoney = onSendMoney,
         )
     }
 }

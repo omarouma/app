@@ -22,11 +22,17 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Call
+import androidx.compose.material.icons.filled.CallEnd
+import androidx.compose.material.icons.filled.CallMade
+import androidx.compose.material.icons.filled.CallMissed
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.DoneAll
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.ErrorOutline
+import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.NearMe
@@ -34,13 +40,18 @@ import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Poll
+import androidx.compose.material.icons.filled.RadioButtonUnchecked
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -57,9 +68,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -125,7 +139,12 @@ fun MessageBubble(
             .fillMaxWidth()
             .padding(horizontal = GagaDimens.space12, vertical = GagaDimens.space2),
         horizontalArrangement = if (isOutgoing) Arrangement.End else Arrangement.Start,
+        verticalAlignment = Alignment.CenterVertically,
     ) {
+        if (selectionMode) {
+            SelectionCheck(selected = isSelected)
+            Spacer(Modifier.width(GagaDimens.space8))
+        }
         Column(horizontalAlignment = if (isOutgoing) Alignment.End else Alignment.Start) {
             Column(
                 modifier = Modifier
@@ -133,8 +152,15 @@ fun MessageBubble(
                     .clip(shape)
                     .background(bubbleColor)
                     .combinedClickable(
-                        onClick = { if (message.type != MessageType.TEXT) onMediaClick(message) },
-                        onLongClick = { onLongPress(message) },
+                        onClick = {
+                            when {
+                                selectionMode -> onToggleSelect(message)
+                                message.type != MessageType.TEXT -> onMediaClick(message)
+                            }
+                        },
+                        onLongClick = {
+                            if (selectionMode) onToggleSelect(message) else onLongPress(message)
+                        },
                     )
                     .padding(horizontal = GagaDimens.space12, vertical = GagaDimens.space8),
             ) {
@@ -160,7 +186,9 @@ fun MessageBubble(
                     MessageContent(
                         message = message,
                         contentColor = contentColor,
+                        isOutgoing = isOutgoing,
                         onMediaClick = onMediaClick,
+                        onRetry = onRetry,
                         currentUserId = currentUserId,
                         onVotePoll = onVotePoll,
                         onStopLiveLocation = onStopLiveLocation,
@@ -190,6 +218,20 @@ fun MessageBubble(
             }
         }
     }
+}
+
+/**
+ * Leading selection affordance shown while the chat is in multi-select mode.
+ * Filled when the row is selected, outlined otherwise (P1).
+ */
+@Composable
+private fun SelectionCheck(selected: Boolean) {
+    Icon(
+        imageVector = if (selected) Icons.Filled.CheckCircle else Icons.Filled.RadioButtonUnchecked,
+        contentDescription = if (selected) "Selected" else "Not selected",
+        tint = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
+        modifier = Modifier.size(22.dp),
+    )
 }
 
 @Composable
@@ -295,7 +337,9 @@ private fun ReactionsRow(
 private fun MessageContent(
     message: Message,
     contentColor: Color,
+    isOutgoing: Boolean,
     onMediaClick: (Message) -> Unit,
+    onRetry: () -> Unit,
     currentUserId: String,
     onVotePoll: (Message, Int) -> Unit,
     onStopLiveLocation: (Message) -> Unit,
@@ -327,27 +371,33 @@ private fun MessageContent(
             onRequestLinkPreview = onRequestLinkPreview,
         )
         MessageType.IMAGE -> if (message.isMultiImage) {
-            MultiImageGrid(message = message, onClick = { onMediaClick(message) })
+            MultiImageGrid(message = message, onRetry = onRetry, onClick = { onMediaClick(message) })
         } else {
             MediaImage(
                 message = message,
                 contentColor = contentColor,
+                onRetry = onRetry,
                 onClick = { onMediaClick(message) },
             )
         }
         MessageType.VIDEO -> MediaVideo(
             message = message,
             contentColor = contentColor,
+            onRetry = onRetry,
             onClick = { onMediaClick(message) },
         )
         MessageType.AUDIO -> AudioContent(message = message, contentColor = contentColor)
-        MessageType.FILE -> FileContent(message = message, contentColor = contentColor)
+        MessageType.FILE -> FileContent(
+            message = message,
+            contentColor = contentColor,
+            onRetry = onRetry,
+        )
         MessageType.LOCATION -> LocationContent(message = message)
         MessageType.CONTACT -> ContactContent(message = message, contentColor = contentColor)
-        MessageType.CALL_EVENT -> Text(
-            text = message.text.orEmpty(),
-            style = MaterialTheme.typography.bodyMedium,
-            color = contentColor.copy(alpha = 0.85f),
+        MessageType.CALL_EVENT -> CallEventContent(
+            message = message,
+            contentColor = contentColor,
+            isOutgoing = isOutgoing,
         )
     }
 }
@@ -516,8 +566,99 @@ private fun MediaDownloadPrompt(onClick: () -> Unit) {
     }
 }
 
+/** The kind of attachment an unloaded media card stands in for. */
+private enum class MediaKind(val icon: ImageVector, val label: String) {
+    PHOTO(Icons.Filled.Image, "Photo"),
+    VIDEO(Icons.Filled.Videocam, "Video"),
+    FILE(Icons.Filled.Description, "Attachment"),
+}
+
+/**
+ * A neutral attachment card shown while a media item has no renderable model yet
+ * (still uploading, being signed, or gated by the data policy). It names the
+ * kind, shows the size when known and surfaces the upload lifecycle so a bubble
+ * is never an unexplained grey box (P0). When [failed] the whole card is tappable
+ * to retry the upload.
+ */
 @Composable
-private fun MediaImage(message: Message, contentColor: Color, onClick: () -> Unit) {
+private fun MediaPlaceholder(
+    kind: MediaKind,
+    sizeBytes: Long?,
+    progress: Int?,
+    failed: Boolean,
+    onRetry: (() -> Unit)?,
+    tint: Color,
+    modifier: Modifier = Modifier,
+) {
+    val subtitle = when {
+        failed -> "Tap to retry"
+        progress == null || progress <= 0 -> "Preparing\u2026"
+        progress < 100 -> "$progress%"
+        else -> "Finishing\u2026"
+    }
+    Column(
+        modifier = modifier
+            .clip(RoundedCornerShape(12.dp))
+            .background(tint.copy(alpha = 0.08f))
+            .then(
+                if (failed && onRetry != null) Modifier.clickable(onClick = onRetry) else Modifier,
+            )
+            .padding(horizontal = GagaDimens.space12, vertical = GagaDimens.space10),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+    ) {
+        Icon(
+            imageVector = kind.icon,
+            contentDescription = kind.label,
+            tint = tint.copy(alpha = 0.85f),
+            modifier = Modifier.size(28.dp),
+        )
+        Spacer(Modifier.height(GagaDimens.space4))
+        Text(
+            text = kind.label,
+            style = MaterialTheme.typography.labelMedium,
+            color = tint,
+            fontWeight = FontWeight.SemiBold,
+        )
+        Spacer(Modifier.height(2.dp))
+        Text(
+            text = subtitle,
+            style = MaterialTheme.typography.labelSmall,
+            color = tint.copy(alpha = 0.75f),
+        )
+        if (sizeBytes != null && sizeBytes > 0L) {
+            Spacer(Modifier.height(2.dp))
+            Text(
+                text = formatBytes(sizeBytes),
+                style = MaterialTheme.typography.labelSmall,
+                color = tint.copy(alpha = 0.55f),
+            )
+        }
+        if (!failed) {
+            Spacer(Modifier.height(GagaDimens.space6))
+            val fraction = ((progress ?: 0).coerceIn(0, 100)) / 100f
+            if (fraction > 0f) {
+                LinearProgressIndicator(
+                    progress = { fraction },
+                    modifier = Modifier
+                        .width(96.dp)
+                        .height(3.dp)
+                        .clip(RoundedCornerShape(2.dp)),
+                    color = tint,
+                    trackColor = tint.copy(alpha = 0.2f),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun MediaImage(
+    message: Message,
+    contentColor: Color,
+    onRetry: () -> Unit,
+    onClick: () -> Unit,
+) {
     val gate = rememberGatedRemoteUrl(message.localId, message.mediaUrl)
     val model = rememberExistingLocalMedia(message.localMediaPath) ?: gate.url
     Box(
@@ -535,31 +676,33 @@ private fun MediaImage(message: Message, contentColor: Color, onClick: () -> Uni
                 model = model,
                 contentDescription = "Photo",
                 contentScale = ContentScale.Crop,
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxSize(),
             )
         } else if (gate.needsPrompt) {
             MediaDownloadPrompt(onClick = gate.requestLoad)
+        } else {
+            MediaPlaceholder(
+                kind = MediaKind.PHOTO,
+                sizeBytes = message.mediaSize,
+                progress = message.uploadProgress,
+                failed = message.isFailed,
+                onRetry = onRetry,
+                tint = contentColor,
+                modifier = Modifier.fillMaxSize(),
+            )
         }
-        message.uploadProgress?.let { progress ->
-            if (progress in 0..99) {
-                Text(
-                    text = "$progress%",
-                    style = MaterialTheme.typography.labelLarge,
-                    color = Color.White,
-                )
-            }
-        }
-        UploadStatusOverlay(message)
+        UploadStatusOverlay(message = message, onRetry = onRetry)
     }
 }
 
 /**
  * Distinguishes the media upload lifecycle inside a bubble (F04): preparing,
  * uploading with a percentage, and failed. A bare percentage with a pending
- * clock gave the user no explanation or recovery affordance.
+ * clock gave the user no explanation or recovery affordance. The failed state is
+ * tappable so the retry affordance is real, not just a label (P0).
  */
 @Composable
-private fun UploadStatusOverlay(message: Message) {
+private fun UploadStatusOverlay(message: Message, onRetry: () -> Unit) {
     // Only meaningful while the media has not been committed to the server.
     if (message.mediaUrl != null || (!message.isPending && !message.isFailed)) return
     val progress = message.uploadProgress
@@ -572,7 +715,10 @@ private fun UploadStatusOverlay(message: Message) {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.Black.copy(alpha = 0.38f)),
+            .background(Color.Black.copy(alpha = 0.38f))
+            .then(
+                if (message.isFailed) Modifier.clickable(onClick = onRetry) else Modifier,
+            ),
         contentAlignment = Alignment.Center,
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -598,7 +744,7 @@ private fun UploadStatusOverlay(message: Message) {
  * overlay when the message carries more than four images.
  */
 @Composable
-private fun MultiImageGrid(message: Message, onClick: () -> Unit) {
+private fun MultiImageGrid(message: Message, onRetry: () -> Unit, onClick: () -> Unit) {
     val urls = message.allMediaUrls
     val autoAllowed = rememberAutoDownloadAllowed()
     var manualLoad by rememberSaveable(message.localId) { mutableStateOf(false) }
@@ -669,7 +815,7 @@ private fun MultiImageGrid(message: Message, onClick: () -> Unit) {
             }
         }
         // Album upload lifecycle (preparing / % / failed) over the whole grid.
-        UploadStatusOverlay(message)
+        UploadStatusOverlay(message = message, onRetry = onRetry)
         // Auto-download gate for the whole album.
         if (needsPrompt) {
             MediaDownloadPrompt(onClick = { manualLoad = true })
@@ -678,7 +824,7 @@ private fun MultiImageGrid(message: Message, onClick: () -> Unit) {
 }
 
 @Composable
-private fun MediaVideo(message: Message, contentColor: Color, onClick: () -> Unit) {
+private fun MediaVideo(message: Message, contentColor: Color, onRetry: () -> Unit, onClick: () -> Unit) {
     // Prefer a local frame (instant, offline), then the signed remote thumbnail,
     // then the local video file itself so a pending upload still shows a frame.
     val gate = rememberGatedRemoteUrl(message.localId, message.thumbnailUrl)
@@ -703,26 +849,31 @@ private fun MediaVideo(message: Message, contentColor: Color, onClick: () -> Uni
                 modifier = Modifier.fillMaxSize(),
             )
         } else {
-            Icon(
-                Icons.Filled.PlayArrow,
-                contentDescription = null,
-                tint = contentColor.copy(alpha = 0.4f),
-                modifier = Modifier.size(48.dp),
+            MediaPlaceholder(
+                kind = MediaKind.VIDEO,
+                sizeBytes = message.mediaSize,
+                progress = message.uploadProgress,
+                failed = message.isFailed,
+                onRetry = onRetry,
+                tint = contentColor,
+                modifier = Modifier.fillMaxSize(),
             )
         }
-        Box(
-            modifier = Modifier
-                .size(56.dp)
-                .clip(CircleShape)
-                .background(Color.Black.copy(alpha = 0.45f)),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(
-                Icons.Filled.PlayArrow,
-                contentDescription = "Play video",
-                tint = Color.White,
-                modifier = Modifier.size(40.dp),
-            )
+        if (thumb != null) {
+            Box(
+                modifier = Modifier
+                    .size(56.dp)
+                    .clip(CircleShape)
+                    .background(Color.Black.copy(alpha = 0.45f)),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    Icons.Filled.PlayArrow,
+                    contentDescription = "Play video",
+                    tint = Color.White,
+                    modifier = Modifier.size(40.dp),
+                )
+            }
         }
         // Duration badge so the recipient knows the clip length up front.
         message.mediaDurationMs?.let { ms ->
@@ -743,7 +894,7 @@ private fun MediaVideo(message: Message, contentColor: Color, onClick: () -> Uni
                 }
             }
         }
-        UploadStatusOverlay(message)
+        UploadStatusOverlay(message = message, onRetry = onRetry)
         if (gate.needsPrompt) {
             MediaDownloadPrompt(onClick = gate.requestLoad)
         }
@@ -756,77 +907,249 @@ private fun AudioContent(message: Message, contentColor: Color) {
     val gate = rememberGatedRemoteUrl(message.localId, message.mediaUrl)
     val source = rememberExistingLocalMedia(message.localMediaPath) ?: gate.url
     val playable = !source.isNullOrBlank()
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
+    val bound = player.activeSource != null && player.activeSource == source
+    val totalMs = if (bound && player.durationMs > 0L) player.durationMs else (message.mediaDurationMs ?: 0L)
+    val positionMs = if (bound) player.positionMs else 0L
+    val showRetry = bound && player.error
+
+    Column(
         modifier = Modifier
+            .width(220.dp)
             .clip(RoundedCornerShape(12.dp))
-            .clickable(enabled = playable || gate.needsPrompt) {
-                if (gate.needsPrompt) gate.requestLoad() else player.toggle(source)
-            }
             .padding(vertical = GagaDimens.space2, horizontal = GagaDimens.space2),
     ) {
-        // While a private-bucket voice note is being exchanged for a signed URL
-        // the source is null; show a spinner instead of a dead play button so a
-        // tap is never silently ignored. When the fetch is gated by the
-        // auto-download policy we show a download glyph instead, since a tap
-        // will start the download rather than play.
-        if (gate.needsPrompt) {
-            Icon(
-                Icons.Filled.Download,
-                contentDescription = "Tap to load voice message",
-                tint = contentColor,
-                modifier = Modifier.size(20.dp),
-            )
-        } else if (!playable) {
-            CircularProgressIndicator(
-                modifier = Modifier.size(20.dp),
-                strokeWidth = 2.dp,
-                color = contentColor,
-            )
-        } else {
-            Icon(
-                imageVector = if (player.isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
-                contentDescription = if (player.isPlaying) "Pause audio" else "Play audio",
-                tint = contentColor,
-            )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            // While a private-bucket voice note is being exchanged for a signed
+            // URL the source is null; show a spinner instead of a dead play
+            // button so a tap is never silently ignored. When the fetch is gated
+            // by the auto-download policy we show a download glyph instead, since
+            // a tap will start the download rather than play.
+            when {
+                gate.needsPrompt -> IconButton(
+                    onClick = gate.requestLoad,
+                    modifier = Modifier.size(40.dp),
+                ) {
+                    Icon(
+                        Icons.Filled.Download,
+                        contentDescription = "Tap to load voice message",
+                        tint = contentColor,
+                    )
+                }
+                !playable -> Box(
+                    modifier = Modifier.size(40.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(20.dp),
+                        strokeWidth = 2.dp,
+                        color = contentColor,
+                    )
+                }
+                showRetry -> IconButton(
+                    onClick = { player.toggle(source) },
+                    modifier = Modifier.size(40.dp),
+                ) {
+                    Icon(
+                        Icons.Filled.Refresh,
+                        contentDescription = "Retry audio",
+                        tint = MaterialTheme.colorScheme.error,
+                    )
+                }
+                bound && player.isPreparing -> Box(
+                    modifier = Modifier.size(40.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(20.dp),
+                        strokeWidth = 2.dp,
+                        color = contentColor,
+                    )
+                }
+                else -> IconButton(
+                    onClick = { player.toggle(source) },
+                    modifier = Modifier.size(40.dp),
+                ) {
+                    Icon(
+                        imageVector = if (bound && player.isPlaying) {
+                            Icons.Filled.Pause
+                        } else {
+                            Icons.Filled.PlayArrow
+                        },
+                        contentDescription = if (bound && player.isPlaying) "Pause audio" else "Play audio",
+                        tint = contentColor,
+                    )
+                }
+            }
+            Spacer(Modifier.width(GagaDimens.space4))
+            Column(modifier = Modifier.weight(1f)) {
+                Slider(
+                    value = if (totalMs > 0L) {
+                        (positionMs.toFloat() / totalMs.toFloat()).coerceIn(0f, 1f)
+                    } else {
+                        0f
+                    },
+                    onValueChange = { fraction -> player.seekTo((fraction * totalMs).toLong()) },
+                    enabled = playable && bound && totalMs > 0L,
+                    modifier = Modifier.height(28.dp),
+                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = TimeFormat.callDuration(positionMs),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = contentColor.copy(alpha = 0.8f),
+                    )
+                    Spacer(Modifier.weight(1f))
+                    Text(
+                        text = if (totalMs > 0L) TimeFormat.callDuration(totalMs) else "Voice message",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = contentColor.copy(alpha = 0.8f),
+                    )
+                }
+            }
         }
-        Spacer(Modifier.width(GagaDimens.space8))
-        Text(
-            text = message.mediaDurationMs?.let { TimeFormat.callDuration(it) } ?: "Voice message",
-            style = MaterialTheme.typography.bodyMedium,
-            color = contentColor,
-        )
     }
 }
 
 @Composable
-private fun FileContent(message: Message, contentColor: Color) {
+private fun FileContent(message: Message, contentColor: Color, onRetry: () -> Unit) {
+    // A file that has neither a local copy nor a server URL yet is still being
+    // prepared/uploaded (or failed); show the attachment card so the bubble is
+    // never an unexplained blank (P0).
+    val hasSource = !message.localMediaPath.isNullOrBlank() || !message.mediaUrl.isNullOrBlank()
+    if (!hasSource) {
+        MediaPlaceholder(
+            kind = MediaKind.FILE,
+            sizeBytes = message.mediaSize,
+            progress = message.uploadProgress,
+            failed = message.isFailed,
+            onRetry = onRetry,
+            tint = contentColor,
+            modifier = Modifier.widthIn(min = 176.dp),
+        )
+        return
+    }
+    Box {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(contentColor.copy(alpha = 0.12f)),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(Icons.Filled.Share, contentDescription = null, tint = contentColor)
+            }
+            Spacer(Modifier.width(GagaDimens.space8))
+            Column {
+                Text(
+                    text = message.text ?: "Attachment",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = contentColor,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                message.mediaSize?.let {
+                    Text(
+                        text = formatBytes(it),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = contentColor.copy(alpha = 0.7f),
+                    )
+                }
+            }
+        }
+        UploadStatusOverlay(message = message, onRetry = onRetry)
+    }
+}
+
+/**
+ * The terminal outcome of a call, derived from the persisted CALL_EVENT text.
+ * Kept separate from [CallStatus] because a single chat line collapses several
+ * signalling states (e.g. a busy line reads as "missed") into one user-facing
+ * result (P0).
+ */
+private enum class CallOutcome(val label: String) {
+    MISSED("Missed"),
+    DECLINED("Declined"),
+    CANCELLED("Cancelled"),
+    FAILED("Failed"),
+    ANSWERED("Answered"),
+}
+
+private data class ParsedCallEvent(
+    val outcome: CallOutcome,
+    val isVideo: Boolean,
+    val durationText: String?,
+)
+
+/**
+ * Parses the human-readable CALL_EVENT text (produced by
+ * `CallRepository.callEventText`) back into a structured outcome. The duration is
+ * only ever present for answered calls, so it doubles as the "was connected"
+ * signal.
+ */
+private fun parseCallEvent(text: String?): ParsedCallEvent {
+    val raw = text.orEmpty()
+    val lower = raw.lowercase(Locale.US)
+    val isVideo = lower.contains("video")
+    val outcome = when {
+        lower.contains("declined") || lower.contains("rejected") -> CallOutcome.DECLINED
+        lower.contains("cancelled") || lower.contains("canceled") -> CallOutcome.CANCELLED
+        lower.contains("failed") -> CallOutcome.FAILED
+        lower.contains("missed") || lower.contains("busy") -> CallOutcome.MISSED
+        else -> CallOutcome.ANSWERED
+    }
+    val durationText = raw.substringAfter('\u2022', "").trim().takeIf { it.isNotEmpty() }
+    return ParsedCallEvent(outcome = outcome, isVideo = isVideo, durationText = durationText)
+}
+
+/**
+ * Renders a call-log entry inside the chat: a directional icon, the call kind
+ * and the outcome, tinted with the error colour when the call was not answered
+ * (P0). Duration is shown only for connected calls.
+ */
+@Composable
+private fun CallEventContent(message: Message, contentColor: Color, isOutgoing: Boolean) {
+    val parsed = remember(message.text) { parseCallEvent(message.text) }
+    val kindLabel = if (parsed.isVideo) "Video call" else "Voice call"
+    val icon = when (parsed.outcome) {
+        CallOutcome.MISSED -> if (isOutgoing) Icons.Filled.CallMade else Icons.Filled.CallMissed
+        CallOutcome.DECLINED -> Icons.Filled.CallEnd
+        CallOutcome.CANCELLED -> Icons.Filled.CallMade
+        CallOutcome.FAILED -> Icons.Filled.CallEnd
+        CallOutcome.ANSWERED -> if (isOutgoing) Icons.Filled.CallMade else Icons.Filled.Call
+    }
+    val unanswered = parsed.outcome != CallOutcome.ANSWERED
+    val accent = if (unanswered) MaterialTheme.colorScheme.error else contentColor
+    // Answered calls carry a duration; unanswered ones carry the outcome label.
+    val subtitle = parsed.durationText ?: parsed.outcome.label
     Row(verticalAlignment = Alignment.CenterVertically) {
         Box(
             modifier = Modifier
-                .size(40.dp)
-                .clip(RoundedCornerShape(8.dp))
-                .background(contentColor.copy(alpha = 0.12f)),
+                .size(36.dp)
+                .clip(CircleShape)
+                .background(accent.copy(alpha = 0.14f)),
             contentAlignment = Alignment.Center,
         ) {
-            Icon(Icons.Filled.Share, contentDescription = null, tint = contentColor)
+            Icon(
+                imageVector = icon,
+                contentDescription = kindLabel,
+                tint = accent,
+                modifier = Modifier.size(20.dp),
+            )
         }
         Spacer(Modifier.width(GagaDimens.space8))
         Column {
             Text(
-                text = message.text ?: "Attachment",
+                text = kindLabel,
                 style = MaterialTheme.typography.bodyMedium,
                 color = contentColor,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
+                fontWeight = FontWeight.SemiBold,
             )
-            message.mediaSize?.let {
-                Text(
-                    text = formatBytes(it),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = contentColor.copy(alpha = 0.7f),
-                )
-            }
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.labelSmall,
+                color = accent.copy(alpha = 0.9f),
+            )
         }
     }
 }
@@ -880,17 +1203,28 @@ private fun LocationContent(message: Message) {
     var tileLoaded by remember(message.localId) { mutableStateOf(false) }
     var tileFailed by remember(message.localId) { mutableStateOf(false) }
 
+    // Screen-reader friendly description for the whole card.
+    val a11yLabel = if (hasCoords) "$placeLabel at $coordsText" else placeLabel
+
     Column(
         modifier = Modifier
             .width(240.dp)
             .clip(RoundedCornerShape(14.dp))
-            .background(MaterialTheme.colorScheme.surfaceVariant),
+            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .semantics { contentDescription = a11yLabel },
     ) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(124.dp)
-                .clickable(enabled = hasCoords, onClick = openMap),
+                .clickable(enabled = hasCoords, onClick = openMap)
+                .semantics {
+                    contentDescription = if (hasCoords) {
+                        "Map preview. $placeLabel. Double tap to open in maps"
+                    } else {
+                        "Map preview unavailable"
+                    }
+                },
         ) {
             // Stylised map base so the card always reads as a map, even offline.
             StylisedMap(modifier = Modifier.fillMaxSize())
@@ -1145,7 +1479,8 @@ private fun MessageMeta(
             Text(
                 text = "edited",
                 style = MaterialTheme.typography.labelSmall,
-                color = contentColor.copy(alpha = 0.6f),
+                color = contentColor.copy(alpha = 0.78f),
+                fontWeight = FontWeight.Medium,
             )
             Spacer(Modifier.width(GagaDimens.space4))
         }
@@ -1153,14 +1488,16 @@ private fun MessageMeta(
             Text(
                 text = "Scheduled",
                 style = MaterialTheme.typography.labelSmall,
-                color = contentColor.copy(alpha = 0.6f),
+                color = contentColor.copy(alpha = 0.78f),
+                fontWeight = FontWeight.Medium,
             )
             Spacer(Modifier.width(GagaDimens.space4))
         }
         Text(
             text = TimeFormat.messageTime(message.sortTimestamp),
             style = MaterialTheme.typography.labelSmall,
-            color = contentColor.copy(alpha = 0.6f),
+            color = contentColor.copy(alpha = 0.78f),
+            fontWeight = FontWeight.Medium,
         )
         if (isOutgoing) {
             Spacer(Modifier.width(GagaDimens.space4))
@@ -1381,13 +1718,27 @@ private fun LiveLocationContent(
         modifier = Modifier
             .width(240.dp)
             .clip(RoundedCornerShape(14.dp))
-            .background(MaterialTheme.colorScheme.surfaceVariant),
+            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .semantics {
+                contentDescription = if (active) {
+                    "Live location, updates for ${formatRemaining(remaining)}"
+                } else {
+                    "Live location ended"
+                }
+            },
     ) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(124.dp)
-                .clickable(enabled = hasCoords, onClick = openMap),
+                .clickable(enabled = hasCoords, onClick = openMap)
+                .semantics {
+                    contentDescription = if (hasCoords) {
+                        "Live map preview. Double tap to open in maps"
+                    } else {
+                        "Map preview unavailable"
+                    }
+                },
         ) {
             StylisedMap(modifier = Modifier.fillMaxSize())
             if (hasCoords) {

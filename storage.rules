@@ -1,0 +1,84 @@
+// ═══════════════════════════════════════════════════════════════════════════════
+// GaGa Chat — Cloud Storage for Firebase rules  (chat media access control)
+// ═══════════════════════════════════════════════════════════════════════════════
+//
+// Deploy with:  firebase deploy --only storage
+//
+// NOTE: Cloud Storage for Firebase requires the project to be on the Blaze
+// (pay-as-you-go) plan. The `oumagachat` project is currently on the free Spark
+// plan (billing disabled), so no bucket is provisioned. These rules are ready to
+// deploy the moment Blaze is enabled.
+//
+// Layout:
+//   chat-media/{chatId}/{messageId}/{fileName}   participant-only media
+//   avatars/{userId}/{fileName}                  public avatars
+//   group-icons/{groupId}/{fileName}             public group icons
+//   status/{userId}/{fileName}                   status/story media
+//
+// Access model: chat media is readable/writable only by members of the owning
+// conversation (checked against Firestore `chats/{chatId}.participants`), which
+// is exactly the "chat participants' media access" requirement.
+// ═══════════════════════════════════════════════════════════════════════════════
+
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    function isAuth() {
+      return request.auth != null;
+    }
+    function uid() {
+      return request.auth.uid;
+    }
+    function isChatMember(chatId) {
+      return isAuth() && uid() in firestore.get(
+        /databases/(default)/documents/chats/$(chatId)).data.participants;
+    }
+    function isImage() {
+      return request.resource.contentType.matches('image/.*');
+    }
+    function isMedia() {
+      return request.resource.contentType.matches('image/.*|video/.*|audio/.*')
+        || request.resource.contentType == 'application/pdf'
+        || request.resource.contentType.matches('application/.*(word|excel|powerpoint|zip|octet-stream).*');
+    }
+
+    // ── Chat media: only conversation participants may read or write ──
+    match /chat-media/{chatId}/{messageId}/{fileName} {
+      allow read:  if isChatMember(chatId);
+      allow write: if isChatMember(chatId)
+        && request.resource.size < 100 * 1024 * 1024
+        && isMedia();
+    }
+
+    // ── Avatars: world-readable, owner-writable ──
+    match /avatars/{userId}/{fileName} {
+      allow read:  if true;
+      allow write: if isAuth() && uid() == userId
+        && request.resource.size < 10 * 1024 * 1024
+        && isImage();
+    }
+
+    // ── Group icons: world-readable, member-writable ──
+    match /group-icons/{groupId}/{fileName} {
+      allow read:  if true;
+      allow write: if isChatMember(groupId)
+        && request.resource.size < 10 * 1024 * 1024
+        && isImage();
+    }
+
+    // ── Status / story media: owner-writable, authenticated read ──
+    match /status/{userId}/{fileName} {
+      allow read:  if isAuth();
+      allow write: if isAuth() && uid() == userId
+        && request.resource.size < 50 * 1024 * 1024
+        && isMedia();
+    }
+
+    // ── deny everything else ──
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

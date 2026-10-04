@@ -37,13 +37,16 @@ import androidx.compose.material.icons.filled.AddReaction
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Checklist
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Videocam
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -85,6 +88,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.gagachat.core.data.preferences.ChatBackground
 import app.gagachat.core.model.LinkPreview
 import app.gagachat.core.model.Message
+import app.gagachat.core.model.MessageStatus
 import app.gagachat.core.model.MessageType
 import app.gagachat.core.ui.component.GagaEmptyState
 import app.gagachat.core.ui.component.GagaOfflineBanner
@@ -116,7 +120,6 @@ fun ChatRoute(
     onNavigateBack: () -> Unit,
     onStartCall: (conversationId: String, isVideo: Boolean) -> Unit,
     onOpenProfile: (userId: String) -> Unit,
-    onSendMoney: () -> Unit,
     onOpenChatInfo: (conversationId: String) -> Unit,
     viewModel: ChatViewModel = hiltViewModel(),
 ) {
@@ -226,35 +229,90 @@ fun ChatRoute(
         else viewModel.showNotice("Couldn't open this profile yet.")
     }
 
+    // ---- multi-select helpers ----
+    val exitSelectionMode = {
+        selectionMode = false
+        selectedIds = emptySet()
+    }
+    val copySelected = {
+        val text = state.messages
+            .filter { it.localId in selectedIds && !it.text.isNullOrBlank() }
+            .joinToString("\n") { it.text.orEmpty() }
+        if (text.isNotBlank()) {
+            clipboard.setText(AnnotatedString(text))
+            scope.launch { snackbarHostState.showSnackbar("Copied") }
+        }
+        exitSelectionMode()
+    }
+    val forwardSelected = {
+        state.messages.lastOrNull { it.localId in selectedIds }?.let { forwardingMessage = it }
+        exitSelectionMode()
+    }
+    val deleteSelected = {
+        state.messages.filter { it.localId in selectedIds }.forEach { viewModel.deleteForMe(it) }
+        exitSelectionMode()
+    }
+
     Box(modifier = Modifier.fillMaxSize()) {
         GagaScaffold(
             title = state.title,
-            subtitle = if (state.isOtherTyping) "typing\u2026" else state.subtitle,
+            subtitle = when {
+                state.isOtherTyping -> "typing\u2026"
+                // Groups/channels show the participant count; direct chats show
+                // presence. This makes the header identity unambiguous (P1).
+                state.isGroup && state.memberCount > 0 -> "${state.memberCount} members"
+                else -> state.subtitle
+            },
             onBack = onNavigateBack,
             avatarUrl = state.otherUserAvatar ?: state.avatarUrl,
             avatarStatus = state.otherUserStatus,
             onTitleClick = openProfile,
             snackbarHostState = snackbarHostState,
             actions = {
-                IconButton(onClick = { onStartCall(state.conversationId, false) }) {
-                    Icon(Icons.Filled.Call, contentDescription = "Voice call")
+                if (selectionMode) {
+                    Text(
+                        text = "${selectedIds.size} selected",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.padding(end = GagaDimens.space4),
+                    )
+                    IconButton(
+                        onClick = { copySelected() },
+                        enabled = selectedIds.isNotEmpty(),
+                    ) {
+                        Icon(Icons.Filled.ContentCopy, contentDescription = "Copy selected")
+                    }
+                    IconButton(
+                        onClick = { forwardSelected() },
+                        enabled = selectedIds.isNotEmpty(),
+                    ) {
+                        Icon(Icons.AutoMirrored.Filled.Forward, contentDescription = "Forward selected")
+                    }
+                    IconButton(
+                        onClick = { deleteSelected() },
+                        enabled = selectedIds.isNotEmpty(),
+                    ) {
+                        Icon(Icons.Filled.Delete, contentDescription = "Delete selected")
+                    }
+                    IconButton(onClick = { exitSelectionMode() }) {
+                        Icon(Icons.Filled.Close, contentDescription = "Cancel selection")
+                    }
+                } else {
+                    IconButton(onClick = { onStartCall(state.conversationId, false) }) {
+                        Icon(Icons.Filled.Call, contentDescription = "Voice call")
+                    }
+                    IconButton(onClick = { onStartCall(state.conversationId, true) }) {
+                        Icon(Icons.Filled.Videocam, contentDescription = "Video call")
+                    }
+                    ChatOverflowMenu(
+                        onSearch = viewModel::toggleSearch,
+                        onToggleMute = viewModel::toggleMute,
+                        onChatBackground = { showBackgroundPicker = true },
+                        onOpenMedia = { onOpenChatInfo(state.conversationId) },
+                        onChatInfo = { onOpenChatInfo(state.conversationId) },
+                        isMuted = state.isMuted,
+                    )
                 }
-                IconButton(onClick = { onStartCall(state.conversationId, true) }) {
-                    Icon(Icons.Filled.Videocam, contentDescription = "Video call")
-                }
-                ChatOverflowMenu(
-                    onViewProfile = openProfile,
-                    onChatInfo = { onOpenChatInfo(state.conversationId) },
-                    onSendMoney = onSendMoney,
-                    onBlockUser = viewModel::blockUser,
-                    onRemoveFriend = viewModel::removeFriend,
-                    onSearch = viewModel::toggleSearch,
-                    onReport = viewModel::reportUser,
-                    onChatBackground = { showBackgroundPicker = true },
-                    isMuted = state.isMuted,
-                    onToggleMute = viewModel::toggleMute,
-                    onClearChat = viewModel::clearChat,
-                )
             },
         ) { padding ->
             Column(
@@ -302,6 +360,15 @@ fun ChatRoute(
                             typingAvatarUrl = state.otherUserAvatar ?: state.avatarUrl,
                             typingName = state.otherUserName.ifBlank { state.title },
                             listState = listState,
+                            selectionMode = selectionMode,
+                            selectedIds = selectedIds,
+                            onToggleSelect = { msg ->
+                                selectedIds = if (msg.localId in selectedIds) {
+                                    selectedIds - msg.localId
+                                } else {
+                                    selectedIds + msg.localId
+                                }
+                            },
                             onRetry = viewModel::retry,
                             onLongPress = viewModel::selectMessage,
                             onMediaClick = { msg ->
@@ -488,6 +555,23 @@ fun ChatRoute(
                     viewModel.deleteForMe(selected)
                     viewModel.selectMessage(null)
                 },
+                onMessageInfo = {
+                    infoMessage = selected
+                    viewModel.selectMessage(null)
+                },
+                onSelectMultiple = {
+                    selectionMode = true
+                    selectedIds = setOf(selected.localId)
+                    viewModel.selectMessage(null)
+                },
+            )
+        }
+
+        infoMessage?.let { info ->
+            MessageInfoDialog(
+                message = info,
+                currentUserId = state.currentUserId,
+                onDismiss = { infoMessage = null },
             )
         }
 
@@ -647,6 +731,8 @@ private fun MessageActionSheet(
     onCopy: () -> Unit,
     onDelete: () -> Unit,
     onDeleteForMe: () -> Unit,
+    onMessageInfo: () -> Unit,
+    onSelectMultiple: () -> Unit,
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val isOwn = message.senderId == currentUserId
@@ -771,25 +857,21 @@ private fun MessageSearchBar(
 }
 
 /**
- * The conversation overflow menu (reference screenshot 174606): Search Messages,
- * Chat Background, Send Money, View Profile, Chat Info, Remove Friend, Block User
- * and Report User. "Search Messages", "View Profile", "Block User", "Remove
- * Friend" and "Report User" are wired; "Chat Background" surfaces a transient
- * notice until its owning feature lands (deferred to the UI-polish phase).
+ * The conversation overflow menu, deliberately kept to everyday actions:
+ * Search Messages, Mute/Unmute, Chat Background, Media/Links/Docs and Chat Info.
+ * The risky moderation actions (Clear / Remove / Block / Report) now live inside
+ * Chat Info's "Manage" section so they sit behind one extra, intentional tap
+ * (P1). "View Profile" is reachable by tapping the header title, and "Send Money"
+ * is offered from Chat Info's quick actions.
  */
 @Composable
 private fun ChatOverflowMenu(
-    onViewProfile: () -> Unit,
-    onChatInfo: () -> Unit,
-    onSendMoney: () -> Unit,
-    onBlockUser: () -> Unit,
-    onRemoveFriend: () -> Unit,
     onSearch: () -> Unit,
-    onReport: () -> Unit,
-    onChatBackground: () -> Unit,
-    isMuted: Boolean,
     onToggleMute: () -> Unit,
-    onClearChat: () -> Unit,
+    onChatBackground: () -> Unit,
+    onOpenMedia: () -> Unit,
+    onChatInfo: () -> Unit,
+    isMuted: Boolean,
 ) {
     var expanded by remember { mutableStateOf(false) }
 
@@ -803,28 +885,8 @@ private fun ChatOverflowMenu(
             onToggleMute()
         }
         MenuItem("Chat Background") { expanded = false; onChatBackground() }
-        MenuItem("Send Money") {
-            expanded = false
-            onSendMoney()
-        }
-        MenuItem("View Profile") {
-            expanded = false
-            onViewProfile()
-        }
-        MenuItem("Chat Info") {
-            expanded = false
-            onChatInfo()
-        }
-        MenuItem("Clear Chat") { expanded = false; onClearChat() }
-        MenuItem("Remove Friend") {
-            expanded = false
-            onRemoveFriend()
-        }
-        MenuItem("Block User") {
-            expanded = false
-            onBlockUser()
-        }
-        MenuItem("Report User") { expanded = false; onReport() }
+        MenuItem("Media, Links & Docs") { expanded = false; onOpenMedia() }
+        MenuItem("Chat Info") { expanded = false; onChatInfo() }
     }
 }
 
@@ -921,6 +983,9 @@ private fun MessageList(
                     isOutgoing = isOutgoing,
                     currentUserId = currentUserId,
                     repliedMessage = repliedMessage,
+                    selectionMode = selectionMode,
+                    isSelected = message.localId in selectedIds,
+                    onToggleSelect = onToggleSelect,
                     onRetry = { onRetry(message) },
                     onMediaClick = onMediaClick,
                     onLongPress = onLongPress,

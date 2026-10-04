@@ -1,0 +1,50 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+
+    "presence": {
+      "$uid": {
+        ".read": "auth != null",
+        ".write": "auth != null && auth.uid == $uid",
+        ".validate": "newData.hasChildren(['state', 'lastChanged'])"
+      }
+    },
+
+    "status": {
+      "$uid": {
+        ".read": "auth != null",
+        ".write": "auth != null && auth.uid == $uid"
+      }
+    },
+
+    "typing": {
+      "$chatId": {
+        "$uid": {
+          ".read": "auth != null",
+          ".write": "auth != null && auth.uid == $uid",
+          ".validate": "newData.hasChildren(['typing', 'updatedAt'])"
+        }
+      }
+    },
+
+    "signaling": {
+      "$callId": {
+        ".read": "auth != null",
+        ".write": "auth != null",
+        "$uid": {
+          ".validate": "newData.hasChildren(['sdp', 'type']) || newData.hasChildren(['candidate'])"
+        }
+      }
+    },
+
+    "receipts": {
+      "$chatId": {
+        "$uid": {
+          ".read": "auth != null",
+          ".write": "auth != null && auth.uid == $uid"
+        }
+      }
+    }
+  }
+}

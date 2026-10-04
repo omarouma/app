@@ -80,6 +80,21 @@ class VoiceRecorder(private val context: Context) {
         }
     }
 
+    /**
+     * Normalised 0f..1f loudness of the live microphone input, or `null` when no
+     * recording is active. Derived from [MediaRecorder.getMaxAmplitude] (which
+     * reports a 16-bit peak) and mapped onto a perceptual (roughly logarithmic)
+     * curve so quiet speech still drives the waveform bars.
+     */
+    fun currentAmplitude(): Float? {
+        val mr = recorder ?: return null
+        val peak = runCatching { mr.maxAmplitude }.getOrDefault(0)
+        if (peak <= 0) return 0f
+        val ratio = (peak / 32767.0).coerceIn(0.0, 1.0)
+        // sqrt curve lifts quiet samples without clipping loud ones.
+        return kotlin.math.sqrt(ratio).toFloat().coerceIn(0f, 1f)
+    }
+
     /** Aborts the active recording and deletes the partial file. */
     fun cancel() {
         val mr = recorder ?: return

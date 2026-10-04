@@ -91,6 +91,12 @@ data class ChatUiState(
     val isOtherTyping: Boolean = false,
     val isRecording: Boolean = false,
     val recordingElapsedMs: Long = 0L,
+    /** Rolling mic levels for the recording waveform (most recent last). */
+    val recordingLevels: List<Float> = emptyList(),
+    /** True when this conversation is a group or channel (drives the header). */
+    val isGroup: Boolean = false,
+    /** Participant count for group/channel headers. */
+    val memberCount: Int = 0,
     val isSearching: Boolean = false,
     val searchQuery: String = "",
     val isOnline: Boolean = true,
@@ -129,7 +135,12 @@ data class ChatUiState(
 data class RecordingState(
     val isActive: Boolean = false,
     val elapsedMs: Long = 0L,
+    /** Rolling window of normalised 0f..1f mic levels powering the waveform. */
+    val levels: List<Float> = emptyList(),
 )
+
+/** Number of mic samples retained for the recording waveform. */
+private const val MAX_RECORDING_LEVELS = 48
 
 /**
  * F21: a located fix waiting for the user to confirm before it is shared. The
@@ -297,6 +308,9 @@ class ChatViewModel @Inject constructor(
             isOtherTyping = composer.typing,
             isRecording = composer.recording.isActive,
             recordingElapsedMs = composer.recording.elapsedMs,
+            recordingLevels = composer.recording.levels,
+            isGroup = conversation?.type != null && conversation.type != ConversationType.DIRECT,
+            memberCount = conversation?.members?.size ?: 0,
             isSearching = flags.isSearching,
             searchQuery = flags.searchQuery,
             searchResults = flags.searchResults,
@@ -592,9 +606,16 @@ class ChatViewModel @Inject constructor(
         recordingTicker?.cancel()
         recordingTicker = viewModelScope.launch {
             val startedAt = System.currentTimeMillis()
+            val levels = ArrayDeque<Float>()
             while (recording.value.isActive) {
-                recording.value = recording.value.copy(elapsedMs = System.currentTimeMillis() - startedAt)
-                delay(200)
+                val level = voiceRecorder.currentAmplitude() ?: 0f
+                levels.addLast(level)
+                while (levels.size > MAX_RECORDING_LEVELS) levels.removeFirst()
+                recording.value = recording.value.copy(
+                    elapsedMs = System.currentTimeMillis() - startedAt,
+                    levels = levels.toList(),
+                )
+                delay(100)
             }
         }
     }

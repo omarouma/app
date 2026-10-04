@@ -173,7 +173,6 @@ fun MainNavHost(pendingDeepLink: String?) {
                 onOpenProfile = { userId ->
                     navController.navigate(ProfileRoutes.profile(userId))
                 },
-                onSendMoney = { navController.navigate(WalletRoutes.WALLET) },
             )
             chatInfoScreen(
                 navController = navController,
@@ -183,6 +182,7 @@ fun MainNavHost(pendingDeepLink: String?) {
                 onOpenProfile = { userId ->
                     navController.navigate(ProfileRoutes.profile(userId))
                 },
+                onSendMoney = { navController.navigate(WalletRoutes.WALLET) },
             )
             peopleGraph(
                 navController = navController,

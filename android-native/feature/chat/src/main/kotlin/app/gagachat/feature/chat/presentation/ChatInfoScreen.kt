@@ -22,20 +22,29 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.Call
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Description
+import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.PersonRemove
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Videocam
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -62,13 +71,24 @@ fun ChatInfoRoute(
     onNavigateBack: () -> Unit,
     onStartCall: (conversationId: String, isVideo: Boolean) -> Unit,
     onOpenProfile: (userId: String) -> Unit,
+    onSendMoney: () -> Unit,
     viewModel: ChatInfoViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val notice by viewModel.notice.collectAsStateWithLifecycle()
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    LaunchedEffect(notice) {
+        notice?.let {
+            snackbarHostState.showSnackbar(it)
+            viewModel.consumeNotice()
+        }
+    }
 
     GagaScaffold(
         title = "Chat Info",
         onBack = onNavigateBack,
+        snackbarHostState = snackbarHostState,
     ) { padding ->
         Column(
             modifier = Modifier
@@ -252,7 +272,84 @@ fun ChatInfoRoute(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(horizontal = GagaDimens.space16, vertical = GagaDimens.space8),
             )
+
+            // Management — destructive / moderation actions live here rather
+            // than in the chat overflow menu, so the menu stays a short list of
+            // everyday actions and the risky ones sit behind one extra tap (P1).
+            GagaSectionHeader("Manage")
+            ManagementRow(
+                icon = Icons.Filled.Delete,
+                label = "Clear Chat",
+                description = "Remove this conversation's messages from this device.",
+                onClick = viewModel::clearChat,
+            )
+            ManagementRow(
+                icon = Icons.Filled.PersonRemove,
+                label = "Remove Friend",
+                description = "Remove this contact from your friends list.",
+                onClick = viewModel::removeFriend,
+            )
+            ManagementRow(
+                icon = Icons.Filled.Block,
+                label = "Block User",
+                description = "Stop receiving messages and calls from this contact.",
+                onClick = viewModel::blockUser,
+                destructive = true,
+            )
+            ManagementRow(
+                icon = Icons.Filled.Flag,
+                label = "Report User",
+                description = "Report this contact for review by our team.",
+                onClick = viewModel::reportUser,
+                destructive = true,
+            )
             Spacer(Modifier.height(GagaDimens.space24))
+        }
+    }
+}
+
+/**
+ * A single management action: icon, title, an explanatory subtitle and an
+ * optional destructive (error-coloured) treatment. The whole row is tappable.
+ */
+@Composable
+private fun ManagementRow(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    label: String,
+    description: String,
+    onClick: () -> Unit,
+    destructive: Boolean = false,
+) {
+    val tint = if (destructive) {
+        MaterialTheme.colorScheme.error
+    } else {
+        MaterialTheme.colorScheme.onSurface
+    }
+    HorizontalDivider(
+        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+        modifier = Modifier.padding(horizontal = GagaDimens.space16),
+    )
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = GagaDimens.space16, vertical = GagaDimens.space12),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(icon, contentDescription = null, tint = tint)
+        Spacer(Modifier.width(GagaDimens.space16))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.bodyLarge,
+                color = tint,
+                fontWeight = FontWeight.Medium,
+            )
+            Text(
+                text = description,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
     }
 }
