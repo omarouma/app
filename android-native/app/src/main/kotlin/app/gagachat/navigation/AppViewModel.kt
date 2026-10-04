@@ -9,6 +9,7 @@ import app.gagachat.core.data.preferences.OnboardingPreferences
 import app.gagachat.core.data.repository.AuthRepository
 import app.gagachat.core.data.repository.UserRepository
 import app.gagachat.core.data.sync.RealtimeCoordinator
+import app.gagachat.core.firebase.FirebaseSessionCoordinator
 import app.gagachat.core.network.session.AuthSession
 import app.gagachat.feature.calls.call.ZegoCallManager
 import app.gagachat.push.PushTokenRegistrar
@@ -47,6 +48,7 @@ class AppViewModel @Inject constructor(
     private val networkMonitor: NetworkMonitor,
     private val zegoCallManager: ZegoCallManager,
     private val pushTokenRegistrar: PushTokenRegistrar,
+    private val firebaseSessionCoordinator: FirebaseSessionCoordinator,
     @ApplicationScope private val applicationScope: CoroutineScope,
 ) : ViewModel() {
 
@@ -116,6 +118,10 @@ class AppViewModel @Inject constructor(
         }
         // Keep the calling subsystem in lock-step with the session (PDF \u00a78).
         observeSessionForCalling()
+        // Keep Firebase Auth in lock-step with the Supabase session so the
+        // Firestore/RTDB mirror is authorised (uid == Supabase uid). No-op unless
+        // the Hybrid transport flag is enabled at build time.
+        firebaseSessionCoordinator.start(applicationScope, authRepository.sessionFlow)
     }
 
     /**

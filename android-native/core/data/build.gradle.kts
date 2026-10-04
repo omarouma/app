@@ -12,6 +12,8 @@ dependencies {
     implementation(project(":core:common"))
     implementation(project(":core:database"))
     implementation(project(":core:network"))
+    // Firebase Hybrid transport (best-effort Firestore mirror of sends/typing).
+    implementation(project(":core:firebase"))
 
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.kotlinx.serialization.json)

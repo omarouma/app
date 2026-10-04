@@ -18,4 +18,9 @@ dependencies {
     implementation(libs.androidx.camera.camera2)
     implementation(libs.androidx.camera.lifecycle)
     implementation(libs.androidx.camera.view)
+    // CameraX's ProcessCameraProvider returns a Guava ListenableFuture. Firebase
+    // (transitively, via :core:data -> :core:firebase) pins the standalone
+    // com.google.guava:listenablefuture artifact to an EMPTY version, so the
+    // ListenableFuture interface must be supplied by guava itself.
+    implementation(libs.guava)
 }

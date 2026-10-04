@@ -164,6 +164,6 @@ class GagaApplication : Application(), Configuration.Provider, ImageLoaderFactor
     private companion object {
         const val TAG = "GagaApplication"
         const val PRESENCE_HEARTBEAT_MS = 45_000L
-        const val USER_AGENT = "GaGaChat/2.0.18 (Android)"
+        val USER_AGENT = "GaGaChat/${BuildConfig.VERSION_NAME} (Android)"
     }
 }

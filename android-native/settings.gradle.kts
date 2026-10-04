@@ -37,6 +37,8 @@ include(":core:database")
 include(":core:network")
 include(":core:data")
 include(":core:ui")
+// Firebase Hybrid transport (Firestore/RTDB mirror + custom-token auth bridge).
+include(":core:firebase")
 
 // Feature modules (PDF §2.1)
 include(":feature:onboarding")
