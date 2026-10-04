@@ -60,6 +60,7 @@ import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -158,6 +159,11 @@ fun ChatRoute(
     var showPollComposer by remember { mutableStateOf(false) }
     var showLiveLocationPicker by remember { mutableStateOf(false) }
     var showSchedulePicker by remember { mutableStateOf(false) }
+    // Multi-select + message-info state (P1): long-pressing a message can enter a
+    // selection mode, and "Message info" opens a detail dialog.
+    var selectionMode by remember { mutableStateOf(false) }
+    var selectedIds by remember { mutableStateOf(setOf<String>()) }
+    var infoMessage by remember { mutableStateOf<Message?>(null) }
     // Requests RECORD_AUDIO the first time the mic is tapped, then starts the
     // recording. If the user denies, the ViewModel surfaces an actionable notice.
     val micPermissionLauncher = rememberLauncherForActivityResult(
@@ -451,6 +457,7 @@ fun ChatRoute(
                     onScheduleClick = { showSchedulePicker = true },
                     isRecording = state.isRecording,
                     recordingElapsedMs = state.recordingElapsedMs,
+                    recordingLevels = state.recordingLevels,
                     onStartRecording = {
                         val granted = ContextCompat.checkSelfPermission(
                             context,
@@ -908,6 +915,9 @@ private fun MessageList(
     typingAvatarUrl: String?,
     typingName: String?,
     listState: androidx.compose.foundation.lazy.LazyListState,
+    selectionMode: Boolean,
+    selectedIds: Set<String>,
+    onToggleSelect: (Message) -> Unit,
     onRetry: (Message) -> Unit,
     onLongPress: (Message) -> Unit,
     onMediaClick: (Message) -> Unit,
@@ -1037,6 +1047,85 @@ private fun UnreadDivider() {
         )
         HorizontalDivider(modifier = Modifier.weight(1f))
     }
+}
+
+/**
+ * "Message info" dialog surfaced from the long-press action sheet (P1). Shows the
+ * delivery metadata for a single message \u2014 direction, type, status and the
+ * authoritative timestamps \u2014 so a user can inspect exactly when a message was
+ * sent, delivered and read.
+ */
+@Composable
+private fun MessageInfoDialog(
+    message: Message,
+    currentUserId: String,
+    onDismiss: () -> Unit,
+) {
+    val isOutgoing = message.senderId == currentUserId
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text("Close") }
+        },
+        title = { Text("Message info") },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(GagaDimens.space8),
+            ) {
+                MessageInfoLine("Direction", if (isOutgoing) "Sent" else "Received")
+                MessageInfoLine("Type", message.type.name.lowercase().replaceFirstChar { it.uppercase() })
+                MessageInfoLine("Status", message.status.name.lowercase().replaceFirstChar { it.uppercase() })
+                if (message.createdAtClient > 0L) {
+                    MessageInfoLine("Sent", formatInfoTimestamp(message.createdAtClient))
+                }
+                message.createdAtServer?.let {
+                    MessageInfoLine("Delivered", formatInfoTimestamp(it))
+                }
+                message.editedAt?.let {
+                    MessageInfoLine("Edited", formatInfoTimestamp(it))
+                }
+                if (message.isDeleted) {
+                    MessageInfoLine("Deleted", "Yes")
+                }
+                message.serverMessageId?.let { MessageInfoLine("Message ID", it) }
+                val body = message.text
+                if (message.type == MessageType.TEXT && !body.isNullOrBlank()) {
+                    MessageInfoLine("Text", body)
+                }
+            }
+        },
+    )
+}
+
+@Composable
+private fun MessageInfoLine(label: String, value: String) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(end = GagaDimens.space16),
+        )
+        Text(
+            text = value,
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.Medium,
+            color = MaterialTheme.colorScheme.onSurface,
+            textAlign = TextAlign.End,
+            modifier = Modifier.weight(1f),
+        )
+    }
+}
+
+private fun formatInfoTimestamp(epochMillis: Long): String {
+    val fmt = java.text.SimpleDateFormat("MMM d, yyyy \u00b7 h:mm a", java.util.Locale.getDefault())
+    return fmt.format(java.util.Date(epochMillis))
 }
 
 private fun isSameDay(a: Long, b: Long): Boolean {

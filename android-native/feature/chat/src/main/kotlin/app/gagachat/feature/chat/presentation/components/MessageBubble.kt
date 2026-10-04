@@ -27,6 +27,7 @@ import androidx.compose.material.icons.filled.CallEnd
 import androidx.compose.material.icons.filled.CallMade
 import androidx.compose.material.icons.filled.CallMissed
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.DoneAll
@@ -111,6 +112,9 @@ fun MessageBubble(
     isOutgoing: Boolean,
     currentUserId: String,
     repliedMessage: Message?,
+    selectionMode: Boolean = false,
+    isSelected: Boolean = false,
+    onToggleSelect: (Message) -> Unit = {},
     onRetry: () -> Unit,
     onMediaClick: (Message) -> Unit,
     onLongPress: (Message) -> Unit,
@@ -603,7 +607,7 @@ private fun MediaPlaceholder(
             .then(
                 if (failed && onRetry != null) Modifier.clickable(onClick = onRetry) else Modifier,
             )
-            .padding(horizontal = GagaDimens.space12, vertical = GagaDimens.space10),
+            .padding(horizontal = GagaDimens.space12, vertical = GagaDimens.space8),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
