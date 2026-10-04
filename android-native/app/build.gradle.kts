@@ -24,21 +24,12 @@ android {
 
     defaultConfig {
         applicationId = "gagachat.app"
-        versionCode = 27
-        versionName = "2.0.25"
+        versionCode = 28
+        versionName = "2.0.26"
 
-        // The ZEGOCLOUD Call Kit ships native RTC libraries for four ABIs. We
-        // bundle the two every real Android phone uses (64-bit and 32-bit ARM).
-        //
-        // IMPORTANT: the Call Kit's transitive MMKV dependency
-        // (com.tencent:mmkv:2.2.2) only publishes arm64-v8a + x86_64 native
-        // libraries -- it has NO armeabi-v7a libmmkv.so. ZEGO's auto-registered
-        // `PrebuiltCallInitializer` ContentProvider calls MMKV.initialize()
-        // during process startup (before Application.onCreate), so on a 32-bit
-        // ARM device the missing library throws UnsatisfiedLinkError and the app
-        // is killed instantly on launch. We pin MMKV to 1.3.17 below (see the
-        // resolution strategy) because that release still ships armeabi-v7a and
-        // exposes the exact same API surface ZEGO uses.
+        // LiveKit ships its WebRTC native libraries for the two ABIs every real
+        // Android phone uses (64-bit and 32-bit ARM). Restricting the set keeps
+        // the APK small and avoids shipping x86 emulator binaries.
         ndk {
             abiFilters += listOf("arm64-v8a", "armeabi-v7a")
         }
@@ -111,25 +102,6 @@ android {
             "META-INF/LICENSE*",
             "META-INF/versions/9/OSGI-INF/MANIFEST.MF",
         )
-    }
-}
-
-// ---- Native library compatibility fix (startup crash) ----
-// The ZEGOCLOUD Call Kit pulls in com.tencent:mmkv:2.2.2 transitively. MMKV 2.x
-// only publishes arm64-v8a + x86_64 native libraries, so on 32-bit ARM devices
-// `libmmkv.so` is missing and ZEGO's auto-run `PrebuiltCallInitializer`
-// ContentProvider (which calls MMKV.initialize() before Application.onCreate)
-// throws UnsatisfiedLinkError -> the app is killed on launch.
-//
-// MMKV 1.3.17 is the last release that ships armeabi-v7a (plus arm64-v8a, x86
-// and x86_64). ZEGO only ever calls the core MMKV API
-// (initialize / mmkvWithID / defaultMMKV / encode / decode* / contains /
-// remove / getString) and those method descriptors are byte-for-byte identical
-// between 1.3.17 and 2.2.2, so pinning 1.3.17 restores the missing 32-bit
-// library without any behavioural or linkage change.
-configurations.configureEach {
-    resolutionStrategy {
-        force("com.tencent:mmkv:1.3.17")
     }
 }
 
@@ -211,8 +183,8 @@ dependencies {
     // third-party basemap tiles + shared connection pool).
     implementation(libs.okhttp)
 
-    // ZEGOCLOUD Call Kit — real 1:1 audio/video calling with call invitations.
-    implementation(libs.zego.callkit)
+    // LiveKit Android SDK — WebRTC media transport for 1:1 audio/video calls.
+    implementation(libs.livekit.android)
 
     // Testing
     testImplementation(libs.junit)

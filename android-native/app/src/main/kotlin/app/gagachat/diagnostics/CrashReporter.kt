@@ -16,7 +16,7 @@ import java.util.Locale
  *
  * This is intentionally dependency-free (no Hilt, no coroutines, no Compose) so
  * it can be installed from an `androidx.startup` [Initializer] *before* any other
- * ContentProvider (including ZEGO's `PrebuiltCallInitializer`) runs. That makes
+ * ContentProvider (including Firebase's own initializers) runs. That makes
  * it able to capture crashes that happen during process start-up — the exact
  * class of failure we are chasing.
  *

@@ -139,8 +139,8 @@ data class ChatReadRow(
  *
  * Keep this DTO aligned with the live Supabase schema. In particular, `chat_id`,
  * `room_id`, and `started_at` are real server columns and form the durable call
- * correlation contract used by Android, notifications, ZEGO callbacks and chat
- * call-event history.
+ * correlation contract used by Android, notifications, the LiveKit room name and
+ * chat call-event history.
  *
  * `duration` is stored server-side in **seconds**; the domain model uses
  * milliseconds and converts at the mapper boundary.
@@ -169,19 +169,29 @@ data class CreateCallResponse(
     @SerialName("call_id") val callId: String,
     @SerialName("room_id") val roomId: String,
     val status: String,
-    @SerialName("app_id") val appId: Long = 0L,
     @SerialName("caller_id") val callerId: String,
     @SerialName("callee_id") val calleeId: String,
     @SerialName("call_type") val callType: String,
 )
 
-/** Server-issued ZEGOCLOUD user token. ServerSecret never ships in the APK. */
+/**
+ * Server-issued LiveKit access token (JWT) for a single call room.
+ *
+ * The LiveKit API key/secret live only inside the `livekit-token` Supabase Edge
+ * Function; the client receives a short-lived, room-scoped token it can hand
+ * straight to `Room.connect(url, token)`.
+ */
 @Serializable
-data class ZegoTokenResponse(
-    @SerialName("zimToken") val zimToken: String,
-    @SerialName("appID") val appId: Long,
-    @SerialName("userID") val userId: String,
-    @SerialName("expireAt") val expireAt: Long,
+data class LiveKitTokenResponse(
+    /** Signed LiveKit JWT granting join rights to [room]. */
+    val token: String,
+    /** WebSocket signalling URL, e.g. `wss://<project>.livekit.cloud`. */
+    val url: String,
+    /** Room name the token is scoped to (the call id). */
+    val room: String,
+    /** Participant identity the token was minted for. */
+    val identity: String,
+    @SerialName("expires_at") val expiresAt: Long = 0L,
 )
 
 /**

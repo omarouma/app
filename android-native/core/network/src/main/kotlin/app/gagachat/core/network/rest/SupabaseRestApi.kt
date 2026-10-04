@@ -25,7 +25,7 @@ import app.gagachat.core.network.dto.SavedMessageRow
 import app.gagachat.core.network.dto.UserRow
 import app.gagachat.core.network.dto.WalletInsert
 import app.gagachat.core.network.dto.WalletRow
-import app.gagachat.core.network.dto.ZegoTokenResponse
+import app.gagachat.core.network.dto.LiveKitTokenResponse
 import app.gagachat.core.network.session.SessionStore
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
@@ -449,14 +449,19 @@ class SupabaseRestApi @Inject constructor(
     }.body()
 
     /**
-     * Requests a short-lived ZIM identity token for the signed-in user.
-     * The server cryptographically verifies the Supabase session and never
-     * exposes the ZEGO ServerSecret to the Android client.
+     * Requests a short-lived LiveKit access token for [room] for the signed-in
+     * user. The server cryptographically verifies the Supabase session, checks
+     * that the caller is a participant of the call, and mints the JWT with the
+     * LiveKit API secret — which never leaves the server.
      */
-    suspend fun getZegoZimToken(userId: String, userName: String): ZegoTokenResponse =
-        client.get("${config.functionsUrl}/zego-token") {
+    suspend fun getLiveKitToken(
+        room: String,
+        userId: String,
+        userName: String,
+    ): LiveKitTokenResponse =
+        client.get("${config.functionsUrl}/livekit-token") {
             auth()
-            parameter("type", "zim")
+            parameter("room", room)
             parameter("user", userId.filter { it.isLetterOrDigit() || it == '_' }.take(64))
             parameter("name", userName.take(80))
         }.body()

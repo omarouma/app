@@ -14,8 +14,8 @@ import android.provider.Settings
  * A calling app must be allowed to wake the device and post a full-screen
  * incoming-call notification even when the screen is off or the app has been
  * idle for a while. Without the exemption, Doze / App Standby defers the FCM
- * push that carries the ZEGO call invite, so the phone only rings once the user
- * next opens the app — which is exactly the "call never connects" symptom.
+ * push that carries the incoming-call invite, so the phone only rings once the
+ * user next opens the app — which is exactly the "call never connects" symptom.
  *
  * The exemption is a *settings* grant, not a runtime permission, so it is
  * requested through an [Intent] rather than `requestPermissions`.

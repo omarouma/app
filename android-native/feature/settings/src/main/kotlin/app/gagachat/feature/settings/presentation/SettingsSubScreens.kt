@@ -1006,6 +1006,7 @@ private const val LICENSES_TEXT =
         "• Room — Apache License 2.0\n" +
         "• Coil — Apache License 2.0\n" +
         "• OkHttp — Apache License 2.0\n" +
-        "• ZEGOCLOUD Call Kit — ZEGOCLOUD SDK License\n\n" +
+        "• LiveKit Android SDK — Apache License 2.0\n" +
+        "• WebRTC (io.github.webrtc-sdk) — BSD 3-Clause License\n\n" +
         "Full licence texts are available from each project's repository. " +
         "Thank you to the maintainers of these projects."

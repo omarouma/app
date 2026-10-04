@@ -18,9 +18,8 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
-        // ZEGOCLOUD Call Kit (ZIM signaling + Express media + prebuilt UI).
-        maven { url = uri("https://maven.zego.im") }
-        // ZEGOCLOUD transitive dependencies (e.g. MMKV) are published on JitPack.
+        // LiveKit's transitive audio-routing dependency (audioswitch) is
+        // published on JitPack, so this repository is still required.
         maven { url = uri("https://www.jitpack.io") }
     }
 }

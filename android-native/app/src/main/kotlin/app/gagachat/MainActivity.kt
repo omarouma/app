@@ -17,7 +17,6 @@ import app.gagachat.core.ui.theme.GagaTheme
 import app.gagachat.diagnostics.CrashReportGate
 import app.gagachat.navigation.GagaApp
 import app.gagachat.push.DeepLinkRouter
-import app.gagachat.push.PendingDeepLink
 import app.gagachat.security.AppLockGate
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.flow.drop
@@ -81,7 +80,7 @@ class MainActivity : ComponentActivity() {
                 // debugger. The report is also written to Downloads/gaga_crash.txt.
                 CrashReportGate {
                     AppLockGate(enabled = appLockEnabled) {
-                        GagaApp(pendingDeepLink = PendingDeepLink.current)
+                        GagaApp()
                     }
                 }
             }

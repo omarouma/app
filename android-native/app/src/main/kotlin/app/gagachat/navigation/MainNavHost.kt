@@ -40,6 +40,7 @@ import androidx.navigation.compose.rememberNavController
 import app.gagachat.feature.calls.navigation.CallRoutes
 import app.gagachat.feature.calls.navigation.activeCallScreen
 import app.gagachat.feature.calls.navigation.callHistoryScreen
+import app.gagachat.feature.calls.navigation.incomingCallScreen
 import app.gagachat.feature.chat.navigation.ChatRoutes
 import app.gagachat.feature.chat.navigation.chatInfoScreen
 import app.gagachat.feature.chat.navigation.chatScreen
@@ -200,6 +201,13 @@ fun MainNavHost(pendingDeepLink: String?) {
                 },
             )
             activeCallScreen(
+                navController = navController,
+                onCallFinished = { /* pop handled inside */ },
+            )
+            // Incoming calls arrive as a deep link (full-screen call notification
+            // or a live Realtime invite); this destination rings and only joins
+            // the LiveKit room once the user accepts.
+            incomingCallScreen(
                 navController = navController,
                 onCallFinished = { /* pop handled inside */ },
             )

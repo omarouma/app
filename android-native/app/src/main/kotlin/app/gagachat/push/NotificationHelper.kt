@@ -63,19 +63,27 @@ object NotificationHelper {
         post(context, notificationId, builder.build())
     }
 
-    /** Incoming call — always uses the ringing channel and bypasses DND. */
+    /**
+     * Incoming call — always uses the ringing channel and bypasses DND.
+     *
+     * [callId] is the server-side call row id. It is what lets a tap land on the
+     * *incoming* call surface with enough information to actually accept the
+     * call: the screen then asks the `livekit-token` Edge Function for its own
+     * LiveKit access token. No credential is ever carried in the notification.
+     */
     fun showIncomingCall(
         context: Context,
         conversationId: String,
         callerName: String,
         isVideo: Boolean,
+        callId: String? = null,
         notificationsEnabled: Boolean = true,
         notificationId: Int = conversationId.hashCode() + 1,
     ) {
         if (!notificationsEnabled) return
         val intent = Intent(context, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-            data = android.net.Uri.parse("gagachat://call/$conversationId")
+            data = android.net.Uri.parse(incomingCallUri(conversationId, callId, isVideo))
         }
         val pending = PendingIntent.getActivity(
             context,
@@ -98,6 +106,21 @@ object NotificationHelper {
             .build()
 
         post(context, notificationId, notification)
+    }
+
+    /**
+     * Deep link for an incoming call:
+     * `gagachat://call/<conversationId>?callId=<id>&video=<bool>`.
+     *
+     * The call id and media kind travel as query parameters so the incoming-call
+     * route can be rebuilt without another network round-trip. When [callId] is
+     * missing the bare link is used, which the router deliberately resolves to
+     * the Calls tab rather than to a call screen that could not be answered.
+     */
+    private fun incomingCallUri(conversationId: String, callId: String?, isVideo: Boolean): String {
+        val base = "gagachat://call/${android.net.Uri.encode(conversationId)}"
+        if (callId.isNullOrBlank()) return base
+        return "$base?callId=${android.net.Uri.encode(callId)}&video=$isVideo"
     }
 
     /** Missed call notification; tapping opens the Calls tab. */

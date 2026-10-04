@@ -28,7 +28,7 @@ import javax.inject.Singleton
  * captured the token once at sign-in and then used it for the whole session:
  * `validateAndRefresh()` only ever ran from `AppViewModel.init` /
  * `SplashViewModel.init`, so once the token expired every REST call, media
- * upload, `create-call` and `zego-token` request failed with 401 at the same
+ * upload, `create-call` and `livekit-token` request failed with 401 at the same
  * time — an empty chat list, messages stuck on PENDING, photos/videos that never
  * upload and calls that never ring.
  *

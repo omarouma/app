@@ -7,8 +7,8 @@ import androidx.startup.Initializer
  * Installs [CrashReporter] as the very first thing that runs in the process.
  *
  * `androidx.startup.InitializationProvider` is the first ContentProvider in the
- * merged manifest, so this initializer executes *before* ZEGO's
- * `PrebuiltCallInitializer` and before `Application.onCreate()`. Any crash that
+ * merged manifest, so this initializer executes *before* any other
+ * ContentProvider and before `Application.onCreate()`. Any crash that
  * happens afterwards — including one thrown by another ContentProvider during
  * start-up — is therefore captured to a retrievable file.
  */

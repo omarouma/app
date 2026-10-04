@@ -39,7 +39,7 @@ desugar = "2.1.3"
 zxing = "3.5.3"
 cameraX = "1.4.1"
 guava = "32.1.3-android"
-zegoCallKit = "3.0.4"
+livekit = "2.29.0"
 
 [libraries]
 # AndroidX core
@@ -129,8 +129,9 @@ androidx-camera-view = { group = "androidx.camera", name = "camera-view", versio
 # from CameraX's classpath; supplying guava restores it without a duplicate class.
 guava = { group = "com.google.guava", name = "guava", version.ref = "guava" }
 
-# ZEGOCLOUD Call Kit (real 1:1 audio/video calling: ZIM signaling + Express media + prebuilt UI)
-zego-callkit = { group = "im.zego", name = "zego_uikit_prebuilt_call_android", version.ref = "zegoCallKit" }
+# LiveKit Android SDK (WebRTC SFU media transport; signaling + token minting
+# are handled by our own Supabase Realtime channel and Edge Function).
+livekit-android = { group = "io.livekit", name = "livekit-android", version.ref = "livekit" }
 
 # Security
 androidx-security-crypto = { group = "androidx.security", name = "security-crypto", version.ref = "securityCrypto" }

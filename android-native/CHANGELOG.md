@@ -4,6 +4,65 @@ All notable changes to the GaGa Chat native Android app are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 the project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.0.26] — versionCode 28
+
+Calling stack replaced: **ZEGOCLOUD Call Kit is removed and LiveKit (WebRTC SFU)
+takes over audio and video calls.** Signalling is now our own Supabase Realtime
+broadcast channel, and call access tokens are minted server-side, so no calling
+credential ships inside the APK.
+
+### Changed
+- **Media transport is now LiveKit** (`io.livekit:livekit-android:2.29.0`). The
+  ZEGOCLOUD Call Kit / ZIM / Express dependency, its Maven repository
+  (`maven.zego.im`), its forced MMKV pin and its ProGuard keeps are all gone.
+- **Call signalling is ours.** LiveKit is a pure SFU with no notion of "ringing",
+  so the invite / ring / accept / reject / busy / hang-up handshake now travels
+  over Supabase Realtime broadcast on two topics: `call:user:<userId>` (a
+  personal invite inbox, joined for the life of the session) and `call:<callId>`
+  (per-call room, joined by both parties).
+- **Authorisation is server-side.** The new `livekit-token` Supabase Edge
+  Function authenticates the caller, verifies they are a participant of a live
+  call, and mints a short-lived room-scoped LiveKit JWT. The **LiveKit API secret
+  never ships in the APK** — the client only ever holds a token it cannot reuse
+  for another room or after it expires. `zego-token` is deleted.
+- **The app now owns its FCM entry point.** ZEGOCLOUD's Call Kit shipped the
+  `FirebaseMessagingService` and forwarded ordinary pushes through a private
+  broadcast action. That is replaced by `GagaFirebaseMessagingService` plus a
+  testable `PushHandler`; `GagaPushReceiver` and the
+  `com.zegocloud.zegouikit.call.fcm` intent filter are removed.
+- **In-call UI is our own.** The old screen only *launched* a prebuilt call UI.
+  The call surface now renders the remote video, the local camera preview, peer
+  identity, live duration and mute / speaker / camera-flip / hang-up controls
+  directly on LiveKit's `SurfaceViewRenderer`.
+- **Talk time is measured from answer, not from dialling.** The duration timer
+  starts only once a remote participant is actually in the room, so ring time is
+  no longer billed as talk time (this is what produced the misleading
+  "Voice call · 0m 0s" history rows).
+- **A caller who leaves no longer strands the other side** in a dead room: a
+  remote participant disappearing ends the call after a short grace period.
+- **Deep links now route to calls properly.** `gagachat://call/<conversationId>
+  ?callId=<id>&video=<bool>` opens the *incoming* call surface; the pending deep
+  link is observed as state, so a warm-start notification tap and a live
+  foreground invite both route (previously it was read once at composition).
+  A call link can still never originate an outgoing call.
+
+### Added
+- `LiveKitCallManager` — the single wrapper around the LiveKit SDK (room
+  lifecycle, track publication, renderers, audio routing, peer state).
+- `CallSignalingCoordinator` — the Realtime invite/ring/accept/reject/hang-up
+  layer that replaces ZIM.
+- `supabase/functions/livekit-token/index.ts` — token minting plus the best-effort
+  data-only incoming-call push that wakes a backgrounded device.
+- Incoming-call route (`call/incoming?...`) with its own ringing surface, and a
+  `livekit-token` section in `supabase/BACKEND_SETUP.md`.
+
+### Removed
+- ZEGOCLOUD Call Kit, ZIM, Express, MMKV, `maven.zego.im`, `ZegoCallManager`,
+  `zego-token`, and every ZEGO-specific ProGuard rule and licence line.
+- The leftover `app_id` (ZEGO AppID) field on `CreateCallResponse`; the call
+  record is now fully described by `call_id`, `room_id`, `status`, `caller_id`,
+  `callee_id` and `call_type`.
+
 ## [2.0.25] — versionCode 27
 
 Release-readiness completion: the final §11 gaps (support, appearance, about)

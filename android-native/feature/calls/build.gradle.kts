@@ -13,6 +13,13 @@ dependencies {
     implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.lifecycle.process)
 
-    // ZEGOCLOUD Call Kit — real 1:1 audio/video calling with call invitations.
-    implementation(libs.zego.callkit)
+    // LiveKit Android SDK — WebRTC media transport for 1:1 audio/video calls.
+    // Call invitations/signaling travel over our own Supabase Realtime channel
+    // and access tokens are minted server-side by the `livekit-token` Edge
+    // Function, so no LiveKit credentials are ever bundled in the APK.
+    //
+    // `api` (not `implementation`): `LiveKitCallManager` is injected by the
+    // `:app` module, so the SDK types that appear in its public surface must be
+    // resolvable from `:app`'s compile classpath too.
+    api(libs.livekit.android)
 }

@@ -39,7 +39,7 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_PHONE_CALL" />
     <uses-permission android:name="android.permission.MANAGE_OWN_CALLS" />
 
-    <!-- ZEGOCLOUD Call Kit: full-screen incoming calls, audio routing, Bluetooth -->
+    <!-- Full-screen incoming calls + audio routing (PDF 8) -->
     <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
     <!-- Keeps incoming calls ringing while the app is idle/Doze (PDF §8). -->
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
@@ -100,12 +100,18 @@
         </activity>
 
         <!-- FCM push routing (PDF §8) -->
-        <!-- ZEGO owns the FCM service and forwards ordinary app pushes here. -->
-        <receiver android:name=".push.GagaPushReceiver" android:exported="false">
+        <!-- The app owns its own FirebaseMessagingService: ZEGOCLOUD's Call Kit
+             used to ship one and forward ordinary pushes to us, so removing ZEGO
+             meant taking the FCM entry point back. Call invites are data-only
+             messages sent by the `livekit-token` Edge Function. -->
+        <service
+            android:name=".push.GagaFirebaseMessagingService"
+            android:exported="false"
+            android:directBootAware="true">
             <intent-filter>
-                <action android:name="com.zegocloud.zegouikit.call.fcm" />
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
             </intent-filter>
-        </receiver>
+        </service>
 
         <!-- Default notification channel metadata -->
         <meta-data
@@ -126,7 +132,7 @@
                 android:value="androidx.startup"
                 tools:node="remove" />
             <!-- Installs the crash reporter before any other ContentProvider
-                 (incl. ZEGO's PrebuiltCallInitializer) runs. -->
+                 (including Firebase's own initializers) runs. -->
             <meta-data
                 android:name="app.gagachat.diagnostics.CrashReportingInitializer"
                 android:value="androidx.startup" />

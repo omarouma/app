@@ -5,13 +5,18 @@ import androidx.lifecycle.viewModelScope
 import app.gagachat.core.common.di.ApplicationScope
 import app.gagachat.core.common.network.NetworkMonitor
 import app.gagachat.core.common.result.AppResult
+import app.gagachat.core.data.call.CallSignalingCoordinator
+import app.gagachat.core.data.call.isVideoInvite
 import app.gagachat.core.data.preferences.OnboardingPreferences
 import app.gagachat.core.data.repository.AuthRepository
 import app.gagachat.core.data.repository.UserRepository
 import app.gagachat.core.data.sync.RealtimeCoordinator
 import app.gagachat.core.firebase.FirebaseSessionCoordinator
+import app.gagachat.core.model.CallSignalKind
 import app.gagachat.core.network.session.AuthSession
-import app.gagachat.feature.calls.call.ZegoCallManager
+import app.gagachat.feature.calls.call.LiveKitCallManager
+import app.gagachat.feature.calls.navigation.CallRoutes
+import app.gagachat.push.PendingDeepLink
 import app.gagachat.push.PushTokenRegistrar
 import com.google.firebase.messaging.FirebaseMessaging
 import app.gagachat.sync.workers.SyncInitializer
@@ -35,8 +40,9 @@ import javax.inject.Inject
  *
  * It also exposes the first-run onboarding flag (Master Spec \u00a7C) so the root
  * composable can decide between the onboarding graph and the main graph, and it
- * owns the ZEGOCLOUD Call Kit lifecycle: the SDK is initialised the moment a
- * signed-in session exists and torn down on logout (PDF \u00a78 \u2014 real calling).
+ * owns the calling lifecycle: the LiveKit SDK is initialised and the call
+ * signalling channel is joined the moment a signed-in session exists, and both
+ * are torn down on logout (PDF \u00a78 \u2014 real calling).
  */
 @HiltViewModel
 class AppViewModel @Inject constructor(
@@ -46,7 +52,8 @@ class AppViewModel @Inject constructor(
     private val syncInitializer: SyncInitializer,
     private val realtimeCoordinator: RealtimeCoordinator,
     private val networkMonitor: NetworkMonitor,
-    private val zegoCallManager: ZegoCallManager,
+    private val liveKitCallManager: LiveKitCallManager,
+    private val callSignalingCoordinator: CallSignalingCoordinator,
     private val pushTokenRegistrar: PushTokenRegistrar,
     private val firebaseSessionCoordinator: FirebaseSessionCoordinator,
     @ApplicationScope private val applicationScope: CoroutineScope,
@@ -104,6 +111,10 @@ class AppViewModel @Inject constructor(
     /** Live connectivity, surfaced as the app-wide offline banner (Master Spec \u00a7E). */
     val isOnline: StateFlow<Boolean> = networkMonitor.isOnline
 
+    /** Last invite rung through [PendingDeepLink], used to de-duplicate replays. */
+    private var lastRungCallId: String? = null
+    private var lastRungAt: Long = 0L
+
     init {
         // Fast, offline-safe bootstrap (no network on the critical path).
         authRepository.bootstrap()
@@ -118,6 +129,8 @@ class AppViewModel @Inject constructor(
         }
         // Keep the calling subsystem in lock-step with the session (PDF \u00a78).
         observeSessionForCalling()
+        // Ring the incoming-call screen for foreground invites (PDF \u00a78).
+        observeIncomingCalls()
         // Keep Firebase Auth in lock-step with the Supabase session so the
         // Firestore/RTDB mirror is authorised (uid == Supabase uid). No-op unless
         // the Hybrid transport flag is enabled at build time.
@@ -125,9 +138,13 @@ class AppViewModel @Inject constructor(
     }
 
     /**
-     * Initialises the ZEGOCLOUD Call Kit as soon as a session exists and tears it
+     * Brings the calling subsystem up as soon as a session exists and tears it
      * down on logout. This is what makes incoming calls ring for the signed-in
      * user and lets outgoing calls be placed from anywhere in the app.
+     *
+     * The LiveKit SDK only needs one-time initialisation (it loads the native
+     * WebRTC libraries), whereas the signalling inbox is per-user and is
+     * therefore re-joined whenever the account changes.
      */
     private fun observeSessionForCalling() {
         viewModelScope.launch {
@@ -137,14 +154,10 @@ class AppViewModel @Inject constructor(
                     if (syncedUserId != session.userId) {
                         syncInitializer.start()
                         realtimeCoordinator.restart(applicationScope)
+                        callSignalingCoordinator.start(applicationScope, session.userId)
                         syncedUserId = session.userId
                     }
-                    zegoCallManager.init(
-                        userId = session.userId,
-                        userName = session.displayName?.takeIf { it.isNotBlank() }
-                            ?: session.email?.substringBefore('@')?.takeIf { it.isNotBlank() }
-                            ?: "GaGa User",
-                    )
+                    liveKitCallManager.ensureInitialized()
                     // `onNewToken()` is not guaranteed to run after every login.
                     // Fetch the current FCM token and bind it to this authenticated
                     // user/device so background messages and incoming calls can route.
@@ -158,9 +171,56 @@ class AppViewModel @Inject constructor(
                     }
                 } else {
                     realtimeCoordinator.stop()
+                    callSignalingCoordinator.stop()
+                    liveKitCallManager.shutdown()
                     syncedUserId = null
-                    zegoCallManager.uninit()
+                    lastRungCallId = null
+                    lastRungAt = 0L
                 }
+            }
+        }
+    }
+
+    /**
+     * Rings the incoming-call screen when a live invite arrives for this user.
+     *
+     * The FCM push path (see [app.gagachat.push.GagaFirebaseMessagingService])
+     * covers a
+     * backgrounded or killed app; this collector is what makes a *foreground*
+     * callee ring instantly, without waiting for a push round-trip. The invite is
+     * turned into the very same `call/incoming?...` route the notification uses,
+     * so there is exactly one way into an incoming call and the "never originate
+     * a new outgoing call from a deep link" invariant is preserved.
+     *
+     * Invites are addressed to the user's personal inbox topic, but the payload
+     * is also re-checked against the signed-in id here: a stale invite for a
+     * previous account must never ring the current user.
+     */
+    private fun observeIncomingCalls() {
+        viewModelScope.launch {
+            callSignalingCoordinator.signals.collect { signal ->
+                if (signal.kind != CallSignalKind.RINGING) return@collect
+                val self = session.value?.userId ?: return@collect
+                if (signal.toUserId.isNotEmpty() && signal.toUserId != self) return@collect
+                if (signal.conversationId.isBlank() || signal.callId.isBlank()) return@collect
+                // A call is already up (or being set up): never stack a second
+                // incoming screen on top of the one the user is looking at.
+                if (liveKitCallManager.isActive()) return@collect
+                // Broadcasts are fire-and-forget and may be replayed after a
+                // socket reconnect; collapse repeats of the same invite.
+                val now = System.currentTimeMillis()
+                if (signal.callId == lastRungCallId && now - lastRungAt < RING_DEDUPE_MS) {
+                    return@collect
+                }
+                lastRungCallId = signal.callId
+                lastRungAt = now
+                PendingDeepLink.set(
+                    CallRoutes.incomingCall(
+                        conversationId = signal.conversationId,
+                        callId = signal.callId,
+                        isVideo = signal.isVideoInvite(),
+                    ),
+                )
             }
         }
     }
@@ -176,9 +236,15 @@ class AppViewModel @Inject constructor(
         syncInitializer.start()
         realtimeCoordinator.restart(applicationScope)
         session.value?.let { current ->
-            viewModelScope.launch {
-                zegoCallManager.init(current.userId, current.displayName ?: "GaGa User")
-            }
+            liveKitCallManager.ensureInitialized()
+            callSignalingCoordinator.start(applicationScope, current.userId)
         }
     }
 }
+
+/**
+ * Window during which a repeat of the same call invite is ignored. Long enough
+ * to absorb a Realtime reconnect replay, short enough that a genuine re-ring
+ * from the caller still reaches the user.
+ */
+private const val RING_DEDUPE_MS = 10_000L

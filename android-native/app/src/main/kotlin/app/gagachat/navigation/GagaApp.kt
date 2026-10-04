@@ -15,6 +15,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.gagachat.core.ui.component.GagaLoading
 import app.gagachat.core.ui.component.GagaOfflineBanner
 import app.gagachat.feature.onboarding.OnboardingNavHost
+import app.gagachat.push.PendingDeepLink
 
 /**
  * Root composable. Swaps between the auth graph, the first-run onboarding graph
@@ -31,15 +32,23 @@ import app.gagachat.feature.onboarding.OnboardingNavHost
  * It also owns the app-wide offline banner and the reconnect recovery hook
  * (Master Spec §E): when connectivity returns, the outbox is flushed and the
  * realtime socket is re-joined automatically.
+ *
+ * Deep links (notification taps, external links, live call invites) are read
+ * from [PendingDeepLink] as observable state, so they route whether they arrive
+ * before the first frame or long after it.
  */
 @Composable
 fun GagaApp(
-    pendingDeepLink: String?,
     viewModel: AppViewModel = hiltViewModel(),
 ) {
     val session by viewModel.session.collectAsStateWithLifecycle()
     val needsOnboarding by viewModel.needsOnboarding.collectAsStateWithLifecycle()
     val isOnline by viewModel.isOnline.collectAsStateWithLifecycle()
+    // Observed rather than read once: a deep link that arrives *after* the first
+    // composition still has to route. That covers a warm-start notification tap
+    // (onNewIntent) and a live Realtime call invite, both of which land while the
+    // app is already running and the nav host is already on screen.
+    val pendingDeepLink by PendingDeepLink.route.collectAsStateWithLifecycle()
 
     // Fire only on an offline → online transition so we don't restart the socket
     // on every recomposition or on the initial (already-online) frame.
