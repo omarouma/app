@@ -3,6 +3,7 @@ package app.gagachat.core.database.di
 import android.content.Context
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import app.gagachat.core.database.DatabaseNameProvider
 import app.gagachat.core.database.GagaDatabase
 import app.gagachat.core.database.dao.BlockDao
 import app.gagachat.core.database.dao.CallDao
@@ -24,8 +25,12 @@ object DatabaseModule {
 
     @Provides
     @Singleton
-    fun provideDatabase(@ApplicationContext context: Context): GagaDatabase =
-        Room.databaseBuilder(context, GagaDatabase::class.java, GagaDatabase.NAME)
+    fun provideDatabase(
+        @ApplicationContext context: Context,
+        nameProvider: DatabaseNameProvider,
+    ): GagaDatabase =
+        // Account-scoped file name so two accounts never share a cache (spec §2).
+        Room.databaseBuilder(context, GagaDatabase::class.java, nameProvider.databaseName())
             // WAL keeps reads non-blocking while the outbox writes (PDF §9.1).
             .setJournalMode(RoomDatabase.JournalMode.WRITE_AHEAD_LOGGING)
             .addMigrations(

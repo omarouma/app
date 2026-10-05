@@ -1,26 +1,44 @@
 // ═══════════════════════════════════════════════════════════════════════════════
-// GaGa Chat — Firestore Security Rules
+// GaGa Chat — Firestore Security Rules (Firebase-first, hardened)
 // ═══════════════════════════════════════════════════════════════════════════════
 //
 // Deploy with:  firebase deploy --only firestore:rules
 //
-// Schema (matches the deployed composite indexes):
-//   users/{uid}                                  profile + subcollections
-//   chats/{chatId}                               participants:[uid], type, updatedAt
-//   chats/{chatId}/messages/{messageId}          text / image / video / audio / …
-//   chats/{chatId}/messages/{messageId}/reactions/{uid}
-//   chats/{chatId}/typing/{uid}
-//   calls/{callId}                               initiatorId/recipientId/participants
-//   calls/{callId}/signaling/{sigId}             WebRTC offer/answer/ICE
-//   call_history/{id}                            callerId/calleeId/participantIds
-//   presence/{uid}
-//   typing/{typingId}
-//   friend_requests/{id}  friendships/{id}  blocked_users/{id}
-//   notifications/{id}    user_devices/{id}  reports/{id}  config/{id}
+// IDENTITY MODEL (see docs/FIREBASE_MIGRATION_PLAN.md §2)
+//   The canonical user id in every rule is the custom claim `gaga_user_id`,
+//   injected into the Firebase ID token by the trusted `firebase-identity`
+//   backend after it has *proven* ownership of the account. It is NEVER derived
+//   from an email string. Until an account is mapped, `myId()` is empty and the
+//   account cannot touch any chat data. Unverified emails are also blocked.
 //
-// Access model: deny-by-default; a user may only touch a conversation they are a
-// participant of, and may only author messages/reactions as themselves. Media
-// objects are gated by the matching Storage rules (chat participants only).
+// SCHEMA
+//   users/{uid}                                   public profile (uid == gaga_user_id)
+//     private/{doc}                               email, phone, settings, fcm tokens…
+//     devices/{deviceId}  blocked/{uid}  saved_messages/{id}
+//   chats/{chatId}                                type, title, participants[], memberCount
+//     members/{uid}                               role, notificationPref, archived, pinned, read pos
+//     messages/{messageId}                        senderId, type, text, attachments…
+//       reactions/{uid}                           { emoji, at }   doc id == reactor
+//       receipts/{uid}                            { state, at }   doc id == recipient
+//       hidden/{uid}                              per-user "delete for me"
+//     typing/{uid}
+//     calls/{callId}
+//   presence/{uid}
+//   typing/{chatId}_{uid}
+//   calls/{callId}  calls/{callId}/signaling/{sigId}
+//   call_history/{id}
+//   requests/{id}   friend_requests/{id}  friendships/{id}  blocked_users/{id}
+//   notifications/{id}  user_devices/{id}  reports/{id}  config/{id}
+//
+// ACCESS MODEL (the P0 security contract)
+//   1. Participant-only reads on every chat subcollection.
+//   2. No self-granted membership: a user can never add themselves to a chat,
+//      nor raise their own role. Membership/role changes require an admin/owner.
+//   3. Author-only message edits: only senderId == uid may change content.
+//   4. Receipt ownership: receipts/{uid} may only be written by that uid.
+//   5. Reaction ownership: reactions/{uid} may only be written by that uid.
+//   6. Profile field separation: users/{uid}/private/** is owner-only.
+//   7. Deny by default.
 // ═══════════════════════════════════════════════════════════════════════════════
 
 rules_version = '2';
@@ -28,232 +46,356 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // ─────────────────────────── helpers ───────────────────────────
-    function isAuth() {
+    // ─────────────────────────────── helpers ───────────────────────────────
+    function signedIn() {
       return request.auth != null;
     }
-    function uid() {
-      return request.auth.uid;
+
+    // Canonical GaGa user id from the trusted custom claim. Empty until mapped.
+    function myId() {
+      return request.auth.token.get('gaga_user_id', '');
     }
+
+    // Firebase sets `email_verified` on every ID token.
+    function emailVerified() {
+      return request.auth.token.get('email_verified', false) == true;
+    }
+
+    // A mapped + verified account. Every protected feature requires this.
+    function ready() {
+      return signedIn() && emailVerified() && myId() != '';
+    }
+
     function isSelf(userId) {
-      return isAuth() && uid() == userId;
+      return ready() && userId == myId();
     }
+
     function chatData(chatId) {
       return get(/databases/$(database)/documents/chats/$(chatId)).data;
     }
-    function isChatMember(chatId) {
-      return isAuth() && uid() in chatData(chatId).participants;
+
+    // Membership authority = the denormalised `participants` array on the chat
+    // document (query-friendly, and only admins may mutate it — see below).
+    function isMember(chatId) {
+      return ready() && myId() in chatData(chatId).participants;
     }
+
+    function memberDoc(chatId, userId) {
+      return get(/databases/$(database)/documents/chats/$(chatId)/members/$(userId)).data;
+    }
+
+    // Role authority = the members subcollection (single-doc reads only).
+    function isAdmin(chatId) {
+      return ready() && memberDoc(chatId, myId()).role in ['owner', 'admin'];
+    }
+    function isOwner(chatId) {
+      return ready() && memberDoc(chatId, myId()).role == 'owner';
+    }
+
     function callData(callId) {
       return get(/databases/$(database)/documents/calls/$(callId)).data;
     }
     function isCallParty(callId) {
-      return isAuth() && (
-        uid() == callData(callId).initiatorId ||
-        uid() == callData(callId).recipientId ||
-        uid() in callData(callId).participants
+      return ready() && (
+        myId() == callData(callId).initiatorId ||
+        myId() == callData(callId).recipientId ||
+        myId() in callData(callId).participants
       );
     }
 
-    // ─────────────────────────── users ───────────────────────────
+    // ─────────────────────────────── users ───────────────────────────────
+    // Public profile fields are readable by any mapped+verified account
+    // (contacts, search). Private fields live in the `private` subcollection.
     match /users/{userId} {
-      // Public profile is readable by any signed-in user (contacts, search).
-      allow read: if isAuth();
-      allow create: if isSelf(userId);
+      allow get: if ready();
+      allow list: if ready();
+      allow create: if isSelf(userId)
+        && request.resource.data.gagaId is string
+        && request.resource.data.gagaId.size() >= 3;
+      // Only non-privileged, non-identity fields may change. `gagaId`,
+      // `emailVerified`, roles and timestamps are immutable here.
       allow update: if isSelf(userId)
-        && !("role" in request.resource.data.diff(resource.data).affectedKeys())
-        && !("admin" in request.resource.data.diff(resource.data).affectedKeys())
-        && !("isAdmin" in request.resource.data.diff(resource.data).affectedKeys())
-        && !("isModerator" in request.resource.data.diff(resource.data).affectedKeys());
-      allow delete: if isSelf(userId);
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['displayName', 'photoUrl', 'about', 'updatedAt']);
+      allow delete: if false;   // account deletion goes through the backend
 
-      match /metadata/{doc=**}         { allow read, write: if isSelf(userId); }
-      match /notification_prefs/{doc=**}{ allow read, write: if isSelf(userId); }
-      match /wallet/{doc=**}           { allow read: if isSelf(userId); allow write: if false; }
-      match /blocked/{blockedUserId}   { allow read, write: if isSelf(userId); }
-      match /saved_messages/{messageId}{ allow read, write: if isSelf(userId); }
-      match /devices/{deviceId}        { allow read, write: if isSelf(userId); }
+      // Private profile: owner only, never exposed to other users.
+      match /private/{doc=**} {
+        allow read, write: if isSelf(userId);
+      }
+      match /metadata/{doc=**}          { allow read, write: if isSelf(userId); }
+      match /notification_prefs/{doc=**} { allow read, write: if isSelf(userId); }
+      match /wallet/{doc=**}            { allow read: if isSelf(userId); allow write: if false; }
+      match /blocked/{blockedUserId}    { allow read, write: if isSelf(userId); }
+      match /saved_messages/{messageId} { allow read, write: if isSelf(userId); }
+      match /devices/{deviceId}         { allow read, write: if isSelf(userId); }
     }
 
-    // ─────────────────── chats (1:1 and groups) ───────────────────
-    // Both direct and group conversations live in `chats`; `type` distinguishes
-    // them ("dm" | "group") and `participants` is the authoritative member list.
+    // ─────────────────────────── chats (dm | group) ───────────────────────────
     match /chats/{chatId} {
-      allow read:   if isAuth() && uid() in resource.data.participants;
-      allow create: if isAuth()
-        && uid() in request.resource.data.participants
-        && request.resource.data.participants.size() >= 1;
-      allow update: if isAuth() && uid() in resource.data.participants;
-      allow delete: if isAuth() && uid() in resource.data.participants;
+      // Read: only a participant. List queries MUST constrain with
+      // `whereArrayContains("participants", <myId>)` so this is provable.
+      allow read: if ready() && myId() in resource.data.participants;
 
-      // Messages — only participants; author must be the sender.
-      match /messages/{messageId} {
-        allow read: if isChatMember(chatId);
+      // Create: the creator must be in the participant list and must be the
+      // author of the conversation. The initial participant list is validated
+      // here; later mutations require an admin (see update).
+      allow create: if ready()
+        && request.resource.data.createdBy == myId()
+        && myId() in request.resource.data.participants
+        && request.resource.data.participants.size() >= 1
+        && request.resource.data.participants.size() <= 256
+        && request.resource.data.type in ['dm', 'group', 'saved'];
 
-        allow create: if isChatMember(chatId)
-          && request.resource.data.senderId == uid()
-          && request.resource.data.size() < 200;
+      // Update: ordinary members may only touch activity/preview fields. Only an
+      // admin/owner may change membership, title, photo or type. This is what
+      // makes "no self-granted membership" true.
+      allow update: if ready() && isMember(chatId) && (
+        request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['lastMessageAt', 'lastMessagePreview', 'lastMessageSenderId', 'updatedAt'])
+        || (isAdmin(chatId)
+            && request.resource.data.diff(resource.data).affectedKeys()
+                 .hasOnly(['title', 'photoUrl', 'participants', 'memberCount', 'type', 'updatedAt'])
+            && (request.resource.data.type != 'dm' || isOwner(chatId)))
+      );
 
-        allow update: if isChatMember(chatId) && (
-          // Author may edit/delete their own message.
-          resource.data.senderId == uid()
-          // Anyone in the chat may flip delivery/read state or add a reaction.
-          || request.resource.data.diff(resource.data).affectedKeys()
-               .hasOnly(['deliveredTo', 'readBy', 'reactions', 'updatedAt'])
+      // Deletion is a privileged action performed by the backend/owner flow.
+      allow delete: if false;
+
+      // ── members (role + per-member metadata) ──
+      match /members/{memberId} {
+        allow read: if isMember(chatId);
+
+        // Self-join is allowed only if the creator already listed you as a
+        // participant; you may only take the 'owner' role if you created it.
+        // Admins may add others (never as owner unless they are the owner).
+        allow create: if ready() && (
+          (memberId == myId()
+            && myId() in chatData(chatId).participants
+            && request.resource.data.role in ['member', 'owner']
+            && (request.resource.data.role == 'member'
+                || chatData(chatId).createdBy == myId()))
+          || (isAdmin(chatId)
+              && memberId != myId()
+              && request.resource.data.role in ['member', 'admin']
+              && (request.resource.data.role != 'admin' || isOwner(chatId)))
         );
 
-        allow delete: if isChatMember(chatId) && resource.data.senderId == uid();
+        // Self-service: only benign per-member fields. Role changes are admin
+        // only, cannot target yourself, and cannot mint an owner unless you are
+        // one. No self-escalation is possible.
+        allow update: if ready() && (
+          (memberId == myId()
+            && request.resource.data.diff(resource.data).affectedKeys()
+                 .hasOnly(['notificationPref', 'archived', 'pinned',
+                           'lastReadMessageId', 'lastReadAt', 'updatedAt']))
+          || (isAdmin(chatId)
+              && memberId != myId()
+              && request.resource.data.diff(resource.data).affectedKeys()
+                   .hasOnly(['role', 'updatedAt'])
+              && (request.resource.data.role != 'owner' || isOwner(chatId)))
+        );
 
-        match /reactions/{reactionId} {
-          allow read: if isChatMember(chatId);
-          allow create, update, delete: if isChatMember(chatId)
-            && request.resource.data.userId == uid();
+        // Leave the chat yourself, or be removed by an admin (owners are not
+        // removable by other admins).
+        allow delete: if ready() && (
+          memberId == myId()
+          || (isAdmin(chatId) && memberId != myId()
+              && memberDoc(chatId, memberId).role != 'owner')
+        );
+      }
+
+      // ── messages ──
+      match /messages/{messageId} {
+        allow read: if isMember(chatId);
+
+        allow create: if ready() && isMember(chatId)
+          && request.resource.data.senderId == myId()
+          && request.resource.data.size() < 100
+          && request.resource.data.type in
+               ['text', 'image', 'video', 'audio', 'voice', 'file', 'document', 'sticker', 'gif', 'system'];
+
+        // Author-only edits. Receipts/reactions/hidden are separate docs, so no
+        // other member can ever mutate a message they did not write.
+        allow update: if ready() && isMember(chatId)
+          && resource.data.senderId == myId()
+          && request.resource.data.senderId == resource.data.senderId;
+
+        allow delete: if ready() && isMember(chatId)
+          && resource.data.senderId == myId();
+
+        // Reaction ownership — doc id == reactor; forgery is impossible.
+        match /reactions/{reactorId} {
+          allow read: if isMember(chatId);
+          allow create, update: if ready() && isMember(chatId)
+            && reactorId == myId()
+            && request.resource.data.emoji is string
+            && request.resource.data.emoji.size() <= 8;
+          allow delete: if ready() && isMember(chatId) && reactorId == myId();
+        }
+
+        // Receipt ownership — doc id == recipient; you can only write your own.
+        match /receipts/{recipientId} {
+          allow read: if isMember(chatId);
+          allow create, update: if ready() && isMember(chatId)
+            && recipientId == myId()
+            && request.resource.data.state in ['delivered', 'read'];
+          allow delete: if false;
+        }
+
+        // "Delete for me" — per-user, keyed by the acting user.
+        match /hidden/{userId} {
+          allow read: if ready() && isMember(chatId) && userId == myId();
+          allow create, delete: if ready() && isMember(chatId) && userId == myId();
         }
       }
 
-      // Per-chat typing indicators (chats/{chatId}/typing/{uid}).
+      // ── typing ──
       match /typing/{userId} {
-        allow read: if isChatMember(chatId);
-        allow write: if isChatMember(chatId) && userId == uid();
+        allow read: if isMember(chatId);
+        allow write: if ready() && isMember(chatId) && userId == myId();
       }
 
-      // Per-chat call records.
+      // ── per-chat call records ──
       match /calls/{callId} {
-        allow read, create, update: if isChatMember(chatId);
+        allow read: if isMember(chatId);
+        allow create, update: if ready() && isMember(chatId);
       }
     }
 
-    // ─────────────────────────── presence ───────────────────────────
+    // ─────────────────────────────── presence ───────────────────────────────
     match /presence/{userId} {
-      allow read: if isAuth();
+      allow read: if ready();
       allow write, delete: if isSelf(userId);
     }
 
-    // ─────────────────────────── typing (flat) ───────────────────────────
+    // ─────────────────────────── typing (flat, RTDB-style) ───────────────────────────
     match /typing/{typingId} {
-      allow read: if isAuth();
-      allow create, update: if isAuth() && request.resource.data.userId == uid();
-      allow delete: if isAuth() && resource.data.userId == uid();
+      allow read: if ready();
+      allow create, update: if ready() && request.resource.data.userId == myId();
+      allow delete: if ready() && resource.data.userId == myId();
     }
 
-    // ─────────────────────────── calls ───────────────────────────
+    // ─────────────────────────────── calls ───────────────────────────────
     match /calls/{callId} {
       allow read:   if isCallParty(callId);
-      allow create: if isAuth() && (
-        uid() == request.resource.data.initiatorId ||
-        uid() in request.resource.data.participants
+      allow create: if ready() && (
+        myId() == request.resource.data.initiatorId ||
+        myId() in request.resource.data.participants
       );
       allow update: if isCallParty(callId);
       allow delete: if isCallParty(callId);
 
-      // WebRTC offer / answer / ICE candidates.
       match /signaling/{sigId} {
-        allow read: if isAuth() && (
-          uid() == resource.data.fromUserId || uid() == resource.data.toUserId
+        allow read: if ready() && (
+          myId() == resource.data.fromUserId || myId() == resource.data.toUserId
         );
-        allow create: if isAuth() && request.resource.data.fromUserId == uid();
-        allow delete: if isAuth() && (
-          uid() == resource.data.fromUserId || uid() == resource.data.toUserId
+        allow create: if ready() && request.resource.data.fromUserId == myId();
+        allow delete: if ready() && (
+          myId() == resource.data.fromUserId || myId() == resource.data.toUserId
         );
       }
     }
 
-    // ─────────────────────────── call history ───────────────────────────
+    // ─────────────────────────────── call history ───────────────────────────────
     match /call_history/{id} {
-      allow read: if isAuth() && (
-        uid() == resource.data.callerId ||
-        uid() == resource.data.calleeId ||
-        uid() in resource.data.participantIds
+      allow read: if ready() && (
+        myId() == resource.data.callerId ||
+        myId() == resource.data.calleeId ||
+        myId() in resource.data.participantIds
       );
-      allow create: if isAuth() && (
-        uid() == request.resource.data.callerId ||
-        uid() in request.resource.data.participantIds
+      allow create: if ready() && (
+        myId() == request.resource.data.callerId ||
+        myId() in request.resource.data.participantIds
       );
-      allow update: if isAuth() && (
-        uid() == resource.data.callerId ||
-        uid() == resource.data.calleeId ||
-        uid() in resource.data.participantIds
-      );
-      allow delete: if isAuth() && (
-        uid() == resource.data.callerId ||
-        uid() == resource.data.calleeId ||
-        uid() in resource.data.participantIds
+      allow update, delete: if ready() && (
+        myId() == resource.data.callerId ||
+        myId() == resource.data.calleeId ||
+        myId() in resource.data.participantIds
       );
     }
 
-    // ─────────────────────────── friend requests ───────────────────────────
+    // ─────────────────────────── requests (unified) ───────────────────────────
+    match /requests/{requestId} {
+      allow read: if ready() && (
+        myId() == resource.data.fromUserId || myId() == resource.data.toUserId
+      );
+      allow create: if ready() && request.resource.data.fromUserId == myId();
+      allow update: if ready() && (
+        myId() == resource.data.fromUserId || myId() == resource.data.toUserId
+      );
+      allow delete: if ready() && (
+        myId() == resource.data.fromUserId || myId() == resource.data.toUserId
+      );
+    }
+
+    // ─────────────────────── legacy friend requests / friendships ───────────────────────
     match /friend_requests/{requestId} {
-      allow read: if isAuth() && (
-        uid() == resource.data.fromUserId || uid() == resource.data.toUserId
+      allow read: if ready() && (
+        myId() == resource.data.fromUserId || myId() == resource.data.toUserId
       );
-      allow create: if isAuth() && request.resource.data.fromUserId == uid();
-      allow update: if isAuth() && (
-        uid() == resource.data.fromUserId || uid() == resource.data.toUserId
-      );
-      allow delete: if isAuth() && (
-        uid() == resource.data.fromUserId || uid() == resource.data.toUserId
+      allow create: if ready() && request.resource.data.fromUserId == myId();
+      allow update, delete: if ready() && (
+        myId() == resource.data.fromUserId || myId() == resource.data.toUserId
       );
     }
 
-    // ─────────────────────────── friendships ───────────────────────────
     match /friendships/{id} {
-      allow read: if isAuth() && (
-        uid() == resource.data.userId ||
-        uid() == resource.data.friendId ||
-        uid() in resource.data.members
+      allow read: if ready() && (
+        myId() == resource.data.userId ||
+        myId() == resource.data.friendId ||
+        myId() in resource.data.members
       );
-      allow create: if isAuth() && (
-        uid() == request.resource.data.userId ||
-        uid() in request.resource.data.members
+      allow create: if ready() && (
+        myId() == request.resource.data.userId || myId() in request.resource.data.members
       );
-      allow update: if false;   // maintained by backend on accept
-      allow delete: if isAuth() && (
-        uid() == resource.data.userId ||
-        uid() == resource.data.friendId ||
-        uid() in resource.data.members
+      allow update: if false;   // maintained by the backend on accept
+      allow delete: if ready() && (
+        myId() == resource.data.userId ||
+        myId() == resource.data.friendId ||
+        myId() in resource.data.members
       );
     }
 
-    // ─────────────────────────── blocked users ───────────────────────────
+    // ─────────────────────────────── blocked users ───────────────────────────────
     match /blocked_users/{id} {
-      allow read: if isAuth() && (
-        uid() == resource.data.blockerId || uid() == resource.data.userId
+      allow read: if ready() && (
+        myId() == resource.data.blockerId || myId() == resource.data.userId
       );
-      allow create, delete: if isAuth() && (
-        uid() == request.resource.data.blockerId || uid() == request.resource.data.userId
-      );
+      allow create: if ready() && request.resource.data.blockerId == myId();
+      allow delete: if ready() && resource.data.blockerId == myId();
       allow update: if false;
     }
 
-    // ─────────────────────────── notifications ───────────────────────────
+    // ─────────────────────────────── notifications ───────────────────────────────
     match /notifications/{id} {
-      allow read: if isAuth() && uid() == resource.data.userId;
-      allow create: if isAuth();
-      allow update: if isAuth() && uid() == resource.data.userId;
-      allow delete: if isAuth() && uid() == resource.data.userId;
+      allow read: if ready() && myId() == resource.data.userId;
+      allow create: if false;   // backend only
+      allow update: if ready() && myId() == resource.data.userId;
+      allow delete: if ready() && myId() == resource.data.userId;
     }
 
-    // ─────────────────────────── user devices (FCM) ───────────────────────────
+    // ─────────────────────────────── user devices (FCM) ───────────────────────────────
     match /user_devices/{id} {
-      allow read: if isAuth() && uid() == resource.data.userId;
-      allow create: if isAuth() && uid() == request.resource.data.userId;
-      allow update, delete: if isAuth() && uid() == resource.data.userId;
+      allow read: if ready() && myId() == resource.data.userId;
+      allow create: if ready() && myId() == request.resource.data.userId;
+      allow update, delete: if ready() && myId() == resource.data.userId;
     }
 
-    // ─────────────────────────── reports ───────────────────────────
+    // ─────────────────────────────── reports ───────────────────────────────
     match /reports/{id} {
-      allow read: if isAuth() && uid() == resource.data.reporterId;
-      allow create: if isAuth() && request.resource.data.reporterId == uid();
+      allow read: if ready() && myId() == resource.data.reporterId;
+      allow create: if ready() && request.resource.data.reporterId == myId();
       allow update, delete: if false;   // moderation backend only
     }
 
-    // ─────────────────────────── config ───────────────────────────
+    // ─────────────────────────────── config ───────────────────────────────
     match /config/{id} {
-      allow read: if isAuth();
+      allow read: if ready();
       allow write: if false;
     }
 
-    // ─────────────────────────── deny by default ───────────────────────────
+    // ─────────────────────────────── deny by default ───────────────────────────────
     match /{document=**} {
       allow read, write: if false;
     }

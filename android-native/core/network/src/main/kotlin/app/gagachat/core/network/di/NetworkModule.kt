@@ -2,6 +2,7 @@ package app.gagachat.core.network.di
 
 import app.gagachat.core.network.auth.AuthTokenInterceptor
 import app.gagachat.core.network.auth.AuthTokenRefresher
+import app.gagachat.core.network.auth.SessionTokenSource
 import app.gagachat.core.network.config.SupabaseConfig
 import app.gagachat.core.network.session.EncryptedSessionStore
 import app.gagachat.core.network.session.SessionStore
@@ -10,6 +11,7 @@ import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
+import dagger.multibindings.IntoSet
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.okhttp.OkHttp
 import io.ktor.client.plugins.HttpTimeout
@@ -44,7 +46,10 @@ object NetworkModule {
     fun provideHttpClient(
         json: Json,
         config: SupabaseConfig,
-        tokenRefresher: AuthTokenRefresher,
+        // Every registered token source (Supabase here, Firebase from
+        // :core:firebase). Dagger assembles the set at the app level, so this
+        // module never depends on :core:firebase.
+        tokenSources: Set<@JvmSuppressWildcards SessionTokenSource>,
     ): HttpClient = HttpClient(OkHttp) {
         expectSuccess = true
         // Guarantee a valid access token on every backend call (and self-heal on
@@ -52,7 +57,7 @@ object NetworkModule {
         // so once it expired every chat/media/call request failed together.
         engine {
             config {
-                addInterceptor(AuthTokenInterceptor(tokenRefresher, config))
+                addInterceptor(AuthTokenInterceptor(tokenSources, config))
             }
         }
         install(ContentNegotiation) { json(json) }
@@ -78,4 +83,13 @@ abstract class SessionModule {
     @Binds
     @Singleton
     abstract fun bindSessionStore(impl: EncryptedSessionStore): SessionStore
+
+    /**
+     * Contributes the legacy Supabase token source. It has the higher [priority]
+     * value, so the Firebase source (contributed from `:core:firebase`) is
+     * consulted first whenever it is active.
+     */
+    @Binds
+    @IntoSet
+    abstract fun bindSupabaseTokenSource(impl: AuthTokenRefresher): SessionTokenSource
 }

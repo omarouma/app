@@ -1,0 +1,96 @@
+{
+  "chats": [
+    {
+      "id": "chat-1",
+      "type": "direct",
+      "name": null,
+      "avatar": null,
+      "participants": ["u1", "u2"],
+      "admins": [],
+      "created_by": "u1",
+      "last_message": "hey",
+      "last_message_sender_id": "u2",
+      "is_muted": false,
+      "pinned": true,
+      "archived": false,
+      "created_at": "2026-01-01T00:00:00.000Z",
+      "updated_at": "2026-01-02T00:00:00.000Z"
+    },
+    {
+      "id": "chat-2",
+      "type": "group",
+      "name": "Team",
+      "avatar": "https://cdn.example/a.png",
+      "participants": ["u1", "u2", "u3"],
+      "admins": ["u2"],
+      "created_by": "u1",
+      "last_message": "hi all",
+      "last_message_sender_id": "u3",
+      "is_muted": true,
+      "pinned": false,
+      "archived": false,
+      "created_at": "2026-02-01T00:00:00.000Z",
+      "updated_at": "2026-02-03T00:00:00.000Z"
+    }
+  ],
+  "messages": [
+    {
+      "id": "m1",
+      "local_id": "c-1",
+      "chat_id": "chat-1",
+      "sender_id": "u1",
+      "type": "text",
+      "content": "hello",
+      "created_at": "2026-01-01T00:00:05.000Z",
+      "updated_at": "2026-01-01T00:00:05.000Z"
+    },
+    {
+      "id": "m2",
+      "local_id": "c-2",
+      "chat_id": "chat-1",
+      "sender_id": "u2",
+      "type": "image",
+      "content": null,
+      "media_url": "https://cdn.example/x.jpg",
+      "media_urls": ["https://cdn.example/x.jpg", "https://cdn.example/y.jpg"],
+      "metadata": { "width": 100, "height": 200, "mime": "image/jpeg", "size": 1234 },
+      "reactions": { "👍": ["u1"], "❤️": ["u1", "u2"] },
+      "created_at": "2026-01-02T00:00:00.000Z",
+      "updated_at": "2026-01-02T00:00:00.000Z"
+    },
+    {
+      "id": "m3",
+      "local_id": "c-3",
+      "chat_id": "chat-2",
+      "sender_id": "u3",
+      "type": "text",
+      "content": "hi all",
+      "created_at": "2026-02-03T00:00:00.000Z",
+      "updated_at": "2026-02-03T00:00:00.000Z"
+    }
+  ],
+  "chat_reads": [
+    {
+      "chat_id": "chat-1",
+      "user_id": "u2",
+      "last_read_message_id": "m1",
+      "last_read_at": "2026-01-02T01:00:00.000Z"
+    }
+  ],
+  "call_history": [
+    {
+      "id": "call-1",
+      "chat_id": "chat-1",
+      "caller_id": "u1",
+      "callee_id": "u2",
+      "type": "voice",
+      "status": "ended",
+      "duration": 42,
+      "participant_ids": ["u1", "u2"],
+      "room_id": "gaga_call_abc",
+      "started_at": "2026-01-02T02:00:00.000Z",
+      "ended_at": "2026-01-02T02:00:42.000Z",
+      "created_at": "2026-01-02T02:00:00.000Z"
+    }
+  ]
+}

@@ -1,10 +1,8 @@
 package app.gagachat.core.data.di
 
-import app.gagachat.core.data.repository.AuthRepository
 import app.gagachat.core.data.repository.BlockRepository
 import app.gagachat.core.data.repository.CallRepository
 import app.gagachat.core.data.repository.ConversationRepository
-import app.gagachat.core.data.repository.DefaultAuthRepository
 import app.gagachat.core.data.repository.DefaultBlockRepository
 import app.gagachat.core.data.repository.DefaultCallRepository
 import app.gagachat.core.data.repository.DefaultConversationRepository
@@ -41,9 +39,8 @@ import javax.inject.Singleton
 @InstallIn(SingletonComponent::class)
 abstract class DataModule {
 
-    @Binds
-    @Singleton
-    abstract fun bindAuthRepository(impl: DefaultAuthRepository): AuthRepository
+    // AuthRepository is provided by AuthRepositoryModule, which selects the
+    // Supabase or Firebase-first implementation from the build flag.
 
     @Binds
     @Singleton

@@ -42,7 +42,15 @@ class AuthTokenRefresher @Inject constructor(
     private val config: SupabaseConfig,
     private val timeProvider: TimeProvider,
     private val logger: AppLogger,
-) {
+) : SessionTokenSource {
+
+    /**
+     * Consulted *after* the Firebase source (migration spec §2). While a legacy
+     * Supabase session is present its access token is what the backend expects;
+     * once the Firebase-first build is active the Firebase source wins and this
+     * one is only a fallback for the Supabase-only / hybrid builds.
+     */
+    override val priority: Int = 10
 
     private val mutex = Mutex()
     private val json = Json { ignoreUnknownKeys = true; isLenient = true }
@@ -62,7 +70,7 @@ class AuthTokenRefresher @Inject constructor(
      * @param force refresh even when the cached token still looks valid (used
      *   after the server rejected a token with 401).
      */
-    suspend fun ensureFresh(force: Boolean = false): String? {
+    override suspend fun ensureFresh(force: Boolean = false): String? {
         val session = sessionStore.load() ?: return null
         if (!force && !session.needsRefresh(timeProvider.nowMillis())) return session.accessToken
         return mutex.withLock {
@@ -109,18 +117,28 @@ class AuthTokenRefresher @Inject constructor(
 }
 
 /**
- * Attaches a fresh Supabase access token to every backend request and retries
- * once after a 401. Auth endpoints are skipped so the refresh call itself can
- * never recurse, and non-Supabase traffic (e.g. image CDNs) is untouched.
+ * Attaches a fresh bearer token to every backend request and retries once after a
+ * 401. Auth endpoints are skipped so the refresh call itself can never recurse,
+ * and non-Supabase traffic (e.g. image CDNs) is untouched.
+ *
+ * During the migration two auth systems run side by side (migration spec §2), so
+ * this interceptor asks every registered [SessionTokenSource] in [priority] order
+ * and uses the first non-null token. That lets the Firebase-first build send a
+ * Firebase ID token while the Supabase-only / hybrid builds keep sending the
+ * Supabase access token, from the same HTTP client, without either module
+ * depending on the other.
  *
  * This is what makes the app self-healing: a cold start that begins with an
  * expired token now performs its first conversation sync successfully instead of
  * showing an empty chat list until the user restarts.
  */
 class AuthTokenInterceptor(
-    private val refresher: AuthTokenRefresher,
+    sources: Set<@JvmSuppressWildcards SessionTokenSource>,
     private val config: SupabaseConfig,
 ) : Interceptor {
+
+    /** Deterministic consultation order; lower [SessionTokenSource.priority] wins. */
+    private val sources: List<SessionTokenSource> = sources.sortedBy { it.priority }
 
     override fun intercept(chain: Interceptor.Chain): Response {
         val request = chain.request()
@@ -129,7 +147,7 @@ class AuthTokenInterceptor(
             return chain.proceed(request)
         }
 
-        val token = runCatching { runBlocking { refresher.ensureFresh() } }.getOrNull()
+        val token = firstToken(force = false)
         val authorised = if (token.isNullOrBlank()) {
             request
         } else {
@@ -139,13 +157,22 @@ class AuthTokenInterceptor(
         val response = chain.proceed(authorised)
         if (response.code != 401) return response
 
-        // The token was rejected server-side (revoked / clock skew). Force one
-        // refresh and replay the request a single time.
-        val fresh = runCatching { runBlocking { refresher.ensureFresh(force = true) } }.getOrNull()
+        // The token was rejected server-side (revoked / clock skew / stale claim).
+        // Force one refresh across the sources and replay the request a single time.
+        val fresh = firstToken(force = true)
         if (fresh.isNullOrBlank()) return response
         response.close()
         return chain.proceed(
             request.newBuilder().header("Authorization", "Bearer $fresh").build(),
         )
+    }
+
+    /** First non-blank token from the sources, in priority order. */
+    private fun firstToken(force: Boolean): String? {
+        for (source in sources) {
+            val token = runCatching { runBlocking { source.ensureFresh(force) } }.getOrNull()
+            if (!token.isNullOrBlank()) return token
+        }
+        return null
     }
 }

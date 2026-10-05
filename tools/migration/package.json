@@ -1,0 +1,20 @@
+{
+  "name": "gaga-migration",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "GaGa Chat history migration tooling: Supabase -> Firestore export/import/reconcile.",
+  "scripts": {
+    "export": "node export-supabase.mjs",
+    "import": "node import-firestore.mjs",
+    "export-firestore": "node export-firestore.mjs",
+    "reconcile": "node reconcile.mjs",
+    "test": "node --test tests/"
+  },
+  "dependencies": {
+    "firebase-admin": "^12.6.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

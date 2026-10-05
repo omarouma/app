@@ -18,12 +18,25 @@ plugins {
 val firebaseTransportEnabled =
     (project.findProperty("FIREBASE_TRANSPORT_ENABLED") as String?)?.toBooleanStrictOrNull() ?: false
 
+// ---------------------------------------------------------------------------
+// Firebase-first authentication flag.
+//
+// When ON, authentication and chat are served by Firebase (Firebase Auth +
+// Firestore) and the legacy Supabase session is only used to *link* an existing
+// account. Defaults to OFF so the proven Supabase path stays the default until
+// the migrated build passes the release acceptance checklist.
+// ---------------------------------------------------------------------------
+val firebaseAuthFirst =
+    (project.findProperty("FIREBASE_AUTH_FIRST") as String?)?.toBooleanStrictOrNull() ?: false
+
 android {
     namespace = "app.gagachat.core.firebase"
 
     defaultConfig {
         buildConfigField("boolean", "FIREBASE_TRANSPORT_ENABLED", firebaseTransportEnabled.toString())
+        buildConfigField("boolean", "FIREBASE_AUTH_FIRST", firebaseAuthFirst.toString())
         buildConfigField("String", "FIREBASE_TOKEN_FUNCTION", "\"firebase-token\"")
+        buildConfigField("String", "FIREBASE_IDENTITY_FUNCTION", "\"firebase-identity\"")
     }
 }
 

@@ -1,0 +1,62 @@
+name: Firebase migration verification
+
+# Deterministic, backend-only verification for the Supabase -> Firebase
+# migration (migration spec §12/§13). It runs the pieces that do not need an
+# Android SDK: the trusted-backend edge-function tests, the history-migration
+# tooling tests, and a parse check of every edge function.
+
+on:
+  push:
+    branches:
+      - 'feat/firebase-first-migration'
+  pull_request:
+    paths:
+      - 'supabase/functions/**'
+      - 'supabase/migrations/**'
+      - 'tools/migration/**'
+      - 'firestore.rules'
+      - 'firestore.indexes.json'
+      - 'database.rules.json'
+      - '.github/workflows/firebase-migration-verify.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install tsx + esbuild (run/parse the Deno-style .ts edge functions)
+        run: npm install -g tsx@4.23.15 esbuild
+
+      - name: Parse every edge function (syntax gate)
+        run: |
+          set -e
+          for f in $(find supabase/functions -name '*.ts' | sort); do
+            esbuild "$f" --outfile=/dev/null --log-level=warning
+          done
+
+      - name: Trusted-backend edge-function tests (Firebase path)
+        run: |
+          set -e
+          for d in supabase/functions/livekit-token supabase/functions/create-call supabase/functions/delete-account-secure; do
+            if [ -d "$d/tests" ]; then
+              echo "::group::$d"
+              (cd "$d" && tsx --test tests/*.mjs)
+              echo "::endgroup::"
+            fi
+          done
+
+      - name: History-migration tooling tests
+        run: cd tools/migration && node --test tests/
+
+      - name: Validate Firebase config JSON
+        run: |
+          jq empty firebase.json firestore.indexes.json database.rules.json

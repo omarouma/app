@@ -22,7 +22,10 @@ class FirebaseSessionCoordinator @Inject constructor(
     private val config: FirebaseTransportConfig,
 ) {
     fun start(scope: CoroutineScope, sessions: Flow<AuthSession?>) {
-        if (!config.enabled || !environment.isConfigured) return
+        // In the Firebase-first build Firebase *is* the auth authority, so the
+        // legacy custom-token bridge must stay off: it would otherwise sign
+        // Firebase in from the Supabase user id and fight the real session.
+        if (config.authFirst || !config.enabled || !environment.isConfigured) return
         scope.launch {
             sessions.collect { session ->
                 runCatching {

@@ -7,14 +7,15 @@
       "$uid": {
         ".read": "auth != null",
         ".write": "auth != null && auth.uid == $uid",
-        ".validate": "newData.hasChildren(['state', 'lastChanged'])"
+        ".validate": "newData.hasChildren(['state', 'lastChanged']) && newData.child('state').isString() && newData.child('state').val().matches(/^(online|offline)$/) && newData.child('lastChanged').isNumber() && newData.child('lastChanged').val() <= now"
       }
     },
 
     "status": {
       "$uid": {
         ".read": "auth != null",
-        ".write": "auth != null && auth.uid == $uid"
+        ".write": "auth != null && auth.uid == $uid",
+        ".validate": "newData.hasChildren(['state']) && newData.child('state').isString()"
       }
     },
 
@@ -23,7 +24,7 @@
         "$uid": {
           ".read": "auth != null",
           ".write": "auth != null && auth.uid == $uid",
-          ".validate": "newData.hasChildren(['typing', 'updatedAt'])"
+          ".validate": "newData.hasChildren(['typing', 'updatedAt']) && newData.child('typing').isBoolean() && newData.child('updatedAt').isNumber() && newData.child('updatedAt').val() <= now && newData.child('updatedAt').val() > (now - 120000)"
         }
       }
     },
@@ -33,6 +34,7 @@
         ".read": "auth != null",
         ".write": "auth != null",
         "$uid": {
+          ".write": "auth != null && auth.uid == $uid",
           ".validate": "newData.hasChildren(['sdp', 'type']) || newData.hasChildren(['candidate'])"
         }
       }
@@ -42,7 +44,8 @@
       "$chatId": {
         "$uid": {
           ".read": "auth != null",
-          ".write": "auth != null && auth.uid == $uid"
+          ".write": "auth != null && auth.uid == $uid",
+          ".validate": "newData.hasChildren(['state']) && newData.child('state').val().matches(/^(delivered|read)$/)"
         }
       }
     }

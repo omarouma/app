@@ -205,6 +205,18 @@ class DefaultAuthRepository @Inject constructor(
     override fun isLoggedIn(): Boolean = sessionStore.load() != null
 
     /**
+     * Adopts a session produced by the Firebase-first path (migration spec §2):
+     * persists it, updates [sessionFlow] and records the onboarding intent, so the
+     * Firebase path shares this repository's single source of truth for the
+     * session. [newAccount] follows the same contract as [runAuth].
+     */
+    internal suspend fun adopt(session: AuthSession, newAccount: Boolean?): AppResult<AuthSession> =
+        runAuth(newAccount) { session }
+
+    /** Clears the local session (shared by both the Supabase and Firebase paths). */
+    internal fun clearSession() = clearLocalSession()
+
+    /**
      * Persists the session and records the onboarding intent for the account:
      *  - [newAccount] `true`  → brand-new sign-up; force profile setup once.
      *  - [newAccount] `false` → existing login; skip profile setup.

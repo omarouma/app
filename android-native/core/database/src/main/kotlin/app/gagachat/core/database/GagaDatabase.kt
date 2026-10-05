@@ -53,6 +53,21 @@ abstract class GagaDatabase : RoomDatabase() {
         const val NAME = "gaga.db"
 
         /**
+         * Per-account database file name (migration spec §2 — account isolation).
+         *
+         * Each signed-in account gets its own cache file so two accounts on the
+         * same device can never read each other's cached conversations/messages,
+         * and clearing one account's cache never touches another's. When there is
+         * no account yet (cold start before login) the shared [NAME] is used; the
+         * cache is cleared on sign-out, so no residue survives a switch.
+         */
+        fun accountDatabaseName(accountId: String?): String {
+            if (accountId.isNullOrBlank()) return NAME
+            val safe = accountId.filter { it.isLetterOrDigit() || it == '-' || it == '_' }
+            return if (safe.isEmpty()) NAME else "gaga-$safe.db"
+        }
+
+        /**
          * v1 → v2: add the cached social-graph sizes to `users` so the profile
          * stats row can render real follower/following counts. Additive only —
          * existing rows default to 0.
