@@ -8,15 +8,16 @@ const user='11111111-1111-4111-8111-111111111111';
 const callId='22222222-2222-4222-8222-222222222222';
 const now=Date.now();
 const call={id:callId, caller_id:user, callee_id:'other', status:'ringing', created_at:new Date(now).toISOString()};
-async function request(row=call, identity=user, authenticated=true) {
+async function request(row=call, identity=user, authenticated=true, admitted=true, room=`call_${callId}`) {
  const requests=[];
  globalThis.fetch=async url => {
   requests.push(String(url));
   if(String(url).includes('/auth/v1/user')) return Response.json({id:user});
+  if(String(url).includes('/rpc/gaga_validate_call')) return Response.json(admitted);
   if(String(url).includes('/rest/v1/call_history')) return Response.json(row ? [row] : []);
   throw new Error('Unexpected request: '+url);
  };
- const response=await handler(new Request(`https://example/functions/v1/livekit-token?room=call_${callId}&user=${identity}`, {headers:authenticated ? {Authorization:'Bearer test'} : {}}));
+ const response=await handler(new Request(`https://example/functions/v1/livekit-token?room=${room}&user=${identity}`, {headers:authenticated ? {Authorization:'Bearer test'} : {}}));
  return {response, body:await response.json(), requests};
 }
 test('rejects unauthenticated requests',async()=>assert.equal((await request(call,user,false)).response.status,401));
@@ -30,9 +31,20 @@ test('permits long connected call and issues room-scoped token',async()=>{
  assert.equal(response.status,200);
  const payload=JSON.parse(Buffer.from(body.token.split('.')[1],'base64url'));
  assert.equal(payload.sub,user); assert.equal(payload.video.room,'call_'+callId); assert.equal(payload.video.roomJoin,true);
- assert.equal(requests.length,2); // no duplicated FCM/device lookup during token refresh
+ assert.equal(requests.length,3); // no duplicated FCM/device lookup during token refresh
  const crypto=await import('node:crypto');
  assert.equal(body.token.split('.')[2],crypto.createHmac('sha256',config.LIVEKIT_API_SECRET).update(body.token.split('.').slice(0,2).join('.')).digest('base64url'));
 });
 test('rejects abandoned connected calls after 24 hours',async()=>assert.equal((await request({...call,status:'connected',created_at:new Date(now-25*3600000).toISOString()})).response.status,409));
 test('permits compact Android identity',async()=>assert.equal((await request(call,user.replaceAll('-',''))).response.status,200));
+
+test('rejects caller restrictions or blocking on token refresh', async()=>assert.equal((await request(call,user,true,false)).response.status,403));
+test('legacy and service room aliases receive the same canonical room',async()=>{
+ const canonical='gaga_call_'+callId.replaceAll('-','');
+ for (const alias of ['call_'+callId,canonical]) {
+  const {response,body}=await request({...call,room_id:canonical},user,true,true,alias);
+  assert.equal(response.status,200);
+  assert.equal(body.room,canonical);
+  assert.equal(JSON.parse(Buffer.from(body.token.split('.')[1],'base64url')).video.room,canonical);
+ }
+});

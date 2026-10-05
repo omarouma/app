@@ -46,7 +46,7 @@ const CONNECTED_STALE_SECONDS = 24 * 60 * 60;
 
 const ROOM_PREFIX = 'call_';
 /** Statuses in which a call is still joinable. */
-const LIVE_STATUSES = new Set(['calling', 'ringing', 'connected', 'connecting']);
+const LIVE_STATUSES = new Set(['calling', 'ringing', 'connected', 'connecting', 'accepted', 'reconnecting']);
 
 const allowedOrigins = new Set([
   'https://gagachat.app',
@@ -109,6 +109,7 @@ interface CallRow {
   chat_id?: string;
   type?: string;
   created_at?: string;
+  room_id?: string;
 }
 
 /**
@@ -116,16 +117,17 @@ interface CallRow {
  * so row-level security does the first pass of the authorisation for us.
  */
 async function loadCall(req: Request, room: string): Promise<CallRow | null> {
-  if (!room.startsWith(ROOM_PREFIX)) return null;
-  const callId = room.slice(ROOM_PREFIX.length);
-  if (!callId) return null;
+  const rawId = room.startsWith('gaga_call_') ? room.slice(10) : room.startsWith(ROOM_PREFIX) ? room.slice(ROOM_PREFIX.length) : '';
+  const compact = rawId.replaceAll('-', '');
+  if (!/^[a-fA-F0-9]{32}$/.test(compact)) return null;
+  const callId = compact.replace(/^(.{8})(.{4})(.{4})(.{4})(.{12})$/, '$1-$2-$3-$4-$5');
   const authorization = req.headers.get('Authorization') ?? '';
   try {
     const query = new URL(`${SUPABASE_URL}/rest/v1/call_history`);
     query.searchParams.set('id', `eq.${callId}`);
     query.searchParams.set(
       'select',
-      'id,status,caller_id,callee_id,participant_ids,chat_id,type,created_at',
+      'id,status,caller_id,callee_id,participant_ids,chat_id,type,created_at,room_id',
     );
     query.searchParams.set('limit', '1');
     const response = await fetch(query, {
@@ -152,7 +154,7 @@ function isCallLive(call: CallRow): boolean {
     const created = Date.parse(call.created_at);
     if (!Number.isNaN(created)) {
       const ageSeconds = (Date.now() - created) / 1000;
-      const limit = call.status === 'connected' ? CONNECTED_STALE_SECONDS : RINGING_STALE_SECONDS;
+      const limit = ['connected', 'reconnecting'].includes(call.status ?? '') ? CONNECTED_STALE_SECONDS : RINGING_STALE_SECONDS;
       if (ageSeconds > limit) return false;
     }
   }
@@ -242,17 +244,27 @@ Deno.serve(async (req: Request) => {
   if (!isParticipant(call, callerId)) return json(req, { error: 'CALL_ACCESS_DENIED' }, 403);
   if (!isCallLive(call)) return json(req, { error: 'CALL_NOT_ACTIVE' }, 409);
 
+  // Re-check caller restrictions/blocking for every token, including refresh.
+  const admission = await fetch(`${SUPABASE_URL}/rest/v1/rpc/gaga_validate_call`, {
+    method: 'POST', headers: {Authorization: req.headers.get('Authorization') ?? '', apikey: SUPABASE_ANON_KEY, 'Content-Type':'application/json'},
+    body: JSON.stringify({call_id:call.id, incoming:false}), signal: AbortSignal.timeout(8000),
+  }).catch(() => null);
+  if (!admission?.ok || await admission.json() !== true) return json(req, {error:'CALL_ACCESS_DENIED'}, 403);
+  // Legacy Android names and the service-generated name resolve to one room.
+  const canonicalRoom = call.room_id || `call_${call.id}`;
+  if (!/^[A-Za-z0-9_-]{1,64}$/.test(canonicalRoom)) return json(req, {error:'INVALID_ROOM'}, 400);
+
   if (!LIVEKIT_URL || !LIVEKIT_API_KEY || !LIVEKIT_API_SECRET) {
     return json(req, { error: 'LIVEKIT_NOT_CONFIGURED' }, 500);
   }
 
   try {
     const identity = user;
-    const { token, expiresAt } = await mintLiveKitToken(room, identity, name, TOKEN_TTL_SECONDS);
+    const { token, expiresAt } = await mintLiveKitToken(canonicalRoom, identity, name, TOKEN_TTL_SECONDS);
     return json(req, {
       token,
       url: LIVEKIT_URL,
-      room,
+      room: canonicalRoom,
       identity,
       expires_at: expiresAt,
     });

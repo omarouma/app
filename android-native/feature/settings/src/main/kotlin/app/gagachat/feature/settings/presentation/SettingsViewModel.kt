@@ -13,6 +13,10 @@ import app.gagachat.core.data.repository.AuthRepository
 import app.gagachat.core.common.result.AppResult
 import app.gagachat.core.data.repository.UserRepository
 import app.gagachat.core.model.User
+import app.gagachat.core.model.AccountPrivacy
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
+import kotlinx.coroutines.CancellationException
 import coil.imageLoader
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -30,6 +34,16 @@ import java.io.File
 import javax.inject.Inject
 
 data class SettingsUiState(
+    val preview: app.gagachat.core.data.preferences.NotificationPreview = app.gagachat.core.data.preferences.NotificationPreview.SENDER_ONLY,
+    val requests: List<app.gagachat.core.model.MessageRequest> = emptyList(),
+    val requestError: String? = null,
+    val securityBusy: Boolean = false,
+    val securityNotice: String? = null,
+    val sessions: List<app.gagachat.core.model.AccountSession> = emptyList(),
+    val privacy: AccountPrivacy = AccountPrivacy(),
+    val privacyLoading: Boolean = true,
+    val privacySaving: Boolean = false,
+    val privacyError: String? = null,
     val displayName: String? = null,
     val email: String? = null,
     val phone: String? = null,
@@ -63,6 +77,7 @@ class SettingsViewModel @Inject constructor(
     private val authRepository: AuthRepository,
     private val userRepository: UserRepository,
     private val settingsPreferences: SettingsPreferences,
+    private val api: app.gagachat.core.network.rest.SupabaseRestApi,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(
@@ -80,6 +95,7 @@ class SettingsViewModel @Inject constructor(
 
     init {
         observePreferences()
+        refreshPrivacy()
         loadProfile()
         refreshCacheSize()
     }
@@ -105,6 +121,8 @@ class SettingsViewModel @Inject constructor(
     }
 
     private fun observePreferences() {
+        viewModelScope.launch { settingsPreferences.notificationPreview.collect { value -> _state.update { it.copy(preview = value) } } }
+        viewModelScope.launch { settingsPreferences.accountPrivacy.collect { value -> _state.update { it.copy(privacy = value) } } }
         viewModelScope.launch {
             settingsPreferences.notificationsEnabled.collect { v ->
                 _state.update { it.copy(notificationsEnabled = v) }
@@ -184,6 +202,36 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
+    fun setPreview(value: app.gagachat.core.data.preferences.NotificationPreview) = viewModelScope.launch { settingsPreferences.setNotificationPreview(value) }
+    fun loadRequests() = viewModelScope.launch {
+        try { _state.update { it.copy(requests = api.getMessageRequests(), requestError = null) } }
+        catch (e: Exception) { if (e is CancellationException) throw e; _state.update { it.copy(requestError = "Could not load message requests. Retry when connected.") } }
+    }
+    fun respondToRequest(id: String, action: String) = viewModelScope.launch {
+        try { api.respondMessageRequest(id, action); loadRequests() }
+        catch (e: Exception) { if (e is CancellationException) throw e; _state.update { it.copy(requestError = "Could not update request. Retry when connected.") } }
+    }
+
+    fun refreshPrivacy() = viewModelScope.launch {
+        _state.update { it.copy(privacyLoading = true, privacyError = null) }
+        try { settingsPreferences.refreshAccountPrivacy() }
+        catch (c: CancellationException) { throw c }
+        catch (e: Exception) { _state.update { it.copy(privacyError = "Could not load account privacy. Retry when connected.") } }
+        finally { _state.update { it.copy(privacyLoading = false) } }
+    }
+    fun savePrivacyAudience(key: String, value: String) = savePrivacy(key, value, null)
+    fun savePrivacyBoolean(key: String, value: Boolean) = savePrivacy(key, null, value)
+    private fun savePrivacy(key: String, value: String?, flag: Boolean?) {
+        if (_state.value.privacyLoading || _state.value.privacySaving) return
+        viewModelScope.launch {
+            _state.update { it.copy(privacySaving = true, privacyError = null) }
+            try { settingsPreferences.savePrivacy(buildJsonObject { if (value != null) put(key, value) else put(key, flag!!) }) }
+            catch (c: CancellationException) { throw c }
+            catch (e: Exception) { _state.update { it.copy(privacyError = "Privacy was not saved. Check your connection and retry.") } }
+            finally { _state.update { it.copy(privacySaving = false) } }
+        }
+    }
+
     fun setNotificationsEnabled(enabled: Boolean) =
         viewModelScope.launch { settingsPreferences.setNotificationsEnabled(enabled) }
 
@@ -197,10 +245,10 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch { settingsPreferences.setCallVibrationEnabled(enabled) }
 
     fun setReadReceiptsEnabled(enabled: Boolean) =
-        viewModelScope.launch { settingsPreferences.setReadReceiptsEnabled(enabled) }
+        savePrivacyBoolean("read_receipts", enabled)
 
     fun setShareLastSeenEnabled(enabled: Boolean) =
-        viewModelScope.launch { settingsPreferences.setShareLastSeenEnabled(enabled) }
+        savePrivacyAudience("last_seen", if (enabled) "FRIENDS" else "NOBODY")
 
     fun setThemeMode(mode: ThemeMode) =
         viewModelScope.launch { settingsPreferences.setThemeMode(mode) }
@@ -247,6 +295,29 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
+    fun changePassword(current: String, password: String, confirmation: String) = viewModelScope.launch {
+        if (_state.value.securityBusy) return@launch
+        if (password.length < 8 || password != confirmation) { _state.update { it.copy(securityNotice = "Enter matching passwords of at least 8 characters.") }; return@launch }
+        _state.update { it.copy(securityBusy = true, securityNotice = null) }
+        val result = authRepository.changePassword(current, password)
+        _state.update { it.copy(securityBusy = false, securityNotice = if (result is AppResult.Failure) result.error.message ?: "Password change failed" else "Password updated") }
+    }
+    fun loadSessions() = viewModelScope.launch {
+        try { _state.update { it.copy(sessions = api.getAccountSessions(), securityNotice = null) } }
+        catch (e: Exception) { if (e is CancellationException) throw e; _state.update { it.copy(securityNotice = "Could not load sessions. Retry when connected.") } }
+    }
+    fun revokeSession(id: String?, password: String) = viewModelScope.launch {
+        if (_state.value.securityBusy) return@launch
+        _state.update { it.copy(securityBusy = true, securityNotice = null) }
+        try {
+            when (val verified = authRepository.reauthenticate(password)) {
+                is AppResult.Failure -> _state.update { it.copy(securityNotice = verified.error.message ?: "Authentication failed") }
+                else -> { api.revokeAccountSession(id); loadSessions() }
+            }
+        } catch (e: Exception) { if (e is CancellationException) throw e; _state.update { it.copy(securityNotice = "Could not revoke session. Retry when connected.") } }
+        finally { _state.update { it.copy(securityBusy = false) } }
+    }
+
     fun signOut() {
         _state.update { it.copy(isSigningOut = true) }
         viewModelScope.launch {
@@ -260,9 +331,11 @@ class SettingsViewModel @Inject constructor(
      * session is cleared by the repository and [SettingsUiState.accountDeleted]
      * flips so the UI can return to the auth graph.
      */
-    fun deleteAccount() {
+    fun deleteAccount(password: String) {
         _state.update { it.copy(isDeletingAccount = true) }
         viewModelScope.launch {
+            val verified = authRepository.reauthenticate(password)
+            if (verified is AppResult.Failure) { _state.update { it.copy(isDeletingAccount = false) }; _notices.tryEmit(verified.error.message ?: "Authentication failed"); return@launch }
             when (val result = authRepository.deleteAccount()) {
                 is AppResult.Success -> _state.update {
                     it.copy(isDeletingAccount = false, accountDeleted = true)

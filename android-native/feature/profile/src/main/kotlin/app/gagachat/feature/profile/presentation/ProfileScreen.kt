@@ -268,7 +268,7 @@ fun ProfileRoute(
             // Profile completeness (self only) -------------------------------
             if (state.isSelf) {
                 Spacer(Modifier.height(GagaDimens.space20))
-                CompletenessCard(percent = state.completeness)
+                CompletenessCard(percent = state.completeness, privacy = state.privacy, onPrivacy = onOpenSettings)
             }
 
             // Contact info ---------------------------------------------------
@@ -314,7 +314,7 @@ fun ProfileRoute(
                 GagaDivider()
                 GagaSettingsRow(
                     title = "GaGa Wallet",
-                    subtitle = "Coins, top-up and activity",
+                    subtitle = "Coins and activity • top-up availability varies",
                     leadingIcon = Icons.Filled.AccountBalanceWallet,
                     leadingIconTint = GagaGreen,
                     trailing = { ChevronRight() },
@@ -803,7 +803,7 @@ private fun ProBadge() {
 }
 
 @Composable
-private fun CompletenessCard(percent: Int) {
+private fun CompletenessCard(percent: Int, privacy: app.gagachat.core.model.AccountPrivacy, onPrivacy: () -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -844,8 +844,8 @@ private fun CompletenessCard(percent: Int) {
         )
         Spacer(Modifier.height(GagaDimens.space12))
         Row(horizontalArrangement = Arrangement.spacedBy(GagaDimens.space8)) {
-            StatusTag("Online status visible")
-            StatusTag("Friend list visible")
+            Box(Modifier.clickable(onClick = onPrivacy)) { StatusTag("Online: " + (if (privacy.onlineStatus == app.gagachat.core.model.PrivacyAudience.SAME_AS_LAST_SEEN) privacy.lastSeen.label else privacy.onlineStatus.label)) }
+            Box(Modifier.clickable(onClick = onPrivacy)) { StatusTag("Friends: " + privacy.friendList.label) }
         }
     }
 }

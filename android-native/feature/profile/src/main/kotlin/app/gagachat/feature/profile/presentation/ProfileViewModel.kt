@@ -30,6 +30,7 @@ import java.io.File
 import javax.inject.Inject
 
 data class ProfileUiState(
+    val privacy: app.gagachat.core.model.AccountPrivacy = app.gagachat.core.model.AccountPrivacy(),
     val userId: String = "",
     val user: User? = null,
     val isSelf: Boolean = false,
@@ -73,6 +74,7 @@ class ProfileViewModel @Inject constructor(
     private val restApi: SupabaseRestApi,
     private val storageApi: SupabaseStorageApi,
     private val sessionStore: SessionStore,
+    private val settingsPreferences: app.gagachat.core.data.preferences.SettingsPreferences,
     private val dispatchers: DispatcherProvider,
 ) : ViewModel() {
 
@@ -84,6 +86,7 @@ class ProfileViewModel @Inject constructor(
     val state: StateFlow<ProfileUiState> = _state.asStateFlow()
 
     init {
+        viewModelScope.launch { settingsPreferences.accountPrivacy.collect { value -> _state.update { it.copy(privacy = value) } } }
         viewModelScope.launch {
             userRepository.observeUser(userId).collect { user ->
                 _state.update {
@@ -107,7 +110,7 @@ class ProfileViewModel @Inject constructor(
         // following come from the cached user row (see observeUser above).
         viewModelScope.launch {
             friendsRepository.friends.collect { list ->
-                _state.update { it.copy(friendsCount = list.size) }
+                if (_state.value.isSelf) _state.update { it.copy(friendsCount = list.size) }
             }
         }
     }

@@ -98,7 +98,7 @@ class DefaultConversationRepository @Inject constructor(
         return member.copy(
             displayName = member.displayName?.takeIf { it.isNotBlank() }
                 ?: user?.displayLabel,
-            avatar = member.avatar ?: user?.avatar,
+            avatar = user?.avatar,
         )
     }
 

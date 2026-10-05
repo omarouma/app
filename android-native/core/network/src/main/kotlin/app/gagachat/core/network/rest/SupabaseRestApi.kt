@@ -66,37 +66,66 @@ class SupabaseRestApi @Inject constructor(
 
     private fun iso(epochMillis: Long): String = Instant.ofEpochMilli(epochMillis).toString()
 
+    // Account-wide privacy is saved atomically on the server, never as another
+    // account's device preference. RPC returns the resulting merged document.
+    suspend fun getAccountPrivacy(): JsonObject = client.post("${config.restUrl}/rpc/gaga_get_privacy") {
+        auth(); contentType(ContentType.Application.Json); setBody(buildJsonObject {})
+    }.body()
+
+    suspend fun updateAccountPrivacy(patch: JsonObject): JsonObject = client.post("${config.restUrl}/rpc/gaga_save_privacy") {
+        auth(); contentType(ContentType.Application.Json)
+        setBody(buildJsonObject { put("patch", patch) })
+    }.body()
+
+    suspend fun validateIncomingCall(callId: String, callerId: String? = null): Boolean =
+        client.post("${config.restUrl}/rpc/gaga_validate_call") {
+            auth(); contentType(ContentType.Application.Json)
+            setBody(buildJsonObject { put("call_id", callId); put("incoming", true); callerId?.let { put("caller", it) } })
+        }.body()
+
+    suspend fun routeTextRequest(chatId: String, text: String): Boolean = client.post("${config.restUrl}/rpc/gaga_route_text") {
+        auth(); contentType(ContentType.Application.Json); setBody(buildJsonObject { put("chat", chatId); put("body", text) })
+    }.body()
+    suspend fun getMessageRequests(): List<app.gagachat.core.model.MessageRequest> = client.post("${config.restUrl}/rpc/gaga_message_requests") {
+        auth(); contentType(ContentType.Application.Json); setBody(buildJsonObject {})
+    }.body()
+    suspend fun respondMessageRequest(id: String, action: String) {
+        client.post("${config.restUrl}/rpc/gaga_respond_message_request") {
+            auth(); contentType(ContentType.Application.Json); setBody(buildJsonObject { put("request_id", id); put("action", action) })
+        }
+    }
+
+    suspend fun reportChatUser(chatId: String, reason: String) {
+        client.post("${config.restUrl}/rpc/gaga_report_chat_user") {
+            auth(); contentType(ContentType.Application.Json)
+            setBody(buildJsonObject { put("chat", chatId); put("reason", reason) })
+        }
+    }
+
+    suspend fun isSessionActive(): Boolean = client.post("${config.restUrl}/rpc/gaga_session_active") { auth(); contentType(ContentType.Application.Json); setBody(buildJsonObject {}) }.body()
+    suspend fun getAccountSessions(): List<app.gagachat.core.model.AccountSession> = client.post("${config.restUrl}/rpc/gaga_account_sessions") { auth(); contentType(ContentType.Application.Json); setBody(buildJsonObject {}) }.body()
+    suspend fun revokeAccountSession(id: String?) {
+        client.post("${config.restUrl}/rpc/gaga_revoke_session") { auth(); contentType(ContentType.Application.Json); setBody(buildJsonObject { id?.let { put("session_id", it) } }) }
+    }
+
     // ---- Users ----
 
-    suspend fun getUsers(ids: List<String>): List<UserRow> {
-        if (ids.isEmpty()) return emptyList()
-        return client.get("${config.restUrl}/users") {
-            auth()
-            parameter("select", "*")
-            parameter("id", "in.(${ids.joinToString(",")})")
+    private suspend fun privacyProfiles(ids: List<String>? = null, query: String? = null): List<UserRow> =
+        client.post("${config.restUrl}/rpc/gaga_profiles") {
+            auth(); contentType(ContentType.Application.Json)
+            setBody(buildJsonObject {
+                ids?.let { put("ids", kotlinx.serialization.json.JsonArray(it.map { id -> kotlinx.serialization.json.JsonPrimitive(id) })) }
+                query?.let { put("q", it) }
+            })
         }.body()
-    }
 
-    suspend fun getUser(id: String): UserRow? = client.get("${config.restUrl}/users") {
-        auth()
-        parameter("select", "*")
-        parameter("id", "eq.$id")
-        parameter("limit", 1)
-    }.body<List<UserRow>>().firstOrNull()
+    suspend fun getUsers(ids: List<String>): List<UserRow> =
+        if (ids.isEmpty()) emptyList() else ids.distinct().chunked(200).flatMap { privacyProfiles(ids = it) }
 
-    suspend fun searchUsers(query: String, limit: Int = 30): List<UserRow> {
-        val q = query.trim()
-        if (q.isEmpty()) return emptyList()
-        return client.get("${config.restUrl}/users") {
-            auth()
-            parameter("select", "*")
-            parameter(
-                "or",
-                "(display_name.ilike.*$q*,username.ilike.*$q*,name.ilike.*$q*)",
-            )
-            parameter("limit", limit)
-        }.body()
-    }
+    suspend fun getUser(id: String): UserRow? = privacyProfiles(ids = listOf(id)).firstOrNull()
+
+    suspend fun searchUsers(query: String, limit: Int = 30): List<UserRow> =
+        if (query.isBlank()) emptyList() else privacyProfiles(query = query.trim().take(128)).take(limit)
 
     suspend fun upsertUser(row: UserRow) {
         client.post("${config.restUrl}/users") {
@@ -114,18 +143,11 @@ class SupabaseRestApi @Inject constructor(
      * is never reported as a conflict. The backend still enforces the unique
      * constraint (`users_username_key`) as the source of truth.
      */
-    suspend fun isUsernameAvailable(username: String): Boolean {
-        val handle = username.trim().lowercase()
-        if (handle.isEmpty()) return false
-        val selfId = sessionStore.userId()
-        val rows: List<UserRow> = client.get("${config.restUrl}/users") {
-            auth()
-            parameter("select", "id")
-            parameter("username", "eq.$handle")
-            parameter("limit", "1")
-        }.body()
-        return rows.none { it.id != selfId }
-    }
+    suspend fun isUsernameAvailable(username: String): Boolean = client.post("${config.restUrl}/rpc/gaga_username_available") {
+        auth(); contentType(ContentType.Application.Json)
+        setBody(buildJsonObject { put("candidate", username.trim()) })
+    }.body()
+
 
     // ---- Chats (conversations) ----
 
@@ -526,6 +548,9 @@ class SupabaseRestApi @Inject constructor(
      * so we look the row up first and PATCH when it already exists, otherwise
      * INSERT. Safe to call repeatedly (e.g. on every FCM token refresh).
      */
+    suspend fun unregisterCurrentDevice(deviceId: String) {
+        client.delete("${config.restUrl}/user_devices") { auth(); sessionStore.userId()?.let { parameter("user_id", "eq.$it") }; parameter("device_id", "eq.$deviceId") }
+    }
     suspend fun upsertDevice(row: DeviceRow) {
         val existing = client.get("${config.restUrl}/user_devices") {
             auth()
@@ -849,18 +874,9 @@ class SupabaseRestApi @Inject constructor(
 
     // ---- Account ----
 
-    /**
-     * Permanently deletes the signed-in user's account and all owned data via the
-     * `delete_own_account()` RPC (Play Store requirement). The server scopes the
-     * deletion to `auth.uid()`, so this can only ever delete the caller.
-     *
-     * NOTE: the LIVE database function is named `delete_own_account`. The client
-     * previously called `delete_my_account`, which does not exist, so account
-     * deletion always failed with a 404 PGRST202. Verified against the live
-     * Supabase instance (returns 204 and removes the caller's row).
-     */
+    /** Removes owned Storage files, then deletes the account with recent authentication. */
     suspend fun deleteMyAccount() {
-        client.post("${config.restUrl}/rpc/delete_own_account") {
+        client.post("${config.functionsUrl}/delete-account-secure") {
             auth()
             header("Prefer", "return=minimal")
             contentType(ContentType.Application.Json)

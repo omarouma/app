@@ -44,6 +44,10 @@ interface AuthRepository {
     suspend fun sendOtp(email: String?, phone: String?): AppResult<Unit>
     suspend fun verifyOtp(email: String?, phone: String?, token: String): AppResult<AuthSession>
 
+    suspend fun reauthenticate(password: String): AppResult<Unit>
+    suspend fun changePassword(currentPassword: String, newPassword: String): AppResult<Unit>
+    suspend fun requestRecovery(email: String): AppResult<Unit>
+    suspend fun completeRecovery(email: String, proof: String, password: String): AppResult<Unit>
     suspend fun signOut()
 
     /**
@@ -65,6 +69,8 @@ class DefaultAuthRepository @Inject constructor(
     private val timeProvider: TimeProvider,
     private val dispatchers: DispatcherProvider,
     private val logger: AppLogger,
+    @dagger.hilt.android.qualifiers.ApplicationContext private val context: android.content.Context,
+    private val database: app.gagachat.core.database.GagaDatabase,
 ) : AuthRepository {
 
     private val _sessionFlow = MutableStateFlow(sessionStore.load())
@@ -74,6 +80,15 @@ class DefaultAuthRepository @Inject constructor(
 
     override suspend fun validateAndRefresh(): AppResult<Unit> = withContext(dispatchers.io) {
         val session = sessionStore.load() ?: return@withContext AppResult.Success(Unit)
+        try {
+            if (!restApi.isSessionActive()) {
+                clearLocalSession()
+                return@withContext AppResult.Failure(AppError.Unauthorized("This session was revoked. Sign in again."))
+            }
+        } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
+            return@withContext AppResult.Failure(ErrorMapper.map(e))
+        }
         if (!session.needsRefresh(timeProvider.nowMillis())) return@withContext AppResult.Success(Unit)
         try {
             val tokens = authApi.refresh(session.refreshToken)
@@ -135,9 +150,41 @@ class DefaultAuthRepository @Inject constructor(
         runAuth(newAccount = null) { authApi.verifyOtp(email, phone, token).toSession() }
     }
 
+    override suspend fun reauthenticate(password: String): AppResult<Unit> = withContext(dispatchers.io) {
+        val session = sessionStore.load() ?: return@withContext AppResult.Failure(AppError.Unauthorized())
+        try {
+            val fresh = authApi.signInWithPassword(session.email, session.phone.takeIf { session.email == null }, password).toSession()
+            if (fresh.userId != session.userId) return@withContext AppResult.Failure(AppError.Unauthorized())
+            sessionStore.save(fresh); _sessionFlow.value = fresh
+            AppResult.Success(Unit)
+        } catch (e: Exception) { if (e is kotlinx.coroutines.CancellationException) throw e; AppResult.Failure(ErrorMapper.map(e)) }
+    }
+    override suspend fun changePassword(currentPassword: String, newPassword: String): AppResult<Unit> = withContext(dispatchers.io) {
+        if (newPassword.length < 8) return@withContext AppResult.Failure(AppError.Validation("Use at least 8 characters"))
+        when (val verified = reauthenticate(currentPassword)) {
+            is AppResult.Failure -> verified
+            else -> try { authApi.updatePassword(sessionStore.accessToken() ?: error("Sign in again"), newPassword); AppResult.Success(Unit) }
+                catch (e: Exception) { if (e is kotlinx.coroutines.CancellationException) throw e; AppResult.Failure(ErrorMapper.map(e)) }
+        }
+    }
+    override suspend fun requestRecovery(email: String): AppResult<Unit> = withContext(dispatchers.io) {
+        try { authApi.requestRecovery(email); AppResult.Success(Unit) }
+        catch (e: Exception) { if (e is kotlinx.coroutines.CancellationException) throw e; AppResult.Failure(ErrorMapper.map(e)) }
+    }
+    override suspend fun completeRecovery(email: String, proof: String, password: String): AppResult<Unit> = withContext(dispatchers.io) {
+        if (password.length < 8) return@withContext AppResult.Failure(AppError.Validation("Use at least 8 characters"))
+        try {
+            val verified = authApi.verifyRecovery(email, proof).toSession()
+            authApi.updatePassword(verified.accessToken, password)
+            runCatching { authApi.signOut(verified.accessToken, "global") }
+            AppResult.Success(Unit)
+        } catch (e: Exception) { if (e is kotlinx.coroutines.CancellationException) throw e; AppResult.Failure(ErrorMapper.map(e)) }
+    }
+
     override suspend fun signOut() {
         withContext(dispatchers.io) {
             val token = sessionStore.accessToken()
+            runCatching { restApi.unregisterCurrentDevice(android.provider.Settings.Secure.getString(context.contentResolver, android.provider.Settings.Secure.ANDROID_ID) ?: "unknown-device") }
             if (token != null) runCatching { authApi.signOut(token) }
             clearLocalSession()
         }
@@ -182,6 +229,9 @@ class DefaultAuthRepository @Inject constructor(
     }
 
     private fun clearLocalSession() {
+        androidx.work.WorkManager.getInstance(context).cancelAllWork()
+        database.clearAllTables()
+        context.cacheDir.listFiles()?.forEach { runCatching { it.deleteRecursively() } }
         sessionStore.clear()
         _sessionFlow.value = null
     }

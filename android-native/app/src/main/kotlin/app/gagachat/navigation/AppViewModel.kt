@@ -47,6 +47,7 @@ import javax.inject.Inject
 @HiltViewModel
 class AppViewModel @Inject constructor(
     private val authRepository: AuthRepository,
+    private val privacyApi: app.gagachat.core.network.rest.SupabaseRestApi,
     private val userRepository: UserRepository,
     private val onboardingPreferences: OnboardingPreferences,
     private val syncInitializer: SyncInitializer,
@@ -203,6 +204,7 @@ class AppViewModel @Inject constructor(
                 val self = session.value?.userId ?: return@collect
                 if (signal.toUserId.isNotEmpty() && signal.toUserId != self) return@collect
                 if (signal.conversationId.isBlank() || signal.callId.isBlank()) return@collect
+                if (!runCatching { privacyApi.validateIncomingCall(signal.callId, signal.fromUserId) }.getOrDefault(false)) return@collect
                 // A call is already up (or being set up): never stack a second
                 // incoming screen on top of the one the user is looking at.
                 if (liveKitCallManager.isActive()) return@collect

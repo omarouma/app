@@ -70,17 +70,17 @@ class DefaultUserRepository @Inject constructor(
         }
 
     override suspend fun getUser(id: String): AppResult<User> = withContext(dispatchers.io) {
-        // Cache-first: return local immediately if present, else fetch.
-        userDao.getById(id)?.let { return@withContext AppResult.Success(it.toDomain()) }
+        // Authorization can change on another device; do not resurrect a stale
+        // profile through a cache-first read after access has been revoked.
         refreshUser(id)
     }
 
     override suspend fun refreshUser(id: String): AppResult<User> = withContext(dispatchers.io) {
         try {
             val row = restApi.getUser(id)
-                ?: return@withContext AppResult.Failure(
+                ?: run { userDao.deleteById(id); return@withContext AppResult.Failure(
                     app.gagachat.core.common.result.AppError.Validation("User not found"),
-                )
+                ) }
             val user = row.toDomain()
             userDao.upsert(user.toEntity(timeProvider.nowMillis()))
             AppResult.Success(user)

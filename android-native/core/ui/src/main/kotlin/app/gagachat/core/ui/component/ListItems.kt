@@ -63,6 +63,7 @@ fun GagaSettingsRow(
             Text(
                 text = title,
                 style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = androidx.compose.ui.text.font.FontWeight.Medium,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )

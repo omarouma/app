@@ -14,6 +14,7 @@ import app.gagachat.core.data.preferences.SettingsPreferences
 import app.gagachat.core.data.sync.RealtimeCoordinator
 import app.gagachat.diagnostics.CrashReporter
 import app.gagachat.push.NotificationChannels
+import coil.imageLoader
 import coil.ImageLoader
 import coil.ImageLoaderFactory
 import coil.decode.VideoFrameDecoder
@@ -59,6 +60,7 @@ class GagaApplication : Application(), Configuration.Provider, ImageLoaderFactor
 
     /** Cached privacy flag — when false we never advertise "online" (Master Spec §C). */
     @Volatile
+    @javax.inject.Inject lateinit var userDao: app.gagachat.core.database.dao.UserDao
     private var shareLastSeen: Boolean = true
 
     /** Periodic presence heartbeat, alive only while the app is foregrounded. */
@@ -77,8 +79,17 @@ class GagaApplication : Application(), Configuration.Provider, ImageLoaderFactor
         // before a session exists: subscriptions are re-joined on reconnect.
         runCatching { realtimeCoordinator.start(applicationScope) }
             .onFailure { Log.w(TAG, "Realtime start failed", it) }
-        runCatching { observePrivacyForPresence() }
-            .onFailure { Log.w(TAG, "Privacy observer failed", it) }
+
+        applicationScope.launch {
+            authRepository.sessionFlow.collect { session ->
+                if (session != null) {
+                    userDao.redactOtherProfiles(session.userId)
+                    userDao.clearMemberAvatars()
+                    imageLoader.memoryCache?.clear()
+                }
+                runCatching { settingsPreferences.refreshAccountPrivacy() }
+            }
+        }
         runCatching { observeAppLifecycleForPresence() }
             .onFailure { Log.w(TAG, "Lifecycle observer failed", it) }
     }
@@ -107,11 +118,14 @@ class GagaApplication : Application(), Configuration.Provider, ImageLoaderFactor
         ProcessLifecycleOwner.get().lifecycle.addObserver(
             object : DefaultLifecycleObserver {
                 override fun onStart(owner: LifecycleOwner) {
+                    applicationScope.launch { runCatching { settingsPreferences.refreshAccountPrivacy() } }
                     publishPresence(isOnline = true)
                     presenceJob?.cancel()
                     presenceJob = applicationScope.launch {
                         while (isActive) {
                             delay(PRESENCE_HEARTBEAT_MS)
+                            runCatching { authRepository.validateAndRefresh() }
+                            runCatching { settingsPreferences.refreshAccountPrivacy() }
                             publishPresence(isOnline = true)
                         }
                     }
@@ -129,7 +143,7 @@ class GagaApplication : Application(), Configuration.Provider, ImageLoaderFactor
     private fun publishPresence(isOnline: Boolean) {
         val userId = authRepository.sessionFlow.value?.userId ?: return
         // Privacy: when the user hides last seen we never advertise "online".
-        val online = isOnline && shareLastSeen
+        val online = isOnline
         applicationScope.launch { userRepository.updatePresence(userId, online) }
     }
 

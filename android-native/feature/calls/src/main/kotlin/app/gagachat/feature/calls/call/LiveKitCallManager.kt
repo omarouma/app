@@ -1,6 +1,8 @@
 package app.gagachat.feature.calls.call
 
 import android.content.Context
+import android.content.Intent
+import androidx.core.content.ContextCompat
 import android.os.SystemClock
 import app.gagachat.core.common.BuildConfig
 import app.gagachat.core.common.util.AppLogger
@@ -65,6 +67,7 @@ data class CallPeer(
     val isCameraEnabled: Boolean,
     val isMicrophoneEnabled: Boolean,
     val connectionQuality: ConnectionQuality,
+    val videoTrackReady: Boolean = false,
 )
 
 /** Emitted once when a call finishes, so the UI can persist the final status. */
@@ -244,6 +247,7 @@ class LiveKitCallManager @Inject constructor(
         observeRoom(newRoom)
 
         try {
+            ContextCompat.startForegroundService(context, Intent(context, ActiveCallService::class.java).putExtra(ActiveCallService.EXTRA_VIDEO, isVideo))
             withTimeout(20_000L) { newRoom.connect(token.url, token.token) }
         } catch (timeout: TimeoutCancellationException) {
             lastError = "The call server did not respond. Please try again."
@@ -268,7 +272,11 @@ class LiveKitCallManager @Inject constructor(
         // [refreshPeers]). Otherwise ring time would be billed as talk time.
         _connection.value = CallConnection.CONNECTED
 
-        publishInitialTracks(newRoom, isVideo)
+        if (!publishInitialTracks(newRoom, isVideo)) {
+            _connection.value = CallConnection.FAILED
+            teardownRoom()
+            return@withLock false
+        }
         refreshPeers()
         true
     }
@@ -278,24 +286,31 @@ class LiveKitCallManager @Inject constructor(
      * only enabled for video calls. Failures are non-fatal: an audio-only
      * fallback is far better than dropping the call.
      */
-    private suspend fun publishInitialTracks(room: Room, isVideo: Boolean) {
+    internal suspend fun publishInitialTracks(room: Room, isVideo: Boolean): Boolean {
         val local = room.localParticipant
         try {
-            local.setMicrophoneEnabled(true)
+            check(withTimeout(10_000L) { local.setMicrophoneEnabled(true) }) { "Microphone publication failed" }
             _isMicrophoneEnabled.value = true
         } catch (c: CancellationException) {
-            throw c
+            if (c !is TimeoutCancellationException) throw c
+            _isMicrophoneEnabled.value = false
+            lastError = "Microphone did not start in time. Please try again."
+            return false
         } catch (t: Throwable) {
             logger.e(TAG, "Failed to publish microphone", t)
             _isMicrophoneEnabled.value = false
+            lastError = "Microphone could not start. Check microphone permission and try again."
+            return false
         }
 
         if (isVideo) {
             try {
-                local.setCameraEnabled(true)
+                check(withTimeout(10_000L) { local.setCameraEnabled(true) }) { "Camera publication failed" }
                 _isCameraEnabled.value = true
             } catch (c: CancellationException) {
-                throw c
+                if (c !is TimeoutCancellationException) throw c
+                _isCameraEnabled.value = false
+                lastError = "Camera timed out — continuing with audio only."
             } catch (t: Throwable) {
                 logger.e(TAG, "Failed to publish camera", t)
                 _isCameraEnabled.value = false
@@ -308,6 +323,7 @@ class LiveKitCallManager @Inject constructor(
         // Route audio to the loudspeaker for video calls, earpiece for audio
         // calls — matching the behaviour users expect from a phone dialler.
         setSpeakerOn(isVideo)
+        return true
     }
 
     /**
@@ -352,7 +368,7 @@ class LiveKitCallManager @Inject constructor(
     suspend fun setMicrophoneEnabled(enabled: Boolean): Boolean {
         val local = room?.localParticipant ?: return false
         return try {
-            local.setMicrophoneEnabled(enabled)
+            if (!local.setMicrophoneEnabled(enabled)) return false
             _isMicrophoneEnabled.value = enabled
             true
         } catch (c: CancellationException) {
@@ -367,7 +383,7 @@ class LiveKitCallManager @Inject constructor(
     suspend fun setCameraEnabled(enabled: Boolean): Boolean {
         val local = room?.localParticipant ?: return false
         return try {
-            local.setCameraEnabled(enabled)
+            if (!local.setCameraEnabled(enabled)) return false
             _isCameraEnabled.value = enabled
             true
         } catch (c: CancellationException) {
@@ -620,6 +636,7 @@ class LiveKitCallManager @Inject constructor(
             isCameraEnabled = isCameraEnabled,
             isMicrophoneEnabled = isMicrophoneEnabled,
             connectionQuality = connectionQuality,
+            videoTrackReady = getTrackPublication(Track.Source.CAMERA)?.track != null,
         )
     }
 
@@ -644,6 +661,7 @@ class LiveKitCallManager @Inject constructor(
      * disconnect path, the event stream and the logout path in any order.
      */
     private fun teardownRoom() {
+        context.stopService(Intent(context, ActiveCallService::class.java))
         eventJob?.cancel()
         eventJob = null
         peerLeftJob?.cancel()

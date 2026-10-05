@@ -43,6 +43,7 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -85,6 +86,18 @@ fun ChatInfoRoute(
         }
     }
 
+    var showReport by remember { androidx.compose.runtime.mutableStateOf(false) }
+    if (showReport) androidx.compose.material3.AlertDialog(
+        onDismissRequest = { showReport = false },
+        title = { Text("Report this user") },
+        text = { Column {
+            Text("Select a reason. Your account, this contact and the reason will be sent for review. Messages are not included.")
+            listOf("Spam", "Harassment", "Scam", "Other").forEach { reason ->
+                androidx.compose.material3.TextButton(onClick = { showReport = false; viewModel.reportUser(reason) }) { Text(reason) }
+            }
+        } },
+        confirmButton = { androidx.compose.material3.TextButton(onClick = { showReport = false }) { Text("Cancel") } },
+    )
     GagaScaffold(
         title = "Chat Info",
         onBack = onNavigateBack,
@@ -300,7 +313,7 @@ fun ChatInfoRoute(
                 icon = Icons.Filled.Flag,
                 label = "Report User",
                 description = "Report this contact for review by our team.",
-                onClick = viewModel::reportUser,
+                onClick = { showReport = true },
                 destructive = true,
             )
             Spacer(Modifier.height(GagaDimens.space24))

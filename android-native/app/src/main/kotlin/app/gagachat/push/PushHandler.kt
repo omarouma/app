@@ -36,6 +36,8 @@ import javax.inject.Singleton
 class PushHandler @Inject constructor(
     @ApplicationContext private val context: Context,
     private val settingsPreferences: SettingsPreferences,
+    private val sessionStore: app.gagachat.core.network.session.SessionStore,
+    private val privacyApi: app.gagachat.core.network.rest.SupabaseRestApi,
 ) {
 
     /**
@@ -48,6 +50,11 @@ class PushHandler @Inject constructor(
         notificationTitle: String? = null,
         notificationBody: String? = null,
     ) {
+        val currentUser = sessionStore.userId() ?: return
+        val recipient = data["user_id"] ?: data["callee_id"] ?: data["recipient_id"]
+        if (recipient != null && recipient != currentUser) return
+        val preview = settingsPreferences.notificationPreview.first()
+        val locked = settingsPreferences.appLockEnabled.first()
         val notificationsEnabled = settingsPreferences.notificationsEnabled.first()
         val soundsEnabled = settingsPreferences.messageSoundsEnabled.first()
 
@@ -58,8 +65,9 @@ class PushHandler @Inject constructor(
             ?: data["chat_id"]
         val callId = data["callId"] ?: data["call_id"]
         val callerName = data["callerName"] ?: data["caller_name"]
-        val title = data["title"] ?: callerName ?: notificationTitle ?: "GaGa Chat"
-        val body = data["body"] ?: data["message_preview"] ?: notificationBody ?: "New message"
+        val rawTitle = data["title"] ?: callerName ?: notificationTitle ?: "GaGa Chat"
+        val title = if (locked || preview == app.gagachat.core.data.preferences.NotificationPreview.NONE) "GaGa Chat" else rawTitle
+        val body = if (!locked && preview == app.gagachat.core.data.preferences.NotificationPreview.FULL) data["body"] ?: data["message_preview"] ?: notificationBody ?: "New message" else "Open GaGa to view"
         val isVideo = data["callType"] == "video"
             || data["call_type"] == "video"
             || data["is_video"].equals("true", ignoreCase = true)
@@ -67,11 +75,18 @@ class PushHandler @Inject constructor(
 
         when (type) {
             "call", "incoming_call" -> {
+                if (callId == null || !privacyApi.validateIncomingCall(callId, data["caller_id"] ?: data["callerId"])) return
                 if (conversationId != null) {
+                    if (androidx.lifecycle.ProcessLifecycleOwner.get().lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.STARTED)) {
+                        PendingDeepLink.set(app.gagachat.feature.calls.navigation.CallRoutes.incomingCall(conversationId, callId, isVideo))
+                        return
+                    }
                     NotificationHelper.showIncomingCall(
                         context = context,
                         conversationId = conversationId,
                         callId = callId,
+                        soundEnabled = settingsPreferences.callSoundsEnabled.first(),
+                        vibrationEnabled = settingsPreferences.callVibrationEnabled.first(),
                         callerName = title,
                         isVideo = isVideo,
                         notificationsEnabled = notificationsEnabled,

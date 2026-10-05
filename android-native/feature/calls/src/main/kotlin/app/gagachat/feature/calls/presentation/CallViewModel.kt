@@ -63,6 +63,7 @@ enum class CallPhase {
 data class CallUiState(
     val history: List<CallSession> = emptyList(),
     val isLoading: Boolean = true,
+    val mediaNotice: String? = null,
     val error: String? = null,
     val phase: CallPhase = CallPhase.IDLE,
     val activeCall: CallSession? = null,
@@ -376,7 +377,7 @@ class CallViewModel @Inject constructor(
                             isVideo = isVideo,
                         )
                         if (joined) {
-                            _state.update { it.copy(callLaunched = true) }
+                            _state.update { it.copy(callLaunched = true, mediaNotice = liveKitCallManager.lastError) }
                             // Let the SDK acquire audio first so it cannot immediately
                             // interrupt ringback with its initial focus request.
                             if (_state.value.phase == CallPhase.OUTGOING_RINGING) {
@@ -443,7 +444,7 @@ class CallViewModel @Inject constructor(
         startIncomingTimeout()
         // Ring the device: this is the sound that was missing. It loops until the
         // call is accepted, rejected, cancelled, times out or otherwise ends.
-        callSoundPlayer.startIncoming()
+        callSoundPlayer.startIncoming(conversationId)
         viewModelScope.launch {
             val conversation = withTimeoutOrNull(10_000L) {
                 conversationRepository.observeConversation(conversationId).filterNotNull().first()
@@ -490,7 +491,7 @@ class CallViewModel @Inject constructor(
                     isVideo = _state.value.isVideoCall,
                 )
                 if (joined) {
-                    _state.update { it.copy(callLaunched = true) }
+                    _state.update { it.copy(callLaunched = true, mediaNotice = liveKitCallManager.lastError) }
                 } else {
                     liveKitCallManager.disconnect()
                     finalizeCall(CallStatus.FAILED, liveKitCallManager.lastError ?: "Could not join the call.")

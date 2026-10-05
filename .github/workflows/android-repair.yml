@@ -23,7 +23,7 @@ jobs:
         with:
           node-version: '24'
       - name: Test LiveKit token authorization
-        run: node --test supabase/functions/livekit-token/tests/token.test.mjs
+        run: node --test supabase/functions/livekit-token/tests/token.test.mjs supabase/functions/create-call/tests/admission.test.mjs
       - name: Read app version
         run: |
           python3 - <<'PYVERSION'

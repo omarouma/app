@@ -28,6 +28,9 @@ object NotificationChannels {
     const val MESSAGES = "gaga_messages"
     const val GROUP_MESSAGES = "gaga_group_messages"
     const val CALLS = "gaga_calls"
+    const val CALLS_NO_VIBRATION = "gaga_calls_sound_only"
+    const val CALLS_VIBRATION_ONLY = "gaga_calls_vibration_only"
+    const val CALLS_QUIET = "gaga_calls_quiet"
     const val MISSED_CALLS = "gaga_missed_calls"
     const val SECURITY = "gaga_security"
 
@@ -76,7 +79,7 @@ object NotificationChannels {
             ).apply {
                 description = "Incoming voice and video calls"
                 enableVibration(true)
-                setBypassDnd(true)
+                setBypassDnd(false)
                 setSound(
                     RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE),
                     AudioAttributes.Builder()
@@ -111,6 +114,12 @@ object NotificationChannels {
             },
         )
 
+        listOf(Triple(CALLS_NO_VIBRATION, true, false), Triple(CALLS_VIBRATION_ONLY, false, true), Triple(CALLS_QUIET, false, false)).forEach { (id, sound, vibration) ->
+            manager.createNotificationChannel(NotificationChannel(id, "Incoming calls • " + when { sound -> "sound only"; vibration -> "vibration only"; else -> "silent" }, NotificationManager.IMPORTANCE_HIGH).apply {
+                enableVibration(vibration)
+                setSound(if (sound) RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE) else null, AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_NOTIFICATION_RINGTONE).build())
+            })
+        }
         // Legacy channel kept so existing preferences are not orphaned.
         manager.createNotificationChannel(
             NotificationChannel(

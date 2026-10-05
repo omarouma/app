@@ -82,6 +82,7 @@ class ChatInfoViewModel @Inject constructor(
     private val authRepository: AuthRepository,
     private val blockRepository: BlockRepository,
     private val friendsRepository: FriendsRepository,
+    private val privacyApi: app.gagachat.core.network.rest.SupabaseRestApi,
 ) : ViewModel() {
 
     private val conversationId: String = savedStateHandle.get<String>("conversationId").orEmpty()
@@ -143,8 +144,14 @@ class ChatInfoViewModel @Inject constructor(
     }
 
     /** Submits a report for the other participant. */
-    fun reportUser() {
-        _notice.value = "Thanks \u2014 your report has been submitted for review."
+    fun reportUser(reason: String) {
+        viewModelScope.launch {
+            try {
+                privacyApi.reportChatUser(conversationId, reason)
+                _notice.value = "Report saved for review. Message content was not included."
+            } catch (c: kotlinx.coroutines.CancellationException) { throw c
+            } catch (t: Throwable) { _notice.value = "Report could not be saved. Please try again." }
+        }
     }
 
     @OptIn(ExperimentalCoroutinesApi::class)
@@ -164,7 +171,7 @@ class ChatInfoViewModel @Inject constructor(
             title = otherUser?.displayLabel?.takeIf { it.isNotBlank() }
                 ?: conversation?.displayTitle(currentUserId)
                 ?: "Chat",
-            avatarUrl = otherUser?.avatar ?: conversation?.avatar,
+            avatarUrl = if (conversation?.type == app.gagachat.core.model.ConversationType.GROUP) conversation.avatar else otherUser?.avatar,
             status = otherUser?.status ?: UserStatus.OFFLINE,
             bio = otherUser?.bio,
             otherUserId = conversation?.otherMember(currentUserId)?.userId.orEmpty(),
