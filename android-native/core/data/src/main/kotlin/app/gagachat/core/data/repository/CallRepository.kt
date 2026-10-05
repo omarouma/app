@@ -124,9 +124,13 @@ class DefaultCallRepository @Inject constructor(
             runCatching {
                 restApi.updateCallHistory(callId, status.name.lowercase(), now, durationMs)
             }
-            // Persist a CALL_EVENT into chat history.
+            // Persist a CALL_EVENT into chat history. Only the *initiator* writes
+            // it: both parties run this finalize path, and the callee's row (once
+            // history has synced) would otherwise produce a second, identical
+            // bubble in the shared conversation. The server's local_id dedupe
+            // cannot help here because each device mints its own client id.
             val session = callDao.getById(callId)?.toDomain()
-            if (session != null) {
+            if (session != null && session.isOutgoing) {
                 messageRepository.sendCallEvent(
                     conversationId = session.conversationId,
                     senderId = session.initiatorId,

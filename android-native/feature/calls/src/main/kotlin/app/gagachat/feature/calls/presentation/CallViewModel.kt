@@ -20,6 +20,8 @@ import app.gagachat.feature.calls.call.LiveKitCallManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.livekit.android.renderer.SurfaceViewRenderer
 import io.livekit.android.room.participant.ConnectionQuality
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -97,6 +99,21 @@ class CallViewModel @Inject constructor(
     /** The server call id of the in-flight call, persisted when it finishes. */
     private var activeCallId: String? = null
 
+    /**
+     * Fires when an outgoing call is never answered. LiveKit is a pure media
+     * transport and has no notion of "ringing", so the ring timeout is ours to
+     * enforce; without it an unanswered call would ring forever and leave a
+     * durable server row stuck in `ringing`.
+     */
+    private var ringTimeoutJob: Job? = null
+
+    /**
+     * Fires when an incoming call is never answered and the caller never
+     * withdraws the invite (e.g. their process died). Mirrors [ringTimeoutJob]
+     * for the callee so a stale invite cannot ring forever.
+     */
+    private var incomingTimeoutJob: Job? = null
+
     init {
         observeHistory()
         refreshHistory()
@@ -134,7 +151,12 @@ class CallViewModel @Inject constructor(
                     val nextPhase = when {
                         peers.isEmpty() -> current.phase
                         current.phase == CallPhase.ENDED -> current.phase
-                        else -> CallPhase.CONNECTED
+                        else -> {
+                            // The other party is in the room, so the ring is over
+                            // and the "no answer" timer must not fire mid-call.
+                            cancelRingTimeout()
+                            CallPhase.CONNECTED
+                        }
                     }
                     current.copy(
                         peers = peers,
@@ -284,6 +306,7 @@ class CallViewModel @Inject constructor(
                             elapsedSeconds = 0L,
                         )
                     }
+                    startRingTimeout()
                     if (peerId == null) {
                         _state.update { it.copy(error = "This conversation has no callable peer.") }
                         return@launch
@@ -370,6 +393,7 @@ class CallViewModel @Inject constructor(
                 error = null,
             )
         }
+        startIncomingTimeout()
         viewModelScope.launch {
             val conversation = conversationRepository.observeConversation(conversationId).first()
             val peer = conversation?.otherMember(currentUserId)
@@ -427,6 +451,14 @@ class CallViewModel @Inject constructor(
 
     /** Ends the active call for both parties. */
     fun endCall() {
+        // Cancelling before the callee answers is a distinct case: the callee is
+        // still subscribed only to its personal inbox (it joins the per-call
+        // topic when it accepts), so a plain per-call hang-up would never reach
+        // it and its phone would keep ringing. Route it through the inbox too.
+        if (_state.value.phase == CallPhase.OUTGOING_RINGING) {
+            cancelOutgoingRing(error = null)
+            return
+        }
         broadcastSignal(CallSignalKind.HANGUP)
         liveKitCallManager.disconnect()
         finalizeCall(CallStatus.ENDED)
@@ -532,8 +564,83 @@ class CallViewModel @Inject constructor(
         )
     }
 
+    /**
+     * Cancels an outgoing call that has not been answered yet. The hang-up is
+     * published on the per-call topic (for any client that already joined) *and*
+     * on the callee's personal inbox, because a still-ringing callee has not
+     * joined the per-call topic and would otherwise keep ringing. The call is
+     * recorded as MISSED, matching what the user actually experienced.
+     */
+    private fun cancelOutgoingRing(error: String?) {
+        val session = authRepository.sessionFlow.value
+        val peerId = _state.value.peerId
+        val callId = activeCallId
+        if (session != null && peerId != null && callId != null) {
+            callSignalingCoordinator.ring(
+                toUserId = peerId,
+                signal = CallSignal(
+                    callId = callId,
+                    conversationId = _state.value.conversationId.orEmpty(),
+                    fromUserId = session.userId,
+                    toUserId = peerId,
+                    kind = CallSignalKind.HANGUP,
+                    payload = null,
+                    createdAt = System.currentTimeMillis(),
+                ),
+            )
+        }
+        broadcastSignal(CallSignalKind.HANGUP)
+        liveKitCallManager.disconnect()
+        finalizeCall(CallStatus.MISSED, error = error)
+    }
+
+    /**
+     * Arms the "no answer" timer for an outgoing call. Fires once after
+     * [RING_TIMEOUT_MS]; if the call is still ringing by then it is cancelled.
+     */
+    private fun startRingTimeout() {
+        cancelRingTimeout()
+        ringTimeoutJob = viewModelScope.launch {
+            delay(RING_TIMEOUT_MS)
+            if (_state.value.phase == CallPhase.OUTGOING_RINGING) {
+                // Null the handle first so finalizeCall()'s cancel is a no-op and
+                // cannot cancel this coroutine out from under itself.
+                ringTimeoutJob = null
+                cancelOutgoingRing(error = "No answer")
+            }
+        }
+    }
+
+    private fun cancelRingTimeout() {
+        ringTimeoutJob?.cancel()
+        ringTimeoutJob = null
+    }
+
+    /**
+     * Arms the timer that stops an incoming call ringing forever when the caller
+     * never withdraws the invite (e.g. their process died). Fires once after
+     * [RING_TIMEOUT_MS].
+     */
+    private fun startIncomingTimeout() {
+        cancelIncomingTimeout()
+        incomingTimeoutJob = viewModelScope.launch {
+            delay(RING_TIMEOUT_MS)
+            if (_state.value.phase == CallPhase.INCOMING_RINGING) {
+                incomingTimeoutJob = null
+                finalizeCall(CallStatus.MISSED)
+            }
+        }
+    }
+
+    private fun cancelIncomingTimeout() {
+        incomingTimeoutJob?.cancel()
+        incomingTimeoutJob = null
+    }
+
     /** Persists the final status + duration and resets the UI to the ended state. */
     private fun finalizeCall(status: CallStatus, error: String? = null) {
+        cancelRingTimeout()
+        cancelIncomingTimeout()
         val callId = activeCallId
         activeCallId = null
         if (callId != null) callSignalingCoordinator.leaveCall(callId)
@@ -560,5 +667,15 @@ class CallViewModel @Inject constructor(
         viewModelScope.launch {
             runCatching { callRepository.endCall(callId, effectiveStatus, durationMs) }
         }
+    }
+
+    private companion object {
+        /**
+         * How long an outgoing call rings before it is treated as unanswered, and
+         * how long an incoming invite may ring before it is auto-dismissed. 45s
+         * matches the platform dialer's default and is long enough for a callee
+         * to reach their phone.
+         */
+        const val RING_TIMEOUT_MS = 45_000L
     }
 }

@@ -1168,6 +1168,13 @@ class ChatViewModel @Inject constructor(
     override fun onCleared() {
         recordingTicker?.cancel()
         typingJob?.cancel()
+        searchJob?.cancel()
+        // A live-location share runs a 30s update loop for the lifetime of the
+        // share (up to hours). Without cancelling it here the loop kept running
+        // after the screen was destroyed, holding the ViewModel and repeatedly
+        // hitting the location provider until the share expired.
+        liveLocationJob?.cancel()
+        liveLocationJob = null
         voiceRecorder.cancel()
         super.onCleared()
     }

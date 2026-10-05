@@ -665,6 +665,28 @@ class SupabaseRestApi @Inject constructor(
         }
     }
 
+    /**
+     * Atomically transfers [amount] coins from the signed-in user to [toUserId]
+     * via the server-side `wallet_transfer` RPC. The server validates the balance
+     * (and block status) and commits the debit + credit in a single transaction,
+     * so concurrent transfers cannot double-spend and a failed credit cannot lose
+     * the sender's coins. Returns `false` when the balance is insufficient.
+     */
+    suspend fun transferCoins(toUserId: String, amount: Long, note: String?): Boolean =
+        client.post("${config.restUrl}/rpc/wallet_transfer") {
+            auth()
+            contentType(ContentType.Application.Json)
+            setBody(
+                buildJsonObject {
+                    put("p_to_user_id", toUserId)
+                    put("p_amount", amount)
+                    // The RPC only accepts the exact literals 'USD' / 'BDT' / 'coins'.
+                    put("p_currency", "coins")
+                    put("p_description", note.orEmpty())
+                },
+            )
+        }.body()
+
     // ---- Groups ----
 
     suspend fun getGroupsForUser(userId: String): List<GroupRow> {

@@ -115,18 +115,21 @@ class DefaultWalletRepository @Inject constructor(
         if (me.isBlank()) return@withContext AppResult.Failure(AppError.Unauthorized())
         if (me == toUserId) return@withContext AppResult.Failure(AppError.Validation("You can't send coins to yourself"))
         try {
-            val myBalance = restApi.getWallet(me)?.coins ?: 0L
-            if (myBalance < amount) {
+            // Atomic, server-validated transfer. The previous client-side
+            // read-modify-write (read balance, PATCH sender, PATCH recipient) was
+            // racy: two concurrent sends could both read the same balance and
+            // double-spend, and a failed recipient credit silently lost the
+            // sender's coins. The RPC does both halves in one transaction and
+            // returns false when the balance is insufficient.
+            val moved = restApi.transferCoins(toUserId = toUserId, amount = amount, note = note)
+            if (!moved) {
                 return@withContext AppResult.Failure(AppError.Validation("Insufficient balance"))
             }
-            // Debit sender, credit recipient (best-effort symmetric transfer).
-            restApi.updateWalletCoins(me, myBalance - amount)
-            val recipientBalance = restApi.getWallet(toUserId)?.coins ?: 0L
-            restApi.updateWalletCoins(toUserId, recipientBalance + amount)
-            val wallet = Wallet(id = me, userId = me, coins = myBalance - amount, updatedAt = timeProvider.nowMillis())
-            _wallet.value = wallet
+            val updated = restApi.getWallet(me)?.toDomain()
+                ?: Wallet(id = me, userId = me, coins = 0L)
+            _wallet.value = updated
             record(CoinActivityType.SENT, amount, counterpartyId = toUserId, counterpartyName = toName, note = note)
-            AppResult.Success(wallet)
+            AppResult.Success(updated)
         } catch (t: Throwable) {
             AppResult.Failure(ErrorMapper.map(t))
         }
