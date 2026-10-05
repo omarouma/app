@@ -113,7 +113,7 @@ class FirebaseIdentityMapper @Inject constructor(
                 )
             }
         } catch (e: ResponseException) {
-            AppResult.Failure(mapError(e.status.value, runCatching { e.response.bodyAsText() }.getOrNull(), e))
+            AppResult.Failure(mapError(e.response.status.value, runCatching { e.response.bodyAsText() }.getOrNull(), e))
         } catch (t: Throwable) {
             if (t is kotlinx.coroutines.CancellationException) throw t
             AppResult.Failure(AppError.Network("Could not reach the identity service.", t))

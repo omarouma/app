@@ -70,7 +70,7 @@ class AuthTokenRefresher @Inject constructor(
      * @param force refresh even when the cached token still looks valid (used
      *   after the server rejected a token with 401).
      */
-    override suspend fun ensureFresh(force: Boolean = false): String? {
+    override suspend fun ensureFresh(force: Boolean): String? {
         val session = sessionStore.load() ?: return null
         if (!force && !session.needsRefresh(timeProvider.nowMillis())) return session.accessToken
         return mutex.withLock {
