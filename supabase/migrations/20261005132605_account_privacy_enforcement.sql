@@ -13,6 +13,21 @@ create or replace function public.gaga_session_active() returns boolean
 language sql stable security invoker set search_path='' as $$ select gaga_private.session_active() $$;
 
 
+-- Preserve restrictive legacy choices before introducing the new audiences.
+update public.user_settings set privacy_settings =
+ jsonb_strip_nulls(jsonb_build_object(
+ 'read_receipts',case when lower(privacy_settings->>'readReceipts')='false' then false end,
+ 'online_status',case when lower(privacy_settings->>'showOnlineStatus')='false'
+   or lower(privacy_settings->>'hideOnlineStatus')='true' then 'NOBODY' end,
+ 'last_seen',case when lower(privacy_settings->>'lastSeen') in ('nobody','none','false') then 'NOBODY' end,
+ 'profile_photo',case when lower(privacy_settings->>'profilePhoto') in ('nobody','none','private') then 'NOBODY' end,
+ 'bio',case when lower(privacy_settings->>'bioVisibility') in ('nobody','none','private') then 'NOBODY' end,
+ 'calls',case when lower(privacy_settings->>'whoCanCall') in ('nobody','none') then 'NOBODY' end,
+ 'friend_list',case when lower(privacy_settings->>'hideFriendList')='true' then 'ONLY_ME' end,
+ 'discover_id',case when lower(privacy_settings->>'discoverable')='false' then false end
+ )) || coalesce(privacy_settings,'{}'::jsonb)
+where privacy_settings is not null;
+
 create or replace function gaga_private.policy(target uuid) returns jsonb
 language sql stable security definer set search_path = '' as $$
  select jsonb_build_object('last_seen','FRIENDS','online_status','SAME_AS_LAST_SEEN',
@@ -320,3 +335,53 @@ create or replace function public.gaga_revoke_session(session_id uuid default nu
 create or replace function public.get_my_profile() returns public.users language sql stable security invoker set search_path='' as $$ select u from public.users u where u.id=auth.uid() $$;
 revoke all on function gaga_private.session_active(),gaga_private.account_sessions(),gaga_private.revoke_session(uuid),public.gaga_session_active(),public.gaga_account_sessions(),public.gaga_revoke_session(uuid) from public,anon;
 grant execute on function gaga_private.session_active(),gaga_private.account_sessions(),gaga_private.revoke_session(uuid),public.gaga_session_active(),public.gaga_account_sessions(),public.gaga_revoke_session(uuid) to authenticated,service_role;
+
+-- Validate the same values even when an older client patches its own JSON directly.
+create or replace function gaga_private.validate_privacy(patch jsonb) returns void
+language plpgsql set search_path='' as $$
+declare k text; v jsonb; allowed text[];
+begin
+ if patch is null or jsonb_typeof(patch)<>'object' or octet_length(patch::text)>4096 then raise exception 'Invalid privacy patch'; end if;
+ for k,v in select * from jsonb_each(patch) loop
+  if k in ('read_receipts','typing_indicator','discover_phone','discover_email','discover_id','recommendations') then
+   if jsonb_typeof(v)<>'boolean' then raise exception 'Invalid privacy boolean'; end if;
+  else
+   allowed := case
+    when k in ('last_seen','profile_photo','bio','calls') then array['EVERYONE','FRIENDS','NOBODY']
+    when k='online_status' then array['EVERYONE','SAME_AS_LAST_SEEN','NOBODY']
+    when k in ('friend_list','phone','email') then array['EVERYONE','FRIENDS','ONLY_ME']
+    when k='messages' then array['EVERYONE','FRIENDS','REQUESTS']
+    when k='group_invitations' then array['FRIENDS','APPROVAL'] else null end;
+   if allowed is null or jsonb_typeof(v)<>'string' or not ((v#>>'{}')=any(allowed)) then raise exception 'Invalid privacy audience'; end if;
+  end if;
+ end loop;
+end $$;
+create or replace function gaga_private.guard_privacy_settings() returns trigger
+language plpgsql security definer set search_path='' as $$
+declare patch jsonb;
+begin
+ select coalesce(jsonb_object_agg(key,value),'{}'::jsonb) into patch
+ from jsonb_each(coalesce(new.privacy_settings,'{}'::jsonb))
+ where key=any(array['last_seen','online_status','profile_photo','bio','friend_list','phone','email','messages','calls','group_invitations','read_receipts','typing_indicator','discover_phone','discover_email','discover_id','recommendations']);
+ perform gaga_private.validate_privacy(patch);
+ return new;
+end $$;
+create trigger gaga_privacy_settings_validation before insert or update of privacy_settings on public.user_settings
+for each row execute function gaga_private.guard_privacy_settings();
+revoke all on function gaga_private.validate_privacy(jsonb),gaga_private.guard_privacy_settings() from public,anon,authenticated;
+
+create or replace function gaga_private.report_chat_user(chat text,reason text) returns void
+language plpgsql security definer set search_path='' as $$
+declare c public.chats%rowtype; target uuid;
+begin
+ if not gaga_private.session_active() then raise insufficient_privilege; end if;
+ if reason not in ('Spam','Harassment','Scam','Other') then raise exception 'Select a report reason'; end if;
+ select * into c from public.chats where id=chat;
+ if not found or c.type not in ('direct','dm') or cardinality(c.participants)<>2 or not auth.uid()::text=any(c.participants) then raise insufficient_privilege; end if;
+ select x::uuid into target from unnest(c.participants) x where x<>auth.uid()::text;
+ if exists(select 1 from public.reports where reporter_id=auth.uid() and reported_id=target and created_at>now()-interval '1 minute') then raise exception 'Please wait before submitting another report'; end if;
+ insert into public.reports(reporter_id,reported_id,reason,details,status,target_type) values(auth.uid(),target,reason,'User report from direct chat; no message content submitted.','pending','user');
+end $$;
+create or replace function public.gaga_report_chat_user(chat text,reason text) returns void language sql security invoker set search_path='' as $$ select gaga_private.report_chat_user(chat,reason) $$;
+revoke all on function gaga_private.report_chat_user(text,text),public.gaga_report_chat_user(text,text) from public,anon;
+grant execute on function gaga_private.report_chat_user(text,text),public.gaga_report_chat_user(text,text) to authenticated;

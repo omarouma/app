@@ -95,6 +95,13 @@ class SupabaseRestApi @Inject constructor(
         }
     }
 
+    suspend fun reportChatUser(chatId: String, reason: String) {
+        client.post("${config.restUrl}/rpc/gaga_report_chat_user") {
+            auth(); contentType(ContentType.Application.Json)
+            setBody(buildJsonObject { put("chat", chatId); put("reason", reason) })
+        }
+    }
+
     suspend fun isSessionActive(): Boolean = client.post("${config.restUrl}/rpc/gaga_session_active") { auth(); contentType(ContentType.Application.Json); setBody(buildJsonObject {}) }.body()
     suspend fun getAccountSessions(): List<app.gagachat.core.model.AccountSession> = client.post("${config.restUrl}/rpc/gaga_account_sessions") { auth(); contentType(ContentType.Application.Json); setBody(buildJsonObject {}) }.body()
     suspend fun revokeAccountSession(id: String?) {

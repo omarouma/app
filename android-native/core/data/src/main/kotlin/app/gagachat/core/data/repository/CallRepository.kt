@@ -70,7 +70,7 @@ class DefaultCallRepository @Inject constructor(
                 if (peer != null) {
                     session.copy(
                         peerName = session.peerName?.takeIf { it.isNotBlank() } ?: peer.displayLabel,
-                        peerAvatar = session.peerAvatar ?: peer.avatar,
+                        peerAvatar = peer.avatar,
                     )
                 } else {
                     session

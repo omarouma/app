@@ -28,6 +28,7 @@ do $$ declare profile jsonb; begin
  perform public.gaga_save_privacy('{"messages":"REQUESTS","calls":"NOBODY","read_receipts":false,"typing_indicator":false}');
  if public.gaga_get_privacy()->>'calls'<>'NOBODY' then raise exception 'Privacy not persisted'; end if;
  begin perform public.gaga_save_privacy('{"phone":"INVALID"}'); raise exception 'Invalid setting accepted'; exception when others then if sqlerrm='Invalid setting accepted' then raise; end if; end;
+ perform public.gaga_report_chat_user('privacy_fixture_chat','Spam');
  if public.gaga_username_available('privacy_fixture_friend') then raise exception 'Username collision missed'; end if;
 end $$;
 select set_config('request.jwt.claims','{"sub":"90abc300-0000-4000-a000-000000000003","session_id":"90abc300-0000-4000-a000-000000000003","role":"authenticated"}',true);
