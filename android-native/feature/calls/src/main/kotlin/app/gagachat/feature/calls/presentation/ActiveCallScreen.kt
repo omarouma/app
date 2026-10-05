@@ -286,7 +286,7 @@ private fun CallSurface(
     viewModel: CallViewModel,
 ) {
     val peer = state.primaryPeer
-    val remoteVideoVisible = state.isVideoCall && peer?.isCameraEnabled == true
+    val remoteVideoVisible = state.isVideoCall && peer?.isCameraEnabled == true && peer.videoTrackReady
 
     Box(
         modifier = Modifier
@@ -352,7 +352,7 @@ private fun RemoteVideoSurface(
     }
 
     DisposableEffect(Unit) {
-        onDispose { renderer.value?.let { view -> viewModel.detachRenderer(view) } }
+        onDispose { renderer.value?.let { view -> viewModel.detachRenderer(view); runCatching { view.release() } } }
     }
 }
 
@@ -394,7 +394,7 @@ private fun LocalVideoPreview(
     }
 
     DisposableEffect(Unit) {
-        onDispose { renderer.value?.let { view -> viewModel.detachRenderer(view) } }
+        onDispose { renderer.value?.let { view -> viewModel.detachRenderer(view); runCatching { view.release() } } }
     }
 }
 
@@ -454,6 +454,7 @@ private fun CallHeader(state: CallUiState, modifier: Modifier = Modifier) {
             color = Color.White.copy(alpha = 0.8f),
             style = MaterialTheme.typography.bodyMedium,
         )
+        state.mediaNotice?.let { Text(it, color = WarningAmber, style = MaterialTheme.typography.bodySmall) }
         qualityLabel(state.connectionQuality)?.let { label ->
             Spacer(Modifier.height(GagaDimens.space4))
             Text(

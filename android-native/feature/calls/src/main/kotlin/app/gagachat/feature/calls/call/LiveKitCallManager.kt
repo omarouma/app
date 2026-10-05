@@ -1,6 +1,8 @@
 package app.gagachat.feature.calls.call
 
 import android.content.Context
+import android.content.Intent
+import androidx.core.content.ContextCompat
 import android.os.SystemClock
 import app.gagachat.core.common.BuildConfig
 import app.gagachat.core.common.util.AppLogger
@@ -245,6 +247,7 @@ class LiveKitCallManager @Inject constructor(
         observeRoom(newRoom)
 
         try {
+            ContextCompat.startForegroundService(context, Intent(context, ActiveCallService::class.java).putExtra(ActiveCallService.EXTRA_VIDEO, isVideo))
             withTimeout(20_000L) { newRoom.connect(token.url, token.token) }
         } catch (timeout: TimeoutCancellationException) {
             lastError = "The call server did not respond. Please try again."
@@ -658,6 +661,7 @@ class LiveKitCallManager @Inject constructor(
      * disconnect path, the event stream and the logout path in any order.
      */
     private fun teardownRoom() {
+        context.stopService(Intent(context, ActiveCallService::class.java))
         eventJob?.cancel()
         eventJob = null
         peerLeftJob?.cancel()

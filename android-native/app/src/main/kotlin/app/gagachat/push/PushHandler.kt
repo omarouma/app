@@ -77,10 +77,16 @@ class PushHandler @Inject constructor(
             "call", "incoming_call" -> {
                 if (callId == null || !privacyApi.validateIncomingCall(callId, data["caller_id"] ?: data["callerId"])) return
                 if (conversationId != null) {
+                    if (androidx.lifecycle.ProcessLifecycleOwner.get().lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.STARTED)) {
+                        PendingDeepLink.set(app.gagachat.feature.calls.navigation.CallRoutes.incomingCall(conversationId, callId, isVideo))
+                        return
+                    }
                     NotificationHelper.showIncomingCall(
                         context = context,
                         conversationId = conversationId,
                         callId = callId,
+                        soundEnabled = settingsPreferences.callSoundsEnabled.first(),
+                        vibrationEnabled = settingsPreferences.callVibrationEnabled.first(),
                         callerName = title,
                         isVideo = isVideo,
                         notificationsEnabled = notificationsEnabled,

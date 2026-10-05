@@ -52,6 +52,7 @@ class CallSoundPlayer @Inject constructor(
 
     private val generation = AtomicLong()
     private var player: MediaPlayer? = null
+    private var notificationId: Int? = null
     private var focusRequest: AudioFocusRequest? = null
 
     /** The tone currently requested, or `null` when nothing should be ringing. */
@@ -59,7 +60,12 @@ class CallSoundPlayer @Inject constructor(
     private var active: CallTone? = null
 
     /** Starts the looping incoming ringtone (no-op if already ringing). */
-    fun startIncoming() = start(CallTone.INCOMING)
+    fun startIncoming(conversationId: String? = null) {
+        notificationId = conversationId?.hashCode()?.plus(1)
+        // The screen now owns ringing; cancel the notification's one-shot tone.
+        notificationId?.let { context.getSystemService(android.app.NotificationManager::class.java)?.cancel(it) }
+        start(CallTone.INCOMING)
+    }
 
     /** Starts the looping outgoing ringback (no-op if already ringing). */
     fun startOutgoing() = start(CallTone.OUTGOING)
@@ -70,6 +76,8 @@ class CallSoundPlayer @Inject constructor(
      * call lifecycle uses on accept / reject / cancel / expiry / connect / end.
      */
     fun stop() {
+        notificationId?.let { context.getSystemService(android.app.NotificationManager::class.java)?.cancel(it) }
+        notificationId = null
         active = null
         val request = generation.incrementAndGet()
         scope.launch { if (generation.get() == request) stopInternal() }
@@ -111,13 +119,15 @@ class CallSoundPlayer @Inject constructor(
         val vibrateOnly = ringerMode == AudioManager.RINGER_MODE_VIBRATE
 
         // Ringer mode governs incoming alerts, not the caller's call-audio stream.
-        val audible = tone == CallTone.OUTGOING || (!silent && !vibrateOnly)
+        val interruption = context.getSystemService(android.app.NotificationManager::class.java)?.currentInterruptionFilter
+        val dnd = interruption == android.app.NotificationManager.INTERRUPTION_FILTER_NONE || interruption == android.app.NotificationManager.INTERRUPTION_FILTER_ALARMS || interruption == android.app.NotificationManager.INTERRUPTION_FILTER_PRIORITY
+        val audible = tone == CallTone.OUTGOING || (!silent && !vibrateOnly && !dnd)
         if (soundsEnabled && audible) {
             // LiveKit already owns communication focus after outgoing connect.
             if (tone == CallTone.INCOMING) requestAudioFocus()
             startMediaPlayer(tone)
         }
-        if (tone == CallTone.INCOMING && vibrationEnabled && !silent) {
+        if (tone == CallTone.INCOMING && vibrationEnabled && !silent && !dnd) {
             startVibration()
         }
     }

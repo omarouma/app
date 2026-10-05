@@ -79,6 +79,8 @@ object NotificationHelper {
         callerName: String,
         isVideo: Boolean,
         callId: String? = null,
+        soundEnabled: Boolean = true,
+        vibrationEnabled: Boolean = true,
         notificationsEnabled: Boolean = true,
         notificationId: Int = conversationId.hashCode() + 1,
     ) {
@@ -95,7 +97,8 @@ object NotificationHelper {
         )
 
         val kind = if (isVideo) "Video call" else "Voice call"
-        val notification = NotificationCompat.Builder(context, NotificationChannels.CALLS)
+        val channel = when { soundEnabled && vibrationEnabled -> NotificationChannels.CALLS; soundEnabled -> NotificationChannels.CALLS_NO_VIBRATION; vibrationEnabled -> NotificationChannels.CALLS_VIBRATION_ONLY; else -> NotificationChannels.CALLS_QUIET }
+        val notification = NotificationCompat.Builder(context, channel)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(callerName)
             .setContentText("Incoming $kind")

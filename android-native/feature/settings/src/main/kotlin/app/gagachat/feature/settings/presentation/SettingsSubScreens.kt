@@ -107,10 +107,12 @@ fun NotificationsSettingsScreen(
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val contextForNotifications = LocalContext.current
     var selectingPreview by remember { mutableStateOf(false) }
     if (selectingPreview) AlertDialog(onDismissRequest = { selectingPreview = false }, title = { Text("Notification previews") }, text = { Column { app.gagachat.core.data.preferences.NotificationPreview.entries.forEach { value -> TextButton(onClick = { viewModel.setPreview(value); selectingPreview = false }) { Text(value.label) } } } }, confirmButton = {})
     GagaScaffold(title = "Notifications", onBack = onBack) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState())) {
+            GagaSettingsRow(title = "Android notification settings", subtitle = "Manage message, group and call channels", onClick = { contextForNotifications.startActivity(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, contextForNotifications.packageName)) })
             GagaSettingsRow(title = "Notification previews", subtitle = state.preview.label + " • this device", onClick = { selectingPreview = true })
             GagaDivider()
             GagaSettingsRow(
@@ -212,7 +214,7 @@ fun PrivacySettingsScreen(
             GagaSettingsRow(title = "Who can message me", subtitle = state.privacy.messages.label, onClick = { choose("messages", "Who can message me", listOf(PrivacyAudience.EVERYONE, PrivacyAudience.FRIENDS, PrivacyAudience.REQUESTS)) })
             GagaSettingsRow(title = "Who can call me", subtitle = state.privacy.calls.label, onClick = { choose("calls", "Who can call me") })
             Text("Group invitation controls are being completed; direct messaging and calling controls apply now.", style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(16.dp))
-            GagaSettingsRow(title = "Read receipts", subtitle = "Direct chats: share when you read a message", trailing = { Switch(checked = state.privacy.readReceipts, enabled = !state.privacyLoading && !state.privacySaving && state.privacyError == null, onCheckedChange = viewModel::setReadReceiptsEnabled) })
+            GagaSettingsRow(title = "Read receipts", subtitle = "Share read state in direct and group chats", trailing = { Switch(checked = state.privacy.readReceipts, enabled = !state.privacyLoading && !state.privacySaving && state.privacyError == null, onCheckedChange = viewModel::setReadReceiptsEnabled) })
             GagaSettingsRow(title = "Typing indicator", subtitle = "Share typing activity; indicators expire automatically", trailing = { Switch(checked = state.privacy.typingIndicator, enabled = !state.privacyLoading && !state.privacySaving && state.privacyError == null, onCheckedChange = { viewModel.savePrivacyBoolean("typing_indicator", it) }) })
             GagaSettingsRow(title = "Blocked users", subtitle = "Manage blocked accounts", leadingIcon = Icons.Filled.Lock, onClick = onOpenBlocked)
             GagaSectionHeader("Discovery")
