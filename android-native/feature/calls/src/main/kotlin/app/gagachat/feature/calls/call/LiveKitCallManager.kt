@@ -398,7 +398,12 @@ class LiveKitCallManager @Inject constructor(
     fun switchCamera() {
         val track = localVideoTrack() ?: return
         try {
-            track.switchCamera(null, CameraPosition.BACK)
+            val nextPosition = when (track.options.position) {
+                CameraPosition.FRONT -> CameraPosition.BACK
+                CameraPosition.BACK -> CameraPosition.FRONT
+                else -> null
+            }
+            track.switchCamera(position = nextPosition)
         } catch (t: Throwable) {
             logger.w(TAG, "Camera switch failed", t)
         }
@@ -408,10 +413,9 @@ class LiveKitCallManager @Inject constructor(
      * Routes call audio to the loudspeaker ([enabled] = true) or the earpiece
      * ([enabled] = false) through LiveKit's audioswitch-backed handler.
      */
-    fun setSpeakerOn(enabled: Boolean) {
-        _isSpeakerOn.value = enabled
-        val handler = room?.audioSwitchHandler ?: return
-        try {
+    fun setSpeakerOn(enabled: Boolean): Boolean {
+        val handler = room?.audioSwitchHandler ?: return false
+        return try {
             // `AudioDevice.Speakerphone`/`Earpiece` have internal constructors in
             // audioswitch, so we select the matching *instance* from the handler's
             // live device list instead of building one ourselves.
@@ -421,9 +425,13 @@ class LiveKitCallManager @Inject constructor(
             } else {
                 available.firstOrNull { it is AudioDevice.Earpiece }
             }
-            if (match != null) handler.selectDevice(match)
+            if (match == null) return false
+            handler.selectDevice(match)
+            _isSpeakerOn.value = enabled
+            true
         } catch (t: Throwable) {
             logger.w(TAG, "Audio routing change failed", t)
+            false
         }
     }
 
