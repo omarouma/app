@@ -462,7 +462,9 @@ class SupabaseRestApi @Inject constructor(
         client.get("${config.functionsUrl}/livekit-token") {
             auth()
             parameter("room", room)
-            parameter("user", userId.filter { it.isLetterOrDigit() || it == '_' }.take(64))
+            // Keep '-' so the identity matches the caller's Supabase user id
+            // (a UUID) exactly; the Edge Function authorises the raw id.
+            parameter("user", userId.filter { it.isLetterOrDigit() || it == '_' || it == '-' }.take(64))
             parameter("name", userName.take(80))
         }.body()
 

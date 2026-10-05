@@ -387,9 +387,12 @@ Deno.serve(async (req: Request) => {
     return json(req, { error: 'INVALID_ROOM' }, 400);
   }
 
-  // A caller may only ever ask for a token for itself.
+  // A caller may only ever ask for a token for itself. Accept the raw id, the
+  // hyphen-preserving sanitised form, and the compact (hyphen-stripped) form the
+  // Android client sends, so every client build authorises identically.
   const sanitizedCaller = callerId.replace(/[^A-Za-z0-9_-]/g, '').slice(0, 64);
-  if (user !== callerId && user !== sanitizedCaller) {
+  const compactCaller = callerId.replace(/[^A-Za-z0-9_]/g, '').slice(0, 64);
+  if (user !== callerId && user !== sanitizedCaller && user !== compactCaller) {
     return json(req, { error: 'FORBIDDEN' }, 403);
   }
 
