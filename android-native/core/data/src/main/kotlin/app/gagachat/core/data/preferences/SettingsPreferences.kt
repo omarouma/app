@@ -10,6 +10,16 @@ import androidx.datastore.preferences.preferencesDataStore
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import app.gagachat.core.model.AccountPrivacy
+import app.gagachat.core.model.PrivacyAudience
+import app.gagachat.core.network.rest.SupabaseRestApi
+import app.gagachat.core.network.session.SessionStore
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.decodeFromJsonElement
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -18,6 +28,8 @@ private val Context.settingsDataStore: DataStore<Preferences> by preferencesData
 )
 
 /** Theme selection for the app (Master Spec §B — appearance). */
+enum class NotificationPreview(val label: String) { FULL("Full content"), SENDER_ONLY("Sender only"), NONE("No content") }
+
 enum class ThemeMode { SYSTEM, LIGHT, DARK }
 
 /** Media auto-download policy (Master Spec §C — storage & data). */
@@ -54,7 +66,45 @@ enum class ChatBackground(val label: String, val argb: Long?, val darkArgb: Long
 @Singleton
 class SettingsPreferences @Inject constructor(
     @ApplicationContext private val context: Context,
+    private val sessionStore: SessionStore,
+    private val restApi: SupabaseRestApi,
 ) {
+    private val privacyJson = Json { ignoreUnknownKeys = true; encodeDefaults = true }
+    private fun privacyKey(id: String) = stringPreferencesKey("privacy_account_$id")
+    private val privacyOwnerKey = stringPreferencesKey("privacy_active_account")
+    val accountPrivacy: Flow<AccountPrivacy> = context.settingsDataStore.data.map { prefs ->
+        val id = sessionStore.userId()
+        if (id == null || prefs[privacyOwnerKey] != id) AccountPrivacy()
+        else prefs[privacyKey(id)]?.let { raw ->
+            runCatching { privacyJson.decodeFromString<AccountPrivacy>(raw) }.getOrNull()
+        } ?: AccountPrivacy()
+    }
+    suspend fun refreshAccountPrivacy() {
+        val id = sessionStore.userId()
+        context.settingsDataStore.edit { it[privacyOwnerKey] = id.orEmpty() }
+        if (id == null) return
+        val result = restApi.getAccountPrivacy()
+        if (sessionStore.userId() != id) return
+        val policy = privacyJson.decodeFromJsonElement<AccountPrivacy>(result)
+        context.settingsDataStore.edit { it[privacyKey(id)] = privacyJson.encodeToString(policy) }
+    }
+    suspend fun savePrivacy(patch: JsonObject) {
+        val id = sessionStore.userId() ?: error("Sign in to change account privacy")
+        val result = restApi.updateAccountPrivacy(patch)
+        if (sessionStore.userId() != id) return
+        val policy = privacyJson.decodeFromJsonElement<AccountPrivacy>(result)
+        context.settingsDataStore.edit {
+            it[privacyOwnerKey] = id
+            it[privacyKey(id)] = privacyJson.encodeToString(policy)
+        }
+    }
+
+    private val previewKey = stringPreferencesKey("notification_preview")
+    val notificationPreview: Flow<NotificationPreview> = context.settingsDataStore.data.map { prefs ->
+        NotificationPreview.entries.firstOrNull { it.name == prefs[previewKey] } ?: NotificationPreview.SENDER_ONLY
+    }
+    suspend fun setNotificationPreview(value: NotificationPreview) = context.settingsDataStore.edit { it[previewKey] = value.name }
+
     private val notificationsKey = booleanPreferencesKey("notifications_enabled")
     private val messageSoundsKey = booleanPreferencesKey("message_sounds")
     private val readReceiptsKey = booleanPreferencesKey("read_receipts")
@@ -84,9 +134,9 @@ class SettingsPreferences @Inject constructor(
     val callVibrationEnabled: Flow<Boolean> =
         context.settingsDataStore.data.map { it[callVibrationKey] ?: true }
     val readReceiptsEnabled: Flow<Boolean> =
-        context.settingsDataStore.data.map { it[readReceiptsKey] ?: true }
+        accountPrivacy.map { it.readReceipts }
     val shareLastSeenEnabled: Flow<Boolean> =
-        context.settingsDataStore.data.map { it[lastSeenKey] ?: true }
+        accountPrivacy.map { it.lastSeen != PrivacyAudience.NOBODY }
     val themeMode: Flow<ThemeMode> =
         context.settingsDataStore.data.map { prefs ->
             when (prefs[themeKey]) {
@@ -140,10 +190,10 @@ class SettingsPreferences @Inject constructor(
         context.settingsDataStore.edit { it[callVibrationKey] = value }
 
     suspend fun setReadReceiptsEnabled(value: Boolean) =
-        context.settingsDataStore.edit { it[readReceiptsKey] = value }
+        savePrivacy(buildJsonObject { put("read_receipts", value) })
 
     suspend fun setShareLastSeenEnabled(value: Boolean) =
-        context.settingsDataStore.edit { it[lastSeenKey] = value }
+        savePrivacy(buildJsonObject { put("last_seen", if (value) "FRIENDS" else "NOBODY") })
 
     suspend fun setThemeMode(value: ThemeMode) =
         context.settingsDataStore.edit { it[themeKey] = value.name }

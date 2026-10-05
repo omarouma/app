@@ -77,8 +77,12 @@ class GagaApplication : Application(), Configuration.Provider, ImageLoaderFactor
         // before a session exists: subscriptions are re-joined on reconnect.
         runCatching { realtimeCoordinator.start(applicationScope) }
             .onFailure { Log.w(TAG, "Realtime start failed", it) }
-        runCatching { observePrivacyForPresence() }
-            .onFailure { Log.w(TAG, "Privacy observer failed", it) }
+
+        applicationScope.launch {
+            authRepository.sessionFlow.collect {
+                runCatching { settingsPreferences.refreshAccountPrivacy() }
+            }
+        }
         runCatching { observeAppLifecycleForPresence() }
             .onFailure { Log.w(TAG, "Lifecycle observer failed", it) }
     }
@@ -107,11 +111,13 @@ class GagaApplication : Application(), Configuration.Provider, ImageLoaderFactor
         ProcessLifecycleOwner.get().lifecycle.addObserver(
             object : DefaultLifecycleObserver {
                 override fun onStart(owner: LifecycleOwner) {
+                    applicationScope.launch { runCatching { settingsPreferences.refreshAccountPrivacy() } }
                     publishPresence(isOnline = true)
                     presenceJob?.cancel()
                     presenceJob = applicationScope.launch {
                         while (isActive) {
                             delay(PRESENCE_HEARTBEAT_MS)
+                            runCatching { settingsPreferences.refreshAccountPrivacy() }
                             publishPresence(isOnline = true)
                         }
                     }
@@ -129,7 +135,7 @@ class GagaApplication : Application(), Configuration.Provider, ImageLoaderFactor
     private fun publishPresence(isOnline: Boolean) {
         val userId = authRepository.sessionFlow.value?.userId ?: return
         // Privacy: when the user hides last seen we never advertise "online".
-        val online = isOnline && shareLastSeen
+        val online = isOnline
         applicationScope.launch { userRepository.updatePresence(userId, online) }
     }
 

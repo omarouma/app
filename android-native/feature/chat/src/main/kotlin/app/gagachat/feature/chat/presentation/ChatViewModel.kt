@@ -177,6 +177,7 @@ private data class ChatFlags(
 
 @HiltViewModel
 class ChatViewModel @Inject constructor(
+    private val privacyApi: app.gagachat.core.network.rest.SupabaseRestApi,
     savedStateHandle: SavedStateHandle,
     private val messageRepository: MessageRepository,
     private val conversationRepository: ConversationRepository,
@@ -402,6 +403,21 @@ class ChatViewModel @Inject constructor(
         typingJob?.cancel()
         broadcastTyping(false)
         viewModelScope.launch {
+            try {
+                if (privacyApi.routeTextRequest(conversationId, text)) {
+                    notice.value = "Message request sent. Media and calls require acceptance and caller permission."
+                    return@launch
+                }
+            } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
+                if (e !is java.io.IOException) {
+                    draft.value = text
+                    error.value = "This message could not be sent. Check the recipient's message permissions and try again."
+                    return@launch
+                }
+                // Existing offline outbox remains available; server enforcement
+                // checks permissions again when the queued message is sent.
+            }
             val session = authRepository.sessionFlow.value
             val result = messageRepository.sendText(
                 conversationId = conversationId,

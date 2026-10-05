@@ -43,7 +43,7 @@ class MessageRegressionTest {
         }
         return DefaultMessageRepository(
             messages, conversations, cursors, api, scheduler, ids, clock, dispatchers,
-            firebaseMirror, appScope,
+            firebaseMirror, appScope, mockk(relaxed = true),
         )
     }
 

@@ -345,7 +345,7 @@ private fun RemoteVideoSurface(
 
     // Keyed on the renderer instance so the attach happens as soon as the view
     // exists, and again whenever the peer or their camera track changes.
-    LaunchedEffect(renderer.value, state.callLaunched, peer?.identity, peer?.isCameraEnabled) {
+    LaunchedEffect(renderer.value, state.callLaunched, peer?.identity, peer?.isCameraEnabled, peer?.videoTrackReady) {
         val view = renderer.value ?: return@LaunchedEffect
         viewModel.initVideoRenderer(view)
         peer?.identity?.let { identity -> viewModel.attachRemoteVideo(view, identity) }

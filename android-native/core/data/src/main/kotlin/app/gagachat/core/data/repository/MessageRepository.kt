@@ -53,6 +53,8 @@ import kotlinx.serialization.json.putJsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.put
+import app.gagachat.core.data.preferences.SettingsPreferences
+import kotlinx.coroutines.flow.first
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -224,6 +226,7 @@ class DefaultMessageRepository @Inject constructor(
     private val dispatchers: DispatcherProvider,
     private val firebaseMirror: FirestoreChatMirror,
     @ApplicationScope private val appScope: CoroutineScope,
+    private val settingsPreferences: SettingsPreferences,
 ) : MessageRepository {
 
     /** Ephemeral typing cache: "chatId:userId" -> last known typing state. */
@@ -762,6 +765,10 @@ class DefaultMessageRepository @Inject constructor(
 
     override suspend fun markDelivered(conversationId: String, userId: String) =
         withContext(dispatchers.io) {
+            if (!settingsPreferences.accountPrivacy.first().readReceipts) {
+                conversationDao.updateUnreadCount(conversationId, 0)
+                return@withContext
+            }
             val messages = messageDao.getLatest(conversationId, Constants.INITIAL_MESSAGE_PAGE_SIZE)
             val now = timeProvider.nowMillis()
             messages.filter { it.senderId != userId }.forEach { m ->
@@ -821,6 +828,7 @@ class DefaultMessageRepository @Inject constructor(
     override suspend fun setTyping(conversationId: String, userId: String, isTyping: Boolean) {
         withContext(dispatchers.io) {
             if (conversationId.isBlank() || userId.isBlank()) return@withContext
+            if (isTyping && !settingsPreferences.accountPrivacy.first().typingIndicator) return@withContext
             // Best-effort: typing is ephemeral, so a failed broadcast is harmless.
             runCatching { restApi.upsertTyping(conversationId, userId, isTyping) }
             // Mirror the typing state into Firestore as well (no-op unless the

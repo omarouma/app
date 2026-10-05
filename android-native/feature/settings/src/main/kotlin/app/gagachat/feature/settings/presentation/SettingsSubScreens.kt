@@ -1,5 +1,6 @@
 package app.gagachat.feature.settings.presentation
 
+import app.gagachat.core.model.PrivacyAudience
 import android.Manifest
 import android.content.ClipData
 import android.content.ClipboardManager
@@ -105,8 +106,12 @@ fun NotificationsSettingsScreen(
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    var selectingPreview by remember { mutableStateOf(false) }
+    if (selectingPreview) AlertDialog(onDismissRequest = { selectingPreview = false }, title = { Text("Notification previews") }, text = { Column { app.gagachat.core.data.preferences.NotificationPreview.entries.forEach { value -> TextButton(onClick = { viewModel.setPreview(value); selectingPreview = false }) { Text(value.label) } } } }, confirmButton = {})
     GagaScaffold(title = "Notifications", onBack = onBack) { padding ->
-        Column(modifier = Modifier.fillMaxSize().padding(padding)) {
+        Column(modifier = Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState())) {
+            GagaSettingsRow(title = "Notification previews", subtitle = state.preview.label + " • this device", onClick = { selectingPreview = true })
+            GagaDivider()
             GagaSettingsRow(
                 title = "Message notifications",
                 subtitle = "Alerts for new messages",
@@ -166,38 +171,60 @@ fun PrivacySettingsScreen(
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    var selection by remember { mutableStateOf<Triple<String, String, List<PrivacyAudience>>?>(null) }
+    val audiences = listOf(PrivacyAudience.EVERYONE, PrivacyAudience.FRIENDS, PrivacyAudience.NOBODY)
+    fun choose(key: String, title: String, options: List<PrivacyAudience> = audiences) {
+        if (!state.privacyLoading && !state.privacySaving && state.privacyError == null) selection = Triple(key, title, options)
+    }
+    var showingRequests by remember { mutableStateOf(false) }
+    if (showingRequests) AlertDialog(onDismissRequest = { showingRequests = false }, title = { Text("Message requests") },
+        text = { Column(Modifier.verticalScroll(rememberScrollState())) {
+            state.requestError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+            if (state.requests.isEmpty() && state.requestError == null) Text("No pending requests")
+            state.requests.forEach { request ->
+                Text(request.senderName, style = MaterialTheme.typography.titleMedium)
+                Text(request.preview.take(500), style = MaterialTheme.typography.bodyMedium)
+                Row { TextButton(onClick = { viewModel.respondToRequest(request.id, "accept") }) { Text("Accept") }
+                    TextButton(onClick = { viewModel.respondToRequest(request.id, "delete") }) { Text("Delete") }
+                    TextButton(onClick = { viewModel.respondToRequest(request.id, "block") }) { Text("Block") } }
+                GagaDivider()
+            }
+        } }, confirmButton = { TextButton(onClick = viewModel::loadRequests) { Text("Refresh") } })
     GagaScaffold(title = "Privacy", onBack = onBack) { padding ->
-        Column(modifier = Modifier.fillMaxSize().padding(padding)) {
-            GagaSettingsRow(
-                title = "Read receipts",
-                subtitle = "Let others know when you've read messages",
-                trailing = {
-                    Switch(
-                        checked = state.readReceiptsEnabled,
-                        onCheckedChange = viewModel::setReadReceiptsEnabled,
-                    )
-                },
-            )
-            GagaDivider()
-            GagaSettingsRow(
-                title = "Share last seen",
-                subtitle = "Show when you were last online",
-                trailing = {
-                    Switch(
-                        checked = state.shareLastSeenEnabled,
-                        onCheckedChange = viewModel::setShareLastSeenEnabled,
-                    )
-                },
-            )
-            GagaDivider()
-            GagaSettingsRow(
-                title = "Blocked users",
-                subtitle = "People you've blocked",
-                leadingIcon = Icons.Filled.Lock,
-                onClick = onOpenBlocked,
-            )
-            GagaDivider()
+        Column(Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState())) {
+            if (state.privacyLoading || state.privacySaving) Text(if (state.privacySaving) "Saving account privacy…" else "Loading account privacy…", Modifier.padding(16.dp))
+            state.privacyError?.let { error ->
+                Text(error, Modifier.padding(16.dp), color = MaterialTheme.colorScheme.error)
+                TextButton(onClick = { viewModel.refreshPrivacy() }) { Text("Retry") }
+            }
+            GagaSectionHeader("Identity and visibility")
+            GagaSettingsRow(title = "Last seen", subtitle = state.privacy.lastSeen.label, onClick = { choose("last_seen", "Last seen") })
+            GagaSettingsRow(title = "Online status", subtitle = state.privacy.onlineStatus.label, onClick = { choose("online_status", "Online status", listOf(PrivacyAudience.EVERYONE, PrivacyAudience.SAME_AS_LAST_SEEN, PrivacyAudience.NOBODY)) })
+            GagaSettingsRow(title = "Profile photo", subtitle = state.privacy.profilePhoto.label, onClick = { choose("profile_photo", "Profile photo") })
+            GagaSettingsRow(title = "Bio / About", subtitle = state.privacy.bio.label, onClick = { choose("bio", "Bio / About") })
+            val privateAudiences = listOf(PrivacyAudience.EVERYONE, PrivacyAudience.FRIENDS, PrivacyAudience.ONLY_ME)
+            GagaSettingsRow(title = "Friend list", subtitle = state.privacy.friendList.label, onClick = { choose("friend_list", "Friend list", privateAudiences) })
+            GagaSettingsRow(title = "Phone visibility", subtitle = state.privacy.phone.label, onClick = { choose("phone", "Phone visibility", privateAudiences) })
+            GagaSettingsRow(title = "Email visibility", subtitle = state.privacy.email.label, onClick = { choose("email", "Email visibility", privateAudiences) })
+            GagaSectionHeader("Messages and calls")
+            GagaSettingsRow(title = "Message requests", subtitle = "Review, accept, delete or block unknown senders", onClick = { showingRequests = true; viewModel.loadRequests() })
+            GagaSettingsRow(title = "Who can message me", subtitle = state.privacy.messages.label, onClick = { choose("messages", "Who can message me", listOf(PrivacyAudience.EVERYONE, PrivacyAudience.FRIENDS, PrivacyAudience.REQUESTS)) })
+            GagaSettingsRow(title = "Who can call me", subtitle = state.privacy.calls.label, onClick = { choose("calls", "Who can call me") })
+            Text("Group invitation controls are being completed; direct messaging and calling controls apply now.", style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(16.dp))
+            GagaSettingsRow(title = "Read receipts", subtitle = "Direct chats: share when you read a message", trailing = { Switch(checked = state.privacy.readReceipts, enabled = !state.privacyLoading && !state.privacySaving && state.privacyError == null, onCheckedChange = viewModel::setReadReceiptsEnabled) })
+            GagaSettingsRow(title = "Typing indicator", subtitle = "Share typing activity; indicators expire automatically", trailing = { Switch(checked = state.privacy.typingIndicator, enabled = !state.privacyLoading && !state.privacySaving && state.privacyError == null, onCheckedChange = { viewModel.savePrivacyBoolean("typing_indicator", it) }) })
+            GagaSettingsRow(title = "Blocked users", subtitle = "Manage blocked accounts", leadingIcon = Icons.Filled.Lock, onClick = onOpenBlocked)
+            GagaSectionHeader("Discovery")
+            for ((key, title, value) in listOf(Triple("discover_phone", "Find me by phone", state.privacy.discoverPhone), Triple("discover_email", "Find me by email", state.privacy.discoverEmail), Triple("discover_id", "Find me by exact GaGa ID", state.privacy.discoverId), Triple("recommendations", "Include me in people recommendations", state.privacy.recommendations))) {
+                GagaSettingsRow(title = title, subtitle = "Independent of contact-detail visibility", trailing = { Switch(checked = value, enabled = !state.privacyLoading && !state.privacySaving && state.privacyError == null, onCheckedChange = { viewModel.savePrivacyBoolean(key, it) }) })
+            }
+            Text("These settings apply to your account across devices. A connection is required to save changes.", Modifier.padding(16.dp), style = MaterialTheme.typography.bodyMedium)
         }
+    }
+    selection?.let { (key, title, options) ->
+        AlertDialog(onDismissRequest = { selection = null }, title = { Text(title) }, text = {
+            Column { options.forEach { audience -> TextButton(onClick = { viewModel.savePrivacyAudience(key, audience.name); selection = null }) { Text(audience.label) } } }
+        }, confirmButton = { TextButton(onClick = { selection = null }) { Text("Cancel") } })
     }
 }
 
@@ -785,6 +812,8 @@ fun SecuritySettingsScreen(
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+    val secureDevice = (context.getSystemService(android.content.Context.KEYGUARD_SERVICE) as? android.app.KeyguardManager)?.isDeviceSecure == true
     GagaScaffold(title = "Security", onBack = onBack) { padding ->
         Column(
             modifier = Modifier
@@ -794,11 +823,13 @@ fun SecuritySettingsScreen(
         ) {
             GagaSettingsRow(
                 title = "App lock",
-                subtitle = "Require device unlock to open GaGa Chat",
+                subtitle = if (secureDevice) "Require device unlock to open GaGa Chat" else "Set a device PIN, pattern or password first",
+                onClick = { if (!secureDevice) context.startActivity(Intent(Settings.ACTION_SECURITY_SETTINGS)) },
                 leadingIcon = Icons.Filled.Lock,
                 trailing = {
                     Switch(
                         checked = state.appLockEnabled,
+                        enabled = secureDevice,
                         onCheckedChange = viewModel::setAppLockEnabled,
                     )
                 },
@@ -808,8 +839,7 @@ fun SecuritySettingsScreen(
             // Security focuses on device/app protection only, so the two screens
             // no longer duplicate the same entry (spec §1 de-duplication).
             Text(
-                text = "Messages and calls are protected in transit. GaGa Chat never " +
-                    "stores your password on the device.",
+                text = "App lock protects access on this device. It does not revoke other sessions. Network encryption does not guarantee end-to-end encryption.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(GagaDimens.space16),
