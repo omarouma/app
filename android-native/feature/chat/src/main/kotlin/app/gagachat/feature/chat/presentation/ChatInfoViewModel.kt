@@ -66,6 +66,8 @@ data class ChatInfoUiState(
     val contactCount: Int = 0,
     val locationCount: Int = 0,
     val messageCount: Int = 0,
+    /** Whether notifications are muted for this conversation (spec §10). */
+    val isMuted: Boolean = false,
 )
 
 /**
@@ -154,6 +156,19 @@ class ChatInfoViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Mutes or unmutes notifications for this conversation (spec §10). The same
+     * flag the chat header toggles, surfaced here under Notifications so the
+     * setting is discoverable from the info screen too.
+     */
+    fun toggleMute() {
+        val muted = !state.value.isMuted
+        viewModelScope.launch {
+            conversationRepository.setMuted(conversationId, muted)
+            _notice.value = if (muted) "Notifications muted" else "Notifications unmuted"
+        }
+    }
+
     @OptIn(ExperimentalCoroutinesApi::class)
     private val otherUserFlow: Flow<User?> = conversationRepository.observeConversation(conversationId)
         .map { it?.otherMember(currentUserId)?.userId.orEmpty() }
@@ -203,6 +218,7 @@ class ChatInfoViewModel @Inject constructor(
             contactCount = messages.count { it.type == MessageType.CONTACT },
             locationCount = messages.count { it.type == MessageType.LOCATION },
             messageCount = messages.size,
+            isMuted = conversation?.isMuted ?: false,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ChatInfoUiState())
 

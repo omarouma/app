@@ -41,6 +41,10 @@ interface UploadDao {
     @Query("DELETE FROM pending_uploads WHERE uploadId = :uploadId")
     suspend fun delete(uploadId: String)
 
+    /** Drops every queue row for a message (used when an upload is cancelled). */
+    @Query("DELETE FROM pending_uploads WHERE clientMessageId = :clientMessageId")
+    suspend fun deleteByClientMessageId(clientMessageId: String)
+
     @Query("DELETE FROM pending_uploads")
     suspend fun deleteAll()
 }

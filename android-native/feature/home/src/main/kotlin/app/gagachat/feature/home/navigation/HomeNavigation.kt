@@ -3,12 +3,16 @@ package app.gagachat.feature.home.navigation
 import androidx.navigation.NavController
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.compose.composable
+import app.gagachat.feature.home.presentation.ArchivedChatsRoute
 import app.gagachat.feature.home.presentation.HomeRoute
+import app.gagachat.feature.home.presentation.MessageRequestsRoute
 import app.gagachat.feature.home.presentation.MoreRoute
 
 object HomeRoutes {
     const val HOME = "home"
     const val MORE = "more"
+    const val ARCHIVED = "home/archived"
+    const val REQUESTS = "home/requests"
 }
 
 fun NavGraphBuilder.homeScreen(
@@ -16,12 +20,42 @@ fun NavGraphBuilder.homeScreen(
     onOpenConversation: (String) -> Unit,
     onOpenNewChat: () -> Unit,
     onOpenNotifications: () -> Unit = {},
+    onOpenRequests: () -> Unit = {},
+    onOpenArchived: () -> Unit = {},
 ) {
     composable(HomeRoutes.HOME) {
         HomeRoute(
             onOpenConversation = onOpenConversation,
             onOpenNewChat = onOpenNewChat,
             onOpenNotifications = onOpenNotifications,
+            onOpenRequests = onOpenRequests,
+            onOpenArchived = onOpenArchived,
+        )
+    }
+}
+
+/** Archived chats destination (spec §4). */
+fun NavGraphBuilder.archivedChatsScreen(
+    navController: NavController,
+    onOpenConversation: (String) -> Unit,
+) {
+    composable(HomeRoutes.ARCHIVED) {
+        ArchivedChatsRoute(
+            onBack = { navController.popBackStack() },
+            onOpenConversation = onOpenConversation,
+        )
+    }
+}
+
+/** Message requests destination (spec §4 / §10). */
+fun NavGraphBuilder.messageRequestsScreen(
+    navController: NavController,
+    onOpenConversation: (String) -> Unit,
+) {
+    composable(HomeRoutes.REQUESTS) {
+        MessageRequestsRoute(
+            onBack = { navController.popBackStack() },
+            onOpenConversation = onOpenConversation,
         )
     }
 }

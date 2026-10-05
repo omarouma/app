@@ -10,7 +10,10 @@ import app.gagachat.core.data.mapper.toDomain
 import app.gagachat.core.database.dao.ConversationDao
 import app.gagachat.core.database.dao.SyncStateDao
 import app.gagachat.core.database.dao.UserDao
+import app.gagachat.core.database.entity.ConversationEntity
+import app.gagachat.core.database.entity.ConversationMemberEntity
 import app.gagachat.core.database.entity.SyncStateEntity
+import app.gagachat.core.database.entity.UserEntity
 import app.gagachat.core.database.mapper.toDomain
 import app.gagachat.core.database.mapper.toEntity
 import app.gagachat.core.model.Conversation
@@ -41,6 +44,28 @@ interface ConversationRepository {
     suspend fun setPinned(conversationId: String, pinned: Boolean)
     suspend fun setMuted(conversationId: String, muted: Boolean)
 
+    /**
+     * True when the user muted this conversation. Message push alerts are
+     * suppressed for muted chats, while incoming calls still ring (spec §11).
+     */
+    suspend fun isMuted(conversationId: String): Boolean
+
+    /** Archived conversations, surfaced on the dedicated Archived screen (spec §4). */
+    fun observeArchivedConversations(): Flow<List<Conversation>>
+
+    /** Live count of archived conversations for the Archived destination badge. */
+    fun observeArchivedCount(): Flow<Int>
+
+    /** Archive or unarchive a conversation (local + server best-effort). */
+    suspend fun setArchived(conversationId: String, archived: Boolean)
+
+    /**
+     * Mark a conversation unread using a sentinel count. This is deliberately
+     * distinct from per-message read receipts: it only flags the row so the user
+     * can come back to it, and never fabricates a DELIVERED/READ transition.
+     */
+    suspend fun markUnread(conversationId: String)
+
     /** Remove a conversation locally and on the server (best-effort). */
     suspend fun deleteConversation(conversationId: String)
 
@@ -67,16 +92,36 @@ class DefaultConversationRepository @Inject constructor(
             conversationDao.observeAll(),
             conversationDao.observeAllMembers(),
             userDao.observeAll(),
-        ) { entities, members, users ->
-            val usersById = users.associate { it.id to it.toDomain() }
-            val byConversation = members.groupBy { it.conversationId }
-            entities.map { entity ->
-                val conversationMembers = byConversation[entity.id]
-                    ?.map { resolveMember(it.toDomain(), usersById) }
-                    ?: emptyList()
-                entity.toDomain(conversationMembers)
-            }
+        ) { entities, members, users -> mapConversations(entities, members, users) }
+
+    override fun observeArchivedConversations(): Flow<List<Conversation>> =
+        combine(
+            conversationDao.observeArchived(),
+            conversationDao.observeAllMembers(),
+            userDao.observeAll(),
+        ) { entities, members, users -> mapConversations(entities, members, users) }
+
+    override fun observeArchivedCount(): Flow<Int> = conversationDao.observeArchivedCount()
+
+    /**
+     * Shared mapping step: joins conversation rows with their members and cached
+     * user profiles so both the main and archived lists render identical
+     * identities (never "Unknown").
+     */
+    private fun mapConversations(
+        entities: List<ConversationEntity>,
+        members: List<ConversationMemberEntity>,
+        users: List<UserEntity>,
+    ): List<Conversation> {
+        val usersById = users.associate { it.id to it.toDomain() }
+        val byConversation = members.groupBy { it.conversationId }
+        return entities.map { entity ->
+            val conversationMembers = byConversation[entity.id]
+                ?.map { resolveMember(it.toDomain(), usersById) }
+                ?: emptyList()
+            entity.toDomain(conversationMembers)
         }
+    }
 
     override fun observeConversation(id: String): Flow<Conversation?> =
         combine(
@@ -154,6 +199,25 @@ class DefaultConversationRepository @Inject constructor(
         withContext(dispatchers.io) {
             conversationDao.setMuted(conversationId, muted)
             runCatching { restApi.updateConversationFlags(conversationId, muted = muted) }
+            Unit
+        }
+
+    override suspend fun isMuted(conversationId: String): Boolean =
+        withContext(dispatchers.io) { conversationDao.isMuted(conversationId) ?: false }
+
+    override suspend fun setArchived(conversationId: String, archived: Boolean) =
+        withContext(dispatchers.io) {
+            conversationDao.setArchived(conversationId, archived)
+            runCatching { restApi.updateConversationFlags(conversationId, archived = archived) }
+            Unit
+        }
+
+    override suspend fun markUnread(conversationId: String) =
+        withContext(dispatchers.io) {
+            // A sentinel unread count of 1 flags the row without pretending a new
+            // message arrived; per-message read receipts are untouched.
+            conversationDao.setUnreadCount(conversationId, 1)
+            runCatching { restApi.updateConversationFlags(conversationId, unreadCount = 1) }
             Unit
         }
 

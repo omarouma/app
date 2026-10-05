@@ -10,6 +10,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.FileProvider
+import app.gagachat.core.common.Constants
 import java.io.File
 
 /**
@@ -37,7 +38,7 @@ fun rememberMediaPicker(
 
     val imagesLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetMultipleContents(),
-    ) { uris -> if (uris.isNotEmpty()) onImagesPicked(uris.take(10)) }
+    ) { uris -> if (uris.isNotEmpty()) onImagesPicked(uris.take(Constants.MAX_ALBUM_PHOTOS)) }
 
     val videoLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent(),

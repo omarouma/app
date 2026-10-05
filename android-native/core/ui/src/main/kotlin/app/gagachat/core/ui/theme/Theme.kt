@@ -73,6 +73,8 @@ data class GagaExtraColors(
     val statusOffline: Color,
     val success: Color,
     val warning: Color,
+    /** Accent used for the sender name label above incoming group messages. */
+    val senderName: Color,
 )
 
 private val LightExtraColors = GagaExtraColors(
@@ -86,6 +88,7 @@ private val LightExtraColors = GagaExtraColors(
     statusOffline = StatusOffline,
     success = SuccessGreen,
     warning = WarningAmber,
+    senderName = GagaTealDark,
 )
 
 private val DarkExtraColors = GagaExtraColors(
@@ -99,6 +102,7 @@ private val DarkExtraColors = GagaExtraColors(
     statusOffline = StatusOffline,
     success = SuccessGreen,
     warning = WarningAmber,
+    senderName = GagaTeal,
 )
 
 val LocalGagaExtraColors = staticCompositionLocalOf { LightExtraColors }

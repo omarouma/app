@@ -25,11 +25,39 @@ interface ConversationDao {
     )
     fun observeAll(): Flow<List<ConversationEntity>>
 
+    /** Archived conversations, shown on the dedicated Archived screen (spec §4). */
+    @Query(
+        """
+        SELECT * FROM conversations
+        WHERE isArchived = 1
+        ORDER BY COALESCE(lastMessageAt, updatedAt) DESC
+        """,
+    )
+    fun observeArchived(): Flow<List<ConversationEntity>>
+
+    /** Count of archived conversations for the Archived destination badge. */
+    @Query("SELECT COUNT(*) FROM conversations WHERE isArchived = 1")
+    fun observeArchivedCount(): Flow<Int>
+
+    @Query("UPDATE conversations SET isArchived = :archived WHERE id = :conversationId")
+    suspend fun setArchived(conversationId: String, archived: Boolean)
+
+    @Query("UPDATE conversations SET unreadCount = :count WHERE id = :conversationId")
+    suspend fun setUnreadCount(conversationId: String, count: Int)
+
     @Query("SELECT * FROM conversations WHERE id = :id LIMIT 1")
     fun observeById(id: String): Flow<ConversationEntity?>
 
     @Query("SELECT * FROM conversations WHERE id = :id LIMIT 1")
     suspend fun getById(id: String): ConversationEntity?
+
+    /**
+     * Whether the user muted this conversation. Drives push suppression for
+     * message alerts while still letting calls ring (spec §11). Null when the
+     * conversation is not cached yet, which callers treat as "not muted".
+     */
+    @Query("SELECT isMuted FROM conversations WHERE id = :id LIMIT 1")
+    suspend fun isMuted(id: String): Boolean?
 
     @Query(
         """

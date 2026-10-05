@@ -2,6 +2,7 @@ package app.gagachat.feature.chat.presentation.components
 
 import android.net.Uri
 import android.widget.MediaController
+import android.widget.Toast
 import android.widget.VideoView
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTransformGestures
@@ -16,6 +17,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -27,6 +29,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -34,6 +37,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -42,6 +46,7 @@ import androidx.compose.ui.window.DialogProperties
 import app.gagachat.core.model.Message
 import app.gagachat.core.model.MessageType
 import coil.compose.SubcomposeAsyncImage
+import kotlinx.coroutines.launch
 
 /**
  * Full-screen media viewer for photo and video messages. Photos support
@@ -54,6 +59,8 @@ fun MediaViewerOverlay(
     message: Message,
     onDismiss: () -> Unit,
 ) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     Dialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false),
@@ -75,6 +82,30 @@ fun MediaViewerOverlay(
                     .padding(8.dp),
                 horizontalArrangement = Arrangement.End,
             ) {
+                // Save to gallery (spec §8): offered for photos and videos so a
+                // received attachment can be kept beyond the chat. The source is
+                // the local cache when present, else the signed remote URL.
+                if (message.type == MessageType.IMAGE || message.type == MessageType.VIDEO) {
+                    IconButton(
+                        onClick = {
+                            scope.launch {
+                                val toast = when (val result = MediaSaver.save(context, message)) {
+                                    is MediaSaver.Result.Saved -> "Saved to gallery"
+                                    MediaSaver.Result.NoSource -> "Nothing to save yet"
+                                    MediaSaver.Result.Unsupported -> "This can't be saved"
+                                    is MediaSaver.Result.Failed -> result.message
+                                }
+                                Toast.makeText(context, toast, Toast.LENGTH_SHORT).show()
+                            }
+                        },
+                    ) {
+                        Icon(
+                            Icons.Filled.Download,
+                            contentDescription = "Save to gallery",
+                            tint = Color.White,
+                        )
+                    }
+                }
                 IconButton(onClick = onDismiss) {
                     Icon(
                         Icons.Filled.Close,

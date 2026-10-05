@@ -6,6 +6,19 @@ import android.os.Build
 import java.io.File
 
 /**
+ * A finished-but-unsent voice clip (spec §7). Recording now stops into a review
+ * state so the user can listen back, re-record or discard before the file is ever
+ * uploaded. [path] is a cache file owned by the caller until it is sent (then the
+ * upload queue takes over) or discarded (then [VoiceRecorder.discard] deletes it).
+ */
+data class PendingVoiceClip(
+    val path: String,
+    val durationMs: Long,
+    val sizeBytes: Long,
+    val mime: String = "audio/mp4",
+)
+
+/**
  * Minimal AAC/MPEG-4 voice recorder built on the platform [MediaRecorder].
  *
  * The recorder writes into the app cache dir so the resulting file can be handed
@@ -54,10 +67,11 @@ class VoiceRecorder(private val context: Context) {
     }
 
     /**
-     * Stops the active recording and returns `(path, durationMs, sizeBytes)` when
+     * Stops the active recording and returns the finished [PendingVoiceClip] when
      * a usable clip was produced, or `null` when the clip was too short / empty.
+     * The clip is *not* uploaded here — the caller stages it for review.
      */
-    fun stop(): Triple<String, Long, Long>? {
+    fun stop(): PendingVoiceClip? {
         val mr = recorder ?: return null
         val file = outputFile
         val duration = System.currentTimeMillis() - startedAt
@@ -67,7 +81,11 @@ class VoiceRecorder(private val context: Context) {
             mr.stop()
             mr.release()
             if (file != null && file.exists() && file.length() > 0L) {
-                Triple(file.absolutePath, duration, file.length())
+                PendingVoiceClip(
+                    path = file.absolutePath,
+                    durationMs = duration,
+                    sizeBytes = file.length(),
+                )
             } else {
                 runCatching { file?.delete() }
                 null
@@ -78,6 +96,11 @@ class VoiceRecorder(private val context: Context) {
             runCatching { file?.delete() }
             null
         }
+    }
+
+    /** Deletes a staged clip's cache file after the user discards it. */
+    fun discard(path: String) {
+        runCatching { File(path).delete() }
     }
 
     /**

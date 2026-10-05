@@ -170,6 +170,7 @@ fun NotificationsSettingsScreen(
 @Composable
 fun PrivacySettingsScreen(
     onOpenBlocked: () -> Unit,
+    onOpenRequests: () -> Unit,
     onBack: () -> Unit,
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
@@ -179,20 +180,6 @@ fun PrivacySettingsScreen(
     fun choose(key: String, title: String, options: List<PrivacyAudience> = audiences) {
         if (!state.privacyLoading && !state.privacySaving && state.privacyError == null) selection = Triple(key, title, options)
     }
-    var showingRequests by remember { mutableStateOf(false) }
-    if (showingRequests) AlertDialog(onDismissRequest = { showingRequests = false }, title = { Text("Message requests") },
-        text = { Column(Modifier.verticalScroll(rememberScrollState())) {
-            state.requestError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-            if (state.requests.isEmpty() && state.requestError == null) Text("No pending requests")
-            state.requests.forEach { request ->
-                Text(request.senderName, style = MaterialTheme.typography.titleMedium)
-                Text(request.preview.take(500), style = MaterialTheme.typography.bodyMedium)
-                Row { TextButton(onClick = { viewModel.respondToRequest(request.id, "accept") }) { Text("Accept") }
-                    TextButton(onClick = { viewModel.respondToRequest(request.id, "delete") }) { Text("Delete") }
-                    TextButton(onClick = { viewModel.respondToRequest(request.id, "block") }) { Text("Block") } }
-                GagaDivider()
-            }
-        } }, confirmButton = { TextButton(onClick = viewModel::loadRequests) { Text("Refresh") } })
     GagaScaffold(title = "Privacy", onBack = onBack) { padding ->
         Column(Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState())) {
             if (state.privacyLoading || state.privacySaving) Text(if (state.privacySaving) "Saving account privacy…" else "Loading account privacy…", Modifier.padding(16.dp))
@@ -210,7 +197,7 @@ fun PrivacySettingsScreen(
             GagaSettingsRow(title = "Phone visibility", subtitle = state.privacy.phone.label, onClick = { choose("phone", "Phone visibility", privateAudiences) })
             GagaSettingsRow(title = "Email visibility", subtitle = state.privacy.email.label, onClick = { choose("email", "Email visibility", privateAudiences) })
             GagaSectionHeader("Messages and calls")
-            GagaSettingsRow(title = "Message requests", subtitle = "Review, accept, delete or block unknown senders", onClick = { showingRequests = true; viewModel.loadRequests() })
+            GagaSettingsRow(title = "Message requests", subtitle = "Review, accept, delete or block unknown senders", onClick = onOpenRequests)
             GagaSettingsRow(title = "Who can message me", subtitle = state.privacy.messages.label, onClick = { choose("messages", "Who can message me", listOf(PrivacyAudience.EVERYONE, PrivacyAudience.FRIENDS, PrivacyAudience.REQUESTS)) })
             GagaSettingsRow(title = "Who can call me", subtitle = state.privacy.calls.label, onClick = { choose("calls", "Who can call me") })
             Text("Group invitation controls are being completed; direct messaging and calling controls apply now.", style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(16.dp))

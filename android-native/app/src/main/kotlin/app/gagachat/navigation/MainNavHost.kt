@@ -49,7 +49,9 @@ import app.gagachat.feature.contacts.navigation.contactsScreen
 import app.gagachat.feature.groups.GroupsRoutes
 import app.gagachat.feature.groups.groupsGraph
 import app.gagachat.feature.home.navigation.HomeRoutes
+import app.gagachat.feature.home.navigation.archivedChatsScreen
 import app.gagachat.feature.home.navigation.homeScreen
+import app.gagachat.feature.home.navigation.messageRequestsScreen
 import app.gagachat.feature.people.PeopleRoutes
 import app.gagachat.feature.people.peopleGraph
 import app.gagachat.feature.profile.navigation.ProfileRoutes
@@ -146,6 +148,16 @@ fun MainNavHost(pendingDeepLink: String?) {
                 onOpenConversation = { id -> navController.navigate(ChatRoutes.chat(id)) },
                 onOpenNewChat = { navController.navigate(PeopleRoutes.PEOPLE) },
                 onOpenNotifications = { navController.navigate(SettingsRoutes.NOTIFICATIONS_INBOX) },
+                onOpenRequests = { navController.navigate(HomeRoutes.REQUESTS) },
+                onOpenArchived = { navController.navigate(HomeRoutes.ARCHIVED) },
+            )
+            archivedChatsScreen(
+                navController = navController,
+                onOpenConversation = { id -> navController.navigate(ChatRoutes.chat(id)) },
+            )
+            messageRequestsScreen(
+                navController = navController,
+                onOpenConversation = { id -> navController.navigate(ChatRoutes.chat(id)) },
             )
             chatScreen(
                 navController = navController,
@@ -235,6 +247,7 @@ fun MainNavHost(pendingDeepLink: String?) {
                 navController = navController,
                 onOpenProfile = { navController.navigate(ProfileRoutes.profile()) },
                 onSignedOut = { /* session flow swaps to auth graph */ },
+                onOpenRequests = { navController.navigate(HomeRoutes.REQUESTS) },
             )
             walletGraph(navController = navController)
         }

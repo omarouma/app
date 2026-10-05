@@ -33,6 +33,11 @@ fun NavGraphBuilder.chatScreen(
             onOpenChatInfo = { conversationId ->
                 navController.navigate(ChatRoutes.chatInfo(conversationId))
             },
+            // Groups/channels reuse the same info screen, which is already
+            // group-aware (members, subject, media) — spec §10.
+            onOpenGroupInfo = { conversationId ->
+                navController.navigate(ChatRoutes.chatInfo(conversationId))
+            },
         )
     }
 }

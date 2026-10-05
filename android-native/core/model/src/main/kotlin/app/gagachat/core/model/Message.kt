@@ -108,6 +108,26 @@ data class Message(
     /** The current user's selected poll option index, or null if they haven't voted. */
     fun pollSelection(userId: String): Int? =
         pollVotes.entries.firstOrNull { it.value.contains(userId) }?.key
+
+    /**
+     * A short, human label used for the conversation-list preview (spec §4).
+     * Non-text messages show an icon-style label instead of the raw payload so
+     * the Chats screen never renders an empty or confusing preview.
+     */
+    fun conversationPreview(): String = when {
+        isDeleted -> "This message was deleted"
+        type == MessageType.TEXT -> text.orEmpty()
+        type == MessageType.IMAGE ->
+            if (isMultiImage) "\uD83D\uDCF7 ${allMediaUrls.size} photos" else "\uD83D\uDCF7 Photo"
+        type == MessageType.VIDEO -> "\uD83C\uDFA5 Video"
+        type == MessageType.AUDIO -> "\uD83C\uDFA4 Voice message"
+        type == MessageType.FILE -> "\uD83D\uDCC4 Document"
+        type == MessageType.LOCATION ->
+            if (isLiveLocation) "\uD83D\uDCCD Live location" else "\uD83D\uDCCD Location"
+        type == MessageType.CONTACT -> "\uD83D\uDC64 Contact"
+        type == MessageType.CALL_EVENT -> "\uD83D\uDCDE Call"
+        else -> text.orEmpty()
+    }
 }
 
 @Serializable

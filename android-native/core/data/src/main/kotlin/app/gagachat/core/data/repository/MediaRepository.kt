@@ -84,6 +84,13 @@ interface MediaRepository {
     suspend fun processQueue()
 
     fun observeUpload(clientMessageId: String): Flow<PendingUpload?>
+
+    /**
+     * Cancels an in-flight media upload (spec §8). Drops every queue row for the
+     * message, marks it FAILED (so the bubble offers retry instead of an eternal
+     * spinner) and deletes the cached local copy.
+     */
+    suspend fun cancelUpload(clientMessageId: String)
 }
 
 @Singleton
@@ -447,6 +454,19 @@ class DefaultMediaRepository @Inject constructor(
 
     override fun observeUpload(clientMessageId: String): Flow<PendingUpload?> =
         uploadDao.observeByClientMessageId(clientMessageId).map { it?.toDomain() }
+
+    override suspend fun cancelUpload(clientMessageId: String) = withContext(dispatchers.io) {
+        // Drop the queue rows first so a concurrent drain cannot re-upload them.
+        uploadDao.deleteByClientMessageId(clientMessageId)
+        val entity = messageDao.getByClientMessageId(clientMessageId)
+        // Only fail a message that has not already reached the server.
+        if (entity != null && entity.status != MessageStatus.SENT.name && entity.serverMessageId == null) {
+            messageDao.updateStatus(clientMessageId, MessageStatus.FAILED.name, null, null)
+        }
+        // Remove the cached local copy (best-effort).
+        runCatching { entity?.localMediaPath?.let { File(it).delete() } }
+        Unit
+    }
 
     private companion object {
         /** Hard ceiling on a single storage upload before it is retried. */

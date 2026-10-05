@@ -35,6 +35,7 @@ import androidx.compose.material.icons.automirrored.filled.Forward
 import androidx.compose.material.icons.automirrored.filled.Reply
 import androidx.compose.material.icons.filled.AddReaction
 import androidx.compose.material.icons.filled.ArrowDownward
+import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Checklist
@@ -86,11 +87,13 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import app.gagachat.core.common.Constants
 import app.gagachat.core.data.preferences.ChatBackground
 import app.gagachat.core.model.LinkPreview
 import app.gagachat.core.model.Message
 import app.gagachat.core.model.MessageStatus
 import app.gagachat.core.model.MessageType
+import app.gagachat.core.ui.component.GagaBadge
 import app.gagachat.core.ui.component.GagaEmptyState
 import app.gagachat.core.ui.component.GagaOfflineBanner
 import app.gagachat.core.ui.component.GagaScaffold
@@ -122,11 +125,13 @@ fun ChatRoute(
     onStartCall: (conversationId: String, isVideo: Boolean) -> Unit,
     onOpenProfile: (userId: String) -> Unit,
     onOpenChatInfo: (conversationId: String) -> Unit,
+    onOpenGroupInfo: (conversationId: String) -> Unit = onOpenChatInfo,
     viewModel: ChatViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val pendingLocation by viewModel.pendingLocation.collectAsStateWithLifecycle()
     val linkPreviews by viewModel.linkPreviews.collectAsStateWithLifecycle()
+    val pendingVoice by viewModel.pendingVoice.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
@@ -160,6 +165,22 @@ fun ChatRoute(
     var selectionMode by remember { mutableStateOf(false) }
     var selectedIds by remember { mutableStateOf(setOf<String>()) }
     var infoMessage by remember { mutableStateOf<Message?>(null) }
+    // Safety dialogs (spec §5): a report-reason picker and a block confirmation.
+    // Both are reached from the overflow menu so a mis-tap can never silently
+    // report or block someone.
+    var showReportDialog by remember { mutableStateOf(false) }
+    var showBlockConfirm by remember { mutableStateOf(false) }
+    // Debounce guard: the call buttons are one tap from the header, so a double
+    // tap (or a slow navigation) could otherwise fire two overlapping call
+    // invitations. One call per 1.5s is more than enough for a human.
+    var lastCallAt by remember { mutableStateOf(0L) }
+    val startCall: (Boolean) -> Unit = { isVideo ->
+        val now = System.currentTimeMillis()
+        if (now - lastCallAt > 1_500L) {
+            lastCallAt = now
+            onStartCall(state.conversationId, isVideo)
+        }
+    }
     // Requests RECORD_AUDIO the first time the mic is tapped, then starts the
     // recording. If the user denies, the ViewModel surfaces an actionable notice.
     val micPermissionLauncher = rememberLauncherForActivityResult(
@@ -228,11 +249,35 @@ fun ChatRoute(
         if (atBottom) listState.animateScrollToItem(0)
     }
 
+    // New-message counter (spec §5): while the user is scrolled away from the
+    // newest message, count how many have arrived so the jump-to-latest button
+    // can show a badge instead of silently yanking them down. Reset to zero the
+    // moment they return to the bottom. We only increment when the newest id
+    // genuinely changes, so merely scrolling up never inflates the count.
+    var unseenCount by remember { mutableStateOf(0) }
+    var lastSeenNewestId by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(state.messages.lastOrNull()?.localId, atBottom) {
+        val newest = state.messages.lastOrNull()?.localId
+        when {
+            atBottom -> {
+                unseenCount = 0
+                lastSeenNewestId = newest
+            }
+            newest != null && newest != lastSeenNewestId -> {
+                unseenCount += 1
+                lastSeenNewestId = newest
+            }
+        }
+    }
+
     val openProfile = {
         val id = state.otherUserId
         if (id.isNotBlank()) onOpenProfile(id)
         else viewModel.showNotice("Couldn't open this profile yet.")
     }
+    // Group-aware header tap (spec §10): a group/channel opens its info screen
+    // (members, subject, media) rather than a single peer's profile.
+    val openGroupInfo = { onOpenGroupInfo(state.conversationId) }
 
     // ---- multi-select helpers ----
     val exitSelectionMode = {
@@ -271,7 +316,7 @@ fun ChatRoute(
             onBack = onNavigateBack,
             avatarUrl = state.otherUserAvatar ?: state.avatarUrl,
             avatarStatus = state.otherUserStatus,
-            onTitleClick = openProfile,
+            onTitleClick = if (state.isGroup) openGroupInfo else openProfile,
             snackbarHostState = snackbarHostState,
             actions = {
                 if (selectionMode) {
@@ -303,10 +348,10 @@ fun ChatRoute(
                         Icon(Icons.Filled.Close, contentDescription = "Cancel selection")
                     }
                 } else {
-                    IconButton(onClick = { onStartCall(state.conversationId, false) }) {
+                    IconButton(onClick = { startCall(false) }) {
                         Icon(Icons.Filled.Call, contentDescription = "Voice call")
                     }
-                    IconButton(onClick = { onStartCall(state.conversationId, true) }) {
+                    IconButton(onClick = { startCall(true) }) {
                         Icon(Icons.Filled.Videocam, contentDescription = "Video call")
                     }
                     ChatOverflowMenu(
@@ -314,8 +359,11 @@ fun ChatRoute(
                         onToggleMute = viewModel::toggleMute,
                         onChatBackground = { showBackgroundPicker = true },
                         onOpenMedia = { onOpenChatInfo(state.conversationId) },
-                        onChatInfo = { onOpenChatInfo(state.conversationId) },
+                        onChatInfo = { if (state.isGroup) openGroupInfo() else onOpenChatInfo(state.conversationId) },
+                        onReport = { showReportDialog = true },
+                        onBlock = { showBlockConfirm = true },
                         isMuted = state.isMuted,
+                        isGroup = state.isGroup,
                     )
                 }
             },
@@ -326,6 +374,12 @@ fun ChatRoute(
                     .padding(padding),
             ) {
                 GagaOfflineBanner(visible = !state.isOnline)
+                // Safety (spec §10): when the peer is blocked, the composer is
+                // effectively one-way, so show an explicit bar with an unblock
+                // action rather than leaving the user guessing why replies stop.
+                if (state.isPeerBlocked) {
+                    BlockedPeerBar(onUnblock = viewModel::unblockUser)
+                }
                 if (state.isSearching) {
                     MessageSearchBar(
                         query = state.searchQuery,
@@ -360,6 +414,7 @@ fun ChatRoute(
                             messages = visible,
                             currentUserId = state.currentUserId,
                             myLastReadMessageId = state.myLastReadMessageId,
+                            isGroup = state.isGroup,
                             isLoadingOlder = state.isLoadingOlder,
                             isOtherTyping = state.isOtherTyping && !isFiltering,
                             typingAvatarUrl = state.otherUserAvatar ?: state.avatarUrl,
@@ -375,6 +430,7 @@ fun ChatRoute(
                                 }
                             },
                             onRetry = viewModel::retry,
+                            onCancelUpload = viewModel::cancelUpload,
                             onLongPress = viewModel::selectMessage,
                             onMediaClick = { msg ->
                                 // F12: documents open in an external viewer; only
@@ -389,7 +445,7 @@ fun ChatRoute(
                             onVotePoll = { m, i -> viewModel.votePoll(m, i) },
                             onStopLiveLocation = { m -> viewModel.stopLiveLocation(m) },
                             onCallBack = { isVideo ->
-                                onStartCall(state.conversationId, isVideo)
+                                startCall(isVideo)
                             },
                             linkPreviews = linkPreviews,
                             onRequestLinkPreview = viewModel::requestLinkPreview,
@@ -412,6 +468,7 @@ fun ChatRoute(
                     // the user scrolls away from the newest message.
                     ScrollToBottomButton(
                         visible = !atBottom,
+                        unseenCount = unseenCount,
                         onClick = { scope.launch { listState.animateScrollToItem(0) } },
                         modifier = Modifier
                             .align(Alignment.BottomEnd)
@@ -471,8 +528,11 @@ fun ChatRoute(
                             micPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
                         }
                     },
-                    onStopRecording = viewModel::stopVoiceRecordingAndSend,
+                    onStopRecording = viewModel::stopVoiceRecording,
                     onCancelRecording = viewModel::cancelVoiceRecording,
+                    pendingVoice = pendingVoice,
+                    onSendVoice = viewModel::sendPendingVoice,
+                    onDiscardVoice = viewModel::discardPendingVoice,
                 )
             }
         }
@@ -624,6 +684,43 @@ fun ChatRoute(
                 onDismiss = { showBackgroundPicker = false },
             )
         }
+
+        if (showReportDialog) {
+            ReportUserDialog(
+                reasons = ChatViewModel.REPORT_REASONS,
+                onDismiss = { showReportDialog = false },
+                onSelect = { reason ->
+                    viewModel.reportUser(reason)
+                    showReportDialog = false
+                },
+            )
+        }
+
+        if (showBlockConfirm) {
+            AlertDialog(
+                onDismissRequest = { showBlockConfirm = false },
+                title = { Text("Block this user?") },
+                text = {
+                    Text(
+                        "They won't be able to message or call you, and their messages " +
+                            "will be hidden. This conversation stays in your chats.",
+                    )
+                },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            viewModel.blockUser()
+                            showBlockConfirm = false
+                        },
+                    ) {
+                        Text("Block", color = MaterialTheme.colorScheme.error)
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showBlockConfirm = false }) { Text("Cancel") }
+                },
+            )
+        }
     }
 }
 
@@ -704,6 +801,7 @@ private fun ChatBackgroundPicker(
 @Composable
 private fun ScrollToBottomButton(
     visible: Boolean,
+    unseenCount: Int,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -713,11 +811,22 @@ private fun ScrollToBottomButton(
         exit = fadeOut(),
         modifier = modifier,
     ) {
-        SmallFloatingActionButton(
-            onClick = onClick,
-            containerColor = MaterialTheme.colorScheme.primaryContainer,
-        ) {
-            Icon(Icons.Filled.ArrowDownward, contentDescription = "Jump to latest")
+        Box {
+            SmallFloatingActionButton(
+                onClick = onClick,
+                containerColor = MaterialTheme.colorScheme.primaryContainer,
+            ) {
+                Icon(Icons.Filled.ArrowDownward, contentDescription = "Jump to latest")
+            }
+            // Badge the count of messages that arrived while the user was
+            // scrolled away, so "jump to latest" also communicates how much is
+            // waiting (spec §5).
+            if (unseenCount > 0) {
+                GagaBadge(
+                    count = unseenCount,
+                    modifier = Modifier.align(Alignment.TopEnd),
+                )
+            }
         }
     }
 }
@@ -745,9 +854,21 @@ private fun MessageActionSheet(
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val isOwn = message.senderId == currentUserId
-    val canEdit = isOwn && message.type == MessageType.TEXT && !message.isDeleted
+    // Edit/delete-for-everyone are time-bounded (spec §6): editing is allowed for
+    // 15 minutes, "delete for everyone" for 60 minutes. The repository enforces
+    // the same windows server-side; this gating keeps the menu honest so the user
+    // never taps an action that is guaranteed to be rejected.
+    val sentAt = message.createdAtClient.takeIf { it > 0L } ?: message.createdAtServer ?: 0L
+    val age = if (sentAt > 0L) System.currentTimeMillis() - sentAt else Long.MAX_VALUE
+    val withinEditWindow = age <= Constants.EDIT_WINDOW_MS
+    val withinDeleteWindow = age <= Constants.DELETE_FOR_EVERYONE_WINDOW_MS
+    val canEdit = isOwn && message.type == MessageType.TEXT && !message.isDeleted && withinEditWindow
     val canCopy = !message.text.isNullOrBlank() && !message.isDeleted
-    val canDelete = isOwn && !message.isDeleted
+    val canDelete = isOwn && !message.isDeleted && withinDeleteWindow
+    // Explain why edit/delete are missing once their window has lapsed, so the
+    // absence reads as a rule rather than a bug.
+    val editExpired = isOwn && message.type == MessageType.TEXT && !message.isDeleted && !withinEditWindow
+    val deleteExpired = isOwn && !message.isDeleted && !withinDeleteWindow
 
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
         Column(modifier = Modifier.padding(bottom = GagaDimens.space16)) {
@@ -797,6 +918,19 @@ private fun MessageActionSheet(
                 onClick = onDeleteForMe,
                 tint = MaterialTheme.colorScheme.error,
             )
+            if (editExpired || deleteExpired) {
+                Text(
+                    text = when {
+                        editExpired && deleteExpired ->
+                            "Editing and deleting for everyone are only available for a short time after sending."
+                        editExpired -> "Editing is only available for 15 minutes after sending."
+                        else -> "Deleting for everyone is only available for 60 minutes after sending."
+                    },
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = GagaDimens.space24, vertical = GagaDimens.space8),
+                )
+            }
         }
     }
 }
@@ -819,6 +953,52 @@ private fun ActionRow(
         Spacer(Modifier.width(GagaDimens.space16))
         Text(text = label, color = tint, style = MaterialTheme.typography.bodyLarge)
     }
+}
+
+/**
+ * Report-reason picker surfaced from the chat overflow menu (spec §5). The copy
+ * makes clear that only the account, the contact and the chosen reason are sent
+ * for review \u2014 never the message content \u2014 so reporting can't be used to leak
+ * a conversation.
+ */
+@Composable
+private fun ReportUserDialog(
+    reasons: List<String>,
+    onDismiss: () -> Unit,
+    onSelect: (String) -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Report this user") },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState()),
+            ) {
+                Text(
+                    "Select a reason. Your account, this contact and the reason " +
+                        "will be sent for review. Messages are not included.",
+                )
+                Spacer(Modifier.height(GagaDimens.space8))
+                reasons.forEach { reason ->
+                    TextButton(
+                        onClick = { onSelect(reason) },
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text(
+                            text = reason,
+                            modifier = Modifier.fillMaxWidth(),
+                            textAlign = TextAlign.Start,
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel") }
+        },
+    )
 }
 
 /**
@@ -866,12 +1046,50 @@ private fun MessageSearchBar(
 }
 
 /**
- * The conversation overflow menu, deliberately kept to everyday actions:
- * Search Messages, Mute/Unmute, Chat Background, Media/Links/Docs and Chat Info.
- * The risky moderation actions (Clear / Remove / Block / Report) now live inside
- * Chat Info's "Manage" section so they sit behind one extra, intentional tap
- * (P1). "View Profile" is reachable by tapping the header title, and "Send Money"
- * is offered from Chat Info's quick actions.
+ * Safety bar shown when the current user has blocked the other participant
+ * (spec §10). Explains why the conversation is effectively one-way and offers a
+ * single, explicit way to reverse the action.
+ */
+@Composable
+private fun BlockedPeerBar(onUnblock: () -> Unit) {
+    Surface(
+        color = MaterialTheme.colorScheme.errorContainer,
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = GagaDimens.space12, vertical = GagaDimens.space8),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                Icons.Filled.Block,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onErrorContainer,
+                modifier = Modifier.size(GagaDimens.space20),
+            )
+            Spacer(Modifier.width(GagaDimens.space8))
+            Text(
+                text = "You blocked this contact.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onErrorContainer,
+                modifier = Modifier.weight(1f),
+            )
+            TextButton(onClick = onUnblock) {
+                Text("Unblock", fontWeight = FontWeight.SemiBold)
+            }
+        }
+    }
+}
+
+/**
+ * The conversation overflow menu: everyday actions (Search Messages, Mute/Unmute,
+ * Chat Background, Media/Links/Docs, Chat Info) plus the safety actions Report
+ * and Block (spec §5). The safety actions are separated by a divider and always
+ * open a confirmation/reason dialog before anything is submitted, so a mis-tap
+ * can never silently report or block someone. "View Profile" is reachable by
+ * tapping the header title, and "Send Money" is offered from Chat Info's quick
+ * actions.
  */
 @Composable
 private fun ChatOverflowMenu(
@@ -880,7 +1098,10 @@ private fun ChatOverflowMenu(
     onChatBackground: () -> Unit,
     onOpenMedia: () -> Unit,
     onChatInfo: () -> Unit,
+    onReport: () -> Unit,
+    onBlock: () -> Unit,
     isMuted: Boolean,
+    isGroup: Boolean = false,
 ) {
     var expanded by remember { mutableStateOf(false) }
 
@@ -895,7 +1116,14 @@ private fun ChatOverflowMenu(
         }
         MenuItem("Chat Background") { expanded = false; onChatBackground() }
         MenuItem("Media, Links & Docs") { expanded = false; onOpenMedia() }
-        MenuItem("Chat Info") { expanded = false; onChatInfo() }
+        MenuItem(if (isGroup) "Group Info" else "Chat Info") { expanded = false; onChatInfo() }
+        // Report/Block target a single peer, so they are hidden for groups and
+        // channels where they would be ambiguous (spec §10).
+        if (!isGroup) {
+            HorizontalDivider()
+            MenuItem("Report") { expanded = false; onReport() }
+            MenuItem("Block") { expanded = false; onBlock() }
+        }
     }
 }
 
@@ -912,6 +1140,7 @@ private fun MessageList(
     messages: List<Message>,
     currentUserId: String,
     myLastReadMessageId: String?,
+    isGroup: Boolean = false,
     isLoadingOlder: Boolean,
     isOtherTyping: Boolean,
     typingAvatarUrl: String?,
@@ -921,6 +1150,7 @@ private fun MessageList(
     selectedIds: Set<String>,
     onToggleSelect: (Message) -> Unit,
     onRetry: (Message) -> Unit,
+    onCancelUpload: (Message) -> Unit,
     onLongPress: (Message) -> Unit,
     onMediaClick: (Message) -> Unit,
     onReactionClick: (Message, String) -> Unit,
@@ -1000,6 +1230,7 @@ private fun MessageList(
                     isSelected = message.localId in selectedIds,
                     onToggleSelect = onToggleSelect,
                     onRetry = { onRetry(message) },
+                    onCancelUpload = { onCancelUpload(message) },
                     onMediaClick = onMediaClick,
                     onLongPress = onLongPress,
                     onReactionClick = onReactionClick,
@@ -1007,6 +1238,7 @@ private fun MessageList(
                     onVotePoll = onVotePoll,
                     onStopLiveLocation = onStopLiveLocation,
                     onCallBack = onCallBack,
+                    showSenderName = isGroup,
                     linkPreview = message.text
                         ?.let { app.gagachat.core.common.util.LinkDetector.firstUrl(it) }
                         ?.let { linkPreviews[it] },

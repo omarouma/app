@@ -50,6 +50,7 @@ fun NavGraphBuilder.settingsScreen(
     navController: NavController,
     onOpenProfile: () -> Unit,
     onSignedOut: () -> Unit,
+    onOpenRequests: () -> Unit = {},
 ) {
     composable(SettingsRoutes.SETTINGS) {
         SettingsRoute(
@@ -89,6 +90,7 @@ fun NavGraphBuilder.settingsScreen(
     composable(SettingsRoutes.PRIVACY) {
         PrivacySettingsScreen(
             onOpenBlocked = { navController.navigate(SettingsRoutes.BLOCKED) },
+            onOpenRequests = onOpenRequests,
             onBack = { navController.popBackStack() },
         )
     }

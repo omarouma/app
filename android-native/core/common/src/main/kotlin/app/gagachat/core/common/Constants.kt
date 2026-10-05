@@ -44,4 +44,51 @@ object Constants {
     const val CHANNEL_MESSAGES = "gaga_messages"
     const val CHANNEL_CALLS = "gaga_calls"
     const val CHANNEL_GENERAL = "gaga_general"
+
+    // ---------------------------------------------------------------------
+    // Message edit / delete eligibility windows (spec §6).
+    // The same windows are enforced in the repository so the rule holds even
+    // if the UI is bypassed.
+    // ---------------------------------------------------------------------
+
+    /** A message may be edited within 15 minutes of being sent. */
+    const val EDIT_WINDOW_MS = 15L * 60 * 1000
+
+    /** "Delete for everyone" is allowed within 1 hour; "delete for me" is unlimited. */
+    const val DELETE_FOR_EVERYONE_WINDOW_MS = 60L * 60 * 1000
+
+    // ---------------------------------------------------------------------
+    // Voice recording (spec §7).
+    // ---------------------------------------------------------------------
+
+    /** Clips shorter than this are treated as an accidental tap and discarded. */
+    const val MIN_VOICE_RECORDING_MS = 700L
+
+    /** Hard cap on a single voice note; recording auto-stops at this length. */
+    const val MAX_VOICE_RECORDING_MS = 5L * 60 * 1000
+
+    /** Show a countdown warning once this much time remains before the cap. */
+    const val VOICE_WARN_REMAINING_MS = 30L * 1000
+
+    // ---------------------------------------------------------------------
+    // Attachment validation limits (spec §8).
+    // ---------------------------------------------------------------------
+
+    /** Maximum size for a single image upload. */
+    const val MAX_IMAGE_BYTES = 25L * 1024 * 1024
+
+    /** Maximum size for a single video upload. */
+    const val MAX_VIDEO_BYTES = 100L * 1024 * 1024
+
+    /** Maximum duration for a video upload. */
+    const val MAX_VIDEO_DURATION_MS = 10L * 60 * 1000
+
+    /** Maximum size for a single document upload. */
+    const val MAX_DOCUMENT_BYTES = 100L * 1024 * 1024
+
+    /** Maximum size for a single audio file upload. */
+    const val MAX_AUDIO_BYTES = 25L * 1024 * 1024
+
+    /** Maximum number of photos that can be selected in a single album. */
+    const val MAX_ALBUM_PHOTOS = 10
 }

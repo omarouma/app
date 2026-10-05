@@ -8,8 +8,10 @@ import app.gagachat.core.data.repository.AuthRepository
 import app.gagachat.core.data.repository.ConversationRepository
 import app.gagachat.core.data.repository.NotificationRepository
 import app.gagachat.core.model.Conversation
+import app.gagachat.core.model.ConversationType
 import app.gagachat.core.ui.util.toUserMessageOrNull
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -19,6 +21,9 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+/** Top-level filter tabs on the Chats screen (spec §4: All, Unread, Groups). */
+enum class ConversationFilter { ALL, UNREAD, GROUPS }
+
 data class HomeUiState(
     val conversations: List<Conversation> = emptyList(),
     val query: String = "",
@@ -26,6 +31,9 @@ data class HomeUiState(
     val isRefreshing: Boolean = false,
     val errorMessage: String? = null,
     val currentUserId: String = "",
+    val filter: ConversationFilter = ConversationFilter.ALL,
+    val isOnline: Boolean = true,
+    val archivedCount: Int = 0,
 )
 
 @HiltViewModel
@@ -43,35 +51,73 @@ class HomeViewModel @Inject constructor(
     private val loading = MutableStateFlow(true)
     private val refreshing = MutableStateFlow(false)
     private val error = MutableStateFlow<String?>(null)
+    private val filter = MutableStateFlow(ConversationFilter.ALL)
 
-    // Fold the session into the query stream so we stay within the 5-arg
-    // combine overload while still reacting to sign-in / sign-out.
-    private val queryWithSession = combine(query, authRepository.sessionFlow) { q, session ->
-        q to session?.userId.orEmpty()
+    /**
+     * Query + session + active filter, folded into one bundle so the outer
+     * `combine` stays within the 5-argument overload while still reacting to
+     * sign-in / sign-out and tab changes.
+     */
+    private data class Controls(
+        val query: String,
+        val currentUserId: String,
+        val filter: ConversationFilter,
+    )
+
+    /** Loading/refresh/error/connectivity/archived-count bundle for the same reason. */
+    private data class Meta(
+        val isLoading: Boolean,
+        val isRefreshing: Boolean,
+        val errorMessage: String?,
+        val isOnline: Boolean,
+        val archivedCount: Int,
+    )
+
+    private val controls: Flow<Controls> = combine(
+        query,
+        authRepository.sessionFlow,
+        filter,
+    ) { q, session, f -> Controls(q, session?.userId.orEmpty(), f) }
+
+    private val meta: Flow<Meta> = combine(
+        loading,
+        refreshing,
+        error,
+        networkMonitor.isOnline,
+        conversationRepository.observeArchivedCount(),
+    ) { isLoading, isRefreshing, errorMessage, isOnline, archivedCount ->
+        Meta(isLoading, isRefreshing, errorMessage, isOnline, archivedCount)
     }
 
     val state: StateFlow<HomeUiState> = combine(
         conversationRepository.observeConversations(),
-        queryWithSession,
-        loading,
-        refreshing,
-        error,
-    ) { conversations, (q, me), isLoading, isRefreshing, errorMessage ->
-        val filtered = if (q.isBlank()) {
+        controls,
+        meta,
+    ) { conversations, controls, meta ->
+        val me = controls.currentUserId
+        val searched = if (controls.query.isBlank()) {
             conversations
         } else {
-            conversations.filter { it.displayTitle(me).contains(q, ignoreCase = true) }
+            conversations.filter { it.displayTitle(me).contains(controls.query, ignoreCase = true) }
+        }
+        val filtered = when (controls.filter) {
+            ConversationFilter.ALL -> searched
+            ConversationFilter.UNREAD -> searched.filter { it.unreadCount > 0 }
+            ConversationFilter.GROUPS -> searched.filter { it.type != ConversationType.DIRECT }
         }
         HomeUiState(
             conversations = filtered.sortedWith(
                 compareByDescending<Conversation> { it.isPinned }
                     .thenByDescending { it.lastMessageAt ?: it.updatedAt },
             ),
-            query = q,
-            isLoading = isLoading,
-            isRefreshing = isRefreshing,
-            errorMessage = errorMessage,
+            query = controls.query,
+            isLoading = meta.isLoading,
+            isRefreshing = meta.isRefreshing,
+            errorMessage = meta.errorMessage,
             currentUserId = me,
+            filter = controls.filter,
+            isOnline = meta.isOnline,
+            archivedCount = meta.archivedCount,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), HomeUiState())
 
@@ -87,6 +133,10 @@ class HomeViewModel @Inject constructor(
 
     fun onQueryChange(value: String) {
         query.value = value
+    }
+
+    fun onFilterChange(value: ConversationFilter) {
+        filter.value = value
     }
 
     fun refresh() {
@@ -109,10 +159,24 @@ class HomeViewModel @Inject constructor(
         }
     }
 
+    /** Archive/unarchive a conversation (spec §4). */
+    fun onToggleArchive(conversation: Conversation) {
+        viewModelScope.launch {
+            conversationRepository.setArchived(conversation.id, !conversation.isArchived)
+        }
+    }
+
     /** Clear the unread badge for a conversation. */
     fun onMarkRead(conversation: Conversation) {
         viewModelScope.launch {
             conversationRepository.markRead(conversation.id, conversation.lastMessageId.orEmpty())
+        }
+    }
+
+    /** Flag a conversation as unread using a sentinel badge (distinct from receipts). */
+    fun onMarkUnread(conversation: Conversation) {
+        viewModelScope.launch {
+            conversationRepository.markUnread(conversation.id)
         }
     }
 

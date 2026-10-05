@@ -37,6 +37,7 @@ import app.gagachat.core.model.User
 import app.gagachat.core.model.UserStatus
 import app.gagachat.core.ui.util.TimeFormat
 import app.gagachat.core.ui.util.toUserMessage
+import app.gagachat.feature.chat.presentation.components.PendingVoiceClip
 import app.gagachat.feature.chat.presentation.components.VoiceRecorder
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -106,6 +107,11 @@ data class ChatUiState(
     val chatBackground: ChatBackground = ChatBackground.DEFAULT,
     /** Whether notifications are muted for this conversation. */
     val isMuted: Boolean = false,
+    /**
+     * True when the current user has blocked the other participant (spec §10).
+     * Drives the in-chat "You blocked this contact" bar with an unblock action.
+     */
+    val isPeerBlocked: Boolean = false,
     /** F22: server-side search hits across the full history. */
     val searchResults: List<Message> = emptyList(),
 ) {
@@ -243,6 +249,14 @@ class ChatViewModel @Inject constructor(
     private var recordingTicker: Job? = null
     private var typingJob: Job? = null
 
+    /**
+     * A finished voice clip awaiting the user's review before it is uploaded
+     * (spec §7). Non-null drives the composer's voice-preview bar; the clip is
+     * only handed to the upload queue when the user confirms.
+     */
+    private val _pendingVoice = MutableStateFlow<PendingVoiceClip?>(null)
+    val pendingVoice: StateFlow<PendingVoiceClip?> = _pendingVoice.asStateFlow()
+
     private val currentUserId: String
         get() = authRepository.sessionFlow.value?.userId.orEmpty()
 
@@ -323,11 +337,23 @@ class ChatViewModel @Inject constructor(
             isMuted = conversation?.isMuted ?: false,
         )
     }.combine(draft) { ui, text -> ui.copy(draft = text) }
+        // Block state is a separate live source (LIVE `blocked_users` table); fold
+        // it in here so the chat can show the "You blocked this contact" bar and
+        // offer unblock without a second round-trip when the chat opens (spec §10).
+        .combine(blockRepository.blocked) { ui, blocked ->
+            ui.copy(
+                isPeerBlocked = ui.otherUserId.isNotBlank() &&
+                    blocked.any { it.targetId == ui.otherUserId },
+            )
+        }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ChatUiState(conversationId = conversationId))
 
     init {
         viewModelScope.launch {
             messageRepository.syncNewMessages(conversationId)
+            // Keep the blocked-users cache fresh so the peer's block state is
+            // accurate the moment the chat opens (spec §10).
+            blockRepository.refresh()
             // Read receipts are user-controlled (Master Spec §C — privacy). When
             // disabled we still mark messages read locally but never publish the
             // receipt to the peer.
@@ -477,6 +503,18 @@ class ChatViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Cancels an in-flight media upload (spec §8). Drops the queued rows, marks the
+     * message FAILED (so the bubble offers retry instead of an eternal spinner) and
+     * deletes the cached local copy so the user can reclaim storage.
+     */
+    fun cancelUpload(message: Message) {
+        viewModelScope.launch {
+            mediaRepository.cancelUpload(message.clientMessageId)
+            notice.value = "Upload cancelled"
+        }
+    }
+
     fun sendMedia(uri: Uri, kind: String, caption: String? = null) {
         if (!beginMediaSend()) return
         viewModelScope.launch {
@@ -494,9 +532,11 @@ class ChatViewModel @Inject constructor(
 
             // Fail early with actionable validation rather than queueing media that
             // can never be delivered. Images are normalized to a high-quality JPEG
-            // when very large; videos keep original quality but are bounded.
+            // when very large; videos keep original quality but are bounded. All
+            // limits live in Constants (spec §8) so the UI, repository and any
+            // future server check agree on one source of truth.
             if (type == MessageType.IMAGE) {
-                if (resolved.third > 25L * 1024 * 1024) {
+                if (resolved.third > Constants.MAX_IMAGE_BYTES) {
                     error.value = "This photo is too large. Choose a photo under 25 MB."
                     return@launch
                 }
@@ -507,14 +547,22 @@ class ChatViewModel @Inject constructor(
                 durationMs = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { mediaDuration(resolved.first) }
             }
             if (type == MessageType.VIDEO) {
-                if (resolved.third > Constants.MAX_UPLOAD_BYTES) {
+                if (resolved.third > Constants.MAX_VIDEO_BYTES) {
                     error.value = "This video is too large. Maximum size is 100 MB."
                     return@launch
                 }
-                if ((durationMs ?: 0L) > 10L * 60L * 1000L) {
+                if ((durationMs ?: 0L) > Constants.MAX_VIDEO_DURATION_MS) {
                     error.value = "This video is too long. Maximum duration is 10 minutes."
                     return@launch
                 }
+            }
+            if (type == MessageType.AUDIO && resolved.third > Constants.MAX_AUDIO_BYTES) {
+                error.value = "This audio file is too large. Maximum size is 25 MB."
+                return@launch
+            }
+            if (type == MessageType.FILE && resolved.third > Constants.MAX_DOCUMENT_BYTES) {
+                error.value = "This document is too large. Maximum size is 100 MB."
+                return@launch
             }
             val result = mediaRepository.enqueueUpload(
                 conversationId = conversationId,
@@ -539,13 +587,17 @@ class ChatViewModel @Inject constructor(
      */
     fun sendImageAlbum(uris: List<Uri>, caption: String?) {
         if (uris.isEmpty()) return
+        if (uris.size > Constants.MAX_ALBUM_PHOTOS) {
+            error.value = "You can send up to ${Constants.MAX_ALBUM_PHOTOS} photos at a time."
+            return
+        }
         if (!beginMediaSend()) return
         viewModelScope.launch {
             val session = authRepository.sessionFlow.value
             val resolved = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
                 uris.mapNotNull { uri ->
                     val base = resolveUri(uri) ?: return@mapNotNull null
-                    if (base.third > 25L * 1024 * 1024) return@mapNotNull null
+                    if (base.third > Constants.MAX_IMAGE_BYTES) return@mapNotNull null
                     compressLargeImage(base)
                 }
             }
@@ -624,11 +676,19 @@ class ChatViewModel @Inject constructor(
             val startedAt = System.currentTimeMillis()
             val levels = ArrayDeque<Float>()
             while (recording.value.isActive) {
+                val elapsed = System.currentTimeMillis() - startedAt
+                // Hard cap (spec §7): a voice note can't run forever. When the
+                // limit is reached we stop automatically and stage the clip for
+                // review, exactly as if the user had tapped stop.
+                if (elapsed >= Constants.MAX_VOICE_RECORDING_MS) {
+                    stopVoiceRecording()
+                    break
+                }
                 val level = voiceRecorder.currentAmplitude() ?: 0f
                 levels.addLast(level)
                 while (levels.size > MAX_RECORDING_LEVELS) levels.removeFirst()
                 recording.value = recording.value.copy(
-                    elapsedMs = System.currentTimeMillis() - startedAt,
+                    elapsedMs = elapsed,
                     levels = levels.toList(),
                 )
                 delay(100)
@@ -636,18 +696,33 @@ class ChatViewModel @Inject constructor(
         }
     }
 
-    /** Stops the active recording and uploads it as an AUDIO message. */
-    fun stopVoiceRecordingAndSend() {
+    /**
+     * Stops the active recording and stages the clip for review (spec §7). The
+     * clip is *not* uploaded yet — [sendPendingVoice] does that once the user
+     * confirms. A clip shorter than [Constants.MIN_VOICE_RECORDING_MS] is
+     * discarded with a friendly notice so an accidental mic tap never sends a
+     * zero-length file.
+     */
+    fun stopVoiceRecording() {
         if (!recording.value.isActive) return
+        // Flip the flag first so the ticker loop exits on its next iteration,
+        // then cancel it (no-op if it already finished) and stop the recorder.
+        recording.value = RecordingState()
         recordingTicker?.cancel()
         recordingTicker = null
         val clip = voiceRecorder.stop()
-        recording.value = RecordingState()
-        if (clip == null) {
+        if (clip == null || clip.durationMs < Constants.MIN_VOICE_RECORDING_MS) {
+            clip?.let { voiceRecorder.discard(it.path) }
             notice.value = "That recording was too short. Hold the mic a little longer."
             return
         }
-        val (path, durationMs, size) = clip
+        _pendingVoice.value = clip
+    }
+
+    /** Uploads the reviewed voice clip as an AUDIO message. */
+    fun sendPendingVoice() {
+        val clip = _pendingVoice.value ?: return
+        _pendingVoice.value = null
         viewModelScope.launch {
             val session = authRepository.sessionFlow.value
             val result = mediaRepository.enqueueUpload(
@@ -655,14 +730,21 @@ class ChatViewModel @Inject constructor(
                 senderId = currentUserId,
                 senderName = session?.displayName,
                 senderAvatar = null,
-                localPath = path,
-                mime = "audio/mp4",
-                size = size,
+                localPath = clip.path,
+                mime = clip.mime,
+                size = clip.sizeBytes,
                 type = MessageType.AUDIO,
-                durationMs = durationMs,
+                durationMs = clip.durationMs,
             )
             if (result is AppResult.Failure) error.value = result.error.toUserMessage()
         }
+    }
+
+    /** Discards the reviewed voice clip and deletes its cache file. */
+    fun discardPendingVoice() {
+        val clip = _pendingVoice.value ?: return
+        _pendingVoice.value = null
+        voiceRecorder.discard(clip.path)
     }
 
     /** Aborts the active recording and discards the partial clip. */
@@ -805,6 +887,22 @@ class ChatViewModel @Inject constructor(
         viewModelScope.launch {
             when (val result = blockRepository.block(target)) {
                 is AppResult.Success -> notice.value = "This user has been blocked."
+                is AppResult.Failure -> error.value = result.error.toUserMessage()
+                AppResult.Loading -> Unit
+            }
+        }
+    }
+
+    /** Unblocks the other participant (spec §10) and surfaces a confirmation. */
+    fun unblockUser() {
+        val target = state.value.otherUserId
+        if (target.isBlank()) {
+            notice.value = "Couldn't resolve this contact to unblock."
+            return
+        }
+        viewModelScope.launch {
+            when (val result = blockRepository.unblock(target)) {
+                is AppResult.Success -> notice.value = "This user has been unblocked."
                 is AppResult.Failure -> error.value = result.error.toUserMessage()
                 AppResult.Loading -> Unit
             }
@@ -1056,9 +1154,26 @@ class ChatViewModel @Inject constructor(
         }
     }
 
-    /** Records a report against the other participant for moderation review. */
-    fun reportUser() {
-        notice.value = "Open Chat Info to select a reason and submit a report."
+    /**
+     * Records a report against the other participant for moderation review
+     * (spec §5 safety). [reason] is one of [REPORT_REASONS]. The backend
+     * `gaga_report_chat_user` RPC stores the reporter, the chat and the reason
+     * but never the message content, so a report can't be used to exfiltrate a
+     * conversation. Reports are deliberately non-destructive: unlike block, the
+     * thread stays visible so the user keeps their history.
+     */
+    fun reportUser(reason: String) {
+        if (reason.isBlank()) return
+        viewModelScope.launch {
+            try {
+                privacyApi.reportChatUser(conversationId, reason)
+                notice.value = "Report saved for review. Message content was not included."
+            } catch (c: kotlinx.coroutines.CancellationException) {
+                throw c
+            } catch (t: Throwable) {
+                error.value = "Report could not be saved. Please try again."
+            }
+        }
     }
 
     /** Surfaces a transient notice for an overflow-menu entry that isn't wired yet. */
@@ -1192,6 +1307,9 @@ class ChatViewModel @Inject constructor(
         liveLocationJob?.cancel()
         liveLocationJob = null
         voiceRecorder.cancel()
+        // A reviewed-but-unsent clip would otherwise leak its cache file.
+        _pendingVoice.value?.let { voiceRecorder.discard(it.path) }
+        _pendingVoice.value = null
         super.onCleared()
     }
 
@@ -1221,5 +1339,14 @@ class ChatViewModel @Inject constructor(
             UserStatus.BUSY -> "Busy"
             else -> otherUser?.lastSeen?.let { TimeFormat.lastSeen(it) } ?: "Offline"
         }
+    }
+
+    companion object {
+        /**
+         * Canonical report reasons offered by the chat header's safety dialog
+         * (spec §5). Kept here so the dialog and the moderation call can never
+         * drift apart.
+         */
+        val REPORT_REASONS = listOf("Spam", "Harassment", "Scam or fraud", "Inappropriate content", "Other")
     }
 }

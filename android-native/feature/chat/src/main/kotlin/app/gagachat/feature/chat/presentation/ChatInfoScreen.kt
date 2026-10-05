@@ -29,6 +29,8 @@ import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.NotificationsOff
 import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PersonRemove
@@ -40,6 +42,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -286,6 +289,22 @@ fun ChatInfoRoute(
                 modifier = Modifier.padding(horizontal = GagaDimens.space16, vertical = GagaDimens.space8),
             )
 
+            // Notifications (spec §10): mute is surfaced here as well as in the
+            // chat header, so the setting is discoverable from the info screen
+            // and the two stay in sync through the same conversation flag.
+            GagaSectionHeader("Notifications")
+            SwitchRow(
+                icon = if (state.isMuted) Icons.Filled.NotificationsOff else Icons.Filled.Notifications,
+                label = "Mute Notifications",
+                description = if (state.isMuted) {
+                    "You won't be notified about new messages in this chat."
+                } else {
+                    "Get notified about new messages in this chat."
+                },
+                checked = state.isMuted,
+                onCheckedChange = { viewModel.toggleMute() },
+            )
+
             // Management — destructive / moderation actions live here rather
             // than in the chat overflow menu, so the menu stays a short list of
             // everyday actions and the risky ones sit behind one extra tap (P1).
@@ -364,6 +383,49 @@ private fun ManagementRow(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
+    }
+}
+
+/**
+ * A settings-style toggle row: leading icon, title, explanatory subtitle and a
+ * trailing [Switch]. The whole row is tappable so the target is easy to hit.
+ */
+@Composable
+private fun SwitchRow(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    label: String,
+    description: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+) {
+    HorizontalDivider(
+        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+        modifier = Modifier.padding(horizontal = GagaDimens.space16),
+    )
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onCheckedChange(!checked) }
+            .padding(horizontal = GagaDimens.space16, vertical = GagaDimens.space12),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.onSurface)
+        Spacer(Modifier.width(GagaDimens.space16))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurface,
+                fontWeight = FontWeight.Medium,
+            )
+            Text(
+                text = description,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        Spacer(Modifier.width(GagaDimens.space8))
+        Switch(checked = checked, onCheckedChange = onCheckedChange)
     }
 }
 

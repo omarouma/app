@@ -116,6 +116,12 @@ fun MessageBubble(
     isSelected: Boolean = false,
     onToggleSelect: (Message) -> Unit = {},
     onRetry: () -> Unit,
+    /**
+     * Cancels an in-flight media upload (spec §8). Surfaced as a "Cancel" action
+     * inside the upload overlay so a stuck or unwanted upload can be abandoned
+     * without waiting for it to fail.
+     */
+    onCancelUpload: (Message) -> Unit = {},
     onMediaClick: (Message) -> Unit,
     onLongPress: (Message) -> Unit,
     onReactionClick: (Message, String) -> Unit,
@@ -125,6 +131,13 @@ fun MessageBubble(
     onCallBack: (Boolean) -> Unit = {},
     linkPreview: LinkPreview? = null,
     onRequestLinkPreview: (String) -> Unit = {},
+    /**
+     * Group attribution (spec §6): when true, an incoming message shows the
+     * sender's display name above the bubble so members are distinguishable in
+     * group/channel threads. Direct chats pass false (the header already names
+     * the peer).
+     */
+    showSenderName: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
     val bubbleColor = if (isOutgoing) {
@@ -151,6 +164,21 @@ fun MessageBubble(
             Spacer(Modifier.width(GagaDimens.space8))
         }
         Column(horizontalAlignment = if (isOutgoing) Alignment.End else Alignment.Start) {
+            // Group attribution: only incoming group messages carry a sender
+            // label, and only when the bubble isn't a tombstone.
+            if (showSenderName && !isOutgoing && !message.isDeleted && !message.senderName.isNullOrBlank()) {
+                Text(
+                    text = message.senderName.orEmpty(),
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = GagaTheme.extraColors.senderName,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier
+                        .widthIn(max = 320.dp)
+                        .padding(start = GagaDimens.space4, bottom = GagaDimens.space2),
+                )
+            }
             Column(
                 modifier = Modifier
                     .widthIn(max = 320.dp)
@@ -194,6 +222,7 @@ fun MessageBubble(
                         isOutgoing = isOutgoing,
                         onMediaClick = onMediaClick,
                         onRetry = onRetry,
+                        onCancel = { onCancelUpload(message) },
                         currentUserId = currentUserId,
                         onVotePoll = onVotePoll,
                         onStopLiveLocation = onStopLiveLocation,
@@ -346,6 +375,7 @@ private fun MessageContent(
     isOutgoing: Boolean,
     onMediaClick: (Message) -> Unit,
     onRetry: () -> Unit,
+    onCancel: () -> Unit,
     currentUserId: String,
     onVotePoll: (Message, Int) -> Unit,
     onStopLiveLocation: (Message) -> Unit,
@@ -378,12 +408,13 @@ private fun MessageContent(
             onRequestLinkPreview = onRequestLinkPreview,
         )
         MessageType.IMAGE -> if (message.isMultiImage) {
-            MultiImageGrid(message = message, onRetry = onRetry, onClick = { onMediaClick(message) })
+            MultiImageGrid(message = message, onRetry = onRetry, onCancel = onCancel, onClick = { onMediaClick(message) })
         } else {
             MediaImage(
                 message = message,
                 contentColor = contentColor,
                 onRetry = onRetry,
+                onCancel = onCancel,
                 onClick = { onMediaClick(message) },
             )
         }
@@ -391,6 +422,7 @@ private fun MessageContent(
             message = message,
             contentColor = contentColor,
             onRetry = onRetry,
+            onCancel = onCancel,
             onClick = { onMediaClick(message) },
         )
         MessageType.AUDIO -> AudioContent(message = message, contentColor = contentColor)
@@ -398,6 +430,7 @@ private fun MessageContent(
             message = message,
             contentColor = contentColor,
             onRetry = onRetry,
+            onCancel = onCancel,
         )
         MessageType.LOCATION -> LocationContent(message = message)
         MessageType.CONTACT -> ContactContent(message = message, contentColor = contentColor)
@@ -665,6 +698,7 @@ private fun MediaImage(
     message: Message,
     contentColor: Color,
     onRetry: () -> Unit,
+    onCancel: () -> Unit,
     onClick: () -> Unit,
 ) {
     val gate = rememberGatedRemoteUrl(message.localId, message.mediaUrl)
@@ -699,7 +733,7 @@ private fun MediaImage(
                 modifier = Modifier.fillMaxSize(),
             )
         }
-        UploadStatusOverlay(message = message, onRetry = onRetry)
+        UploadStatusOverlay(message = message, onRetry = onRetry, onCancel = onCancel)
         if (gate.needsPrompt) {
             MediaDownloadPrompt(onClick = gate.requestLoad)
         }
@@ -713,7 +747,7 @@ private fun MediaImage(
  * tappable so the retry affordance is real, not just a label (P0).
  */
 @Composable
-private fun UploadStatusOverlay(message: Message, onRetry: () -> Unit) {
+private fun UploadStatusOverlay(message: Message, onRetry: () -> Unit, onCancel: () -> Unit) {
     // Only meaningful while the media has not been committed to the server.
     if (message.mediaUrl != null || (!message.isPending && !message.isFailed)) return
     val progress = message.uploadProgress
@@ -732,20 +766,39 @@ private fun UploadStatusOverlay(message: Message, onRetry: () -> Unit) {
             ),
         contentAlignment = Alignment.Center,
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            if (!message.isFailed) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(16.dp),
-                    strokeWidth = 2.dp,
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (!message.isFailed) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(16.dp),
+                        strokeWidth = 2.dp,
+                        color = Color.White,
+                    )
+                    Spacer(Modifier.width(6.dp))
+                }
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.labelMedium,
                     color = Color.White,
                 )
-                Spacer(Modifier.width(6.dp))
             }
-            Text(
-                text = label,
-                style = MaterialTheme.typography.labelMedium,
-                color = Color.White,
-            )
+            // Cancel affordance while the upload is still in flight (spec §8): a
+            // stuck or unwanted upload can be abandoned instead of waiting for it
+            // to fail. Failed uploads keep the tap-to-retry path instead.
+            if (!message.isFailed) {
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    text = "Cancel",
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color.White,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Color.Black.copy(alpha = 0.35f))
+                        .clickable(onClick = onCancel)
+                        .padding(horizontal = GagaDimens.space12, vertical = GagaDimens.space4),
+                )
+            }
         }
     }
 }
@@ -755,7 +808,7 @@ private fun UploadStatusOverlay(message: Message, onRetry: () -> Unit) {
  * overlay when the message carries more than four images.
  */
 @Composable
-private fun MultiImageGrid(message: Message, onRetry: () -> Unit, onClick: () -> Unit) {
+private fun MultiImageGrid(message: Message, onRetry: () -> Unit, onCancel: () -> Unit, onClick: () -> Unit) {
     val urls = message.allMediaUrls
     val autoAllowed = rememberAutoDownloadAllowed()
     var manualLoad by rememberSaveable(message.localId) { mutableStateOf(false) }
@@ -826,7 +879,7 @@ private fun MultiImageGrid(message: Message, onRetry: () -> Unit, onClick: () ->
             }
         }
         // Album upload lifecycle (preparing / % / failed) over the whole grid.
-        UploadStatusOverlay(message = message, onRetry = onRetry)
+        UploadStatusOverlay(message = message, onRetry = onRetry, onCancel = onCancel)
         // Auto-download gate for the whole album.
         if (needsPrompt) {
             MediaDownloadPrompt(onClick = { manualLoad = true })
@@ -835,7 +888,7 @@ private fun MultiImageGrid(message: Message, onRetry: () -> Unit, onClick: () ->
 }
 
 @Composable
-private fun MediaVideo(message: Message, contentColor: Color, onRetry: () -> Unit, onClick: () -> Unit) {
+private fun MediaVideo(message: Message, contentColor: Color, onRetry: () -> Unit, onCancel: () -> Unit, onClick: () -> Unit) {
     // Prefer a local frame (instant, offline), then the signed remote thumbnail,
     // then the local video file itself so a pending upload still shows a frame.
     val gate = rememberGatedRemoteUrl(message.localId, message.thumbnailUrl)
@@ -905,7 +958,7 @@ private fun MediaVideo(message: Message, contentColor: Color, onRetry: () -> Uni
                 }
             }
         }
-        UploadStatusOverlay(message = message, onRetry = onRetry)
+        UploadStatusOverlay(message = message, onRetry = onRetry, onCancel = onCancel)
         if (gate.needsPrompt) {
             MediaDownloadPrompt(onClick = gate.requestLoad)
         }
@@ -1022,7 +1075,7 @@ private fun AudioContent(message: Message, contentColor: Color) {
 }
 
 @Composable
-private fun FileContent(message: Message, contentColor: Color, onRetry: () -> Unit) {
+private fun FileContent(message: Message, contentColor: Color, onRetry: () -> Unit, onCancel: () -> Unit) {
     // A file that has neither a local copy nor a server URL yet is still being
     // prepared/uploaded (or failed); show the attachment card so the bubble is
     // never an unexplained blank (P0).
@@ -1068,7 +1121,7 @@ private fun FileContent(message: Message, contentColor: Color, onRetry: () -> Un
                 }
             }
         }
-        UploadStatusOverlay(message = message, onRetry = onRetry)
+        UploadStatusOverlay(message = message, onRetry = onRetry, onCancel = onCancel)
     }
 }
 

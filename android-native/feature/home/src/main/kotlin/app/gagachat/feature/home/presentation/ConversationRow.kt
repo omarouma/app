@@ -13,9 +13,12 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Archive
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DoneAll
+import androidx.compose.material.icons.filled.MarkChatUnread
 import androidx.compose.material.icons.filled.PushPin
+import androidx.compose.material.icons.filled.Unarchive
 import androidx.compose.material.icons.filled.VolumeOff
 import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material3.DropdownMenu
@@ -47,10 +50,12 @@ import app.gagachat.core.ui.util.TimeFormat
 /**
  * A single conversation row on the Home screen.
  *
- * Interactions (reference screenshots 174101 / 174108):
+ * Interactions (reference screenshots 174101 / 174108, spec §4):
  *  - Tap opens the chat.
- *  - Long-press opens a context menu: Pin/Unpin, Mute/Unmute, Mark as read, Delete.
- *  - Swipe right-to-left deletes the conversation.
+ *  - Swipe right-to-left requests delete (with confirmation); swipe left-to-right
+ *    archives the chat.
+ *  - Long-press opens a context menu: Pin/Unpin, Mute/Unmute, Mark read/unread,
+ *    Archive/Unarchive and Delete.
  */
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
@@ -61,6 +66,8 @@ fun ConversationRow(
     onTogglePin: () -> Unit,
     onToggleMute: () -> Unit,
     onMarkRead: () -> Unit,
+    onMarkUnread: () -> Unit,
+    onToggleArchive: () -> Unit,
     onRequestDelete: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -73,21 +80,23 @@ fun ConversationRow(
 
     val dismissState = rememberSwipeToDismissBoxState(
         confirmValueChange = { value ->
-            if (value == SwipeToDismissBoxValue.EndToStart) {
-                // F20: a swipe must not delete on its own. Route it through the
-                // same confirmation the long-press menu uses and keep the row in
-                // place until the user confirms.
-                onRequestDelete()
+            when (value) {
+                // Swipe right -> archive; swipe left -> delete (with confirm).
+                SwipeToDismissBoxValue.StartToEnd -> onToggleArchive()
+                SwipeToDismissBoxValue.EndToStart -> onRequestDelete()
+                else -> Unit
             }
+            // Never let the row actually leave the list; the action above drives
+            // the real state change (F20: a swipe must not delete on its own).
             false
         },
     )
 
     SwipeToDismissBox(
         state = dismissState,
-        enableDismissFromStartToEnd = false,
+        enableDismissFromStartToEnd = true,
         enableDismissFromEndToStart = true,
-        backgroundContent = { DeleteBackground() },
+        backgroundContent = { SwipeBackground(dismissState.targetValue) },
         modifier = modifier,
     ) {
         Box {
@@ -175,11 +184,14 @@ fun ConversationRow(
                 expanded = menuExpanded,
                 isPinned = conversation.isPinned,
                 isMuted = conversation.isMuted,
+                isArchived = conversation.isArchived,
                 hasUnread = hasUnread,
                 onDismiss = { menuExpanded = false },
                 onTogglePin = { menuExpanded = false; onTogglePin() },
                 onToggleMute = { menuExpanded = false; onToggleMute() },
                 onMarkRead = { menuExpanded = false; onMarkRead() },
+                onMarkUnread = { menuExpanded = false; onMarkUnread() },
+                onToggleArchive = { menuExpanded = false; onToggleArchive() },
                 onDelete = { menuExpanded = false; onRequestDelete() },
             )
         }
@@ -191,11 +203,14 @@ private fun ConversationContextMenu(
     expanded: Boolean,
     isPinned: Boolean,
     isMuted: Boolean,
+    isArchived: Boolean,
     hasUnread: Boolean,
     onDismiss: () -> Unit,
     onTogglePin: () -> Unit,
     onToggleMute: () -> Unit,
     onMarkRead: () -> Unit,
+    onMarkUnread: () -> Unit,
+    onToggleArchive: () -> Unit,
     onDelete: () -> Unit,
 ) {
     DropdownMenu(expanded = expanded, onDismissRequest = onDismiss) {
@@ -215,7 +230,18 @@ private fun ConversationContextMenu(
                 icon = Icons.Filled.DoneAll,
                 onClick = onMarkRead,
             )
+        } else {
+            ContextMenuItem(
+                label = "Mark as unread",
+                icon = Icons.Filled.MarkChatUnread,
+                onClick = onMarkUnread,
+            )
         }
+        ContextMenuItem(
+            label = if (isArchived) "Unarchive" else "Archive",
+            icon = if (isArchived) Icons.Filled.Unarchive else Icons.Filled.Archive,
+            onClick = onToggleArchive,
+        )
         ContextMenuItem(
             label = "Delete",
             icon = Icons.Filled.Delete,
@@ -235,6 +261,32 @@ private fun ContextMenuItem(
         leadingIcon = { Icon(icon, contentDescription = null) },
         onClick = onClick,
     )
+}
+
+@Composable
+private fun SwipeBackground(direction: SwipeToDismissBoxValue) {
+    when (direction) {
+        SwipeToDismissBoxValue.StartToEnd -> ArchiveBackground()
+        SwipeToDismissBoxValue.EndToStart -> DeleteBackground()
+        else -> Box(Modifier.fillMaxSize())
+    }
+}
+
+@Composable
+private fun ArchiveBackground() {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.secondaryContainer)
+            .padding(horizontal = GagaDimens.space24),
+        contentAlignment = Alignment.CenterStart,
+    ) {
+        Icon(
+            Icons.Filled.Archive,
+            contentDescription = "Archive",
+            tint = MaterialTheme.colorScheme.onSecondaryContainer,
+        )
+    }
 }
 
 @Composable

@@ -640,6 +640,15 @@ class DefaultMessageRepository @Inject constructor(
                 ?: return@withContext AppResult.Failure(AppError.Validation("Message not found"))
             val serverId = entity.serverMessageId
                 ?: return@withContext AppResult.Failure(AppError.Validation("Wait until the message is sent before editing."))
+            // Spec §6: edits are only allowed within a bounded window. Enforced
+            // here (not just in the UI) so the rule holds even if the sheet is
+            // bypassed.
+            val sentAt = entity.createdAtServer ?: entity.createdAtClient
+            if (timeProvider.nowMillis() - sentAt > Constants.EDIT_WINDOW_MS) {
+                return@withContext AppResult.Failure(
+                    AppError.Validation("Messages can only be edited within 15 minutes of sending."),
+                )
+            }
             try {
                 restApi.updateMessageText(serverId, text)
                 messageDao.updateText(localId, text, timeProvider.nowMillis())
@@ -656,6 +665,14 @@ class DefaultMessageRepository @Inject constructor(
                 ?: return@withContext AppResult.Failure(AppError.Validation("Message not found"))
             val serverId = entity.serverMessageId
                 ?: return@withContext AppResult.Failure(AppError.Validation("Wait until the message is sent before deleting."))
+            // Spec §6: "delete for everyone" is bounded; "delete for me" (handled
+            // separately by [deleteForMe]) has no time limit.
+            val sentAt = entity.createdAtServer ?: entity.createdAtClient
+            if (timeProvider.nowMillis() - sentAt > Constants.DELETE_FOR_EVERYONE_WINDOW_MS) {
+                return@withContext AppResult.Failure(
+                    AppError.Validation("Messages can only be deleted for everyone within 1 hour of sending."),
+                )
+            }
             try {
                 restApi.deleteMessage(serverId)
                 messageDao.markDeleted(localId, timeProvider.nowMillis())
@@ -918,6 +935,16 @@ class DefaultMessageRepository @Inject constructor(
             serverMessageId = row.id,
             createdAtServer = row.createdAt,
         )
+        // Non-text messages can only be summarised once their payload is known;
+        // refresh the list preview so it matches what the bubble will show.
+        if (pending.type != MessageType.TEXT) {
+            updateConversationPreview(
+                conversationId = pending.conversationId,
+                messageId = row.id,
+                preview = pending.conversationPreview(),
+                timestamp = row.createdAt ?: pending.createdAtClient,
+            )
+        }
         // Best-effort Firebase mirror (no-op unless the Hybrid flag is on). Runs
         // off the send path so a slow/failed mirror never delays the message.
         mirrorToFirestore(pending, row.id)

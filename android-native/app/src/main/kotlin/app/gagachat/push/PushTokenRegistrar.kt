@@ -12,7 +12,10 @@ import javax.inject.Singleton
 /**
  * Registers the FCM push token against the signed-in user's device row so the
  * backend can route notifications. Safe to call repeatedly; the row is matched
- * on (user_id, token) and patched when it already exists.
+ * on (user_id, device_id) and patched when it already exists, so a rotated token
+ * updates the same row instead of creating duplicates. Sign-out deletes the row
+ * (see `AuthRepository.signOut`), so a previous account stops receiving pushes
+ * on this device.
  */
 @Singleton
 class PushTokenRegistrar @Inject constructor(
@@ -33,6 +36,7 @@ class PushTokenRegistrar @Inject constructor(
     }
 
     suspend fun register(token: String) {
+        if (token.isBlank()) return
         val session = authRepository.sessionFlow.value ?: return
         restApi.upsertDevice(
                 DeviceRow(
@@ -41,6 +45,7 @@ class PushTokenRegistrar @Inject constructor(
                     pushToken = token,
                     platform = "android",
                     deviceName = deviceName(),
+                    appVersion = appVersion(),
                     lastSeenAt = System.currentTimeMillis(),
                 ),
             )
@@ -52,5 +57,10 @@ class PushTokenRegistrar @Inject constructor(
 
     private fun deviceName(): String? = runCatching {
         "${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}"
+    }.getOrNull()
+
+    private fun appVersion(): String? = runCatching {
+        @Suppress("DEPRECATION")
+        context.packageManager.getPackageInfo(context.packageName, 0).versionName
     }.getOrNull()
 }

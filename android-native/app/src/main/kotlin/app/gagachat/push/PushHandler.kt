@@ -38,6 +38,7 @@ class PushHandler @Inject constructor(
     private val settingsPreferences: SettingsPreferences,
     private val sessionStore: app.gagachat.core.network.session.SessionStore,
     private val privacyApi: app.gagachat.core.network.rest.SupabaseRestApi,
+    private val conversationRepository: app.gagachat.core.data.repository.ConversationRepository,
 ) {
 
     /**
@@ -134,7 +135,9 @@ class PushHandler @Inject constructor(
             }
 
             else -> {
-                if (conversationId != null) {
+                // Message alerts are suppressed for muted conversations, while
+                // incoming calls (handled above) always ring (spec §11).
+                if (conversationId != null && !conversationRepository.isMuted(conversationId)) {
                     NotificationHelper.showMessage(
                         context = context,
                         conversationId = conversationId,

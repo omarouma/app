@@ -31,15 +31,19 @@ import androidx.compose.material.icons.filled.Audiotrack
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Description
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.EmojiEmotions
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.NearMe
+import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Poll
 import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledIconButton
@@ -71,6 +75,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import app.gagachat.core.common.Constants
 import app.gagachat.core.model.Message
 import app.gagachat.core.ui.theme.GagaDimens
 import app.gagachat.core.ui.theme.GagaGreen
@@ -111,6 +116,10 @@ fun MessageComposer(
     onStartRecording: () -> Unit,
     onStopRecording: () -> Unit,
     onCancelRecording: () -> Unit,
+    /** A finished voice clip awaiting review (spec §7); drives the preview bar. */
+    pendingVoice: PendingVoiceClip? = null,
+    onSendVoice: () -> Unit = {},
+    onDiscardVoice: () -> Unit = {},
     onShareLiveLocation: () -> Unit = onShareLocation,
     onSendPoll: () -> Unit = {},
     onScheduleClick: () -> Unit = {},
@@ -134,12 +143,12 @@ fun MessageComposer(
                 .navigationBarsPadding()
                 .imePadding(),
         ) {
-            if (editingMessage != null && !isRecording) {
+            if (editingMessage != null && !isRecording && pendingVoice == null) {
                 EditBanner(message = editingMessage, onCancel = onCancelEdit)
-            } else if (replyTo != null && !isRecording) {
+            } else if (replyTo != null && !isRecording && pendingVoice == null) {
                 ReplyPreview(message = replyTo, onCancel = onCancelReply)
             }
-            if (showEmojiPanel && !isRecording) {
+            if (showEmojiPanel && !isRecording && pendingVoice == null) {
                 EmojiPanel(onPick = { emoji -> onDraftChange(draft + emoji) })
             }
             if (isRecording) {
@@ -147,7 +156,13 @@ fun MessageComposer(
                     elapsedMs = recordingElapsedMs,
                     levels = recordingLevels,
                     onCancel = onCancelRecording,
-                    onSend = onStopRecording,
+                    onStop = onStopRecording,
+                )
+            } else if (pendingVoice != null) {
+                VoicePreviewBar(
+                    clip = pendingVoice,
+                    onSend = onSendVoice,
+                    onDiscard = onDiscardVoice,
                 )
             } else {
                 Row(
@@ -364,16 +379,21 @@ private fun AttachOption(icon: ImageVector, label: String, onClick: () -> Unit) 
 }
 
 /**
- * Active-recording strip: a pulsing red dot, the elapsed timer and cancel/send
- * actions. Replaces the text field while the mic is live.
+ * Active-recording strip: a pulsing red dot, the elapsed timer, a countdown to
+ * the hard cap and cancel/stop actions. Replaces the text field while the mic is
+ * live. When the remaining time drops below [Constants.VOICE_WARN_REMAINING_MS]
+ * the countdown turns red so the user knows the clip is about to be capped
+ * (spec §7).
  */
 @Composable
 private fun RecordingBar(
     elapsedMs: Long,
     levels: List<Float>,
     onCancel: () -> Unit,
-    onSend: () -> Unit,
+    onStop: () -> Unit,
 ) {
+    val remainingMs = (Constants.MAX_VOICE_RECORDING_MS - elapsedMs).coerceAtLeast(0L)
+    val nearCap = remainingMs <= Constants.VOICE_WARN_REMAINING_MS
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -397,6 +417,17 @@ private fun RecordingBar(
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+                Spacer(Modifier.width(GagaDimens.space8))
+                Text(
+                    text = "${TimeFormat.callDuration(remainingMs)} left",
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.Medium,
+                    color = if (nearCap) {
+                        MaterialTheme.colorScheme.error
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    },
+                )
             }
             Spacer(Modifier.height(GagaDimens.space4))
             RecordingWaveform(
@@ -404,6 +435,72 @@ private fun RecordingBar(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(28.dp),
+            )
+        }
+        Spacer(Modifier.width(GagaDimens.space8))
+        FilledIconButton(
+            onClick = onStop,
+            shape = CircleShape,
+            modifier = Modifier.size(48.dp),
+        ) {
+            Icon(Icons.Filled.Stop, contentDescription = "Stop recording")
+        }
+    }
+}
+
+/**
+ * Voice-clip review bar (spec §7): after recording stops the clip is staged here
+ * so the user can play it back, discard it or send it. Nothing is uploaded until
+ * Send is tapped, which means an accidental recording never reaches the peer.
+ */
+@Composable
+private fun VoicePreviewBar(
+    clip: PendingVoiceClip,
+    onSend: () -> Unit,
+    onDiscard: () -> Unit,
+) {
+    val player = rememberVoicePlayer()
+    // The staged clip lives on disk (local path), so bind the player to it.
+    val isPlaying = player.activeSource == clip.path && player.isPlaying
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = GagaDimens.space8, vertical = GagaDimens.space6),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        IconButton(onClick = onDiscard) {
+            Icon(
+                Icons.Filled.Delete,
+                contentDescription = "Discard recording",
+                tint = MaterialTheme.colorScheme.error,
+            )
+        }
+        Box(
+            modifier = Modifier
+                .size(44.dp)
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.primaryContainer)
+                .clickable { player.toggle(clip.path) },
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                imageVector = if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
+                contentDescription = if (isPlaying) "Pause preview" else "Play preview",
+                tint = MaterialTheme.colorScheme.onPrimaryContainer,
+            )
+        }
+        Spacer(Modifier.width(GagaDimens.space12))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = "Voice message",
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Medium,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            Text(
+                text = TimeFormat.callDuration(clip.durationMs),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
         Spacer(Modifier.width(GagaDimens.space8))

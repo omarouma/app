@@ -110,6 +110,11 @@ object NotificationHelper {
             .setAutoCancel(true)
             .setFullScreenIntent(pending, true)
             .setContentIntent(pending)
+            .addAction(
+                R.drawable.ic_notification,
+                if (isVideo) "Answer video" else "Answer",
+                pending,
+            )
             .build()
 
         post(context, notificationId, notification)

@@ -20,7 +20,7 @@ interface MessageDao {
         """
         SELECT * FROM messages
         WHERE conversationId = :conversationId
-        ORDER BY sortTimestamp DESC
+        ORDER BY sortTimestamp DESC, localId DESC
         LIMIT :limit
         """,
     )
@@ -30,7 +30,7 @@ interface MessageDao {
         """
         SELECT * FROM messages
         WHERE conversationId = :conversationId
-        ORDER BY sortTimestamp DESC
+        ORDER BY sortTimestamp DESC, localId DESC
         LIMIT :limit
         """,
     )
@@ -42,7 +42,7 @@ interface MessageDao {
         SELECT * FROM messages
         WHERE conversationId = :conversationId AND sortTimestamp < :beforeTimestamp
             AND hiddenForMe = 0
-        ORDER BY sortTimestamp DESC
+        ORDER BY sortTimestamp DESC, localId DESC
         LIMIT :limit
         """,
     )
@@ -61,10 +61,10 @@ interface MessageDao {
     @Query("SELECT * FROM messages WHERE localId = :localId LIMIT 1")
     suspend fun getByLocalId(localId: String): MessageEntity?
 
-    @Query("SELECT * FROM messages WHERE status = 'PENDING' ORDER BY createdAtClient ASC")
+    @Query("SELECT * FROM messages WHERE status = 'PENDING' ORDER BY createdAtClient ASC, localId ASC")
     suspend fun getPending(): List<MessageEntity>
 
-    @Query("SELECT * FROM messages WHERE status = 'FAILED' ORDER BY createdAtClient ASC")
+    @Query("SELECT * FROM messages WHERE status = 'FAILED' ORDER BY createdAtClient ASC, localId ASC")
     suspend fun getFailed(): List<MessageEntity>
 
     /** All messages still waiting to be delivered on a schedule, oldest first. */
@@ -157,7 +157,7 @@ interface MessageDao {
     @Query("UPDATE messages SET deletedAt = :deletedAt, text = NULL WHERE localId = :localId")
     suspend fun markDeleted(localId: String, deletedAt: Long)
 
-    /** "Delete for me" \u2014 hides the row locally without touching the server copy. */
+    /** "Delete for me" — hides the row locally without touching the server copy. */
     @Query("UPDATE messages SET hiddenForMe = 1 WHERE localId = :localId")
     suspend fun hideForMe(localId: String)
 
