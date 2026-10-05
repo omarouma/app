@@ -66,11 +66,23 @@ class SettingsPreferences @Inject constructor(
     private val textScaleKey = stringPreferencesKey("text_scale")
     private val languageKey = stringPreferencesKey("app_language")
     private val chatBackgroundKey = stringPreferencesKey("chat_background")
+    private val callSoundsKey = booleanPreferencesKey("call_sounds")
+    private val callVibrationKey = booleanPreferencesKey("call_vibration")
 
     val notificationsEnabled: Flow<Boolean> =
         context.settingsDataStore.data.map { it[notificationsKey] ?: true }
     val messageSoundsEnabled: Flow<Boolean> =
         context.settingsDataStore.data.map { it[messageSoundsKey] ?: true }
+    /**
+     * Whether an incoming/outgoing call plays its ringtone/ringback. Kept separate
+     * from [messageSoundsEnabled] so a user can silence chat tones but still hear
+     * calls (Master Spec \u00a7C \u2014 separate message vs call alerts).
+     */
+    val callSoundsEnabled: Flow<Boolean> =
+        context.settingsDataStore.data.map { it[callSoundsKey] ?: true }
+    /** Whether a call vibrates; follows the invitation lifecycle. */
+    val callVibrationEnabled: Flow<Boolean> =
+        context.settingsDataStore.data.map { it[callVibrationKey] ?: true }
     val readReceiptsEnabled: Flow<Boolean> =
         context.settingsDataStore.data.map { it[readReceiptsKey] ?: true }
     val shareLastSeenEnabled: Flow<Boolean> =
@@ -120,6 +132,12 @@ class SettingsPreferences @Inject constructor(
 
     suspend fun setMessageSoundsEnabled(value: Boolean) =
         context.settingsDataStore.edit { it[messageSoundsKey] = value }
+
+    suspend fun setCallSoundsEnabled(value: Boolean) =
+        context.settingsDataStore.edit { it[callSoundsKey] = value }
+
+    suspend fun setCallVibrationEnabled(value: Boolean) =
+        context.settingsDataStore.edit { it[callVibrationKey] = value }
 
     suspend fun setReadReceiptsEnabled(value: Boolean) =
         context.settingsDataStore.edit { it[readReceiptsKey] = value }

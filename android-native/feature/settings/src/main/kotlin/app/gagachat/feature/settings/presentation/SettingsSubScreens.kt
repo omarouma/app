@@ -32,6 +32,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Accessibility
 import androidx.compose.material.icons.filled.BatteryAlert
 import androidx.compose.material.icons.filled.CameraAlt
+import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
@@ -52,6 +53,7 @@ import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Storage
+import androidx.compose.material.icons.filled.Vibration
 import androidx.compose.material3.Icon
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
@@ -124,6 +126,30 @@ fun NotificationsSettingsScreen(
                     Switch(
                         checked = state.messageSoundsEnabled,
                         onCheckedChange = viewModel::setMessageSoundsEnabled,
+                    )
+                },
+            )
+            GagaDivider()
+            GagaSettingsRow(
+                title = "Call sounds",
+                subtitle = "Ringtone for incoming calls and ringback for outgoing",
+                leadingIcon = Icons.Filled.Call,
+                trailing = {
+                    Switch(
+                        checked = state.callSoundsEnabled,
+                        onCheckedChange = viewModel::setCallSoundsEnabled,
+                    )
+                },
+            )
+            GagaDivider()
+            GagaSettingsRow(
+                title = "Call vibration",
+                subtitle = "Vibrate when a call is ringing",
+                leadingIcon = Icons.Filled.Vibration,
+                trailing = {
+                    Switch(
+                        checked = state.callVibrationEnabled,
+                        onCheckedChange = viewModel::setCallVibrationEnabled,
                     )
                 },
             )

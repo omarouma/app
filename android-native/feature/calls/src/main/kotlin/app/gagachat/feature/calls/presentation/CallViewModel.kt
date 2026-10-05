@@ -16,6 +16,7 @@ import app.gagachat.core.ui.util.toUserMessage
 import app.gagachat.feature.calls.call.CallConnection
 import app.gagachat.feature.calls.call.CallEndedInfo
 import app.gagachat.feature.calls.call.CallPeer
+import app.gagachat.feature.calls.call.CallSoundPlayer
 import app.gagachat.feature.calls.call.LiveKitCallManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.livekit.android.renderer.SurfaceViewRenderer
@@ -91,6 +92,7 @@ class CallViewModel @Inject constructor(
     private val conversationRepository: ConversationRepository,
     private val liveKitCallManager: LiveKitCallManager,
     private val callSignalingCoordinator: CallSignalingCoordinator,
+    private val callSoundPlayer: CallSoundPlayer,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(CallUiState())
@@ -155,6 +157,9 @@ class CallViewModel @Inject constructor(
                             // The other party is in the room, so the ring is over
                             // and the "no answer" timer must not fire mid-call.
                             cancelRingTimeout()
+                            // Conversation audio is about to begin: the ringtone /
+                            // ringback must stop before the first word is spoken.
+                            callSoundPlayer.stop()
                             CallPhase.CONNECTED
                         }
                     }
@@ -307,6 +312,9 @@ class CallViewModel @Inject constructor(
                         )
                     }
                     startRingTimeout()
+                    // Ringback for the caller: starts as soon as we begin ringing
+                    // the callee and stops the moment the call connects or ends.
+                    callSoundPlayer.startOutgoing()
                     if (peerId == null) {
                         _state.update { it.copy(error = "This conversation has no callable peer.") }
                         return@launch
@@ -394,6 +402,9 @@ class CallViewModel @Inject constructor(
             )
         }
         startIncomingTimeout()
+        // Ring the device: this is the sound that was missing. It loops until the
+        // call is accepted, rejected, cancelled, times out or otherwise ends.
+        callSoundPlayer.startIncoming()
         viewModelScope.launch {
             val conversation = conversationRepository.observeConversation(conversationId).first()
             val peer = conversation?.otherMember(currentUserId)
@@ -418,6 +429,9 @@ class CallViewModel @Inject constructor(
             return
         }
         val session = authRepository.sessionFlow.value ?: return
+        // The user answered: the ringtone must stop immediately, before the room
+        // is even joined.
+        callSoundPlayer.stop()
         _state.update { it.copy(phase = CallPhase.CONNECTING, error = null) }
         viewModelScope.launch {
             liveKitCallManager.ensureInitialized()
@@ -641,6 +655,9 @@ class CallViewModel @Inject constructor(
     private fun finalizeCall(status: CallStatus, error: String? = null) {
         cancelRingTimeout()
         cancelIncomingTimeout()
+        // Single choke point for every terminal path (reject, cancel, hang-up,
+        // busy, timeout, failure): the ring can never outlive its call.
+        callSoundPlayer.stop()
         val callId = activeCallId
         activeCallId = null
         if (callId != null) callSignalingCoordinator.leaveCall(callId)
@@ -667,6 +684,13 @@ class CallViewModel @Inject constructor(
         viewModelScope.launch {
             runCatching { callRepository.endCall(callId, effectiveStatus, durationMs) }
         }
+    }
+
+    override fun onCleared() {
+        // The ViewModel scope is cancelled for us, but the ringtone lives in a
+        // singleton and would otherwise keep playing after the screen is gone.
+        callSoundPlayer.stop()
+        super.onCleared()
     }
 
     private companion object {

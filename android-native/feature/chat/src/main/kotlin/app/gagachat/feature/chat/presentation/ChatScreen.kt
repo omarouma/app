@@ -389,6 +389,9 @@ fun ChatRoute(
                             onReactionClick = { m, e -> viewModel.toggleReaction(m, e) },
                             onVotePoll = { m, i -> viewModel.votePoll(m, i) },
                             onStopLiveLocation = { m -> viewModel.stopLiveLocation(m) },
+                            onCallBack = { isVideo ->
+                                onStartCall(state.conversationId, isVideo)
+                            },
                             linkPreviews = linkPreviews,
                             onRequestLinkPreview = viewModel::requestLinkPreview,
                             onReplyClick = { target ->
@@ -925,6 +928,7 @@ private fun MessageList(
     onReplyClick: (Message) -> Unit,
     onVotePoll: (Message, Int) -> Unit,
     onStopLiveLocation: (Message) -> Unit,
+    onCallBack: (Boolean) -> Unit,
     linkPreviews: Map<String, LinkPreview>,
     onRequestLinkPreview: (String) -> Unit,
 ) {
@@ -1003,6 +1007,7 @@ private fun MessageList(
                     onReplyClick = onReplyClick,
                     onVotePoll = onVotePoll,
                     onStopLiveLocation = onStopLiveLocation,
+                    onCallBack = onCallBack,
                     linkPreview = message.text
                         ?.let { app.gagachat.core.common.util.LinkDetector.firstUrl(it) }
                         ?.let { linkPreviews[it] },

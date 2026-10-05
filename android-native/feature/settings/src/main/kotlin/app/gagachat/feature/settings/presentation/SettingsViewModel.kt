@@ -37,6 +37,8 @@ data class SettingsUiState(
     val avatar: String? = null,
     val notificationsEnabled: Boolean = true,
     val messageSoundsEnabled: Boolean = true,
+    val callSoundsEnabled: Boolean = true,
+    val callVibrationEnabled: Boolean = true,
     val readReceiptsEnabled: Boolean = true,
     val shareLastSeenEnabled: Boolean = true,
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
@@ -114,6 +116,16 @@ class SettingsViewModel @Inject constructor(
             }
         }
         viewModelScope.launch {
+            settingsPreferences.callSoundsEnabled.collect { v ->
+                _state.update { it.copy(callSoundsEnabled = v) }
+            }
+        }
+        viewModelScope.launch {
+            settingsPreferences.callVibrationEnabled.collect { v ->
+                _state.update { it.copy(callVibrationEnabled = v) }
+            }
+        }
+        viewModelScope.launch {
             settingsPreferences.readReceiptsEnabled.collect { v ->
                 _state.update { it.copy(readReceiptsEnabled = v) }
             }
@@ -177,6 +189,12 @@ class SettingsViewModel @Inject constructor(
 
     fun setMessageSoundsEnabled(enabled: Boolean) =
         viewModelScope.launch { settingsPreferences.setMessageSoundsEnabled(enabled) }
+
+    fun setCallSoundsEnabled(enabled: Boolean) =
+        viewModelScope.launch { settingsPreferences.setCallSoundsEnabled(enabled) }
+
+    fun setCallVibrationEnabled(enabled: Boolean) =
+        viewModelScope.launch { settingsPreferences.setCallVibrationEnabled(enabled) }
 
     fun setReadReceiptsEnabled(enabled: Boolean) =
         viewModelScope.launch { settingsPreferences.setReadReceiptsEnabled(enabled) }

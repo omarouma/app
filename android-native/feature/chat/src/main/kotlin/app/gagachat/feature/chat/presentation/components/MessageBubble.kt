@@ -122,6 +122,7 @@ fun MessageBubble(
     onReplyClick: (Message) -> Unit,
     onVotePoll: (Message, Int) -> Unit = { _, _ -> },
     onStopLiveLocation: (Message) -> Unit = {},
+    onCallBack: (Boolean) -> Unit = {},
     linkPreview: LinkPreview? = null,
     onRequestLinkPreview: (String) -> Unit = {},
     modifier: Modifier = Modifier,
@@ -196,6 +197,7 @@ fun MessageBubble(
                         currentUserId = currentUserId,
                         onVotePoll = onVotePoll,
                         onStopLiveLocation = onStopLiveLocation,
+                        onCallBack = onCallBack,
                         linkPreview = linkPreview,
                         onRequestLinkPreview = onRequestLinkPreview,
                     )
@@ -347,6 +349,7 @@ private fun MessageContent(
     currentUserId: String,
     onVotePoll: (Message, Int) -> Unit,
     onStopLiveLocation: (Message) -> Unit,
+    onCallBack: (Boolean) -> Unit,
     linkPreview: LinkPreview?,
     onRequestLinkPreview: (String) -> Unit,
 ) {
@@ -402,6 +405,7 @@ private fun MessageContent(
             message = message,
             contentColor = contentColor,
             isOutgoing = isOutgoing,
+            onCallBack = onCallBack,
         )
     }
 }
@@ -682,9 +686,9 @@ private fun MediaImage(
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize(),
             )
-        } else if (gate.needsPrompt) {
-            MediaDownloadPrompt(onClick = gate.requestLoad)
         } else {
+            // Identify the attachment (kind + size) even while it is gated or
+            // still uploading, so the bubble is never an unexplained grey box (P0).
             MediaPlaceholder(
                 kind = MediaKind.PHOTO,
                 sizeBytes = message.mediaSize,
@@ -696,6 +700,9 @@ private fun MediaImage(
             )
         }
         UploadStatusOverlay(message = message, onRetry = onRetry)
+        if (gate.needsPrompt) {
+            MediaDownloadPrompt(onClick = gate.requestLoad)
+        }
     }
 }
 
@@ -1112,7 +1119,12 @@ private fun parseCallEvent(text: String?): ParsedCallEvent {
  * (P0). Duration is shown only for connected calls.
  */
 @Composable
-private fun CallEventContent(message: Message, contentColor: Color, isOutgoing: Boolean) {
+private fun CallEventContent(
+    message: Message,
+    contentColor: Color,
+    isOutgoing: Boolean,
+    onCallBack: (Boolean) -> Unit,
+) {
     val parsed = remember(message.text) { parseCallEvent(message.text) }
     val kindLabel = if (parsed.isVideo) "Video call" else "Voice call"
     val icon = when (parsed.outcome) {
@@ -1126,7 +1138,13 @@ private fun CallEventContent(message: Message, contentColor: Color, isOutgoing: 
     val accent = if (unanswered) MaterialTheme.colorScheme.error else contentColor
     // Answered calls carry a duration; unanswered ones carry the outcome label.
     val subtitle = parsed.durationText ?: parsed.outcome.label
-    Row(verticalAlignment = Alignment.CenterVertically) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        // Tapping the call-log entry redials the same kind of call (P0). The
+        // inner clickable consumes the tap so the bubble's media handler does not
+        // also fire for a call event.
+        modifier = Modifier.clickable { onCallBack(parsed.isVideo) },
+    ) {
         Box(
             modifier = Modifier
                 .size(36.dp)
@@ -1142,7 +1160,7 @@ private fun CallEventContent(message: Message, contentColor: Color, isOutgoing: 
             )
         }
         Spacer(Modifier.width(GagaDimens.space8))
-        Column {
+        Column(modifier = Modifier.weight(1f, fill = false)) {
             Text(
                 text = kindLabel,
                 style = MaterialTheme.typography.bodyMedium,
@@ -1155,6 +1173,13 @@ private fun CallEventContent(message: Message, contentColor: Color, isOutgoing: 
                 color = accent.copy(alpha = 0.9f),
             )
         }
+        Spacer(Modifier.width(GagaDimens.space12))
+        Icon(
+            imageVector = Icons.Filled.Call,
+            contentDescription = "Call back",
+            tint = contentColor.copy(alpha = 0.7f),
+            modifier = Modifier.size(18.dp),
+        )
     }
 }
 
