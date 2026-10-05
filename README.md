@@ -1,25 +1,26 @@
 # GaGa Chat — Native Android
 
 GaGa Chat is a real-time messaging and calling product. **This repository contains
-only the native Android application** (Kotlin + Jetpack Compose). The legacy
-React/Vite web client and its Firebase Hosting / Data Connect / Web Push tooling
-have been removed; the Android app is the single publish target.
+the native Android application** (Kotlin + Jetpack Compose) plus the static
+marketing / download website served at [gagachat.app](https://gagachat.app). The
+legacy React/Vite web client and its Data Connect / Web Push tooling have been
+removed; the Android app is the single app publish target.
 
 | | |
 | --- | --- |
 | **App id** | `gagachat.app` |
-| **Version** | 2.0.23 (versionCode 25) |
+| **Version** | 2.0.27 (versionCode 29) |
 | **Min / target SDK** | 26 / 35 |
 | **Language / UI** | Kotlin 2.0, Jetpack Compose (Material 3) |
 | **Backend** | Supabase (`fcjgbbmfqdkucfpqjxae`) + Firebase (Messaging / Analytics / Crashlytics) |
-| **Calling** | ZEGOCLOUD Call Kit (ZIM signaling + Express media), server-issued tokens |
+| **Calling** | LiveKit (WebRTC SFU); signalling over Supabase Realtime; server-issued tokens |
 
 ## Layout
 
 ```
 android-native/            The Android Gradle project (open this in Android Studio)
 ├── app/                   Application shell, Hilt wiring, navigation, push, deep links
-├── core/                  common · model · database · network · data · ui
+├── core/                  common · model · database · network · data · ui · firebase
 ├── feature/               onboarding · auth · home · chat · contacts · people ·
 │                          groups · qr · wallet · calls · profile · settings
 ├── sync/                  outbox · workers (WorkManager)
@@ -27,7 +28,8 @@ android-native/            The Android Gradle project (open this in Android Stud
 ├── ci/                    prepare.py + backend-public.json (public backend config)
 └── docs/, play/           Engineering docs and Play Store assets
 supabase/                  Backend edge functions + SQL migrations
-└── functions/zego-token/  Server-only ZEGO ZIM token minting (native calling)
+└── functions/livekit-token/  Server-only LiveKit JWT minting (native calling)
+hosting/public/            Static website (gagachat.app) — landing + APK download
 ```
 
 ## Build
@@ -50,9 +52,24 @@ See [`android-native/README.md`](android-native/README.md) for the full
 architecture, module map and engineering notes, and
 [`android-native/CHANGELOG.md`](android-native/CHANGELOG.md) for release history.
 
+## Website
+
+`hosting/public/` is a static site deployed to **Firebase Hosting** (site
+`oumagachat`, custom domain `gagachat.app`). It hosts the landing page, the
+`/download` page, the App Links file (`/.well-known/assetlinks.json`) and the
+`/downloads/gaga-latest.apk` redirect. Deploy with:
+
+```bash
+firebase deploy --only hosting --project oumagachat
+```
+
+The download redirects in `firebase.json` point at the current GitHub Release;
+bump them together with the app version on every release.
+
 ## Backend
 
 The Android app talks directly to Supabase (PostgREST + Realtime + Storage +
 GoTrue) and to Firebase Cloud Messaging. The only custom server component is the
-`zego-token` edge function, which mints short-lived ZIM tokens so the ZEGO
-ServerSecret never ships inside the APK.
+`livekit-token` edge function, which authenticates the caller, verifies call
+membership, and mints a short-lived room-scoped LiveKit JWT so the LiveKit API
+secret never ships inside the APK.

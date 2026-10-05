@@ -4,6 +4,29 @@ All notable changes to the GaGa Chat native Android app are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 the project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.0.27] — versionCode 29
+
+Final chat build: reliable messaging, complete media handling and a working
+LiveKit call invitation / ringing flow. The **missing calling sound (the release
+blocker) is fixed.**
+
+### Fixed
+- **In-app call sounds.** The app previously relied on the notification-channel
+  sound, which only fires once, does not play while the app is foregrounded, and
+  did not exist at all for outgoing calls. A new `CallSoundPlayer` plays a
+  **looping incoming ringtone** and an **outgoing ringback tone** for the whole
+  ring, respecting system volume, silent / vibrate-only / Do-Not-Disturb and
+  transient audio focus, and stopping exactly once on every terminal path
+  (accept, reject, cancel, timeout, connect, end, ViewModel clear).
+- **Call history is actionable.** Tapping a call card in a chat now calls the
+  peer back (audio or video).
+- **Photo attachments show their size and kind** behind the "Tap to load"
+  prompt, matching the video bubble.
+
+### Added
+- Bundled ring assets `res/raw/gaga_ringtone.wav` and `res/raw/gaga_ringback.wav`.
+- **Call sounds** and **Call vibration** toggles under Settings → Notifications.
+
 ## [2.0.26] — versionCode 28
 
 Calling stack replaced: **ZEGOCLOUD Call Kit is removed and LiveKit (WebRTC SFU)
