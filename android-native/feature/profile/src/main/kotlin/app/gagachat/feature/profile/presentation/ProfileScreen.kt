@@ -313,6 +313,15 @@ fun ProfileRoute(
                 )
                 GagaDivider()
                 GagaSettingsRow(
+                    title = "GaGa Wallet",
+                    subtitle = "Coins, top-up and activity",
+                    leadingIcon = Icons.Filled.AccountBalanceWallet,
+                    leadingIconTint = GagaGreen,
+                    trailing = { ChevronRight() },
+                    onClick = onOpenWallet,
+                )
+                GagaDivider()
+                GagaSettingsRow(
                     title = "Saved Messages",
                     subtitle = "Your private notes and bookmarks",
                     leadingIcon = Icons.Filled.Bookmark,
