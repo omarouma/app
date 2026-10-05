@@ -46,7 +46,7 @@ class ActiveCallService : Service() {
             .apply { if (launch != null) setContentIntent(PendingIntent.getActivity(this@ActiveCallService, 2, launch, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)) }
             .build()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            var types = ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE
+            var types = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE else 0
             if (intent?.getBooleanExtra(EXTRA_VIDEO, false) == true && ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
                 types = types or ServiceInfo.FOREGROUND_SERVICE_TYPE_CAMERA
             }

@@ -385,3 +385,57 @@ end $$;
 create or replace function public.gaga_report_chat_user(chat text,reason text) returns void language sql security invoker set search_path='' as $$ select gaga_private.report_chat_user(chat,reason) $$;
 revoke all on function gaga_private.report_chat_user(text,text),public.gaga_report_chat_user(text,text) from public,anon;
 grant execute on function gaga_private.report_chat_user(text,text),public.gaga_report_chat_user(text,text) to authenticated;
+
+-- Legacy profile views must obey the same underlying RLS as direct reads.
+alter view public.public_profiles set (security_invoker=true);
+
+create or replace function gaga_private.require_recent_auth() returns void
+language plpgsql stable security definer set search_path='' as $$
+begin
+ if not gaga_private.session_active() or not exists(select 1 from auth.sessions where user_id=auth.uid() and id::text=auth.jwt()->>'session_id' and created_at>now()-interval '5 minutes') then raise insufficient_privilege; end if;
+end $$;
+create or replace function gaga_private.deletion_media() returns jsonb
+language plpgsql stable security definer set search_path='' as $$
+begin
+ perform gaga_private.require_recent_auth();
+ return coalesce((select jsonb_agg(x) from (select bucket_id,name from storage.objects where owner=auth.uid() or owner_id=auth.uid()::text or split_part(name,'/',1)=auth.uid()::text order by bucket_id,name limit 200) x),'[]'::jsonb);
+end $$;
+create or replace function public.gaga_deletion_media() returns jsonb language sql stable security invoker set search_path='' as $$ select gaga_private.deletion_media() $$;
+create or replace function gaga_private.delete_account() returns void
+language plpgsql security definer set search_path='' as $$
+declare uid uuid:=auth.uid();
+begin
+ perform gaga_private.require_recent_auth();
+ if jsonb_array_length(gaga_private.deletion_media())<>0 then raise exception 'Use the account deletion service to remove owned media first'; end if;
+ delete from public.users where id=uid;
+ delete from public.presence where user_id=uid;
+ delete from public.user_devices where user_id=uid;
+ delete from auth.users where id=uid;
+end $$;
+create or replace function public.delete_own_account() returns void language sql security invoker set search_path='' as $$ select gaga_private.delete_account() $$;
+create or replace function public.delete_user() returns void language sql security invoker set search_path='' as $$ select gaga_private.delete_account() $$;
+revoke all on function gaga_private.require_recent_auth(),gaga_private.deletion_media(),gaga_private.delete_account(),public.gaga_deletion_media(),public.delete_own_account(),public.delete_user() from public,anon;
+grant execute on function gaga_private.require_recent_auth(),gaga_private.deletion_media(),gaga_private.delete_account(),public.gaga_deletion_media(),public.delete_own_account(),public.delete_user() to authenticated;
+
+-- A sender must not manufacture an accepted request or a mutual friendship.
+create policy gaga_friend_request_participants on public.friend_requests as restrictive for select to authenticated
+using(from_user_id=auth.uid() or to_user_id=auth.uid());
+create policy gaga_friendship_accepted_request on public.friendships as restrictive for insert to authenticated
+with check(user_id<>friend_id and not gaga_private.blocked(user_id,friend_id) and exists(
+ select 1 from public.friend_requests r where r.status='accepted' and
+ ((r.from_user_id=user_id and r.to_user_id=friend_id) or (r.from_user_id=friend_id and r.to_user_id=user_id))));
+create or replace function gaga_private.guard_friend_request() returns trigger
+language plpgsql security definer set search_path='' as $$
+begin
+ if auth.uid() is null then return new; end if; -- trusted service/admin maintenance
+ if not gaga_private.session_active() then raise insufficient_privilege; end if;
+ if tg_op='INSERT' then
+  if new.from_user_id<>auth.uid() or new.to_user_id=auth.uid() or new.status<>'pending' or gaga_private.blocked(new.from_user_id,new.to_user_id) then raise insufficient_privilege; end if;
+ else
+  if new.from_user_id<>old.from_user_id or new.to_user_id<>old.to_user_id or new.id<>old.id then raise insufficient_privilege; end if;
+  if new.status<>old.status and not ((auth.uid()=old.to_user_id and old.status='pending' and new.status in ('accepted','rejected')) or (auth.uid()=old.from_user_id and old.status='pending' and new.status='cancelled')) then raise insufficient_privilege; end if;
+ end if;
+ return new;
+end $$;
+create trigger gaga_friend_request_validation before insert or update on public.friend_requests for each row execute function gaga_private.guard_friend_request();
+revoke all on function gaga_private.guard_friend_request() from public,anon,authenticated;

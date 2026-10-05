@@ -874,18 +874,9 @@ class SupabaseRestApi @Inject constructor(
 
     // ---- Account ----
 
-    /**
-     * Permanently deletes the signed-in user's account and all owned data via the
-     * `delete_own_account()` RPC (Play Store requirement). The server scopes the
-     * deletion to `auth.uid()`, so this can only ever delete the caller.
-     *
-     * NOTE: the LIVE database function is named `delete_own_account`. The client
-     * previously called `delete_my_account`, which does not exist, so account
-     * deletion always failed with a 404 PGRST202. Verified against the live
-     * Supabase instance (returns 204 and removes the caller's row).
-     */
+    /** Removes owned Storage files, then deletes the account with recent authentication. */
     suspend fun deleteMyAccount() {
-        client.post("${config.restUrl}/rpc/delete_own_account") {
+        client.post("${config.functionsUrl}/delete-account-secure") {
             auth()
             header("Prefer", "return=minimal")
             contentType(ContentType.Application.Json)

@@ -18,6 +18,7 @@ set local role authenticated;
 select set_config('request.jwt.claims','{"sub":"90abc100-0000-4000-a000-000000000001","session_id":"90abc100-0000-4000-a000-000000000001","role":"authenticated"}',true);
 do $$ declare profile jsonb; begin
  if (select count(*) from public.users)<>1 then raise exception 'Raw users leaked'; end if;
+ if (select count(*) from public.public_profiles)<>1 then raise exception 'Legacy view leaked'; end if;
  profile := public.gaga_profiles(array['90abc200-0000-4000-a000-000000000002']::uuid[],null)->0;
  if profile->>'email' is not null or profile->>'phone' is not null then raise exception 'Contacts leaked'; end if;
  if profile->>'avatar'<>'friend-photo' then raise exception 'Friend photo incorrectly hidden'; end if;
@@ -35,6 +36,8 @@ select set_config('request.jwt.claims','{"sub":"90abc300-0000-4000-a000-00000000
 do $$ declare profile jsonb; begin
  profile := public.gaga_profiles(array['90abc100-0000-4000-a000-000000000001']::uuid[],null)->0;
  if profile->>'avatar' is not null or profile->>'bio' is not null or profile->>'last_seen' is not null then raise exception 'Stranger profile leaked'; end if;
+ begin insert into public.friendships(user_id,friend_id) values(auth.uid(),'90abc100-0000-4000-a000-000000000001'); raise exception 'Friendship forged'; exception when insufficient_privilege then null; end;
+ begin insert into public.friend_requests(from_user_id,to_user_id,status) values(auth.uid(),'90abc100-0000-4000-a000-000000000001','accepted'); raise exception 'Accepted request forged'; exception when insufficient_privilege then null; end;
  if not public.gaga_route_text('privacy_fixture_chat','Hello, please accept my request') then raise exception 'Request was not routed'; end if;
  begin insert into public.messages(chat_id,sender_id,content,type) values('privacy_fixture_chat',auth.uid(),'Bypass','text'); raise exception 'Unaccepted message delivered'; exception when insufficient_privilege then null; end;
  if public.gaga_can_call('90abc100-0000-4000-a000-000000000001') then raise exception 'Disallowed caller allowed'; end if;
@@ -60,4 +63,18 @@ do $$ begin
  begin perform public.gaga_get_privacy(); raise exception 'Revoked session can read RPC'; exception when insufficient_privilege then null; end;
 end $$;
 reset role;
+update auth.sessions set created_at=now()-interval '1 hour' where user_id='90abc400-0000-4000-a000-000000000004';
+set local role authenticated;
+select set_config('request.jwt.claims','{"sub":"90abc400-0000-4000-a000-000000000004","session_id":"90abc400-0000-4000-a000-000000000004","role":"authenticated"}',true);
+do $$ begin
+ begin perform public.delete_own_account(); raise exception 'Old session deleted account'; exception when insufficient_privilege then null; end;
+end $$;
+reset role;
+update auth.sessions set created_at=now() where user_id='90abc400-0000-4000-a000-000000000004';
+set local role authenticated;
+select public.delete_own_account();
+reset role;
+do $$ begin
+ if exists(select 1 from auth.users where id='90abc400-0000-4000-a000-000000000004') then raise exception 'Fresh session deletion failed'; end if;
+end $$;
 select 'owner, friend, stranger, blocked account, invalid patch, message admission, request acceptance: passed' as result;
