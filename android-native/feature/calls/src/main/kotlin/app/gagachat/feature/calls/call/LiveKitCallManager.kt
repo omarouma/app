@@ -26,6 +26,8 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -209,7 +211,11 @@ class LiveKitCallManager @Inject constructor(
         val roomName = roomNameFor(callId)
 
         val token = try {
-            restApi.getLiveKitToken(room = roomName, userId = safeId, userName = userName)
+            withTimeout(15_000L) { restApi.getLiveKitToken(room = roomName, userId = safeId, userName = userName) }
+        } catch (timeout: TimeoutCancellationException) {
+            lastError = "Call authorisation timed out. Please try again."
+            _connection.value = CallConnection.FAILED
+            return@withLock false
         } catch (c: CancellationException) {
             throw c
         } catch (t: Throwable) {
@@ -238,7 +244,12 @@ class LiveKitCallManager @Inject constructor(
         observeRoom(newRoom)
 
         try {
-            newRoom.connect(token.url, token.token)
+            withTimeout(20_000L) { newRoom.connect(token.url, token.token) }
+        } catch (timeout: TimeoutCancellationException) {
+            lastError = "The call server did not respond. Please try again."
+            _connection.value = CallConnection.FAILED
+            teardownRoom()
+            return@withLock false
         } catch (c: CancellationException) {
             teardownRoom()
             throw c

@@ -1,5 +1,6 @@
 package app.gagachat.push
 
+import app.gagachat.core.common.util.AppLogger
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
 import dagger.hilt.android.AndroidEntryPoint
@@ -7,6 +8,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 import javax.inject.Inject
 
 /**
@@ -21,9 +24,9 @@ import javax.inject.Inject
  * does two things: hand each message to the handler, and keep the device token
  * registered against the signed-in user.
  *
- * Both callbacks are dispatched onto an IO scope rather than blocking the
- * service thread: `onMessageReceived` runs on the main thread, and the handler
- * performs a DataStore read plus a notification post.
+ * FCM invokes message handling on a worker thread. Finish the lightweight
+ * DataStore read and notification post before returning, while FCM still keeps
+ * the process alive. Token registration is also refreshed at app sign-in.
  */
 @AndroidEntryPoint
 class GagaFirebaseMessagingService : FirebaseMessagingService() {
@@ -34,11 +37,14 @@ class GagaFirebaseMessagingService : FirebaseMessagingService() {
     @Inject
     lateinit var tokenRegistrar: PushTokenRegistrar
 
+    @Inject
+    lateinit var logger: AppLogger
+
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     /**
      * Handles every message, including the data-only incoming-call push sent by
-     * the `livekit-token` Edge Function. A data-only message never auto-posts a
+     * the `create-call` / `send-fcm-push` Edge Functions. A data-only message never auto-posts a
      * notification, so it is essential that the call path is handled here \u2014
      * otherwise a backgrounded device would never ring.
      */
@@ -46,8 +52,14 @@ class GagaFirebaseMessagingService : FirebaseMessagingService() {
         val data = message.data
         val title = message.notification?.title
         val body = message.notification?.body
-        scope.launch {
-            runCatching { pushHandler.handle(data = data, notificationTitle = title, notificationBody = body) }
+        try {
+            runBlocking {
+                withTimeout(4_000L) {
+                    pushHandler.handle(data = data, notificationTitle = title, notificationBody = body)
+                }
+            }
+        } catch (error: Exception) {
+            logger.w("GagaFCM", "Could not display push notification", error)
         }
     }
 

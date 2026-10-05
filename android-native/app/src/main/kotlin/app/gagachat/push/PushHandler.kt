@@ -27,7 +27,7 @@ import javax.inject.Singleton
  *
  * LiveKit is a pure media transport and has no concept of "ring this phone", so
  * the incoming-call push is what wakes a backgrounded or killed app. It is sent
- * by the `livekit-token` Edge Function as a *data-only* message, which is why
+ * by `create-call` / `send-fcm-push` as a *data-only* message, which is why
  * the payload (not the notification block) is authoritative here. The tap
  * deep-links into the incoming-call surface, which then asks the server for its
  * own LiveKit access token \u2014 no credential ever travels in the push.

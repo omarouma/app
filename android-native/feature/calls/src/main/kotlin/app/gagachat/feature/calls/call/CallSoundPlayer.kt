@@ -18,6 +18,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import java.util.concurrent.atomic.AtomicLong
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -49,6 +50,7 @@ class CallSoundPlayer @Inject constructor(
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val audioManager: AudioManager? = context.getSystemService(AudioManager::class.java)
 
+    private val generation = AtomicLong()
     private var player: MediaPlayer? = null
     private var focusRequest: AudioFocusRequest? = null
 
@@ -69,12 +71,14 @@ class CallSoundPlayer @Inject constructor(
      */
     fun stop() {
         active = null
-        scope.launch { stopInternal() }
+        val request = generation.incrementAndGet()
+        scope.launch { if (generation.get() == request) stopInternal() }
     }
 
     /** Full teardown for logout: stop everything and drop the scope's work. */
     fun release() {
         active = null
+        generation.incrementAndGet()
         stopInternal()
     }
 
@@ -84,13 +88,14 @@ class CallSoundPlayer @Inject constructor(
         // invite for the same call) must not stack a second MediaPlayer.
         if (active == tone) return
         active = tone
-        scope.launch { play(tone) }
+        val request = generation.incrementAndGet()
+        scope.launch { play(tone, request) }
     }
 
-    private suspend fun play(tone: CallTone) {
+    private suspend fun play(tone: CallTone, request: Long) {
         // The tone may have been superseded (e.g. the user accepted) between the
         // request and this coroutine running.
-        if (active != tone) return
+        if (active != tone || generation.get() != request) return
         stopInternal()
 
         val soundsEnabled = runCatching { settingsPreferences.callSoundsEnabled.first() }
@@ -98,15 +103,21 @@ class CallSoundPlayer @Inject constructor(
         val vibrationEnabled = runCatching { settingsPreferences.callVibrationEnabled.first() }
             .getOrDefault(true)
 
+        // Preferences suspend: an answer or cancellation may have arrived meanwhile.
+        if (active != tone || generation.get() != request) return
+
         val ringerMode = audioManager?.ringerMode ?: AudioManager.RINGER_MODE_NORMAL
         val silent = ringerMode == AudioManager.RINGER_MODE_SILENT
         val vibrateOnly = ringerMode == AudioManager.RINGER_MODE_VIBRATE
 
-        if (soundsEnabled && !silent && !vibrateOnly) {
-            requestAudioFocus()
+        // Ringer mode governs incoming alerts, not the caller's call-audio stream.
+        val audible = tone == CallTone.OUTGOING || (!silent && !vibrateOnly)
+        if (soundsEnabled && audible) {
+            // LiveKit already owns communication focus after outgoing connect.
+            if (tone == CallTone.INCOMING) requestAudioFocus()
             startMediaPlayer(tone)
         }
-        if (vibrationEnabled && !silent) {
+        if (tone == CallTone.INCOMING && vibrationEnabled && !silent) {
             startVibration()
         }
     }
@@ -115,7 +126,9 @@ class CallSoundPlayer @Inject constructor(
         runCatching {
             val resId = if (tone == CallTone.INCOMING) R.raw.gaga_ringtone else R.raw.gaga_ringback
             val attrs = AudioAttributes.Builder()
-                .setUsage(AudioAttributes.USAGE_NOTIFICATION_RINGTONE)
+                .setUsage(if (tone == CallTone.INCOMING)
+                    AudioAttributes.USAGE_NOTIFICATION_RINGTONE
+                    else AudioAttributes.USAGE_VOICE_COMMUNICATION_SIGNALLING)
                 .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
                 .build()
             val mp = MediaPlayer.create(

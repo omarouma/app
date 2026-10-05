@@ -16,6 +16,7 @@ import app.gagachat.core.model.User
 import app.gagachat.core.network.dto.CallHistoryRow
 import app.gagachat.core.network.error.ErrorMapper
 import app.gagachat.core.network.rest.SupabaseRestApi
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.withContext
@@ -37,6 +38,7 @@ interface CallRepository {
         type: CallType,
     ): AppResult<CallSession>
 
+    suspend fun markConnected(callId: String)
     suspend fun endCall(callId: String, status: CallStatus, durationMs: Long?)
     suspend fun syncHistory()
 
@@ -112,9 +114,15 @@ class DefaultCallRepository @Inject constructor(
             )
             callDao.upsert(session.toEntity())
             AppResult.Success(session)
+        } catch (cancelled: CancellationException) {
+            throw cancelled
         } catch (t: Throwable) {
             AppResult.Failure(ErrorMapper.map(t))
         }
+    }
+
+    override suspend fun markConnected(callId: String) = withContext(dispatchers.io) {
+        restApi.markCallConnected(callId)
     }
 
     override suspend fun endCall(callId: String, status: CallStatus, durationMs: Long?) =

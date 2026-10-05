@@ -476,6 +476,18 @@ class SupabaseRestApi @Inject constructor(
             setBody(row)
         }.body<List<CallHistoryRow>>().first()
 
+    /** Never revive a call whose terminal state was already persisted. */
+    suspend fun markCallConnected(id: String) {
+        client.patch("${config.restUrl}/call_history") {
+            auth()
+            parameter("id", "eq.$id")
+            parameter("status", "in.(calling,ringing,connecting)")
+            header("Prefer", "return=minimal")
+            contentType(ContentType.Application.Json)
+            setBody(buildJsonObject { put("status", "connected") })
+        }
+    }
+
     suspend fun updateCallHistory(
         id: String,
         status: String,
@@ -489,7 +501,7 @@ class SupabaseRestApi @Inject constructor(
             contentType(ContentType.Application.Json)
             setBody(
                 buildJsonObject {
-                    put("status", status)
+                    put("status", if (status == "rejected") "declined" else status)
                     put("ended_at", iso(endedAt))
                     // `call_history.duration` is stored in seconds.
                     duration?.let { put("duration", (it / 1_000L).coerceAtLeast(0L)) }

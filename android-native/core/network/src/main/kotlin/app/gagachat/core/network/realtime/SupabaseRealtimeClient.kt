@@ -5,6 +5,12 @@ import app.gagachat.core.network.auth.AuthTokenRefresher
 import app.gagachat.core.network.config.SupabaseConfig
 import app.gagachat.core.network.session.SessionStore
 import io.ktor.client.HttpClient
+import io.ktor.client.request.post
+import io.ktor.client.request.header
+import io.ktor.client.request.setBody
+import io.ktor.http.ContentType
+import io.ktor.http.contentType
+import kotlinx.coroutines.withTimeout
 import io.ktor.client.plugins.websocket.DefaultClientWebSocketSession
 import io.ktor.client.plugins.websocket.webSocketSession
 import io.ktor.websocket.Frame
@@ -149,29 +155,41 @@ class SupabaseRealtimeClient @Inject constructor(
         }
     }
 
-    /**
-     * Sends a broadcast message on [topic]. Fire-and-forget: if the socket is
-     * not yet connected the message is dropped, and the caller retries on the
-     * next signaling tick (signaling is idempotent by design).
-     */
-    @Synchronized
+    /** Sends without joining the recipient's inbox; delivery failures are logged. */
     fun broadcast(topic: String, event: String, payload: JsonObject) {
-        val session = activeSession ?: return
         val currentScope = scope ?: return
-        val message = buildJsonObject {
-            put("topic", topic)
-            put("event", "broadcast")
-            put("payload", buildJsonObject {
-                put("type", "broadcast")
-                put("event", event)
-                put("payload", payload)
-            })
-            put("ref", refCounter.incrementAndGet().toString())
-        }.toString()
         currentScope.launch {
-            runCatching { session.send(Frame.Text(message)) }
+            try {
+                withTimeout(5_000L) {
+                    val token = tokenRefresher.ensureFresh() ?: return@withTimeout
+                    val response = client.post("${config.url}/realtime/v1/api/broadcast") {
+                        header("apikey", config.anonKey)
+                        header("Authorization", "Bearer $token")
+                        contentType(ContentType.Application.Json)
+                        setBody(buildJsonObject {
+                            putJsonArray("messages") {
+                                add(buildJsonObject {
+                                    put("topic", topic.removePrefix("realtime:"))
+                                    put("event", event)
+                                    put("payload", payload)
+                                })
+                            }
+                        }.toString())
+                    }
+                    check(response.status.value in 200..299) { "Broadcast HTTP ${response.status.value}" }
+                }
+            } catch (cancelled: kotlinx.coroutines.TimeoutCancellationException) {
+                logger.w(TAG, "Call signal delivery timed out")
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (error: Exception) {
+                logger.w(TAG, "Call signal delivery failed", error)
+            }
         }
     }
+
+    private fun wireTopic(topic: String): String =
+        if (topic.startsWith("realtime:")) topic else "realtime:$topic"
 
     private fun topicFor(table: String, filter: String?): String =
         if (filter.isNullOrBlank()) "realtime:public:$table" else "realtime:public:$table:$filter"
@@ -205,7 +223,7 @@ class SupabaseRealtimeClient @Inject constructor(
                             val token = sessionStore.accessToken()
                             activeTopics.toList().forEach { topic ->
                                 session.send(Frame.Text(buildJsonObject {
-                                    put("topic", topic)
+                                    put("topic", wireTopic(topic))
                                     put("event", "access_token")
                                     putJsonObject("payload") { token?.let { put("access_token", it) } }
                                     put("ref", refCounter.incrementAndGet().toString())
@@ -238,7 +256,9 @@ class SupabaseRealtimeClient @Inject constructor(
     private fun handleFrame(text: String) {
         val obj = runCatching { json.parseToJsonElement(text).jsonObject }.getOrNull() ?: return
         val event = obj["event"]?.jsonPrimitive?.content ?: return
-        val topic = obj["topic"]?.jsonPrimitive?.content ?: ""
+        val wire = obj["topic"]?.jsonPrimitive?.content ?: ""
+        val logical = wire.removePrefix("realtime:")
+        val topic = if (logical in broadcastTopics) logical else wire
         when (event) {
             "phx_reply" -> {
                 val status = obj["payload"]?.jsonObject?.get("status")?.jsonPrimitive?.content
@@ -290,7 +310,7 @@ class SupabaseRealtimeClient @Inject constructor(
             sessionStore.accessToken()?.let { put("access_token", it) }
         }
         return buildJsonObject {
-            put("topic", topic)
+            put("topic", wireTopic(topic))
             put("event", "phx_join")
             put("payload", payload)
             put("ref", refCounter.incrementAndGet().toString())
@@ -306,7 +326,7 @@ class SupabaseRealtimeClient @Inject constructor(
             sessionStore.accessToken()?.let { put("access_token", it) }
         }
         return buildJsonObject {
-            put("topic", topic)
+            put("topic", wireTopic(topic))
             put("event", "phx_join")
             put("payload", payload)
             put("ref", refCounter.incrementAndGet().toString())
@@ -314,7 +334,7 @@ class SupabaseRealtimeClient @Inject constructor(
     }
 
     private fun leaveMessage(topic: String): String = buildJsonObject {
-        put("topic", topic)
+        put("topic", wireTopic(topic))
         put("event", "phx_leave")
         put("payload", buildJsonObject {})
         put("ref", refCounter.incrementAndGet().toString())

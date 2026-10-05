@@ -17,12 +17,8 @@
 //     LIVEKIT_API_KEY=<api key> \
 //     LIVEKIT_API_SECRET=<api secret>
 //
-// Optional (enables the background incoming-call push; the function degrades
-// gracefully when they are absent):
-//   supabase secrets set \
-//     FIREBASE_PROJECT_ID=<project id> \
-//     FIREBASE_CLIENT_EMAIL=<service account email> \
-//     FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
+// Incoming-call push is owned by create-call -> send-fcm-push.
+// Token refresh must never send a second incoming-call notification.
 //
 // Security model
 // --------------
@@ -41,15 +37,12 @@ const LIVEKIT_URL = Deno.env.get('LIVEKIT_URL') ?? '';
 const LIVEKIT_API_KEY = Deno.env.get('LIVEKIT_API_KEY') ?? '';
 const LIVEKIT_API_SECRET = Deno.env.get('LIVEKIT_API_SECRET') ?? '';
 
-const FIREBASE_PROJECT_ID = Deno.env.get('FIREBASE_PROJECT_ID') ?? '';
-const FIREBASE_CLIENT_EMAIL = Deno.env.get('FIREBASE_CLIENT_EMAIL') ?? '';
-// Secret env vars store the PEM with literal "\n"; normalise to real newlines.
-const FIREBASE_PRIVATE_KEY = (Deno.env.get('FIREBASE_PRIVATE_KEY') ?? '').replace(/\\n/g, '\n');
-
 /** Access tokens are deliberately short-lived; the client re-mints per call. */
 const TOKEN_TTL_SECONDS = 3600;
 /** How long a ringing call is allowed to stay "live" before it is considered stale. */
 const RINGING_STALE_SECONDS = 120;
+/** Bound recovery even when a killed client leaves a connected row behind. */
+const CONNECTED_STALE_SECONDS = 24 * 60 * 60;
 
 const ROOM_PREFIX = 'call_';
 /** Statuses in which a call is still joinable. */
@@ -89,17 +82,6 @@ function base64UrlEncode(bytes: Uint8Array): string {
 
 function base64UrlEncodeString(text: string): string {
   return base64UrlEncode(new TextEncoder().encode(text));
-}
-
-function pemToArrayBuffer(pem: string): ArrayBuffer {
-  const base64 = pem
-    .replace(/-----BEGIN PRIVATE KEY-----/, '')
-    .replace(/-----END PRIVATE KEY-----/, '')
-    .replace(/\s+/g, '');
-  const binary = atob(base64);
-  const buffer = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i += 1) buffer[i] = binary.charCodeAt(i);
-  return buffer.buffer;
 }
 
 /** Resolves the Supabase user id behind the request, or null when unauthorised. */
@@ -170,7 +152,8 @@ function isCallLive(call: CallRow): boolean {
     const created = Date.parse(call.created_at);
     if (!Number.isNaN(created)) {
       const ageSeconds = (Date.now() - created) / 1000;
-      if (ageSeconds > RINGING_STALE_SECONDS) return false;
+      const limit = call.status === 'connected' ? CONNECTED_STALE_SECONDS : RINGING_STALE_SECONDS;
+      if (ageSeconds > limit) return false;
     }
   }
   return true;
@@ -226,148 +209,6 @@ async function mintLiveKitToken(
   return { token: `${signingInput}.${base64UrlEncode(new Uint8Array(signature))}`, expiresAt };
 }
 
-// ---------------------------------------------------------------------------
-// Background incoming-call push (best effort)
-// ---------------------------------------------------------------------------
-//
-// LiveKit has no concept of "ring this user's phone", and the Supabase Realtime
-// broadcast that carries the invite only reaches a running app. This closes that
-// gap: the moment the caller asks for its token, the callee's registered devices
-// get a high-priority data push that wakes GagaPushReceiver and raises the
-// full-screen incoming-call notification.
-//
-// Every failure here is swallowed: a missing push must never stop a call that is
-// otherwise perfectly able to connect.
-
-let cachedFcmAccessToken: { token: string; expiresAt: number } | null = null;
-
-async function fcmAccessToken(): Promise<string | null> {
-  if (!FIREBASE_CLIENT_EMAIL || !FIREBASE_PRIVATE_KEY || !FIREBASE_PROJECT_ID) return null;
-  const now = Math.floor(Date.now() / 1000);
-  if (cachedFcmAccessToken && cachedFcmAccessToken.expiresAt - 60 > now) {
-    return cachedFcmAccessToken.token;
-  }
-  try {
-    const signingInput = `${base64UrlEncodeString(
-      JSON.stringify({ alg: 'RS256', typ: 'JWT' }),
-    )}.${base64UrlEncodeString(
-      JSON.stringify({
-        iss: FIREBASE_CLIENT_EMAIL,
-        scope: 'https://www.googleapis.com/auth/firebase.messaging',
-        aud: 'https://oauth2.googleapis.com/token',
-        iat: now,
-        exp: now + TOKEN_TTL_SECONDS,
-      }),
-    )}`;
-
-    const key = await crypto.subtle.importKey(
-      'pkcs8',
-      pemToArrayBuffer(FIREBASE_PRIVATE_KEY),
-      { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' },
-      false,
-      ['sign'],
-    );
-    const signature = await crypto.subtle.sign(
-      { name: 'RSASSA-PKCS1-v1_5' },
-      key,
-      new TextEncoder().encode(signingInput),
-    );
-    const assertion = `${signingInput}.${base64UrlEncode(new Uint8Array(signature))}`;
-
-    const response = await fetch('https://oauth2.googleapis.com/token', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({
-        grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
-        assertion,
-      }),
-    });
-    if (!response.ok) return null;
-    const body = await response.json() as { access_token?: string; expires_in?: number };
-    if (!body.access_token) return null;
-    cachedFcmAccessToken = {
-      token: body.access_token,
-      expiresAt: now + (body.expires_in ?? TOKEN_TTL_SECONDS),
-    };
-    return cachedFcmAccessToken.token;
-  } catch {
-    return null;
-  }
-}
-
-async function calleePushTokens(req: Request, calleeId: string): Promise<string[]> {
-  const authorization = req.headers.get('Authorization') ?? '';
-  try {
-    const query = new URL(`${SUPABASE_URL}/rest/v1/user_devices`);
-    query.searchParams.set('user_id', `eq.${calleeId}`);
-    query.searchParams.set('select', 'push_token');
-    query.searchParams.set('push_token', 'not.is.null');
-    const response = await fetch(query, {
-      headers: { Authorization: authorization, apikey: SUPABASE_ANON_KEY },
-    });
-    if (!response.ok) return [];
-    const rows = await response.json() as Array<{ push_token?: string }>;
-    return rows.map((row) => row.push_token ?? '').filter((token) => token.length > 0);
-  } catch {
-    return [];
-  }
-}
-
-async function sendIncomingCallPush(
-  req: Request,
-  call: CallRow,
-  callerId: string,
-  callerName: string,
-): Promise<void> {
-  const calleeId = call.callee_id;
-  const conversationId = call.chat_id;
-  if (!calleeId || !conversationId) return;
-
-  const accessToken = await fcmAccessToken();
-  if (!accessToken) return;
-
-  const tokens = await calleePushTokens(req, calleeId);
-  if (tokens.length === 0) return;
-
-  const data: Record<string, string> = {
-    type: 'call',
-    conversationId,
-    callerId,
-    callerName: callerName || 'GaGa User',
-    callType: call.type === 'video' ? 'video' : 'voice',
-    callId: call.id ?? '',
-    roomId: `${ROOM_PREFIX}${call.id ?? ''}`,
-  };
-
-  await Promise.all(
-    tokens.map(async (token) => {
-      try {
-        await fetch(
-          `https://fcm.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/messages:send`,
-          {
-            method: 'POST',
-            headers: {
-              Authorization: `Bearer ${accessToken}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              message: {
-                token,
-                // Data-only so the app always builds the notification itself and
-                // can raise a full-screen incoming-call intent.
-                data,
-                android: { priority: 'high', ttl: '60s' },
-              },
-            }),
-          },
-        );
-      } catch {
-        // Ignore: a stale device token must not fail the call.
-      }
-    }),
-  );
-}
-
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: corsHeaders(req) });
   if (req.method !== 'GET') return json(req, { error: 'METHOD_NOT_ALLOWED' }, 405);
@@ -403,11 +244,6 @@ Deno.serve(async (req: Request) => {
 
   if (!LIVEKIT_URL || !LIVEKIT_API_KEY || !LIVEKIT_API_SECRET) {
     return json(req, { error: 'LIVEKIT_NOT_CONFIGURED' }, 500);
-  }
-
-  // The caller dials; the callee answers. Only the dialling side rings the peer.
-  if (call.caller_id === callerId && call.callee_id && call.callee_id !== callerId) {
-    await sendIncomingCallPush(req, call, callerId, name);
   }
 
   try {
