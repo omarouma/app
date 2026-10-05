@@ -137,16 +137,12 @@ fun ChatRoute(
     var videoReviewUri by remember { mutableStateOf<Uri?>(null) }
     val mediaPicker = rememberMediaPicker(
         onImagesPicked = { uris ->
-            if (uris.size > 1) {
-                reviewUris = uris
-            } else {
-                uris.firstOrNull()?.let { viewModel.sendMedia(it, "image") }
-            }
+            if (uris.isNotEmpty()) reviewUris = uris
         },
         onVideoPicked = { videoReviewUri = it },
         onFilePicked = { viewModel.sendMedia(it, "file") },
         onAudioPicked = { viewModel.sendMedia(it, "audio") },
-        onCameraPhotoPicked = { viewModel.sendMedia(it, "image") },
+        onCameraPhotoPicked = { reviewUris = listOf(it) },
     )
     val contactPicker = rememberContactPicker(
         onContactPicked = { viewModel.shareContact(it.name, it.phone) },
@@ -168,7 +164,10 @@ fun ChatRoute(
     // recording. If the user denies, the ViewModel surfaces an actionable notice.
     val micPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission(),
-    ) { viewModel.startVoiceRecording() }
+    ) { granted ->
+        if (granted) viewModel.startVoiceRecording()
+        else viewModel.showNotice("Microphone permission is needed to record a voice message.")
+    }
     val cameraPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission(),
     ) { granted ->

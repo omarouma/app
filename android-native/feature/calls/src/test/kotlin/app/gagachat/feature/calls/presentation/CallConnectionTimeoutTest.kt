@@ -75,4 +75,52 @@ class CallConnectionTimeoutTest {
             Dispatchers.resetMain()
         }
     }
+
+    @Test fun failedMediaControlsKeepActualTrackState() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val store = ViewModelStore()
+        try {
+            val calls = mockk<CallRepository>(relaxed = true)
+            val auth = mockk<AuthRepository>()
+            val conversations = mockk<ConversationRepository>()
+            val manager = mockk<LiveKitCallManager>(relaxed = true)
+            val signaling = mockk<CallSignalingCoordinator>(relaxed = true)
+            val sound = mockk<CallSoundPlayer>(relaxed = true)
+            every { calls.observeHistory() } returns flowOf(emptyList())
+            every { auth.sessionFlow } returns MutableStateFlow(AuthSession("self", "token", "refresh", Long.MAX_VALUE))
+            every { conversations.observeConversation(any()) } returns MutableStateFlow(null)
+            every { manager.durationSeconds } returns MutableStateFlow(0L)
+            every { manager.connection } returns MutableStateFlow(CallConnection.CONNECTED)
+            every { manager.peers } returns MutableStateFlow(emptyList<CallPeer>())
+            every { manager.isMicrophoneEnabled } returns MutableStateFlow(true)
+            every { manager.isCameraEnabled } returns MutableStateFlow(false)
+            every { manager.isSpeakerOn } returns MutableStateFlow(false)
+            every { manager.callEnded } returns MutableSharedFlow<CallEndedInfo>()
+            every { signaling.signals } returns MutableSharedFlow()
+            coEvery { manager.setMicrophoneEnabled(false) } returns false
+            coEvery { manager.setCameraEnabled(true) } returns false
+            every { manager.setSpeakerOn(true) } returns false
+            val vm = CallViewModel(calls, auth, conversations, manager, signaling, sound)
+            store.put("call", vm)
+            vm.prepareIncomingCall("chat", "call", false)
+            runCurrent()
+            vm.toggleMute()
+            runCurrent()
+            assertEquals(false, vm.state.value.isMuted)
+            org.junit.Assert.assertNotNull(vm.state.value.mediaNotice)
+            vm.toggleVideo()
+            runCurrent()
+            assertEquals(false, vm.state.value.isVideoEnabled)
+            org.junit.Assert.assertNotNull(vm.state.value.mediaNotice)
+            vm.toggleSpeaker()
+            assertEquals(false, vm.state.value.isSpeakerOn)
+            org.junit.Assert.assertNotNull(vm.state.value.mediaNotice)
+            coVerify(exactly = 1) { manager.setMicrophoneEnabled(false) }
+            coVerify(exactly = 1) { manager.setCameraEnabled(true) }
+            verify(exactly = 1) { manager.setSpeakerOn(true) }
+        } finally {
+            store.clear()
+            Dispatchers.resetMain()
+        }
+    }
 }

@@ -21,6 +21,8 @@ import app.gagachat.feature.calls.call.LiveKitCallManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.livekit.android.renderer.SurfaceViewRenderer
 import io.livekit.android.room.participant.ConnectionQuality
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.TimeoutCancellationException
@@ -529,22 +531,40 @@ class CallViewModel @Inject constructor(
         finalizeCall(CallStatus.REJECTED)
     }
 
+    private val mediaControlMutex = Mutex()
+
     fun toggleMute() {
-        val nextMuted = !_state.value.isMuted
-        _state.update { it.copy(isMuted = nextMuted) }
-        viewModelScope.launch { liveKitCallManager.setMicrophoneEnabled(!nextMuted) }
+        viewModelScope.launch {
+            mediaControlMutex.withLock {
+                val enabled = !liveKitCallManager.isMicrophoneEnabled.value
+                val changed = liveKitCallManager.setMicrophoneEnabled(enabled)
+                _state.update { it.copy(
+                    isMuted = !liveKitCallManager.isMicrophoneEnabled.value,
+                    mediaNotice = if (changed) null else "Could not change microphone. Check microphone permission and try again.",
+                ) }
+            }
+        }
     }
 
     fun toggleSpeaker() {
-        val nextSpeaker = !_state.value.isSpeakerOn
-        _state.update { it.copy(isSpeakerOn = nextSpeaker) }
-        liveKitCallManager.setSpeakerOn(nextSpeaker)
+        val changed = liveKitCallManager.setSpeakerOn(!liveKitCallManager.isSpeakerOn.value)
+        _state.update { it.copy(
+            isSpeakerOn = liveKitCallManager.isSpeakerOn.value,
+            mediaNotice = if (changed) null else "That audio output is unavailable. Check your connected headset or speaker.",
+        ) }
     }
 
     fun toggleVideo() {
-        val nextVideo = !_state.value.isVideoEnabled
-        _state.update { it.copy(isVideoEnabled = nextVideo) }
-        viewModelScope.launch { liveKitCallManager.setCameraEnabled(nextVideo) }
+        viewModelScope.launch {
+            mediaControlMutex.withLock {
+                val enabled = !liveKitCallManager.isCameraEnabled.value
+                val changed = liveKitCallManager.setCameraEnabled(enabled)
+                _state.update { it.copy(
+                    isVideoEnabled = liveKitCallManager.isCameraEnabled.value,
+                    mediaNotice = if (changed) null else "Could not change camera. Check camera permission and try again.",
+                ) }
+            }
+        }
     }
 
     fun switchCamera() {

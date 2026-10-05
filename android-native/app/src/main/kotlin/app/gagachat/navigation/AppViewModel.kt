@@ -18,7 +18,6 @@ import app.gagachat.feature.calls.call.LiveKitCallManager
 import app.gagachat.feature.calls.navigation.CallRoutes
 import app.gagachat.push.PendingDeepLink
 import app.gagachat.push.PushTokenRegistrar
-import com.google.firebase.messaging.FirebaseMessaging
 import app.gagachat.sync.workers.SyncInitializer
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CoroutineScope
@@ -162,14 +161,7 @@ class AppViewModel @Inject constructor(
                     // `onNewToken()` is not guaranteed to run after every login.
                     // Fetch the current FCM token and bind it to this authenticated
                     // user/device so background messages and incoming calls can route.
-                    runCatching {
-                        FirebaseMessaging.getInstance().token
-                            .addOnSuccessListener { token ->
-                                if (token.isNotBlank()) {
-                                    viewModelScope.launch { pushTokenRegistrar.register(token) }
-                                }
-                            }
-                    }
+                    pushTokenRegistrar.enqueueRegistration()
                 } else {
                     realtimeCoordinator.stop()
                     callSignalingCoordinator.stop()

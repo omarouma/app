@@ -1063,7 +1063,7 @@ class ChatViewModel @Inject constructor(
 
     /** Surfaces a transient notice for an overflow-menu entry that isn't wired yet. */
     fun showNotice(label: String) {
-        notice.value = "$label isn't available yet."
+        notice.value = label
     }
 
     /** Persists the user's chat wallpaper choice (applies to every conversation). */
