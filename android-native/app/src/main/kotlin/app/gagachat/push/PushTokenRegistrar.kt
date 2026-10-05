@@ -21,10 +21,20 @@ class PushTokenRegistrar @Inject constructor(
     private val authRepository: AuthRepository,
 ) {
 
+    fun enqueueRegistration() {
+        val work = androidx.work.OneTimeWorkRequestBuilder<PushTokenRegistrationWorker>()
+            .setConstraints(androidx.work.Constraints.Builder()
+                .setRequiredNetworkType(androidx.work.NetworkType.CONNECTED).build())
+            .setBackoffCriteria(androidx.work.BackoffPolicy.EXPONENTIAL, 30, java.util.concurrent.TimeUnit.SECONDS)
+            .build()
+        androidx.work.WorkManager.getInstance(context).enqueueUniqueWork(
+            "gaga-push-registration", androidx.work.ExistingWorkPolicy.REPLACE, work,
+        )
+    }
+
     suspend fun register(token: String) {
         val session = authRepository.sessionFlow.value ?: return
-        runCatching {
-            restApi.upsertDevice(
+        restApi.upsertDevice(
                 DeviceRow(
                     userId = session.userId,
                     deviceId = deviceId(),
@@ -34,7 +44,6 @@ class PushTokenRegistrar @Inject constructor(
                     lastSeenAt = System.currentTimeMillis(),
                 ),
             )
-        }
     }
 
     private fun deviceId(): String =

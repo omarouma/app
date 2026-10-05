@@ -77,6 +77,6 @@ class GagaFirebaseMessagingService : FirebaseMessagingService() {
      */
     override fun onNewToken(token: String) {
         if (token.isBlank()) return
-        scope.launch { runCatching { tokenRegistrar.register(token) } }
+        tokenRegistrar.enqueueRegistration()
     }
 }
