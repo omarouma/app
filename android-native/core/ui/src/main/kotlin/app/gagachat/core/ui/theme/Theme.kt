@@ -18,11 +18,11 @@ import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 
 private val LightColors = lightColorScheme(
-    primary = GagaGreen,
+    primary = Color(0xFF007B15),
     onPrimary = Color.White,
     primaryContainer = GagaGreenContainer,
-    onPrimaryContainer = GagaGreenDark,
-    secondary = GagaTeal,
+    onPrimaryContainer = Color(0xFF005908),
+    secondary = GagaTealDark,
     onSecondary = Color.White,
     secondaryContainer = GagaTealDark,
     onSecondaryContainer = Color.White,

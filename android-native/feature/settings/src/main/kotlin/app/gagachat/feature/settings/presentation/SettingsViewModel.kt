@@ -37,6 +37,9 @@ data class SettingsUiState(
     val preview: app.gagachat.core.data.preferences.NotificationPreview = app.gagachat.core.data.preferences.NotificationPreview.SENDER_ONLY,
     val requests: List<app.gagachat.core.model.MessageRequest> = emptyList(),
     val requestError: String? = null,
+    val securityBusy: Boolean = false,
+    val securityNotice: String? = null,
+    val sessions: List<app.gagachat.core.model.AccountSession> = emptyList(),
     val privacy: AccountPrivacy = AccountPrivacy(),
     val privacyLoading: Boolean = true,
     val privacySaving: Boolean = false,
@@ -292,6 +295,29 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
+    fun changePassword(current: String, password: String, confirmation: String) = viewModelScope.launch {
+        if (_state.value.securityBusy) return@launch
+        if (password.length < 8 || password != confirmation) { _state.update { it.copy(securityNotice = "Enter matching passwords of at least 8 characters.") }; return@launch }
+        _state.update { it.copy(securityBusy = true, securityNotice = null) }
+        val result = authRepository.changePassword(current, password)
+        _state.update { it.copy(securityBusy = false, securityNotice = if (result is AppResult.Failure) result.error.message ?: "Password change failed" else "Password updated") }
+    }
+    fun loadSessions() = viewModelScope.launch {
+        try { _state.update { it.copy(sessions = api.getAccountSessions(), securityNotice = null) } }
+        catch (e: Exception) { if (e is CancellationException) throw e; _state.update { it.copy(securityNotice = "Could not load sessions. Retry when connected.") } }
+    }
+    fun revokeSession(id: String?, password: String) = viewModelScope.launch {
+        if (_state.value.securityBusy) return@launch
+        _state.update { it.copy(securityBusy = true, securityNotice = null) }
+        try {
+            when (val verified = authRepository.reauthenticate(password)) {
+                is AppResult.Failure -> _state.update { it.copy(securityNotice = verified.error.message ?: "Authentication failed") }
+                else -> { api.revokeAccountSession(id); loadSessions() }
+            }
+        } catch (e: Exception) { if (e is CancellationException) throw e; _state.update { it.copy(securityNotice = "Could not revoke session. Retry when connected.") } }
+        finally { _state.update { it.copy(securityBusy = false) } }
+    }
+
     fun signOut() {
         _state.update { it.copy(isSigningOut = true) }
         viewModelScope.launch {
@@ -305,9 +331,11 @@ class SettingsViewModel @Inject constructor(
      * session is cleared by the repository and [SettingsUiState.accountDeleted]
      * flips so the UI can return to the auth graph.
      */
-    fun deleteAccount() {
+    fun deleteAccount(password: String) {
         _state.update { it.copy(isDeletingAccount = true) }
         viewModelScope.launch {
+            val verified = authRepository.reauthenticate(password)
+            if (verified is AppResult.Failure) { _state.update { it.copy(isDeletingAccount = false) }; _notices.tryEmit(verified.error.message ?: "Authentication failed"); return@launch }
             when (val result = authRepository.deleteAccount()) {
                 is AppResult.Success -> _state.update {
                     it.copy(isDeletingAccount = false, accountDeleted = true)

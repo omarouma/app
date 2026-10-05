@@ -4,6 +4,15 @@ create schema if not exists gaga_private;
 revoke all on schema gaga_private from public, anon;
 grant usage on schema gaga_private to authenticated, service_role;
 
+create or replace function gaga_private.session_active() returns boolean
+language sql stable security definer set search_path='' as $$
+ select auth.uid() is not null and exists(select 1 from auth.sessions s where s.user_id=auth.uid()
+ and s.id::text=auth.jwt()->>'session_id' and (s.not_after is null or s.not_after>now()))
+$$;
+create or replace function public.gaga_session_active() returns boolean
+language sql stable security invoker set search_path='' as $$ select gaga_private.session_active() $$;
+
+
 create or replace function gaga_private.policy(target uuid) returns jsonb
 language sql stable security definer set search_path = '' as $$
  select jsonb_build_object('last_seen','FRIENDS','online_status','SAME_AS_LAST_SEEN',
@@ -29,7 +38,7 @@ $$;
 create or replace function gaga_private.get_privacy() returns jsonb
 language plpgsql stable security definer set search_path = '' as $$
 begin
- if auth.uid() is null then raise insufficient_privilege; end if;
+ if auth.uid() is null or not gaga_private.session_active() then raise insufficient_privilege; end if;
  return gaga_private.policy(auth.uid());
 end $$;
 create or replace function public.gaga_get_privacy() returns jsonb
@@ -39,7 +48,7 @@ create or replace function gaga_private.save_privacy(patch jsonb) returns jsonb
 language plpgsql security definer set search_path = '' as $$
 declare k text; v jsonb; allowed text[];
 begin
- if auth.uid() is null then raise insufficient_privilege; end if;
+ if auth.uid() is null or not gaga_private.session_active() then raise insufficient_privilege; end if;
  if patch is null or jsonb_typeof(patch)<>'object' or octet_length(patch::text)>4096 then raise exception 'Invalid privacy patch'; end if;
  for k,v in select * from jsonb_each(patch) loop
   if k in ('read_receipts','typing_indicator','discover_phone','discover_email','discover_id','recommendations') then
@@ -65,7 +74,7 @@ create or replace function gaga_private.profiles(ids uuid[],q text) returns json
 language plpgsql stable security definer set search_path = '' as $$
 declare result jsonb;
 begin
- if auth.uid() is null then raise insufficient_privilege; end if;
+ if auth.uid() is null or not gaga_private.session_active() then raise insufficient_privilege; end if;
  if cardinality(ids)>200 or length(q)>128 then raise exception 'Profile query is too large'; end if;
  select coalesce(jsonb_agg(profile),'[]'::jsonb) into result from (
  select jsonb_build_object('id',u.id,'name',u.name,'display_name',u.display_name,'username',u.username,
@@ -110,7 +119,7 @@ language sql stable security definer set search_path = '' as $$
  and gaga_private.visible(callee,caller,gaga_private.policy(callee)->>'calls')
 $$;
 create or replace function public.gaga_can_call(callee uuid) returns boolean
-language sql stable security invoker set search_path = '' as $$ select gaga_private.call_allowed(auth.uid(),callee) $$;
+language sql stable security invoker set search_path = '' as $$ select gaga_private.session_active() and gaga_private.call_allowed(auth.uid(),callee) $$;
 create or replace function gaga_private.guard_call() returns trigger
 language plpgsql security definer set search_path = '' as $$
 begin
@@ -135,9 +144,10 @@ create policy gaga_saved_messages_owner on public.saved_messages as restrictive 
 
 create or replace function gaga_private.validate_call(call_id uuid,caller uuid,incoming boolean) returns boolean
 language sql stable security definer set search_path = '' as $$
- select auth.uid() is not null and exists(select 1 from public.call_history h where h.id=call_id
+ select gaga_private.session_active() and exists(select 1 from public.call_history h where h.id=call_id
  and (case when incoming then h.callee_id=auth.uid() else auth.uid() in (h.caller_id,h.callee_id) end)
  and (caller is null or h.caller_id=caller)
+ and (not incoming or h.status in ('calling','ringing','connecting'))
  and gaga_private.call_allowed(h.caller_id,h.callee_id)
  and ((h.status in ('calling','ringing','connecting','accepted') and h.created_at>now()-interval '2 minutes')
  or (h.status in ('connected','reconnecting') and h.created_at>now()-interval '24 hours')))
@@ -172,7 +182,7 @@ create or replace function gaga_private.route_text(chat text,body text) returns 
 language plpgsql security definer set search_path='' as $$
 declare target uuid; c public.chats%rowtype;
 begin
- if auth.uid() is null then raise insufficient_privilege; end if;
+ if auth.uid() is null or not gaga_private.session_active() then raise insufficient_privilege; end if;
  select * into c from public.chats where id=chat and auth.uid()::text=any(participants);
  if not found then raise insufficient_privilege; end if;
  if c.type not in ('direct','dm') then return false; end if;
@@ -190,7 +200,7 @@ create or replace function public.gaga_route_text(chat text,body text) returns b
 create or replace function gaga_private.message_requests() returns jsonb
 language plpgsql stable security definer set search_path='' as $$
 begin
- if auth.uid() is null then raise insufficient_privilege; end if;
+ if auth.uid() is null or not gaga_private.session_active() then raise insufficient_privilege; end if;
  return coalesce((select jsonb_agg(x) from (select r.id,r.sender_id,r.chat_id,r.preview,r.status,coalesce(u.display_name,u.name,u.username,'GaGa User') as sender_name
  from public.gaga_message_requests r join public.users u on u.id=r.sender_id where r.recipient_id=auth.uid() and r.status='pending' and not gaga_private.blocked(r.sender_id,auth.uid()) order by r.updated_at desc limit 100) x),'[]'::jsonb);
 end $$;
@@ -199,7 +209,7 @@ create or replace function gaga_private.respond_request(request_id uuid,action t
 language plpgsql security definer set search_path='' as $$
 declare r public.gaga_message_requests%rowtype;
 begin
- if auth.uid() is null then raise insufficient_privilege; end if;
+ if auth.uid() is null or not gaga_private.session_active() then raise insufficient_privilege; end if;
  if action not in ('accept','delete','block') then raise exception 'Invalid request action'; end if;
  select * into r from public.gaga_message_requests where id=request_id and recipient_id=auth.uid() for update;
  if not found then raise insufficient_privilege; end if;
@@ -229,7 +239,7 @@ create trigger gaga_message_privacy before insert on public.messages for each ro
 create or replace function gaga_private.username_available(candidate text) returns boolean
 language plpgsql stable security definer set search_path='' as $$
 begin
- if auth.uid() is null then raise insufficient_privilege; end if;
+ if auth.uid() is null or not gaga_private.session_active() then raise insufficient_privilege; end if;
  if candidate is null or length(candidate) not between 3 and 32 then return false; end if;
  return not exists(select 1 from public.users where lower(username)=lower(trim(candidate)) and id<>auth.uid());
 end $$;
@@ -240,3 +250,73 @@ grant execute on all functions in schema gaga_private to authenticated,service_r
 revoke all on function public.gaga_route_text(text,text),public.gaga_message_requests(),public.gaga_respond_message_request(uuid,text),public.gaga_username_available(text) from public,anon;
 grant execute on function public.gaga_route_text(text,text),public.gaga_message_requests(),public.gaga_respond_message_request(uuid,text),public.gaga_username_available(text) to authenticated;
 revoke select on public.presence,public.typing,public.chat_reads,public.friendships,public.saved_messages from public,anon;
+
+create or replace function gaga_private.call_allowed(caller uuid,callee uuid) returns boolean
+language sql stable security definer set search_path='' as $$
+ select caller is not null and callee is not null and caller<>callee and not gaga_private.blocked(caller,callee)
+ and gaga_private.visible(callee,caller,gaga_private.policy(callee)->>'calls')
+ and (gaga_private.policy(callee)->>'messages'<>'REQUESTS' or gaga_private.friends(caller,callee)
+ or exists(select 1 from public.gaga_message_requests where sender_id=caller and recipient_id=callee and status='accepted'))
+$$;
+revoke all on function gaga_private.call_allowed(uuid,uuid) from public,anon;
+grant execute on function gaga_private.call_allowed(uuid,uuid) to authenticated,service_role;
+
+-- Legacy discovery RPCs must use the same opt-ins and projection as search.
+-- Phone login must use Auth verification; an anonymous phone-to-email lookup
+-- would defeat contact-detail visibility even with correct table RLS.
+revoke execute on function public.lookup_phone_login(text) from public,anon,authenticated;
+create or replace function gaga_private.contact_profiles(emails text[],phones text[],hashed boolean) returns jsonb
+language plpgsql stable security definer set search_path='' as $$
+declare ids uuid[];
+begin
+ if auth.uid() is null or not gaga_private.session_active() then raise insufficient_privilege; end if;
+ if cardinality(emails)>200 or cardinality(phones)>200 then raise exception 'Contact query is too large'; end if;
+ select array_agg(id) into ids from (select u.id from public.users u where u.id<>auth.uid() and not gaga_private.blocked(u.id,auth.uid()) and
+ ((coalesce((gaga_private.policy(u.id)->>'discover_email')::boolean,false) and
+ (case when hashed then u.email_hash=any(emails) else lower(u.email)=any(select lower(x) from unnest(emails) x) end)) or
+ (coalesce((gaga_private.policy(u.id)->>'discover_phone')::boolean,false) and
+ (case when hashed then u.phone_hash=any(phones) else u.phone=any(phones) end))) order by u.id limit 200) candidates;
+ return gaga_private.profiles(coalesce(ids,'{}'::uuid[]),null);
+end $$;
+create or replace function public.match_contacts(p_emails text[] default '{}',p_phones text[] default '{}')
+returns table(id uuid,name text,display_name text,username text,avatar text,is_verified boolean,is_premium boolean,phone text,email text)
+language sql stable security invoker set search_path='' as $$
+ select x.id,x.name,x.display_name,x.username,x.avatar,x.is_verified,x.is_premium,x.phone,x.email
+ from jsonb_to_recordset(gaga_private.contact_profiles(p_emails,p_phones,false)) x(id uuid,name text,display_name text,username text,avatar text,is_verified boolean,is_premium boolean,phone text,email text)
+$$;
+create or replace function public.discover_contacts(p_phone_hashes text[] default '{}',p_email_hashes text[] default '{}')
+returns table(id uuid,name text,display_name text,username text,avatar text,bio text,is_verified boolean,phone_hash text,email_hash text)
+language sql stable security invoker set search_path='' as $$
+ select x.id,x.name,x.display_name,x.username,x.avatar,x.bio,x.is_verified,null::text,null::text
+ from jsonb_to_recordset(gaga_private.contact_profiles(p_email_hashes,p_phone_hashes,true)) x(id uuid,name text,display_name text,username text,avatar text,bio text,is_verified boolean)
+$$;
+revoke all on function gaga_private.contact_profiles(text[],text[],boolean),public.match_contacts(text[],text[]),public.discover_contacts(text[],text[]) from public,anon;
+grant execute on function gaga_private.contact_profiles(text[],text[],boolean),public.match_contacts(text[],text[]),public.discover_contacts(text[],text[]) to authenticated;
+
+-- Supabase logout/revocation leaves an access JWT valid until expiry. Every
+-- exposed RLS table additionally checks the referenced Auth session record.
+do $$ declare t record; begin
+ for t in select c.relname from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and c.relkind in ('r','p') and c.relrowsecurity loop
+  execute format('create policy gaga_active_session on public.%I as restrictive for all to authenticated using(gaga_private.session_active()) with check(gaga_private.session_active())',t.relname);
+ end loop;
+end $$;
+create or replace function gaga_private.account_sessions() returns jsonb
+language plpgsql stable security definer set search_path='' as $$
+begin
+ if not gaga_private.session_active() then raise insufficient_privilege; end if;
+ return coalesce((select jsonb_agg(x) from (select s.id,s.user_agent,s.created_at,
+ coalesce(s.refreshed_at::timestamptz,s.updated_at,s.created_at) as last_activity,s.id::text=auth.jwt()->>'session_id' as is_current
+ from auth.sessions s where s.user_id=auth.uid() and (s.not_after is null or s.not_after>now()) order by s.created_at desc limit 100) x),'[]'::jsonb);
+end $$;
+create or replace function public.gaga_account_sessions() returns jsonb language sql stable security invoker set search_path='' as $$ select gaga_private.account_sessions() $$;
+create or replace function gaga_private.revoke_session(session_id uuid) returns void
+language plpgsql security definer set search_path='' as $$
+begin
+ if not gaga_private.session_active() or not exists(select 1 from auth.sessions s where s.user_id=auth.uid() and s.id::text=auth.jwt()->>'session_id' and s.created_at>now()-interval '5 minutes') then raise insufficient_privilege; end if;
+ if session_id::text=auth.jwt()->>'session_id' then raise exception 'Use sign out to end the current session'; end if;
+ delete from auth.sessions s where s.user_id=auth.uid() and s.id::text<>auth.jwt()->>'session_id' and (session_id is null or s.id=session_id);
+end $$;
+create or replace function public.gaga_revoke_session(session_id uuid default null) returns void language sql security invoker set search_path='' as $$ select gaga_private.revoke_session(session_id) $$;
+create or replace function public.get_my_profile() returns public.users language sql stable security invoker set search_path='' as $$ select u from public.users u where u.id=auth.uid() $$;
+revoke all on function gaga_private.session_active(),gaga_private.account_sessions(),gaga_private.revoke_session(uuid),public.gaga_session_active(),public.gaga_account_sessions(),public.gaga_revoke_session(uuid) from public,anon;
+grant execute on function gaga_private.session_active(),gaga_private.account_sessions(),gaga_private.revoke_session(uuid),public.gaga_session_active(),public.gaga_account_sessions(),public.gaga_revoke_session(uuid) to authenticated,service_role;

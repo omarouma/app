@@ -95,6 +95,7 @@ import app.gagachat.core.ui.component.GagaDivider
 import app.gagachat.core.ui.component.GagaPrimaryButton
 import app.gagachat.core.ui.component.GagaScaffold
 import app.gagachat.core.ui.component.GagaSectionHeader
+import app.gagachat.core.ui.component.GagaPasswordField
 import app.gagachat.core.ui.component.GagaSettingsRow
 import app.gagachat.core.ui.theme.GagaDimens
 import kotlinx.coroutines.launch
@@ -814,6 +815,29 @@ fun SecuritySettingsScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val secureDevice = (context.getSystemService(android.content.Context.KEYGUARD_SERVICE) as? android.app.KeyguardManager)?.isDeviceSecure == true
+    var passwordVisible by remember { mutableStateOf(false) }
+    var sessionsVisible by remember { mutableStateOf(false) }
+    var currentPassword by remember { mutableStateOf("") }
+    var newPassword by remember { mutableStateOf("") }
+    var confirmation by remember { mutableStateOf("") }
+    if (passwordVisible) AlertDialog(onDismissRequest = { if (!state.securityBusy) { passwordVisible = false; currentPassword = ""; newPassword = ""; confirmation = "" } }, title = { Text("Change password") },
+        text = { Column(Modifier.verticalScroll(rememberScrollState())) {
+            GagaPasswordField(currentPassword, { currentPassword = it }, "Current password", enabled = !state.securityBusy)
+            GagaPasswordField(newPassword, { newPassword = it }, "New password", enabled = !state.securityBusy)
+            GagaPasswordField(confirmation, { confirmation = it }, "Confirm new password", enabled = !state.securityBusy)
+            state.securityNotice?.let { Text(it) }
+        } }, confirmButton = { TextButton(onClick = { viewModel.changePassword(currentPassword, newPassword, confirmation); currentPassword = ""; newPassword = ""; confirmation = "" }, enabled = !state.securityBusy) { Text(if (state.securityBusy) "Saving…" else "Save") } }, dismissButton = { TextButton(onClick = { passwordVisible = false; currentPassword = ""; newPassword = ""; confirmation = "" }, enabled = !state.securityBusy) { Text("Close") } })
+    if (sessionsVisible) AlertDialog(onDismissRequest = { if (!state.securityBusy) { sessionsVisible = false; currentPassword = "" } }, title = { Text("Active sessions") },
+        text = { Column(Modifier.verticalScroll(rememberScrollState())) {
+            Text("Enter your password to revoke sessions. Revocation blocks subsequent GaGa data requests. Media already connected may continue until the device checks its session.")
+            GagaPasswordField(currentPassword, { currentPassword = it }, "Password", enabled = !state.securityBusy)
+            state.securityNotice?.let { Text(it) }
+            state.sessions.forEach { session ->
+                Text(if (session.isCurrent) "This session" else session.userAgent?.take(160) ?: "Unknown device", style = MaterialTheme.typography.titleSmall)
+                Text("Last activity: " + (session.lastActivity ?: "Unavailable"), style = MaterialTheme.typography.bodySmall)
+                if (!session.isCurrent) TextButton(onClick = { viewModel.revokeSession(session.id, currentPassword); currentPassword = "" }, enabled = !state.securityBusy) { Text("Revoke") }
+            }
+        } }, confirmButton = { TextButton(onClick = { viewModel.revokeSession(null, currentPassword); currentPassword = "" }, enabled = !state.securityBusy) { Text("Sign out others") } }, dismissButton = { TextButton(onClick = viewModel::loadSessions) { Text("Refresh") } })
     GagaScaffold(title = "Security", onBack = onBack) { padding ->
         Column(
             modifier = Modifier
@@ -835,6 +859,8 @@ fun SecuritySettingsScreen(
                 },
             )
             GagaDivider()
+            GagaSettingsRow(title = "Change password", subtitle = "Verify your current password before changing it", onClick = { passwordVisible = true })
+            GagaSettingsRow(title = "Active sessions", subtitle = "Review devices and sign out other sessions", onClick = { sessionsVisible = true; viewModel.loadSessions() })
             // NOTE: Blocked users lives under Privacy (single source of truth).
             // Security focuses on device/app protection only, so the two screens
             // no longer duplicate the same entry (spec §1 de-duplication).
@@ -971,6 +997,7 @@ fun DeleteAccountSettingsScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     var confirmVisible by remember { mutableStateOf(false) }
+    var deletionPassword by remember { mutableStateOf("") }
     val snackbar = remember { SnackbarHostState() }
 
     LaunchedEffect(state.accountDeleted) {
@@ -989,8 +1016,8 @@ fun DeleteAccountSettingsScreen(
         ) {
             Text(
                 text = "Deleting your account is permanent. This removes your profile, " +
-                    "messages, media, friends and call history from GaGa Chat, and signs " +
-                    "you out on every device. This action cannot be undone.",
+                    "owned account records and authentication access. Previously shared copies " +
+                    "may remain on other devices. This action cannot be undone.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(GagaDimens.space16),
@@ -1013,14 +1040,14 @@ fun DeleteAccountSettingsScreen(
             icon = { Icon(Icons.Filled.DeleteSweep, contentDescription = null) },
             title = { Text("Delete account?") },
             text = {
-                Text(
-                    "This will permanently delete your GaGa Chat account and all of your " +
-                        "data. You cannot undo this.",
-                )
+                Column {
+                    Text("Verify your password to permanently delete the account. Previously shared copies may remain on other devices.")
+                    GagaPasswordField(deletionPassword, { deletionPassword = it }, "Password", enabled = !state.isDeletingAccount)
+                }
             },
             confirmButton = {
                 TextButton(
-                    onClick = { viewModel.deleteAccount() },
+                    onClick = { viewModel.deleteAccount(deletionPassword) },
                     enabled = !state.isDeletingAccount,
                 ) {
                     Text(

@@ -50,6 +50,13 @@ class GagaFirebaseMessagingService : FirebaseMessagingService() {
      */
     override fun onMessageReceived(message: RemoteMessage) {
         val data = message.data
+        if (data["type"] in setOf("call", "incoming_call")) {
+            val payload = androidx.work.Data.Builder().putLong("received_at", System.currentTimeMillis()).apply { data.forEach { (key, value) -> putString(key, value) } }.build()
+            val work = androidx.work.OneTimeWorkRequestBuilder<ValidatedCallPushWorker>().setInputData(payload)
+                .setExpedited(androidx.work.OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST).build()
+            androidx.work.WorkManager.getInstance(this).enqueueUniqueWork("call-push:" + (data["call_id"] ?: data["callId"] ?: message.messageId), androidx.work.ExistingWorkPolicy.KEEP, work)
+            return
+        }
         val title = message.notification?.title
         val body = message.notification?.body
         try {

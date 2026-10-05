@@ -42,6 +42,12 @@ interface UserDao {
     @Query("DELETE FROM users WHERE id = :id")
     suspend fun deleteById(id: String)
 
+    @Query("UPDATE users SET phone=NULL,email=NULL,avatar=NULL,coverImage=NULL,coverVideo=NULL,bio=NULL,statusMessage=NULL,lastSeen=NULL,status='offline',followersCount=0,followingCount=0 WHERE id<>:owner")
+    suspend fun redactOtherProfiles(owner: String)
+
+    @Query("UPDATE conversation_members SET avatar=NULL")
+    suspend fun clearMemberAvatars()
+
     @Query("DELETE FROM users")
     suspend fun deleteAll()
 }

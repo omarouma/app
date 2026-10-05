@@ -20,6 +20,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -44,6 +46,26 @@ fun LoginRoute(
     viewModel: LoginViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    var recoveryVisible by remember { mutableStateOf(false) }
+    var recoveryEmail by remember { mutableStateOf("") }
+    var recoveryProof by remember { mutableStateOf("") }
+    var recoveryPassword by remember { mutableStateOf("") }
+    var recoveryConfirmation by remember { mutableStateOf("") }
+    if (recoveryVisible) androidx.compose.material3.AlertDialog(
+        onDismissRequest = { if (!state.recoveryBusy) { recoveryVisible = false; recoveryProof = ""; recoveryPassword = ""; recoveryConfirmation = "" } },
+        title = { Text("Recover your account") },
+        text = { Column(Modifier.verticalScroll(rememberScrollState())) {
+            GagaTextField(value = recoveryEmail, onValueChange = { recoveryEmail = it }, label = "Email", keyboardType = KeyboardType.Email, enabled = !state.recoveryBusy)
+            androidx.compose.material3.TextButton(onClick = { viewModel.requestRecovery(recoveryEmail) }, enabled = !state.recoveryBusy) { Text("Send recovery email") }
+            GagaTextField(value = recoveryProof, onValueChange = { recoveryProof = it }, label = "Recovery link or code", enabled = !state.recoveryBusy)
+            GagaPasswordField(value = recoveryPassword, onValueChange = { recoveryPassword = it }, label = "New password", enabled = !state.recoveryBusy)
+            GagaPasswordField(value = recoveryConfirmation, onValueChange = { recoveryConfirmation = it }, label = "Confirm password", enabled = !state.recoveryBusy)
+            state.recoveryNotice?.let { Text(it) }
+            if (state.recoveryBusy) Text("Please wait…")
+        } },
+        confirmButton = { androidx.compose.material3.TextButton(onClick = { viewModel.completeRecovery(recoveryEmail, recoveryProof, recoveryPassword, recoveryConfirmation) }, enabled = !state.recoveryBusy) { Text("Reset password") } },
+        dismissButton = { androidx.compose.material3.TextButton(onClick = { recoveryVisible = false; recoveryProof = ""; recoveryPassword = ""; recoveryConfirmation = "" }, enabled = !state.recoveryBusy) { Text("Close") } },
+    )
     val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(state.isAuthenticated) {
@@ -115,6 +137,7 @@ fun LoginRoute(
                 onClick = viewModel::submit,
                 loading = state.isSubmitting,
             )
+            GagaTextButton(text = "Forgot password?", onClick = { recoveryEmail = state.identifier; recoveryVisible = true })
             Spacer(Modifier.height(GagaDimens.space12))
             GagaTextButton(
                 text = "Email me a sign-in code instead",

@@ -75,7 +75,7 @@ class PushHandler @Inject constructor(
 
         when (type) {
             "call", "incoming_call" -> {
-                if (callId == null || !runCatching { privacyApi.validateIncomingCall(callId, data["caller_id"] ?: data["callerId"]) }.getOrDefault(false)) return
+                if (callId == null || !privacyApi.validateIncomingCall(callId, data["caller_id"] ?: data["callerId"])) return
                 if (conversationId != null) {
                     NotificationHelper.showIncomingCall(
                         context = context,

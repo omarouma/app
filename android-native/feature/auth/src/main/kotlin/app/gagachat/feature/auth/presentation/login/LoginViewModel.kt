@@ -14,6 +14,8 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 data class LoginUiState(
+    val recoveryNotice: String? = null,
+    val recoveryBusy: Boolean = false,
     val identifier: String = "",
     val password: String = "",
     val identifierError: String? = null,
@@ -63,6 +65,26 @@ class LoginViewModel @Inject constructor(
                 }
                 AppResult.Loading -> Unit
             }
+        }
+    }
+
+    fun requestRecovery(email: String) {
+        val invalid = validateIdentifier(email)
+        if (invalid != null) { _state.update { it.copy(recoveryNotice = invalid) }; return }
+        if (_state.value.recoveryBusy) return
+        _state.update { it.copy(recoveryBusy = true, recoveryNotice = null) }
+        viewModelScope.launch {
+            val result = authRepository.requestRecovery(email.trim())
+            _state.update { it.copy(recoveryBusy = false, recoveryNotice = if (result is AppResult.Failure) result.error.toUserMessage() else "If an account exists, a recovery email has been sent. Paste its unused recovery link or code below.") }
+        }
+    }
+    fun completeRecovery(email: String, proof: String, password: String, confirmation: String) {
+        if (_state.value.recoveryBusy) return
+        if (password.length < 8 || password != confirmation || proof.isBlank()) { _state.update { it.copy(recoveryNotice = "Enter the recovery proof and matching passwords of at least 8 characters.") }; return }
+        _state.update { it.copy(recoveryBusy = true, recoveryNotice = null) }
+        viewModelScope.launch {
+            val result = authRepository.completeRecovery(email.trim(), proof.trim(), password)
+            _state.update { it.copy(recoveryBusy = false, password = "", recoveryNotice = if (result is AppResult.Failure) "Recovery failed or the proof expired. Request a new email and retry." else "Password updated. Close this dialog and sign in with your new password.") }
         }
     }
 

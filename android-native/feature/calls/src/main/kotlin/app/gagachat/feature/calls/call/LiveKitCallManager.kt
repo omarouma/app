@@ -283,7 +283,7 @@ class LiveKitCallManager @Inject constructor(
      * only enabled for video calls. Failures are non-fatal: an audio-only
      * fallback is far better than dropping the call.
      */
-    private suspend fun publishInitialTracks(room: Room, isVideo: Boolean): Boolean {
+    internal suspend fun publishInitialTracks(room: Room, isVideo: Boolean): Boolean {
         val local = room.localParticipant
         try {
             check(withTimeout(10_000L) { local.setMicrophoneEnabled(true) }) { "Microphone publication failed" }

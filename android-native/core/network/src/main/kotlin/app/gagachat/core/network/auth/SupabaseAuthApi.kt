@@ -12,10 +12,12 @@ import app.gagachat.core.network.session.AuthSession
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.request.header
+import io.ktor.client.request.put
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.http.ContentType
 import io.ktor.http.contentType
+import kotlinx.serialization.json.put
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -75,6 +77,34 @@ class SupabaseAuthApi @Inject constructor(
         setBody(VerifyOtpRequest(email = email, phone = phone, token = token, type = type))
     }.body()
 
+    suspend fun requestRecovery(email: String) {
+        client.post("${config.authUrl}/recover") {
+            header("apikey", config.anonKey); contentType(ContentType.Application.Json)
+            setBody(kotlinx.serialization.json.buildJsonObject { put("email", email.trim()) })
+        }
+    }
+    suspend fun verifyRecovery(email: String, proof: String): TokenResponse {
+        val link = runCatching { java.net.URI(proof.trim()) }.getOrNull()
+        val params = link?.rawQuery?.split("&")?.mapNotNull { item -> item.split("=", limit = 2).takeIf { it.size == 2 }?.let { it[0] to java.net.URLDecoder.decode(it[1], "UTF-8") } }?.toMap()
+        val hash = params?.get("token_hash") ?: params?.get("token")
+        require(hash == null || (link?.host == java.net.URI(config.authUrl).host && params?.get("type") == "recovery")) { "Use the recovery link sent by GaGa" }
+        return client.post("${config.authUrl}/verify") {
+            header("apikey", config.anonKey); contentType(ContentType.Application.Json)
+            setBody(kotlinx.serialization.json.buildJsonObject {
+                put("type", "recovery")
+                if (hash != null) put("token_hash", hash)
+                else { put("email", email.trim()); put("token", proof.trim()) }
+            })
+        }.body()
+    }
+    suspend fun updatePassword(accessToken: String, password: String) {
+        client.put("${config.authUrl}/user") {
+            header("apikey", config.anonKey); header("Authorization", "Bearer $accessToken")
+            contentType(ContentType.Application.Json)
+            setBody(kotlinx.serialization.json.buildJsonObject { put("password", password) })
+        }
+    }
+
     suspend fun refresh(refreshToken: String): TokenResponse =
         client.post("${config.authUrl}/token?grant_type=refresh_token") {
             header("apikey", config.anonKey)
@@ -82,8 +112,8 @@ class SupabaseAuthApi @Inject constructor(
             setBody(RefreshRequest(refreshToken))
         }.body()
 
-    suspend fun signOut(accessToken: String) {
-        client.post("${config.authUrl}/logout") {
+    suspend fun signOut(accessToken: String, scope: String = "local") {
+        client.post("${config.authUrl}/logout?scope=$scope") {
             header("apikey", config.anonKey)
             header("Authorization", "Bearer $accessToken")
         }

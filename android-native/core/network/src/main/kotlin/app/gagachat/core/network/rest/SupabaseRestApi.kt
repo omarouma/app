@@ -95,6 +95,12 @@ class SupabaseRestApi @Inject constructor(
         }
     }
 
+    suspend fun isSessionActive(): Boolean = client.post("${config.restUrl}/rpc/gaga_session_active") { auth(); contentType(ContentType.Application.Json); setBody(buildJsonObject {}) }.body()
+    suspend fun getAccountSessions(): List<app.gagachat.core.model.AccountSession> = client.post("${config.restUrl}/rpc/gaga_account_sessions") { auth(); contentType(ContentType.Application.Json); setBody(buildJsonObject {}) }.body()
+    suspend fun revokeAccountSession(id: String?) {
+        client.post("${config.restUrl}/rpc/gaga_revoke_session") { auth(); contentType(ContentType.Application.Json); setBody(buildJsonObject { id?.let { put("session_id", it) } }) }
+    }
+
     // ---- Users ----
 
     private suspend fun privacyProfiles(ids: List<String>? = null, query: String? = null): List<UserRow> =
@@ -535,6 +541,9 @@ class SupabaseRestApi @Inject constructor(
      * so we look the row up first and PATCH when it already exists, otherwise
      * INSERT. Safe to call repeatedly (e.g. on every FCM token refresh).
      */
+    suspend fun unregisterCurrentDevice(deviceId: String) {
+        client.delete("${config.restUrl}/user_devices") { auth(); sessionStore.userId()?.let { parameter("user_id", "eq.$it") }; parameter("device_id", "eq.$deviceId") }
+    }
     suspend fun upsertDevice(row: DeviceRow) {
         val existing = client.get("${config.restUrl}/user_devices") {
             auth()

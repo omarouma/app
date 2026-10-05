@@ -31,6 +31,7 @@ class MessageRegressionTest {
     private val ids = mockk<IdGenerator>()
     private val clock = mockk<TimeProvider>()
     private val firebaseMirror = mockk<FirestoreChatMirror>(relaxed = true)
+    private val privacy = mockk<app.gagachat.core.data.preferences.SettingsPreferences>()
     private val appScope = CoroutineScope(Dispatchers.Unconfined)
     private fun repo(dispatcher: CoroutineDispatcher): DefaultMessageRepository {
         every { clock.nowMillis() } returns 999999L
@@ -43,8 +44,22 @@ class MessageRegressionTest {
         }
         return DefaultMessageRepository(
             messages, conversations, cursors, api, scheduler, ids, clock, dispatchers,
-            firebaseMirror, appScope, mockk(relaxed = true),
+            firebaseMirror, appScope, privacy,
         )
+    }
+
+    @Test fun disabledReceiptsDoNotReachAnyNetworkRoute() = runTest {
+        every { privacy.accountPrivacy } returns kotlinx.coroutines.flow.flowOf(AccountPrivacy(readReceipts = false))
+        repo(StandardTestDispatcher(testScheduler)).markRead("chat", "me")
+        coVerify(exactly = 0) { api.upsertChatRead(any()) }
+        coVerify(exactly = 0) { api.updateMessageDelivery(any(), any(), any(), any()) }
+        coVerify { conversations.updateUnreadCount("chat", 0) }
+    }
+    @Test fun disabledTypingIsNotMirroredToFirebase() = runTest {
+        every { privacy.accountPrivacy } returns kotlinx.coroutines.flow.flowOf(AccountPrivacy(typingIndicator = false))
+        repo(StandardTestDispatcher(testScheduler)).setTyping("chat", "me", true)
+        coVerify(exactly = 0) { api.upsertTyping(any(), any(), any()) }
+        coVerify(exactly = 0) { firebaseMirror.mirrorTyping(any(), any(), any()) }
     }
 
     @Test fun nullLocalIdsRemainDistinctAndReadStatusSurvives() = runTest {

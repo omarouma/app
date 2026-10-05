@@ -14,6 +14,7 @@ import app.gagachat.core.data.preferences.SettingsPreferences
 import app.gagachat.core.data.sync.RealtimeCoordinator
 import app.gagachat.diagnostics.CrashReporter
 import app.gagachat.push.NotificationChannels
+import coil.imageLoader
 import coil.ImageLoader
 import coil.ImageLoaderFactory
 import coil.decode.VideoFrameDecoder
@@ -59,6 +60,7 @@ class GagaApplication : Application(), Configuration.Provider, ImageLoaderFactor
 
     /** Cached privacy flag — when false we never advertise "online" (Master Spec §C). */
     @Volatile
+    @javax.inject.Inject lateinit var userDao: app.gagachat.core.database.dao.UserDao
     private var shareLastSeen: Boolean = true
 
     /** Periodic presence heartbeat, alive only while the app is foregrounded. */
@@ -79,7 +81,12 @@ class GagaApplication : Application(), Configuration.Provider, ImageLoaderFactor
             .onFailure { Log.w(TAG, "Realtime start failed", it) }
 
         applicationScope.launch {
-            authRepository.sessionFlow.collect {
+            authRepository.sessionFlow.collect { session ->
+                if (session != null) {
+                    userDao.redactOtherProfiles(session.userId)
+                    userDao.clearMemberAvatars()
+                    imageLoader.memoryCache?.clear()
+                }
                 runCatching { settingsPreferences.refreshAccountPrivacy() }
             }
         }
@@ -117,6 +124,7 @@ class GagaApplication : Application(), Configuration.Provider, ImageLoaderFactor
                     presenceJob = applicationScope.launch {
                         while (isActive) {
                             delay(PRESENCE_HEARTBEAT_MS)
+                            runCatching { authRepository.validateAndRefresh() }
                             runCatching { settingsPreferences.refreshAccountPrivacy() }
                             publishPresence(isOnline = true)
                         }
