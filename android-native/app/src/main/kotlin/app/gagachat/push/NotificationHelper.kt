@@ -100,6 +100,7 @@ object NotificationHelper {
             .setCategory(NotificationCompat.CATEGORY_CALL)
             .setPriority(NotificationCompat.PRIORITY_MAX)
             .setOngoing(true)
+            .setTimeoutAfter(45_000L)
             .setAutoCancel(true)
             .setFullScreenIntent(pending, true)
             .setContentIntent(pending)

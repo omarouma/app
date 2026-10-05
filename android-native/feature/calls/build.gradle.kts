@@ -28,4 +28,8 @@ dependencies {
     // `:app` module, so the SDK types that appear in its public surface must be
     // resolvable from `:app`'s compile classpath too.
     api(libs.livekit.android)
+
+    testImplementation(libs.junit)
+    testImplementation(libs.mockk)
+    testImplementation(libs.kotlinx.coroutines.test)
 }

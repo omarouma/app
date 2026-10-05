@@ -56,8 +56,8 @@ import javax.inject.Singleton
  *
  * ## Delivery guarantees
  *
- * Broadcasts are fire-and-forget: if the socket is momentarily down the message
- * is dropped. That is acceptable because signalling is idempotent and
+ * Broadcasts are sent over the HTTP API, independent of socket membership.
+ * Delivery failures are logged. That is acceptable because signalling is idempotent and
  * self-healing — a missed `RINGING` is recovered by the FCM push (see
  * [app.gagachat.push.GagaFirebaseMessagingService]) and a missed `HANGUP` is
  * recovered by
@@ -198,8 +198,7 @@ class CallSignalingCoordinator @Inject constructor(
                 logger.w(TAG, "Could not encode call signal", it)
                 return false
             }
-        // The socket may not be up yet; broadcast() drops in that case and the
-        // push path covers the gap.
+        // HTTP publication does not require joining the recipient's inbox.
         realtime.broadcast(topic, EVENT_CALL_SIGNAL, payload)
         return true
     }

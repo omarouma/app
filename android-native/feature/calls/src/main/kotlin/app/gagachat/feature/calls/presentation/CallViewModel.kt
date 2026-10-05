@@ -22,11 +22,16 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import io.livekit.android.renderer.SurfaceViewRenderer
 import io.livekit.android.room.participant.ConnectionQuality
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.buildJsonObject
@@ -100,6 +105,7 @@ class CallViewModel @Inject constructor(
 
     /** The server call id of the in-flight call, persisted when it finishes. */
     private var activeCallId: String? = null
+    private var setupJob: Job? = null
 
     /**
      * Fires when an outgoing call is never answered. LiveKit is a pure media
@@ -115,6 +121,7 @@ class CallViewModel @Inject constructor(
      * for the callee so a stale invite cannot ring forever.
      */
     private var incomingTimeoutJob: Job? = null
+    private var connectionTimeoutJob: Job? = null
 
     init {
         observeHistory()
@@ -151,12 +158,19 @@ class CallViewModel @Inject constructor(
                     // and counting ring time as talk time produced the misleading
                     // "0m 0s" history rows the old implementation suffered from.
                     val nextPhase = when {
-                        peers.isEmpty() -> current.phase
+                        peers.isEmpty() || activeCallId == null -> current.phase
                         current.phase == CallPhase.ENDED -> current.phase
                         else -> {
                             // The other party is in the room, so the ring is over
                             // and the "no answer" timer must not fire mid-call.
                             cancelRingTimeout()
+                            cancelIncomingTimeout()
+                            cancelConnectionTimeout()
+                            if (current.phase != CallPhase.CONNECTED) {
+                                activeCallId?.let { callId ->
+                                    viewModelScope.launch { runCatching { callRepository.markConnected(callId) } }
+                                }
+                            }
                             // Conversation audio is about to begin: the ringtone /
                             // ringback must stop before the first word is spoken.
                             callSoundPlayer.stop()
@@ -207,10 +221,25 @@ class CallViewModel @Inject constructor(
         val selfId = authRepository.sessionFlow.value?.userId ?: return
         if (signal.fromUserId == selfId) return
         val callId = activeCallId ?: return
-        if (signal.callId != callId) return
+        if (signal.callId != callId || signal.toUserId != selfId) return
+        if (signal.fromUserId != _state.value.peerId) return
         when (signal.kind) {
-            CallSignalKind.REJECT -> finalizeCall(CallStatus.REJECTED)
-            CallSignalKind.BUSY -> finalizeCall(CallStatus.BUSY)
+            CallSignalKind.ACCEPT -> {
+                if (_state.value.phase == CallPhase.OUTGOING_RINGING) {
+                    cancelRingTimeout()
+                    callSoundPlayer.stop()
+                    _state.update { it.copy(phase = CallPhase.CONNECTING) }
+                    startConnectionTimeout()
+                }
+            }
+            CallSignalKind.REJECT -> {
+                liveKitCallManager.disconnect()
+                finalizeCall(CallStatus.REJECTED)
+            }
+            CallSignalKind.BUSY -> {
+                liveKitCallManager.disconnect()
+                finalizeCall(CallStatus.BUSY)
+            }
             CallSignalKind.HANGUP -> {
                 liveKitCallManager.disconnect()
                 finalizeCall(CallStatus.ENDED)
@@ -265,107 +294,114 @@ class CallViewModel @Inject constructor(
     fun startCallForConversation(conversationId: String, isVideo: Boolean) {
         val session = authRepository.sessionFlow.value ?: return
         val currentUserId = session.userId
-        if (_state.value.phase in setOf(CallPhase.CONNECTING, CallPhase.OUTGOING_RINGING, CallPhase.CONNECTED)) return
+        if (_state.value.phase in setOf(CallPhase.CONNECTING, CallPhase.OUTGOING_RINGING, CallPhase.INCOMING_RINGING, CallPhase.CONNECTED)) return
         _state.update {
             it.copy(
                 phase = CallPhase.CONNECTING,
+                activeCall = null,
+                callId = null,
+                peerId = null,
+                peerName = null,
+                peerAvatar = null,
+                peers = emptyList(),
+                elapsedSeconds = 0L,
                 conversationId = conversationId,
                 isVideoCall = isVideo,
                 isVideoEnabled = isVideo,
                 error = null,
             )
         }
-        viewModelScope.launch {
-            liveKitCallManager.ensureInitialized()
-            val conversation = conversationRepository.observeConversation(conversationId).first()
-            val peer = conversation?.otherMember(currentUserId)
-            val peerId = peer?.userId
-            val peerName = peer?.displayName?.takeIf { it.isNotBlank() }
-                ?: conversation?.displayTitle(currentUserId) ?: "GaGa User"
-            val peerAvatar = peer?.avatar
-            val type = if (isVideo) CallType.VIDEO else CallType.AUDIO
+        setupJob = viewModelScope.launch {
+            try {
+                liveKitCallManager.ensureInitialized()
+                val conversation = withTimeout(10_000L) {
+                    conversationRepository.observeConversation(conversationId).filterNotNull().first()
+                }
+                val peer = conversation?.otherMember(currentUserId)
+                val peerId = peer?.userId ?: error("This conversation has no callable peer.")
+                val peerName = peer?.displayName?.takeIf { it.isNotBlank() }
+                    ?: conversation?.displayTitle(currentUserId) ?: "GaGa User"
+                val peerAvatar = peer?.avatar
+                _state.update { it.copy(peerId = peerId, peerName = peerName, peerAvatar = peerAvatar) }
+                val type = if (isVideo) CallType.VIDEO else CallType.AUDIO
 
-            when (
-                val result = callRepository.startCall(
-                    conversationId = conversationId,
-                    initiatorId = currentUserId,
-                    peerId = peerId,
-                    peerName = peerName,
-                    peerAvatar = peerAvatar,
-                    type = type,
-                )
-            ) {
-                is AppResult.Success -> {
-                    val callId = result.data.id
-                    activeCallId = callId
-                    _state.update {
-                        it.copy(
-                            phase = CallPhase.OUTGOING_RINGING,
-                            activeCall = result.data,
-                            callId = callId,
-                            peerId = peerId,
-                            peerName = peerName,
-                            peerAvatar = peerAvatar,
-                            isVideoCall = isVideo,
-                            isVideoEnabled = isVideo,
-                            elapsedSeconds = 0L,
-                        )
-                    }
-                    startRingTimeout()
-                    // Ringback for the caller: starts as soon as we begin ringing
-                    // the callee and stops the moment the call connects or ends.
-                    callSoundPlayer.startOutgoing()
-                    if (peerId == null) {
-                        _state.update { it.copy(error = "This conversation has no callable peer.") }
-                        return@launch
-                    }
-                    // Ring the callee's personal inbox, then join the per-call
-                    // topic so both sides hear accept/reject/hang-up.
-                    callSignalingCoordinator.joinCall(callId)
-                    callSignalingCoordinator.ring(
-                        toUserId = peerId,
-                        signal = CallSignalingCoordinator.invite(
-                            callId = callId,
-                            conversationId = conversationId,
-                            fromUserId = currentUserId,
-                            toUserId = peerId,
-                            payload = buildJsonObject {
-                                put("name", session.displayName ?: "GaGa User")
-                                put("video", isVideo)
-                                put("conversationId", conversationId)
-                            },
-                        ),
-                    )
-                    val joined = liveKitCallManager.connect(
-                        callId = callId,
-                        userId = currentUserId,
-                        userName = session.displayName ?: "GaGa User",
-                        isVideo = isVideo,
-                    )
-                    if (joined) {
-                        _state.update { it.copy(callLaunched = true) }
-                    } else {
-                        // Do not leave a durable server row stuck in ringing when
-                        // the room could not be joined.
-                        runCatching { callRepository.endCall(callId, CallStatus.FAILED, 0L) }
-                        callSignalingCoordinator.leaveCall(callId)
-                        activeCallId = null
+                when (
+                    val result = withTimeout(15_000L) { callRepository.startCall(
+                        conversationId = conversationId,
+                        initiatorId = currentUserId,
+                        peerId = peerId,
+                        peerName = peerName,
+                        peerAvatar = peerAvatar,
+                        type = type,
+                    ) }
+                ) {
+                    is AppResult.Success -> {
+                        val callId = result.data.id
+                        activeCallId = callId
                         _state.update {
                             it.copy(
-                                phase = CallPhase.ENDED,
-                                activeCall = null,
-                                callLaunched = false,
-                                error = liveKitCallManager.lastError
-                                    ?: "Could not start the call. Please try again.",
+                                phase = CallPhase.OUTGOING_RINGING,
+                                activeCall = result.data,
+                                callId = callId,
+                                peerId = peerId,
+                                peerName = peerName,
+                                peerAvatar = peerAvatar,
+                                isVideoCall = isVideo,
+                                isVideoEnabled = isVideo,
+                                elapsedSeconds = 0L,
                             )
                         }
+                        startRingTimeout()
+                        // Ring the callee's personal inbox, then join the per-call
+                        // topic so both sides hear accept/reject/hang-up.
+                        callSignalingCoordinator.joinCall(callId)
+                        callSignalingCoordinator.ring(
+                            toUserId = peerId,
+                            signal = CallSignalingCoordinator.invite(
+                                callId = callId,
+                                conversationId = conversationId,
+                                fromUserId = currentUserId,
+                                toUserId = peerId,
+                                payload = buildJsonObject {
+                                    put("name", session.displayName ?: "GaGa User")
+                                    put("video", isVideo)
+                                    put("conversationId", conversationId)
+                                },
+                            ),
+                        )
+                        val joined = liveKitCallManager.connect(
+                            callId = callId,
+                            userId = currentUserId,
+                            userName = session.displayName ?: "GaGa User",
+                            isVideo = isVideo,
+                        )
+                        if (joined) {
+                            _state.update { it.copy(callLaunched = true) }
+                            // Let the SDK acquire audio first so it cannot immediately
+                            // interrupt ringback with its initial focus request.
+                            if (_state.value.phase == CallPhase.OUTGOING_RINGING) {
+                                callSoundPlayer.startOutgoing()
+                            }
+                        } else {
+                            liveKitCallManager.disconnect()
+                            finalizeCall(CallStatus.FAILED, liveKitCallManager.lastError
+                                ?: "Could not start the call. Please try again.")
+                        }
                     }
+
+                    is AppResult.Failure ->
+                        _state.update { it.copy(phase = CallPhase.ENDED, error = result.error.toUserMessage()) }
+
+                    AppResult.Loading -> Unit
                 }
-
-                is AppResult.Failure ->
-                    _state.update { it.copy(phase = CallPhase.ENDED, error = result.error.toUserMessage()) }
-
-                AppResult.Loading -> Unit
+            } catch (timeout: TimeoutCancellationException) {
+                liveKitCallManager.disconnect()
+                finalizeCall(CallStatus.FAILED, "Call setup timed out. Please try again.")
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (error: Exception) {
+                liveKitCallManager.disconnect()
+                finalizeCall(CallStatus.FAILED, "Could not start the call. Please try again.")
             }
         }
     }
@@ -377,7 +413,7 @@ class CallViewModel @Inject constructor(
      * which is reached either from the full-screen call notification or from a
      * live Realtime invite while the app is in the foreground.
      *
-     * Nothing is joined here: the callee only enters the LiveKit room when they
+     * Only signalling is joined here: the callee enters the LiveKit room when they
      * actually accept, so a declined call never costs media time.
      */
     fun prepareIncomingCall(conversationId: String, callId: String?, isVideo: Boolean) {
@@ -389,7 +425,10 @@ class CallViewModel @Inject constructor(
         ) {
             return
         }
+        if (callId.isNullOrBlank()) return
+        if (_state.value.phase == CallPhase.INCOMING_RINGING) return
         activeCallId = callId
+        callSignalingCoordinator.joinCall(callId)
         _state.update {
             it.copy(
                 phase = CallPhase.INCOMING_RINGING,
@@ -406,7 +445,10 @@ class CallViewModel @Inject constructor(
         // call is accepted, rejected, cancelled, times out or otherwise ends.
         callSoundPlayer.startIncoming()
         viewModelScope.launch {
-            val conversation = conversationRepository.observeConversation(conversationId).first()
+            val conversation = withTimeoutOrNull(10_000L) {
+                conversationRepository.observeConversation(conversationId).filterNotNull().first()
+            }
+            if (activeCallId != callId) return@launch
             val peer = conversation?.otherMember(currentUserId)
             _state.update {
                 it.copy(
@@ -421,6 +463,8 @@ class CallViewModel @Inject constructor(
 
     /** Accepts an incoming call: joins the room and tells the caller we're in. */
     fun acceptCall() {
+        if (_state.value.phase != CallPhase.INCOMING_RINGING) return
+        cancelIncomingTimeout()
         val callId = activeCallId ?: _state.value.callId
         if (callId == null) {
             _state.update {
@@ -433,30 +477,29 @@ class CallViewModel @Inject constructor(
         // is even joined.
         callSoundPlayer.stop()
         _state.update { it.copy(phase = CallPhase.CONNECTING, error = null) }
-        viewModelScope.launch {
-            liveKitCallManager.ensureInitialized()
-            callSignalingCoordinator.joinCall(callId)
-            broadcastSignal(CallSignalKind.ACCEPT)
-            val joined = liveKitCallManager.connect(
-                callId = callId,
-                userId = session.userId,
-                userName = session.displayName ?: "GaGa User",
-                isVideo = _state.value.isVideoCall,
-            )
-            if (joined) {
-                _state.update { it.copy(callLaunched = true) }
-            } else {
-                runCatching { callRepository.endCall(callId, CallStatus.FAILED, 0L) }
-                callSignalingCoordinator.leaveCall(callId)
-                activeCallId = null
-                _state.update {
-                    it.copy(
-                        phase = CallPhase.ENDED,
-                        activeCall = null,
-                        callLaunched = false,
-                        error = liveKitCallManager.lastError ?: "Could not join the call.",
-                    )
+        startConnectionTimeout()
+        setupJob = viewModelScope.launch {
+            try {
+                liveKitCallManager.ensureInitialized()
+                callSignalingCoordinator.joinCall(callId)
+                broadcastSignal(CallSignalKind.ACCEPT)
+                val joined = liveKitCallManager.connect(
+                    callId = callId,
+                    userId = session.userId,
+                    userName = session.displayName ?: "GaGa User",
+                    isVideo = _state.value.isVideoCall,
+                )
+                if (joined) {
+                    _state.update { it.copy(callLaunched = true) }
+                } else {
+                    liveKitCallManager.disconnect()
+                    finalizeCall(CallStatus.FAILED, liveKitCallManager.lastError ?: "Could not join the call.")
                 }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (error: Exception) {
+                liveKitCallManager.disconnect()
+                finalizeCall(CallStatus.FAILED, "Could not join the call. Please try again.")
             }
         }
     }
@@ -549,6 +592,7 @@ class CallViewModel @Inject constructor(
     // ---- Internals ---------------------------------------------------------
 
     private fun onCallEnded(info: CallEndedInfo) {
+        if (activeCallId == null || info.initiatedLocally) return
         // `endCall()` / `rejectCall()` already finalised the call synchronously, so
         // this only has work to do when the room died on its own (peer hung up,
         // network dropped, SFU failure).
@@ -651,10 +695,33 @@ class CallViewModel @Inject constructor(
         incomingTimeoutJob = null
     }
 
+    /** A joined SFU room without the peer is not an answered call. */
+    private fun startConnectionTimeout() {
+        cancelConnectionTimeout()
+        val callId = activeCallId ?: return
+        connectionTimeoutJob = viewModelScope.launch {
+            delay(CONNECTION_TIMEOUT_MS)
+            if (activeCallId == callId && _state.value.phase == CallPhase.CONNECTING) {
+                connectionTimeoutJob = null
+                broadcastSignal(CallSignalKind.HANGUP)
+                liveKitCallManager.disconnect()
+                finalizeCall(CallStatus.FAILED, "The other person could not connect. Please try again.")
+            }
+        }
+    }
+
+    private fun cancelConnectionTimeout() {
+        connectionTimeoutJob?.cancel()
+        connectionTimeoutJob = null
+    }
+
     /** Persists the final status + duration and resets the UI to the ended state. */
     private fun finalizeCall(status: CallStatus, error: String? = null) {
+        setupJob?.cancel()
+        setupJob = null
         cancelRingTimeout()
         cancelIncomingTimeout()
+        cancelConnectionTimeout()
         // Single choke point for every terminal path (reject, cancel, hang-up,
         // busy, timeout, failure): the ring can never outlive its call.
         callSoundPlayer.stop()
@@ -676,6 +743,8 @@ class CallViewModel @Inject constructor(
                 phase = CallPhase.ENDED,
                 activeCall = null,
                 callLaunched = false,
+                callingReady = false,
+                peers = emptyList(),
                 error = error,
             )
         }
@@ -701,5 +770,6 @@ class CallViewModel @Inject constructor(
          * to reach their phone.
          */
         const val RING_TIMEOUT_MS = 45_000L
+        const val CONNECTION_TIMEOUT_MS = 45_000L
     }
 }
