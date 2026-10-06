@@ -159,9 +159,9 @@ class DefaultConversationRepository @Inject constructor(
 
     override suspend fun deleteConversation(conversationId: String) =
         withContext(dispatchers.io) {
+            restApi.deleteConversation(conversationId)
             conversationDao.deleteMembers(conversationId)
             conversationDao.deleteById(conversationId)
-            runCatching { restApi.deleteConversation(conversationId) }
             Unit
         }
 

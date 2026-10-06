@@ -106,6 +106,36 @@ class DailyLifeApi @Inject constructor(
         check(rows.size == 1) { "You no longer have access to this list" }
     }
 
+    suspend fun renameList(id: String, title: String) {
+        val rows: List<ShoppingList> = client.patch("${config.restUrl}/gaga_shopping_lists") {
+            auth(); parameter("id", "eq.$id"); header("Prefer", "return=representation")
+            setBody(buildJsonObject { put("title", title) })
+        }.body()
+        check(rows.size == 1) { "Only the owner can rename this list" }
+    }
+
+    suspend fun removeList(id: String) {
+        val rows: List<ShoppingList> = client.delete("${config.restUrl}/gaga_shopping_lists") {
+            auth(); parameter("id", "eq.$id"); header("Prefer", "return=representation")
+        }.body()
+        check(rows.size == 1) { "Only the owner can delete this list" }
+    }
+
+    suspend fun editItem(item: ShoppingItem, name: String, quantity: String) {
+        val rows: List<ShoppingItem> = client.patch("${config.restUrl}/gaga_shopping_items") {
+            auth(); parameter("id", "eq.${item.id}"); header("Prefer", "return=representation")
+            setBody(buildJsonObject { put("name", name); put("quantity", quantity) })
+        }.body()
+        check(rows.size == 1) { "You no longer have access to this item" }
+    }
+
+    suspend fun removeItem(item: ShoppingItem) {
+        val rows: List<ShoppingItem> = client.delete("${config.restUrl}/gaga_shopping_items") {
+            auth(); parameter("id", "eq.${item.id}"); header("Prefer", "return=representation")
+        }.body()
+        check(rows.size == 1) { "You no longer have access to this item" }
+    }
+
     suspend fun share(listId: String, userId: String, remove: Boolean = false) {
         client.post("${config.restUrl}/rpc/gaga_share_shopping_list") {
             auth(); setBody(buildJsonObject { put("list_id", listId); put("member_id", userId); put("remove_member", remove) })

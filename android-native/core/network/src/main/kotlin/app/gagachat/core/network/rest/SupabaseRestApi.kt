@@ -243,11 +243,13 @@ class SupabaseRestApi @Inject constructor(
 
     /** Delete a conversation (chats table) by id. */
     suspend fun deleteConversation(id: String) {
-        client.delete("${config.restUrl}/chats") {
+        val rows: List<kotlinx.serialization.json.JsonObject> = client.delete("${config.restUrl}/chats") {
             auth()
             parameter("id", "eq.$id")
-            header("Prefer", "return=minimal")
-        }
+            parameter("select", "id")
+            header("Prefer", "return=representation")
+        }.body()
+        check(rows.size == 1) { "Conversation could not be deleted" }
     }
 
     // ---- Messages ----
@@ -817,9 +819,21 @@ class SupabaseRestApi @Inject constructor(
         }.body()
 
     suspend fun markNotificationRead(id: String) {
-        client.patch("${config.restUrl}/notifications") {
+        val rows: List<NotificationRow> = client.patch("${config.restUrl}/notifications") {
             auth()
             parameter("id", "eq.$id")
+            header("Prefer", "return=representation")
+            contentType(ContentType.Application.Json)
+            setBody(mapOf("read" to true))
+        }.body()
+        check(rows.size == 1) { "Notification no longer available" }
+    }
+
+    suspend fun markAllNotificationsRead(userId: String) {
+        client.patch("${config.restUrl}/notifications") {
+            auth()
+            parameter("user_id", "eq.$userId")
+            parameter("read", "eq.false")
             header("Prefer", "return=minimal")
             contentType(ContentType.Application.Json)
             setBody(mapOf("read" to true))
@@ -846,11 +860,12 @@ class SupabaseRestApi @Inject constructor(
         }.body<List<SavedMessageRow>>().single()
 
     suspend fun deleteSavedMessage(id: String) {
-        client.delete("${config.restUrl}/saved_messages") {
+        val rows: List<SavedMessageRow> = client.delete("${config.restUrl}/saved_messages") {
             auth()
             parameter("id", "eq.$id")
-            header("Prefer", "return=minimal")
-        }
+            header("Prefer", "return=representation")
+        }.body()
+        check(rows.size == 1) { "Saved message no longer available" }
     }
 
     // ---- Typing ----

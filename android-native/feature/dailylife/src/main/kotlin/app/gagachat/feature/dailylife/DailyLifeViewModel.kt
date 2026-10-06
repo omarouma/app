@@ -14,6 +14,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Job
 import java.time.Instant
 import java.util.UUID
 import java.util.concurrent.TimeUnit
@@ -28,6 +29,7 @@ data class DailyUi(
     val busy: Boolean = false,
     val error: String? = null,
     val selectedList: ShoppingList? = null,
+    val listLoading: Boolean = false,
 )
 
 @HiltViewModel
@@ -40,6 +42,7 @@ class DailyLifeViewModel @Inject constructor(
     private val _state = MutableStateFlow(DailyUi())
     val state = _state.asStateFlow()
     val userId get() = session.userId().orEmpty()
+    private var listJob: Job? = null
     init { refresh() }
 
     fun refresh() = viewModelScope.launch {
@@ -91,19 +94,46 @@ class DailyLifeViewModel @Inject constructor(
         done()
     }
 
-    fun selectList(id: String) = viewModelScope.launch {
+    fun selectList(id: String): Job {
+        listJob?.cancel()
+        return viewModelScope.launch {
+        _state.update { it.copy(listLoading = true) }
         try {
             val list = api.lists().firstOrNull { it.id == id }
-            _state.update { it.copy(selectedList = list, items = emptyList(), members = emptyList()) }
             if (list != null) {
                 val items = api.items(id)
-                val members = profiles.getUsers(listOf(list.ownerId) + list.memberIds).map {
+                val members = try { profiles.getUsers(listOf(list.ownerId) + list.memberIds).map {
                     User(id = it.id, displayName = it.displayName.orEmpty(), username = it.username)
-                }
-                _state.update { it.copy(items = items, members = members) }
-            }
+                } } catch (e: CancellationException) { throw e } catch (e: Exception) { emptyList() }
+                _state.update { it.copy(selectedList = list, items = items, members = members, listLoading = false) }
+            } else _state.update { it.copy(selectedList = null, items = emptyList(), members = emptyList(), listLoading = false) }
         } catch (e: CancellationException) { throw e }
-        catch (e: Exception) { _state.update { it.copy(error = "Could not open the shopping list. Try refreshing.") } }
+        catch (e: Exception) { _state.update { it.copy(listLoading = false, error = "Could not open the shopping list. Try refreshing.") } }
+        }.also { listJob = it }
+    }
+
+    fun renameList(id: String, title: String, done: () -> Unit) = mutate {
+        require(title.trim().isNotEmpty())
+        api.renameList(id, title.trim().take(160))
+        selectList(id); done()
+    }
+
+    fun removeList(id: String, done: () -> Unit) = mutate {
+        api.removeList(id)
+        _state.update { it.copy(lists = it.lists.filterNot { list -> list.id == id }, selectedList = null, items = emptyList()) }
+        done()
+    }
+
+    fun editItem(item: ShoppingItem, name: String, quantity: String, done: () -> Unit) = mutate {
+        require(name.trim().isNotEmpty() && quantity.trim().isNotEmpty())
+        api.editItem(item, name.trim().take(160), quantity.trim().take(80))
+        val items = api.items(item.listId)
+        _state.update { it.copy(items = items) }; done()
+    }
+
+    fun removeItem(item: ShoppingItem, done: () -> Unit) = mutate {
+        api.removeItem(item)
+        _state.update { it.copy(items = it.items.filterNot { row -> row.id == item.id }) }; done()
     }
 
     fun addItem(listId: String, name: String, quantity: String, id: String, done: () -> Unit) = mutate {

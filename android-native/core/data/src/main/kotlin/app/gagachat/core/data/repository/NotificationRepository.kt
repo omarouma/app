@@ -1,6 +1,13 @@
 package app.gagachat.core.data.repository
 
 import app.gagachat.core.common.di.DispatcherProvider
+import app.gagachat.core.common.di.ApplicationScope
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.collect
 import app.gagachat.core.common.result.AppError
 import app.gagachat.core.common.result.AppResult
 import app.gagachat.core.model.AppNotification
@@ -33,6 +40,7 @@ class DefaultNotificationRepository @Inject constructor(
     private val restApi: SupabaseRestApi,
     private val authRepository: AuthRepository,
     private val dispatchers: DispatcherProvider,
+    @ApplicationScope scope: CoroutineScope,
 ) : NotificationRepository {
 
     private val _notifications = MutableStateFlow<List<AppNotification>>(emptyList())
@@ -40,6 +48,19 @@ class DefaultNotificationRepository @Inject constructor(
 
     private val _unreadCount = MutableStateFlow(0)
     override val unreadCount: StateFlow<Int> = _unreadCount.asStateFlow()
+
+    init {
+        var previousOwner = authRepository.sessionFlow.value?.userId
+        scope.launch {
+            authRepository.sessionFlow.map { it?.userId }.distinctUntilChanged().collect { owner ->
+                if (owner != previousOwner) {
+                _notifications.value = emptyList()
+                _unreadCount.value = 0
+                }
+                previousOwner = owner
+            }
+        }
+    }
 
     private val currentUserId: String
         get() = authRepository.sessionFlow.value?.userId.orEmpty()
@@ -49,32 +70,42 @@ class DefaultNotificationRepository @Inject constructor(
         if (me.isBlank()) return@withContext AppResult.Failure(AppError.Unauthorized("Not signed in"))
         try {
             val rows = restApi.getNotifications(me)
+            if (me != currentUserId) return@withContext AppResult.Failure(AppError.Unauthorized("Account changed"))
             _notifications.value = rows.map { it.toDomain() }
             _unreadCount.value = _notifications.value.count { !it.read }
             AppResult.Success(Unit)
         } catch (t: Throwable) {
+            if (t is CancellationException) throw t
             AppResult.Failure(ErrorMapper.map(t))
         }
     }
 
     override suspend fun markRead(id: String): AppResult<Unit> = withContext(dispatchers.io) {
+        val me = currentUserId
+        if (me.isBlank()) return@withContext AppResult.Failure(AppError.Unauthorized())
         try {
             restApi.markNotificationRead(id)
+            if (me != currentUserId) return@withContext AppResult.Failure(AppError.Unauthorized("Account changed"))
             _notifications.value = _notifications.value.map { if (it.id == id) it.copy(read = true) else it }
             _unreadCount.value = _notifications.value.count { !it.read }
             AppResult.Success(Unit)
         } catch (t: Throwable) {
+            if (t is CancellationException) throw t
             AppResult.Failure(ErrorMapper.map(t))
         }
     }
 
     override suspend fun markAllRead(): AppResult<Unit> = withContext(dispatchers.io) {
+        val me = currentUserId
+        if (me.isBlank()) return@withContext AppResult.Failure(AppError.Unauthorized())
         try {
-            _notifications.value.filter { !it.read }.forEach { runCatching { restApi.markNotificationRead(it.id) } }
+            restApi.markAllNotificationsRead(me)
+            if (me != currentUserId) return@withContext AppResult.Failure(AppError.Unauthorized("Account changed"))
             _notifications.value = _notifications.value.map { it.copy(read = true) }
             _unreadCount.value = 0
             AppResult.Success(Unit)
         } catch (t: Throwable) {
+            if (t is CancellationException) throw t
             AppResult.Failure(ErrorMapper.map(t))
         }
     }

@@ -241,6 +241,9 @@ fun MainNavHost(pendingDeepLink: String?) {
                 navController = navController,
                 onOpenProfile = { navController.navigate(ProfileRoutes.profile()) },
                 onSignedOut = { /* session flow swaps to auth graph */ },
+                onOpenChat = { navController.navigate(ChatRoutes.chat(it)) },
+                onOpenPeople = { navController.navigate(PeopleRoutes.PEOPLE) },
+                onOpenCalls = { navController.navigate(CallRoutes.CALL_HISTORY) },
             )
             walletGraph(navController = navController)
             dailyLifeGraph(navController, onSaved = { navController.navigate(SettingsRoutes.SAVED_MESSAGES) }, onChat = { navController.navigate(ChatRoutes.chat(it)) })

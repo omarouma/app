@@ -47,9 +47,13 @@ class DefaultSavedMessagesRepository @Inject constructor(
     override val savedMessages: StateFlow<List<SavedMessage>> = _savedMessages.asStateFlow()
 
     init {
+        var previousOwner = authRepository.sessionFlow.value?.userId
         scope.launch {
-            authRepository.sessionFlow.map { it?.userId }.distinctUntilChanged().collect {
+            authRepository.sessionFlow.map { it?.userId }.distinctUntilChanged().collect { owner ->
+                if (owner != previousOwner) {
                 _savedMessages.value = emptyList()
+                }
+                previousOwner = owner
             }
         }
     }
@@ -98,8 +102,11 @@ class DefaultSavedMessagesRepository @Inject constructor(
     }
 
     override suspend fun delete(id: String): AppResult<Unit> = withContext(dispatchers.io) {
+        val me = currentUserId
+        if (me.isBlank()) return@withContext AppResult.Failure(AppError.Unauthorized())
         try {
             restApi.deleteSavedMessage(id)
+            if (me != currentUserId) return@withContext AppResult.Failure(AppError.Unauthorized("Account changed"))
             _savedMessages.value = _savedMessages.value.filterNot { it.id == id }
             AppResult.Success(Unit)
         } catch (t: Throwable) {

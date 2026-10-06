@@ -3,6 +3,8 @@ package app.gagachat.feature.settings.navigation
 import androidx.navigation.NavController
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.compose.composable
+import app.gagachat.core.model.NotificationTarget
+import app.gagachat.core.model.target
 import app.gagachat.feature.settings.presentation.AboutSettingsScreen
 import app.gagachat.feature.settings.presentation.AccessibilitySettingsScreen
 import app.gagachat.feature.settings.presentation.AppPermissionsScreen
@@ -50,6 +52,9 @@ fun NavGraphBuilder.settingsScreen(
     navController: NavController,
     onOpenProfile: () -> Unit,
     onSignedOut: () -> Unit,
+    onOpenChat: (String) -> Unit,
+    onOpenPeople: () -> Unit,
+    onOpenCalls: () -> Unit,
 ) {
     composable(SettingsRoutes.SETTINGS) {
         SettingsRoute(
@@ -81,10 +86,17 @@ fun NavGraphBuilder.settingsScreen(
         NotificationsSettingsScreen(onBack = { navController.popBackStack() })
     }
     composable(SettingsRoutes.NOTIFICATIONS_INBOX) {
-        NotificationInboxScreen(onBack = { navController.popBackStack() })
+        NotificationInboxScreen(onBack = { navController.popBackStack() }, onOpenNotification = { notification ->
+            when (val target = notification.target()) {
+                is NotificationTarget.Chat -> onOpenChat(target.id)
+                NotificationTarget.People -> onOpenPeople()
+                NotificationTarget.Calls -> onOpenCalls()
+                null -> Unit
+            }
+        })
     }
     composable(SettingsRoutes.SAVED_MESSAGES) {
-        SavedMessagesScreen(onBack = { navController.popBackStack() })
+        SavedMessagesScreen(onBack = { navController.popBackStack() }, onOpenChat = onOpenChat)
     }
     composable(SettingsRoutes.PRIVACY) {
         PrivacySettingsScreen(

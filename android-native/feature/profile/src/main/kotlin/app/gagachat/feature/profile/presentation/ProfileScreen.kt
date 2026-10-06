@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -61,6 +62,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -609,15 +611,15 @@ private fun ProfileActionButton(
     modifier: Modifier = Modifier,
     primary: Boolean = false,
 ) {
-    val container = if (primary) GagaGreen else MaterialTheme.colorScheme.surfaceVariant
-    val content = if (primary) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
+    val container = if (primary) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant
+    val content = if (primary) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
     Row(
         modifier = modifier
-            .height(46.dp)
+            .heightIn(min = 48.dp)
             .clip(RoundedCornerShape(14.dp))
             .background(container)
             .clickable(onClick = onClick)
-            .padding(horizontal = GagaDimens.space8),
+            .padding(horizontal = GagaDimens.space8, vertical = GagaDimens.space12),
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -628,7 +630,9 @@ private fun ProfileActionButton(
             style = MaterialTheme.typography.labelMedium,
             color = content,
             fontWeight = FontWeight.SemiBold,
-            maxLines = 1,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f, fill = false),
         )
     }
 }

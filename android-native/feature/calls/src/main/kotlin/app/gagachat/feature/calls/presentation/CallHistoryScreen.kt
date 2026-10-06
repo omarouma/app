@@ -20,6 +20,14 @@ import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material.icons.filled.Videocam
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.foundation.layout.Box
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -67,9 +75,12 @@ fun CallHistoryRoute(
     viewModel: CallViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    var selectedTab by remember { mutableIntStateOf(0) }
-    var query by remember { mutableStateOf("") }
+    var selectedTab by rememberSaveable { mutableIntStateOf(0) }
+    var query by rememberSaveable { mutableStateOf("") }
     var confirmClear by remember { mutableStateOf(false) }
+    var pendingDelete by remember { mutableStateOf<String?>(null) }
+    val snackbar = remember { SnackbarHostState() }
+    LaunchedEffect(state.error) { state.error?.let { snackbar.showSnackbar(it) } }
 
     val allCalls = state.history
     val missedCount = remember(allCalls) { allCalls.count { it.isMissedCall() } }
@@ -98,8 +109,10 @@ fun CallHistoryRoute(
     GagaScaffold(
         title = "Calls",
         subtitle = subtitle,
+        snackbarHostState = snackbar,
         onBack = onNavigateBack,
         actions = {
+            IconButton(onClick = viewModel::refreshHistory) { Icon(Icons.Filled.Refresh, "Refresh call history") }
             if (allCalls.isNotEmpty()) {
                 IconButton(onClick = { confirmClear = true }) {
                     Icon(
@@ -170,7 +183,7 @@ fun CallHistoryRoute(
                                     onClick = { onOpenConversation(call.conversationId) },
                                     onCall = { onStartCall(call.conversationId, false) },
                                     onVideoCall = { onStartCall(call.conversationId, true) },
-                                    onDelete = { viewModel.deleteCall(call.id) },
+                                    onDelete = { pendingDelete = call.id },
                                 )
                                 GagaDivider()
                             }
@@ -179,6 +192,12 @@ fun CallHistoryRoute(
                 }
             }
         }
+    }
+    pendingDelete?.let { id ->
+        AlertDialog(onDismissRequest = { pendingDelete = null }, title = { Text("Remove call record?") },
+            text = { Text("This removes the record from your call history.") },
+            confirmButton = { TextButton(onClick = { viewModel.deleteCall(id); pendingDelete = null }) { Text("Remove") } },
+            dismissButton = { TextButton(onClick = { pendingDelete = null }) { Text("Cancel") } })
     }
 
     if (confirmClear) {
@@ -209,6 +228,7 @@ private fun CallHistoryRow(
     onVideoCall: () -> Unit,
     onDelete: () -> Unit,
 ) {
+    var menu by remember { mutableStateOf(false) }
     val missed = call.isMissedCall()
     val directionIcon = when {
         missed -> Icons.AutoMirrored.Filled.CallMissed
@@ -262,30 +282,27 @@ private fun CallHistoryRow(
                 tint = MaterialTheme.colorScheme.primary,
             )
         }
-        IconButton(onClick = onVideoCall) {
-            Icon(
-                imageVector = Icons.Filled.Videocam,
-                contentDescription = "Video call",
-                tint = MaterialTheme.colorScheme.primary,
-            )
-        }
-        IconButton(onClick = onDelete) {
-            Icon(
-                imageVector = Icons.Filled.Delete,
-                contentDescription = "Delete",
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+        Box {
+            IconButton(onClick = { menu = true }) { Icon(Icons.Filled.MoreVert, "Call options") }
+            DropdownMenu(menu, { menu = false }) {
+                DropdownMenuItem(text = { Text("Video call") }, onClick = { menu = false; onVideoCall() })
+                DropdownMenuItem(text = { Text("Remove record") }, onClick = { menu = false; onDelete() })
+            }
         }
     }
 }
 
 private fun CallSession.isMissedCall(): Boolean =
-    status == CallStatus.MISSED || status == CallStatus.REJECTED || status == CallStatus.BUSY
+    !isOutgoing && status == CallStatus.MISSED
 
 /** e.g. "Missed • Voice • 5h ago" or "Outgoing • Video • 1:27". */
 private fun callSubtitle(call: CallSession): String {
     val direction = when {
         call.isMissedCall() -> "Missed"
+        call.status == CallStatus.MISSED -> "No answer"
+        call.status == CallStatus.REJECTED -> "Declined"
+        call.status == CallStatus.BUSY -> "Busy"
+        call.status == CallStatus.FAILED -> "Failed"
         call.isOutgoing -> "Outgoing"
         else -> "Incoming"
     }

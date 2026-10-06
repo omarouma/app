@@ -2,6 +2,7 @@ package app.gagachat.feature.settings.presentation
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -17,10 +18,19 @@ import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.PersonAddAlt1
 import androidx.compose.material.icons.filled.VerifiedUser
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -47,33 +57,48 @@ import app.gagachat.core.ui.util.TimeFormat
 @Composable
 fun NotificationInboxScreen(
     onBack: () -> Unit,
+    onOpenNotification: (AppNotification) -> Unit,
     viewModel: NotificationInboxViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val busy by viewModel.busy.collectAsStateWithLifecycle()
+    val notice by viewModel.notice.collectAsStateWithLifecycle()
+    val unread by viewModel.unreadCount.collectAsStateWithLifecycle()
+    var unreadOnly by rememberSaveable { mutableStateOf(false) }
+    val snackbar = remember { SnackbarHostState() }
+    LaunchedEffect(notice) { notice?.let { snackbar.showSnackbar(it); viewModel.consumeNotice() } }
 
     GagaScaffold(
         title = "Notifications",
+        snackbarHostState = snackbar,
         onBack = onBack,
         actions = {
-            TextButton(onClick = viewModel::markAllRead) { Text("Mark all read") }
+            IconButton(onClick = { viewModel.refresh() }) { Icon(Icons.Filled.Refresh, "Refresh notifications") }
+            TextButton(onClick = { viewModel.markAllRead() }, enabled = !busy && unread > 0) { Text("Read all") }
         },
     ) { padding ->
+        Column(Modifier.fillMaxSize().padding(padding)) {
+        FilterChip(selected = unreadOnly, onClick = { unreadOnly = !unreadOnly },
+            label = { Text("Unread ($unread)") }, modifier = Modifier.padding(horizontal = 16.dp))
         GagaStateHost(
             state = state,
-            modifier = Modifier.fillMaxSize().padding(padding),
+            modifier = Modifier.fillMaxSize(),
             onRetry = viewModel::refresh,
             emptyIcon = Icons.Filled.Notifications,
             emptyTitle = "No notifications",
             emptyDescription = "Messages, friend requests and calls will show up here.",
         ) { items ->
+            val visible = items.filter { !unreadOnly || !it.read }
             LazyColumn(modifier = Modifier.fillMaxSize()) {
-                items(items, key = { it.id }) { notification ->
+                if (visible.isEmpty()) item { Text("You're all caught up", Modifier.padding(16.dp)) }
+                items(visible, key = { it.id }) { notification ->
                     NotificationRowItem(
                         notification = notification,
-                        onClick = { viewModel.markRead(notification.id) },
+                        onClick = { if (!notification.read) viewModel.markRead(notification.id); onOpenNotification(notification) },
                     )
                 }
             }
+        }
         }
     }
 }

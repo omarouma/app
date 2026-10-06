@@ -8,52 +8,58 @@ import app.gagachat.core.data.repository.SavedMessagesRepository
 import app.gagachat.core.model.SavedMessage
 import app.gagachat.core.ui.state.ScreenState
 import app.gagachat.core.ui.util.toScreenStateError
+import app.gagachat.core.ui.util.toUserMessage
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-/**
- * Saved Messages (Master Spec §C — Profile hub). Surfaces the LIVE
- * `saved_messages` table through [SavedMessagesRepository] so the Profile hub
- * entry shows the user's real bookmarks instead of bouncing back home.
- */
 @HiltViewModel
 class SavedMessagesViewModel @Inject constructor(
     private val repository: SavedMessagesRepository,
     private val networkMonitor: NetworkMonitor,
 ) : ViewModel() {
-
     private val _state = MutableStateFlow<ScreenState<List<SavedMessage>>>(ScreenState.Initial)
-    val state: StateFlow<ScreenState<List<SavedMessage>>> = _state.asStateFlow()
-
+    val state = _state.asStateFlow()
+    val busy = MutableStateFlow(false)
+    val notice = MutableStateFlow<String?>(null)
+    fun consumeNotice() { notice.value = null }
     init {
         refresh()
-        viewModelScope.launch {
-            repository.savedMessages.collectLatest { items ->
-                if (_state.value !is ScreenState.Loading) {
-                    _state.value = if (items.isEmpty()) ScreenState.Empty else ScreenState.Content(items)
-                }
-            }
+        viewModelScope.launch { repository.savedMessages.collectLatest { items ->
+            if (_state.value !is ScreenState.Loading) show(items)
+        } }
+    }
+    private fun show(items: List<SavedMessage>) {
+        _state.value = if (items.isEmpty()) ScreenState.Empty else ScreenState.Content(items)
+    }
+    fun refresh() = viewModelScope.launch {
+        if (_state.value !is ScreenState.Content) _state.value = ScreenState.Loading
+        when (val result = repository.refresh()) {
+            is AppResult.Success -> show(repository.savedMessages.value)
+            is AppResult.Failure -> if (repository.savedMessages.value.isNotEmpty()) {
+                show(repository.savedMessages.value); notice.value = result.error.toUserMessage()
+            } else _state.value = result.error.toScreenStateError(networkMonitor.isCurrentlyOnline())
+            AppResult.Loading -> Unit
         }
     }
-
-    fun refresh() {
-        viewModelScope.launch {
-            if (_state.value !is ScreenState.Content) _state.value = ScreenState.Loading
-            when (val r = repository.refresh()) {
-                is AppResult.Success -> {
-                    val items = repository.savedMessages.value
-                    _state.value = if (items.isEmpty()) ScreenState.Empty else ScreenState.Content(items)
-                }
-                is AppResult.Failure -> _state.value = r.error.toScreenStateError(networkMonitor.isCurrentlyOnline())
-                AppResult.Loading -> Unit
-            }
-        }
+    fun delete(id: String, done: () -> Unit) = mutate {
+        val result = repository.delete(id)
+        if (result is AppResult.Success) done()
+        result
     }
 
-    fun delete(id: String) = viewModelScope.launch { repository.delete(id) }
+    private fun mutate(action: suspend () -> AppResult<Unit>) {
+        if (busy.value) return
+        busy.value = true
+        viewModelScope.launch {
+            try {
+                val result = action()
+                if (result is AppResult.Failure) notice.value = result.error.toUserMessage()
+            } catch (e: CancellationException) { throw e }
+            catch (e: Exception) { notice.value = "Couldn't save this change. Try again." }
+            finally { busy.value = false }
+        }
+    }
 }

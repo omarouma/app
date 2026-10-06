@@ -9,6 +9,7 @@ import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -31,6 +32,8 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.repeatOnLifecycle
+import androidx.compose.ui.platform.LocalDensity
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.navigation.*
 import androidx.navigation.compose.composable
@@ -93,40 +96,65 @@ private fun Status(ui: DailyUi, vm: DailyLifeViewModel) {
 @Composable
 fun DailyHome(nav: NavController, onSaved: () -> Unit, vm: DailyLifeViewModel = hiltViewModel()) {
     val ui by vm.state.collectAsStateWithLifecycle()
+    val fontScale = LocalDensity.current.fontScale
     ResumeRefresh(vm)
     val sections = listOf("money" to Icons.Default.AccountBalanceWallet, "debts" to Icons.Default.People, "reminder" to Icons.Default.NotificationsActive, "shopping" to Icons.Default.ShoppingCart, "goal" to Icons.Default.Savings, "budget" to Icons.Default.PieChart, "account" to Icons.Default.AccountBalance, "note" to Icons.Default.Note)
-    GagaScaffold(title = "Daily Life", actions = { IconButton(onClick = { vm.refresh() }) { Icon(Icons.Default.Refresh,"Refresh") } }) { padding ->
-        LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            item { Text("Your everyday organizer", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold) }
-            item { Text("Personal records and plans. Recorded amounts are not money held by GaGa.", style = MaterialTheme.typography.bodyMedium) }
-            item { Status(ui,vm) }
-            val current = ui.records.filter { month(it.happenedAt) == YearMonth.now() }
-            items(current.filter { it.kind in listOf("income","expense") }.map { it.currency }.distinct()) { currency ->
-                val income = current.filter { it.kind=="income" && it.currency==currency }.sumOf { it.amountMinor }
-                val expense = current.filter { it.kind=="expense" && it.currency==currency }.sumOf { it.amountMinor }
-                Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)) {
-                    Column(Modifier.fillMaxWidth().padding(16.dp)) {
-                        Text("This month · $currency",fontWeight = FontWeight.Bold)
-                        Text("Income ${DailyMoney.format(income)}  ·  Expenses ${DailyMoney.format(expense)}")
-                        Text("Recorded difference ${DailyMoney.format(income-expense)}")
-                    }
+    GagaScaffold(title = "Daily Life", actions = { IconButton(onClick = { vm.refresh() }) { Icon(Icons.Default.Refresh, "Refresh") } }) { padding ->
+        BoxWithConstraints(Modifier.fillMaxSize().padding(padding)) {
+            val columns = if (maxWidth < 340.dp || fontScale > 1.2f) 1 else 2
+            LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                item {
+                    Text("Make room for your day", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+                    Text("Your money records, plans and shared lists.", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-            }
-            items(sections) { (section,icon) ->
-                Card(Modifier.fillMaxWidth().clickable { nav.navigate(DailyRoutes.records(section)) }) {
-                    Row(Modifier.padding(16.dp),verticalAlignment = Alignment.CenterVertically) {
-                        Icon(icon,null,tint=MaterialTheme.colorScheme.primary); Spacer(Modifier.width(16.dp))
-                        Column(Modifier.weight(1f)) {
-                            Text(title(section),fontWeight=FontWeight.SemiBold)
-                            val count = if(section=="shopping") ui.lists.size else ui.records.count { it.kind in kinds(section) }
-                            Text("$count records",style=MaterialTheme.typography.bodySmall)
+                item { Status(ui, vm) }
+                item { Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf("expense", "income", "reminder").forEach { kind ->
+                        FilledTonalButton(onClick = { nav.navigate(DailyRoutes.edit(kind)) }) { Text("Add ${labels[kind]}") }
+                    }
+                } }
+                val reminders = ui.records.filter { it.kind == "reminder" && !it.completed }
+                if (reminders.isNotEmpty()) item {
+                    val overdue = reminders.count { it.dueAt?.let { due -> Instant.parse(due).isBefore(Instant.now()) } == true }
+                    Card(Modifier.fillMaxWidth().clickable { nav.navigate(DailyRoutes.records("reminder")) }) {
+                        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.NotificationsActive, null, tint = MaterialTheme.colorScheme.primary)
+                            Spacer(Modifier.width(12.dp))
+                            Column(Modifier.weight(1f)) { Text("${reminders.size} pending reminders", fontWeight = FontWeight.SemiBold); Text("$overdue overdue", style = MaterialTheme.typography.bodySmall) }
+                            Icon(Icons.Default.ChevronRight, null)
                         }
-                        Icon(Icons.Default.ChevronRight,null)
                     }
                 }
+                val current = ui.records.filter { month(it.happenedAt) == YearMonth.now() }
+                items(current.filter { it.kind in listOf("income", "expense") }.map { it.currency }.distinct()) { currency ->
+                    val income = current.filter { it.kind == "income" && it.currency == currency }.sumOf { it.amountMinor }
+                    val expense = current.filter { it.kind == "expense" && it.currency == currency }.sumOf { it.amountMinor }
+                    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)) {
+                        Column(Modifier.fillMaxWidth().padding(16.dp)) {
+                            Text("This month · $currency", fontWeight = FontWeight.Bold)
+                            Text("Recorded difference ${DailyMoney.format(income - expense)}", style = MaterialTheme.typography.titleLarge)
+                            Text("Income ${DailyMoney.format(income)}")
+                            Text("Expenses ${DailyMoney.format(expense)}")
+                        }
+                    }
+                }
+                items(sections.chunked(columns)) { row ->
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        row.forEach { (section, icon) ->
+                            Card(Modifier.weight(1f).clickable { nav.navigate(DailyRoutes.records(section)) }) {
+                                Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Icon(icon, null, tint = MaterialTheme.colorScheme.primary)
+                                    Text(title(section), fontWeight = FontWeight.SemiBold)
+                                    val count = if (section == "shopping") ui.lists.size else ui.records.count { it.kind in kinds(section) }
+                                    Text("$count ${if (section == "shopping") "lists" else "records"}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                            }
+                        }
+                    }
+                }
+                item { OutlinedButton(onClick = onSaved, modifier = Modifier.fillMaxWidth()) { Icon(Icons.Default.Bookmark, null); Spacer(Modifier.width(8.dp)); Text("Saved messages") } }
+                item { Text("Personal records stay private. Only your chosen members can see shared shopping lists. Recorded amounts are not money held by GaGa.", style = MaterialTheme.typography.bodySmall) }
             }
-            item { OutlinedButton(onClick=onSaved,modifier=Modifier.fillMaxWidth()) { Icon(Icons.Default.Bookmark,null); Spacer(Modifier.width(8.dp));Text("Saved messages") } }
-            item { Text("Your personal records stay private. Shopping lists are visible to members you choose.",style=MaterialTheme.typography.bodySmall) }
         }
     }
 }
@@ -136,6 +164,7 @@ private fun RecordList(section: String, nav: NavController, onChat: (String) -> 
     val ui by vm.state.collectAsStateWithLifecycle()
     ResumeRefresh(vm)
     var query by rememberSaveable { mutableStateOf("") }
+    var filter by rememberSaveable { mutableStateOf("All") }
     var addList by remember { mutableStateOf(false) }
     var selected by remember { mutableStateOf<DailyRecord?>(null) }
     var confirmDelete by remember { mutableStateOf<DailyRecord?>(null) }
@@ -143,7 +172,14 @@ private fun RecordList(section: String, nav: NavController, onChat: (String) -> 
     var exportMessage by remember { mutableStateOf<String?>(null) }
     val context=LocalContext.current
     val scope=rememberCoroutineScope()
-    val visible=ui.records.filter { it.kind in kinds(section) && (it.title.contains(query,true) || it.note.contains(query,true) || it.category.contains(query,true)) }
+    val visible=ui.records.filter {
+        val matchesFilter = when (filter) {
+            "This month" -> month(it.happenedAt) == YearMonth.now()
+            "Pending" -> !it.completed
+            "Completed" -> it.completed
+            else -> true
+        }
+        matchesFilter && it.kind in kinds(section) && (it.title.contains(query,true) || it.note.contains(query,true) || it.category.contains(query,true)) }
     val export=rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/csv")) { uri ->
         if(uri!=null) scope.launch {
             try {
@@ -168,9 +204,16 @@ private fun RecordList(section: String, nav: NavController, onChat: (String) -> 
     }) { padding ->
         LazyColumn(Modifier.fillMaxSize().padding(padding),contentPadding=PaddingValues(16.dp),verticalArrangement=Arrangement.spacedBy(10.dp)) {
             item { Status(ui,vm) }
+            if (section in listOf("money", "reminder", "budget")) item {
+                Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    (if (section == "reminder") listOf("All", "Pending", "Completed") else listOf("All", "This month")).forEach { option ->
+                        FilterChip(selected = filter == option, onClick = { filter = option }, label = { Text(option) })
+                    }
+                }
+            }
             item { OutlinedTextField(query,{query=it},label={Text("Search")},modifier=Modifier.fillMaxWidth(),singleLine=true) }
             item {
-                Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+                Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement=Arrangement.spacedBy(8.dp)) {
                     if(section=="shopping") Button(onClick={addList=true}) { Text("New list") }
                     else kinds(section).forEach { kind -> Button(onClick={nav.navigate(DailyRoutes.edit(kind))}) { Text("Add ${labels[kind]}") } }
                 }
@@ -269,7 +312,7 @@ private fun RecordEditor(kind: String,id: String,prefill: String,chat: String,me
     val permission=rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {}
     val monetary=kind !in listOf("note","reminder")
     GagaScaffold(title=if(id.isEmpty()) "Add ${labels[kind]}" else "Edit ${labels[kind]}",onBack={nav.popBackStack()}) {padding->
-        Column(Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(16.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
+        Column(Modifier.fillMaxSize().padding(padding).imePadding().verticalScroll(rememberScrollState()).padding(16.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
             OutlinedTextField(name,{name=it.take(160)},label={Text(if(kind in listOf("lent","borrowed")) "Person / description" else "Title")},modifier=Modifier.fillMaxWidth())
             if(monetary) {
                 OutlinedTextField(amount,{amount=it},label={Text(if(kind=="account") "Opening recorded balance" else "Amount")},keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Decimal),modifier=Modifier.fillMaxWidth(),enabled=existing?.paidMinor==null || existing.paidMinor==0L)
@@ -311,41 +354,137 @@ private fun pickDateTime(context: android.content.Context,iso: String,onPicked:(
 }
 
 @Composable
-private fun ShoppingScreen(id:String,nav:NavController,vm:DailyLifeViewModel=hiltViewModel()) {
+private fun ShoppingScreen(id: String, nav: NavController, vm: DailyLifeViewModel = hiltViewModel()) {
     val ui by vm.state.collectAsStateWithLifecycle()
-    var adding by remember {mutableStateOf(false)}
-    var sharing by remember {mutableStateOf(false)}
-    LaunchedEffect(id) {
-        while(true) {vm.selectList(id);delay(15000)}
+    val owner = LocalLifecycleOwner.current
+    var adding by remember { mutableStateOf(false) }
+    var sharing by remember { mutableStateOf(false) }
+    var renaming by remember { mutableStateOf(false) }
+    var deletingList by remember { mutableStateOf(false) }
+    var editItem by remember { mutableStateOf<ShoppingItem?>(null) }
+    var deleteItem by remember { mutableStateOf<ShoppingItem?>(null) }
+    var menu by remember { mutableStateOf(false) }
+    LaunchedEffect(id, owner) {
+        owner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            while (true) { vm.selectList(id).join(); delay(15000) }
+        }
     }
-    val list=ui.selectedList
-    GagaScaffold(title=list?.title ?: "Shopping list",onBack={nav.popBackStack()},actions={IconButton(onClick={vm.selectList(id)}){Icon(Icons.Default.Refresh,"Refresh")}}) {padding->
-        LazyColumn(Modifier.fillMaxSize().padding(padding),contentPadding=PaddingValues(16.dp),verticalArrangement=Arrangement.spacedBy(10.dp)) {
-            item {Status(ui,vm)}
-            if(list==null) item {Text("Loading list. If access was removed, return to Shopping Lists.")}
-            else {
-                item {Text("${ui.items.count{it.purchased}} of ${ui.items.size} purchased",fontWeight=FontWeight.Bold)}
-                item {Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){Button(onClick={adding=true}){Text("Add item")};if(list.ownerId==vm.userId)OutlinedButton(onClick={sharing=true}){Text("Manage members")}}}
-                items(ui.items,key={it.id}){item->Card{Row(Modifier.fillMaxWidth().padding(12.dp),verticalAlignment=Alignment.CenterVertically){Checkbox(item.purchased,{vm.purchase(item)},enabled=!ui.busy);Column{Text(item.name);Text("Quantity: ${item.quantity}",style=MaterialTheme.typography.bodySmall)}}}}
-                if(ui.items.isEmpty()) item{Text("No items yet. Add groceries or other things to buy.")}
-                item{Text("Members can view and check off items. Updates refresh while this screen is open.",style=MaterialTheme.typography.bodySmall)}
+    val list = ui.selectedList
+    GagaScaffold(title = list?.title ?: "Shopping list", onBack = { nav.popBackStack() }, actions = {
+        IconButton(onClick = { vm.selectList(id) }, enabled = !ui.busy) { Icon(Icons.Default.Refresh, "Refresh list") }
+        if (list?.ownerId == vm.userId) Box {
+            IconButton(onClick = { menu = true }) { Icon(Icons.Default.MoreVert, "List options") }
+            DropdownMenu(menu, { menu = false }) {
+                DropdownMenuItem(text = { Text("Rename list") }, onClick = { menu = false; renaming = true })
+                DropdownMenuItem(text = { Text("Delete list") }, onClick = { menu = false; deletingList = true })
+            }
+        }
+    }) { padding ->
+        LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            item { Status(ui, vm) }
+            if (list == null) item {
+                Text(if (ui.listLoading || ui.loading) "Loading shopping list…" else "This list was deleted or you no longer have access. Return to Shopping Lists.")
+            } else {
+                item {
+                    Text("${ui.items.count { it.purchased }} of ${ui.items.size} purchased", style = MaterialTheme.typography.titleMedium)
+                    if (ui.items.isNotEmpty()) LinearProgressIndicator(
+                        progress = { ui.items.count { it.purchased }.toFloat() / ui.items.size }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
+                }
+                item {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Button(onClick = { adding = true }, enabled = !ui.busy) { Text("Add item") }
+                        if (list.ownerId == vm.userId) OutlinedButton(onClick = { sharing = true }, enabled = !ui.busy) { Text("Members") }
+                    }
+                }
+                items(ui.items, key = { it.id }) { item ->
+                    var options by remember { mutableStateOf(false) }
+                    Card {
+                        Row(Modifier.fillMaxWidth().padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Checkbox(item.purchased, { vm.purchase(item) }, enabled = !ui.busy)
+                            Column(Modifier.weight(1f)) {
+                                Text(item.name, fontWeight = FontWeight.Medium)
+                                Text("Quantity: ${item.quantity}", style = MaterialTheme.typography.bodySmall)
+                            }
+                            Box {
+                                IconButton(onClick = { options = true }, enabled = !ui.busy) { Icon(Icons.Default.MoreVert, "Item options") }
+                                DropdownMenu(options, { options = false }) {
+                                    DropdownMenuItem(text = { Text("Edit item") }, onClick = { options = false; editItem = item })
+                                    DropdownMenuItem(text = { Text("Remove item") }, onClick = { options = false; deleteItem = item })
+                                }
+                            }
+                        }
+                    }
+                }
+                if (ui.items.isEmpty()) item { Text("No items yet. Add groceries or other things to buy.") }
+                item { Text("Members can view, edit and check off items. Lists refresh while this screen is visible.", style = MaterialTheme.typography.bodySmall) }
             }
         }
     }
-    if(adding) {
-        var name by rememberSaveable{mutableStateOf("")};var quantity by rememberSaveable{mutableStateOf("1")};val itemId=rememberSaveable{UUID.randomUUID().toString()}
-        AlertDialog(onDismissRequest={if(!ui.busy)adding=false},title={Text("Add shopping item")},text={Column{OutlinedTextField(name,{name=it.take(160)},label={Text("Item")});OutlinedTextField(quantity,{quantity=it.take(80)},label={Text("Quantity")});ui.error?.let{Text(it,color=MaterialTheme.colorScheme.error)}}},confirmButton={TextButton(onClick={vm.addItem(id,name,quantity,itemId){adding=false}},enabled=!ui.busy&&name.isNotBlank()&&quantity.isNotBlank()){Text("Save")}},dismissButton={TextButton(onClick={adding=false},enabled=!ui.busy){Text("Cancel")}})
+    if (adding || editItem != null) {
+        val current = editItem
+        var name by rememberSaveable(current?.id) { mutableStateOf(current?.name.orEmpty()) }
+        var quantity by rememberSaveable(current?.id) { mutableStateOf(current?.quantity ?: "1") }
+        val itemId = rememberSaveable { UUID.randomUUID().toString() }
+        AlertDialog(onDismissRequest = { if (!ui.busy) { adding = false; editItem = null; vm.clearError() } },
+            title = { Text(if (current == null) "Add item" else "Edit item") },
+            text = { Column {
+                OutlinedTextField(name, { name = it.take(160) }, label = { Text("Item") })
+                OutlinedTextField(quantity, { quantity = it.take(80) }, label = { Text("Quantity") })
+                ui.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+            } },
+            confirmButton = { TextButton(onClick = {
+                val done = { adding = false; editItem = null }
+                if (current == null) vm.addItem(id, name, quantity, itemId, done) else vm.editItem(current, name, quantity, done)
+            }, enabled = !ui.busy && name.isNotBlank() && quantity.isNotBlank()) { Text(if (ui.busy) "Saving…" else "Save") } },
+            dismissButton = { TextButton(onClick = { adding = false; editItem = null; vm.clearError() }, enabled = !ui.busy) { Text("Cancel") } })
     }
-    if(sharing) {
-        var query by rememberSaveable{mutableStateOf("")};var found by remember{mutableStateOf<List<User>>(emptyList())};var selected by remember{mutableStateOf<User?>(null)}
-        LaunchedEffect(query){delay(350);found=if(query.trim().length<3)emptyList() else try{vm.searchUsers(query.trim())}catch(e:CancellationException){throw e}catch(e:Exception){emptyList()}}
-        AlertDialog(onDismissRequest={if(!ui.busy)sharing=false},title={Text("Shopping list members")},text={Column(Modifier.heightIn(max=400.dp).verticalScroll(rememberScrollState())){
-            Text("Members can see every item in this list. Your Money Book and debts remain private.")
-            ui.members.forEach{member->Row(verticalAlignment=Alignment.CenterVertically){Text(member.displayLabel,Modifier.weight(1f));if(member.id!=list?.ownerId)TextButton(onClick={vm.share(id,member,true){}},enabled=!ui.busy){Text("Remove")}}}
-            OutlinedTextField(query,{query=it},label={Text("Search GaGa name or ID")})
-            found.filter{it.id !in (list?.memberIds ?: emptyList())}.forEach{member->TextButton(onClick={selected=member}){Text("${member.displayLabel} ${member.username?.let{"@$it"}.orEmpty()}")}}
-            selected?.let{member->Text("Share this list with ${member.displayLabel}?");Button(onClick={vm.share(id,member,false){selected=null;query=""}},enabled=!ui.busy){Text("Confirm sharing")}}
-            ui.error?.let{Text(it,color=MaterialTheme.colorScheme.error)}
-        }},confirmButton={TextButton(onClick={sharing=false},enabled=!ui.busy){Text("Done")}})
+    if (renaming) {
+        var text by rememberSaveable { mutableStateOf(list?.title.orEmpty()) }
+        AlertDialog(onDismissRequest = { if (!ui.busy) renaming = false }, title = { Text("Rename list") },
+            text = { Column { OutlinedTextField(text, { text = it.take(160) }, label = { Text("List name") }); ui.error?.let { Text(it, color = MaterialTheme.colorScheme.error) } } },
+            confirmButton = { TextButton(onClick = { vm.renameList(id, text) { renaming = false } }, enabled = !ui.busy && text.isNotBlank()) { Text("Save") } },
+            dismissButton = { TextButton(onClick = { renaming = false }, enabled = !ui.busy) { Text("Cancel") } })
+    }
+    if (deletingList || deleteItem != null) {
+        val target = deleteItem
+        AlertDialog(onDismissRequest = { if (!ui.busy) { deletingList = false; deleteItem = null } },
+            title = { Text(if (target == null) "Delete shared list?" else "Remove item?") },
+            text = { Column {
+                Text(if (target == null) "This removes the list and every item for all members." else "Remove ${target.name} from this list for all members?")
+                ui.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+            } },
+            confirmButton = { TextButton(onClick = {
+                if (target == null) vm.removeList(id) { nav.popBackStack() } else vm.removeItem(target) { deleteItem = null }
+            }, enabled = !ui.busy) { Text("Remove", color = MaterialTheme.colorScheme.error) } },
+            dismissButton = { TextButton(onClick = { deletingList = false; deleteItem = null }, enabled = !ui.busy) { Text("Cancel") } })
+    }
+    if (sharing) {
+        var query by rememberSaveable { mutableStateOf("") }
+        var found by remember { mutableStateOf<List<User>>(emptyList()) }
+        var selected by remember { mutableStateOf<User?>(null) }
+        var searchError by remember { mutableStateOf<String?>(null) }
+        LaunchedEffect(query) {
+            delay(350); searchError = null
+            found = if (query.trim().length < 3) emptyList() else try { vm.searchUsers(query.trim()) }
+            catch (e: CancellationException) { throw e } catch (e: Exception) { searchError = "Search failed. Check your connection."; emptyList() }
+        }
+        AlertDialog(onDismissRequest = { if (!ui.busy) sharing = false }, title = { Text("List members") },
+            text = { Column(Modifier.heightIn(max = 400.dp).verticalScroll(rememberScrollState())) {
+                Text("Members see every item. Your Money Book and debts remain private.")
+                ui.members.forEach { member -> Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(member.displayLabel, Modifier.weight(1f))
+                    if (member.id != list?.ownerId) TextButton(onClick = { vm.share(id, member, true) {} }, enabled = !ui.busy) { Text("Remove") }
+                } }
+                OutlinedTextField(query, { query = it }, label = { Text("Search GaGa name or ID") })
+                searchError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+                found.filter { it.id !in (list?.memberIds ?: emptyList()) && it.id != list?.ownerId }.forEach { member ->
+                    TextButton(onClick = { selected = member }) { Text("${member.displayLabel} ${member.username?.let { "@$it" }.orEmpty()}") }
+                }
+                selected?.let { member ->
+                    Text("Share this list with ${member.displayLabel}?")
+                    Button(onClick = { vm.share(id, member, false) { selected = null; query = "" } }, enabled = !ui.busy) { Text("Confirm sharing") }
+                }
+                ui.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+            } }, confirmButton = { TextButton(onClick = { sharing = false }, enabled = !ui.busy) { Text("Done") } })
     }
 }
