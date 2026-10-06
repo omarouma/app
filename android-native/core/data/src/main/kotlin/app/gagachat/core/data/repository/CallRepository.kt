@@ -211,7 +211,7 @@ class DefaultCallRepository @Inject constructor(
                     ).toEntity(),
                 )
             }
-        }
+        }.getOrThrow()
         Unit
     }
 

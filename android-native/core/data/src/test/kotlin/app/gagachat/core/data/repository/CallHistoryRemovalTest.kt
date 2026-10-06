@@ -34,10 +34,16 @@ class CallHistoryRemovalTest {
         every { auth.sessionFlow } returns MutableStateFlow(AuthSession("owner", "token", "refresh", Long.MAX_VALUE))
         return DefaultCallRepository(dao, users, api, mockk(), mockk(), auth, mockk<TimeProvider>(), dispatchers, preferences)
     }
+    @Test fun failedRefreshIsReportedToTheCaller() = runTest {
+        coEvery { preferences.hidden("owner") } returns emptySet()
+        coEvery { api.getCallHistory(100) } throws IllegalStateException("offline")
+        assertTrue(runCatching { repository().syncHistory() }.isFailure)
+    }
     @Test fun hiddenEntryCannotBeRestoredByServerSync() = runTest {
         coEvery { preferences.hidden("owner") } returns setOf("hidden")
         coEvery { api.getCallHistory(100) } returns listOf(CallHistoryRow("hidden", callerId = "owner", calleeId = "peer"))
         repository().syncHistory()
+        coVerify(exactly = 1) { api.getCallHistory(100) }
         coVerify(exactly = 0) { dao.upsert(any()) }
     }
     @Test fun failedPreferenceWriteKeepsTheExistingRecord() = runTest {
