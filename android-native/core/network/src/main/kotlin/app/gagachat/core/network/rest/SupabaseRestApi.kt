@@ -843,7 +843,7 @@ class SupabaseRestApi @Inject constructor(
             header("Prefer", "return=representation")
             contentType(ContentType.Application.Json)
             setBody(payload)
-        }.body()
+        }.body<List<SavedMessageRow>>().single()
 
     suspend fun deleteSavedMessage(id: String) {
         client.delete("${config.restUrl}/saved_messages") {

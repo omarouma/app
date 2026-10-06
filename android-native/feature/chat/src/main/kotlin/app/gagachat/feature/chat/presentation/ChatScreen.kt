@@ -37,6 +37,9 @@ import androidx.compose.material.icons.filled.AddReaction
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Bookmark
+import androidx.compose.material.icons.filled.NotificationsActive
+import androidx.compose.material.icons.filled.ReceiptLong
 import androidx.compose.material.icons.filled.Checklist
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCopy
@@ -122,6 +125,7 @@ fun ChatRoute(
     onStartCall: (conversationId: String, isVideo: Boolean) -> Unit,
     onOpenProfile: (userId: String) -> Unit,
     onOpenChatInfo: (conversationId: String) -> Unit,
+    onDailyAction: (String, String, String, String) -> Unit = { _, _, _, _ -> },
     viewModel: ChatViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -564,6 +568,9 @@ fun ChatRoute(
                     viewModel.deleteForMe(selected)
                     viewModel.selectMessage(null)
                 },
+                onSave = { viewModel.saveMessage(selected); viewModel.selectMessage(null) },
+                onRemind = { viewModel.selectMessage(null); onDailyAction("reminder", selected.text.orEmpty(), selected.conversationId, selected.serverMessageId.orEmpty()) },
+                onExpense = { viewModel.selectMessage(null); onDailyAction("expense", selected.text.orEmpty(), selected.conversationId, selected.serverMessageId.orEmpty()) },
                 onMessageInfo = {
                     infoMessage = selected
                     viewModel.selectMessage(null)
@@ -740,6 +747,9 @@ private fun MessageActionSheet(
     onCopy: () -> Unit,
     onDelete: () -> Unit,
     onDeleteForMe: () -> Unit,
+    onSave: () -> Unit,
+    onRemind: () -> Unit,
+    onExpense: () -> Unit,
     onMessageInfo: () -> Unit,
     onSelectMultiple: () -> Unit,
 ) {
@@ -783,6 +793,13 @@ private fun MessageActionSheet(
             if (canEdit) ActionRow(Icons.Filled.Edit, "Edit", onEdit)
             ActionRow(Icons.AutoMirrored.Filled.Forward, "Forward", onForward)
             if (canCopy) ActionRow(Icons.Filled.ContentCopy, "Copy", onCopy)
+            if (!message.isDeleted) {
+                ActionRow(Icons.Filled.Bookmark, "Save privately", onSave)
+                ActionRow(Icons.Filled.NotificationsActive, "Remind me", onRemind)
+                ActionRow(Icons.Filled.ReceiptLong, "Create expense", onExpense)
+                ActionRow(Icons.Filled.Info, "Message info", onMessageInfo)
+                ActionRow(Icons.Filled.Checklist, "Select messages", onSelectMultiple)
+            }
             if (canDelete) {
                 ActionRow(
                     icon = Icons.Filled.Delete,

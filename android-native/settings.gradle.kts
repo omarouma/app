@@ -63,3 +63,5 @@ include(":sync:workers")
 // re-enabled on a CI machine with adequate resources.
 // include(":benchmark")
 // include(":baselineprofile")
+
+include(":feature:dailylife")

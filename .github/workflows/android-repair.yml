@@ -47,7 +47,7 @@ jobs:
         run: python3 android-native/ci/prepare.py
       - name: Compile release and test messaging and call contracts
         working-directory: android-native
-        run: gradle --no-daemon --no-build-cache --max-workers=2 -Pksp.incremental=false :app:assembleRelease :app:bundleRelease :core:data:testReleaseUnitTest :core:network:testReleaseUnitTest :feature:calls:testReleaseUnitTest
+        run: gradle --no-daemon --no-build-cache --max-workers=2 -Pksp.incremental=false :app:assembleRelease :app:bundleRelease :core:model:test :core:data:testReleaseUnitTest :core:network:testReleaseUnitTest :feature:calls:testReleaseUnitTest
       - name: Package release artifacts
         run: |
           mkdir -p deliverables
@@ -87,6 +87,7 @@ jobs:
           name: GaGa-${{ env.GAGA_VERSION }}-release-and-tests
           path: |
             deliverables/
+            android-native/core/model/build/reports/tests/test/
             android-native/feature/calls/build/reports/tests/testReleaseUnitTest/
             android-native/feature/calls/build/test-results/testReleaseUnitTest/
             android-native/core/network/build/reports/tests/testReleaseUnitTest/

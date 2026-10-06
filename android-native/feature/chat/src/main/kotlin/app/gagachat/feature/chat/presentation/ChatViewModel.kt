@@ -177,6 +177,7 @@ private data class ChatFlags(
 
 @HiltViewModel
 class ChatViewModel @Inject constructor(
+    private val savedMessagesRepository: app.gagachat.core.data.repository.SavedMessagesRepository,
     private val privacyApi: app.gagachat.core.network.rest.SupabaseRestApi,
     savedStateHandle: SavedStateHandle,
     private val messageRepository: MessageRepository,
@@ -193,6 +194,20 @@ class ChatViewModel @Inject constructor(
     private val soundPlayer: app.gagachat.core.data.media.GagaSoundPlayer,
     @ApplicationContext private val context: Context,
 ) : ViewModel() {
+
+    fun saveMessage(message: Message) = viewModelScope.launch {
+        val serverId = message.serverMessageId
+        if (serverId.isNullOrBlank()) { showNotice("Wait for this message to sync before saving it."); return@launch }
+        val saved = app.gagachat.core.model.SavedMessage(
+            id = java.util.UUID.randomUUID().toString(), userId = authRepository.sessionFlow.value?.userId.orEmpty(),
+            messageId = serverId, chatId = message.conversationId, senderId = message.senderId,
+            content = message.text, type = message.type.name.lowercase(), mediaUrl = message.mediaUrl,
+        )
+        when (savedMessagesRepository.save(saved)) {
+            is AppResult.Success -> showNotice("Saved privately. Open Me → Saved Messages.")
+            else -> showNotice("Could not save this message. Check your connection and try again.")
+        }
+    }
 
     private val conversationId: String = savedStateHandle.get<String>("conversationId").orEmpty()
 

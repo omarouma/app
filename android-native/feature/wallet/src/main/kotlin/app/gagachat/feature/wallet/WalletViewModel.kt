@@ -71,12 +71,8 @@ class WalletViewModel @Inject constructor(
 
     fun refresh() = load()
 
-    fun topUp(amount: Long) = viewModelScope.launch {
-        when (val r = walletRepository.topUp(amount)) {
-            is AppResult.Success -> _topUpMessage.value = "Added ${amount} coins"
-            is AppResult.Failure -> _topUpMessage.value = r.error.toUserMessage()
-            AppResult.Loading -> Unit
-        }
+    fun topUp(amount: Long) {
+        _topUpMessage.value = "Coin funding is not available yet. Use Daily Life → Money Book to record personal expenses."
     }
 
     fun consumeTopUpMessage() { _topUpMessage.value = null }
