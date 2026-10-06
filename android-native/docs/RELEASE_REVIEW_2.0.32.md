@@ -9,6 +9,7 @@ Application ID: `gagachat.app`; versionCode 34. This review builds on the Daily 
 - Notifications: unread filter, refresh, safe internal destinations, single bulk mark-read request, and retained unread state when the server fails. Account changes clear notification/friend caches and late responses cannot restore another account's notification/friend data.
 - Chats: first-load feedback, manual refresh, and server-confirmed deletion. Confirmation explicitly describes the existing shared conversation deletion semantics.
 - Calls: accurate incoming-missed filtering, clearer outcome labels, compact action menu, refresh, and confirmation/error feedback for history removal.
+- Persistence: record edits and deletions reject empty server acknowledgements; retrying a creation cannot silently accept different previously saved values.
 - Daily Life: quick expense/income/reminder entry, responsive dashboard, monthly filters and pending/completed reminder filters. Totals are grouped by currency; these are recorded amounts, not bank balances.
 - Shopping: owner rename/delete; item edit/remove; shared deletion confirmations; visible search failures; stable list display during lifecycle-aware polling; progress count.
 - Layout: adaptive attachment grid, larger profile action touch targets, wrapping labels, theme-aware action contrast, and no decorative avatar on unrelated toolbar subtitles.

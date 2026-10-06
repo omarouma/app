@@ -10,6 +10,7 @@ import io.ktor.client.call.body
 import io.ktor.client.request.*
 import io.ktor.http.*
 import kotlinx.serialization.json.*
+import java.time.Instant
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -62,7 +63,18 @@ class DailyLifeApi @Inject constructor(
         }.body() else client.post("${config.restUrl}/gaga_daily_records") {
             auth(); header("Prefer", "return=representation,resolution=ignore-duplicates"); setBody(json)
         }.body()
-        return rows.singleOrNull() ?: requireNotNull(record(record.id))
+        rows.singleOrNull()?.let { return it }
+        check(!editing) { "Record could not be updated. Refresh and try again." }
+        val existing = requireNotNull(record(record.id)) { "Record could not be saved" }
+        check(existing.title == record.title && existing.amountMinor == record.amountMinor &&
+            existing.currency == record.currency && existing.category == record.category &&
+            existing.account == record.account && existing.note == record.note &&
+            Instant.parse(existing.happenedAt) == Instant.parse(record.happenedAt) &&
+            existing.dueAt?.let(Instant::parse) == record.dueAt?.let(Instant::parse) &&
+            existing.completed == record.completed && existing.kind == record.kind) {
+            "This record was already saved with different values. Open it and choose Edit."
+        }
+        return existing
     }
 
     suspend fun remove(id: String) {

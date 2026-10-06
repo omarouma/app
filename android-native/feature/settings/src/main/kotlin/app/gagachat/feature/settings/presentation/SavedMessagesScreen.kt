@@ -13,6 +13,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.LaunchedEffect
@@ -64,8 +65,9 @@ fun SavedMessagesScreen(
     LaunchedEffect(notice) { notice?.let { snackbar.showSnackbar(it); viewModel.consumeNotice() } }
 
     GagaScaffold(title = "Saved Messages", onBack = onBack, snackbarHostState = snackbar,
-        actions = { IconButton(onClick = { viewModel.refresh() }) { Icon(Icons.Filled.Refresh, "Refresh saved messages") } }) { padding ->
+        actions = { IconButton(onClick = { viewModel.refresh() }, enabled = !busy) { Icon(Icons.Filled.Refresh, "Refresh saved messages") } }) { padding ->
         Column(Modifier.fillMaxSize().padding(padding)) {
+        if (busy) LinearProgressIndicator()
         GagaSearchBar(query, { query = it }, placeholder = "Search saved messages")
         GagaStateHost(
             state = state,

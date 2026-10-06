@@ -1,5 +1,6 @@
 package app.gagachat.core.network.rest
 
+import app.gagachat.core.model.DailyRecord
 import app.gagachat.core.network.config.SupabaseConfig
 import app.gagachat.core.network.session.AuthSession
 import app.gagachat.core.network.session.SessionStore
@@ -34,6 +35,19 @@ class MutationContractTest {
         val client = HttpClient(engine) { install(ContentNegotiation) { json() } }
         try { SupabaseRestApi(client, SupabaseConfig("https://example.test", "key", "media"), store).markAllNotificationsRead("owner") }
         finally { client.close() }
+    }
+
+    @Test fun rejectedRecordEditCannotFallBackToAnUnchangedRecord() = runBlocking {
+        val engine = MockEngine { request ->
+            assertEquals(HttpMethod.Patch, request.method)
+            respond("[]", HttpStatusCode.OK, headersOf(HttpHeaders.ContentType, "application/json"))
+        }
+        val client = HttpClient(engine) { install(ContentNegotiation) { json() } }
+        try {
+            val api = DailyLifeApi(client, SupabaseConfig("https://example.test", "key", "media"), store)
+            val record = DailyRecord(id = "missing", ownerId = "owner", kind = "note", title = "Edited", happenedAt = "2026-10-06T00:00:00Z")
+            assertTrue(runCatching { api.save(record, editing = true) }.exceptionOrNull() is IllegalStateException)
+        } finally { client.close() }
     }
 
     @Test fun zeroRowsAreNotAcknowledgedAsSuccessfulDeletion() = runBlocking {

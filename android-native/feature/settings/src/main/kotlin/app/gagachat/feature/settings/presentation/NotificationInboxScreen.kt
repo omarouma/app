@@ -21,6 +21,7 @@ import androidx.compose.material.icons.filled.VerifiedUser
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -73,11 +74,12 @@ fun NotificationInboxScreen(
         snackbarHostState = snackbar,
         onBack = onBack,
         actions = {
-            IconButton(onClick = { viewModel.refresh() }) { Icon(Icons.Filled.Refresh, "Refresh notifications") }
+            IconButton(onClick = { viewModel.refresh() }, enabled = !busy) { Icon(Icons.Filled.Refresh, "Refresh notifications") }
             TextButton(onClick = { viewModel.markAllRead() }, enabled = !busy && unread > 0) { Text("Read all") }
         },
     ) { padding ->
         Column(Modifier.fillMaxSize().padding(padding)) {
+        if (busy) LinearProgressIndicator()
         FilterChip(selected = unreadOnly, onClick = { unreadOnly = !unreadOnly },
             label = { Text("Unread ($unread)") }, modifier = Modifier.padding(horizontal = 16.dp))
         GagaStateHost(

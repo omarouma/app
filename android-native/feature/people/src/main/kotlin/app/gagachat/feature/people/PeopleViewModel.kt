@@ -108,10 +108,12 @@ class PeopleViewModel @Inject constructor(
             }
             // Blocked users are loaded alongside friends so the Blocked tab is
             // populated without a second round-trip when the user opens it.
-            runCatching {
-                blockRepository.refresh()
-                _blocked.value = blockRepository.resolveUsers()
-            }
+            try {
+                val blockedResult = blockRepository.refresh()
+                if (blockedResult is AppResult.Failure) notice.value = blockedResult.error.toUserMessage()
+                else _blocked.value = blockRepository.resolveUsers()
+            } catch (e: CancellationException) { throw e }
+            catch (e: Exception) { notice.value = "Couldn't refresh blocked people. Try again." }
             if (loaded) _state.value = ScreenState.Content(PeopleData(
                 friendsRepository.friends.value, friendsRepository.incomingRequests.value,
                 friendsRepository.outgoingRequests.value, _blocked.value,
