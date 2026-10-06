@@ -4,6 +4,7 @@ import app.gagachat.core.common.di.DispatcherProvider
 import app.gagachat.core.common.result.AppResult
 import app.gagachat.core.common.result.AppError
 import app.gagachat.core.common.util.TimeProvider
+import app.gagachat.core.data.preferences.CallHistoryPreferences
 import app.gagachat.core.data.mapper.toDomain
 import app.gagachat.core.database.dao.CallDao
 import app.gagachat.core.database.dao.UserDao
@@ -18,6 +19,10 @@ import app.gagachat.core.network.error.ErrorMapper
 import app.gagachat.core.network.rest.SupabaseRestApi
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
@@ -50,6 +55,7 @@ interface CallRepository {
 }
 
 @Singleton
+@OptIn(ExperimentalCoroutinesApi::class)
 class DefaultCallRepository @Inject constructor(
     private val callDao: CallDao,
     private val userDao: UserDao,
@@ -59,12 +65,15 @@ class DefaultCallRepository @Inject constructor(
     private val authRepository: AuthRepository,
     private val timeProvider: TimeProvider,
     private val dispatchers: DispatcherProvider,
+    private val hiddenCalls: CallHistoryPreferences,
 ) : CallRepository {
 
     override fun observeHistory(): Flow<List<CallSession>> =
-        combine(callDao.observeHistory(100), userDao.observeAll()) { calls, users ->
+        authRepository.sessionFlow.flatMapLatest { owner ->
+        if (owner == null) return@flatMapLatest flowOf(emptyList<CallSession>())
+        combine(callDao.observeHistory(100), userDao.observeAll(), hiddenCalls.observe(owner.userId)) { calls, users, hidden ->
             val usersById = users.associate { it.id to it.toDomain() }
-            calls.map { entity ->
+            calls.filter { it.id !in hidden }.map { entity ->
                 val session = entity.toDomain()
                 val peer = session.peerId?.let { usersById[it] }
                 if (peer != null) {
@@ -76,6 +85,7 @@ class DefaultCallRepository @Inject constructor(
                     session
                 }
             }
+        }
         }
 
     override suspend fun startCall(
@@ -149,7 +159,9 @@ class DefaultCallRepository @Inject constructor(
 
     override suspend fun syncHistory() = withContext(dispatchers.io) {        runCatching {
             val me = authRepository.sessionFlow.value?.userId.orEmpty()
-            val rows = restApi.getCallHistory(100)
+            if (me.isBlank()) return@runCatching
+            val hidden = hiddenCalls.hidden(me)
+            val rows = restApi.getCallHistory(100).filter { it.id !in hidden }
 
             // Resolve every peer id in one batch and cache the profiles so the
             // call list renders real identities (never "Unknown User").
@@ -185,6 +197,7 @@ class DefaultCallRepository @Inject constructor(
                 }
             }
 
+            if (me != authRepository.sessionFlow.value?.userId) return@runCatching
             rows.forEach { row ->
                 val peerId = peerIdOf(row, me)
                 val peer = peerId?.let { usersById[it] }
@@ -203,10 +216,15 @@ class DefaultCallRepository @Inject constructor(
     }
 
     override suspend fun deleteCall(callId: String) = withContext(dispatchers.io) {
+        val owner = requireNotNull(authRepository.sessionFlow.value?.userId) { "Please sign in again" }
+        hiddenCalls.hide(owner, setOf(callId))
         callDao.deleteById(callId)
     }
 
     override suspend fun clearHistory() = withContext(dispatchers.io) {
+        val owner = requireNotNull(authRepository.sessionFlow.value?.userId) { "Please sign in again" }
+        val ids = callDao.observeHistory(100).first().map { it.id }.toSet()
+        hiddenCalls.hide(owner, ids)
         callDao.deleteAll()
     }
 

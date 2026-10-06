@@ -195,7 +195,7 @@ fun CallHistoryRoute(
     }
     pendingDelete?.let { id ->
         AlertDialog(onDismissRequest = { pendingDelete = null }, title = { Text("Remove call record?") },
-            text = { Text("This removes the record from your call history.") },
+            text = { Text("Hide this record on this phone, including after refresh. Other devices and participants keep their records.") },
             confirmButton = { TextButton(onClick = { viewModel.deleteCall(id); pendingDelete = null }) { Text("Remove") } },
             dismissButton = { TextButton(onClick = { pendingDelete = null }) { Text("Cancel") } })
     }
@@ -204,7 +204,7 @@ fun CallHistoryRoute(
         AlertDialog(
             onDismissRequest = { confirmClear = false },
             title = { Text("Clear call history?") },
-            text = { Text("This removes every call from your history on this device.") },
+            text = { Text("Hide the currently loaded call history on this phone. Other devices and participants keep their records.") },
             confirmButton = {
                 TextButton(
                     onClick = {
