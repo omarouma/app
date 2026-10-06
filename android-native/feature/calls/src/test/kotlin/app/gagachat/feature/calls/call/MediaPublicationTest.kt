@@ -42,4 +42,40 @@ class MediaPublicationTest {
             assertTrue(manager.lastError!!.contains("audio only"))
         } finally { Dispatchers.resetMain() }
     }
+    @Test fun microphoneToggleTimeoutReturnsFailureWithoutChangingState() = runTest {
+        val local = mockk<LocalParticipant>()
+        val room = mockk<Room>()
+        every { room.localParticipant } returns local
+        coEvery { local.setMicrophoneEnabled(false) } coAnswers { awaitCancellation() }
+        val manager = LiveKitCallManager(mockk<Context>(), mockk<AppLogger>(relaxed = true), mockk<SupabaseRestApi>())
+        LiveKitCallManager::class.java.getDeclaredField("room").apply { isAccessible = true }.set(manager, room)
+        assertFalse(manager.setMicrophoneEnabled(false))
+        assertTrue(manager.isMicrophoneEnabled.value)
+    }
+
+    @Test fun cameraToggleTimeoutReturnsFailureWithoutChangingState() = runTest {
+        val local = mockk<LocalParticipant>()
+        val room = mockk<Room>()
+        every { room.localParticipant } returns local
+        coEvery { local.setCameraEnabled(true) } coAnswers { awaitCancellation() }
+        val manager = LiveKitCallManager(mockk<Context>(), mockk<AppLogger>(relaxed = true), mockk<SupabaseRestApi>())
+        LiveKitCallManager::class.java.getDeclaredField("room").apply { isAccessible = true }.set(manager, room)
+        assertFalse(manager.setCameraEnabled(true))
+        assertFalse(manager.isCameraEnabled.value)
+    }
+
+    @Test fun completedOldRoomToggleDoesNotChangeNewCallState() = runTest {
+        val local = mockk<LocalParticipant>()
+        val oldRoom = mockk<Room>()
+        every { oldRoom.localParticipant } returns local
+        val manager = LiveKitCallManager(mockk<Context>(), mockk<AppLogger>(relaxed = true), mockk<SupabaseRestApi>())
+        val field = LiveKitCallManager::class.java.getDeclaredField("room").apply { isAccessible = true }
+        field.set(manager, oldRoom)
+        coEvery { local.setCameraEnabled(true) } coAnswers {
+            field.set(manager, mockk<Room>())
+            true
+        }
+        assertFalse(manager.setCameraEnabled(true))
+        assertFalse(manager.isCameraEnabled.value)
+    }
 }
