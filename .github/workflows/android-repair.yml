@@ -47,7 +47,7 @@ jobs:
         run: python3 android-native/ci/prepare.py
       - name: Compile release and test messaging and call contracts
         working-directory: android-native
-        run: gradle --no-daemon --no-build-cache --max-workers=2 -Pksp.incremental=false :app:assembleRelease :app:bundleRelease :core:model:test :core:data:testReleaseUnitTest :core:network:testReleaseUnitTest :feature:calls:testReleaseUnitTest
+        run: gradle --no-daemon --no-build-cache --max-workers=2 -Pksp.incremental=false :feature:dailylife:compileReleaseKotlin :app:assembleRelease :app:bundleRelease :core:model:test :core:data:testReleaseUnitTest :core:network:testReleaseUnitTest :feature:calls:testReleaseUnitTest
       - name: Package release artifacts
         run: |
           mkdir -p deliverables
@@ -69,11 +69,15 @@ jobs:
           trap 'rm -f "$keyfile"' EXIT
           printf '%s' "$KEYSTORE_BASE64" | base64 -d > "$keyfile"
           actual=$(keytool -exportcert -keystore "$keyfile" -storepass:env STORE_PASSWORD -alias "$KEY_ALIAS" | sha256sum | cut -d' ' -f1)
-          expected=f3eab57a0acda4d380681056d325503180e0f7185cd8773a7887a8048e207cc2
-          if [ "$actual" != "$expected" ]; then
-            echo 'The configured signing certificate does not match the supplied 2.0.27 app. No replacement key was used.' > deliverables/SIGNING-REQUIRED.txt
-            exit 0
-          fi
+          case "$actual" in
+            c06fd3ccb3a7e66e56e6a7be8a7253db1b54afab666647d63c4e4d6de5161c57)
+              echo 'Signing certificate matches the supplied 2.0.30 APK.' > deliverables/UPDATE-COMPATIBILITY.txt ;;
+            f3eab57a0acda4d380681056d325503180e0f7185cd8773a7887a8048e207cc2)
+              echo 'Signing certificate matches the supplied 2.0.27 APK only. This cannot update the differently signed 2.0.30 APK.' > deliverables/UPDATE-COMPATIBILITY.txt ;;
+            *)
+              echo 'The configured signing certificate does not match either supplied APK. No replacement key was used.' > deliverables/SIGNING-REQUIRED.txt
+              exit 0 ;;
+          esac
           signer=$(find "$ANDROID_HOME/build-tools" -name apksigner | sort -V | tail -1)
           "$signer" sign --ks "$keyfile" --ks-key-alias "$KEY_ALIAS" --ks-pass env:STORE_PASSWORD --key-pass env:KEY_PASSWORD --out deliverables/GaGa-${GAGA_VERSION}-release.apk deliverables/GaGa-${GAGA_VERSION}-release-unsigned.apk
           cp deliverables/GaGa-${GAGA_VERSION}-release-unsigned.aab deliverables/GaGa-${GAGA_VERSION}-release.aab
