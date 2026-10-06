@@ -147,10 +147,16 @@ class CallSoundPlayer @Inject constructor(
                 attrs,
                 AudioManager.AUDIO_SESSION_ID_GENERATE,
             ) ?: return
-            mp.isLooping = true
-            mp.start()
+            // Retain ownership before configuring/starting so every failure can release it.
             player = mp
+            mp.isLooping = true
+            mp.setOnErrorListener { failed, _, _ ->
+                if (player === failed) stop()
+                true
+            }
+            mp.start()
         }.onFailure { t ->
+            stopInternal()
             logger.w("CallSoundPlayer", "Could not start ${tone.name} tone", t)
         }
     }
