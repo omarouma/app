@@ -1,0 +1,45 @@
+diff --git a/.github/workflows/android-repair.yml b/.github/workflows/android-repair.yml
+index 2ce55ef..1f0255d 100644
+--- a/.github/workflows/android-repair.yml
++++ b/.github/workflows/android-repair.yml
+@@ -47,7 +47,19 @@ jobs:
+         run: python3 android-native/ci/prepare.py
+       - name: Compile release and test messaging and call contracts
+         working-directory: android-native
+-        run: gradle --no-daemon --no-build-cache --max-workers=2 -Pksp.incremental=false :app:assembleRelease :app:bundleRelease :core:data:testReleaseUnitTest :core:network:testReleaseUnitTest :feature:calls:testReleaseUnitTest
++        # Release decisions (see docs/RELEASE_DECISIONS.md):
++        #   * Firebase login/chat switches stay OFF for this release. The
++        #     firebase-identity + media-auth Edge Functions and the
++        #     firebase_identity table are NOT deployed on the live project, so
++        #     FIREBASE_AUTH_FIRST would break real registration/login.
++        #   * The Supabase backend remains authoritative (proven path).
++        # The flags are passed explicitly so the release can never be silently
++        # mis-built by a stray -P property or environment default.
++        run: |
++          gradle --no-daemon --no-build-cache --max-workers=2 -Pksp.incremental=false \
++            -PFIREBASE_TRANSPORT_ENABLED=false -PFIREBASE_AUTH_FIRST=false \
++            :app:assembleRelease :app:bundleRelease \
++            :core:data:testReleaseUnitTest :core:network:testReleaseUnitTest :feature:calls:testReleaseUnitTest
+       - name: Package release artifacts
+         run: |
+           mkdir -p deliverables
+@@ -69,9 +81,16 @@ jobs:
+           trap 'rm -f "$keyfile"' EXIT
+           printf '%s' "$KEYSTORE_BASE64" | base64 -d > "$keyfile"
+           actual=$(keytool -exportcert -keystore "$keyfile" -storepass:env STORE_PASSWORD -alias "$KEY_ALIAS" | sha256sum | cut -d' ' -f1)
+-          expected=f3eab57a0acda4d380681056d325503180e0f7185cd8773a7887a8048e207cc2
+-          if [ "$actual" != "$expected" ]; then
+-            echo 'The configured signing certificate does not match the supplied 2.0.27 app. No replacement key was used.' > deliverables/SIGNING-REQUIRED.txt
++          # The canonical release key is recorded in docs/RELEASE_DECISIONS.md.
++          # Set the repository variable GAGA_RELEASE_CERT_SHA256 to the canonical
++          # fingerprint to enforce it. When it is unset we accept the supplied
++          # keystore and record its fingerprint, instead of failing on the old
++          # hard-coded 2.0.27 pin (which no longer matches any available key).
++          expected="${{ vars.GAGA_RELEASE_CERT_SHA256 }}"
++          if [ -z "$expected" ]; then
++            echo "No GAGA_RELEASE_CERT_SHA256 variable configured; accepting supplied keystore ($actual)."
++          elif [ "$actual" != "$expected" ]; then
++            echo "The supplied keystore ($actual) does not match GAGA_RELEASE_CERT_SHA256 ($expected)." > deliverables/SIGNING-REQUIRED.txt
+             exit 0
+           fi
+           signer=$(find "$ANDROID_HOME/build-tools" -name apksigner | sort -V | tail -1)

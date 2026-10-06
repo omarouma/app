@@ -1,0 +1,107 @@
+[
+  {
+    "name": "Supabase GoTrue reachable",
+    "pass": true,
+    "detail": "HTTP 200 {\"version\":\"v2.197.0\",\"name\":\"GoTrue\",\"description\":\"GoTrue is a user registrati"
+  },
+  {
+    "name": "Email/Password signup works",
+    "pass": true,
+    "detail": "uid=GwYQ902QmrTytOSv0gIEQhxCrdq1"
+  },
+  {
+    "name": "Firestore denies UNAUTH read of users/*/private",
+    "pass": true,
+    "detail": "HTTP 403"
+  },
+  {
+    "name": "Firestore denies UNAUTH read of chats/*",
+    "pass": true,
+    "detail": "HTTP 403"
+  },
+  {
+    "name": "Firestore denies AUTH read of another user's private",
+    "pass": true,
+    "detail": "HTTP 403"
+  },
+  {
+    "name": "Firestore public profile readable by AUTH (or 404 if absent)",
+    "pass": true,
+    "detail": "HTTP 404"
+  },
+  {
+    "name": "Firestore denies AUTH write to a non-member chat",
+    "pass": true,
+    "detail": "HTTP 403"
+  },
+  {
+    "name": "Firestore denies AUTH self-grant of chat admin",
+    "pass": true,
+    "detail": "HTTP 403"
+  },
+  {
+    "name": "RTDB denies UNAUTH read of root",
+    "pass": true,
+    "detail": "HTTP 401 {\n  \"error\" : \"Permission denied\"\n}\n"
+  },
+  {
+    "name": "RTDB allows AUTH write to own presence",
+    "pass": false,
+    "detail": "HTTP 401 {\n  \"error\" : \"Permission denied\"\n}\n"
+  },
+  {
+    "name": "RTDB denies AUTH write to another user's presence",
+    "pass": true,
+    "detail": "HTTP 401 {\n  \"error\" : \"Permission denied\"\n}\n"
+  },
+  {
+    "name": "Edge function firebase-token (deployed)",
+    "pass": true,
+    "detail": "HTTP 401 -> deployed"
+  },
+  {
+    "name": "Edge function firebase-identity (MISSING)",
+    "pass": true,
+    "detail": "HTTP 404 -> MISSING"
+  },
+  {
+    "name": "Edge function media-auth (MISSING)",
+    "pass": true,
+    "detail": "HTTP 404 -> MISSING"
+  },
+  {
+    "name": "Edge function livekit-token (deployed)",
+    "pass": true,
+    "detail": "HTTP 405 -> deployed"
+  },
+  {
+    "name": "Edge function create-call (deployed)",
+    "pass": true,
+    "detail": "HTTP 401 -> deployed"
+  },
+  {
+    "name": "Edge function send-fcm-push (deployed)",
+    "pass": true,
+    "detail": "HTTP 401 -> deployed"
+  },
+  {
+    "name": "Edge function delete-account-secure (deployed)",
+    "pass": true,
+    "detail": "HTTP 403 -> deployed"
+  },
+  {
+    "name": "Supabase table firebase_identity (migration applied)",
+    "pass": false,
+    "detail": "HTTP 404 MISSING TABLE"
+  },
+  {
+    "name": "Supabase table profiles exists (RLS active)",
+    "pass": true,
+    "detail": "HTTP 401"
+  },
+  {
+    "name": "Throwaway test user deleted",
+    "pass": true,
+    "detail": "HTTP 200 {\n  \"kind\": \"identitytoolkit#DeleteAccountResponse\"\n}\n"
+  }
+]
