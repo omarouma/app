@@ -152,7 +152,8 @@ private fun RecordList(section: String, nav: NavController, onChat: (String) -> 
                     val csv=buildString {
                         append("Type,Title,Amount,Currency,Category,Account,Recorded date,Due date,Paid,Note\n")
                         snapshot.forEach { r -> append(listOf(r.kind,r.title,DailyMoney.format(r.amountMinor),r.currency,r.category,r.account,r.happenedAt,r.dueAt.orEmpty(),DailyMoney.format(r.paidMinor),r.note).joinToString(",") { raw ->
-                            val safe=if(raw.startsWith("=") || raw.startsWith("+") || raw.startsWith("-") || raw.startsWith("@")) "'$raw" else raw
+                            val prefix = raw.trimStart().firstOrNull()
+                            val safe=if(prefix in listOf('=', '+', '-', '@') || raw.firstOrNull() in listOf('\t', '\r', '\n')) "'$raw" else raw
                             "\"${safe.replace("\"","\"\"")}\""
                         });append('\n') }
                     }
@@ -277,7 +278,7 @@ private fun RecordEditor(kind: String,id: String,prefill: String,chat: String,me
                     name.isBlank()->"Enter a title or person."
                     minor==null->"Enter a positive amount with at most two decimal places."
                     category.isBlank() || account.isBlank()->"Category and account cannot be empty."
-                    kind=="reminder" && !Instant.parse(due).isAfter(Instant.now())->"Choose a future reminder time."
+                    kind=="reminder" && due != existing?.dueAt && !Instant.parse(due).isAfter(Instant.now())->"Choose a future reminder time."
                     else->null
                 }
                 if(validation==null) {
