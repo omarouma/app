@@ -229,7 +229,22 @@ private fun itemCard(name: String, detail: String, action: () -> Unit) {
 private fun EntryDialog(title: String,label: String,busy: Boolean,error: String?,dismiss: () -> Unit,save: (String,String,()->Unit)->Unit) {
     var text by rememberSaveable { mutableStateOf("") }
     val id=rememberSaveable { UUID.randomUUID().toString() }
-    AlertDialog(onDismissRequest={if(!busy)dismiss()},title={Text(title)},text={Column {OutlinedTextField(text,{text=it},label={Text(label)},singleLine=true);error?.let{Text(it,color=MaterialTheme.colorScheme.error)}} ,confirmButton={TextButton(onClick={save(text,id,{})},enabled=!busy&&text.isNotBlank()){Text(if(busy)"Saving…" else "Save")}},dismissButton={TextButton(onClick=dismiss,enabled=!busy){Text("Cancel")}})
+    AlertDialog(
+        onDismissRequest = { if (!busy) dismiss() },
+        title = { Text(title) },
+        text = {
+            Column {
+                OutlinedTextField(text, { text = it }, label = { Text(label) }, singleLine = true)
+                error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { save(text, id, {}) }, enabled = !busy && text.isNotBlank()) {
+                Text(if (busy) "Saving…" else "Save")
+            }
+        },
+        dismissButton = { TextButton(onClick = dismiss, enabled = !busy) { Text("Cancel") } },
+    )
 }
 
 @Composable
