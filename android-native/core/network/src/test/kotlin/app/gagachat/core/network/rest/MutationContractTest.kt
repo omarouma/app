@@ -50,7 +50,7 @@ class MutationContractTest {
         } finally { client.close() }
     }
 
-    @Test fun zeroRowsAreNotAcknowledgedAsSuccessfulDeletion() = runBlocking {
+    @Test fun zeroRowsAreNotAcknowledgedAsSuccessfulSavedMessageDeletion() = runBlocking {
         val engine = MockEngine { request ->
             assertEquals(HttpMethod.Delete, request.method)
             assertEquals("eq.missing", request.url.parameters["id"])
@@ -61,7 +61,19 @@ class MutationContractTest {
         try {
             val api = SupabaseRestApi(client, SupabaseConfig("https://example.test", "key", "media"), store)
             assertTrue(runCatching { api.deleteSavedMessage("missing") }.exceptionOrNull() is IllegalStateException)
-            assertTrue(runCatching { api.deleteConversation("missing") }.exceptionOrNull() is IllegalStateException)
+        } finally { client.close() }
+    }
+
+    @Test fun deletingConversationUsesPerUserHideRpcInsteadOfSharedDelete() = runBlocking {
+        val engine = MockEngine { request ->
+            assertEquals(HttpMethod.Post, request.method)
+            assertEquals("/rest/v1/rpc/gaga_hide_chat", request.url.encodedPath)
+            respond("", HttpStatusCode.NoContent)
+        }
+        val client = HttpClient(engine) { install(ContentNegotiation) { json() } }
+        try {
+            SupabaseRestApi(client, SupabaseConfig("https://example.test", "key", "media"), store)
+                .deleteConversation("chat-123")
         } finally { client.close() }
     }
 }

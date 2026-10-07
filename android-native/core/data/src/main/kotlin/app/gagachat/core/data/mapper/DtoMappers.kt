@@ -72,8 +72,11 @@ fun ConversationRow.toDomain(members: List<ConversationMember> = emptyList()): C
 
 fun MessageRow.toDomain(): Message {
     val meta = metadata
-    val type = type?.let { runCatching { MessageType.valueOf(it.uppercase()) }.getOrNull() }
-        ?: MessageType.TEXT
+    val type = when (type?.lowercase()) {
+        "call", "call_event" -> MessageType.CALL_EVENT
+        else -> type?.let { runCatching { MessageType.valueOf(it.uppercase()) }.getOrNull() }
+            ?: MessageType.TEXT
+    }
     val resolvedMedia = mediaUrl ?: mediaUrls?.firstOrNull()
     val thumbnail = meta?.string("thumbnail") ?: mediaUrls?.getOrNull(1)
     val created = createdAt

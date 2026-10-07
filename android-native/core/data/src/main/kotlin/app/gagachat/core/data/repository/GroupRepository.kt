@@ -9,9 +9,6 @@ import app.gagachat.core.data.mapper.toDomain
 import app.gagachat.core.model.Group
 import app.gagachat.core.model.GroupMember
 import app.gagachat.core.model.GroupRole
-import app.gagachat.core.network.dto.ConversationInsert
-import app.gagachat.core.network.dto.GroupInsert
-import app.gagachat.core.network.dto.GroupMemberInsert
 import app.gagachat.core.network.dto.GroupMemberRow
 import app.gagachat.core.network.dto.GroupRow
 import app.gagachat.core.network.error.ErrorMapper
@@ -92,30 +89,15 @@ class DefaultGroupRepository @Inject constructor(
         if (name.isBlank()) return@withContext AppResult.Failure(AppError.Validation("Group name is required"))
         try {
             val groupId = idGenerator.newConversationId()
-            val row = restApi.insertGroup(
-                GroupInsert(id = groupId, name = name.trim(), description = description?.trim()?.ifBlank { null }, createdBy = me),
+            val others = memberIds.distinct().filter { it.isNotBlank() && it != me }
+            restApi.createGroupAtomic(
+                id = groupId,
+                name = name.trim(),
+                description = description?.trim()?.ifBlank { null },
+                memberIds = others,
             )
-            // Owner + initial members.
-            restApi.insertGroupMember(GroupMemberInsert(groupId = groupId, userId = me, role = "owner"))
-            val others = (memberIds + me).distinct().filter { it != me }
-            others.forEach { uid ->
-                restApi.insertGroupMember(GroupMemberInsert(groupId = groupId, userId = uid, role = "member"))
-            }
-            // Mirror as a conversation so it shows in the chat list.
-            val participants = (listOf(me) + others).distinct()
-            runCatching {
-                restApi.insertConversation(
-                    ConversationInsert(
-                        id = groupId,
-                        type = "group",
-                        participants = participants,
-                        title = name.trim(),
-                        description = description?.trim(),
-                        createdBy = me,
-                        admins = listOf(me),
-                    ),
-                )
-            }
+            val row = restApi.getGroup(groupId)
+                ?: return@withContext AppResult.Failure(AppError.Database("Group was created but could not be loaded"))
             val group = row.toDomain(loadMembers(groupId))
             refresh()
             AppResult.Success(group)
@@ -131,10 +113,7 @@ class DefaultGroupRepository @Inject constructor(
         avatar: String?,
     ): AppResult<Unit> = withContext(dispatchers.io) {
         try {
-            restApi.updateGroup(groupId, name, description, avatar)
-            runCatching {
-                restApi.updateConversationMeta(groupId, title = name, avatar = avatar, description = description)
-            }
+            restApi.updateGroupAtomic(groupId, name, description, avatar)
             refresh()
             AppResult.Success(Unit)
         } catch (t: Throwable) {
@@ -145,8 +124,8 @@ class DefaultGroupRepository @Inject constructor(
     override suspend fun addMembers(groupId: String, userIds: List<String>): AppResult<Unit> =
         withContext(dispatchers.io) {
             try {
-                userIds.distinct().forEach { uid ->
-                    runCatching { restApi.insertGroupMember(GroupMemberInsert(groupId = groupId, userId = uid)) }
+                userIds.distinct().filter { it.isNotBlank() }.forEach { uid ->
+                    restApi.addGroupMemberAtomic(groupId, uid)
                 }
                 refresh()
                 AppResult.Success(Unit)
@@ -158,7 +137,7 @@ class DefaultGroupRepository @Inject constructor(
     override suspend fun removeMember(groupId: String, userId: String): AppResult<Unit> =
         withContext(dispatchers.io) {
             try {
-                restApi.deleteGroupMember(groupId, userId)
+                restApi.removeGroupMemberAtomic(groupId, userId)
                 refresh()
                 AppResult.Success(Unit)
             } catch (t: Throwable) {
@@ -170,7 +149,7 @@ class DefaultGroupRepository @Inject constructor(
         val me = currentUserId
         if (me.isBlank()) return@withContext AppResult.Failure(AppError.Unauthorized())
         try {
-            restApi.deleteGroupMember(groupId, me)
+            restApi.removeGroupMemberAtomic(groupId, me)
             _groups.value = _groups.value.filterNot { it.id == groupId }
             AppResult.Success(Unit)
         } catch (t: Throwable) {
@@ -180,7 +159,7 @@ class DefaultGroupRepository @Inject constructor(
 
     override suspend fun deleteGroup(groupId: String): AppResult<Unit> = withContext(dispatchers.io) {
         try {
-            restApi.deleteGroup(groupId)
+            restApi.deleteGroupAtomic(groupId)
             _groups.value = _groups.value.filterNot { it.id == groupId }
             AppResult.Success(Unit)
         } catch (t: Throwable) {

@@ -7,7 +7,7 @@
       "$uid": {
         ".read": "auth != null",
         ".write": "auth != null && auth.uid == $uid",
-        ".validate": "newData.hasChildren(['state', 'lastChanged'])"
+        ".validate": "newData.hasChildren(['state', 'lastChanged']) && (newData.child('state').val() == 'online' || newData.child('state').val() == 'offline') && newData.child('lastChanged').isNumber()"
       }
     },
 
@@ -19,32 +19,18 @@
     },
 
     "typing": {
-      "$chatId": {
-        "$uid": {
-          ".read": "auth != null",
-          ".write": "auth != null && auth.uid == $uid",
-          ".validate": "newData.hasChildren(['typing', 'updatedAt'])"
-        }
-      }
+      ".read": false,
+      ".write": false
     },
 
     "signaling": {
-      "$callId": {
-        ".read": "auth != null",
-        ".write": "auth != null",
-        "$uid": {
-          ".validate": "newData.hasChildren(['sdp', 'type']) || newData.hasChildren(['candidate'])"
-        }
-      }
+      ".read": false,
+      ".write": false
     },
 
     "receipts": {
-      "$chatId": {
-        "$uid": {
-          ".read": "auth != null",
-          ".write": "auth != null && auth.uid == $uid"
-        }
-      }
+      ".read": false,
+      ".write": false
     }
   }
 }

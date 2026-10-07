@@ -24,7 +24,14 @@ object EpochMillisSerializer : KSerializer<Long?> {
         PrimitiveSerialDescriptor("EpochMillis", PrimitiveKind.LONG).nullable
 
     override fun serialize(encoder: Encoder, value: Long?) {
-        if (value == null) encoder.encodeNull() else encoder.encodeLong(value)
+        if (value == null) {
+            encoder.encodeNull()
+        } else {
+            // PostgREST timestamptz inputs must be timestamp strings. Emitting a
+            // raw epoch long (e.g. 1791380714730) is parsed as a year and fails
+            // with SQLSTATE 22008. Keep epoch millis only inside the app model.
+            encoder.encodeString(Instant.ofEpochMilli(value).toString())
+        }
     }
 
     override fun deserialize(decoder: Decoder): Long? {

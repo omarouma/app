@@ -152,23 +152,37 @@ class SupabaseRestApi @Inject constructor(
     // ---- Chats (conversations) ----
 
     suspend fun getConversations(limit: Int, offset: Int): List<ConversationRow> =
-        client.get("${config.restUrl}/chats") {
+        client.post("${config.restUrl}/rpc/gaga_visible_chats") {
             auth()
-            parameter("select", "*")
-            parameter("order", "updated_at.desc")
-            parameter("limit", limit)
-            parameter("offset", offset)
+            contentType(ContentType.Application.Json)
+            setBody(buildJsonObject {
+                put("p_limit", limit)
+                put("p_offset", offset)
+            })
         }.body()
 
     suspend fun getConversationsUpdatedSince(since: Long, limit: Int, offset: Int = 0): List<ConversationRow> =
-        client.get("${config.restUrl}/chats") {
+        client.post("${config.restUrl}/rpc/gaga_visible_chats") {
             auth()
-            parameter("select", "*")
-            parameter("updated_at", "gte.${iso(since)}")
-            parameter("offset", offset)
-            parameter("order", "updated_at.desc")
-            parameter("limit", limit)
+            contentType(ContentType.Application.Json)
+            setBody(buildJsonObject {
+                put("p_limit", limit)
+                put("p_offset", offset)
+                put("p_since", iso(since))
+            })
         }.body()
+
+    suspend fun getHiddenConversationIds(): List<String> {
+        val rows: List<kotlinx.serialization.json.JsonObject> =
+            client.post("${config.restUrl}/rpc/gaga_hidden_chats") {
+                auth()
+                contentType(ContentType.Application.Json)
+                setBody(buildJsonObject {})
+            }.body()
+        return rows.mapNotNull { row ->
+            (row["chat_id"] as? kotlinx.serialization.json.JsonPrimitive)?.content
+        }
+    }
 
     suspend fun getConversation(id: String): ConversationRow? =
         client.get("${config.restUrl}/chats") {
@@ -203,19 +217,28 @@ class SupabaseRestApi @Inject constructor(
         archived: Boolean? = null,
         unreadCount: Int? = null,
     ) {
-        val body = buildJsonObject {
-            pinned?.let { put("pinned", it) }
-            muted?.let { put("is_muted", it) }
-            archived?.let { put("archived", it) }
-            unreadCount?.let { put("unread_count", it) }
+        // Pin/mute/archive are per-user preferences. They must never mutate the
+        // shared chat row because that would change another participant's UI.
+        if (pinned != null || muted != null || archived != null) {
+            client.post("${config.restUrl}/rpc/gaga_save_chat_settings") {
+                auth()
+                contentType(ContentType.Application.Json)
+                setBody(buildJsonObject {
+                    put("p_chat_id", id)
+                    pinned?.let { put("p_pinned", it) }
+                    muted?.let { put("p_muted", it) }
+                    archived?.let { put("p_archived", it) }
+                })
+            }
         }
-        if (body.isEmpty()) return
-        client.patch("${config.restUrl}/chats") {
-            auth()
-            parameter("id", "eq.$id")
-            header("Prefer", "return=minimal")
-            contentType(ContentType.Application.Json)
-            setBody(body)
+        // Unread state is derived from the caller's chat_reads marker. The only
+        // client-side override currently supported is marking the chat read.
+        if (unreadCount == 0) {
+            client.post("${config.restUrl}/rpc/mark_chat_read") {
+                auth()
+                contentType(ContentType.Application.Json)
+                setBody(buildJsonObject { put("p_chat_id", id) })
+            }
         }
     }
 
@@ -241,15 +264,25 @@ class SupabaseRestApi @Inject constructor(
         }
     }
 
-    /** Delete a conversation (chats table) by id. */
+    /**
+     * Hides a conversation for the current user without deleting the shared chat.
+     * A later chat update/new message makes it visible again server-side.
+     */
     suspend fun deleteConversation(id: String) {
-        val rows: List<kotlinx.serialization.json.JsonObject> = client.delete("${config.restUrl}/chats") {
+        client.post("${config.restUrl}/rpc/gaga_hide_chat") {
             auth()
-            parameter("id", "eq.$id")
-            parameter("select", "id")
-            header("Prefer", "return=representation")
-        }.body()
-        check(rows.size == 1) { "Conversation could not be deleted" }
+            contentType(ContentType.Application.Json)
+            setBody(buildJsonObject { put("p_chat_id", id) })
+        }
+    }
+
+    /** Explicitly re-opens a previously hidden chat (e.g. from a profile/deep link). */
+    suspend fun unhideConversation(id: String) {
+        client.post("${config.restUrl}/rpc/gaga_unhide_chat") {
+            auth()
+            contentType(ContentType.Application.Json)
+            setBody(buildJsonObject { put("p_chat_id", id) })
+        }
     }
 
     // ---- Messages ----
@@ -752,34 +785,70 @@ class SupabaseRestApi @Inject constructor(
             parameter("limit", 1)
         }.body<List<GroupRow>>().firstOrNull()
 
-    suspend fun insertGroup(row: GroupInsert): GroupRow =
-        client.post("${config.restUrl}/groups") {
+    suspend fun createGroupAtomic(
+        id: String,
+        name: String,
+        description: String?,
+        memberIds: List<String>,
+    ) {
+        client.post("${config.restUrl}/rpc/gaga_group_create") {
             auth()
-            header("Prefer", "return=representation")
             contentType(ContentType.Application.Json)
-            setBody(row)
-        }.body<List<GroupRow>>().first()
-
-    suspend fun updateGroup(id: String, name: String?, description: String?, avatar: String?) {
-        val body = buildJsonObject {
-            name?.let { put("name", it) }
-            description?.let { put("description", it) }
-            avatar?.let { put("avatar", it) }
-        }
-        if (body.isEmpty()) return
-        client.patch("${config.restUrl}/groups") {
-            auth()
-            parameter("id", "eq.$id")
-            header("Prefer", "return=minimal")
-            contentType(ContentType.Application.Json)
-            setBody(body)
+            setBody(buildJsonObject {
+                put("p_group_id", id)
+                put("p_name", name)
+                description?.let { put("p_description", it) }
+                put(
+                    "p_member_ids",
+                    kotlinx.serialization.json.JsonArray(
+                        memberIds.distinct().map { kotlinx.serialization.json.JsonPrimitive(it) },
+                    ),
+                )
+            })
         }
     }
 
-    suspend fun deleteGroup(id: String) {
-        client.delete("${config.restUrl}/groups") {
+    suspend fun updateGroupAtomic(id: String, name: String?, description: String?, avatar: String?) {
+        if (name == null && description == null && avatar == null) return
+        client.post("${config.restUrl}/rpc/gaga_group_update") {
             auth()
-            parameter("id", "eq.$id")
+            contentType(ContentType.Application.Json)
+            setBody(buildJsonObject {
+                put("p_group_id", id)
+                name?.let { put("p_name", it) }
+                description?.let { put("p_description", it) }
+                avatar?.let { put("p_avatar", it) }
+            })
+        }
+    }
+
+    suspend fun addGroupMemberAtomic(groupId: String, userId: String) {
+        client.post("${config.restUrl}/rpc/gaga_group_add_member") {
+            auth()
+            contentType(ContentType.Application.Json)
+            setBody(buildJsonObject {
+                put("p_group_id", groupId)
+                put("p_user_id", userId)
+            })
+        }
+    }
+
+    suspend fun removeGroupMemberAtomic(groupId: String, userId: String) {
+        client.post("${config.restUrl}/rpc/gaga_group_remove_member") {
+            auth()
+            contentType(ContentType.Application.Json)
+            setBody(buildJsonObject {
+                put("p_group_id", groupId)
+                put("p_user_id", userId)
+            })
+        }
+    }
+
+    suspend fun deleteGroupAtomic(id: String) {
+        client.post("${config.restUrl}/rpc/gaga_group_delete") {
+            auth()
+            contentType(ContentType.Application.Json)
+            setBody(buildJsonObject { put("p_group_id", id) })
         }
     }
 
@@ -789,23 +858,6 @@ class SupabaseRestApi @Inject constructor(
             parameter("select", "*")
             parameter("group_id", "eq.$groupId")
         }.body()
-
-    suspend fun insertGroupMember(row: GroupMemberInsert) {
-        client.post("${config.restUrl}/group_members") {
-            auth()
-            header("Prefer", "return=minimal")
-            contentType(ContentType.Application.Json)
-            setBody(row)
-        }
-    }
-
-    suspend fun deleteGroupMember(groupId: String, userId: String) {
-        client.delete("${config.restUrl}/group_members") {
-            auth()
-            parameter("group_id", "eq.$groupId")
-            parameter("user_id", "eq.$userId")
-        }
-    }
 
     // ---- Notifications ----
 

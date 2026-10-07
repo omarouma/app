@@ -6,7 +6,13 @@ on:
   pull_request:
     paths:
       - 'android-native/**'
-      - 'supabase/functions/livekit-token/**'
+      - 'supabase/functions/**'
+      - 'supabase/migrations/**'
+      - 'firebase.json'
+      - 'firestore.rules'
+      - 'firestore.indexes.json'
+      - 'database.rules.json'
+      - 'storage.rules'
       - '.github/workflows/android-repair.yml'
   workflow_dispatch:
 
@@ -44,6 +50,45 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.11.1'
+      - name: Validate Firebase public configuration
+        run: |
+          python3 - <<'PYFIREBASE'
+          import json, pathlib, re, subprocess
+          public = json.loads(pathlib.Path('android-native/ci/backend-public.json').read_text())
+          firebase = public['firebase']
+          gradle = pathlib.Path('android-native/app/build.gradle.kts').read_text()
+          assert firebase['project_id'] == 'oumagachat'
+          assert firebase['gcm_defaultSenderId'] == '545448312835'
+          assert 'applicationId = "gagachat.app"' in gradle
+          json.loads(pathlib.Path('database.rules.json').read_text())
+          json.loads(pathlib.Path('firebase.json').read_text())
+          json.loads(pathlib.Path('firestore.indexes.json').read_text())
+          service_marker = '"type": ' + '"service_' + 'account"'
+          private_marker = '-----BEGIN' + ' PRIVATE KEY-----'
+          tracked = subprocess.check_output(['git','ls-files','-z']).decode().split('\0')
+          for name in tracked:
+              if not name or name.endswith(('.md','.txt')):
+                  continue
+              path = pathlib.Path(name)
+              try:
+                  text = path.read_text(errors='ignore')
+              except Exception:
+                  continue
+              # Detect an actual Google service-account JSON object, not comments
+              # or documentation that merely names the credential type/PEM marker.
+              if path.suffix.lower() == '.json':
+                  try:
+                      payload = json.loads(text)
+                  except Exception:
+                      payload = None
+                  if isinstance(payload, dict):
+                      assert payload.get('type') != 'service_account', f'service account credential committed in {name}'
+                      assert not payload.get('private_key'), f'private key committed in {name}'
+              # For non-JSON files only flag a PEM marker followed by key-like
+              # base64 material; examples containing "..."/docs remain allowed.
+              pem = re.search(re.escape(private_marker) + r'\\s*(?:\\\\n|\\n)?([A-Za-z0-9+/=]{80,})', text)
+              assert pem is None, f'private key material committed in {name}'
+          PYFIREBASE
       - name: Configure existing public backend
         run: python3 android-native/ci/prepare.py
       - name: Compile release and test messaging and call contracts
