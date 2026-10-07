@@ -1,5 +1,6 @@
 package app.gagachat.core.firebase
 
+import com.google.firebase.database.ServerValue
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.SetOptions
 import javax.inject.Inject
@@ -97,17 +98,27 @@ class FirestoreChatMirror @Inject constructor(
      * `lastChanged`) matches the deployed `database.rules.json` validation.
      */
     suspend fun mirrorPresence(userId: String, online: Boolean) {
-        if (!enabled) return
+        if (!enabled || userId.isBlank()) return
         val db = environment.database ?: return
         runCatching {
-            db.getReference("presence").child(userId)
-                .updateChildren(
+            val ref = db.getReference("presence").child(userId)
+            if (online) {
+                // If the process/network disappears without a clean sign-out,
+                // RTDB marks the user offline server-side instead of leaving a
+                // permanent stale "online" record.
+                ref.onDisconnect().setValue(
                     mapOf(
-                        "state" to if (online) "online" else "offline",
-                        "lastChanged" to System.currentTimeMillis(),
+                        "state" to "offline",
+                        "lastChanged" to ServerValue.TIMESTAMP,
                     ),
-                )
-                .awaitResult()
+                ).awaitResult()
+            }
+            ref.setValue(
+                mapOf(
+                    "state" to if (online) "online" else "offline",
+                    "lastChanged" to ServerValue.TIMESTAMP,
+                ),
+            ).awaitResult()
         }
     }
 }
