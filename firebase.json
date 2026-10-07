@@ -35,12 +35,12 @@
     "redirects": [
       {
         "source": "/downloads/gaga-latest.apk",
-        "destination": "https://github.com/omarouma/app/releases/download/android-2.0.27-2/GaGa-2.0.27-release.apk",
+        "destination": "https://github.com/omarouma/app/releases/download/android-2.0.33/GaGa-2.0.33-release.apk",
         "type": 302
       },
       {
         "source": "/downloads/gaga-latest.aab",
-        "destination": "https://github.com/omarouma/app/releases/download/android-2.0.27-2/GaGa-2.0.27-release.aab",
+        "destination": "https://github.com/omarouma/app/releases/download/android-2.0.33/GaGa-2.0.33-release.aab",
         "type": 302
       }
     ],
