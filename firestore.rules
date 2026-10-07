@@ -135,9 +135,10 @@ service cloud.firestore {
         allow write: if isChatMember(chatId) && userId == uid();
       }
 
-      // Per-chat call records.
+      // Per-chat call records are backend mirrors; clients can only read them.
       match /calls/{callId} {
-        allow read, create, update: if isChatMember(chatId);
+        allow read: if isChatMember(chatId);
+        allow create, update, delete: if false;
       }
     }
 
@@ -170,15 +171,10 @@ service cloud.firestore {
       allow read: if isCallParty(callId);
       allow create, update, delete: if false;
 
-      // WebRTC offer / answer / ICE candidates.
+      // Legacy WebRTC signaling is disabled; LiveKit/Supabase owns signaling.
       match /signaling/{sigId} {
-        allow read: if isAuth() && (
-          uid() == resource.data.fromUserId || uid() == resource.data.toUserId
-        );
-        allow create: if isAuth() && request.resource.data.fromUserId == uid();
-        allow delete: if isAuth() && (
-          uid() == resource.data.fromUserId || uid() == resource.data.toUserId
-        );
+        allow read: if isCallParty(callId);
+        allow create, update, delete: if false;
       }
     }
 
