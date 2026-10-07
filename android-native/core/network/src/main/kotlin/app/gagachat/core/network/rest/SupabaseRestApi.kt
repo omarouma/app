@@ -152,22 +152,24 @@ class SupabaseRestApi @Inject constructor(
     // ---- Chats (conversations) ----
 
     suspend fun getConversations(limit: Int, offset: Int): List<ConversationRow> =
-        client.get("${config.restUrl}/chats") {
+        client.post("${config.restUrl}/rpc/gaga_visible_chats") {
             auth()
-            parameter("select", "*")
-            parameter("order", "updated_at.desc")
-            parameter("limit", limit)
-            parameter("offset", offset)
+            contentType(ContentType.Application.Json)
+            setBody(buildJsonObject {
+                put("p_limit", limit)
+                put("p_offset", offset)
+            })
         }.body()
 
     suspend fun getConversationsUpdatedSince(since: Long, limit: Int, offset: Int = 0): List<ConversationRow> =
-        client.get("${config.restUrl}/chats") {
+        client.post("${config.restUrl}/rpc/gaga_visible_chats") {
             auth()
-            parameter("select", "*")
-            parameter("updated_at", "gte.${iso(since)}")
-            parameter("offset", offset)
-            parameter("order", "updated_at.desc")
-            parameter("limit", limit)
+            contentType(ContentType.Application.Json)
+            setBody(buildJsonObject {
+                put("p_limit", limit)
+                put("p_offset", offset)
+                put("p_since", iso(since))
+            })
         }.body()
 
     suspend fun getConversation(id: String): ConversationRow? =
@@ -241,15 +243,25 @@ class SupabaseRestApi @Inject constructor(
         }
     }
 
-    /** Delete a conversation (chats table) by id. */
+    /**
+     * Hides a conversation for the current user without deleting the shared chat.
+     * A later chat update/new message makes it visible again server-side.
+     */
     suspend fun deleteConversation(id: String) {
-        val rows: List<kotlinx.serialization.json.JsonObject> = client.delete("${config.restUrl}/chats") {
+        client.post("${config.restUrl}/rpc/gaga_hide_chat") {
             auth()
-            parameter("id", "eq.$id")
-            parameter("select", "id")
-            header("Prefer", "return=representation")
-        }.body()
-        check(rows.size == 1) { "Conversation could not be deleted" }
+            contentType(ContentType.Application.Json)
+            setBody(buildJsonObject { put("p_chat_id", id) })
+        }
+    }
+
+    /** Explicitly re-opens a previously hidden chat (e.g. from a profile/deep link). */
+    suspend fun unhideConversation(id: String) {
+        client.post("${config.restUrl}/rpc/gaga_unhide_chat") {
+            auth()
+            contentType(ContentType.Application.Json)
+            setBody(buildJsonObject { put("p_chat_id", id) })
+        }
     }
 
     // ---- Messages ----
