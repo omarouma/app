@@ -172,6 +172,18 @@ class SupabaseRestApi @Inject constructor(
             })
         }.body()
 
+    suspend fun getHiddenConversationIds(): List<String> {
+        val rows: List<kotlinx.serialization.json.JsonObject> =
+            client.post("${config.restUrl}/rpc/gaga_hidden_chats") {
+                auth()
+                contentType(ContentType.Application.Json)
+                setBody(buildJsonObject {})
+            }.body()
+        return rows.mapNotNull { row ->
+            (row["chat_id"] as? kotlinx.serialization.json.JsonPrimitive)?.content
+        }
+    }
+
     suspend fun getConversation(id: String): ConversationRow? =
         client.get("${config.restUrl}/chats") {
             auth()
