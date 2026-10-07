@@ -39,6 +39,8 @@ import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.NotificationsActive
+import androidx.compose.material.icons.filled.TaskAlt
+import androidx.compose.material.icons.filled.NoteAdd
 import androidx.compose.material.icons.filled.ReceiptLong
 import androidx.compose.material.icons.filled.Checklist
 import androidx.compose.material.icons.filled.Close
@@ -569,6 +571,8 @@ fun ChatRoute(
                     viewModel.selectMessage(null)
                 },
                 onSave = { viewModel.saveMessage(selected); viewModel.selectMessage(null) },
+                onTask = { viewModel.selectMessage(null); onDailyAction("task", selected.text.orEmpty(), selected.conversationId, selected.serverMessageId.orEmpty()) },
+                onNote = { viewModel.selectMessage(null); onDailyAction("note", selected.text.orEmpty(), selected.conversationId, selected.serverMessageId.orEmpty()) },
                 onRemind = { viewModel.selectMessage(null); onDailyAction("reminder", selected.text.orEmpty(), selected.conversationId, selected.serverMessageId.orEmpty()) },
                 onExpense = { viewModel.selectMessage(null); onDailyAction("expense", selected.text.orEmpty(), selected.conversationId, selected.serverMessageId.orEmpty()) },
                 onMessageInfo = {
@@ -748,6 +752,8 @@ private fun MessageActionSheet(
     onDelete: () -> Unit,
     onDeleteForMe: () -> Unit,
     onSave: () -> Unit,
+    onTask: () -> Unit,
+    onNote: () -> Unit,
     onRemind: () -> Unit,
     onExpense: () -> Unit,
     onMessageInfo: () -> Unit,
@@ -795,8 +801,12 @@ private fun MessageActionSheet(
             if (canCopy) ActionRow(Icons.Filled.ContentCopy, "Copy", onCopy)
             if (!message.isDeleted) {
                 ActionRow(Icons.Filled.Bookmark, "Save privately", onSave)
+                HorizontalDivider(modifier = Modifier.padding(vertical = GagaDimens.space4))
+                Text("GaGa Actions", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(horizontal = GagaDimens.space24, vertical = GagaDimens.space8))
+                ActionRow(Icons.Filled.TaskAlt, "Create task", onTask)
                 ActionRow(Icons.Filled.NotificationsActive, "Remind me", onRemind)
                 ActionRow(Icons.Filled.ReceiptLong, "Create expense", onExpense)
+                ActionRow(Icons.Filled.NoteAdd, "Save as private note", onNote)
                 ActionRow(Icons.Filled.Info, "Message info", onMessageInfo)
                 ActionRow(Icons.Filled.Checklist, "Select messages", onSelectMultiple)
             }
