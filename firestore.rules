@@ -235,9 +235,13 @@ service cloud.firestore {
     // ─────────────────────────── notifications ───────────────────────────
     match /notifications/{id} {
       allow read: if isAuth() && uid() == resource.data.userId;
-      // Notifications are created by trusted backend code only.
+      // Notifications are created by trusted backend code only. A recipient may
+      // only change read-state metadata; ownership/content stays immutable.
       allow create: if false;
-      allow update: if isAuth() && uid() == resource.data.userId;
+      allow update: if isAuth()
+        && uid() == resource.data.userId
+        && request.resource.data.userId == resource.data.userId
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read', 'readAt']);
       allow delete: if isAuth() && uid() == resource.data.userId;
     }
 
@@ -245,7 +249,10 @@ service cloud.firestore {
     match /user_devices/{id} {
       allow read: if isAuth() && uid() == resource.data.userId;
       allow create: if isAuth() && uid() == request.resource.data.userId;
-      allow update, delete: if isAuth() && uid() == resource.data.userId;
+      allow update: if isAuth()
+        && uid() == resource.data.userId
+        && request.resource.data.userId == resource.data.userId;
+      allow delete: if isAuth() && uid() == resource.data.userId;
     }
 
     // ─────────────────────────── reports ───────────────────────────
