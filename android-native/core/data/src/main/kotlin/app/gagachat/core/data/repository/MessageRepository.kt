@@ -900,7 +900,10 @@ class DefaultMessageRepository @Inject constructor(
                 clientMessageId = pending.clientMessageId,
                 conversationId = pending.conversationId,
                 senderId = pending.senderId,
-                type = pending.type.name.lowercase(),
+                type = when (pending.type) {
+                    MessageType.CALL_EVENT -> "call"
+                    else -> pending.type.name.lowercase()
+                },
                 text = pending.text,
                 mediaUrl = pending.mediaUrl,
                 mediaUrls = pending.mediaUrls
