@@ -461,25 +461,47 @@ class ChatViewModel @Inject constructor(
             notice.value = "Type a message before scheduling it."
             return
         }
+        if (scheduledAt <= System.currentTimeMillis()) {
+            notice.value = "Choose a future time for the scheduled message."
+            return
+        }
         draft.value = ""
         draftStore.clear(conversationId)
         replyTo.value = null
         typingJob?.cancel()
         broadcastTyping(false)
         viewModelScope.launch {
-            val session = authRepository.sessionFlow.value
-            val result = messageRepository.scheduleMessage(
-                conversationId = conversationId,
-                senderId = currentUserId,
-                senderName = session?.displayName,
-                senderAvatar = null,
-                text = text,
-                scheduledAt = scheduledAt,
-            )
-            when (result) {
-                is AppResult.Failure -> error.value = result.error.toUserMessage()
-                is AppResult.Success -> notice.value = "Message scheduled"
-                AppResult.Loading -> Unit
+            try {
+                val session = authRepository.sessionFlow.value
+                when (
+                    val result = messageRepository.scheduleMessage(
+                        conversationId = conversationId,
+                        senderId = currentUserId,
+                        senderName = session?.displayName,
+                        senderAvatar = null,
+                        text = text,
+                        scheduledAt = scheduledAt,
+                    )
+                ) {
+                    is AppResult.Failure -> {
+                        // Scheduling has no optimistic server/outbox row to recover
+                        // from when persistence itself fails, so preserve the text.
+                        if (draft.value.isBlank()) {
+                            draft.value = text
+                            draftStore.set(conversationId, text)
+                        }
+                        error.value = result.error.toUserMessage()
+                    }
+                    is AppResult.Success -> notice.value = "Message scheduled"
+                    AppResult.Loading -> Unit
+                }
+            } catch (t: Throwable) {
+                if (t is kotlinx.coroutines.CancellationException) throw t
+                if (draft.value.isBlank()) {
+                    draft.value = text
+                    draftStore.set(conversationId, text)
+                }
+                error.value = "Couldn't schedule this message. Your draft was restored."
             }
         }
     }
@@ -557,16 +579,23 @@ class ChatViewModel @Inject constructor(
         if (!beginMediaSend()) return
         viewModelScope.launch {
             val session = authRepository.sessionFlow.value
-            val resolved = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                uris.mapNotNull { uri ->
-                    val base = resolveUri(uri) ?: return@mapNotNull null
-                    if (base.third > 25L * 1024 * 1024) return@mapNotNull null
-                    compressLargeImage(base)
-                }
+            // Resolve every selected item before compression. The old mapNotNull
+            // path silently sent a partial album when one provider URI was stale
+            // or one photo exceeded the limit, which changed the user's reviewed
+            // selection without telling them.
+            val baseItems = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                uris.map { uri -> resolveUri(uri) }
             }
-            if (resolved.isEmpty()) {
-                error.value = "Couldn't read the selected photos."
+            if (baseItems.any { it == null }) {
+                error.value = "One or more selected photos couldn't be read. Review the album and try again."
                 return@launch
+            }
+            if (baseItems.filterNotNull().any { it.third > 25L * 1024 * 1024 }) {
+                error.value = "One or more photos exceed 25 MB. Remove the large photo and try again."
+                return@launch
+            }
+            val resolved = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                baseItems.filterNotNull().map { compressLargeImage(it) }
             }
             val items = resolved.map { AlbumUploadItem(it.first, it.second, it.third) }
             val result = mediaRepository.enqueueAlbumUpload(
@@ -1160,15 +1189,21 @@ class ChatViewModel @Inject constructor(
         val oldest = state.value.messages.minByOrNull { it.sortTimestamp } ?: return
         loadingOlder.value = true
         viewModelScope.launch {
-            when (val result = messageRepository.loadOlder(conversationId, oldest.sortTimestamp)) {
-                is AppResult.Success -> {
-                    messageLimit.value += result.data.size
-                    if (result.data.size < Constants.MESSAGE_PAGE_SIZE) hasMoreOlder.value = false
+            try {
+                when (val result = messageRepository.loadOlder(conversationId, oldest.sortTimestamp)) {
+                    is AppResult.Success -> {
+                        messageLimit.value += result.data.size
+                        if (result.data.size < Constants.MESSAGE_PAGE_SIZE) hasMoreOlder.value = false
+                    }
+                    is AppResult.Failure -> error.value = result.error.toUserMessage()
+                    AppResult.Loading -> Unit
                 }
-                is AppResult.Failure -> error.value = result.error.toUserMessage()
-                AppResult.Loading -> Unit
+            } catch (t: Throwable) {
+                if (t is kotlinx.coroutines.CancellationException) throw t
+                error.value = "Couldn't load older messages. Pull up again to retry."
+            } finally {
+                loadingOlder.value = false
             }
-            loadingOlder.value = false
         }
     }
 
