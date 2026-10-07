@@ -83,8 +83,17 @@ service cloud.firestore {
       allow create: if isAuth()
         && uid() in request.resource.data.participants
         && request.resource.data.participants.size() >= 1;
-      allow update: if isAuth() && uid() in resource.data.participants;
-      allow delete: if isAuth() && uid() in resource.data.participants;
+      // Firebase is a mirror; participants/type are authoritative in Supabase.
+      // A member may refresh only derived list-preview fields, never membership.
+      allow update: if isAuth()
+        && uid() in resource.data.participants
+        && request.resource.data.participants == resource.data.participants
+        && request.resource.data.type == resource.data.type
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'updatedAt', 'lastMessage', 'lastMessageAt',
+          'lastMessageSenderId', 'lastMessageType', 'lastMessagePreview'
+        ]);
+      allow delete: if false;
 
       // Messages — only participants; author must be the sender.
       match /messages/{messageId} {
@@ -95,9 +104,13 @@ service cloud.firestore {
           && request.resource.data.size() < 200;
 
         allow update: if isChatMember(chatId) && (
-          // Author may edit/delete their own message.
-          resource.data.senderId == uid()
-          // Anyone in the chat may flip delivery/read state or add a reaction.
+          // Author may change only mutable message presentation fields.
+          (resource.data.senderId == uid()
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+              'text', 'editedAt', 'deletedAt', 'reactions',
+              'deliveredTo', 'readBy', 'updatedAt'
+            ]))
+          // Other participants may only acknowledge delivery/read or react.
           || request.resource.data.diff(resource.data).affectedKeys()
                .hasOnly(['deliveredTo', 'readBy', 'reactions', 'updatedAt'])
         );
@@ -106,8 +119,13 @@ service cloud.firestore {
 
         match /reactions/{reactionId} {
           allow read: if isChatMember(chatId);
-          allow create, update, delete: if isChatMember(chatId)
+          allow create: if isChatMember(chatId)
             && request.resource.data.userId == uid();
+          allow update: if isChatMember(chatId)
+            && resource.data.userId == uid()
+            && request.resource.data.userId == resource.data.userId;
+          allow delete: if isChatMember(chatId)
+            && resource.data.userId == uid();
         }
       }
 
@@ -131,20 +149,26 @@ service cloud.firestore {
 
     // ─────────────────────────── typing (flat) ───────────────────────────
     match /typing/{typingId} {
-      allow read: if isAuth();
-      allow create, update: if isAuth() && request.resource.data.userId == uid();
-      allow delete: if isAuth() && resource.data.userId == uid();
+      allow read: if isAuth() && isChatMember(resource.data.chatId);
+      allow create: if isAuth()
+        && request.resource.data.userId == uid()
+        && isChatMember(request.resource.data.chatId);
+      allow update: if isAuth()
+        && resource.data.userId == uid()
+        && request.resource.data.userId == resource.data.userId
+        && request.resource.data.chatId == resource.data.chatId
+        && isChatMember(resource.data.chatId);
+      allow delete: if isAuth()
+        && resource.data.userId == uid()
+        && isChatMember(resource.data.chatId);
     }
 
     // ─────────────────────────── calls ───────────────────────────
     match /calls/{callId} {
-      allow read:   if isCallParty(callId);
-      allow create: if isAuth() && (
-        uid() == request.resource.data.initiatorId ||
-        uid() in request.resource.data.participants
-      );
-      allow update: if isCallParty(callId);
-      allow delete: if isCallParty(callId);
+      // LiveKit/Supabase is authoritative for call lifecycle. Firebase call
+      // records are read-only to participants; clients cannot forge/update them.
+      allow read: if isCallParty(callId);
+      allow create, update, delete: if false;
 
       // WebRTC offer / answer / ICE candidates.
       match /signaling/{sigId} {
@@ -165,20 +189,7 @@ service cloud.firestore {
         uid() == resource.data.calleeId ||
         uid() in resource.data.participantIds
       );
-      allow create: if isAuth() && (
-        uid() == request.resource.data.callerId ||
-        uid() in request.resource.data.participantIds
-      );
-      allow update: if isAuth() && (
-        uid() == resource.data.callerId ||
-        uid() == resource.data.calleeId ||
-        uid() in resource.data.participantIds
-      );
-      allow delete: if isAuth() && (
-        uid() == resource.data.callerId ||
-        uid() == resource.data.calleeId ||
-        uid() in resource.data.participantIds
-      );
+      allow create, update, delete: if false;
     }
 
     // ─────────────────────────── friend requests ───────────────────────────
@@ -187,9 +198,11 @@ service cloud.firestore {
         uid() == resource.data.fromUserId || uid() == resource.data.toUserId
       );
       allow create: if isAuth() && request.resource.data.fromUserId == uid();
-      allow update: if isAuth() && (
-        uid() == resource.data.fromUserId || uid() == resource.data.toUserId
-      );
+      allow update: if isAuth()
+        && uid() == resource.data.toUserId
+        && request.resource.data.fromUserId == resource.data.fromUserId
+        && request.resource.data.toUserId == resource.data.toUserId
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'updatedAt']);
       allow delete: if isAuth() && (
         uid() == resource.data.fromUserId || uid() == resource.data.toUserId
       );
@@ -202,10 +215,7 @@ service cloud.firestore {
         uid() == resource.data.friendId ||
         uid() in resource.data.members
       );
-      allow create: if isAuth() && (
-        uid() == request.resource.data.userId ||
-        uid() in request.resource.data.members
-      );
+      allow create: if false;
       allow update: if false;   // maintained by backend on accept
       allow delete: if isAuth() && (
         uid() == resource.data.userId ||
@@ -219,16 +229,18 @@ service cloud.firestore {
       allow read: if isAuth() && (
         uid() == resource.data.blockerId || uid() == resource.data.userId
       );
-      allow create, delete: if isAuth() && (
-        uid() == request.resource.data.blockerId || uid() == request.resource.data.userId
-      );
+      allow create: if isAuth()
+        && uid() == request.resource.data.blockerId;
+      allow delete: if isAuth()
+        && uid() == resource.data.blockerId;
       allow update: if false;
     }
 
     // ─────────────────────────── notifications ───────────────────────────
     match /notifications/{id} {
       allow read: if isAuth() && uid() == resource.data.userId;
-      allow create: if isAuth();
+      // Notifications are created by trusted backend code only.
+      allow create: if false;
       allow update: if isAuth() && uid() == resource.data.userId;
       allow delete: if isAuth() && uid() == resource.data.userId;
     }
