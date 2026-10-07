@@ -30,24 +30,32 @@ class FirestoreChatMirror @Inject constructor(
     )
 
     /**
-     * Creates (or merges into) the `chats/{conversationId}` document. Uses
-     * `arrayUnion` so the participant set only ever grows and never shrinks.
+     * Creates the Firebase chat mirror once, then refreshes only its derived
+     * timestamp. Membership/type remain authoritative in Supabase and therefore
+     * are never expanded by a client-side mirror write after creation.
      */
     suspend fun ensureChat(conversationId: String, participants: List<String>, type: String) {
         if (!enabled) return
         val db = environment.firestore ?: return
         runCatching {
-            val data = mutableMapOf<String, Any>(
-                "type" to type,
-                "updatedAt" to FieldValue.serverTimestamp(),
-            )
-            val cleaned = participants.filter { it.isNotBlank() }.distinct()
-            if (cleaned.isNotEmpty()) {
-                data["participants"] = FieldValue.arrayUnion(*cleaned.toTypedArray())
+            val ref = db.collection("chats").document(conversationId)
+            val snapshot = ref.get().awaitResult()
+            if (!snapshot.exists()) {
+                val cleaned = participants.filter { it.isNotBlank() }.distinct()
+                if (cleaned.isEmpty()) return@runCatching
+                ref.set(
+                    mapOf(
+                        "type" to type,
+                        "participants" to cleaned,
+                        "updatedAt" to FieldValue.serverTimestamp(),
+                    ),
+                ).awaitResult()
+            } else {
+                ref.set(
+                    mapOf("updatedAt" to FieldValue.serverTimestamp()),
+                    SetOptions.merge(),
+                ).awaitResult()
             }
-            db.collection("chats").document(conversationId)
-                .set(data, SetOptions.merge())
-                .awaitResult()
         }
     }
 
