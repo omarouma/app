@@ -6,7 +6,7 @@ on:
   pull_request:
     paths:
       - 'android-native/**'
-      - 'supabase/functions/livekit-token/**'
+      - 'supabase/functions/**'
       - 'supabase/migrations/**'
       - '.github/workflows/android-repair.yml'
   workflow_dispatch:
