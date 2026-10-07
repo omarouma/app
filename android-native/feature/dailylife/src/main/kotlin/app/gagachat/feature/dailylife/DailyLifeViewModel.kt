@@ -51,7 +51,7 @@ class DailyLifeViewModel @Inject constructor(
             val records = api.records()
             val lists = api.lists()
             _state.update { it.copy(records = records, lists = lists, loading = false) }
-            records.filter { it.kind == "reminder" }.forEach(::schedule)
+            records.filter { it.kind in listOf("task", "reminder") }.forEach(::schedule)
             _state.value.selectedList?.let { selectList(it.id) }
         } catch (e: CancellationException) { throw e }
         catch (e: Exception) { _state.update { it.copy(loading = false, error = "Could not load your records. Check your connection and try again.") } }
@@ -61,7 +61,7 @@ class DailyLifeViewModel @Inject constructor(
     fun save(record: DailyRecord, editing: Boolean, done: () -> Unit) = mutate {
         val saved = api.save(record, editing)
         _state.update { it.copy(records = (it.records.filterNot { r -> r.id == saved.id } + saved).sortedByDescending { r -> r.happenedAt }) }
-        if (saved.kind == "reminder") schedule(saved)
+        if (saved.kind in listOf("task", "reminder")) schedule(saved)
         done()
     }
 
