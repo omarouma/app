@@ -16,9 +16,9 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Notes
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Groups
-import androidx.compose.material.icons.filled.Notes
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -97,7 +97,7 @@ fun CreateGroupScreen(
                         value = state.description,
                         onValueChange = viewModel::onDescriptionChange,
                         label = "Description (optional)",
-                        leadingIcon = Icons.Filled.Notes,
+                        leadingIcon = Icons.AutoMirrored.Filled.Notes,
                         singleLine = false,
                         imeAction = ImeAction.Done,
                     )

@@ -32,6 +32,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.automirrored.filled.Forward
+import androidx.compose.material.icons.automirrored.filled.ReceiptLong
 import androidx.compose.material.icons.automirrored.filled.Reply
 import androidx.compose.material.icons.filled.AddReaction
 import androidx.compose.material.icons.filled.ArrowDownward
@@ -39,7 +40,6 @@ import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.NotificationsActive
-import androidx.compose.material.icons.filled.ReceiptLong
 import androidx.compose.material.icons.filled.Checklist
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCopy
@@ -796,7 +796,7 @@ private fun MessageActionSheet(
             if (!message.isDeleted) {
                 ActionRow(Icons.Filled.Bookmark, "Save privately", onSave)
                 ActionRow(Icons.Filled.NotificationsActive, "Remind me", onRemind)
-                ActionRow(Icons.Filled.ReceiptLong, "Create expense", onExpense)
+                ActionRow(Icons.AutoMirrored.Filled.ReceiptLong, "Create expense", onExpense)
                 ActionRow(Icons.Filled.Info, "Message info", onMessageInfo)
                 ActionRow(Icons.Filled.Checklist, "Select messages", onSelectMultiple)
             }

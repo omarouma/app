@@ -20,11 +20,12 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.CallSplit
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
-import androidx.compose.material.icons.filled.CallSplit
 import androidx.compose.material.icons.filled.Campaign
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.ContentCopy
@@ -34,7 +35,6 @@ import androidx.compose.material.icons.filled.Redeem
 import androidx.compose.material.icons.filled.RequestPage
 import androidx.compose.material.icons.filled.Savings
 import androidx.compose.material.icons.filled.Security
-import androidx.compose.material.icons.filled.Send
 import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material3.Icon
@@ -291,7 +291,7 @@ private fun ActionRow(onDeposit: () -> Unit, onSend: () -> Unit) {
         "Deposit" to Icons.Filled.Add,
         "Withdraw" to Icons.Filled.ArrowUpward,
         "Convert" to Icons.Filled.SwapHoriz,
-        "Send" to Icons.Filled.Send,
+        "Send" to Icons.AutoMirrored.Filled.Send,
         "Request" to Icons.Filled.RequestPage,
         "Earn" to Icons.Filled.Savings,
     )
@@ -427,9 +427,9 @@ private fun ActionGrid() {
         "Convert" to Icons.Filled.SwapHoriz,
         "Withdraw" to Icons.Filled.ArrowUpward,
         "Deposit" to Icons.Filled.Add,
-        "Send" to Icons.Filled.Send,
+        "Send" to Icons.AutoMirrored.Filled.Send,
         "Request" to Icons.Filled.RequestPage,
-        "Split" to Icons.Filled.CallSplit,
+        "Split" to Icons.AutoMirrored.Filled.CallSplit,
         "Promo" to Icons.Filled.Campaign,
         "Security" to Icons.Filled.Security,
     )

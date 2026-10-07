@@ -21,18 +21,18 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Chat
+import androidx.compose.material.icons.automirrored.filled.HelpOutline
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.CameraAlt
-import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.HelpOutline
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Link
@@ -238,7 +238,7 @@ fun ProfileRoute(
                     )
                 } else {
                     ProfileActionButton(
-                        icon = Icons.Filled.Chat,
+                        icon = Icons.AutoMirrored.Filled.Chat,
                         label = "Message",
                         primary = true,
                         onClick = { viewModel.openChat(onOpenConversation) },
@@ -346,7 +346,7 @@ fun ProfileRoute(
                 GagaSettingsRow(
                     title = "Help & Support",
                     subtitle = "FAQs, guides and contact",
-                    leadingIcon = Icons.Filled.HelpOutline,
+                    leadingIcon = Icons.AutoMirrored.Filled.HelpOutline,
                     leadingIconTint = GagaGreen,
                     trailing = { ChevronRight() },
                     onClick = onOpenHelp,

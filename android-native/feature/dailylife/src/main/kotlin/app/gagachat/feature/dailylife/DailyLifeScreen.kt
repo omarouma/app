@@ -16,6 +16,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Note
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -98,7 +99,7 @@ fun DailyHome(nav: NavController, onSaved: () -> Unit, vm: DailyLifeViewModel = 
     val ui by vm.state.collectAsStateWithLifecycle()
     val fontScale = LocalDensity.current.fontScale
     ResumeRefresh(vm)
-    val sections = listOf("money" to Icons.Default.AccountBalanceWallet, "debts" to Icons.Default.People, "reminder" to Icons.Default.NotificationsActive, "shopping" to Icons.Default.ShoppingCart, "goal" to Icons.Default.Savings, "budget" to Icons.Default.PieChart, "account" to Icons.Default.AccountBalance, "note" to Icons.Default.Note)
+    val sections = listOf("money" to Icons.Default.AccountBalanceWallet, "debts" to Icons.Default.People, "reminder" to Icons.Default.NotificationsActive, "shopping" to Icons.Default.ShoppingCart, "goal" to Icons.Default.Savings, "budget" to Icons.Default.PieChart, "account" to Icons.Default.AccountBalance, "note" to Icons.AutoMirrored.Filled.Note)
     GagaScaffold(title = "Daily Life", actions = { IconButton(onClick = { vm.refresh() }) { Icon(Icons.Default.Refresh, "Refresh") } }) { padding ->
         BoxWithConstraints(Modifier.fillMaxSize().padding(padding)) {
             val columns = if (maxWidth < 340.dp || fontScale > 1.2f) 1 else 2

@@ -90,7 +90,7 @@ Kotlin 2.0.21 · Jetpack Compose (BOM 2024.12.01) · Material 3 · Hilt 2.52 ·
 Room 2.6.1 · Ktor 3.0.3 · Supabase (PostgREST + Realtime + Storage + GoTrue) ·
 Firebase (Messaging/Analytics/Crashlytics) · Coil 2.7.0 · WorkManager 2.10.0 ·
 DataStore · EncryptedSharedPreferences · Baseline Profiles · Macrobenchmark.
-AGP 8.7.3 · KSP 2.0.21-1.0.28 · Gradle 8.11.1 · minSdk 24 · targetSdk 35.
+AGP 8.7.3 · KSP 2.0.21-1.0.28 · Gradle 8.11.1 · minSdk 26 · targetSdk 35.
 
 ---
 

@@ -13,6 +13,7 @@ import app.gagachat.core.network.dto.GroupMemberRow
 import app.gagachat.core.network.dto.GroupRow
 import app.gagachat.core.network.error.ErrorMapper
 import app.gagachat.core.network.rest.SupabaseRestApi
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -65,6 +66,7 @@ class DefaultGroupRepository @Inject constructor(
             }
             AppResult.Success(Unit)
         } catch (t: Throwable) {
+            if (t is CancellationException) throw t
             AppResult.Failure(ErrorMapper.map(t))
         }
     }
@@ -75,6 +77,7 @@ class DefaultGroupRepository @Inject constructor(
                 ?: return@withContext AppResult.Failure(AppError.Database("Group not found"))
             AppResult.Success(row.toDomain(loadMembers(groupId)))
         } catch (t: Throwable) {
+            if (t is CancellationException) throw t
             AppResult.Failure(ErrorMapper.map(t))
         }
     }
@@ -102,6 +105,7 @@ class DefaultGroupRepository @Inject constructor(
             refresh()
             AppResult.Success(group)
         } catch (t: Throwable) {
+            if (t is CancellationException) throw t
             AppResult.Failure(ErrorMapper.map(t))
         }
     }
@@ -117,6 +121,7 @@ class DefaultGroupRepository @Inject constructor(
             refresh()
             AppResult.Success(Unit)
         } catch (t: Throwable) {
+            if (t is CancellationException) throw t
             AppResult.Failure(ErrorMapper.map(t))
         }
     }
@@ -130,6 +135,7 @@ class DefaultGroupRepository @Inject constructor(
                 refresh()
                 AppResult.Success(Unit)
             } catch (t: Throwable) {
+                if (t is CancellationException) throw t
                 AppResult.Failure(ErrorMapper.map(t))
             }
         }
@@ -141,6 +147,7 @@ class DefaultGroupRepository @Inject constructor(
                 refresh()
                 AppResult.Success(Unit)
             } catch (t: Throwable) {
+                if (t is CancellationException) throw t
                 AppResult.Failure(ErrorMapper.map(t))
             }
         }
@@ -153,6 +160,7 @@ class DefaultGroupRepository @Inject constructor(
             _groups.value = _groups.value.filterNot { it.id == groupId }
             AppResult.Success(Unit)
         } catch (t: Throwable) {
+            if (t is CancellationException) throw t
             AppResult.Failure(ErrorMapper.map(t))
         }
     }
@@ -163,6 +171,7 @@ class DefaultGroupRepository @Inject constructor(
             _groups.value = _groups.value.filterNot { it.id == groupId }
             AppResult.Success(Unit)
         } catch (t: Throwable) {
+            if (t is CancellationException) throw t
             AppResult.Failure(ErrorMapper.map(t))
         }
     }

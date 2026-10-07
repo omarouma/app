@@ -22,6 +22,7 @@ import app.gagachat.core.network.dto.ConversationInsert
 import app.gagachat.core.network.dto.ConversationRow
 import app.gagachat.core.network.error.ErrorMapper
 import app.gagachat.core.network.rest.SupabaseRestApi
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
@@ -141,6 +142,7 @@ class DefaultConversationRepository @Inject constructor(
             }
             AppResult.Success(Unit)
         } catch (t: Throwable) {
+            if (t is CancellationException) throw t
             AppResult.Failure(ErrorMapper.map(t))
         }
     }
@@ -212,6 +214,7 @@ class DefaultConversationRepository @Inject constructor(
             cacheConversation(row)
             AppResult.Success(row.id)
         } catch (t: Throwable) {
+            if (t is CancellationException) throw t
             AppResult.Failure(ErrorMapper.map(t))
         }
     }

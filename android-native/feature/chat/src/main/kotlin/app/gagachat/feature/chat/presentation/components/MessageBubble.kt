@@ -22,10 +22,10 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.CallMade
+import androidx.compose.material.icons.automirrored.filled.CallMissed
 import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.CallEnd
-import androidx.compose.material.icons.filled.CallMade
-import androidx.compose.material.icons.filled.CallMissed
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ContentCopy
@@ -1128,11 +1128,11 @@ private fun CallEventContent(
     val parsed = remember(message.text) { parseCallEvent(message.text) }
     val kindLabel = if (parsed.isVideo) "Video call" else "Voice call"
     val icon = when (parsed.outcome) {
-        CallOutcome.MISSED -> if (isOutgoing) Icons.Filled.CallMade else Icons.Filled.CallMissed
+        CallOutcome.MISSED -> if (isOutgoing) Icons.AutoMirrored.Filled.CallMade else Icons.AutoMirrored.Filled.CallMissed
         CallOutcome.DECLINED -> Icons.Filled.CallEnd
-        CallOutcome.CANCELLED -> Icons.Filled.CallMade
+        CallOutcome.CANCELLED -> Icons.AutoMirrored.Filled.CallMade
         CallOutcome.FAILED -> Icons.Filled.CallEnd
-        CallOutcome.ANSWERED -> if (isOutgoing) Icons.Filled.CallMade else Icons.Filled.Call
+        CallOutcome.ANSWERED -> if (isOutgoing) Icons.AutoMirrored.Filled.CallMade else Icons.Filled.Call
     }
     val unanswered = parsed.outcome != CallOutcome.ANSWERED
     val accent = if (unanswered) MaterialTheme.colorScheme.error else contentColor

@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.HelpOutline
 import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.Accessibility
 import androidx.compose.material.icons.filled.AccountBalanceWallet
@@ -17,7 +18,6 @@ import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.DeleteForever
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.HelpOutline
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Lock
@@ -195,7 +195,7 @@ fun SettingsRoute(
             GagaSettingsRow(
                 title = "Help & Support",
                 subtitle = "FAQs and contact support",
-                leadingIcon = Icons.Filled.HelpOutline,
+                leadingIcon = Icons.AutoMirrored.Filled.HelpOutline,
                 leadingIconTint = IconGreen,
                 onClick = onOpenHelp,
             )

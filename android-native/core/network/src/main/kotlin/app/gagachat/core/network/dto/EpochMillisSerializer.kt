@@ -1,5 +1,6 @@
 package app.gagachat.core.network.dto
 
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.descriptors.PrimitiveKind
 import kotlinx.serialization.descriptors.PrimitiveSerialDescriptor
@@ -19,6 +20,7 @@ import java.time.OffsetDateTime
  * milliseconds. This serializer accepts a JSON null, a numeric epoch value, or
  * an ISO-8601 string and normalises everything to epoch millis.
  */
+@OptIn(ExperimentalSerializationApi::class)
 object EpochMillisSerializer : KSerializer<Long?> {
     override val descriptor: SerialDescriptor =
         PrimitiveSerialDescriptor("EpochMillis", PrimitiveKind.LONG).nullable

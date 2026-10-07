@@ -8,6 +8,7 @@ import app.gagachat.core.model.User
 import app.gagachat.core.network.dto.BlockRow
 import app.gagachat.core.network.error.ErrorMapper
 import app.gagachat.core.network.rest.SupabaseRestApi
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -55,6 +56,7 @@ class DefaultBlockRepository @Inject constructor(
             }
             AppResult.Success(Unit)
         } catch (t: Throwable) {
+            if (t is CancellationException) throw t
             AppResult.Failure(ErrorMapper.map(t))
         }
     }
@@ -68,6 +70,7 @@ class DefaultBlockRepository @Inject constructor(
                 BlockEntry(ownerId = me, targetId = userId)
             AppResult.Success(Unit)
         } catch (t: Throwable) {
+            if (t is CancellationException) throw t
             AppResult.Failure(ErrorMapper.map(t))
         }
     }
@@ -80,6 +83,7 @@ class DefaultBlockRepository @Inject constructor(
             _blocked.value = _blocked.value.filterNot { it.targetId == userId }
             AppResult.Success(Unit)
         } catch (t: Throwable) {
+            if (t is CancellationException) throw t
             AppResult.Failure(ErrorMapper.map(t))
         }
     }

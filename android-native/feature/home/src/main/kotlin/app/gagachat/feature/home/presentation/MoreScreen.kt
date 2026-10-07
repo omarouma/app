@@ -18,6 +18,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.filled.Logout
+import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.automirrored.filled.TrendingUp
 import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Block
@@ -33,9 +35,7 @@ import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.QrCode2
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Security
-import androidx.compose.material.icons.filled.Send
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material.icons.filled.WorkspacePremium
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -138,13 +138,13 @@ fun MoreRoute(
 
             GagaSectionHeader("DISCOVER")
             MenuRow("Search", "Find people, groups, and messages", Icons.Filled.Search, IconBlue, onOpenSearch)
-            MenuRow("Sent Requests", "Pending friend requests", Icons.Filled.Send, IconCyan, onOpenPeople)
+            MenuRow("Sent Requests", "Pending friend requests", Icons.AutoMirrored.Filled.Send, IconCyan, onOpenPeople)
             MenuRow("Blocked Users", "Manage blocked accounts", Icons.Filled.Block, IconRed, onOpenBlocked)
 
             GagaSectionHeader("WALLET & REWARDS")
             MenuRow("My Wallet", "Coins, top-up and activity", Icons.Filled.AccountBalanceWallet, IconGreen, onOpenWallet)
             MenuRow("Gaga Rewards", "Earn free Gaga Coins", Icons.Filled.CardGiftcard, IconOrange, onOpenWallet)
-            MenuRow("Staking", "Earn interest in your wallet", Icons.Filled.TrendingUp, IconTeal, onOpenWallet)
+            MenuRow("Staking", "Earn interest in your wallet", Icons.AutoMirrored.Filled.TrendingUp, IconTeal, onOpenWallet)
             MenuRow("Premium", "Manage your subscription", Icons.Filled.WorkspacePremium, IconAmber, onOpenWallet)
 
             GagaSectionHeader("ACCOUNT")
