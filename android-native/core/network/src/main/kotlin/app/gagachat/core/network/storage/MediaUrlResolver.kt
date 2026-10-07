@@ -34,8 +34,9 @@ class MediaUrlResolver @Inject constructor(
     /**
      * Returns a fetchable URL for [url]. Public URLs, local file paths and
      * `content://` URIs are returned unchanged; private storage URLs are
-     * exchanged for a signed URL. On failure the original URL is returned so the
-     * UI can still show its own error state rather than a blank frame.
+     * exchanged for a signed URL. If signing fails, private media fails closed:
+     * returning its known-invalid /object/public URL would both generate noisy
+     * HTTP 400s and make renderers retry an address that can never be authorized.
      */
     suspend fun resolve(url: String?): String? {
         if (url.isNullOrBlank()) return url
@@ -56,7 +57,7 @@ class MediaUrlResolver @Inject constructor(
             signed
         } catch (t: Throwable) {
             if (t is kotlinx.coroutines.CancellationException) throw t
-            url
+            null
         }
     }
 
