@@ -119,6 +119,15 @@ class DefaultConversationRepository @Inject constructor(
             val now = timeProvider.nowMillis()
             conversationDao.upsertAll(rows.map { it.toDomain().toEntity(now) })
 
+            // Apply per-user server tombstones after the visible-page upsert.
+            // This keeps "Delete chat" synchronized across the user's devices
+            // without deleting the shared chat/messages for other participants.
+            val hiddenIds = runCatching { restApi.getHiddenConversationIds() }.getOrDefault(emptyList())
+            hiddenIds.forEach { hiddenId ->
+                conversationDao.deleteMembers(hiddenId)
+                conversationDao.deleteById(hiddenId)
+            }
+
             // Resolve + cache participant profiles so members render real
             // identities (displayName → @username → … ) instead of "Unknown".
             val usersById = resolveAndCacheParticipants(rows.flatMap { it.participants ?: emptyList() }, now)
@@ -176,6 +185,9 @@ class DefaultConversationRepository @Inject constructor(
             }
             // 2. Server lookup.
             restApi.findDirectConversation(currentUserId, otherUserId)?.let { row ->
+                // Explicitly opening a peer chat is an intentional restore after
+                // "Delete chat", so clear this user's tombstone before caching.
+                runCatching { restApi.unhideConversation(row.id) }
                 cacheConversation(row)
                 return@withContext AppResult.Success(row.id)
             }
