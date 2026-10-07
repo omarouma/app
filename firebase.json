@@ -21,35 +21,59 @@
       {
         "source": "/.well-known/assetlinks.json",
         "headers": [
-          { "key": "Content-Type", "value": "application/json" },
-          { "key": "Cache-Control", "value": "public, max-age=3600" }
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Cache-Control",
+            "value": "public, max-age=3600"
+          }
         ]
       },
       {
         "source": "**/*.@(png|jpg|jpeg|svg|webp|ico|css|js)",
         "headers": [
-          { "key": "Cache-Control", "value": "public, max-age=604800" }
+          {
+            "key": "Cache-Control",
+            "value": "public, max-age=604800"
+          }
         ]
       }
     ],
     "redirects": [
       {
         "source": "/downloads/gaga-latest.apk",
-        "destination": "https://github.com/omarouma/app/releases/download/android-2.0.27-2/GaGa-2.0.27-release.apk",
+        "destination": "https://github.com/omarouma/app/releases/download/android-2.0.34/GaGa-2.0.34-release.apk",
         "type": 302
       },
       {
         "source": "/downloads/gaga-latest.aab",
-        "destination": "https://github.com/omarouma/app/releases/download/android-2.0.27-2/GaGa-2.0.27-release.aab",
+        "destination": "https://github.com/omarouma/app/releases/download/android-2.0.34/GaGa-2.0.34-release.aab",
         "type": 302
       }
     ],
     "rewrites": [
-      { "source": "/chat/**", "destination": "/open.html" },
-      { "source": "/call/**", "destination": "/open.html" },
-      { "source": "/u/**", "destination": "/open.html" },
-      { "source": "/profile/**", "destination": "/open.html" },
-      { "source": "/app", "destination": "/open.html" }
+      {
+        "source": "/chat/**",
+        "destination": "/open.html"
+      },
+      {
+        "source": "/call/**",
+        "destination": "/open.html"
+      },
+      {
+        "source": "/u/**",
+        "destination": "/open.html"
+      },
+      {
+        "source": "/profile/**",
+        "destination": "/open.html"
+      },
+      {
+        "source": "/app",
+        "destination": "/open.html"
+      }
     ]
   }
 }
