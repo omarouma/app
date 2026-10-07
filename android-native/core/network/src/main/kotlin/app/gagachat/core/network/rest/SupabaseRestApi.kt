@@ -785,34 +785,70 @@ class SupabaseRestApi @Inject constructor(
             parameter("limit", 1)
         }.body<List<GroupRow>>().firstOrNull()
 
-    suspend fun insertGroup(row: GroupInsert): GroupRow =
-        client.post("${config.restUrl}/groups") {
+    suspend fun createGroupAtomic(
+        id: String,
+        name: String,
+        description: String?,
+        memberIds: List<String>,
+    ) {
+        client.post("${config.restUrl}/rpc/gaga_group_create") {
             auth()
-            header("Prefer", "return=representation")
             contentType(ContentType.Application.Json)
-            setBody(row)
-        }.body<List<GroupRow>>().first()
-
-    suspend fun updateGroup(id: String, name: String?, description: String?, avatar: String?) {
-        val body = buildJsonObject {
-            name?.let { put("name", it) }
-            description?.let { put("description", it) }
-            avatar?.let { put("avatar", it) }
-        }
-        if (body.isEmpty()) return
-        client.patch("${config.restUrl}/groups") {
-            auth()
-            parameter("id", "eq.$id")
-            header("Prefer", "return=minimal")
-            contentType(ContentType.Application.Json)
-            setBody(body)
+            setBody(buildJsonObject {
+                put("p_group_id", id)
+                put("p_name", name)
+                description?.let { put("p_description", it) }
+                put(
+                    "p_member_ids",
+                    kotlinx.serialization.json.JsonArray(
+                        memberIds.distinct().map { kotlinx.serialization.json.JsonPrimitive(it) },
+                    ),
+                )
+            })
         }
     }
 
-    suspend fun deleteGroup(id: String) {
-        client.delete("${config.restUrl}/groups") {
+    suspend fun updateGroupAtomic(id: String, name: String?, description: String?, avatar: String?) {
+        if (name == null && description == null && avatar == null) return
+        client.post("${config.restUrl}/rpc/gaga_group_update") {
             auth()
-            parameter("id", "eq.$id")
+            contentType(ContentType.Application.Json)
+            setBody(buildJsonObject {
+                put("p_group_id", id)
+                name?.let { put("p_name", it) }
+                description?.let { put("p_description", it) }
+                avatar?.let { put("p_avatar", it) }
+            })
+        }
+    }
+
+    suspend fun addGroupMemberAtomic(groupId: String, userId: String) {
+        client.post("${config.restUrl}/rpc/gaga_group_add_member") {
+            auth()
+            contentType(ContentType.Application.Json)
+            setBody(buildJsonObject {
+                put("p_group_id", groupId)
+                put("p_user_id", userId)
+            })
+        }
+    }
+
+    suspend fun removeGroupMemberAtomic(groupId: String, userId: String) {
+        client.post("${config.restUrl}/rpc/gaga_group_remove_member") {
+            auth()
+            contentType(ContentType.Application.Json)
+            setBody(buildJsonObject {
+                put("p_group_id", groupId)
+                put("p_user_id", userId)
+            })
+        }
+    }
+
+    suspend fun deleteGroupAtomic(id: String) {
+        client.post("${config.restUrl}/rpc/gaga_group_delete") {
+            auth()
+            contentType(ContentType.Application.Json)
+            setBody(buildJsonObject { put("p_group_id", id) })
         }
     }
 
@@ -822,23 +858,6 @@ class SupabaseRestApi @Inject constructor(
             parameter("select", "*")
             parameter("group_id", "eq.$groupId")
         }.body()
-
-    suspend fun insertGroupMember(row: GroupMemberInsert) {
-        client.post("${config.restUrl}/group_members") {
-            auth()
-            header("Prefer", "return=minimal")
-            contentType(ContentType.Application.Json)
-            setBody(row)
-        }
-    }
-
-    suspend fun deleteGroupMember(groupId: String, userId: String) {
-        client.delete("${config.restUrl}/group_members") {
-            auth()
-            parameter("group_id", "eq.$groupId")
-            parameter("user_id", "eq.$userId")
-        }
-    }
 
     // ---- Notifications ----
 
