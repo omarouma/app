@@ -217,19 +217,28 @@ class SupabaseRestApi @Inject constructor(
         archived: Boolean? = null,
         unreadCount: Int? = null,
     ) {
-        val body = buildJsonObject {
-            pinned?.let { put("pinned", it) }
-            muted?.let { put("is_muted", it) }
-            archived?.let { put("archived", it) }
-            unreadCount?.let { put("unread_count", it) }
+        // Pin/mute/archive are per-user preferences. They must never mutate the
+        // shared chat row because that would change another participant's UI.
+        if (pinned != null || muted != null || archived != null) {
+            client.post("${config.restUrl}/rpc/gaga_save_chat_settings") {
+                auth()
+                contentType(ContentType.Application.Json)
+                setBody(buildJsonObject {
+                    put("p_chat_id", id)
+                    pinned?.let { put("p_pinned", it) }
+                    muted?.let { put("p_muted", it) }
+                    archived?.let { put("p_archived", it) }
+                })
+            }
         }
-        if (body.isEmpty()) return
-        client.patch("${config.restUrl}/chats") {
-            auth()
-            parameter("id", "eq.$id")
-            header("Prefer", "return=minimal")
-            contentType(ContentType.Application.Json)
-            setBody(body)
+        // Unread state is derived from the caller's chat_reads marker. The only
+        // client-side override currently supported is marking the chat read.
+        if (unreadCount == 0) {
+            client.post("${config.restUrl}/rpc/mark_chat_read") {
+                auth()
+                contentType(ContentType.Application.Json)
+                setBody(buildJsonObject { put("p_chat_id", id) })
+            }
         }
     }
 
