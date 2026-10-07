@@ -67,7 +67,7 @@ import androidx.compose.material.icons.outlined.Dashboard
 import app.gagachat.push.PendingDeepLink
 
 /**
- * The four top-level tabs, in the final product order:
+ * The five top-level tabs, in the product order:
  * Chats / People / Calls / Profile. [route] is the concrete navigation target;
  * [routePattern] is the registered pattern used to detect selection (the Profile
  * route carries an optional argument so its pattern differs from its target).
@@ -88,11 +88,11 @@ private enum class TopLevelDestination(
     ),
     PEOPLE(PeopleRoutes.PEOPLE, PeopleRoutes.PEOPLE, "People", Icons.Filled.People, Icons.Outlined.People),
     CALLS(CallRoutes.CALL_HISTORY, CallRoutes.CALL_HISTORY, "Calls", Icons.Filled.Call, Icons.Outlined.Call),
-    DAILY(DailyRoutes.HOME, DailyRoutes.HOME, "Daily Life", Icons.Filled.Dashboard, Icons.Outlined.Dashboard),
+    DAILY(DailyRoutes.HOME, DailyRoutes.HOME, "Today", Icons.Filled.Dashboard, Icons.Outlined.Dashboard),
     PROFILE(ProfileRoutes.profile(), ProfileRoutes.PROFILE, "Me", Icons.Filled.Person, Icons.Outlined.Person),
 }
 
-/** Routes that keep the bottom bar visible (the four top-level tabs only). */
+/** Routes that keep the bottom bar visible (top-level tabs only). */
 private val bottomBarRoutes: Set<String> = TopLevelDestination.entries
     .map { it.routePattern }
     .toSet()
