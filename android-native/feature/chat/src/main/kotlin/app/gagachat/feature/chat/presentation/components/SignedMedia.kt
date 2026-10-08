@@ -87,10 +87,14 @@ fun rememberAutoDownloadAllowed(): Boolean {
 
     val enabled by prefs.autoDownloadEnabled.collectAsStateWithLifecycle(initialValue = true)
     val policy by prefs.mediaPolicy.collectAsStateWithLifecycle(initialValue = MediaDownloadPolicy.WIFI)
+    val liteMode by prefs.liteModeEnabled.collectAsStateWithLifecycle(initialValue = false)
     val online by monitor.isOnline.collectAsStateWithLifecycle()
     val metered by monitor.isMetered.collectAsStateWithLifecycle()
 
     return when {
+        // Lite Mode (Signature Features) always wins: it exists precisely to
+        // reduce real network use, so nothing is fetched automatically.
+        liteMode -> false
         !enabled -> false
         policy == MediaDownloadPolicy.NEVER -> false
         !online -> false

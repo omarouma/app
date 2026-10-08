@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.CancellationException
 import javax.inject.Inject
 
 data class HomeUiState(
@@ -78,7 +79,6 @@ class HomeViewModel @Inject constructor(
     init {
         // Local-first: cached rows render immediately; sync runs in background.
         viewModelScope.launch {
-            loading.value = false
             sync()
         }
         // Populate the notification bell badge without blocking the chat list.
@@ -117,9 +117,13 @@ class HomeViewModel @Inject constructor(
     }
 
     /** Delete a conversation locally and on the server. */
-    fun onDelete(conversation: Conversation) {
+    fun onDelete(conversation: Conversation, onDeleted: () -> Unit) {
         viewModelScope.launch {
-            conversationRepository.deleteConversation(conversation.id)
+            try {
+                conversationRepository.deleteConversation(conversation.id)
+                onDeleted()
+            } catch (e: CancellationException) { throw e }
+            catch (e: Exception) { error.value = "Couldn't delete this conversation. Check your connection and permissions." }
         }
     }
 
@@ -130,5 +134,6 @@ class HomeViewModel @Inject constructor(
             else -> Unit
         }
         refreshing.value = false
+        loading.value = false
     }
 }

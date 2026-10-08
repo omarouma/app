@@ -19,17 +19,25 @@ import javax.inject.Singleton
 class FirebaseSessionCoordinator @Inject constructor(
     private val environment: FirebaseEnvironment,
     private val bridge: FirebaseAuthBridge,
+    private val mirror: FirestoreChatMirror,
     private val config: FirebaseTransportConfig,
 ) {
     fun start(scope: CoroutineScope, sessions: Flow<AuthSession?>) {
         if (!config.enabled || !environment.isConfigured) return
         scope.launch {
+            var mirroredUid: String? = null
             sessions.collect { session ->
                 runCatching {
+                    val nextUid = session?.userId
+                    if (mirroredUid != null && mirroredUid != nextUid) {
+                        mirror.mirrorPresence(mirroredUid.orEmpty(), online = false)
+                    }
                     if (session == null) {
                         bridge.signOut()
-                    } else {
-                        bridge.ensureSignedIn(session.userId)
+                        mirroredUid = null
+                    } else if (bridge.ensureSignedIn(session.userId)) {
+                        mirror.mirrorPresence(session.userId, online = true)
+                        mirroredUid = session.userId
                     }
                 }
             }

@@ -1,6 +1,9 @@
 package app.gagachat.feature.chat.presentation.components
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -304,6 +307,8 @@ private fun AttachmentSheet(
         Triple(Icons.Filled.Description, "Document", onPickFile),
         Triple(Icons.Filled.Poll, "Poll", onSendPoll),
     )
+    BoxWithConstraints {
+    val columns = if (maxWidth < 360.dp || LocalDensity.current.fontScale > 1.2f) 3 else 4
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -319,7 +324,7 @@ private fun AttachmentSheet(
             fontWeight = FontWeight.SemiBold,
             modifier = Modifier.padding(horizontal = GagaDimens.space16, vertical = GagaDimens.space8),
         )
-        options.chunked(4).forEach { row ->
+        options.chunked(columns).forEach { row ->
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -327,24 +332,24 @@ private fun AttachmentSheet(
                 horizontalArrangement = Arrangement.SpaceEvenly,
             ) {
                 row.forEach { (icon, label, onClick) ->
-                    AttachOption(icon = icon, label = label, onClick = onClick)
+                    AttachOption(icon = icon, label = label, onClick = onClick, modifier = Modifier.weight(1f))
                 }
                 // Pad the final (partial) row so its items stay aligned to the
                 // four-column grid instead of drifting to the centre.
-                repeat(4 - row.size) {
-                    Spacer(Modifier.width(72.dp))
+                repeat(columns - row.size) {
+                    Spacer(Modifier.weight(1f))
                 }
             }
         }
     }
+    }
 }
 
 @Composable
-private fun AttachOption(icon: ImageVector, label: String, onClick: () -> Unit) {
+private fun AttachOption(icon: ImageVector, label: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier
-            .width(72.dp)
+        modifier = modifier
             .clip(MaterialTheme.shapes.medium)
             .clickable(onClick = onClick)
             .padding(GagaDimens.space4),
@@ -359,7 +364,7 @@ private fun AttachOption(icon: ImageVector, label: String, onClick: () -> Unit) 
             Icon(icon, contentDescription = label, tint = GagaGreen)
         }
         Spacer(Modifier.size(GagaDimens.space4))
-        Text(text = label, style = MaterialTheme.typography.labelSmall, maxLines = 1)
+        Text(text = label, style = MaterialTheme.typography.labelSmall, maxLines = 2, textAlign = TextAlign.Center, overflow = TextOverflow.Ellipsis)
     }
 }
 

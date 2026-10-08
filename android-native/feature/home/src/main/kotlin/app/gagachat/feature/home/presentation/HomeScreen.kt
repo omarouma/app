@@ -10,6 +10,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.filled.ChatBubbleOutline
 import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
@@ -68,16 +69,17 @@ fun HomeRoute(
             title = { Text("Delete conversation?") },
             text = {
                 Text(
-                    "This removes the chat from your device and the server. " +
+                    "This deletes the shared conversation on the server, including its messages for participants. " +
                         "This can't be undone.",
                 )
             },
             confirmButton = {
                 TextButton(
                     onClick = {
-                        viewModel.onDelete(conversation)
+                        viewModel.onDelete(conversation) {
+                            scope.launch { snackbarHostState.showSnackbar("Conversation deleted") }
+                        }
                         pendingDelete = null
-                        scope.launch { snackbarHostState.showSnackbar("Conversation deleted") }
                     },
                 ) { Text("Delete") }
             },
@@ -92,6 +94,9 @@ fun HomeRoute(
         brandMark = true,
         snackbarHostState = snackbarHostState,
         actions = {
+            IconButton(onClick = viewModel::refresh, enabled = !state.isRefreshing) {
+                Icon(Icons.Filled.Refresh, "Refresh chats")
+            }
             IconButton(onClick = onOpenNotifications) {
                 BadgedBox(
                     badge = {

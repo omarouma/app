@@ -8,6 +8,13 @@ import app.gagachat.core.network.dto.SavedMessageInsert
 import app.gagachat.core.network.dto.SavedMessageRow
 import app.gagachat.core.network.error.ErrorMapper
 import app.gagachat.core.network.rest.SupabaseRestApi
+import app.gagachat.core.common.di.ApplicationScope
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -33,10 +40,23 @@ class DefaultSavedMessagesRepository @Inject constructor(
     private val restApi: SupabaseRestApi,
     private val authRepository: AuthRepository,
     private val dispatchers: DispatcherProvider,
+    @ApplicationScope scope: CoroutineScope,
 ) : SavedMessagesRepository {
 
     private val _savedMessages = MutableStateFlow<List<SavedMessage>>(emptyList())
     override val savedMessages: StateFlow<List<SavedMessage>> = _savedMessages.asStateFlow()
+
+    init {
+        var previousOwner = authRepository.sessionFlow.value?.userId
+        scope.launch {
+            authRepository.sessionFlow.map { it?.userId }.distinctUntilChanged().collect { owner ->
+                if (owner != previousOwner) {
+                _savedMessages.value = emptyList()
+                }
+                previousOwner = owner
+            }
+        }
+    }
 
     private val currentUserId: String
         get() = authRepository.sessionFlow.value?.userId.orEmpty()
@@ -46,9 +66,11 @@ class DefaultSavedMessagesRepository @Inject constructor(
         if (me.isBlank()) return@withContext AppResult.Failure(AppError.Unauthorized("Not signed in"))
         try {
             val rows = restApi.getSavedMessages(me)
+            if (currentUserId != me) return@withContext AppResult.Failure(AppError.Unauthorized("Account changed"))
             _savedMessages.value = rows.map { it.toDomain() }
             AppResult.Success(Unit)
         } catch (t: Throwable) {
+            if (t is CancellationException) throw t
             AppResult.Failure(ErrorMapper.map(t))
         }
     }
@@ -68,21 +90,27 @@ class DefaultSavedMessagesRepository @Inject constructor(
                     mediaUrl = message.mediaUrl,
                 ),
             )
+            if (currentUserId != me) return@withContext AppResult.Failure(AppError.Unauthorized("Account changed"))
             val domain = row.toDomain()
             _savedMessages.value = (listOf(domain) + _savedMessages.value.filterNot { it.id == domain.id })
                 .sortedByDescending { it.savedAt }
             AppResult.Success(Unit)
         } catch (t: Throwable) {
+            if (t is CancellationException) throw t
             AppResult.Failure(ErrorMapper.map(t))
         }
     }
 
     override suspend fun delete(id: String): AppResult<Unit> = withContext(dispatchers.io) {
+        val me = currentUserId
+        if (me.isBlank()) return@withContext AppResult.Failure(AppError.Unauthorized())
         try {
             restApi.deleteSavedMessage(id)
+            if (me != currentUserId) return@withContext AppResult.Failure(AppError.Unauthorized("Account changed"))
             _savedMessages.value = _savedMessages.value.filterNot { it.id == id }
             AppResult.Success(Unit)
         } catch (t: Throwable) {
+            if (t is CancellationException) throw t
             AppResult.Failure(ErrorMapper.map(t))
         }
     }

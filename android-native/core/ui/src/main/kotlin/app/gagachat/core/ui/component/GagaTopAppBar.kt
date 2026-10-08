@@ -74,7 +74,7 @@ fun GagaTopAppBar(
                         // always visible.
                         GagaLogo(size = 32.dp, elevation = 0.dp)
                         Spacer(Modifier.width(GagaDimens.space12))
-                    } else if (avatarUrl != null || subtitle != null) {
+                    } else if (avatarUrl != null || avatarStatus != null || onTitleClick != null) {
                         // Chat header identity: real avatar (or initials fallback)
                         // with a live presence dot, then the name + subtitle.
                         GagaAvatar(

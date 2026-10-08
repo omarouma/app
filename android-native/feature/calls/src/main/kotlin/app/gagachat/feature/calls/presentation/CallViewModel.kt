@@ -274,6 +274,7 @@ class CallViewModel @Inject constructor(
     fun deleteCall(callId: String) {
         viewModelScope.launch {
             runCatching { callRepository.deleteCall(callId) }
+                .onFailure { _state.update { it.copy(error = "Couldn't remove the call record. Try again.") } }
         }
     }
 
@@ -281,6 +282,7 @@ class CallViewModel @Inject constructor(
     fun clearHistory() {
         viewModelScope.launch {
             runCatching { callRepository.clearHistory() }
+                .onFailure { _state.update { it.copy(error = "Couldn't clear call history. Try again.") } }
         }
     }
 

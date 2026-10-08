@@ -355,12 +355,29 @@ fun StorageSettingsScreen(
     ) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding)) {
             GagaSettingsRow(
+                title = "Lite Mode",
+                subtitle = "Save data: no auto-download, lighter media, throttled sync",
+                leadingIcon = Icons.Filled.BatteryAlert,
+                trailing = {
+                    Switch(
+                        checked = state.liteModeEnabled,
+                        onCheckedChange = viewModel::setLiteModeEnabled,
+                    )
+                },
+            )
+            GagaDivider()
+            GagaSettingsRow(
                 title = "Auto-download media",
-                subtitle = "Automatically download photos and videos",
+                subtitle = if (state.liteModeEnabled) {
+                    "Off while Lite Mode is on"
+                } else {
+                    "Automatically download photos and videos"
+                },
                 leadingIcon = Icons.Filled.Storage,
                 trailing = {
                     Switch(
-                        checked = state.autoDownloadEnabled,
+                        checked = state.autoDownloadEnabled && !state.liteModeEnabled,
+                        enabled = !state.liteModeEnabled,
                         onCheckedChange = viewModel::setAutoDownloadEnabled,
                     )
                 },

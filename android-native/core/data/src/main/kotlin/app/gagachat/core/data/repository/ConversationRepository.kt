@@ -22,6 +22,7 @@ import app.gagachat.core.network.dto.ConversationInsert
 import app.gagachat.core.network.dto.ConversationRow
 import app.gagachat.core.network.error.ErrorMapper
 import app.gagachat.core.network.rest.SupabaseRestApi
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
@@ -119,6 +120,15 @@ class DefaultConversationRepository @Inject constructor(
             val now = timeProvider.nowMillis()
             conversationDao.upsertAll(rows.map { it.toDomain().toEntity(now) })
 
+            // Apply per-user server tombstones after the visible-page upsert.
+            // This keeps "Delete chat" synchronized across the user's devices
+            // without deleting the shared chat/messages for other participants.
+            val hiddenIds = runCatching { restApi.getHiddenConversationIds() }.getOrDefault(emptyList())
+            hiddenIds.forEach { hiddenId ->
+                conversationDao.deleteMembers(hiddenId)
+                conversationDao.deleteById(hiddenId)
+            }
+
             // Resolve + cache participant profiles so members render real
             // identities (displayName → @username → … ) instead of "Unknown".
             val usersById = resolveAndCacheParticipants(rows.flatMap { it.participants ?: emptyList() }, now)
@@ -132,6 +142,7 @@ class DefaultConversationRepository @Inject constructor(
             }
             AppResult.Success(Unit)
         } catch (t: Throwable) {
+            if (t is CancellationException) throw t
             AppResult.Failure(ErrorMapper.map(t))
         }
     }
@@ -159,9 +170,9 @@ class DefaultConversationRepository @Inject constructor(
 
     override suspend fun deleteConversation(conversationId: String) =
         withContext(dispatchers.io) {
+            restApi.deleteConversation(conversationId)
             conversationDao.deleteMembers(conversationId)
             conversationDao.deleteById(conversationId)
-            runCatching { restApi.deleteConversation(conversationId) }
             Unit
         }
 
@@ -176,6 +187,9 @@ class DefaultConversationRepository @Inject constructor(
             }
             // 2. Server lookup.
             restApi.findDirectConversation(currentUserId, otherUserId)?.let { row ->
+                // Explicitly opening a peer chat is an intentional restore after
+                // "Delete chat", so clear this user's tombstone before caching.
+                runCatching { restApi.unhideConversation(row.id) }
                 cacheConversation(row)
                 return@withContext AppResult.Success(row.id)
             }
@@ -200,6 +214,7 @@ class DefaultConversationRepository @Inject constructor(
             cacheConversation(row)
             AppResult.Success(row.id)
         } catch (t: Throwable) {
+            if (t is CancellationException) throw t
             AppResult.Failure(ErrorMapper.map(t))
         }
     }

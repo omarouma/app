@@ -1,6 +1,13 @@
 package app.gagachat.core.data.repository
 
 import app.gagachat.core.common.di.DispatcherProvider
+import app.gagachat.core.common.di.ApplicationScope
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.collect
 import app.gagachat.core.common.result.AppError
 import app.gagachat.core.common.result.AppResult
 import app.gagachat.core.common.util.TimeProvider
@@ -48,6 +55,7 @@ class DefaultFriendsRepository @Inject constructor(
     private val userRepository: UserRepository,
     private val timeProvider: TimeProvider,
     private val dispatchers: DispatcherProvider,
+    @ApplicationScope scope: CoroutineScope,
 ) : FriendsRepository {
 
     private val _friends = MutableStateFlow<List<Friend>>(emptyList())
@@ -58,6 +66,18 @@ class DefaultFriendsRepository @Inject constructor(
 
     private val _outgoing = MutableStateFlow<List<FriendRequest>>(emptyList())
     override val outgoingRequests: StateFlow<List<FriendRequest>> = _outgoing.asStateFlow()
+
+    init {
+        var previousOwner = authRepository.sessionFlow.value?.userId
+        scope.launch {
+            authRepository.sessionFlow.map { it?.userId }.distinctUntilChanged().collect { owner ->
+                if (owner != previousOwner) {
+                _friends.value = emptyList(); _incoming.value = emptyList(); _outgoing.value = emptyList()
+                }
+                previousOwner = owner
+            }
+        }
+    }
 
     private val currentUserId: String
         get() = authRepository.sessionFlow.value?.userId.orEmpty()
@@ -71,7 +91,7 @@ class DefaultFriendsRepository @Inject constructor(
             val friendUsers = if (friendIds.isEmpty()) emptyList() else restApi.getUsers(friendIds)
             val byId = friendUsers.associateBy { it.id }
             val sinceById = friendshipRows.associate { it.friendId to (it.createdAt ?: 0L) }
-            _friends.value = friendIds.mapNotNull { id ->
+            val friends = friendIds.mapNotNull { id ->
                 byId[id]?.let { row ->
                     Friend(
                         user = row.toDomain(),
@@ -103,6 +123,8 @@ class DefaultFriendsRepository @Inject constructor(
                     toAvatar = to?.avatar,
                 )
             }
+            if (me != currentUserId) return@withContext AppResult.Failure(AppError.Unauthorized("Account changed"))
+            _friends.value = friends
             _incoming.value = mapped.filter { it.toUserId == me && it.status == FriendRequestStatus.PENDING }
             _outgoing.value = mapped.filter { it.fromUserId == me && it.status == FriendRequestStatus.PENDING }
 
@@ -110,6 +132,7 @@ class DefaultFriendsRepository @Inject constructor(
             userRepository.cacheUsers(friendUsers.map { it.toDomain() })
             AppResult.Success(Unit)
         } catch (t: Throwable) {
+            if (t is CancellationException) throw t
             AppResult.Failure(ErrorMapper.map(t))
         }
     }
@@ -135,6 +158,7 @@ class DefaultFriendsRepository @Inject constructor(
                 refresh()
                 AppResult.Success(Unit)
             } catch (t: Throwable) {
+            if (t is CancellationException) throw t
                 AppResult.Failure(ErrorMapper.map(t))
             }
         }
@@ -151,6 +175,7 @@ class DefaultFriendsRepository @Inject constructor(
                 refresh()
                 AppResult.Success(Unit)
             } catch (t: Throwable) {
+            if (t is CancellationException) throw t
                 AppResult.Failure(ErrorMapper.map(t))
             }
         }
@@ -162,6 +187,7 @@ class DefaultFriendsRepository @Inject constructor(
                 refresh()
                 AppResult.Success(Unit)
             } catch (t: Throwable) {
+            if (t is CancellationException) throw t
                 AppResult.Failure(ErrorMapper.map(t))
             }
         }
@@ -173,6 +199,7 @@ class DefaultFriendsRepository @Inject constructor(
                 refresh()
                 AppResult.Success(Unit)
             } catch (t: Throwable) {
+            if (t is CancellationException) throw t
                 AppResult.Failure(ErrorMapper.map(t))
             }
         }
@@ -186,6 +213,7 @@ class DefaultFriendsRepository @Inject constructor(
             refresh()
             AppResult.Success(Unit)
         } catch (t: Throwable) {
+            if (t is CancellationException) throw t
             AppResult.Failure(ErrorMapper.map(t))
         }
     }

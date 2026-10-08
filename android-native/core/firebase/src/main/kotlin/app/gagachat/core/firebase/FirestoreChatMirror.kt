@@ -1,5 +1,6 @@
 package app.gagachat.core.firebase
 
+import com.google.firebase.database.ServerValue
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.SetOptions
 import javax.inject.Inject
@@ -30,24 +31,32 @@ class FirestoreChatMirror @Inject constructor(
     )
 
     /**
-     * Creates (or merges into) the `chats/{conversationId}` document. Uses
-     * `arrayUnion` so the participant set only ever grows and never shrinks.
+     * Creates the Firebase chat mirror once, then refreshes only its derived
+     * timestamp. Membership/type remain authoritative in Supabase and therefore
+     * are never expanded by a client-side mirror write after creation.
      */
     suspend fun ensureChat(conversationId: String, participants: List<String>, type: String) {
         if (!enabled) return
         val db = environment.firestore ?: return
         runCatching {
-            val data = mutableMapOf<String, Any>(
-                "type" to type,
-                "updatedAt" to FieldValue.serverTimestamp(),
-            )
-            val cleaned = participants.filter { it.isNotBlank() }.distinct()
-            if (cleaned.isNotEmpty()) {
-                data["participants"] = FieldValue.arrayUnion(*cleaned.toTypedArray())
+            val ref = db.collection("chats").document(conversationId)
+            val snapshot = ref.get().awaitResult()
+            if (!snapshot.exists()) {
+                val cleaned = participants.filter { it.isNotBlank() }.distinct()
+                if (cleaned.isEmpty()) return@runCatching
+                ref.set(
+                    mapOf(
+                        "type" to type,
+                        "participants" to cleaned,
+                        "updatedAt" to FieldValue.serverTimestamp(),
+                    ),
+                ).awaitResult()
+            } else {
+                ref.set(
+                    mapOf("updatedAt" to FieldValue.serverTimestamp()),
+                    SetOptions.merge(),
+                ).awaitResult()
             }
-            db.collection("chats").document(conversationId)
-                .set(data, SetOptions.merge())
-                .awaitResult()
         }
     }
 
@@ -89,17 +98,27 @@ class FirestoreChatMirror @Inject constructor(
      * `lastChanged`) matches the deployed `database.rules.json` validation.
      */
     suspend fun mirrorPresence(userId: String, online: Boolean) {
-        if (!enabled) return
+        if (!enabled || userId.isBlank()) return
         val db = environment.database ?: return
         runCatching {
-            db.getReference("presence").child(userId)
-                .updateChildren(
+            val ref = db.getReference("presence").child(userId)
+            if (online) {
+                // If the process/network disappears without a clean sign-out,
+                // RTDB marks the user offline server-side instead of leaving a
+                // permanent stale "online" record.
+                ref.onDisconnect().setValue(
                     mapOf(
-                        "state" to if (online) "online" else "offline",
-                        "lastChanged" to System.currentTimeMillis(),
+                        "state" to "offline",
+                        "lastChanged" to ServerValue.TIMESTAMP,
                     ),
-                )
-                .awaitResult()
+                ).awaitResult()
+            }
+            ref.setValue(
+                mapOf(
+                    "state" to if (online) "online" else "offline",
+                    "lastChanged" to ServerValue.TIMESTAMP,
+                ),
+            ).awaitResult()
         }
     }
 }

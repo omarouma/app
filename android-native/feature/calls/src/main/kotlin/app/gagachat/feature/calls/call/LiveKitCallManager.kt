@@ -366,11 +366,15 @@ class LiveKitCallManager @Inject constructor(
 
     /** Enables/disables the outgoing microphone track. */
     suspend fun setMicrophoneEnabled(enabled: Boolean): Boolean {
-        val local = room?.localParticipant ?: return false
+        val current = room ?: return false
+        val local = current.localParticipant
         return try {
-            if (!local.setMicrophoneEnabled(enabled)) return false
+            if (!withTimeout(10_000L) { local.setMicrophoneEnabled(enabled) }) return false
+            if (room !== current) return false
             _isMicrophoneEnabled.value = enabled
             true
+        } catch (timeout: TimeoutCancellationException) {
+            false
         } catch (c: CancellationException) {
             throw c
         } catch (t: Throwable) {
@@ -381,11 +385,15 @@ class LiveKitCallManager @Inject constructor(
 
     /** Enables/disables the outgoing camera track. */
     suspend fun setCameraEnabled(enabled: Boolean): Boolean {
-        val local = room?.localParticipant ?: return false
+        val current = room ?: return false
+        val local = current.localParticipant
         return try {
-            if (!local.setCameraEnabled(enabled)) return false
+            if (!withTimeout(10_000L) { local.setCameraEnabled(enabled) }) return false
+            if (room !== current) return false
             _isCameraEnabled.value = enabled
             true
+        } catch (timeout: TimeoutCancellationException) {
+            false
         } catch (c: CancellationException) {
             throw c
         } catch (t: Throwable) {
@@ -508,6 +516,7 @@ class LiveKitCallManager @Inject constructor(
         eventJob = scope.launch {
             try {
                 room.events.collect { event ->
+                    if (this@LiveKitCallManager.room !== room) return@collect
                     when (event) {
                         is RoomEvent.Connected -> {
                             _connection.value = CallConnection.CONNECTED
@@ -537,7 +546,7 @@ class LiveKitCallManager @Inject constructor(
                             }
                             // Deferred so we never cancel the collector from
                             // inside its own emit callback.
-                            scope.launch { teardownRoom() }
+                            scope.launch { if (this@LiveKitCallManager.room === room) teardownRoom() }
                         }
 
                         is RoomEvent.FailedToConnect -> {
@@ -552,7 +561,7 @@ class LiveKitCallManager @Inject constructor(
                                     initiatedLocally = false,
                                 ),
                             )
-                            scope.launch { teardownRoom() }
+                            scope.launch { if (this@LiveKitCallManager.room === room) teardownRoom() }
                         }
 
                         is RoomEvent.ParticipantConnected,

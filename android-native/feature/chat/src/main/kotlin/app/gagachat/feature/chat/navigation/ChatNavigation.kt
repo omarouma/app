@@ -21,12 +21,14 @@ fun NavGraphBuilder.chatScreen(
     navController: NavController,
     onStartCall: (conversationId: String, isVideo: Boolean) -> Unit,
     onOpenProfile: (userId: String) -> Unit,
+    onDailyAction: (String, String, String, String) -> Unit = { _, _, _, _ -> },
 ) {
     composable(
         route = ChatRoutes.CHAT,
         arguments = listOf(navArgument(ChatRoutes.ARG_CONVERSATION_ID) { type = NavType.StringType }),
     ) {
         ChatRoute(
+            onDailyAction = onDailyAction,
             onNavigateBack = { navController.popBackStack() },
             onStartCall = onStartCall,
             onOpenProfile = onOpenProfile,

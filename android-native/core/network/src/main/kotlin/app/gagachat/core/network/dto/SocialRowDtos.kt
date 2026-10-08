@@ -74,6 +74,8 @@ data class GroupRow(
     @SerialName("created_by") val createdBy: String? = null,
     @SerialName("created_at") @Serializable(with = EpochMillisSerializer::class) val createdAt: Long? = null,
     @SerialName("updated_at") @Serializable(with = EpochMillisSerializer::class) val updatedAt: Long? = null,
+    /** GaGa Circles: the purpose of the group (see [app.gagachat.core.model.CircleType]). */
+    @SerialName("circle_type") val circleType: String? = null,
 )
 
 @Serializable
@@ -83,6 +85,7 @@ data class GroupInsert(
     val description: String? = null,
     val avatar: String? = null,
     @SerialName("created_by") val createdBy: String,
+    @SerialName("circle_type") val circleType: String = "general",
 )
 
 @Serializable

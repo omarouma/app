@@ -118,6 +118,7 @@ class SettingsPreferences @Inject constructor(
     private val chatBackgroundKey = stringPreferencesKey("chat_background")
     private val callSoundsKey = booleanPreferencesKey("call_sounds")
     private val callVibrationKey = booleanPreferencesKey("call_vibration")
+    private val liteModeKey = booleanPreferencesKey("lite_mode_enabled")
 
     val notificationsEnabled: Flow<Boolean> =
         context.settingsDataStore.data.map { it[notificationsKey] ?: true }
@@ -155,6 +156,14 @@ class SettingsPreferences @Inject constructor(
         }
     val autoDownloadEnabled: Flow<Boolean> =
         context.settingsDataStore.data.map { it[autoDownloadKey] ?: true }
+
+    /**
+     * Lite Mode (GaGa Signature Features \u2014 Language Bridge & Lite). When on the
+     * app reduces real network use: media is never auto-downloaded, large
+     * attachments are fetched on demand only, and background sync is throttled.
+     */
+    val liteModeEnabled: Flow<Boolean> =
+        context.settingsDataStore.data.map { it[liteModeKey] ?: false }
 
     val appLockEnabled: Flow<Boolean> =
         context.settingsDataStore.data.map { it[appLockKey] ?: false }
@@ -203,6 +212,9 @@ class SettingsPreferences @Inject constructor(
 
     suspend fun setAutoDownloadEnabled(value: Boolean) =
         context.settingsDataStore.edit { it[autoDownloadKey] = value }
+
+    suspend fun setLiteModeEnabled(value: Boolean) =
+        context.settingsDataStore.edit { it[liteModeKey] = value }
 
     suspend fun setAppLockEnabled(value: Boolean) =
         context.settingsDataStore.edit { it[appLockKey] = value }

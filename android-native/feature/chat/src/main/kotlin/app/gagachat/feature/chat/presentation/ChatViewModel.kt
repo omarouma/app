@@ -28,11 +28,13 @@ import app.gagachat.core.data.preferences.ChatBackground
 import app.gagachat.core.data.preferences.DraftStore
 import kotlinx.coroutines.flow.first
 import app.gagachat.core.model.Conversation
+import app.gagachat.core.model.ConversationMember
 import app.gagachat.core.model.ConversationType
 import app.gagachat.core.model.LinkPreview
 import app.gagachat.core.model.Message
 import app.gagachat.core.model.MessageStatus
 import app.gagachat.core.model.MessageType
+import app.gagachat.core.model.SplitBillMath
 import app.gagachat.core.model.User
 import app.gagachat.core.model.UserStatus
 import app.gagachat.core.ui.util.TimeFormat
@@ -97,6 +99,7 @@ data class ChatUiState(
     val isGroup: Boolean = false,
     /** Participant count for group/channel headers. */
     val memberCount: Int = 0,
+    val members: List<ConversationMember> = emptyList(),
     val isSearching: Boolean = false,
     val searchQuery: String = "",
     val isOnline: Boolean = true,
@@ -177,7 +180,9 @@ private data class ChatFlags(
 
 @HiltViewModel
 class ChatViewModel @Inject constructor(
+    private val savedMessagesRepository: app.gagachat.core.data.repository.SavedMessagesRepository,
     private val privacyApi: app.gagachat.core.network.rest.SupabaseRestApi,
+    private val splitBillApi: app.gagachat.core.network.rest.SplitBillApi,
     savedStateHandle: SavedStateHandle,
     private val messageRepository: MessageRepository,
     private val conversationRepository: ConversationRepository,
@@ -193,6 +198,53 @@ class ChatViewModel @Inject constructor(
     private val soundPlayer: app.gagachat.core.data.media.GagaSoundPlayer,
     @ApplicationContext private val context: Context,
 ) : ViewModel() {
+
+    fun createSplitBill(
+        title: String,
+        totalMinor: Long,
+        currency: String,
+        participantIds: List<String>,
+        sourceMessageId: String?,
+    ) = viewModelScope.launch {
+        try {
+            val ids = participantIds.distinct().filter { it.isNotBlank() }
+            if (ids.size < 2) {
+                showNotice("Choose at least two people for the split.")
+                return@launch
+            }
+            val shares = SplitBillMath.equalShares(totalMinor, ids.size)
+            splitBillApi.create(
+                id = java.util.UUID.randomUUID().toString(),
+                chatId = conversationId,
+                sourceMessage = sourceMessageId?.takeIf { it.isNotBlank() },
+                title = title.trim().take(160),
+                totalMinor = totalMinor,
+                currency = currency,
+                dueAt = null,
+                participantIds = ids,
+                shareMinors = shares,
+            )
+            showNotice("Split bill created. Everyone in the split can track their share.")
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            showNotice("Could not create the split bill. Check the selected people and try again.")
+        }
+    }
+
+    fun saveMessage(message: Message) = viewModelScope.launch {
+        val serverId = message.serverMessageId
+        if (serverId.isNullOrBlank()) { showNotice("Wait for this message to sync before saving it."); return@launch }
+        val saved = app.gagachat.core.model.SavedMessage(
+            id = java.util.UUID.randomUUID().toString(), userId = authRepository.sessionFlow.value?.userId.orEmpty(),
+            messageId = serverId, chatId = message.conversationId, senderId = message.senderId,
+            content = message.text, type = message.type.name.lowercase(), mediaUrl = message.mediaUrl,
+        )
+        when (savedMessagesRepository.save(saved)) {
+            is AppResult.Success -> showNotice("Saved privately. Open Me → Saved Messages.")
+            else -> showNotice("Could not save this message. Check your connection and try again.")
+        }
+    }
 
     private val conversationId: String = savedStateHandle.get<String>("conversationId").orEmpty()
 
@@ -312,6 +364,7 @@ class ChatViewModel @Inject constructor(
             recordingLevels = composer.recording.levels,
             isGroup = conversation?.type != null && conversation.type != ConversationType.DIRECT,
             memberCount = conversation?.members?.size ?: 0,
+            members = conversation?.members ?: emptyList(),
             isSearching = flags.isSearching,
             searchQuery = flags.searchQuery,
             searchResults = flags.searchResults,
@@ -446,25 +499,47 @@ class ChatViewModel @Inject constructor(
             notice.value = "Type a message before scheduling it."
             return
         }
+        if (scheduledAt <= System.currentTimeMillis()) {
+            notice.value = "Choose a future time for the scheduled message."
+            return
+        }
         draft.value = ""
         draftStore.clear(conversationId)
         replyTo.value = null
         typingJob?.cancel()
         broadcastTyping(false)
         viewModelScope.launch {
-            val session = authRepository.sessionFlow.value
-            val result = messageRepository.scheduleMessage(
-                conversationId = conversationId,
-                senderId = currentUserId,
-                senderName = session?.displayName,
-                senderAvatar = null,
-                text = text,
-                scheduledAt = scheduledAt,
-            )
-            when (result) {
-                is AppResult.Failure -> error.value = result.error.toUserMessage()
-                is AppResult.Success -> notice.value = "Message scheduled"
-                AppResult.Loading -> Unit
+            try {
+                val session = authRepository.sessionFlow.value
+                when (
+                    val result = messageRepository.scheduleMessage(
+                        conversationId = conversationId,
+                        senderId = currentUserId,
+                        senderName = session?.displayName,
+                        senderAvatar = null,
+                        text = text,
+                        scheduledAt = scheduledAt,
+                    )
+                ) {
+                    is AppResult.Failure -> {
+                        // Scheduling has no optimistic server/outbox row to recover
+                        // from when persistence itself fails, so preserve the text.
+                        if (draft.value.isBlank()) {
+                            draft.value = text
+                            draftStore.set(conversationId, text)
+                        }
+                        error.value = result.error.toUserMessage()
+                    }
+                    is AppResult.Success -> notice.value = "Message scheduled"
+                    AppResult.Loading -> Unit
+                }
+            } catch (t: Throwable) {
+                if (t is kotlinx.coroutines.CancellationException) throw t
+                if (draft.value.isBlank()) {
+                    draft.value = text
+                    draftStore.set(conversationId, text)
+                }
+                error.value = "Couldn't schedule this message. Your draft was restored."
             }
         }
     }
@@ -542,16 +617,23 @@ class ChatViewModel @Inject constructor(
         if (!beginMediaSend()) return
         viewModelScope.launch {
             val session = authRepository.sessionFlow.value
-            val resolved = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                uris.mapNotNull { uri ->
-                    val base = resolveUri(uri) ?: return@mapNotNull null
-                    if (base.third > 25L * 1024 * 1024) return@mapNotNull null
-                    compressLargeImage(base)
-                }
+            // Resolve every selected item before compression. The old mapNotNull
+            // path silently sent a partial album when one provider URI was stale
+            // or one photo exceeded the limit, which changed the user's reviewed
+            // selection without telling them.
+            val baseItems = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                uris.map { uri -> resolveUri(uri) }
             }
-            if (resolved.isEmpty()) {
-                error.value = "Couldn't read the selected photos."
+            if (baseItems.any { it == null }) {
+                error.value = "One or more selected photos couldn't be read. Review the album and try again."
                 return@launch
+            }
+            if (baseItems.filterNotNull().any { it.third > 25L * 1024 * 1024 }) {
+                error.value = "One or more photos exceed 25 MB. Remove the large photo and try again."
+                return@launch
+            }
+            val resolved = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                baseItems.filterNotNull().map { compressLargeImage(it) }
             }
             val items = resolved.map { AlbumUploadItem(it.first, it.second, it.third) }
             val result = mediaRepository.enqueueAlbumUpload(
@@ -1145,15 +1227,21 @@ class ChatViewModel @Inject constructor(
         val oldest = state.value.messages.minByOrNull { it.sortTimestamp } ?: return
         loadingOlder.value = true
         viewModelScope.launch {
-            when (val result = messageRepository.loadOlder(conversationId, oldest.sortTimestamp)) {
-                is AppResult.Success -> {
-                    messageLimit.value += result.data.size
-                    if (result.data.size < Constants.MESSAGE_PAGE_SIZE) hasMoreOlder.value = false
+            try {
+                when (val result = messageRepository.loadOlder(conversationId, oldest.sortTimestamp)) {
+                    is AppResult.Success -> {
+                        messageLimit.value += result.data.size
+                        if (result.data.size < Constants.MESSAGE_PAGE_SIZE) hasMoreOlder.value = false
+                    }
+                    is AppResult.Failure -> error.value = result.error.toUserMessage()
+                    AppResult.Loading -> Unit
                 }
-                is AppResult.Failure -> error.value = result.error.toUserMessage()
-                AppResult.Loading -> Unit
+            } catch (t: Throwable) {
+                if (t is kotlinx.coroutines.CancellationException) throw t
+                error.value = "Couldn't load older messages. Pull up again to retry."
+            } finally {
+                loadingOlder.value = false
             }
-            loadingOlder.value = false
         }
     }
 

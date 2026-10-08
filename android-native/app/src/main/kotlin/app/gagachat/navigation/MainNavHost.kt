@@ -60,10 +60,14 @@ import app.gagachat.feature.settings.navigation.SettingsRoutes
 import app.gagachat.feature.settings.navigation.settingsScreen
 import app.gagachat.feature.wallet.WalletRoutes
 import app.gagachat.feature.wallet.walletGraph
+import app.gagachat.feature.dailylife.DailyRoutes
+import app.gagachat.feature.dailylife.dailyLifeGraph
+import androidx.compose.material.icons.filled.Dashboard
+import androidx.compose.material.icons.outlined.Dashboard
 import app.gagachat.push.PendingDeepLink
 
 /**
- * The four top-level tabs, in the final product order:
+ * The five top-level tabs, in the product order:
  * Chats / People / Calls / Profile. [route] is the concrete navigation target;
  * [routePattern] is the registered pattern used to detect selection (the Profile
  * route carries an optional argument so its pattern differs from its target).
@@ -84,10 +88,11 @@ private enum class TopLevelDestination(
     ),
     PEOPLE(PeopleRoutes.PEOPLE, PeopleRoutes.PEOPLE, "People", Icons.Filled.People, Icons.Outlined.People),
     CALLS(CallRoutes.CALL_HISTORY, CallRoutes.CALL_HISTORY, "Calls", Icons.Filled.Call, Icons.Outlined.Call),
+    DAILY(DailyRoutes.HOME, DailyRoutes.HOME, "Today", Icons.Filled.Dashboard, Icons.Outlined.Dashboard),
     PROFILE(ProfileRoutes.profile(), ProfileRoutes.PROFILE, "Me", Icons.Filled.Person, Icons.Outlined.Person),
 }
 
-/** Routes that keep the bottom bar visible (the four top-level tabs only). */
+/** Routes that keep the bottom bar visible (top-level tabs only). */
 private val bottomBarRoutes: Set<String> = TopLevelDestination.entries
     .map { it.routePattern }
     .toSet()
@@ -149,6 +154,7 @@ fun MainNavHost(pendingDeepLink: String?) {
             )
             chatScreen(
                 navController = navController,
+                onDailyAction = { kind, text, chat, message -> navController.navigate(DailyRoutes.edit(kind, text = text, chat = chat, message = message)) },
                 onStartCall = { conversationId, isVideo ->
                     navController.navigate(CallRoutes.activeCall(conversationId, isVideo))
                 },
@@ -235,8 +241,12 @@ fun MainNavHost(pendingDeepLink: String?) {
                 navController = navController,
                 onOpenProfile = { navController.navigate(ProfileRoutes.profile()) },
                 onSignedOut = { /* session flow swaps to auth graph */ },
+                onOpenChat = { navController.navigate(ChatRoutes.chat(it)) },
+                onOpenPeople = { navController.navigate(PeopleRoutes.PEOPLE) },
+                onOpenCalls = { navController.navigate(CallRoutes.CALL_HISTORY) },
             )
             walletGraph(navController = navController)
+            dailyLifeGraph(navController, onSaved = { navController.navigate(SettingsRoutes.SAVED_MESSAGES) }, onChat = { navController.navigate(ChatRoutes.chat(it)) })
         }
     }
 }
@@ -285,7 +295,7 @@ private fun GagaBottomBar(
                             TopLevelDestination.CHAT -> chatBadgeCount
                             TopLevelDestination.PEOPLE -> peopleBadgeCount
                             TopLevelDestination.CALLS -> callsBadgeCount
-                            TopLevelDestination.PROFILE -> 0
+                            TopLevelDestination.PROFILE, TopLevelDestination.DAILY -> 0
                         }
                         val icon = if (selected) destination.selectedIcon else destination.unselectedIcon
                         if (badgeCount > 0) {

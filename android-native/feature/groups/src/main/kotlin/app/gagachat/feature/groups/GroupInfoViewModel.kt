@@ -11,6 +11,7 @@ import app.gagachat.core.common.result.AppResult
 import app.gagachat.core.data.repository.AuthRepository
 import app.gagachat.core.data.repository.FriendsRepository
 import app.gagachat.core.data.repository.GroupRepository
+import app.gagachat.core.model.CircleType
 import app.gagachat.core.model.Friend
 import app.gagachat.core.model.Group
 import app.gagachat.core.network.storage.SupabaseStorageApi
@@ -133,11 +134,12 @@ class GroupInfoViewModel @Inject constructor(
         }
     }
 
-    /** Saves name/description/avatar edits for the group. */
+    /** Saves name/description/avatar/circle-type edits for the group. */
     fun updateGroup(
         name: String,
         description: String?,
         avatar: String?,
+        circleType: CircleType? = null,
         onSaved: () -> Unit,
     ) = viewModelScope.launch {
         val trimmed = name.trim()
@@ -152,6 +154,7 @@ class GroupInfoViewModel @Inject constructor(
                 name = trimmed,
                 description = description?.trim()?.takeIf { it.isNotBlank() },
                 avatar = avatar,
+                circleType = circleType,
             )
         ) {
             is AppResult.Success -> {

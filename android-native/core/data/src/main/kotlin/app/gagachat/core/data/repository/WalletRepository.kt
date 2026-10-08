@@ -10,6 +10,7 @@ import app.gagachat.core.model.Wallet
 import app.gagachat.core.network.dto.WalletInsert
 import app.gagachat.core.network.error.ErrorMapper
 import app.gagachat.core.network.rest.SupabaseRestApi
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -66,6 +67,7 @@ class DefaultWalletRepository @Inject constructor(
             row?.transactions?.let { _activity.value = it.sortedByDescending { a -> a.createdAt } }
             AppResult.Success(Unit)
         } catch (t: Throwable) {
+            if (t is CancellationException) throw t
             AppResult.Failure(ErrorMapper.map(t))
         }
     }
@@ -83,6 +85,7 @@ class DefaultWalletRepository @Inject constructor(
             existing?.transactions?.let { _activity.value = it.sortedByDescending { a -> a.createdAt } }
             AppResult.Success(wallet)
         } catch (t: Throwable) {
+            if (t is CancellationException) throw t
             AppResult.Failure(ErrorMapper.map(t))
         }
     }
@@ -100,6 +103,7 @@ class DefaultWalletRepository @Inject constructor(
             record(CoinActivityType.TOPUP, amount, note = "Top-up")
             AppResult.Success(wallet)
         } catch (t: Throwable) {
+            if (t is CancellationException) throw t
             AppResult.Failure(ErrorMapper.map(t))
         }
     }
@@ -131,6 +135,7 @@ class DefaultWalletRepository @Inject constructor(
             record(CoinActivityType.SENT, amount, counterpartyId = toUserId, counterpartyName = toName, note = note)
             AppResult.Success(updated)
         } catch (t: Throwable) {
+            if (t is CancellationException) throw t
             AppResult.Failure(ErrorMapper.map(t))
         }
     }

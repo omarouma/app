@@ -6,16 +6,15 @@ import app.gagachat.core.common.result.AppResult
 import app.gagachat.core.common.util.IdGenerator
 import app.gagachat.core.common.util.TimeProvider
 import app.gagachat.core.data.mapper.toDomain
+import app.gagachat.core.model.CircleType
 import app.gagachat.core.model.Group
 import app.gagachat.core.model.GroupMember
 import app.gagachat.core.model.GroupRole
-import app.gagachat.core.network.dto.ConversationInsert
-import app.gagachat.core.network.dto.GroupInsert
-import app.gagachat.core.network.dto.GroupMemberInsert
 import app.gagachat.core.network.dto.GroupMemberRow
 import app.gagachat.core.network.dto.GroupRow
 import app.gagachat.core.network.error.ErrorMapper
 import app.gagachat.core.network.rest.SupabaseRestApi
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -33,8 +32,19 @@ interface GroupRepository {
 
     suspend fun refresh(): AppResult<Unit>
     suspend fun getGroup(groupId: String): AppResult<Group>
-    suspend fun createGroup(name: String, description: String?, memberIds: List<String>): AppResult<Group>
-    suspend fun updateGroup(groupId: String, name: String?, description: String?, avatar: String?): AppResult<Unit>
+    suspend fun createGroup(
+        name: String,
+        description: String?,
+        memberIds: List<String>,
+        circleType: CircleType = CircleType.GENERAL,
+    ): AppResult<Group>
+    suspend fun updateGroup(
+        groupId: String,
+        name: String?,
+        description: String?,
+        avatar: String?,
+        circleType: CircleType? = null,
+    ): AppResult<Unit>
     suspend fun addMembers(groupId: String, userIds: List<String>): AppResult<Unit>
     suspend fun removeMember(groupId: String, userId: String): AppResult<Unit>
     suspend fun leaveGroup(groupId: String): AppResult<Unit>
@@ -68,6 +78,7 @@ class DefaultGroupRepository @Inject constructor(
             }
             AppResult.Success(Unit)
         } catch (t: Throwable) {
+            if (t is CancellationException) throw t
             AppResult.Failure(ErrorMapper.map(t))
         }
     }
@@ -78,6 +89,7 @@ class DefaultGroupRepository @Inject constructor(
                 ?: return@withContext AppResult.Failure(AppError.Database("Group not found"))
             AppResult.Success(row.toDomain(loadMembers(groupId)))
         } catch (t: Throwable) {
+            if (t is CancellationException) throw t
             AppResult.Failure(ErrorMapper.map(t))
         }
     }
@@ -86,40 +98,28 @@ class DefaultGroupRepository @Inject constructor(
         name: String,
         description: String?,
         memberIds: List<String>,
+        circleType: CircleType,
     ): AppResult<Group> = withContext(dispatchers.io) {
         val me = currentUserId
         if (me.isBlank()) return@withContext AppResult.Failure(AppError.Unauthorized())
         if (name.isBlank()) return@withContext AppResult.Failure(AppError.Validation("Group name is required"))
         try {
             val groupId = idGenerator.newConversationId()
-            val row = restApi.insertGroup(
-                GroupInsert(id = groupId, name = name.trim(), description = description?.trim()?.ifBlank { null }, createdBy = me),
+            val others = memberIds.distinct().filter { it.isNotBlank() && it != me }
+            restApi.createGroupAtomic(
+                id = groupId,
+                name = name.trim(),
+                description = description?.trim()?.ifBlank { null },
+                memberIds = others,
+                circleType = circleType,
             )
-            // Owner + initial members.
-            restApi.insertGroupMember(GroupMemberInsert(groupId = groupId, userId = me, role = "owner"))
-            val others = (memberIds + me).distinct().filter { it != me }
-            others.forEach { uid ->
-                restApi.insertGroupMember(GroupMemberInsert(groupId = groupId, userId = uid, role = "member"))
-            }
-            // Mirror as a conversation so it shows in the chat list.
-            val participants = (listOf(me) + others).distinct()
-            runCatching {
-                restApi.insertConversation(
-                    ConversationInsert(
-                        id = groupId,
-                        type = "group",
-                        participants = participants,
-                        title = name.trim(),
-                        description = description?.trim(),
-                        createdBy = me,
-                        admins = listOf(me),
-                    ),
-                )
-            }
+            val row = restApi.getGroup(groupId)
+                ?: return@withContext AppResult.Failure(AppError.Database("Group was created but could not be loaded"))
             val group = row.toDomain(loadMembers(groupId))
             refresh()
             AppResult.Success(group)
         } catch (t: Throwable) {
+            if (t is CancellationException) throw t
             AppResult.Failure(ErrorMapper.map(t))
         }
     }
@@ -129,15 +129,14 @@ class DefaultGroupRepository @Inject constructor(
         name: String?,
         description: String?,
         avatar: String?,
+        circleType: CircleType?,
     ): AppResult<Unit> = withContext(dispatchers.io) {
         try {
-            restApi.updateGroup(groupId, name, description, avatar)
-            runCatching {
-                restApi.updateConversationMeta(groupId, title = name, avatar = avatar, description = description)
-            }
+            restApi.updateGroupAtomic(groupId, name, description, avatar, circleType)
             refresh()
             AppResult.Success(Unit)
         } catch (t: Throwable) {
+            if (t is CancellationException) throw t
             AppResult.Failure(ErrorMapper.map(t))
         }
     }
@@ -145,12 +144,13 @@ class DefaultGroupRepository @Inject constructor(
     override suspend fun addMembers(groupId: String, userIds: List<String>): AppResult<Unit> =
         withContext(dispatchers.io) {
             try {
-                userIds.distinct().forEach { uid ->
-                    runCatching { restApi.insertGroupMember(GroupMemberInsert(groupId = groupId, userId = uid)) }
+                userIds.distinct().filter { it.isNotBlank() }.forEach { uid ->
+                    restApi.addGroupMemberAtomic(groupId, uid)
                 }
                 refresh()
                 AppResult.Success(Unit)
             } catch (t: Throwable) {
+                if (t is CancellationException) throw t
                 AppResult.Failure(ErrorMapper.map(t))
             }
         }
@@ -158,10 +158,11 @@ class DefaultGroupRepository @Inject constructor(
     override suspend fun removeMember(groupId: String, userId: String): AppResult<Unit> =
         withContext(dispatchers.io) {
             try {
-                restApi.deleteGroupMember(groupId, userId)
+                restApi.removeGroupMemberAtomic(groupId, userId)
                 refresh()
                 AppResult.Success(Unit)
             } catch (t: Throwable) {
+                if (t is CancellationException) throw t
                 AppResult.Failure(ErrorMapper.map(t))
             }
         }
@@ -170,20 +171,22 @@ class DefaultGroupRepository @Inject constructor(
         val me = currentUserId
         if (me.isBlank()) return@withContext AppResult.Failure(AppError.Unauthorized())
         try {
-            restApi.deleteGroupMember(groupId, me)
+            restApi.removeGroupMemberAtomic(groupId, me)
             _groups.value = _groups.value.filterNot { it.id == groupId }
             AppResult.Success(Unit)
         } catch (t: Throwable) {
+            if (t is CancellationException) throw t
             AppResult.Failure(ErrorMapper.map(t))
         }
     }
 
     override suspend fun deleteGroup(groupId: String): AppResult<Unit> = withContext(dispatchers.io) {
         try {
-            restApi.deleteGroup(groupId)
+            restApi.deleteGroupAtomic(groupId)
             _groups.value = _groups.value.filterNot { it.id == groupId }
             AppResult.Success(Unit)
         } catch (t: Throwable) {
+            if (t is CancellationException) throw t
             AppResult.Failure(ErrorMapper.map(t))
         }
     }
@@ -207,6 +210,7 @@ private fun GroupRow.toDomain(members: List<GroupMember>): Group = Group(
     createdBy = createdBy,
     createdAt = createdAt ?: 0L,
     updatedAt = updatedAt ?: 0L,
+    circleType = CircleType.fromWire(circleType),
     members = members,
 )
 

@@ -1,5 +1,6 @@
 package app.gagachat.core.network.dto
 
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.descriptors.PrimitiveKind
 import kotlinx.serialization.descriptors.PrimitiveSerialDescriptor
@@ -19,12 +20,20 @@ import java.time.OffsetDateTime
  * milliseconds. This serializer accepts a JSON null, a numeric epoch value, or
  * an ISO-8601 string and normalises everything to epoch millis.
  */
+@OptIn(ExperimentalSerializationApi::class)
 object EpochMillisSerializer : KSerializer<Long?> {
     override val descriptor: SerialDescriptor =
         PrimitiveSerialDescriptor("EpochMillis", PrimitiveKind.LONG).nullable
 
     override fun serialize(encoder: Encoder, value: Long?) {
-        if (value == null) encoder.encodeNull() else encoder.encodeLong(value)
+        if (value == null) {
+            encoder.encodeNull()
+        } else {
+            // PostgREST timestamptz inputs must be timestamp strings. Emitting a
+            // raw epoch long (e.g. 1791380714730) is parsed as a year and fails
+            // with SQLSTATE 22008. Keep epoch millis only inside the app model.
+            encoder.encodeString(Instant.ofEpochMilli(value).toString())
+        }
     }
 
     override fun deserialize(decoder: Decoder): Long? {

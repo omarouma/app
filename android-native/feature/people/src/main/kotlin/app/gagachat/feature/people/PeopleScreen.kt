@@ -14,6 +14,18 @@ import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.PersonRemove
 import androidx.compose.material.icons.filled.QrCode2
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.StarBorder
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.foundation.layout.Box
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -61,25 +73,36 @@ fun PeopleScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val query by viewModel.query.collectAsStateWithLifecycle()
-    var selectedTab by remember { mutableIntStateOf(0) }
+    var selectedTab by rememberSaveable { mutableIntStateOf(0) }
+    val favoriteIds by viewModel.favoriteIds.collectAsStateWithLifecycle()
+    val busy by viewModel.busy.collectAsStateWithLifecycle()
+    val notice by viewModel.notice.collectAsStateWithLifecycle()
+    val snackbar = remember { SnackbarHostState() }
+    var pendingRemove by remember { mutableStateOf<Friend?>(null) }
+    var topMenu by remember { mutableStateOf(false) }
+    LaunchedEffect(notice) { notice?.let { snackbar.showSnackbar(it); viewModel.consumeNotice() } }
 
     val tabs = listOf("Friends", "Favorites", "Requests", "Sent", "Blocked")
 
     GagaScaffold(
         title = "People",
+        snackbarHostState = snackbar,
         actions = {
-            IconButton(onClick = onOpenMyQr) {
-                Icon(Icons.Filled.QrCode2, contentDescription = "My QR code")
-            }
-            IconButton(onClick = onOpenGroups) {
-                Icon(Icons.Filled.Groups, contentDescription = "Groups")
-            }
             IconButton(onClick = onOpenDiscover) {
                 Icon(Icons.Filled.PersonAdd, contentDescription = "Add people")
+            }
+            Box {
+                IconButton(onClick = { topMenu = true }) { Icon(Icons.Filled.MoreVert, "People options") }
+                DropdownMenu(topMenu, { topMenu = false }) {
+                    DropdownMenuItem(text = { Text("My QR code") }, onClick = { topMenu = false; onOpenMyQr() })
+                    DropdownMenuItem(text = { Text("Groups") }, onClick = { topMenu = false; onOpenGroups() })
+                    DropdownMenuItem(text = { Text("Refresh people") }, onClick = { topMenu = false; viewModel.refresh() }, enabled = !busy)
+                }
             }
         },
     ) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding)) {
+            if (busy) LinearProgressIndicator()
             ScrollableTabRow(selectedTabIndex = selectedTab, edgePadding = GagaDimens.space8) {
                 tabs.forEachIndexed { index, label ->
                     Tab(
@@ -108,12 +131,15 @@ fun PeopleScreen(
                         onQueryChange = viewModel::onQueryChange,
                         onOpenProfile = onOpenProfile,
                         onOpenChat = { userId -> viewModel.openChat(userId, onOpenConversation) },
-                        onRemove = viewModel::removeFriend,
+                        onRemove = { pendingRemove = it },
+                        favorites = favoriteIds,
+                        onFavorite = viewModel::favorite,
                     )
                     1 -> FavoritesTab(
-                        friends = data.friends,
+                        friends = data.friends.filter { it.user.id in favoriteIds },
                         onOpenProfile = onOpenProfile,
                         onOpenChat = { userId -> viewModel.openChat(userId, onOpenConversation) },
+                        onUnfavorite = { viewModel.favorite(it, false) },
                     )
                     2 -> IncomingTab(
                         incoming = data.incoming,
@@ -135,6 +161,12 @@ fun PeopleScreen(
             }
         }
     }
+    pendingRemove?.let { friend ->
+        AlertDialog(onDismissRequest = { pendingRemove = null }, title = { Text("Remove friend?") },
+            text = { Text("Remove ${friend.user.displayLabel} from your friends? Existing messages are kept.") },
+            confirmButton = { TextButton(onClick = { viewModel.removeFriend(friend); pendingRemove = null }, enabled = !busy) { Text("Remove") } },
+            dismissButton = { TextButton(onClick = { pendingRemove = null }) { Text("Cancel") } })
+    }
 }
 
 @Composable
@@ -145,6 +177,8 @@ private fun FriendsTab(
     onOpenProfile: (String) -> Unit,
     onOpenChat: (String) -> Unit,
     onRemove: (Friend) -> Unit,
+    favorites: Set<String>,
+    onFavorite: (String, Boolean) -> Unit,
 ) {
     val filtered = remember(friends, query) {
         if (query.isBlank()) friends
@@ -169,6 +203,7 @@ private fun FriendsTab(
         } else {
             LazyColumn(modifier = Modifier.fillMaxSize()) {
                 items(filtered, key = { it.user.id }) { friend ->
+                    var menu by remember { mutableStateOf(false) }
                     GagaListRow(
                         title = friend.user.displayLabel,
                         subtitle = friend.user.username?.let { "@$it" }
@@ -190,12 +225,15 @@ private fun FriendsTab(
                                         tint = MaterialTheme.colorScheme.primary,
                                     )
                                 }
-                                IconButton(onClick = { onRemove(friend) }) {
-                                    Icon(
-                                        Icons.Filled.PersonRemove,
-                                        contentDescription = "Remove friend",
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    )
+                                Box {
+                                    IconButton(onClick = { menu = true }) { Icon(Icons.Filled.MoreVert, "Friend options") }
+                                    DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                                        val favorite = friend.user.id in favorites
+                                        DropdownMenuItem(text = { Text(if (favorite) "Remove favorite" else "Add to favorites") },
+                                            leadingIcon = { Icon(if (favorite) Icons.Filled.Star else Icons.Filled.StarBorder, null) },
+                                            onClick = { menu = false; onFavorite(friend.user.id, !favorite) })
+                                        DropdownMenuItem(text = { Text("Remove friend") }, onClick = { menu = false; onRemove(friend) })
+                                    }
                                 }
                             }
                         },
@@ -212,15 +250,13 @@ private fun FavoritesTab(
     friends: List<Friend>,
     onOpenProfile: (String) -> Unit,
     onOpenChat: (String) -> Unit,
+    onUnfavorite: (String) -> Unit,
 ) {
-    // The live schema has no per-friend favourite flag yet, so favourites are
-    // surfaced as an empty state rather than inventing data. Online friends are
-    // shown first as a helpful default once the flag lands.
     if (friends.isEmpty()) {
         GagaEmptyState(
             icon = Icons.Filled.Star,
             title = "No favorites yet",
-            description = "Star a friend to keep them at the top of your list.",
+            description = "Open a friend's options and choose Add to favorites. Favorites are saved for this account on this device.",
         )
         return
     }
@@ -233,12 +269,15 @@ private fun FavoritesTab(
                     GagaAvatar(imageUrl = friend.user.avatar, name = friend.user.displayLabel)
                 },
                 trailing = {
+                    Row {
+                    IconButton(onClick = { onUnfavorite(friend.user.id) }) { Icon(Icons.Filled.Star, "Remove favorite", tint = MaterialTheme.colorScheme.primary) }
                     IconButton(onClick = { onOpenChat(friend.user.id) }) {
                         Icon(
                             Icons.AutoMirrored.Filled.Chat,
                             contentDescription = "Chat",
                             tint = MaterialTheme.colorScheme.primary,
                         )
+                    }
                     }
                 },
                 onClick = { onOpenProfile(friend.user.id) },

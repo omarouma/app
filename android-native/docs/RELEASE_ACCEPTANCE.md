@@ -1,3 +1,5 @@
+> Historical checklist for 2.0.25. The PASS claims below are not acceptance evidence for the current build. See [RELEASE_REVIEW_2.0.32.md](RELEASE_REVIEW_2.0.32.md) for current changes and outstanding device/signing checks. Current application ID is `gagachat.app`.
+
 # GaGa Chat — Release Acceptance
 
 **App:** GaGa Chat (`app.gagachat.app`)
