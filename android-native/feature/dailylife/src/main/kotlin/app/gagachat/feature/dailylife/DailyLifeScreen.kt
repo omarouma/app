@@ -192,21 +192,23 @@ fun DailyHome(nav: NavController, onSaved: () -> Unit, onChat: (String) -> Unit,
                 }
 
                 val myOpenSplitShares = ui.splitMembers.filter { it.userId == vm.userId && !it.settled }
-                if (myOpenSplitShares.isNotEmpty()) item {
+                if (ui.splitBills.isNotEmpty()) item {
                     val amountByCurrency = myOpenSplitShares
                         .mapNotNull { share -> ui.splitBills.firstOrNull { it.id == share.billId }?.let { it.currency to share.shareMinor } }
                         .groupBy({ it.first }, { it.second })
                         .mapValues { (_, values) -> values.sum() }
+                    val splitSummary = if (amountByCurrency.isNotEmpty()) {
+                        amountByCurrency.entries.joinToString(" · ") { (currency, minor) -> "${DailyMoney.format(minor)} $currency due" }
+                    } else {
+                        "${ui.splitBills.size} tracked ${if (ui.splitBills.size == 1) "bill" else "bills"}"
+                    }
                     Card(Modifier.fillMaxWidth().clickable { nav.navigate(DailyRoutes.SPLITS) }) {
                         Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.Default.Groups, null, tint = MaterialTheme.colorScheme.primary)
                             Spacer(Modifier.width(12.dp))
                             Column(Modifier.weight(1f)) {
                                 Text("Split bills", fontWeight = FontWeight.SemiBold)
-                                Text(
-                                    amountByCurrency.entries.joinToString(" · ") { (currency, minor) -> "${DailyMoney.format(minor)} $currency due" },
-                                    style = MaterialTheme.typography.bodySmall,
-                                )
+                                Text(splitSummary, style = MaterialTheme.typography.bodySmall)
                             }
                             Icon(Icons.Default.ChevronRight, null)
                         }
