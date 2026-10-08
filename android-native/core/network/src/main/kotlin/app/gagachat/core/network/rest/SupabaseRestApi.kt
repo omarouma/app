@@ -29,6 +29,7 @@ import app.gagachat.core.network.dto.LiveKitTokenResponse
 import app.gagachat.core.network.session.SessionStore
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
+import io.ktor.client.plugins.ResponseException
 import io.ktor.client.request.HttpRequestBuilder
 import io.ktor.client.request.delete
 import io.ktor.client.request.get
@@ -792,21 +793,36 @@ class SupabaseRestApi @Inject constructor(
         memberIds: List<String>,
         circleType: app.gagachat.core.model.CircleType = app.gagachat.core.model.CircleType.GENERAL,
     ) {
-        client.post("${config.restUrl}/rpc/gaga_group_create") {
-            auth()
-            contentType(ContentType.Application.Json)
-            setBody(buildJsonObject {
-                put("p_group_id", id)
-                put("p_name", name)
-                description?.let { put("p_description", it) }
-                put("p_circle_type", circleType.name.lowercase())
-                put(
-                    "p_member_ids",
-                    kotlinx.serialization.json.JsonArray(
-                        memberIds.distinct().map { kotlinx.serialization.json.JsonPrimitive(it) },
-                    ),
-                )
-            })
+        val members = kotlinx.serialization.json.JsonArray(
+            memberIds.distinct().map { kotlinx.serialization.json.JsonPrimitive(it) },
+        )
+        try {
+            client.post("${config.restUrl}/rpc/gaga_group_create") {
+                auth()
+                contentType(ContentType.Application.Json)
+                setBody(buildJsonObject {
+                    put("p_group_id", id)
+                    put("p_name", name)
+                    description?.let { put("p_description", it) }
+                    put("p_circle_type", circleType.name.lowercase())
+                    put("p_member_ids", members)
+                })
+            }
+        } catch (missing: ResponseException) {
+            // A project that predates the circle-aware migration only exposes the
+            // original 4-argument RPC. Retrying without the circle parameter keeps
+            // group creation working until the migration is applied.
+            if (missing.response.status.value != 404) throw missing
+            client.post("${config.restUrl}/rpc/gaga_group_create") {
+                auth()
+                contentType(ContentType.Application.Json)
+                setBody(buildJsonObject {
+                    put("p_group_id", id)
+                    put("p_name", name)
+                    description?.let { put("p_description", it) }
+                    put("p_member_ids", members)
+                })
+            }
         }
     }
 
@@ -818,16 +834,30 @@ class SupabaseRestApi @Inject constructor(
         circleType: app.gagachat.core.model.CircleType? = null,
     ) {
         if (name == null && description == null && avatar == null && circleType == null) return
-        client.post("${config.restUrl}/rpc/gaga_group_update") {
-            auth()
-            contentType(ContentType.Application.Json)
-            setBody(buildJsonObject {
-                put("p_group_id", id)
-                name?.let { put("p_name", it) }
-                description?.let { put("p_description", it) }
-                avatar?.let { put("p_avatar", it) }
-                circleType?.let { put("p_circle_type", it.name.lowercase()) }
-            })
+        try {
+            client.post("${config.restUrl}/rpc/gaga_group_update") {
+                auth()
+                contentType(ContentType.Application.Json)
+                setBody(buildJsonObject {
+                    put("p_group_id", id)
+                    name?.let { put("p_name", it) }
+                    description?.let { put("p_description", it) }
+                    avatar?.let { put("p_avatar", it) }
+                    circleType?.let { put("p_circle_type", it.name.lowercase()) }
+                })
+            }
+        } catch (missing: ResponseException) {
+            if (missing.response.status.value != 404) throw missing
+            client.post("${config.restUrl}/rpc/gaga_group_update") {
+                auth()
+                contentType(ContentType.Application.Json)
+                setBody(buildJsonObject {
+                    put("p_group_id", id)
+                    name?.let { put("p_name", it) }
+                    description?.let { put("p_description", it) }
+                    avatar?.let { put("p_avatar", it) }
+                })
+            }
         }
     }
 
