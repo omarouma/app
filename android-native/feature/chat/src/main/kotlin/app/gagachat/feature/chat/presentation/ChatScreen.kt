@@ -39,6 +39,8 @@ import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.NotificationsActive
+import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.Poll
 import androidx.compose.material.icons.filled.TaskAlt
 import androidx.compose.material.icons.filled.NoteAdd
 import androidx.compose.material.icons.filled.ReceiptLong
@@ -159,6 +161,7 @@ fun ChatRoute(
     var forwardingMessage by remember { mutableStateOf<Message?>(null) }
     var showBackgroundPicker by remember { mutableStateOf(false) }
     var showPollComposer by remember { mutableStateOf(false) }
+    var pollSeedQuestion by remember { mutableStateOf("") }
     var showLiveLocationPicker by remember { mutableStateOf(false) }
     var showSchedulePicker by remember { mutableStateOf(false) }
     // Multi-select + message-info state (P1): long-pressing a message can enter a
@@ -461,7 +464,10 @@ fun ChatRoute(
                             Manifest.permission.ACCESS_COARSE_LOCATION,
                         ))
                     },
-                    onSendPoll = { showPollComposer = true },
+                    onSendPoll = {
+                        pollSeedQuestion = ""
+                        showPollComposer = true
+                    },
                     onScheduleClick = { showSchedulePicker = true },
                     isRecording = state.isRecording,
                     recordingElapsedMs = state.recordingElapsedMs,
@@ -538,6 +544,7 @@ fun ChatRoute(
             MessageActionSheet(
                 message = selected,
                 currentUserId = state.currentUserId,
+                isGroup = state.isGroup,
                 onDismiss = { viewModel.selectMessage(null) },
                 onReply = {
                     viewModel.setReplyTo(selected)
@@ -575,6 +582,12 @@ fun ChatRoute(
                 onNote = { viewModel.selectMessage(null); onDailyAction("note", selected.text.orEmpty(), selected.conversationId, selected.serverMessageId.orEmpty()) },
                 onRemind = { viewModel.selectMessage(null); onDailyAction("reminder", selected.text.orEmpty(), selected.conversationId, selected.serverMessageId.orEmpty()) },
                 onExpense = { viewModel.selectMessage(null); onDailyAction("expense", selected.text.orEmpty(), selected.conversationId, selected.serverMessageId.orEmpty()) },
+                onEvent = { viewModel.selectMessage(null); onDailyAction("event", selected.text.orEmpty(), selected.conversationId, selected.serverMessageId.orEmpty()) },
+                onPoll = {
+                    pollSeedQuestion = selected.text.orEmpty()
+                    viewModel.selectMessage(null)
+                    showPollComposer = true
+                },
                 onMessageInfo = {
                     infoMessage = selected
                     viewModel.selectMessage(null)
@@ -597,10 +610,15 @@ fun ChatRoute(
 
         if (showPollComposer) {
             PollComposerDialog(
-                onDismiss = { showPollComposer = false },
+                initialQuestion = pollSeedQuestion,
+                onDismiss = {
+                    showPollComposer = false
+                    pollSeedQuestion = ""
+                },
                 onSend = { question, options ->
                     viewModel.sendPoll(question, options)
                     showPollComposer = false
+                    pollSeedQuestion = ""
                 },
             )
         }
@@ -743,6 +761,7 @@ private fun ScrollToBottomButton(
 private fun MessageActionSheet(
     message: Message,
     currentUserId: String,
+    isGroup: Boolean,
     onDismiss: () -> Unit,
     onReply: () -> Unit,
     onReact: (String) -> Unit,
@@ -756,6 +775,8 @@ private fun MessageActionSheet(
     onNote: () -> Unit,
     onRemind: () -> Unit,
     onExpense: () -> Unit,
+    onEvent: () -> Unit,
+    onPoll: () -> Unit,
     onMessageInfo: () -> Unit,
     onSelectMultiple: () -> Unit,
 ) {
@@ -764,6 +785,9 @@ private fun MessageActionSheet(
     val canEdit = isOwn && message.type == MessageType.TEXT && !message.isDeleted
     val canCopy = !message.text.isNullOrBlank() && !message.isDeleted
     val canDelete = isOwn && !message.isDeleted
+    val smartSuggestions = remember(message.text, isGroup) {
+        SmartActionDetector.detect(message.text, isGroup)
+    }
 
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
         Column(modifier = Modifier.padding(bottom = GagaDimens.space16)) {
@@ -802,7 +826,21 @@ private fun MessageActionSheet(
             if (!message.isDeleted) {
                 ActionRow(Icons.Filled.Bookmark, "Save privately", onSave)
                 HorizontalDivider(modifier = Modifier.padding(vertical = GagaDimens.space4))
+                if (smartSuggestions.isNotEmpty()) {
+                    Text("Suggested", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(horizontal = GagaDimens.space24, vertical = GagaDimens.space8))
+                    smartSuggestions.forEach { suggestion ->
+                        when (suggestion.kind) {
+                            SmartActionKind.EVENT -> ActionRow(Icons.Filled.CalendarMonth, suggestion.label, onEvent)
+                            SmartActionKind.REMINDER -> ActionRow(Icons.Filled.NotificationsActive, suggestion.label, onRemind)
+                            SmartActionKind.EXPENSE -> ActionRow(Icons.Filled.ReceiptLong, suggestion.label, onExpense)
+                            SmartActionKind.TASK -> ActionRow(Icons.Filled.TaskAlt, suggestion.label, onTask)
+                            SmartActionKind.POLL -> ActionRow(Icons.Filled.Poll, suggestion.label, onPoll)
+                        }
+                    }
+                    HorizontalDivider(modifier = Modifier.padding(vertical = GagaDimens.space4))
+                }
                 Text("GaGa Actions", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(horizontal = GagaDimens.space24, vertical = GagaDimens.space8))
+                ActionRow(Icons.Filled.CalendarMonth, "Create event", onEvent)
                 ActionRow(Icons.Filled.TaskAlt, "Create task", onTask)
                 ActionRow(Icons.Filled.NotificationsActive, "Remind me", onRemind)
                 ActionRow(Icons.Filled.ReceiptLong, "Create expense", onExpense)
