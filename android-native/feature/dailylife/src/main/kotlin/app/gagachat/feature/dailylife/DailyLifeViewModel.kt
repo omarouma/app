@@ -29,6 +29,9 @@ data class DailyUi(
     val members: List<User> = emptyList(),
     val conversations: List<Conversation> = emptyList(),
     val calls: List<CallSession> = emptyList(),
+    val splitBills: List<SplitBill> = emptyList(),
+    val splitMembers: List<SplitBillMember> = emptyList(),
+    val splitUsers: Map<String, User> = emptyMap(),
     val loading: Boolean = true,
     val busy: Boolean = false,
     val error: String? = null,
@@ -43,6 +46,7 @@ class DailyLifeViewModel @Inject constructor(
     private val session: SessionStore,
     private val conversations: ConversationRepository,
     private val calls: CallRepository,
+    private val splitBillApi: app.gagachat.core.network.rest.SplitBillApi,
     @ApplicationContext private val context: Context,
 ) : ViewModel() {
     private val _state = MutableStateFlow(DailyUi())
@@ -70,7 +74,24 @@ class DailyLifeViewModel @Inject constructor(
             runCatching { calls.syncHistory() }
             val records = api.records()
             val lists = api.lists()
-            _state.update { it.copy(records = records, lists = lists, loading = false) }
+            val splitBills = runCatching { splitBillApi.bills() }.getOrDefault(emptyList())
+            val splitMembers = runCatching { splitBillApi.members() }.getOrDefault(emptyList())
+            val splitUserIds = splitMembers.map { it.userId }.distinct()
+            val splitUsers = if (splitUserIds.isEmpty()) emptyMap() else runCatching {
+                profiles.getUsers(splitUserIds).associate { row ->
+                    row.id to User(id = row.id, displayName = row.displayName.orEmpty(), username = row.username)
+                }
+            }.getOrDefault(emptyMap())
+            _state.update {
+                it.copy(
+                    records = records,
+                    lists = lists,
+                    splitBills = splitBills,
+                    splitMembers = splitMembers,
+                    splitUsers = splitUsers,
+                    loading = false,
+                )
+            }
             records.filter { it.kind in listOf("task", "reminder", "event") }.forEach(::schedule)
             _state.value.selectedList?.let { selectList(it.id) }
         } catch (e: CancellationException) { throw e }
@@ -105,6 +126,12 @@ class DailyLifeViewModel @Inject constructor(
             _state.update { it.copy(records = it.records.map { r -> if (r.id == saved.id) saved else r }) }
             done()
         }
+    }
+
+    fun setSplitSettled(billId: String, userId: String, settled: Boolean) = mutate {
+        splitBillApi.setSettled(billId, userId, settled)
+        val members = splitBillApi.members()
+        _state.update { it.copy(splitMembers = members) }
     }
 
     fun createList(title: String, id: String, done: () -> Unit) = mutate {
