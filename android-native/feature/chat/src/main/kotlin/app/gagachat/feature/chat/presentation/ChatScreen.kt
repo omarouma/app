@@ -675,6 +675,7 @@ fun ChatRoute(
                 members = state.members,
                 currentUserId = state.currentUserId,
                 suggestedAmount = SmartActionDetector.money(source.text)?.amountText,
+                suggestedCurrency = SmartActionDetector.money(source.text)?.currency,
                 onDismiss = { splitSourceMessage = null },
                 onCreate = { title, amountMinor, currency, participantIds ->
                     viewModel.createSplitBill(
