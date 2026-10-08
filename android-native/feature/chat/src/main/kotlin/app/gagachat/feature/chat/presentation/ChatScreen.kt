@@ -1,6 +1,7 @@
 package app.gagachat.feature.chat.presentation
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -51,6 +52,9 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.ShareLocation
+import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material3.AlertDialog
@@ -113,12 +117,44 @@ import app.gagachat.feature.chat.presentation.components.VideoReviewSheet
 import app.gagachat.feature.chat.presentation.components.MessageBubble
 import app.gagachat.feature.chat.presentation.components.PollComposerDialog
 import app.gagachat.feature.chat.presentation.components.ScheduleMessageDialog
+import app.gagachat.feature.chat.presentation.components.SplitBillDialog
 import app.gagachat.feature.chat.presentation.components.MessageComposer
 import app.gagachat.feature.chat.presentation.components.TypingIndicator
 import app.gagachat.feature.chat.presentation.components.rememberContactPicker
 import app.gagachat.feature.chat.presentation.components.rememberDocumentOpener
 import app.gagachat.feature.chat.presentation.components.rememberMediaPicker
 import kotlinx.coroutines.launch
+
+private val mapUrlRegex = Regex("""(?i)https?://(?:www\.)?(?:maps\.google\.[^/]+|google\.[^/]+/maps|maps\.app\.goo\.gl)/\S+""")
+private val coordinateRegex = Regex("""(?<!\d)(-?(?:[0-8]?\d(?:\.\d+)?|90(?:\.0+)?))\s*,\s*(-?(?:1[0-7]\d(?:\.\d+)?|[0-9]?\d(?:\.\d+)?|180(?:\.0+)?))(?!\d)""")
+
+private fun messageLocationUrl(message: Message): String? {
+    val lat = message.latitude
+    val lng = message.longitude
+    if (lat != null && lng != null) return "https://www.google.com/maps/search/?api=1&query=$lat,$lng"
+    mapUrlRegex.find(message.text.orEmpty())?.value?.let { return it }
+    coordinateRegex.find(message.text.orEmpty())?.let { match ->
+        return "https://www.google.com/maps/search/?api=1&query=${match.groupValues[1]},${match.groupValues[2]}"
+    }
+    return null
+}
+
+private fun openMessageLocation(context: android.content.Context, message: Message) {
+    val url = messageLocationUrl(message) ?: return
+    runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
+}
+
+private fun shareMessageLocation(context: android.content.Context, message: Message) {
+    val url = messageLocationUrl(message) ?: return
+    val intent = Intent(Intent.ACTION_SEND).apply {
+        type = "text/plain"
+        putExtra(Intent.EXTRA_TEXT, url)
+    }
+    runCatching { context.startActivity(Intent.createChooser(intent, "Share location")) }
+}
+
+private fun locationPlanText(message: Message): String =
+    messageLocationUrl(message)?.let { "Location plan: $it" } ?: "Location plan"
 
 private val QuickReactions = listOf("\uD83D\uDC4D", "\u2764\uFE0F", "\uD83D\uDE02", "\uD83D\uDE2E", "\uD83D\uDE22", "\uD83D\uDE4F")
 
@@ -162,6 +198,7 @@ fun ChatRoute(
     var showBackgroundPicker by remember { mutableStateOf(false) }
     var showPollComposer by remember { mutableStateOf(false) }
     var pollSeedQuestion by remember { mutableStateOf("") }
+    var splitSourceMessage by remember { mutableStateOf<Message?>(null) }
     var showLiveLocationPicker by remember { mutableStateOf(false) }
     var showSchedulePicker by remember { mutableStateOf(false) }
     // Multi-select + message-info state (P1): long-pressing a message can enter a
@@ -582,6 +619,31 @@ fun ChatRoute(
                 onNote = { viewModel.selectMessage(null); onDailyAction("note", selected.text.orEmpty(), selected.conversationId, selected.serverMessageId.orEmpty()) },
                 onRemind = { viewModel.selectMessage(null); onDailyAction("reminder", selected.text.orEmpty(), selected.conversationId, selected.serverMessageId.orEmpty()) },
                 onExpense = { viewModel.selectMessage(null); onDailyAction("expense", selected.text.orEmpty(), selected.conversationId, selected.serverMessageId.orEmpty()) },
+                onSplitBill = {
+                    splitSourceMessage = selected
+                    viewModel.selectMessage(null)
+                },
+                onOpenLocation = {
+                    openMessageLocation(context, selected)
+                    viewModel.selectMessage(null)
+                },
+                onShareLocation = {
+                    shareMessageLocation(context, selected)
+                    viewModel.selectMessage(null)
+                },
+                onStartLiveLocation = {
+                    viewModel.selectMessage(null)
+                    val fine = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+                    val coarse = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+                    if (fine || coarse) showLiveLocationPicker = true else liveLocationPermissionLauncher.launch(arrayOf(
+                        Manifest.permission.ACCESS_FINE_LOCATION,
+                        Manifest.permission.ACCESS_COARSE_LOCATION,
+                    ))
+                },
+                onSaveLocationPlan = {
+                    viewModel.selectMessage(null)
+                    onDailyAction("note", locationPlanText(selected), selected.conversationId, selected.serverMessageId.orEmpty())
+                },
                 onEvent = { viewModel.selectMessage(null); onDailyAction("event", selected.text.orEmpty(), selected.conversationId, selected.serverMessageId.orEmpty()) },
                 onPoll = {
                     pollSeedQuestion = selected.text.orEmpty()
@@ -605,6 +667,25 @@ fun ChatRoute(
                 message = info,
                 currentUserId = state.currentUserId,
                 onDismiss = { infoMessage = null },
+            )
+        }
+
+        splitSourceMessage?.let { source ->
+            SplitBillDialog(
+                members = state.members,
+                currentUserId = state.currentUserId,
+                suggestedAmount = SmartActionDetector.money(source.text)?.amountText,
+                onDismiss = { splitSourceMessage = null },
+                onCreate = { title, amountMinor, currency, participantIds ->
+                    viewModel.createSplitBill(
+                        title = title,
+                        totalMinor = amountMinor,
+                        currency = currency,
+                        participantIds = participantIds,
+                        sourceMessageId = source.serverMessageId,
+                    )
+                    splitSourceMessage = null
+                },
             )
         }
 
@@ -775,6 +856,11 @@ private fun MessageActionSheet(
     onNote: () -> Unit,
     onRemind: () -> Unit,
     onExpense: () -> Unit,
+    onSplitBill: () -> Unit,
+    onOpenLocation: () -> Unit,
+    onShareLocation: () -> Unit,
+    onStartLiveLocation: () -> Unit,
+    onSaveLocationPlan: () -> Unit,
     onEvent: () -> Unit,
     onPoll: () -> Unit,
     onMessageInfo: () -> Unit,
@@ -788,6 +874,7 @@ private fun MessageActionSheet(
     val smartSuggestions = remember(message.text, isGroup) {
         SmartActionDetector.detect(message.text, isGroup)
     }
+    val hasLocationAction = (message.type == MessageType.LOCATION && message.latitude != null && message.longitude != null) || SmartActionDetector.hasLocation(message.text)
 
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
         Column(modifier = Modifier.padding(bottom = GagaDimens.space16)) {
@@ -833,6 +920,8 @@ private fun MessageActionSheet(
                             SmartActionKind.EVENT -> ActionRow(Icons.Filled.CalendarMonth, suggestion.label, onEvent)
                             SmartActionKind.REMINDER -> ActionRow(Icons.Filled.NotificationsActive, suggestion.label, onRemind)
                             SmartActionKind.EXPENSE -> ActionRow(Icons.Filled.ReceiptLong, suggestion.label, onExpense)
+                            SmartActionKind.SPLIT_BILL -> ActionRow(Icons.Filled.Group, suggestion.label, onSplitBill)
+                            SmartActionKind.LOCATION -> ActionRow(Icons.Filled.LocationOn, suggestion.label, onOpenLocation)
                             SmartActionKind.TASK -> ActionRow(Icons.Filled.TaskAlt, suggestion.label, onTask)
                             SmartActionKind.POLL -> ActionRow(Icons.Filled.Poll, suggestion.label, onPoll)
                         }
@@ -844,6 +933,15 @@ private fun MessageActionSheet(
                 ActionRow(Icons.Filled.TaskAlt, "Create task", onTask)
                 ActionRow(Icons.Filled.NotificationsActive, "Remind me", onRemind)
                 ActionRow(Icons.Filled.ReceiptLong, "Create expense", onExpense)
+                ActionRow(Icons.Filled.Group, "Split bill", onSplitBill)
+                if (hasLocationAction) {
+                    HorizontalDivider(modifier = Modifier.padding(vertical = GagaDimens.space4))
+                    Text("Location actions", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(horizontal = GagaDimens.space24, vertical = GagaDimens.space8))
+                    ActionRow(Icons.Filled.LocationOn, "Open map", onOpenLocation)
+                    ActionRow(Icons.Filled.ShareLocation, "Share this location", onShareLocation)
+                    ActionRow(Icons.Filled.LocationOn, "Start live location", onStartLiveLocation)
+                    ActionRow(Icons.Filled.Bookmark, "Save location plan", onSaveLocationPlan)
+                }
                 ActionRow(Icons.Filled.NoteAdd, "Save as private note", onNote)
                 ActionRow(Icons.Filled.Info, "Message info", onMessageInfo)
                 ActionRow(Icons.Filled.Checklist, "Select messages", onSelectMultiple)
