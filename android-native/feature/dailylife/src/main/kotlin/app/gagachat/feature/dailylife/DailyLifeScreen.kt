@@ -55,6 +55,7 @@ object DailyRoutes {
     const val RECORDS = "daily/records/{section}"
     const val EDIT = "daily/edit/{kind}?id={id}&text={text}&chat={chat}&message={message}"
     const val SHOP = "daily/shop/{id}"
+    const val SPLITS = "daily/splits"
     fun records(section: String) = "daily/records/$section"
     fun edit(kind: String, id: String = "", text: String = "", chat: String = "", message: String = "") =
         "daily/edit/$kind?id=${Uri.encode(id)}&text=${Uri.encode(text.take(2000))}&chat=${Uri.encode(chat)}&message=${Uri.encode(message)}"
@@ -67,6 +68,7 @@ fun NavGraphBuilder.dailyLifeGraph(nav: NavController, onSaved: () -> Unit, onCh
         RecordEditor(entry.arguments?.getString("kind").orEmpty(), entry.arguments?.getString("id").orEmpty(), entry.arguments?.getString("text").orEmpty(), entry.arguments?.getString("chat").orEmpty(), entry.arguments?.getString("message").orEmpty(), nav)
     }
     composable(DailyRoutes.SHOP) { entry -> ShoppingScreen(entry.arguments?.getString("id").orEmpty(), nav) }
+    composable(DailyRoutes.SPLITS) { SplitBillsScreen(nav, onChat) }
 }
 
 private val labels = mapOf("task" to "Task", "event" to "Event", "income" to "Income", "expense" to "Expense", "lent" to "Money lent", "borrowed" to "Money borrowed", "reminder" to "Reminder", "note" to "Private note", "goal" to "Savings goal", "budget" to "Monthly budget", "account" to "Opening balance")
@@ -185,6 +187,28 @@ fun DailyHome(nav: NavController, onSaved: () -> Unit, onChat: (String) -> Unit,
                                     Text("Open chat", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelMedium)
                                 }
                             }
+                        }
+                    }
+                }
+
+                val myOpenSplitShares = ui.splitMembers.filter { it.userId == vm.userId && !it.settled }
+                if (myOpenSplitShares.isNotEmpty()) item {
+                    val amountByCurrency = myOpenSplitShares
+                        .mapNotNull { share -> ui.splitBills.firstOrNull { it.id == share.billId }?.let { it.currency to share.shareMinor } }
+                        .groupBy({ it.first }, { it.second })
+                        .mapValues { (_, values) -> values.sum() }
+                    Card(Modifier.fillMaxWidth().clickable { nav.navigate(DailyRoutes.SPLITS) }) {
+                        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.Groups, null, tint = MaterialTheme.colorScheme.primary)
+                            Spacer(Modifier.width(12.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text("Split bills", fontWeight = FontWeight.SemiBold)
+                                Text(
+                                    amountByCurrency.entries.joinToString(" · ") { (currency, minor) -> "${DailyMoney.format(minor)} $currency due" },
+                                    style = MaterialTheme.typography.bodySmall,
+                                )
+                            }
+                            Icon(Icons.Default.ChevronRight, null)
                         }
                     }
                 }
@@ -452,6 +476,59 @@ private fun RecordEditor(kind: String,id: String,prefill: String,chat: String,me
 private fun pickDateTime(context: android.content.Context,iso: String,onPicked:(String)->Unit) {
     val zoned=Instant.parse(iso).atZone(ZoneId.systemDefault())
     DatePickerDialog(context,{_,year,month,day->TimePickerDialog(context,{_,hour,minute->onPicked(LocalDateTime.of(year,month+1,day,hour,minute).atZone(ZoneId.systemDefault()).toInstant().toString())},zoned.hour,zoned.minute,true).show()},zoned.year,zoned.monthValue-1,zoned.dayOfMonth).show()
+}
+
+@Composable
+private fun SplitBillsScreen(nav: NavController, onChat: (String) -> Unit, vm: DailyLifeViewModel = hiltViewModel()) {
+    val ui by vm.state.collectAsStateWithLifecycle()
+    ResumeRefresh(vm)
+    GagaScaffold(title = "Split bills", onBack = { nav.popBackStack() }) { padding ->
+        LazyColumn(
+            Modifier.fillMaxSize().padding(padding),
+            contentPadding = PaddingValues(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            item { Status(ui, vm) }
+            if (!ui.loading && ui.splitBills.isEmpty()) {
+                item {
+                    Card(Modifier.fillMaxWidth()) {
+                        Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text("No split bills yet", fontWeight = FontWeight.Bold)
+                            Text("Long-press a money message in chat and choose Split bill.")
+                        }
+                    }
+                }
+            }
+            items(ui.splitBills, key = { it.id }) { bill ->
+                val shares = ui.splitMembers.filter { it.billId == bill.id }
+                val mine = shares.firstOrNull { it.userId == vm.userId }
+                Card(Modifier.fillMaxWidth()) {
+                    Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(bill.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        Text("Total: ${DailyMoney.format(bill.totalMinor)} ${bill.currency}")
+                        shares.forEach { share ->
+                            val name = ui.splitUsers[share.userId]?.displayLabel
+                                ?: if (share.userId == vm.userId) "You" else "GaGa user"
+                            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                                Text(name, modifier = Modifier.weight(1f))
+                                Text("${DailyMoney.format(share.shareMinor)} ${bill.currency}")
+                                Spacer(Modifier.width(8.dp))
+                                Text(if (share.settled) "Settled" else "Due", color = if (share.settled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error)
+                            }
+                        }
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                            TextButton(onClick = { onChat(bill.chatId) }) { Text("Open chat") }
+                            mine?.let { share ->
+                                TextButton(onClick = { vm.setSplitSettled(bill.id, vm.userId, !share.settled) }, enabled = !ui.busy) {
+                                    Text(if (share.settled) "Mark due" else "Mark settled")
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
 
 @Composable
