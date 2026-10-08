@@ -11,7 +11,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Translate
+import androidx.compose.material.icons.filled.Language
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
@@ -65,7 +65,7 @@ fun TranslateDialog(
             viewModel.reset()
             onDismiss()
         },
-        icon = { Icon(Icons.Filled.Translate, contentDescription = null) },
+        icon = { Icon(Icons.Filled.Language, contentDescription = null) },
         title = { Text("Translate message") },
         text = {
             Column(

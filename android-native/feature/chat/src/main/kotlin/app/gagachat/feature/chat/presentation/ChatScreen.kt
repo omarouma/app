@@ -55,6 +55,7 @@ import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.ShareLocation
 import androidx.compose.material.icons.filled.Group
+import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material3.AlertDialog
@@ -949,7 +950,7 @@ private fun MessageActionSheet(
                 ActionRow(Icons.Filled.NotificationsActive, "Remind me", onRemind)
                 ActionRow(Icons.Filled.ReceiptLong, "Create expense", onExpense)
                 ActionRow(Icons.Filled.Group, "Split bill", onSplitBill)
-                if (canCopy) ActionRow(Icons.Filled.Translate, "Translate", onTranslate)
+                if (canCopy) ActionRow(Icons.Filled.Language, "Translate", onTranslate)
                 if (hasLocationAction) {
                     HorizontalDivider(modifier = Modifier.padding(vertical = GagaDimens.space4))
                     Text("Location actions", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(horizontal = GagaDimens.space24, vertical = GagaDimens.space8))
