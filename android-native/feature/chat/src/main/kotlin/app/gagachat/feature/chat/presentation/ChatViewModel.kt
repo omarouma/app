@@ -97,6 +97,7 @@ data class ChatUiState(
     val isGroup: Boolean = false,
     /** Participant count for group/channel headers. */
     val memberCount: Int = 0,
+    val members: List<ConversationMember> = emptyList(),
     val isSearching: Boolean = false,
     val searchQuery: String = "",
     val isOnline: Boolean = true,
@@ -179,6 +180,7 @@ private data class ChatFlags(
 class ChatViewModel @Inject constructor(
     private val savedMessagesRepository: app.gagachat.core.data.repository.SavedMessagesRepository,
     private val privacyApi: app.gagachat.core.network.rest.SupabaseRestApi,
+    private val splitBillApi: app.gagachat.core.network.rest.SplitBillApi,
     savedStateHandle: SavedStateHandle,
     private val messageRepository: MessageRepository,
     private val conversationRepository: ConversationRepository,
@@ -194,6 +196,39 @@ class ChatViewModel @Inject constructor(
     private val soundPlayer: app.gagachat.core.data.media.GagaSoundPlayer,
     @ApplicationContext private val context: Context,
 ) : ViewModel() {
+
+    fun createSplitBill(
+        title: String,
+        totalMinor: Long,
+        currency: String,
+        participantIds: List<String>,
+        sourceMessageId: String?,
+    ) = viewModelScope.launch {
+        try {
+            val ids = participantIds.distinct().filter { it.isNotBlank() }
+            if (ids.size < 2) {
+                showNotice("Choose at least two people for the split.")
+                return@launch
+            }
+            val shares = SplitBillMath.equalShares(totalMinor, ids.size)
+            splitBillApi.create(
+                id = java.util.UUID.randomUUID().toString(),
+                chatId = conversationId,
+                sourceMessage = sourceMessageId?.takeIf { it.isNotBlank() },
+                title = title.trim().take(160),
+                totalMinor = totalMinor,
+                currency = currency,
+                dueAt = null,
+                participantIds = ids,
+                shareMinors = shares,
+            )
+            showNotice("Split bill created. Everyone in the split can track their share.")
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            showNotice("Could not create the split bill. Check the selected people and try again.")
+        }
+    }
 
     fun saveMessage(message: Message) = viewModelScope.launch {
         val serverId = message.serverMessageId
@@ -327,6 +362,7 @@ class ChatViewModel @Inject constructor(
             recordingLevels = composer.recording.levels,
             isGroup = conversation?.type != null && conversation.type != ConversationType.DIRECT,
             memberCount = conversation?.members?.size ?: 0,
+            members = conversation?.members ?: emptyList(),
             isSearching = flags.isSearching,
             searchQuery = flags.searchQuery,
             searchResults = flags.searchResults,
