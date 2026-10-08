@@ -4,6 +4,8 @@ import android.app.DatePickerDialog
 import android.app.TimePickerDialog
 import android.net.Uri
 import android.os.Build
+import android.content.Intent
+import android.provider.CalendarContract
 import android.Manifest
 import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -59,7 +61,7 @@ object DailyRoutes {
 }
 
 fun NavGraphBuilder.dailyLifeGraph(nav: NavController, onSaved: () -> Unit, onChat: (String) -> Unit) {
-    composable(DailyRoutes.HOME) { DailyHome(nav, onSaved) }
+    composable(DailyRoutes.HOME) { DailyHome(nav, onSaved, onChat) }
     composable(DailyRoutes.RECORDS) { entry -> RecordList(entry.arguments?.getString("section").orEmpty(), nav, onChat) }
     composable(DailyRoutes.EDIT, arguments = listOf("id", "text", "chat", "message").map { navArgument(it) { type = NavType.StringType; defaultValue = "" } }) { entry ->
         RecordEditor(entry.arguments?.getString("kind").orEmpty(), entry.arguments?.getString("id").orEmpty(), entry.arguments?.getString("text").orEmpty(), entry.arguments?.getString("chat").orEmpty(), entry.arguments?.getString("message").orEmpty(), nav)
@@ -67,8 +69,8 @@ fun NavGraphBuilder.dailyLifeGraph(nav: NavController, onSaved: () -> Unit, onCh
     composable(DailyRoutes.SHOP) { entry -> ShoppingScreen(entry.arguments?.getString("id").orEmpty(), nav) }
 }
 
-private val labels = mapOf("task" to "Task", "income" to "Income", "expense" to "Expense", "lent" to "Money lent", "borrowed" to "Money borrowed", "reminder" to "Reminder", "note" to "Private note", "goal" to "Savings goal", "budget" to "Monthly budget", "account" to "Opening balance")
-private fun title(section: String) = when(section) { "task" -> "Tasks"; "money" -> "Money Book"; "debts" -> "Borrowed & Lent"; "shopping" -> "Shopping Lists"; "reminder" -> "Bills & Reminders"; "goal" -> "Savings Goals"; "budget" -> "Monthly Budgets"; "account" -> "Recorded Accounts"; else -> "Private Notes" }
+private val labels = mapOf("task" to "Task", "event" to "Event", "income" to "Income", "expense" to "Expense", "lent" to "Money lent", "borrowed" to "Money borrowed", "reminder" to "Reminder", "note" to "Private note", "goal" to "Savings goal", "budget" to "Monthly budget", "account" to "Opening balance")
+private fun title(section: String) = when(section) { "task" -> "Tasks"; "event" -> "Events"; "money" -> "Money Book"; "debts" -> "Borrowed & Lent"; "shopping" -> "Shopping Lists"; "reminder" -> "Bills & Reminders"; "goal" -> "Savings Goals"; "budget" -> "Monthly Budgets"; "account" -> "Recorded Accounts"; else -> "Private Notes" }
 private fun kinds(section: String) = when(section) { "money" -> listOf("income","expense"); "debts" -> listOf("lent","borrowed"); "shopping" -> emptyList(); else -> listOf(section) }
 private fun date(value: String?) = value?.let { runCatching { Instant.parse(it).atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofPattern("dd MMM yyyy, HH:mm")) }.getOrDefault(it) }.orEmpty()
 private fun month(value: String) = runCatching { YearMonth.from(Instant.parse(value).atZone(ZoneId.systemDefault())) }.getOrNull()
@@ -94,22 +96,22 @@ private fun Status(ui: DailyUi, vm: DailyLifeViewModel) {
 }
 
 @Composable
-fun DailyHome(nav: NavController, onSaved: () -> Unit, vm: DailyLifeViewModel = hiltViewModel()) {
+fun DailyHome(nav: NavController, onSaved: () -> Unit, onChat: (String) -> Unit, vm: DailyLifeViewModel = hiltViewModel()) {
     val ui by vm.state.collectAsStateWithLifecycle()
     val fontScale = LocalDensity.current.fontScale
     ResumeRefresh(vm)
-    val sections = listOf("task" to Icons.Default.TaskAlt, "reminder" to Icons.Default.NotificationsActive, "money" to Icons.Default.AccountBalanceWallet, "shopping" to Icons.Default.ShoppingCart, "debts" to Icons.Default.People, "goal" to Icons.Default.Savings, "budget" to Icons.Default.PieChart, "account" to Icons.Default.AccountBalance, "note" to Icons.Default.Note)
+    val sections = listOf("task" to Icons.Default.TaskAlt, "event" to Icons.Default.Event, "reminder" to Icons.Default.NotificationsActive, "money" to Icons.Default.AccountBalanceWallet, "shopping" to Icons.Default.ShoppingCart, "debts" to Icons.Default.People, "goal" to Icons.Default.Savings, "budget" to Icons.Default.PieChart, "account" to Icons.Default.AccountBalance, "note" to Icons.Default.Note)
     GagaScaffold(title = "GaGa Today", actions = { IconButton(onClick = { vm.refresh() }) { Icon(Icons.Default.Refresh, "Refresh") } }) { padding ->
         BoxWithConstraints(Modifier.fillMaxSize().padding(padding)) {
             val columns = if (maxWidth < 340.dp || fontScale > 1.2f) 1 else 2
             LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 item {
                     Text("Your day, organized from your chats", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-                    Text("Turn messages into tasks, reminders, expenses and private notes — then manage them here.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("See what needs attention, then turn conversations into actions without leaving GaGa.", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 item { Status(ui, vm) }
                 item { Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf("task", "reminder", "expense").forEach { kind ->
+                    listOf("task", "event", "reminder", "expense").forEach { kind ->
                         FilledTonalButton(onClick = { nav.navigate(DailyRoutes.edit(kind)) }) { Text("Add ${labels[kind]}") }
                     }
                 } }
@@ -216,9 +218,9 @@ private fun RecordList(section: String, nav: NavController, onChat: (String) -> 
     }) { padding ->
         LazyColumn(Modifier.fillMaxSize().padding(padding),contentPadding=PaddingValues(16.dp),verticalArrangement=Arrangement.spacedBy(10.dp)) {
             item { Status(ui,vm) }
-            if (section in listOf("money", "task", "reminder", "budget")) item {
+            if (section in listOf("money", "task", "event", "reminder", "budget")) item {
                 Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    (if (section in listOf("task", "reminder")) listOf("All", "Pending", "Completed") else listOf("All", "This month")).forEach { option ->
+                    (if (section in listOf("task", "event", "reminder")) listOf("All", "Pending", "Completed") else listOf("All", "This month")).forEach { option ->
                         FilterChip(selected = filter == option, onClick = { filter = option }, label = { Text(option) })
                     }
                 }
@@ -263,7 +265,7 @@ private fun RecordList(section: String, nav: NavController, onChat: (String) -> 
             Column {
                 if(record.note.isNotBlank()) Text(record.note)
                 TextButton(onClick={selected=null;nav.navigate(DailyRoutes.edit(record.kind,record.id))}) {Text("Edit")}
-                if(record.kind in listOf("task","reminder")) TextButton(onClick={vm.complete(record);selected=null},enabled=!ui.busy) {Text(if(record.completed) "Mark pending" else "Mark completed")}
+                if(record.kind in listOf("task","event","reminder")) TextButton(onClick={vm.complete(record);selected=null},enabled=!ui.busy) {Text(if(record.completed) "Mark pending" else "Mark completed")}
                 if(record.kind in listOf("lent","borrowed","goal") && record.paidMinor<record.amountMinor) TextButton(onClick={selected=null;contribution=record}) {Text(if(record.kind=="goal") "Record contribution" else "Record repayment")}
                 record.sourceChat?.let { chat -> TextButton(onClick={selected=null;onChat(chat)}) {Text("Open source chat")} }
                 TextButton(onClick={selected=null;confirmDelete=record}) {Text("Delete",color=MaterialTheme.colorScheme.error)}
@@ -310,19 +312,19 @@ private fun RecordEditor(kind: String,id: String,prefill: String,chat: String,me
         GagaScaffold(title="Edit record",onBack={nav.popBackStack()}) {p->Column(Modifier.padding(p).padding(16.dp)){Status(ui,vm);if(!ui.loading)Text("Record not available. Refresh or return to your list.")}}
         return
     }
-    var name by rememberSaveable(id) { mutableStateOf(existing?.title ?: if(kind in listOf("task","expense","reminder")) prefill.take(160) else "") }
+    var name by rememberSaveable(id) { mutableStateOf(existing?.title ?: if(kind in listOf("task","event","expense","reminder")) prefill.take(160) else "") }
     var amount by rememberSaveable(id) { mutableStateOf(existing?.let {DailyMoney.format(it.amountMinor)} ?: "") }
     var currency by rememberSaveable(id) { mutableStateOf(existing?.currency ?: "BDT") }
     var category by rememberSaveable(id) { mutableStateOf(existing?.category ?: if(kind=="budget") "All" else "Other") }
     var account by rememberSaveable(id) { mutableStateOf(existing?.account ?: "Cash") }
     var note by rememberSaveable(id) { mutableStateOf(existing?.note ?: prefill) }
     var happened by rememberSaveable(id) { mutableStateOf(existing?.happenedAt ?: Instant.now().toString()) }
-    var due by rememberSaveable(id) { mutableStateOf(existing?.dueAt ?: if(kind in listOf("task","reminder")) Instant.now().plusSeconds(86400).toString() else "") }
+    var due by rememberSaveable(id) { mutableStateOf(existing?.dueAt ?: if(kind in listOf("task","event","reminder")) Instant.now().plusSeconds(86400).toString() else "") }
     var validation by remember { mutableStateOf<String?>(null) }
     val newId=rememberSaveable {UUID.randomUUID().toString()}
     val context=LocalContext.current
     val permission=rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {}
-    val monetary=kind !in listOf("task","note","reminder")
+    val monetary=kind !in listOf("task","event","note","reminder")
     GagaScaffold(title=if(id.isEmpty()) "Add ${labels[kind]}" else "Edit ${labels[kind]}",onBack={nav.popBackStack()}) {padding->
         Column(Modifier.fillMaxSize().padding(padding).imePadding().verticalScroll(rememberScrollState()).padding(16.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
             OutlinedTextField(name,{name=it.take(160)},label={Text(if(kind in listOf("lent","borrowed")) "Person / description" else "Title")},modifier=Modifier.fillMaxWidth())
@@ -334,10 +336,10 @@ private fun RecordEditor(kind: String,id: String,prefill: String,chat: String,me
                 Text("This records an amount. It does not move or hold money.",style=MaterialTheme.typography.bodySmall)
             }
             OutlinedButton(onClick={pickDateTime(context,happened){happened=it}},modifier=Modifier.fillMaxWidth()){Text("Record date: ${date(happened)}")}
-            if(kind in listOf("task","reminder","lent","borrowed","goal")) {
+            if(kind in listOf("task","event","reminder","lent","borrowed","goal")) {
                 OutlinedButton(onClick={pickDateTime(context,due.ifBlank{Instant.now().plusSeconds(86400).toString()}){due=it}},modifier=Modifier.fillMaxWidth()){Text(if(due.isBlank()) "Set due date" else "Due: ${date(due)}")}
-                if(kind!="reminder" && due.isNotBlank()) TextButton(onClick={due=""}){Text("Remove due date")}
-                if(kind in listOf("task","reminder")) Text("Due alerts can be delayed by connectivity or Android battery settings. Upcoming items remain visible in GaGa Today.",style=MaterialTheme.typography.bodySmall)
+                if(kind !in listOf("reminder","event") && due.isNotBlank()) TextButton(onClick={due=""}){Text("Remove due date")}
+                if(kind in listOf("task","event","reminder")) Text("Due alerts can be delayed by connectivity or Android battery settings. Upcoming items remain visible in GaGa Today.",style=MaterialTheme.typography.bodySmall)
             }
             OutlinedTextField(note,{note=it.take(4000)},label={Text("Private note")},modifier=Modifier.fillMaxWidth(),minLines=3)
             validation?.let{Text(it,color=MaterialTheme.colorScheme.error)}
@@ -348,11 +350,11 @@ private fun RecordEditor(kind: String,id: String,prefill: String,chat: String,me
                     name.isBlank()->"Enter a title or person."
                     minor==null->"Enter a positive amount with at most two decimal places."
                     category.isBlank() || account.isBlank()->"Category and account cannot be empty."
-                    kind=="reminder" && due != existing?.dueAt && !Instant.parse(due).isAfter(Instant.now())->"Choose a future reminder time."
+                    kind in listOf("reminder","event") && due != existing?.dueAt && !Instant.parse(due).isAfter(Instant.now())->"Choose a future time."
                     else->null
                 }
                 if(validation==null) {
-                    if(kind in listOf("task","reminder") && Build.VERSION.SDK_INT>=33 && ContextCompat.checkSelfPermission(context,Manifest.permission.POST_NOTIFICATIONS)!=PackageManager.PERMISSION_GRANTED) permission.launch(Manifest.permission.POST_NOTIFICATIONS)
+                    if(kind in listOf("task","event","reminder") && Build.VERSION.SDK_INT>=33 && ContextCompat.checkSelfPermission(context,Manifest.permission.POST_NOTIFICATIONS)!=PackageManager.PERMISSION_GRANTED) permission.launch(Manifest.permission.POST_NOTIFICATIONS)
                     vm.save(DailyRecord(id=existing?.id ?: newId,ownerId=vm.userId,kind=kind,title=name.trim(),amountMinor=minor ?: 0,paidMinor=existing?.paidMinor ?: 0,currency=currency,category=category.trim(),account=account.trim(),note=note,happenedAt=happened,dueAt=due.takeIf{it.isNotBlank()},completed=existing?.completed ?: false,sourceChat=existing?.sourceChat ?: chat.takeIf{it.isNotBlank()},sourceMessage=existing?.sourceMessage ?: message.takeIf{it.isNotBlank()}),id.isNotEmpty()){nav.popBackStack()}
                 }
             }) {Text(if(ui.busy) "Saving…" else "Save record")}
