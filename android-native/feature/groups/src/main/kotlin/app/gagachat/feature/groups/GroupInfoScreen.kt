@@ -1,7 +1,10 @@
 package app.gagachat.feature.groups
 
 import android.net.Uri
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -9,6 +12,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
@@ -19,6 +23,7 @@ import androidx.compose.material.icons.filled.PersonRemove
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -36,6 +41,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import app.gagachat.core.model.CircleType
 import app.gagachat.core.model.Group
 import app.gagachat.core.ui.component.GagaAvatar
 import app.gagachat.core.ui.component.GagaAvatarPicker
@@ -166,8 +172,8 @@ fun GroupInfoScreen(
             isUploadingAvatar = action.isUploadingAvatar,
             onDismiss = { showEdit = false },
             onPickAvatar = { uri, onUploaded -> viewModel.uploadAvatar(uri, onUploaded) },
-            onSave = { name, description, avatar ->
-                viewModel.updateGroup(name, description, avatar) { showEdit = false }
+            onSave = { name, description, avatar, circleType ->
+                viewModel.updateGroup(name, description, avatar, circleType) { showEdit = false }
             },
         )
     }
@@ -222,11 +228,12 @@ private fun EditGroupDialog(
     isUploadingAvatar: Boolean,
     onDismiss: () -> Unit,
     onPickAvatar: (Uri, (String) -> Unit) -> Unit,
-    onSave: (name: String, description: String?, avatar: String?) -> Unit,
+    onSave: (name: String, description: String?, avatar: String?, circleType: CircleType) -> Unit,
 ) {
     var name by remember { mutableStateOf(group.name) }
     var description by remember { mutableStateOf(group.description.orEmpty()) }
     var avatar by remember { mutableStateOf(group.avatar) }
+    var circleType by remember { mutableStateOf(group.circleType) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -252,11 +259,32 @@ private fun EditGroupDialog(
                     label = "Description",
                     singleLine = false,
                 )
+                Spacer(Modifier.height(GagaDimens.space12))
+                Text(
+                    text = "Circle type",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(GagaDimens.space8),
+                ) {
+                    CircleType.entries.forEach { type ->
+                        FilterChip(
+                            selected = circleType == type,
+                            onClick = { circleType = type },
+                            label = { Text(type.label) },
+                        )
+                    }
+                }
             }
         },
         confirmButton = {
             TextButton(
-                onClick = { onSave(name, description, avatar) },
+                onClick = { onSave(name, description, avatar, circleType) },
                 enabled = !isSaving && name.isNotBlank(),
             ) {
                 Text(if (isSaving) "Saving…" else "Save")
@@ -284,6 +312,21 @@ private fun GroupHeader(group: Group) {
             Text(
                 text = group.description!!,
                 style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        // GaGa Circles: the purpose and the structured tools it surfaces.
+        Spacer(Modifier.height(GagaDimens.space8))
+        Text(
+            text = "${group.circleType.label} circle",
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.primary,
+        )
+        if (group.circleType.tools.isNotEmpty()) {
+            Spacer(Modifier.height(GagaDimens.space4))
+            Text(
+                text = group.circleType.tools.joinToString("  \u00b7  ") { it.label },
+                style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }

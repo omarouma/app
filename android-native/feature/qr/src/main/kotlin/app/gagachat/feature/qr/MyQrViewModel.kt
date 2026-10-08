@@ -10,6 +10,7 @@ import app.gagachat.core.model.User
 import app.gagachat.core.ui.state.ScreenState
 import app.gagachat.core.ui.util.toUserMessage
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -91,6 +92,7 @@ class MyQrViewModel @Inject constructor(
                 AppResult.Loading -> Unit
             }
         } catch (t: Throwable) {
+            if (t is CancellationException) throw t
             update { it.copy(profileError = "Couldn't load your profile.") }
         }
     }

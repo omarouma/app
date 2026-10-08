@@ -790,6 +790,7 @@ class SupabaseRestApi @Inject constructor(
         name: String,
         description: String?,
         memberIds: List<String>,
+        circleType: app.gagachat.core.model.CircleType = app.gagachat.core.model.CircleType.GENERAL,
     ) {
         client.post("${config.restUrl}/rpc/gaga_group_create") {
             auth()
@@ -798,6 +799,7 @@ class SupabaseRestApi @Inject constructor(
                 put("p_group_id", id)
                 put("p_name", name)
                 description?.let { put("p_description", it) }
+                put("p_circle_type", circleType.name.lowercase())
                 put(
                     "p_member_ids",
                     kotlinx.serialization.json.JsonArray(
@@ -808,8 +810,14 @@ class SupabaseRestApi @Inject constructor(
         }
     }
 
-    suspend fun updateGroupAtomic(id: String, name: String?, description: String?, avatar: String?) {
-        if (name == null && description == null && avatar == null) return
+    suspend fun updateGroupAtomic(
+        id: String,
+        name: String?,
+        description: String?,
+        avatar: String?,
+        circleType: app.gagachat.core.model.CircleType? = null,
+    ) {
+        if (name == null && description == null && avatar == null && circleType == null) return
         client.post("${config.restUrl}/rpc/gaga_group_update") {
             auth()
             contentType(ContentType.Application.Json)
@@ -818,6 +826,7 @@ class SupabaseRestApi @Inject constructor(
                 name?.let { put("p_name", it) }
                 description?.let { put("p_description", it) }
                 avatar?.let { put("p_avatar", it) }
+                circleType?.let { put("p_circle_type", it.name.lowercase()) }
             })
         }
     }

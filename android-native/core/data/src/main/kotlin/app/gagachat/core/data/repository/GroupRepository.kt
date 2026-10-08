@@ -6,6 +6,7 @@ import app.gagachat.core.common.result.AppResult
 import app.gagachat.core.common.util.IdGenerator
 import app.gagachat.core.common.util.TimeProvider
 import app.gagachat.core.data.mapper.toDomain
+import app.gagachat.core.model.CircleType
 import app.gagachat.core.model.Group
 import app.gagachat.core.model.GroupMember
 import app.gagachat.core.model.GroupRole
@@ -13,6 +14,7 @@ import app.gagachat.core.network.dto.GroupMemberRow
 import app.gagachat.core.network.dto.GroupRow
 import app.gagachat.core.network.error.ErrorMapper
 import app.gagachat.core.network.rest.SupabaseRestApi
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -30,8 +32,19 @@ interface GroupRepository {
 
     suspend fun refresh(): AppResult<Unit>
     suspend fun getGroup(groupId: String): AppResult<Group>
-    suspend fun createGroup(name: String, description: String?, memberIds: List<String>): AppResult<Group>
-    suspend fun updateGroup(groupId: String, name: String?, description: String?, avatar: String?): AppResult<Unit>
+    suspend fun createGroup(
+        name: String,
+        description: String?,
+        memberIds: List<String>,
+        circleType: CircleType = CircleType.GENERAL,
+    ): AppResult<Group>
+    suspend fun updateGroup(
+        groupId: String,
+        name: String?,
+        description: String?,
+        avatar: String?,
+        circleType: CircleType? = null,
+    ): AppResult<Unit>
     suspend fun addMembers(groupId: String, userIds: List<String>): AppResult<Unit>
     suspend fun removeMember(groupId: String, userId: String): AppResult<Unit>
     suspend fun leaveGroup(groupId: String): AppResult<Unit>
@@ -65,6 +78,7 @@ class DefaultGroupRepository @Inject constructor(
             }
             AppResult.Success(Unit)
         } catch (t: Throwable) {
+            if (t is CancellationException) throw t
             AppResult.Failure(ErrorMapper.map(t))
         }
     }
@@ -75,6 +89,7 @@ class DefaultGroupRepository @Inject constructor(
                 ?: return@withContext AppResult.Failure(AppError.Database("Group not found"))
             AppResult.Success(row.toDomain(loadMembers(groupId)))
         } catch (t: Throwable) {
+            if (t is CancellationException) throw t
             AppResult.Failure(ErrorMapper.map(t))
         }
     }
@@ -83,6 +98,7 @@ class DefaultGroupRepository @Inject constructor(
         name: String,
         description: String?,
         memberIds: List<String>,
+        circleType: CircleType,
     ): AppResult<Group> = withContext(dispatchers.io) {
         val me = currentUserId
         if (me.isBlank()) return@withContext AppResult.Failure(AppError.Unauthorized())
@@ -95,6 +111,7 @@ class DefaultGroupRepository @Inject constructor(
                 name = name.trim(),
                 description = description?.trim()?.ifBlank { null },
                 memberIds = others,
+                circleType = circleType,
             )
             val row = restApi.getGroup(groupId)
                 ?: return@withContext AppResult.Failure(AppError.Database("Group was created but could not be loaded"))
@@ -102,6 +119,7 @@ class DefaultGroupRepository @Inject constructor(
             refresh()
             AppResult.Success(group)
         } catch (t: Throwable) {
+            if (t is CancellationException) throw t
             AppResult.Failure(ErrorMapper.map(t))
         }
     }
@@ -111,12 +129,14 @@ class DefaultGroupRepository @Inject constructor(
         name: String?,
         description: String?,
         avatar: String?,
+        circleType: CircleType?,
     ): AppResult<Unit> = withContext(dispatchers.io) {
         try {
-            restApi.updateGroupAtomic(groupId, name, description, avatar)
+            restApi.updateGroupAtomic(groupId, name, description, avatar, circleType)
             refresh()
             AppResult.Success(Unit)
         } catch (t: Throwable) {
+            if (t is CancellationException) throw t
             AppResult.Failure(ErrorMapper.map(t))
         }
     }
@@ -130,6 +150,7 @@ class DefaultGroupRepository @Inject constructor(
                 refresh()
                 AppResult.Success(Unit)
             } catch (t: Throwable) {
+                if (t is CancellationException) throw t
                 AppResult.Failure(ErrorMapper.map(t))
             }
         }
@@ -141,6 +162,7 @@ class DefaultGroupRepository @Inject constructor(
                 refresh()
                 AppResult.Success(Unit)
             } catch (t: Throwable) {
+                if (t is CancellationException) throw t
                 AppResult.Failure(ErrorMapper.map(t))
             }
         }
@@ -153,6 +175,7 @@ class DefaultGroupRepository @Inject constructor(
             _groups.value = _groups.value.filterNot { it.id == groupId }
             AppResult.Success(Unit)
         } catch (t: Throwable) {
+            if (t is CancellationException) throw t
             AppResult.Failure(ErrorMapper.map(t))
         }
     }
@@ -163,6 +186,7 @@ class DefaultGroupRepository @Inject constructor(
             _groups.value = _groups.value.filterNot { it.id == groupId }
             AppResult.Success(Unit)
         } catch (t: Throwable) {
+            if (t is CancellationException) throw t
             AppResult.Failure(ErrorMapper.map(t))
         }
     }
@@ -186,6 +210,7 @@ private fun GroupRow.toDomain(members: List<GroupMember>): Group = Group(
     createdBy = createdBy,
     createdAt = createdAt ?: 0L,
     updatedAt = updatedAt ?: 0L,
+    circleType = CircleType.fromWire(circleType),
     members = members,
 )
 

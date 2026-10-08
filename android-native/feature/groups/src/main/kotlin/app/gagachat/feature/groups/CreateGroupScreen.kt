@@ -1,6 +1,7 @@
 package app.gagachat.feature.groups
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -14,12 +15,14 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.Notes
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -33,6 +36,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import app.gagachat.core.model.CircleType
 import app.gagachat.core.ui.component.GagaAvatar
 import app.gagachat.core.ui.component.GagaListRow
 import app.gagachat.core.ui.component.GagaScaffold
@@ -103,6 +107,31 @@ fun CreateGroupScreen(
                     )
                 }
             }
+
+            // GaGa Circles: pick the purpose. The type only changes which
+            // structured tools are surfaced around the same group chat.
+            Text(
+                text = "Circle type",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(horizontal = GagaDimens.space16, vertical = GagaDimens.space8),
+            )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState())
+                    .padding(horizontal = GagaDimens.space16),
+                horizontalArrangement = Arrangement.spacedBy(GagaDimens.space8),
+            ) {
+                CircleType.entries.forEach { type ->
+                    FilterChip(
+                        selected = state.circleType == type,
+                        onClick = { viewModel.onCircleTypeChange(type) },
+                        label = { Text(type.label) },
+                    )
+                }
+            }
+            Spacer(Modifier.height(GagaDimens.space8))
 
             // "Add Members" + green "N selected" counter.
             Row(

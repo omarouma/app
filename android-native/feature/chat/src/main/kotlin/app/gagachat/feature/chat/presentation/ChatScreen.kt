@@ -118,6 +118,7 @@ import app.gagachat.feature.chat.presentation.components.MessageBubble
 import app.gagachat.feature.chat.presentation.components.PollComposerDialog
 import app.gagachat.feature.chat.presentation.components.ScheduleMessageDialog
 import app.gagachat.feature.chat.presentation.components.SplitBillDialog
+import app.gagachat.feature.chat.presentation.components.TranslateDialog
 import app.gagachat.feature.chat.presentation.components.MessageComposer
 import app.gagachat.feature.chat.presentation.components.TypingIndicator
 import app.gagachat.feature.chat.presentation.components.rememberContactPicker
@@ -199,6 +200,7 @@ fun ChatRoute(
     var showPollComposer by remember { mutableStateOf(false) }
     var pollSeedQuestion by remember { mutableStateOf("") }
     var splitSourceMessage by remember { mutableStateOf<Message?>(null) }
+    var translateSourceMessage by remember { mutableStateOf<Message?>(null) }
     var showLiveLocationPicker by remember { mutableStateOf(false) }
     var showSchedulePicker by remember { mutableStateOf(false) }
     // Multi-select + message-info state (P1): long-pressing a message can enter a
@@ -623,6 +625,10 @@ fun ChatRoute(
                     splitSourceMessage = selected
                     viewModel.selectMessage(null)
                 },
+                onTranslate = {
+                    translateSourceMessage = selected
+                    viewModel.selectMessage(null)
+                },
                 onOpenLocation = {
                     openMessageLocation(context, selected)
                     viewModel.selectMessage(null)
@@ -687,6 +693,13 @@ fun ChatRoute(
                     )
                     splitSourceMessage = null
                 },
+            )
+        }
+
+        translateSourceMessage?.let { source ->
+            TranslateDialog(
+                originalText = source.text.orEmpty(),
+                onDismiss = { translateSourceMessage = null },
             )
         }
 
@@ -858,6 +871,7 @@ private fun MessageActionSheet(
     onRemind: () -> Unit,
     onExpense: () -> Unit,
     onSplitBill: () -> Unit,
+    onTranslate: () -> Unit,
     onOpenLocation: () -> Unit,
     onShareLocation: () -> Unit,
     onStartLiveLocation: () -> Unit,
@@ -935,6 +949,7 @@ private fun MessageActionSheet(
                 ActionRow(Icons.Filled.NotificationsActive, "Remind me", onRemind)
                 ActionRow(Icons.Filled.ReceiptLong, "Create expense", onExpense)
                 ActionRow(Icons.Filled.Group, "Split bill", onSplitBill)
+                if (canCopy) ActionRow(Icons.Filled.Translate, "Translate", onTranslate)
                 if (hasLocationAction) {
                     HorizontalDivider(modifier = Modifier.padding(vertical = GagaDimens.space4))
                     Text("Location actions", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(horizontal = GagaDimens.space24, vertical = GagaDimens.space8))

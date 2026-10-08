@@ -10,6 +10,7 @@ import app.gagachat.core.database.mapper.toEntity
 import app.gagachat.core.model.User
 import app.gagachat.core.network.error.ErrorMapper
 import app.gagachat.core.network.rest.SupabaseRestApi
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
@@ -65,6 +66,7 @@ class DefaultUserRepository @Inject constructor(
                 userDao.upsertAll(users.map { it.toEntity(now) })
                 AppResult.Success(users)
             } catch (t: Throwable) {
+                if (t is CancellationException) throw t
                 AppResult.Failure(ErrorMapper.map(t))
             }
         }
@@ -85,6 +87,7 @@ class DefaultUserRepository @Inject constructor(
             userDao.upsert(user.toEntity(timeProvider.nowMillis()))
             AppResult.Success(user)
         } catch (t: Throwable) {
+            if (t is CancellationException) throw t
             AppResult.Failure(ErrorMapper.map(t))
         }
     }

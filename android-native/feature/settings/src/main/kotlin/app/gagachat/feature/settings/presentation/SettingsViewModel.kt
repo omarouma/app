@@ -59,6 +59,7 @@ data class SettingsUiState(
     val chatBackground: ChatBackground = ChatBackground.DEFAULT,
     val mediaPolicy: MediaDownloadPolicy = MediaDownloadPolicy.WIFI,
     val autoDownloadEnabled: Boolean = true,
+    val liteModeEnabled: Boolean = false,
     val appLockEnabled: Boolean = false,
     val textScale: TextScale = TextScale.DEFAULT,
     val language: AppLanguage = AppLanguage.ENGLISH,
@@ -170,6 +171,11 @@ class SettingsViewModel @Inject constructor(
             }
         }
         viewModelScope.launch {
+            settingsPreferences.liteModeEnabled.collect { v ->
+                _state.update { it.copy(liteModeEnabled = v) }
+            }
+        }
+        viewModelScope.launch {
             settingsPreferences.appLockEnabled.collect { v ->
                 _state.update { it.copy(appLockEnabled = v) }
             }
@@ -261,6 +267,16 @@ class SettingsViewModel @Inject constructor(
 
     fun setAutoDownloadEnabled(enabled: Boolean) =
         viewModelScope.launch { settingsPreferences.setAutoDownloadEnabled(enabled) }
+
+    /**
+     * Lite Mode (Signature Features \u2014 Language Bridge & Lite). Turning it on also
+     * disables auto-download so the two switches never contradict each other.
+     */
+    fun setLiteModeEnabled(enabled: Boolean) =
+        viewModelScope.launch {
+            settingsPreferences.setLiteModeEnabled(enabled)
+            if (enabled) settingsPreferences.setAutoDownloadEnabled(false)
+        }
 
     fun setAppLockEnabled(enabled: Boolean) =
         viewModelScope.launch { settingsPreferences.setAppLockEnabled(enabled) }

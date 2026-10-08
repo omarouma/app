@@ -14,6 +14,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import app.gagachat.core.model.CircleType
 import app.gagachat.core.ui.component.GagaAvatar
 import app.gagachat.core.ui.component.GagaListRow
 import app.gagachat.core.ui.component.GagaScaffold
@@ -54,9 +55,15 @@ fun GroupsScreen(
         ) { groups ->
             LazyColumn(modifier = Modifier.fillMaxSize()) {
                 items(groups, key = { it.id }) { group ->
+                    val members = "${group.memberCount} member" + if (group.memberCount == 1) "" else "s"
+                    val subtitle = if (group.circleType == CircleType.GENERAL) {
+                        members
+                    } else {
+                        "${group.circleType.label} circle  ·  $members"
+                    }
                     GagaListRow(
                         title = group.name,
-                        subtitle = "${group.memberCount} member" + if (group.memberCount == 1) "" else "s",
+                        subtitle = subtitle,
                         avatar = { GagaAvatar(imageUrl = group.avatar, name = group.name) },
                         onClick = { onOpenGroup(group.id) },
                     )

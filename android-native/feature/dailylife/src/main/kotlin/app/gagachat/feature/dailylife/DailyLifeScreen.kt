@@ -56,6 +56,7 @@ object DailyRoutes {
     const val EDIT = "daily/edit/{kind}?id={id}&text={text}&chat={chat}&message={message}"
     const val SHOP = "daily/shop/{id}"
     const val SPLITS = "daily/splits"
+    const val SAFE = "daily/safe"
     fun records(section: String) = "daily/records/$section"
     fun edit(kind: String, id: String = "", text: String = "", chat: String = "", message: String = "") =
         "daily/edit/$kind?id=${Uri.encode(id)}&text=${Uri.encode(text.take(2000))}&chat=${Uri.encode(chat)}&message=${Uri.encode(message)}"
@@ -69,6 +70,7 @@ fun NavGraphBuilder.dailyLifeGraph(nav: NavController, onSaved: () -> Unit, onCh
     }
     composable(DailyRoutes.SHOP) { entry -> ShoppingScreen(entry.arguments?.getString("id").orEmpty(), nav) }
     composable(DailyRoutes.SPLITS) { SplitBillsScreen(nav, onChat) }
+    composable(DailyRoutes.SAFE) { SafeScreen(onBack = { nav.popBackStack() }) }
 }
 
 private val labels = mapOf("task" to "Task", "event" to "Event", "income" to "Income", "expense" to "Expense", "lent" to "Money lent", "borrowed" to "Money borrowed", "reminder" to "Reminder", "note" to "Private note", "goal" to "Savings goal", "budget" to "Monthly budget", "account" to "Opening balance")
@@ -209,6 +211,20 @@ fun DailyHome(nav: NavController, onSaved: () -> Unit, onChat: (String) -> Unit,
                             Column(Modifier.weight(1f)) {
                                 Text("Split bills", fontWeight = FontWeight.SemiBold)
                                 Text(splitSummary, style = MaterialTheme.typography.bodySmall)
+                            }
+                            Icon(Icons.Default.ChevronRight, null)
+                        }
+                    }
+                }
+
+                item {
+                    Card(Modifier.fillMaxWidth().clickable { nav.navigate(DailyRoutes.SAFE) }) {
+                        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.HealthAndSafety, null, tint = MaterialTheme.colorScheme.primary)
+                            Spacer(Modifier.width(12.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text("GaGa Safe", fontWeight = FontWeight.SemiBold)
+                                Text("Check-ins, safe arrival & SOS to your trusted contacts", style = MaterialTheme.typography.bodySmall)
                             }
                             Icon(Icons.Default.ChevronRight, null)
                         }

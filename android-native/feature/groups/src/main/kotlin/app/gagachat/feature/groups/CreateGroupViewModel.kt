@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import app.gagachat.core.common.result.AppResult
 import app.gagachat.core.data.repository.FriendsRepository
 import app.gagachat.core.data.repository.GroupRepository
+import app.gagachat.core.model.CircleType
 import app.gagachat.core.model.Friend
 import app.gagachat.core.ui.util.toUserMessage
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -18,6 +19,7 @@ import javax.inject.Inject
 data class CreateGroupUiState(
     val name: String = "",
     val description: String = "",
+    val circleType: CircleType = CircleType.GENERAL,
     val friends: List<Friend> = emptyList(),
     val selectedIds: Set<String> = emptySet(),
     val isCreating: Boolean = false,
@@ -46,6 +48,7 @@ class CreateGroupViewModel @Inject constructor(
 
     fun onNameChange(value: String) = _state.update { it.copy(name = value, error = null) }
     fun onDescriptionChange(value: String) = _state.update { it.copy(description = value, error = null) }
+    fun onCircleTypeChange(value: CircleType) = _state.update { it.copy(circleType = value, error = null) }
 
     fun toggleMember(userId: String) = _state.update {
         val next = if (it.selectedIds.contains(userId)) it.selectedIds - userId else it.selectedIds + userId
@@ -64,6 +67,7 @@ class CreateGroupViewModel @Inject constructor(
                 name = snapshot.name,
                 description = snapshot.description.ifBlank { null },
                 memberIds = snapshot.selectedIds.toList(),
+                circleType = snapshot.circleType,
             )) {
                 is AppResult.Success -> {
                     _state.update { it.copy(isCreating = false) }
