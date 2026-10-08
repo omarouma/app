@@ -321,7 +321,7 @@ private fun RecordList(section: String, nav: NavController, onChat: (String) -> 
                 items(visible,key={it.id}) { record ->
                     val detail=buildString {
                         append(labels[record.kind]);append(" · ");append(date(record.happenedAt))
-                        if(record.kind !in listOf("note","reminder")) append("\n${record.currency} ${DailyMoney.format(record.amountMinor)} · ${record.category}")
+                        if(record.kind !in listOf("task","event","note","reminder")) append("\n${record.currency} ${DailyMoney.format(record.amountMinor)} · ${record.category}")
                         if(record.kind in listOf("lent","borrowed","goal")) append("\nRemaining ${DailyMoney.format(record.amountMinor-record.paidMinor)}")
                         if(record.kind=="budget") {
                             val spent=ui.records.filter { it.kind=="expense" && it.currency==record.currency && (record.category=="All" || it.category.equals(record.category,true)) && month(it.happenedAt)==month(record.happenedAt) }.sumOf { it.amountMinor }
