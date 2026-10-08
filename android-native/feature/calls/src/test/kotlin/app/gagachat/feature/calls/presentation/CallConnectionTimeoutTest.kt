@@ -7,7 +7,9 @@ import app.gagachat.core.data.repository.CallRepository
 import app.gagachat.core.data.repository.ConversationRepository
 import app.gagachat.core.model.CallStatus
 import app.gagachat.core.network.session.AuthSession
+import app.gagachat.feature.calls.call.AudioDeviceInfo
 import app.gagachat.feature.calls.call.CallConnection
+import app.gagachat.feature.calls.call.CallDiagnostics
 import app.gagachat.feature.calls.call.CallEndedInfo
 import app.gagachat.feature.calls.call.CallPeer
 import app.gagachat.feature.calls.call.CallSoundPlayer
@@ -53,6 +55,9 @@ class CallConnectionTimeoutTest {
             every { manager.isCameraEnabled } returns MutableStateFlow(false)
             every { manager.isSpeakerOn } returns MutableStateFlow(false)
             every { manager.callEnded } returns MutableSharedFlow<CallEndedInfo>()
+            every { manager.audioDevices } returns MutableStateFlow(emptyList<AudioDeviceInfo>())
+            every { manager.currentAudioDevice } returns MutableStateFlow<AudioDeviceInfo?>(null)
+            every { manager.diagnostics } returns MutableStateFlow(CallDiagnostics())
             every { signaling.signals } returns MutableSharedFlow()
             coEvery { manager.connect(any(), any(), any(), any()) } returns true
             val vm = CallViewModel(calls, auth, conversations, manager, signaling, sound)
@@ -96,6 +101,9 @@ class CallConnectionTimeoutTest {
             every { manager.isCameraEnabled } returns MutableStateFlow(false)
             every { manager.isSpeakerOn } returns MutableStateFlow(false)
             every { manager.callEnded } returns MutableSharedFlow<CallEndedInfo>()
+            every { manager.audioDevices } returns MutableStateFlow(emptyList<AudioDeviceInfo>())
+            every { manager.currentAudioDevice } returns MutableStateFlow<AudioDeviceInfo?>(null)
+            every { manager.diagnostics } returns MutableStateFlow(CallDiagnostics())
             every { signaling.signals } returns MutableSharedFlow()
             coEvery { manager.setMicrophoneEnabled(false) } returns false
             coEvery { manager.setCameraEnabled(true) } returns false

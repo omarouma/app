@@ -1,6 +1,6 @@
 {
   "SUPABASE_URL": "https://fcjgbbmfqdkucfpqjxae.supabase.co",
-  "SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZjamdiYm1mcWRrdWNmcHFqeGFlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODcyNTYyOTAsImV4cCI6MjEwMjgzMjI5MH0.aB0eNNa9O8Kzg6dXJoF-ccJhXzz0t0bRchO6j6rupMs",
+  "SUPABASE_ANON_KEY": "sb_publishable__A7rrB7-EmNnt9b_GSDaNQ_SAhSrJmv",
   "firebase": {
     "google_app_id": "1:545448312835:android:d71f67bf2c8f96f4cd8e36",
     "google_api_key": "AIzaSyDae1gz_UQ0jHMyekzLkHpBJaauha_xgQM",
