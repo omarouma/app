@@ -54,3 +54,6 @@ Thumbs.db
 
 # ---- Generated preview bundle (relative-path copy for S3 preview) ----
 hosting-preview/
+
+# Firebase CLI deploy cache
+.firebase/
