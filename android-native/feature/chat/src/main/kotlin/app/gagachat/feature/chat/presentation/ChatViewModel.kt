@@ -28,11 +28,13 @@ import app.gagachat.core.data.preferences.ChatBackground
 import app.gagachat.core.data.preferences.DraftStore
 import kotlinx.coroutines.flow.first
 import app.gagachat.core.model.Conversation
+import app.gagachat.core.model.ConversationMember
 import app.gagachat.core.model.ConversationType
 import app.gagachat.core.model.LinkPreview
 import app.gagachat.core.model.Message
 import app.gagachat.core.model.MessageStatus
 import app.gagachat.core.model.MessageType
+import app.gagachat.core.model.SplitBillMath
 import app.gagachat.core.model.User
 import app.gagachat.core.model.UserStatus
 import app.gagachat.core.ui.util.TimeFormat
