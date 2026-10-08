@@ -340,6 +340,7 @@ private fun RecordList(section: String, nav: NavController, onChat: (String) -> 
                 if(record.note.isNotBlank()) Text(record.note)
                 TextButton(onClick={selected=null;nav.navigate(DailyRoutes.edit(record.kind,record.id))}) {Text("Edit")}
                 if(record.kind in listOf("task","event","reminder")) TextButton(onClick={vm.complete(record);selected=null},enabled=!ui.busy) {Text(if(record.completed) "Mark pending" else "Mark completed")}
+                if(record.kind=="event" && record.dueAt != null) TextButton(onClick={addEventToCalendar(context,record)}) {Text("Add to device calendar")}
                 if(record.kind in listOf("lent","borrowed","goal") && record.paidMinor<record.amountMinor) TextButton(onClick={selected=null;contribution=record}) {Text(if(record.kind=="goal") "Record contribution" else "Record repayment")}
                 record.sourceChat?.let { chat -> TextButton(onClick={selected=null;onChat(chat)}) {Text("Open source chat")} }
                 TextButton(onClick={selected=null;confirmDelete=record}) {Text("Delete",color=MaterialTheme.colorScheme.error)}
@@ -349,6 +350,18 @@ private fun RecordList(section: String, nav: NavController, onChat: (String) -> 
     confirmDelete?.let { record -> AlertDialog(onDismissRequest={if(!ui.busy)confirmDelete=null},title={Text("Delete this record?")},text={Text("This removes the record and its repayment history. Chat messages are unaffected.")},confirmButton={TextButton(onClick={vm.remove(record){confirmDelete=null}},enabled=!ui.busy){Text("Delete")}},dismissButton={TextButton(onClick={confirmDelete=null},enabled=!ui.busy){Text("Cancel")}}) }
     contribution?.let { record -> EntryDialog(if(record.kind=="goal") "Record contribution" else "Record repayment","Amount (${record.currency})",ui.busy,ui.error,{contribution=null;vm.clearError()}) { text,id,done -> vm.contribute(record,text,id){contribution=null;done()} } }
     if(addList) EntryDialog("New shopping list","List name",ui.busy,ui.error,{addList=false;vm.clearError()}) { text,id,done -> vm.createList(text,id){addList=false;done()} }
+}
+
+private fun addEventToCalendar(context: android.content.Context, record: DailyRecord) {
+    val start = record.dueAt?.let { runCatching { Instant.parse(it).toEpochMilli() }.getOrNull() } ?: return
+    val intent = Intent(Intent.ACTION_INSERT).apply {
+        data = CalendarContract.Events.CONTENT_URI
+        putExtra(CalendarContract.Events.TITLE, record.title)
+        putExtra(CalendarContract.Events.DESCRIPTION, record.note)
+        putExtra(CalendarContract.EXTRA_EVENT_BEGIN_TIME, start)
+        putExtra(CalendarContract.EXTRA_EVENT_END_TIME, start + 60L * 60 * 1000)
+    }
+    runCatching { context.startActivity(intent) }
 }
 
 @Composable
