@@ -8,6 +8,7 @@ import app.gagachat.core.common.BuildConfig
 import app.gagachat.core.common.util.AppLogger
 import app.gagachat.core.network.rest.SupabaseRestApi
 import com.twilio.audioswitch.AudioDevice
+import com.twilio.audioswitch.AudioDeviceChangeListener
 import dagger.hilt.android.qualifiers.ApplicationContext
 import io.livekit.android.LiveKit
 import io.livekit.android.LiveKitOverrides
@@ -16,12 +17,19 @@ import io.livekit.android.events.RoomEvent
 import io.livekit.android.events.collect
 import io.livekit.android.renderer.SurfaceViewRenderer
 import io.livekit.android.room.Room
+import io.livekit.android.room.network.DefaultReconnectPolicy
+import io.livekit.android.room.participant.AudioPresets
+import io.livekit.android.room.participant.AudioTrackPublishDefaults
 import io.livekit.android.room.participant.ConnectionQuality
 import io.livekit.android.room.participant.Participant
 import io.livekit.android.room.participant.RemoteParticipant
+import io.livekit.android.room.participant.VideoTrackPublishDefaults
 import io.livekit.android.room.track.CameraPosition
+import io.livekit.android.room.track.LocalAudioTrackOptions
 import io.livekit.android.room.track.LocalVideoTrack
+import io.livekit.android.room.track.LocalVideoTrackOptions
 import io.livekit.android.room.track.Track
+import io.livekit.android.room.track.VideoPreset169
 import io.livekit.android.room.track.VideoTrack
 import io.livekit.android.util.LoggingLevel
 import kotlinx.coroutines.CancellationException
@@ -38,6 +46,7 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
@@ -75,6 +84,38 @@ data class CallEndedInfo(
     val reason: String?,
     val error: String?,
     val initiatedLocally: Boolean,
+)
+
+/** The physical route call audio is currently playing through. */
+enum class AudioDeviceKind { SPEAKER, EARPIECE, BLUETOOTH, WIRED, OTHER }
+
+/**
+ * Immutable projection of one selectable audio output, so the call UI can offer
+ * a real device picker (Bluetooth / wired / speaker / earpiece) without holding a
+ * reference to the mutable SDK object.
+ */
+data class AudioDeviceInfo(
+    val id: String,
+    val label: String,
+    val kind: AudioDeviceKind,
+) {
+    val isSpeaker: Boolean get() = kind == AudioDeviceKind.SPEAKER
+    val isHeadset: Boolean get() = kind == AudioDeviceKind.BLUETOOTH || kind == AudioDeviceKind.WIRED
+}
+
+/**
+ * Lightweight, live view of the media session for the in-call diagnostics panel.
+ * Everything here is read straight off the SDK \u2014 no values are invented.
+ */
+data class CallDiagnostics(
+    val roomName: String? = null,
+    val isVideo: Boolean = false,
+    val adaptiveStream: Boolean = false,
+    val dynacast: Boolean = false,
+    val peerCount: Int = 0,
+    val reconnectCount: Int = 0,
+    val connectionQuality: ConnectionQuality = ConnectionQuality.UNKNOWN,
+    val audioDeviceLabel: String? = null,
 )
 
 /**
@@ -126,6 +167,16 @@ class LiveKitCallManager @Inject constructor(
     private var peerLeftJob: Job? = null
     private var localDisconnectRequested = false
 
+    /**
+     * Stable reference to the audioswitch device-change callback so it can be
+     * unregistered when the room is torn down. The handler holds listeners in a
+     * set, so re-registering a fresh lambda each call would leak them.
+     */
+    private var audioDeviceListener: AudioDeviceChangeListener? = null
+
+    /** Monotonic count of successful LiveKit reconnects for this call. */
+    private var reconnectCount = 0
+
     @Volatile
     private var sdkInitialized = false
 
@@ -149,6 +200,18 @@ class LiveKitCallManager @Inject constructor(
 
     private val _callEnded = MutableSharedFlow<CallEndedInfo>(extraBufferCapacity = 8)
     val callEnded: SharedFlow<CallEndedInfo> = _callEnded.asSharedFlow()
+
+    /** Audio outputs the user can route the call through right now. */
+    private val _audioDevices = MutableStateFlow<List<AudioDeviceInfo>>(emptyList())
+    val audioDevices: StateFlow<List<AudioDeviceInfo>> = _audioDevices.asStateFlow()
+
+    /** The audio output call audio is currently playing through, if known. */
+    private val _currentAudioDevice = MutableStateFlow<AudioDeviceInfo?>(null)
+    val currentAudioDevice: StateFlow<AudioDeviceInfo?> = _currentAudioDevice.asStateFlow()
+
+    /** Live media diagnostics for the in-call stats panel. */
+    private val _diagnostics = MutableStateFlow(CallDiagnostics())
+    val diagnostics: StateFlow<CallDiagnostics> = _diagnostics.asStateFlow()
 
     /** True while a room object exists and is not in a terminal state. */
     fun isActive(): Boolean {
@@ -175,6 +238,83 @@ class LiveKitCallManager @Inject constructor(
                 logger.e(TAG, "LiveKit SDK initialisation failed", t)
             }
         }
+    }
+
+    /**
+     * Builds the LiveKit [RoomOptions] that make calls sound and look right and
+     * survive flaky networks. Everything here is a real, behaviour-changing
+     * setting (not a placeholder):
+     *
+     *  * **adaptiveStream** \u2014 the SDK only requests the video resolution the
+     *    on-screen renderer actually needs, so a small PiP window stops pulling a
+     *    720p stream. Less bandwidth \u2192 faster start and fewer stalls.
+     *  * **dynacast** \u2014 pauses outbound simulcast layers nobody is subscribed to,
+     *    cutting uplink on weak connections.
+     *  * **reconnectPolicy** \u2014 the default LiveKit policy (aggressive early
+     *    retries, exponential back-off to 5s, 60s ceiling) so a Wi-Fi\u2192LTE
+     *    hand-off or a brief tunnel drop recovers instead of dropping the call.
+     *  * **audioTrackCaptureDefaults** \u2014 echo cancellation, noise suppression,
+     *    auto gain and a high-pass filter, which is what turns a laptop-style
+     *    "hollow, echoing" call into a phone-quality one.
+     *  * **audioTrackPublishDefaults** \u2014 [AudioPresets.SPEECH] bitrate with DTX
+     *    (silence suppression) and RED (redundant audio) for clear speech that
+     *    still recovers from packet loss.
+     *  * **videoTrackCapture/PublishDefaults** \u2014 a 720p 16:9 capture with
+     *    simulcast so the receiver can pick the layer its network can sustain.
+     */
+    internal fun buildRoomOptions(isVideo: Boolean): RoomOptions = RoomOptions(
+        adaptiveStream = true,
+        dynacast = true,
+        reconnectPolicy = DefaultReconnectPolicy(),
+        audioTrackCaptureDefaults = LocalAudioTrackOptions(
+            noiseSuppression = true,
+            echoCancellation = true,
+            autoGainControl = true,
+            highPassFilter = true,
+            typingNoiseDetection = true,
+        ),
+        audioTrackPublishDefaults = AudioTrackPublishDefaults(
+            audioBitrate = AudioPresets.SPEECH.maxBitrate,
+            dtx = true,
+            red = true,
+        ),
+        videoTrackCaptureDefaults = if (isVideo) {
+            LocalVideoTrackOptions(
+                position = CameraPosition.FRONT,
+                captureParams = VideoPreset169.H720.capture,
+            )
+        } else {
+            null
+        },
+        videoTrackPublishDefaults = if (isVideo) {
+            VideoTrackPublishDefaults(
+                videoEncoding = VideoPreset169.H720.encoding,
+                simulcast = true,
+            )
+        } else {
+            null
+        },
+    )
+
+    /**
+     * Recomputes the in-call diagnostics snapshot straight off the live room.
+     * Called on connect, on every peer/quality change and on reconnect, so the
+     * stats panel always reflects the real SDK state rather than a guess.
+     */
+    internal fun publishDiagnostics(room: Room, isVideo: Boolean) {
+        val quality = room.remoteParticipants.values
+            .firstOrNull()?.connectionQuality
+            ?: ConnectionQuality.UNKNOWN
+        _diagnostics.value = CallDiagnostics(
+            roomName = room.name,
+            isVideo = isVideo,
+            adaptiveStream = room.adaptiveStream,
+            dynacast = room.dynacast,
+            peerCount = room.remoteParticipants.size,
+            reconnectCount = reconnectCount,
+            connectionQuality = quality,
+            audioDeviceLabel = _currentAudioDevice.value?.label,
+        )
     }
 
     /**
@@ -235,7 +375,7 @@ class LiveKitCallManager @Inject constructor(
         }
 
         val newRoom = try {
-            LiveKit.create(context, RoomOptions(), LiveKitOverrides())
+            LiveKit.create(context, buildRoomOptions(isVideo), LiveKitOverrides())
         } catch (t: Throwable) {
             logger.e(TAG, "LiveKit.create failed", t)
             lastError = "Calling is unavailable on this device."
@@ -245,6 +385,9 @@ class LiveKitCallManager @Inject constructor(
 
         room = newRoom
         observeRoom(newRoom)
+        registerAudioDeviceListener(newRoom)
+        reconnectCount = 0
+        publishDiagnostics(newRoom, isVideo)
 
         try {
             ContextCompat.startForegroundService(context, Intent(context, ActiveCallService::class.java).putExtra(ActiveCallService.EXTRA_VIDEO, isVideo))
@@ -431,16 +574,96 @@ class LiveKitCallManager @Inject constructor(
             val match = if (enabled) {
                 available.firstOrNull { it is AudioDevice.Speakerphone }
             } else {
-                available.firstOrNull { it is AudioDevice.Earpiece }
+                // Prefer a connected headset when turning the speaker off; fall
+                // back to the earpiece so the control always does something.
+                available.firstOrNull { it is AudioDevice.BluetoothHeadset }
+                    ?: available.firstOrNull { it is AudioDevice.WiredHeadset }
+                    ?: available.firstOrNull { it is AudioDevice.Earpiece }
             }
             if (match == null) return false
             handler.selectDevice(match)
-            _isSpeakerOn.value = enabled
+            refreshAudioDevices(handler.availableAudioDevices, handler.selectedAudioDevice)
             true
         } catch (t: Throwable) {
             logger.w(TAG, "Audio routing change failed", t)
             false
         }
+    }
+
+    // ---- Audio device management ------------------------------------------
+
+    /**
+     * Subscribes to audioswitch's device list so the picker reflects hot-plugged
+     * headsets and the active route in real time.
+     */
+    private fun registerAudioDeviceListener(room: Room) {
+        val handler = room.audioSwitchHandler ?: return
+        unregisterAudioDeviceListener()
+        val listener: AudioDeviceChangeListener = { devices, selected ->
+            if (this.room === room) refreshAudioDevices(devices, selected)
+        }
+        try {
+            handler.registerAudioDeviceChangeListener(listener)
+            audioDeviceListener = listener
+            refreshAudioDevices(handler.availableAudioDevices, handler.selectedAudioDevice)
+        } catch (t: Throwable) {
+            logger.w(TAG, "Audio device listener registration failed", t)
+        }
+    }
+
+    private fun unregisterAudioDeviceListener() {
+        val listener = audioDeviceListener ?: return
+        audioDeviceListener = null
+        try {
+            room?.audioSwitchHandler?.unregisterAudioDeviceChangeListener(listener)
+        } catch (t: Throwable) {
+            logger.w(TAG, "Audio device listener removal failed", t)
+        }
+    }
+
+    /**
+     * Routes call audio to the device with the given [id] (see [AudioDeviceInfo]).
+     * Returns `true` when the SDK accepted the switch.
+     */
+    fun selectAudioDevice(id: String): Boolean {
+        val handler = room?.audioSwitchHandler ?: return false
+        return try {
+            val target = handler.availableAudioDevices.firstOrNull { it.toAudioDeviceInfo().id == id }
+                ?: return false
+            handler.selectDevice(target)
+            refreshAudioDevices(handler.availableAudioDevices, target)
+            true
+        } catch (t: Throwable) {
+            logger.w(TAG, "Audio device selection failed", t)
+            false
+        }
+    }
+
+    /** Re-projects the SDK device list into the immutable UI model. */
+    private fun refreshAudioDevices(devices: List<AudioDevice>, selected: AudioDevice?) {
+        val infos = devices.map { it.toAudioDeviceInfo() }
+        _audioDevices.value = infos
+        val selectedInfo = selected?.toAudioDeviceInfo()
+            ?: infos.firstOrNull { it.isSpeaker }
+        _currentAudioDevice.value = selectedInfo
+        _isSpeakerOn.value = selectedInfo?.isSpeaker ?: _isSpeakerOn.value
+        _diagnostics.update { it.copy(audioDeviceLabel = selectedInfo?.label) }
+    }
+
+    private fun AudioDevice.toAudioDeviceInfo(): AudioDeviceInfo = when (this) {
+        is AudioDevice.Speakerphone -> AudioDeviceInfo("speaker", "Speaker", AudioDeviceKind.SPEAKER)
+        is AudioDevice.Earpiece -> AudioDeviceInfo("earpiece", "Phone", AudioDeviceKind.EARPIECE)
+        is AudioDevice.BluetoothHeadset -> AudioDeviceInfo(
+            id = "bluetooth",
+            label = name.takeIf { it.isNotBlank() } ?: "Bluetooth",
+            kind = AudioDeviceKind.BLUETOOTH,
+        )
+        is AudioDevice.WiredHeadset -> AudioDeviceInfo(
+            id = "wired",
+            label = name.takeIf { it.isNotBlank() } ?: "Wired headset",
+            kind = AudioDeviceKind.WIRED,
+        )
+        else -> AudioDeviceInfo(id = name, label = name, kind = AudioDeviceKind.OTHER)
     }
 
     // ---- Video rendering ---------------------------------------------------
@@ -525,7 +748,9 @@ class LiveKitCallManager @Inject constructor(
 
                         is RoomEvent.Reconnected -> {
                             _connection.value = CallConnection.CONNECTED
+                            reconnectCount++
                             refreshPeers()
+                            room.let { publishDiagnostics(it, _diagnostics.value.isVideo) }
                         }
 
                         is RoomEvent.Reconnecting -> {
@@ -610,6 +835,7 @@ class LiveKitCallManager @Inject constructor(
         }
         val hadPeer = _peers.value.isNotEmpty()
         _peers.value = peers
+        publishDiagnostics(current, _diagnostics.value.isVideo)
 
         if (peers.isNotEmpty()) {
             peerLeftJob?.cancel()
@@ -684,6 +910,9 @@ class LiveKitCallManager @Inject constructor(
         peerLeftJob?.cancel()
         peerLeftJob = null
         stopTimer()
+        // Unregister before dropping the room reference: the listener removal
+        // needs the room's audio handler to still be reachable.
+        unregisterAudioDeviceListener()
 
         val current = room
         room = null
@@ -699,8 +928,12 @@ class LiveKitCallManager @Inject constructor(
                 logger.w(TAG, "Room release threw", t)
             }
         }
+        reconnectCount = 0
         _peers.value = emptyList()
         _isSpeakerOn.value = false
+        _audioDevices.value = emptyList()
+        _currentAudioDevice.value = null
+        _diagnostics.value = CallDiagnostics()
     }
 
     /**

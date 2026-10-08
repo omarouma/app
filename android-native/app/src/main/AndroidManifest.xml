@@ -73,6 +73,9 @@
             android:exported="true"
             android:launchMode="singleTask"
             android:windowSoftInputMode="adjustResize"
+            android:supportsPictureInPicture="true"
+            android:resizeableActivity="true"
+            android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation|keyboardHidden|uiMode|density|fontScale"
             android:theme="@style/Theme.GaGaChat.Splash">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

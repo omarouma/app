@@ -38,10 +38,21 @@ Deno.serve(createHandler({
     return (await response.json()).id ?? null;
   },
   authorize: async (authorization, callee) => {
-    const response = await fetch(`${url}/rest/v1/rpc/gaga_can_call`, { method: "POST",
-      headers: {apikey:anon, Authorization:authorization, "Content-Type":"application/json"},
-      body: JSON.stringify({callee}), signal:AbortSignal.timeout(8000) });
-    return response.ok && await response.json() === true;
+    const rpc = (name: string) => fetch(`${url}/rest/v1/rpc/${name}`, { method: "POST",
+      headers: { apikey: anon, Authorization: authorization, "Content-Type": "application/json" },
+      body: JSON.stringify({ callee }), signal: AbortSignal.timeout(8000) });
+    // Prefer the richer admission RPC so the client can show *why* a call was
+    // refused (expired session, blocked, not friends, calls disabled, ...).
+    const detailed = await rpc("gaga_call_admission");
+    if (detailed.ok) {
+      const reason = await detailed.json();
+      return { allowed: reason === "OK", reason: typeof reason === "string" ? reason : "CALL_NOT_ALLOWED" };
+    }
+    // Older deployments only expose the boolean RPC; fall back gracefully.
+    const legacy = await rpc("gaga_can_call");
+    if (!legacy.ok) throw new Error(`Call admission check failed (${legacy.status})`);
+    const allowed = await legacy.json() === true;
+    return { allowed, reason: allowed ? "OK" : "CALL_NOT_ALLOWED" };
   },
   create: async (callerId, request) => (await rest("rpc/gaga_create_call", { method: "POST", body: JSON.stringify({
     p_chat_id: request.chat_id, p_callee_id: request.callee_id, p_type: request.type,
@@ -50,4 +61,3 @@ Deno.serve(createHandler({
   notify,
   background: work => EdgeRuntime.waitUntil(work),
 }));
-

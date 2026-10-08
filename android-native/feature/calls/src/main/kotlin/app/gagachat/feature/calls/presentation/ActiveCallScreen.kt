@@ -1,7 +1,11 @@
 package app.gagachat.feature.calls.presentation
 
 import android.Manifest
+import android.app.Activity
+import android.content.Context
+import android.content.ContextWrapper
 import android.content.pm.PackageManager
+import android.os.Build
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -16,24 +20,38 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.VolumeOff
+import androidx.compose.material.icons.automirrored.filled.VolumeUp
+import androidx.compose.material.icons.filled.Bluetooth
 import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.CallEnd
 import androidx.compose.material.icons.filled.Cameraswitch
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Headset
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.MicOff
+import androidx.compose.material.icons.filled.PhoneInTalk
+import androidx.compose.material.icons.filled.PictureInPictureAlt
 import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material.icons.filled.VideocamOff
-import androidx.compose.material.icons.filled.VolumeOff
-import androidx.compose.material.icons.filled.VolumeUp
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -41,6 +59,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -66,9 +85,14 @@ import app.gagachat.core.ui.theme.GagaDimens
 import app.gagachat.core.ui.theme.GagaGreen
 import app.gagachat.core.ui.theme.GagaGreenLight
 import app.gagachat.core.ui.theme.WarningAmber
+import app.gagachat.feature.calls.call.AudioDeviceInfo
+import app.gagachat.feature.calls.call.AudioDeviceKind
+import app.gagachat.feature.calls.call.CallDiagnostics
 import app.gagachat.feature.calls.call.CallPeer
+import app.gagachat.feature.calls.call.CallPipController
 import io.livekit.android.renderer.SurfaceViewRenderer
 import io.livekit.android.room.participant.ConnectionQuality
+import kotlinx.coroutines.launch
 import livekit.org.webrtc.RendererCommon
 import java.util.Locale
 
@@ -280,6 +304,7 @@ fun IncomingCallRoute(
 /** Near-black canvas so the video and the controls always read clearly. */
 private val CallBackground = Color(0xFF0B141A)
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun CallSurface(
     state: CallUiState,
@@ -287,6 +312,25 @@ private fun CallSurface(
 ) {
     val peer = state.primaryPeer
     val remoteVideoVisible = state.isVideoCall && peer?.isCameraEnabled == true && peer.videoTrackReady
+    val context = LocalContext.current
+    val activity = remember(context) { context.findActivity() }
+
+    val inPip by CallPipController.inPip.collectAsStateWithLifecycle()
+
+    // Register the live call with the host Activity so it can auto-minimise on the
+    // Home gesture, and keep the PiP params (aspect ratio + auto-enter) current as
+    // the call switches between audio and video.
+    DisposableEffect(activity, state.isVideoCall) {
+        CallPipController.callActive = true
+        CallPipController.isVideo = state.isVideoCall
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            activity?.let { act -> runCatching { act.setPictureInPictureParams(CallPipController.buildParams()) } }
+        }
+        onDispose { CallPipController.callActive = false }
+    }
+
+    var showAudioSheet by remember { mutableStateOf(false) }
+    var showDiagnostics by remember { mutableStateOf(false) }
 
     Box(
         modifier = Modifier
@@ -310,9 +354,229 @@ private fun CallSurface(
             LocalVideoPreview(state = state, viewModel = viewModel)
         }
 
-        CallHeader(state = state, modifier = Modifier.align(Alignment.TopCenter))
-        CallControls(state = state, viewModel = viewModel, modifier = Modifier.align(Alignment.BottomCenter))
+        // Inside the PiP window there is no room for chrome: the media is the UI.
+        if (!inPip) {
+            CallHeader(state = state, modifier = Modifier.align(Alignment.TopCenter))
+            CallQuickActions(
+                onAudioRoute = { showAudioSheet = true },
+                onDiagnostics = { showDiagnostics = true },
+                onMinimise = {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        activity?.let { act ->
+                            runCatching { act.enterPictureInPictureMode(CallPipController.buildParams()) }
+                        }
+                    }
+                },
+                modifier = Modifier.align(Alignment.TopEnd),
+            )
+            CallControls(state = state, viewModel = viewModel, modifier = Modifier.align(Alignment.BottomCenter))
+        }
     }
+
+    if (showAudioSheet) {
+        AudioDeviceSheet(
+            devices = state.audioDevices,
+            current = state.currentAudioDevice,
+            onSelect = { id ->
+                viewModel.selectAudioDevice(id)
+                showAudioSheet = false
+            },
+            onDismiss = { showAudioSheet = false },
+        )
+    }
+
+    if (showDiagnostics) {
+        DiagnosticsSheet(
+            diagnostics = state.diagnostics,
+            onDismiss = { showDiagnostics = false },
+        )
+    }
+}
+
+/**
+ * Small vertical stack of secondary call actions pinned to the top-right:
+ * audio-route picker, live diagnostics and "minimise" (Picture-in-Picture).
+ * Kept out of the primary control row so the essential controls stay uncluttered.
+ */
+@Composable
+private fun CallQuickActions(
+    onAudioRoute: () -> Unit,
+    onDiagnostics: () -> Unit,
+    onMinimise: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier.padding(top = 52.dp, end = GagaDimens.space8),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(GagaDimens.space8),
+    ) {
+        QuickActionButton(icon = Icons.Filled.Headset, label = "Audio", onClick = onAudioRoute)
+        QuickActionButton(icon = Icons.Filled.Info, label = "Stats", onClick = onDiagnostics)
+        QuickActionButton(icon = Icons.Filled.PictureInPictureAlt, label = "Minimise", onClick = onMinimise)
+    }
+}
+
+@Composable
+private fun QuickActionButton(
+    icon: ImageVector,
+    label: String,
+    onClick: () -> Unit,
+) {
+    Box(
+        modifier = Modifier
+            .size(40.dp)
+            .clip(CircleShape)
+            .background(Color.White.copy(alpha = 0.16f))
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = label,
+            tint = Color.White,
+            modifier = Modifier.size(GagaDimens.iconSmall),
+        )
+    }
+}
+
+/**
+ * Bottom sheet listing every audio output the SDK currently exposes, with the
+ * active route ticked. The list is live: plugging in a headset mid-call makes it
+ * appear here without leaving the call.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun AudioDeviceSheet(
+    devices: List<AudioDeviceInfo>,
+    current: AudioDeviceInfo?,
+    onSelect: (String) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val sheetState = rememberModalBottomSheetState()
+    val scope = rememberCoroutineScope()
+
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
+        Text(
+            text = "Audio output",
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.padding(start = GagaDimens.space20, end = GagaDimens.space20, bottom = GagaDimens.space8),
+        )
+        if (devices.isEmpty()) {
+            Text(
+                text = "No audio outputs available yet.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = GagaDimens.space20, vertical = GagaDimens.space12),
+            )
+        } else {
+            devices.forEach { device ->
+                val selected = device.id == current?.id
+                ListItem(
+                    headlineContent = { Text(device.label) },
+                    supportingContent = { Text(deviceKindLabel(device.kind)) },
+                    leadingContent = {
+                        Icon(
+                            imageVector = deviceKindIcon(device.kind),
+                            contentDescription = null,
+                            tint = if (selected) GagaGreen else MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    },
+                    trailingContent = {
+                        if (selected) {
+                            Icon(
+                                imageVector = Icons.Filled.Check,
+                                contentDescription = "Selected",
+                                tint = GagaGreen,
+                                modifier = Modifier.size(GagaDimens.iconSmall),
+                            )
+                        }
+                    },
+                    colors = ListItemDefaults.colors(
+                        containerColor = if (selected) GagaGreen.copy(alpha = 0.10f) else Color.Transparent,
+                    ),
+                    modifier = Modifier.clickable {
+                        scope.launch { runCatching { sheetState.hide() } }.invokeOnCompletion { onSelect(device.id) }
+                    },
+                )
+                HorizontalDivider()
+            }
+        }
+        Spacer(Modifier.height(GagaDimens.space16))
+        Spacer(Modifier.navigationBarsPadding())
+    }
+}
+
+/**
+ * Live, read-only view of the media session: the room, the negotiated features
+ * (adaptive stream / dynacast), the peer count, reconnect count, link quality and
+ * the active audio route. Everything shown is read straight off the LiveKit SDK.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun DiagnosticsSheet(
+    diagnostics: CallDiagnostics,
+    onDismiss: () -> Unit,
+) {
+    val sheetState = rememberModalBottomSheetState()
+
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
+        Text(
+            text = "Call diagnostics",
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.padding(start = GagaDimens.space20, end = GagaDimens.space20, bottom = GagaDimens.space8),
+        )
+        Column(modifier = Modifier.padding(horizontal = GagaDimens.space20)) {
+            DiagnosticRow("Type", if (diagnostics.isVideo) "Video call" else "Voice call")
+            DiagnosticRow("Quality", diagnostics.connectionQuality.name.lowercase().replaceFirstChar { it.uppercase() })
+            DiagnosticRow("Participants", diagnostics.peerCount.toString())
+            DiagnosticRow("Reconnects", diagnostics.reconnectCount.toString())
+            DiagnosticRow("Adaptive stream", if (diagnostics.adaptiveStream) "On" else "Off")
+            DiagnosticRow("Dynacast", if (diagnostics.dynacast) "On" else "Off")
+            diagnostics.audioDeviceLabel?.let { DiagnosticRow("Audio output", it) }
+            diagnostics.roomName?.let { DiagnosticRow("Room", it) }
+        }
+        Spacer(Modifier.height(GagaDimens.space16))
+        Spacer(Modifier.navigationBarsPadding())
+    }
+}
+
+@Composable
+private fun DiagnosticRow(label: String, value: String) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = GagaDimens.space8),
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Text(
+            text = value,
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.Medium,
+        )
+    }
+}
+
+private fun deviceKindIcon(kind: AudioDeviceKind): ImageVector = when (kind) {
+    AudioDeviceKind.SPEAKER -> Icons.AutoMirrored.Filled.VolumeUp
+    AudioDeviceKind.EARPIECE -> Icons.Filled.PhoneInTalk
+    AudioDeviceKind.BLUETOOTH -> Icons.Filled.Bluetooth
+    AudioDeviceKind.WIRED -> Icons.Filled.Headset
+    AudioDeviceKind.OTHER -> Icons.AutoMirrored.Filled.VolumeUp
+}
+
+private fun deviceKindLabel(kind: AudioDeviceKind): String = when (kind) {
+    AudioDeviceKind.SPEAKER -> "Loudspeaker"
+    AudioDeviceKind.EARPIECE -> "Phone earpiece"
+    AudioDeviceKind.BLUETOOTH -> "Bluetooth"
+    AudioDeviceKind.WIRED -> "Wired headset"
+    AudioDeviceKind.OTHER -> "Audio device"
 }
 
 /**
@@ -475,7 +739,8 @@ private fun CallControls(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .padding(bottom = 48.dp, start = GagaDimens.space16, end = GagaDimens.space16),
+            .navigationBarsPadding()
+            .padding(bottom = 32.dp, start = GagaDimens.space16, end = GagaDimens.space16),
         horizontalArrangement = Arrangement.SpaceEvenly,
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -486,7 +751,7 @@ private fun CallControls(
             onClick = viewModel::toggleMute,
         )
         CallControlButton(
-            icon = if (state.isSpeakerOn) Icons.Filled.VolumeUp else Icons.Filled.VolumeOff,
+            icon = if (state.isSpeakerOn) Icons.AutoMirrored.Filled.VolumeUp else Icons.AutoMirrored.Filled.VolumeOff,
             label = "Speaker",
             active = state.isSpeakerOn,
             onClick = viewModel::toggleSpeaker,
@@ -622,6 +887,13 @@ private fun missingPermissions(
 ): Array<String> = required
     .filter { context.checkSelfPermission(it) != PackageManager.PERMISSION_GRANTED }
     .toTypedArray()
+
+/** Unwraps the host [Activity] from a Compose [Context] (needed for PiP calls). */
+private tailrec fun Context.findActivity(): Activity? = when (this) {
+    is Activity -> this
+    is ContextWrapper -> baseContext.findActivity()
+    else -> null
+}
 
 /**
  * The one-line state under the peer's name. "Ringing\u2026" is honest about the fact
