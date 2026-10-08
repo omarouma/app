@@ -115,6 +115,80 @@ fun DailyHome(nav: NavController, onSaved: () -> Unit, onChat: (String) -> Unit,
                         FilledTonalButton(onClick = { nav.navigate(DailyRoutes.edit(kind)) }) { Text("Add ${labels[kind]}") }
                     }
                 } }
+                val needsReply = ui.conversations
+                    .filter { it.unreadCount > 0 && !it.isArchived }
+                    .sortedByDescending { it.lastMessageAt ?: it.updatedAt }
+                if (needsReply.isNotEmpty()) item {
+                    Card(Modifier.fillMaxWidth()) {
+                        Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.MarkUnreadChatAlt, null, tint = MaterialTheme.colorScheme.primary)
+                                Spacer(Modifier.width(10.dp))
+                                Text("Needs reply", fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                                Text("${needsReply.sumOf { it.unreadCount }} unread", style = MaterialTheme.typography.labelMedium)
+                            }
+                            needsReply.take(3).forEach { conversation ->
+                                Row(
+                                    Modifier.fillMaxWidth().clickable { onChat(conversation.id) }.padding(vertical = 4.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Column(Modifier.weight(1f)) {
+                                        Text(conversation.displayTitle(vm.userId), fontWeight = FontWeight.SemiBold)
+                                        conversation.lastMessagePreview?.takeIf { it.isNotBlank() }?.let {
+                                            Text(it, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall)
+                                        }
+                                    }
+                                    Text("${conversation.unreadCount}", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                                }
+                            }
+                        }
+                    }
+                }
+
+                val upcomingEvents = ui.records
+                    .filter { it.kind == "event" && !it.completed }
+                    .mapNotNull { record -> record.dueAt?.let { runCatching { Instant.parse(it) }.getOrNull() }?.let { record to it } }
+                    .filter { (_, due) -> due.isAfter(Instant.now().minusSeconds(60)) }
+                    .sortedBy { it.second }
+                if (upcomingEvents.isNotEmpty()) item {
+                    Card(Modifier.fillMaxWidth().clickable { nav.navigate(DailyRoutes.records("event")) }) {
+                        Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.Event, null, tint = MaterialTheme.colorScheme.primary)
+                                Spacer(Modifier.width(10.dp))
+                                Text("Upcoming", fontWeight = FontWeight.Bold)
+                            }
+                            upcomingEvents.take(3).forEach { (record, due) ->
+                                Text("${record.title} · ${date(due.toString())}", style = MaterialTheme.typography.bodyMedium)
+                            }
+                        }
+                    }
+                }
+
+                val missedCalls = ui.calls
+                    .filter { it.status == CallStatus.MISSED && !it.isOutgoing && it.conversationId.isNotBlank() }
+                    .sortedByDescending { it.startedAt }
+                if (missedCalls.isNotEmpty()) item {
+                    Card(Modifier.fillMaxWidth()) {
+                        Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.PhoneMissed, null, tint = MaterialTheme.colorScheme.error)
+                                Spacer(Modifier.width(10.dp))
+                                Text("Missed calls", fontWeight = FontWeight.Bold)
+                            }
+                            missedCalls.take(3).forEach { call ->
+                                Row(
+                                    Modifier.fillMaxWidth().clickable { onChat(call.conversationId) }.padding(vertical = 4.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Text(call.peerName?.takeIf { it.isNotBlank() } ?: "GaGa contact", modifier = Modifier.weight(1f))
+                                    Text("Open chat", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelMedium)
+                                }
+                            }
+                        }
+                    }
+                }
+
                 val tasks = ui.records.filter { it.kind == "task" && !it.completed }
                 if (tasks.isNotEmpty()) item {
                     val dueToday = tasks.count { it.dueAt?.let { due -> runCatching { Instant.parse(due).atZone(ZoneId.systemDefault()).toLocalDate() == LocalDate.now() }.getOrDefault(false) } == true }
