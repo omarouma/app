@@ -5,6 +5,8 @@
       "namespace": "android_app",
       "package_name": "gagachat.app",
       "sha256_cert_fingerprints": [
+        "5C:6F:DA:53:E7:F4:68:AD:AC:EE:39:CB:4F:04:3F:57:CA:DA:31:F4:D0:59:18:BC:5A:71:6F:41:99:5C:0A:39",
+        "C0:6F:D3:CC:B3:A7:E6:6E:56:E6:A7:BE:8A:72:53:DB:1B:54:AF:AB:66:66:47:D6:3C:4E:4D:6D:E5:16:1C:57",
         "49:8C:4B:16:75:E7:32:5F:1D:47:59:AC:93:9A:50:E3:F8:E4:A3:A6:10:5F:6E:51:66:8A:1E:DE:0F:34:54:37",
         "F8:F4:C1:14:2A:DA:2F:40:2A:A7:69:4E:C4:8C:E5:29:36:07:AC:7D:3B:07:C2:E4:3F:82:73:EF:F1:DD:68:CE"
       ]
