@@ -5,6 +5,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.work.*
 import app.gagachat.core.model.*
+import app.gagachat.core.data.repository.CallRepository
+import app.gagachat.core.data.repository.ConversationRepository
 import app.gagachat.core.network.rest.DailyLifeApi
 import app.gagachat.core.network.rest.SupabaseRestApi
 import app.gagachat.core.network.session.SessionStore
@@ -25,6 +27,8 @@ data class DailyUi(
     val lists: List<ShoppingList> = emptyList(),
     val items: List<ShoppingItem> = emptyList(),
     val members: List<User> = emptyList(),
+    val conversations: List<Conversation> = emptyList(),
+    val calls: List<CallSession> = emptyList(),
     val loading: Boolean = true,
     val busy: Boolean = false,
     val error: String? = null,
@@ -37,21 +41,37 @@ class DailyLifeViewModel @Inject constructor(
     private val api: DailyLifeApi,
     private val profiles: SupabaseRestApi,
     private val session: SessionStore,
+    private val conversations: ConversationRepository,
+    private val calls: CallRepository,
     @ApplicationContext private val context: Context,
 ) : ViewModel() {
     private val _state = MutableStateFlow(DailyUi())
     val state = _state.asStateFlow()
     val userId get() = session.userId().orEmpty()
     private var listJob: Job? = null
-    init { refresh() }
+    init {
+        viewModelScope.launch {
+            conversations.observeConversations().collect { rows ->
+                _state.update { it.copy(conversations = rows) }
+            }
+        }
+        viewModelScope.launch {
+            calls.observeHistory().collect { rows ->
+                _state.update { it.copy(calls = rows) }
+            }
+        }
+        refresh()
+    }
 
     fun refresh() = viewModelScope.launch {
         _state.update { it.copy(loading = true, error = null) }
         try {
+            runCatching { conversations.syncConversations() }
+            runCatching { calls.syncHistory() }
             val records = api.records()
             val lists = api.lists()
             _state.update { it.copy(records = records, lists = lists, loading = false) }
-            records.filter { it.kind in listOf("task", "reminder") }.forEach(::schedule)
+            records.filter { it.kind in listOf("task", "reminder", "event") }.forEach(::schedule)
             _state.value.selectedList?.let { selectList(it.id) }
         } catch (e: CancellationException) { throw e }
         catch (e: Exception) { _state.update { it.copy(loading = false, error = "Could not load your records. Check your connection and try again.") } }
@@ -61,7 +81,7 @@ class DailyLifeViewModel @Inject constructor(
     fun save(record: DailyRecord, editing: Boolean, done: () -> Unit) = mutate {
         val saved = api.save(record, editing)
         _state.update { it.copy(records = (it.records.filterNot { r -> r.id == saved.id } + saved).sortedByDescending { r -> r.happenedAt }) }
-        if (saved.kind in listOf("task", "reminder")) schedule(saved)
+        if (saved.kind in listOf("task", "reminder", "event")) schedule(saved)
         done()
     }
 

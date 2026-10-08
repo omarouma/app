@@ -33,7 +33,7 @@ class DailyReminderWorker @AssistedInject constructor(
         val id = inputData.getString("record") ?: return Result.failure()
         try {
             val record = api.record(id) ?: return Result.success()
-            if (record.completed || record.kind !in listOf("task", "reminder")) return Result.success()
+            if (record.completed || record.kind !in listOf("task", "reminder", "event")) return Result.success()
             val due = record.dueAt ?: return Result.success()
             if (Instant.parse(due).isAfter(Instant.now())) return Result.success()
             val prefs = context.getSharedPreferences("daily_reminder_delivery", Context.MODE_PRIVATE)
@@ -46,7 +46,7 @@ class DailyReminderWorker @AssistedInject constructor(
             val pending = PendingIntent.getActivity(context, id.hashCode(), intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP), PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
             val notification = NotificationCompat.Builder(context, "daily_reminders")
                 .setSmallIcon(android.R.drawable.ic_popup_reminder)
-                .setContentTitle(if (record.kind == "task") "GaGa task due" else "GaGa reminder")
+                .setContentTitle(when (record.kind) { "task" -> "GaGa task due"; "event" -> "GaGa event"; else -> "GaGa reminder" })
                 // Private title stays out of the lock-screen notification preview.
                 .setContentText("You have an item due. Open GaGa Today to review it.")
                 .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
