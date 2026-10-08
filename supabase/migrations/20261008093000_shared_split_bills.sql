@@ -108,8 +108,8 @@ begin
   end if;
   select count(distinct x) into v_distinct from unnest(p_participant_ids) x;
   if v_distinct <> v_count then raise exception 'Duplicate participant'; end if;
-  if exists(select 1 from unnest(p_share_minors) x where x <= 0) then
-    raise exception 'Every share must be positive';
+  if exists(select 1 from unnest(p_share_minors) x where x <= 0 or x > p_total_minor) then
+    raise exception 'Every share must be positive and within the total';
   end if;
   select sum(x) into v_sum from unnest(p_share_minors) x;
   if v_sum <> p_total_minor then raise exception 'Shares must equal total'; end if;
