@@ -15,14 +15,14 @@ data class SmartActionSuggestion(
 
 object SmartActionDetector {
     private val money = Regex(
-        """(?i)(?:৳|bdt|tk\.?|taka|টাকা|রুপি|usd|\$|cny|rmb|¥)\s*[0-9][0-9,]*(?:\.[0-9]{1,2})?|[0-9][0-9,]*(?:\.[0-9]{1,2})?\s*(?:bdt|tk\.?|taka|টাকা|usd|cny|rmb)"""
+        """(?i)(?:৳|bdt|tk\.?|taka|টাকা|usd|\$|cny|rmb|¥|元|人民币)\s*[0-9][0-9,]*(?:\.[0-9]{1,2})?|[0-9][0-9,]*(?:\.[0-9]{1,2})?\s*(?:bdt|tk\.?|taka|টাকা|usd|cny|rmb|元|人民币)"""
     )
     private val explicitTime = Regex("""(?i)\b(?:[01]?\d|2[0-3])(?::[0-5]\d)?\s*(?:am|pm)?\b""")
     private val dateLanguage = Regex(
-        """(?i)\b(?:today|tomorrow|tonight|this morning|this afternoon|this evening|monday|tuesday|wednesday|thursday|friday|saturday|sunday|আজ|আগামীকাল|কাল|সোমবার|মঙ্গলবার|বুধবার|বৃহস্পতিবার|শুক্রবার|শনিবার|রবিবার|今天|明天|今晚|星期一|星期二|星期三|星期四|星期五|星期六|星期日)\b"""
+        """(?i)(?:\b(?:today|tomorrow|tonight|this morning|this afternoon|this evening|monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b|আজ|আগামীকাল|কাল|সোমবার|মঙ্গলবার|বুধবার|বৃহস্পতিবার|শুক্রবার|শনিবার|রবিবার|今天|明天|今晚|星期一|星期二|星期三|星期四|星期五|星期六|星期日)"""
     )
     private val taskLanguage = Regex(
-        """(?i)\b(?:please|need to|must|remember to|don't forget|send|submit|buy|bring|call|finish|complete|দয়া করে|করতে হবে|মনে রাখ|পাঠাও|জমা দাও|কিনে|ফোন কর|请|需要|记得|发送|提交|购买|打电话)\b"""
+        """(?i)(?:\b(?:please|need to|must|remember to|don't forget|send|submit|buy|bring|call|finish|complete)\b|দয়া করে|করতে হবে|মনে রাখ|পাঠাও|জমা দাও|কিনে|ফোন কর|请|需要|记得|发送|提交|购买|打电话)"""
     )
 
     fun detect(text: String?, isGroup: Boolean): List<SmartActionSuggestion> {
