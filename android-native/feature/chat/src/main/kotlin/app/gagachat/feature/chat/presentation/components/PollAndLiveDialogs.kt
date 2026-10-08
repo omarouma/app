@@ -45,8 +45,9 @@ import java.util.Locale
 fun PollComposerDialog(
     onDismiss: () -> Unit,
     onSend: (question: String, options: List<String>) -> Unit,
+    initialQuestion: String = "",
 ) {
-    var question by remember { mutableStateOf("") }
+    var question by remember(initialQuestion) { mutableStateOf(initialQuestion.take(240)) }
     var options by remember { mutableStateOf(listOf("", "")) }
 
     AlertDialog(
