@@ -41,13 +41,13 @@ class SplitBillApi @Inject constructor(
             setBody(buildJsonObject {
                 put("p_bill_id", id)
                 put("p_chat_id", chatId)
-                put("p_source_message", sourceMessage?.let(::JsonPrimitive) ?: JsonNull)
+                put("p_source_message", sourceMessage?.let { JsonPrimitive(it) } ?: JsonNull)
                 put("p_title", title)
                 put("p_total_minor", totalMinor)
                 put("p_currency", currency)
-                put("p_due_at", dueAt?.let(::JsonPrimitive) ?: JsonNull)
-                put("p_participant_ids", JsonArray(participantIds.map(::JsonPrimitive)))
-                put("p_share_minors", JsonArray(shareMinors.map(::JsonPrimitive)))
+                put("p_due_at", dueAt?.let { JsonPrimitive(it) } ?: JsonNull)
+                put("p_participant_ids", JsonArray(participantIds.map { JsonPrimitive(it) }))
+                put("p_share_minors", JsonArray(shareMinors.map { JsonPrimitive(it) }))
             })
         }
     }
