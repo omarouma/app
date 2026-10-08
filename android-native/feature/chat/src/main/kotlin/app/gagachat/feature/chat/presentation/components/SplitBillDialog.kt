@@ -18,12 +18,13 @@ fun SplitBillDialog(
     members: List<ConversationMember>,
     currentUserId: String,
     suggestedAmount: String?,
+    suggestedCurrency: String?,
     onDismiss: () -> Unit,
     onCreate: (title: String, amountMinor: Long, currency: String, participantIds: List<String>) -> Unit,
 ) {
     var title by remember { mutableStateOf("Shared expense") }
     var amount by remember(suggestedAmount) { mutableStateOf(suggestedAmount.orEmpty()) }
-    var currency by remember { mutableStateOf("BDT") }
+    var currency by remember(suggestedCurrency) { mutableStateOf(suggestedCurrency?.takeIf { it in setOf("BDT","USD","CNY") } ?: "BDT") }
     val selected = remember(members) { mutableStateListOf<String>().apply { addAll(members.map { it.userId }.distinct().take(50)) } }
     val totalMinor = DailyMoney.parseMinor(amount)
     val valid = title.isNotBlank() && totalMinor != null && selected.size >= 2
