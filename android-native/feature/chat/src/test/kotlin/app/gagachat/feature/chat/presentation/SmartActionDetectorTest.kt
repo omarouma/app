@@ -31,6 +31,19 @@ class SmartActionDetectorTest {
     }
 
     @Test
+    fun banglaTomorrowSuggestsEvent() {
+        val result = SmartActionDetector.detect("আগামীকাল ক্লাস আছে সকাল ১০টায়", isGroup = true)
+        assertTrue(result.any { it.kind == SmartActionKind.EVENT })
+    }
+
+    @Test
+    fun chineseReminderLanguageSuggestsTask() {
+        val result = SmartActionDetector.detect("请记得明天发送报价", isGroup = false)
+        assertTrue(result.any { it.kind == SmartActionKind.TASK })
+        assertTrue(result.any { it.kind == SmartActionKind.EVENT })
+    }
+
+    @Test
     fun blankTextHasNoSuggestions() {
         assertTrue(SmartActionDetector.detect("   ", isGroup = true).isEmpty())
     }
