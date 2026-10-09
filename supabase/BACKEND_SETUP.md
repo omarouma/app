@@ -173,3 +173,89 @@ session check against `/auth/v1/user` (the same pattern as `firebase-token`).
 The minted token is scoped to exactly one room (`video.room`), so it cannot be
 replayed against any other call.
 
+
+---
+
+## 6. Call lifecycle RPCs (reproducibility fix)
+
+Outbound calling is driven by three Postgres functions that were originally
+shipped as an **out-of-band repair script** (`supabase/repairs/call_lifecycle.sql`)
+and applied straight to the live project. They worked in production, but they
+were never captured as a migration — so a database provisioned from
+`supabase/migrations/*` alone was missing `gaga_create_call`, and every outbound
+call failed with a PostgREST `404 PGRST202` ("function not found").
+
+That gap is now closed by
+`supabase/migrations/20261013000000_call_lifecycle_rpcs.sql`, which recreates the
+functions idempotently. The migration chain now yields the exact schema the live
+project runs.
+
+| Function | Purpose | Caller |
+| --- | --- | --- |
+| `gaga_create_call(p_chat_id, p_callee_id, p_type, p_caller_id, p_request_id)` | Atomically create a call: locks both participants (advisory locks), validates chat membership / block state / user existence, replays an existing `request_id`, enforces the busy check, then inserts `call_history` + `call_signaling`. Returns `{call_id, room_id, status, ...}` or `{error}`. | `service_role` only (the `create-call` Edge Function) |
+| `gaga_touch_call(p_call_id)` | Marks a call `connected` and refreshes `last_heartbeat_at`. Participant-only. | `authenticated` |
+| `gaga_finish_call(p_call_id, p_status, p_duration_seconds)` | Terminal transition (`ended`/`declined`/`missed`/`cancelled`/`timeout`/`busy`/`failed`), participant-only, duration clamped to `[0, 86400]`s. | `authenticated` |
+
+The migration also adds `call_history.last_heartbeat_at` (the column the busy
+check reads) and issues `notify pgrst, 'reload schema'` so the new signatures are
+immediately callable over the Data API.
+
+### Verify
+
+```sql
+select proname, pg_get_function_identity_arguments(oid) as args
+from pg_proc where proname in ('gaga_create_call','gaga_touch_call','gaga_finish_call')
+order by proname;
+```
+
+---
+
+## 7. `send-fcm-push` (background push dispatcher)
+
+`send-fcm-push` is the single server-side place that turns a server event (an
+incoming call, a new message) into Firebase Cloud Messaging pushes for every
+device a recipient has registered in `public.user_devices`. Like the call RPCs,
+it was previously **deployed out-of-band but missing from the repository**; the
+source now lives in `supabase/functions/send-fcm-push/`.
+
+It is **service-role only**: callers must present the Supabase service-role key
+in the `Authorization`/`apikey` header, so the public Data API can never reach
+it. The `create-call` function calls it with exactly those headers after it has
+authenticated the caller.
+
+```
+POST { user_id, type, title?, body?, data?, event_id? }
+     Authorization: Bearer <SUPABASE_SERVICE_ROLE_KEY>
+```
+
+It mints an FCM OAuth2 access token from the Firebase service account (RS256
+JWT), caches it until expiry, loads the recipient's `push_token`s, and sends FCM
+HTTP v1 messages on channel `gaga_calls` (calls) or `gaga_messages` (messages)
+with `android.priority=high`. It returns `{sent, failed, devices}`.
+
+### Deploy
+
+```bash
+supabase functions deploy send-fcm-push --no-verify-jwt
+```
+
+`--no-verify-jwt` is required because the function performs its own service-role
+check. It reuses the same Firebase secrets as `firebase-token` / `livekit-token`:
+
+```bash
+supabase secrets set \
+  FIREBASE_PROJECT_ID=oumagachat \
+  FIREBASE_CLIENT_EMAIL=<service account email> \
+  FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
+```
+
+### Test
+
+```bash
+node --test supabase/functions/send-fcm-push/tests/push.test.mjs
+```
+
+The suite asserts the service-role gate (`401`), method guard (`405`), payload
+validation (`400`), the zero-device path (`200 {sent:0,failed:0,devices:0}`) and
+the CORS preflight (`204`). It runs in CI alongside the `livekit-token` and
+`create-call` suites.
