@@ -111,4 +111,37 @@ class MessageRegressionTest {
         try { repo.retry("local"); fail("Expected cancellation") } catch (_: CancellationException) { }
         coVerify(exactly=0) { messages.updateStatus(any(), "FAILED", any(), any()) }
     }
+
+    @Test fun realtimeUpdateNeverDowngradesAnAdvancedStatus() = runTest {
+        val repo = repo(StandardTestDispatcher(testScheduler))
+        // The local row was already advanced to READ by a prior receipt.
+        val existing = Message(
+            localId = "local", clientMessageId = "local", serverMessageId = "server",
+            conversationId = "chat", senderId = "me", status = MessageStatus.READ,
+        ).toEntity()
+        coEvery { messages.getByServerMessageId("server") } returns existing
+        val saved = mutableListOf<MessageEntity>()
+        coEvery { messages.upsert(capture(saved)) } just Runs
+        // A later edit arrives carrying no delivery_status (i.e. would map to SENT).
+        repo.applyRealtimeInsert(
+            Json.parseToJsonElement(
+                """{"id":"server","local_id":"local","chat_id":"chat","sender_id":"me","content":"edited","delivery_status":null,"created_at":"2026-09-30T00:00:00Z"}""",
+            ).jsonObject,
+        )
+        assertEquals("READ", saved.single().status)
+    }
+
+    @Test fun markDeliveredPublishesReceiptAndAdvancesLocalStatus() = runTest {
+        every { privacy.accountPrivacy } returns kotlinx.coroutines.flow.flowOf(AccountPrivacy(readReceipts = true))
+        val repo = repo(StandardTestDispatcher(testScheduler))
+        val incoming = Message(
+            localId = "in", clientMessageId = "in", serverMessageId = "srv",
+            conversationId = "chat", senderId = "peer", status = MessageStatus.SENT,
+        ).toEntity()
+        coEvery { messages.getLatest("chat", any()) } returns listOf(incoming)
+        coEvery { api.updateMessageDelivery("srv", "delivered", any(), any()) } just Runs
+        repo.markDelivered("chat", "me")
+        coVerify { api.updateMessageDelivery("srv", "delivered", any(), any()) }
+        coVerify { messages.updateStatus("in", "DELIVERED", null, null) }
+    }
 }

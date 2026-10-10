@@ -1165,6 +1165,7 @@ private fun FileContent(message: Message, contentColor: Color, onRetry: () -> Un
  */
 private enum class CallOutcome(val label: String) {
     MISSED("Missed"),
+    BUSY("Busy"),
     DECLINED("Declined"),
     CANCELLED("Cancelled"),
     FAILED("Failed"),
@@ -1191,7 +1192,9 @@ private fun parseCallEvent(text: String?): ParsedCallEvent {
         lower.contains("declined") || lower.contains("rejected") -> CallOutcome.DECLINED
         lower.contains("cancelled") || lower.contains("canceled") -> CallOutcome.CANCELLED
         lower.contains("failed") -> CallOutcome.FAILED
-        lower.contains("missed") || lower.contains("busy") -> CallOutcome.MISSED
+        // A busy line is its own outcome, not a missed call (P0).
+        lower.contains("busy") -> CallOutcome.BUSY
+        lower.contains("missed") -> CallOutcome.MISSED
         else -> CallOutcome.ANSWERED
     }
     val durationText = raw.substringAfter('\u2022', "").trim().takeIf { it.isNotEmpty() }
@@ -1214,6 +1217,7 @@ private fun CallEventContent(
     val kindLabel = if (parsed.isVideo) "Video call" else "Voice call"
     val icon = when (parsed.outcome) {
         CallOutcome.MISSED -> if (isOutgoing) Icons.Filled.CallMade else Icons.Filled.CallMissed
+        CallOutcome.BUSY -> Icons.Filled.CallEnd
         CallOutcome.DECLINED -> Icons.Filled.CallEnd
         CallOutcome.CANCELLED -> Icons.Filled.CallMade
         CallOutcome.FAILED -> Icons.Filled.CallEnd

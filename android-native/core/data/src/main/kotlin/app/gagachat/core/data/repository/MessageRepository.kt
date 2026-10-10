@@ -316,7 +316,28 @@ class DefaultMessageRepository @Inject constructor(
                     rows.map { it.toDomain() }.forEach { remote ->
                         val local = messageDao.getByServerMessageId(remote.serverMessageId ?: "")
                             ?: messageDao.getByClientMessageId(remote.clientMessageId)
-                        messageDao.upsert(remote.copy(localId = local?.localId ?: remote.localId).toEntity())
+                        if (local == null) {
+                            messageDao.upsert(remote.toEntity())
+                            return@forEach
+                        }
+                        // Never clobber an unsent optimistic row, and never regress
+                        // a status already advanced by a realtime receipt.
+                        val mergedStatus = SyncPolicy.mergeStatus(local.status, remote.status.name)
+                        if (SyncPolicy.shouldApplyRemote(local.status)) {
+                            messageDao.upsert(
+                                remote.copy(
+                                    localId = local.localId,
+                                    status = MessageStatus.valueOf(mergedStatus),
+                                ).toEntity(),
+                            )
+                        } else {
+                            messageDao.updateStatus(
+                                local.localId,
+                                mergedStatus,
+                                remote.serverMessageId,
+                                remote.createdAtServer,
+                            )
+                        }
                     }
                     rows.mapNotNull { it.createdAt }.maxOrNull()?.let { timestamp ->
                         newest = maxOf(newest ?: timestamp, timestamp)
@@ -772,9 +793,13 @@ class DefaultMessageRepository @Inject constructor(
             val messages = messageDao.getLatest(conversationId, Constants.INITIAL_MESSAGE_PAGE_SIZE)
             val now = timeProvider.nowMillis()
             messages.filter { it.senderId != userId }.forEach { m ->
-                m.serverMessageId?.let { id ->
-                    runCatching { restApi.updateMessageDelivery(id, "delivered", now, null) }
-                }
+                val id = m.serverMessageId ?: return@forEach
+                // Skip anything already delivered/read locally so we neither
+                // re-publish a receipt nor regress the local row back to DELIVERED.
+                val merged = SyncPolicy.mergeStatus(m.status, MessageStatus.DELIVERED.name)
+                if (merged == m.status) return@forEach
+                runCatching { restApi.updateMessageDelivery(id, "delivered", now, null) }
+                    .onSuccess { messageDao.updateStatus(m.localId, merged, null, null) }
             }
         }
 
@@ -796,9 +821,12 @@ class DefaultMessageRepository @Inject constructor(
                 }
             }
             messages.filter { it.senderId != userId }.forEach { m ->
-                m.serverMessageId?.let { id ->
-                    runCatching { restApi.updateMessageDelivery(id, "read", now, now) }
-                }
+                val id = m.serverMessageId ?: return@forEach
+                // Already read locally: nothing to publish and never regress.
+                val merged = SyncPolicy.mergeStatus(m.status, MessageStatus.READ.name)
+                if (merged == m.status) return@forEach
+                runCatching { restApi.updateMessageDelivery(id, "read", now, now) }
+                    .onSuccess { messageDao.updateStatus(m.localId, merged, null, null) }
             }
             conversationDao.updateUnreadCount(conversationId, 0)
         }
@@ -811,12 +839,25 @@ class DefaultMessageRepository @Inject constructor(
         val remote = recordToMessage(record)
         if (existing == null) {
             messageDao.upsert(remote.toEntity())
-        } else if (SyncPolicy.shouldApplyRemote(existing.status)) {
-            messageDao.upsert(remote.copy(localId = existing.localId).toEntity())
+            return@withContext
+        }
+        // The remote row is authoritative for content, but its status must never
+        // regress a status we already advanced (READ > DELIVERED > SENT > PENDING)
+        // — e.g. a delivery/read receipt arriving after a reaction-only edit.
+        val mergedStatus = SyncPolicy.mergeStatus(existing.status, remote.status.name)
+        if (SyncPolicy.shouldApplyRemote(existing.status)) {
+            messageDao.upsert(
+                remote.copy(
+                    localId = existing.localId,
+                    status = MessageStatus.valueOf(mergedStatus),
+                ).toEntity(),
+            )
         } else {
+            // Optimistic PENDING/FAILED row the server now confirms: keep the
+            // local content (e.g. the local media path) and acknowledge the id.
             messageDao.updateStatus(
                 existing.localId,
-                MessageStatus.SENT.name,
+                mergedStatus,
                 serverId,
                 remote.createdAtServer,
             )

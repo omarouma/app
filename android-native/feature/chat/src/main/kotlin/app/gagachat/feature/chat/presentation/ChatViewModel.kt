@@ -381,23 +381,27 @@ class ChatViewModel @Inject constructor(
     init {
         viewModelScope.launch {
             messageRepository.syncNewMessages(conversationId)
-            // Read receipts are user-controlled (Master Spec §C — privacy). When
-            // disabled we still mark messages read locally but never publish the
-            // receipt to the peer.
-            val receiptsEnabled = settingsPreferences.readReceiptsEnabled.first()
-            if (receiptsEnabled) {
+            // A message that reached this device is "delivered" the moment the
+            // chat is opened, even before it is read — publishing that receipt is
+            // what advances the sender's tick from one check to two. Read receipts
+            // are user-controlled (Master Spec §C — privacy); when disabled we
+            // still mark messages read locally but never publish the receipt.
+            messageRepository.markDelivered(conversationId, currentUserId)
+            if (settingsPreferences.readReceiptsEnabled.first()) {
                 messageRepository.markRead(conversationId, currentUserId)
             }
         }
-        observeIncomingForSound()
+        observeIncoming()
     }
 
     /**
-     * Plays the in-app message tone when a new incoming message arrives while the
-     * chat is open (Master Spec §C — message sounds). The first emission (history
-     * load) is ignored so opening a chat is silent.
+     * Reacts to a new incoming message while the chat is open: plays the in-app
+     * message tone (Master Spec §C — message sounds) and publishes the
+     * delivery/read receipts, because a message on screen has by definition been
+     * received and seen. The first emission (history load) is ignored so opening
+     * a chat is silent and never re-publishes receipts for old messages.
      */
-    private fun observeIncomingForSound() {
+    private fun observeIncoming() {
         viewModelScope.launch {
             var lastIncomingId: String? = null
             messageRepository.observeMessages(conversationId).collect { messages ->
@@ -406,7 +410,13 @@ class ChatViewModel @Inject constructor(
                 if (id != null && id != lastIncomingId) {
                     val isFirstLoad = lastIncomingId == null
                     lastIncomingId = id
-                    if (!isFirstLoad) soundPlayer.playMessageSound()
+                    if (!isFirstLoad) {
+                        soundPlayer.playMessageSound()
+                        messageRepository.markDelivered(conversationId, currentUserId)
+                        if (settingsPreferences.readReceiptsEnabled.first()) {
+                            messageRepository.markRead(conversationId, currentUserId)
+                        }
+                    }
                 }
             }
         }
