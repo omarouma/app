@@ -11,6 +11,7 @@ import app.gagachat.core.network.dto.ConversationRow
 import app.gagachat.core.network.dto.DeviceRow
 import app.gagachat.core.network.dto.FriendRequestInsert
 import app.gagachat.core.network.dto.FriendRequestRow
+import app.gagachat.core.network.dto.FriendRequestRpcResult
 import app.gagachat.core.network.dto.FriendshipInsert
 import app.gagachat.core.network.dto.FriendshipRow
 import app.gagachat.core.network.dto.GroupInsert
@@ -534,12 +535,23 @@ class SupabaseRestApi @Inject constructor(
             setBody(row)
         }.body<List<CallHistoryRow>>().first()
 
-    /** Never revive a call whose terminal state was already persisted. */
+    /**
+     * Never revive a call whose terminal state was already persisted.
+     *
+     * The allowed source set mirrors `gaga_touch_call()` in
+     * `20261013000000_call_lifecycle_rpcs.sql`: every non-terminal state. It must
+     * include `accepted` and `reconnecting` — the callee's accept RPC writes
+     * `accepted`, and a mid-call network blip writes `reconnecting`; without them
+     * the transition to `connected` was silently dropped, so the row stayed
+     * `accepted`/`reconnecting` forever and the answered call never got its
+     * duration (CALL-08). Terminal states (ended/missed/declined/rejected/busy/
+     * failed) are still excluded so a finished call can never be revived.
+     */
     suspend fun markCallConnected(id: String) {
         client.patch("${config.restUrl}/call_history") {
             auth()
             parameter("id", "eq.$id")
-            parameter("status", "in.(calling,ringing,connecting)")
+            parameter("status", "in.(calling,ringing,connecting,connected,accepted,reconnecting)")
             header("Prefer", "return=minimal")
             contentType(ContentType.Application.Json)
             setBody(buildJsonObject { put("status", "connected") })
@@ -697,6 +709,33 @@ class SupabaseRestApi @Inject constructor(
             setBody(mapOf("status" to status))
         }
     }
+
+    /**
+     * Atomic friend-request lifecycle (see
+     * `20261014000000_friend_request_lifecycle_rpcs.sql`). Each call moves the
+     * status change and both symmetric friendship edges into one database
+     * transaction so two accounts always observe the same state. The RPC returns
+     * a jsonb object carrying either `status` or `error`; callers fall back to the
+     * legacy multi-call path when the function has not been deployed yet
+     * (detected via [app.gagachat.core.network.error.RpcAvailability]).
+     */
+    suspend fun acceptFriendRequestRpc(requestId: String): FriendRequestRpcResult =
+        client.post("${config.restUrl}/rpc/gaga_accept_friend_request") {
+            auth(); contentType(ContentType.Application.Json)
+            setBody(buildJsonObject { put("p_request_id", requestId) })
+        }.body()
+
+    suspend fun declineFriendRequestRpc(requestId: String): FriendRequestRpcResult =
+        client.post("${config.restUrl}/rpc/gaga_decline_friend_request") {
+            auth(); contentType(ContentType.Application.Json)
+            setBody(buildJsonObject { put("p_request_id", requestId) })
+        }.body()
+
+    suspend fun cancelFriendRequestRpc(requestId: String): FriendRequestRpcResult =
+        client.post("${config.restUrl}/rpc/gaga_cancel_friend_request") {
+            auth(); contentType(ContentType.Application.Json)
+            setBody(buildJsonObject { put("p_request_id", requestId) })
+        }.body()
 
     // ---- Wallet ----
 

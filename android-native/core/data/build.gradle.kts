@@ -26,4 +26,7 @@ dependencies {
     testImplementation(libs.mockk)
     testImplementation(libs.truth)
     testImplementation(libs.kotlinx.coroutines.test)
+    // Test-only: lets the friend-request lifecycle tests build a real Ktor
+    // ResponseException to exercise the "RPC not deployed yet" fallback branch.
+    testImplementation(libs.ktor.client.core)
 }

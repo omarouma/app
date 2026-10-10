@@ -262,6 +262,19 @@ fun DailyHome(nav: NavController, onSaved: () -> Unit, onChat: (String) -> Unit,
                 }
 
                 val myOpenSplitShares = ui.splitMembers.filter { it.userId == vm.userId && !it.settled }
+                if (ui.splitError != null && ui.splitBills.isEmpty()) item {
+                    Card(Modifier.fillMaxWidth().clickable { nav.navigate(DailyRoutes.SPLITS) }) {
+                        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.Groups, null, tint = MaterialTheme.colorScheme.error)
+                            Spacer(Modifier.width(12.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text("Split bills", fontWeight = FontWeight.SemiBold)
+                                Text("Couldn't load. Tap to retry.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                            }
+                            Icon(Icons.Default.ChevronRight, null)
+                        }
+                    }
+                }
                 if (ui.splitBills.isNotEmpty()) item {
                     val amountByCurrency = myOpenSplitShares
                         .mapNotNull { share -> ui.splitBills.firstOrNull { it.id == share.billId }?.let { it.currency to share.shareMinor } }
@@ -597,7 +610,17 @@ private fun SplitBillsScreen(nav: NavController, onChat: (String) -> Unit, vm: D
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             item { Status(ui, vm) }
-            if (!ui.loading && ui.splitBills.isEmpty()) {
+            ui.splitError?.let { message ->
+                item {
+                    Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)) {
+                        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text(message)
+                            TextButton(onClick = { vm.refresh() }, enabled = !ui.busy) { Text("Retry") }
+                        }
+                    }
+                }
+            }
+            if (!ui.loading && ui.splitBills.isEmpty() && ui.splitError == null) {
                 item {
                     Card(Modifier.fillMaxWidth()) {
                         Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {

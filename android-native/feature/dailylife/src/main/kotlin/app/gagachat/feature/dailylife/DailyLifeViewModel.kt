@@ -37,6 +37,12 @@ data class DailyUi(
     val error: String? = null,
     val selectedList: ShoppingList? = null,
     val listLoading: Boolean = false,
+    /**
+     * Non-blocking warning for the secondary split-bill integration. It is kept
+     * separate from [error] so a split-bill outage never blanks the whole Today
+     * screen — but it is still surfaced, never shown as "no data" (§6).
+     */
+    val splitError: String? = null,
 )
 
 @HiltViewModel
@@ -68,14 +74,24 @@ class DailyLifeViewModel @Inject constructor(
     }
 
     fun refresh() = viewModelScope.launch {
-        _state.update { it.copy(loading = true, error = null) }
+        _state.update { it.copy(loading = true, error = null, splitError = null) }
         try {
             runCatching { conversations.syncConversations() }
             runCatching { calls.syncHistory() }
             val records = api.records()
             val lists = api.lists()
-            val splitBills = runCatching { splitBillApi.bills() }.getOrDefault(emptyList())
-            val splitMembers = runCatching { splitBillApi.members() }.getOrDefault(emptyList())
+            // Split bills are a secondary integration: a failure must not block the
+            // core Today data, but it must also never be shown as "no data" (§6).
+            // Capture the failure and surface it as a non-blocking warning.
+            val splitBillsResult = runCatching { splitBillApi.bills() }
+            val splitMembersResult = runCatching { splitBillApi.members() }
+            val splitBills = splitBillsResult.getOrDefault(emptyList())
+            val splitMembers = splitMembersResult.getOrDefault(emptyList())
+            val splitError = if (splitBillsResult.isFailure || splitMembersResult.isFailure) {
+                "Couldn't load split bills. Check your connection and try again."
+            } else {
+                null
+            }
             val splitUserIds = splitMembers.map { it.userId }.distinct()
             val splitUsers = if (splitUserIds.isEmpty()) emptyMap() else runCatching {
                 profiles.getUsers(splitUserIds).associate { row ->
@@ -89,6 +105,7 @@ class DailyLifeViewModel @Inject constructor(
                     splitBills = splitBills,
                     splitMembers = splitMembers,
                     splitUsers = splitUsers,
+                    splitError = splitError,
                     loading = false,
                 )
             }

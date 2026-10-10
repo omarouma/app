@@ -45,6 +45,22 @@ data class FriendshipInsert(
     @SerialName("friend_id") val friendId: String,
 )
 
+/**
+ * Result of the atomic friend-request lifecycle RPCs
+ * (`gaga_accept_friend_request`, `gaga_decline_friend_request`,
+ * `gaga_cancel_friend_request`). Each function returns a single jsonb object:
+ * either a success payload carrying [status] (and, for accept, [friendId]) or a
+ * rejection carrying [error]. A rejection is a normal HTTP 200 response, so it is
+ * never confused with the transport-level "function not deployed" fallback.
+ */
+@Serializable
+data class FriendRequestRpcResult(
+    val status: String? = null,
+    val error: String? = null,
+    @SerialName("request_id") val requestId: String? = null,
+    @SerialName("friend_id") val friendId: String? = null,
+)
+
 @Serializable
 data class WalletRow(
     val id: String,
