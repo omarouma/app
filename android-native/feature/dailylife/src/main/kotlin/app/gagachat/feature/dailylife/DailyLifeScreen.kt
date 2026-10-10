@@ -436,24 +436,45 @@ private fun EntryDialog(title: String,label: String,busy: Boolean,error: String?
 @Composable
 private fun RecordEditor(kind: String,id: String,prefill: String,chat: String,message: String,nav: NavController,vm: DailyLifeViewModel=hiltViewModel()) {
     val ui by vm.state.collectAsStateWithLifecycle()
-    val existing=ui.records.firstOrNull {it.id==id}
+    // A chat-derived action gets a deterministic id so the same message can never create two records,
+    // even before the server's ignore-duplicates resolution runs.
+    val newId=rememberSaveable(chat,message,kind) { if(message.isNotBlank()) SmartActionDraft.dedupeId(vm.userId,message,kind) else UUID.randomUUID().toString() }
+    val existing=ui.records.firstOrNull {it.id==id || (id.isEmpty() && it.id==newId)}
     if(id.isNotEmpty() && existing==null) {
         GagaScaffold(title="Edit record",onBack={nav.popBackStack()}) {p->Column(Modifier.padding(p).padding(16.dp)){Status(ui,vm);if(!ui.loading)Text("Record not available. Refresh or return to your list.")}}
         return
     }
-    var name by rememberSaveable(id) { mutableStateOf(existing?.title ?: if(kind in listOf("task","event","expense","reminder")) prefill.take(160) else "") }
-    var amount by rememberSaveable(id) { mutableStateOf(existing?.let {DailyMoney.format(it.amountMinor)} ?: "") }
-    var currency by rememberSaveable(id) { mutableStateOf(existing?.currency ?: "BDT") }
+    var name by rememberSaveable(id) { mutableStateOf(existing?.title ?: if(kind in listOf("task","event","expense","reminder")) SmartActionDraft.title(prefill, labels[kind] ?: "Record") else "") }
+    var amount by rememberSaveable(id) { mutableStateOf(existing?.let {DailyMoney.format(it.amountMinor)} ?: (SmartActionDraft.money(prefill)?.amountText ?: "")) }
+    var currency by rememberSaveable(id) { mutableStateOf(existing?.currency ?: SmartActionDraft.currency(prefill)) }
     var category by rememberSaveable(id) { mutableStateOf(existing?.category ?: if(kind=="budget") "All" else "Other") }
     var account by rememberSaveable(id) { mutableStateOf(existing?.account ?: "Cash") }
     var note by rememberSaveable(id) { mutableStateOf(existing?.note ?: prefill) }
     var happened by rememberSaveable(id) { mutableStateOf(existing?.happenedAt ?: Instant.now().toString()) }
-    var due by rememberSaveable(id) { mutableStateOf(existing?.dueAt ?: if(kind in listOf("task","event","reminder")) Instant.now().plusSeconds(86400).toString() else "") }
+    var due by rememberSaveable(id) { mutableStateOf(existing?.dueAt ?: if(kind in listOf("task","event","reminder")) (SmartActionDraft.dueAt(prefill, Instant.now(), ZoneId.systemDefault()) ?: Instant.now().plusSeconds(86400).toString()) else "") }
     var validation by remember { mutableStateOf<String?>(null) }
-    val newId=rememberSaveable {UUID.randomUUID().toString()}
+    var confirmed by remember { mutableStateOf(false) }
     val context=LocalContext.current
     val permission=rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {}
     val monetary=kind !in listOf("task","event","note","reminder")
+    val fromChat = id.isEmpty() && (chat.isNotBlank() || message.isNotBlank())
+    // Validate, then persist. A chat-derived action is confirmed before saving.
+    val validate = {
+        val minor=if(monetary)DailyMoney.parseMinor(amount) else 0L
+        validation=when {
+            name.isBlank()->"Enter a title or person."
+            minor==null->"Enter a positive amount with at most two decimal places."
+            category.isBlank() || account.isBlank()->"Category and account cannot be empty."
+            kind in listOf("reminder","event") && due != existing?.dueAt && !Instant.parse(due).isAfter(Instant.now())->"Choose a future time."
+            else->null
+        }
+        validation==null
+    }
+    val save = {
+        val minor=if(monetary)DailyMoney.parseMinor(amount) else 0L
+        if(kind in listOf("task","event","reminder") && Build.VERSION.SDK_INT>=33 && ContextCompat.checkSelfPermission(context,Manifest.permission.POST_NOTIFICATIONS)!=PackageManager.PERMISSION_GRANTED) permission.launch(Manifest.permission.POST_NOTIFICATIONS)
+        vm.save(DailyRecord(id=existing?.id ?: newId,ownerId=vm.userId,kind=kind,title=name.trim(),amountMinor=minor ?: 0,paidMinor=existing?.paidMinor ?: 0,currency=currency,category=category.trim(),account=account.trim(),note=note,happenedAt=happened,dueAt=due.takeIf{it.isNotBlank()},completed=existing?.completed ?: false,sourceChat=existing?.sourceChat ?: chat.takeIf{it.isNotBlank()},sourceMessage=existing?.sourceMessage ?: message.takeIf{it.isNotBlank()}),id.isNotEmpty()){nav.popBackStack()}
+    }
     GagaScaffold(title=if(id.isEmpty()) "Add ${labels[kind]}" else "Edit ${labels[kind]}",onBack={nav.popBackStack()}) {padding->
         Column(Modifier.fillMaxSize().padding(padding).imePadding().verticalScroll(rememberScrollState()).padding(16.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
             OutlinedTextField(name,{name=it.take(160)},label={Text(if(kind in listOf("lent","borrowed")) "Person / description" else "Title")},modifier=Modifier.fillMaxWidth())
@@ -474,21 +495,22 @@ private fun RecordEditor(kind: String,id: String,prefill: String,chat: String,me
             validation?.let{Text(it,color=MaterialTheme.colorScheme.error)}
             ui.error?.let{Text(it,color=MaterialTheme.colorScheme.error)}
             Button(modifier=Modifier.fillMaxWidth(),enabled=!ui.busy,onClick={
-                val minor=if(monetary)DailyMoney.parseMinor(amount) else 0L
-                validation=when {
-                    name.isBlank()->"Enter a title or person."
-                    minor==null->"Enter a positive amount with at most two decimal places."
-                    category.isBlank() || account.isBlank()->"Category and account cannot be empty."
-                    kind in listOf("reminder","event") && due != existing?.dueAt && !Instant.parse(due).isAfter(Instant.now())->"Choose a future time."
-                    else->null
-                }
-                if(validation==null) {
-                    if(kind in listOf("task","event","reminder") && Build.VERSION.SDK_INT>=33 && ContextCompat.checkSelfPermission(context,Manifest.permission.POST_NOTIFICATIONS)!=PackageManager.PERMISSION_GRANTED) permission.launch(Manifest.permission.POST_NOTIFICATIONS)
-                    vm.save(DailyRecord(id=existing?.id ?: newId,ownerId=vm.userId,kind=kind,title=name.trim(),amountMinor=minor ?: 0,paidMinor=existing?.paidMinor ?: 0,currency=currency,category=category.trim(),account=account.trim(),note=note,happenedAt=happened,dueAt=due.takeIf{it.isNotBlank()},completed=existing?.completed ?: false,sourceChat=existing?.sourceChat ?: chat.takeIf{it.isNotBlank()},sourceMessage=existing?.sourceMessage ?: message.takeIf{it.isNotBlank()}),id.isNotEmpty()){nav.popBackStack()}
-                }
-            }) {Text(if(ui.busy) "Saving…" else "Save record")}
+                if(validate()) { if(fromChat) confirmed=true else save() }
+            }) {Text(if(ui.busy) "Saving…" else if(fromChat) "Review & save" else "Save record")}
         }
     }
+    if(confirmed) AlertDialog(
+        onDismissRequest={if(!ui.busy)confirmed=false},
+        title={Text("Add to GaGa Today?")},
+        text={Column(verticalArrangement=Arrangement.spacedBy(4.dp)){
+            Text("${labels[kind]}: ${name.trim()}")
+            if(due.isNotBlank()) Text("Due ${date(due)}",style=MaterialTheme.typography.bodySmall)
+            if(monetary) Text("${currency} ${DailyMoney.format(DailyMoney.parseMinor(amount) ?: 0L)}",style=MaterialTheme.typography.bodySmall)
+            Text("You can edit or delete it any time in GaGa Today.",style=MaterialTheme.typography.bodySmall)
+        }},
+        confirmButton={TextButton(onClick={confirmed=false;save()},enabled=!ui.busy){Text("Confirm")}},
+        dismissButton={TextButton(onClick={confirmed=false},enabled=!ui.busy){Text("Cancel")}},
+    )
 }
 
 private fun pickDateTime(context: android.content.Context,iso: String,onPicked:(String)->Unit) {
