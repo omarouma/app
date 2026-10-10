@@ -26,6 +26,7 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
@@ -117,6 +118,8 @@ fun MessageComposer(
     onShareLiveLocation: () -> Unit = onShareLocation,
     onSendPoll: () -> Unit = {},
     onScheduleClick: () -> Unit = {},
+    /** `chats.enterToSend` — Enter sends the message instead of inserting a newline. */
+    enterToSend: Boolean = true,
     modifier: Modifier = Modifier,
 ) {
     var showAttachSheet by remember { mutableStateOf(false) }
@@ -195,7 +198,12 @@ fun MessageComposer(
                             focusedIndicatorColor = Color.Transparent,
                             unfocusedIndicatorColor = Color.Transparent,
                         ),
-                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Default),
+                        keyboardOptions = KeyboardOptions(
+                            imeAction = if (enterToSend) ImeAction.Send else ImeAction.Default,
+                        ),
+                        keyboardActions = KeyboardActions(
+                            onSend = { if (enterToSend && draft.isNotBlank()) onSend() },
+                        ),
                         trailingIcon = {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 IconButton(onClick = { showEmojiPanel = !showEmojiPanel }) {

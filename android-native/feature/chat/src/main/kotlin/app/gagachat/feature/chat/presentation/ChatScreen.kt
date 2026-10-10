@@ -177,6 +177,7 @@ fun ChatRoute(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val pendingLocation by viewModel.pendingLocation.collectAsStateWithLifecycle()
     val linkPreviews by viewModel.linkPreviews.collectAsStateWithLifecycle()
+    val enterToSend by viewModel.enterToSend.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
@@ -541,6 +542,7 @@ fun ChatRoute(
                     },
                     onStopRecording = viewModel::stopVoiceRecordingAndSend,
                     onCancelRecording = viewModel::cancelVoiceRecording,
+                    enterToSend = enterToSend,
                 )
             }
         }

@@ -3,6 +3,7 @@ package app.gagachat.core.data.repository
 import android.content.Context
 import app.gagachat.core.common.di.ApplicationScope
 import app.gagachat.core.common.di.DispatcherProvider
+import app.gagachat.core.common.network.NetworkMonitor
 import app.gagachat.core.common.result.AppError
 import app.gagachat.core.common.result.AppResult
 import app.gagachat.core.common.util.IdGenerator
@@ -16,6 +17,7 @@ import app.gagachat.core.model.MessageStatus
 import app.gagachat.core.model.MessageType
 import app.gagachat.core.model.PendingUpload
 import app.gagachat.core.model.UploadState
+import app.gagachat.core.data.preferences.SettingsCenterPreferences
 import app.gagachat.core.network.storage.SupabaseStorageApi
 import app.gagachat.sync.outbox.OutboxScheduler
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -97,6 +99,8 @@ class DefaultMediaRepository @Inject constructor(
     private val timeProvider: TimeProvider,
     private val dispatchers: DispatcherProvider,
     private val outboxScheduler: OutboxScheduler,
+    private val settingsCenter: SettingsCenterPreferences,
+    private val networkMonitor: NetworkMonitor,
     @ApplicationScope private val applicationScope: CoroutineScope,
 ) : MediaRepository {
 
@@ -273,6 +277,13 @@ class DefaultMediaRepository @Inject constructor(
     }
 
     private suspend fun drainQueue() = withContext(dispatchers.io) {
+        // Data & Storage policy (Master Spec §8 — "Upload media on Wi-Fi only" /
+        // "Data saver"). When the user asked to avoid metered data and the active
+        // network is metered, leave every row durably queued: the WorkManager job
+        // (which requires NetworkType.CONNECTED) retries once the device is back
+        // on an unmetered network, so nothing is lost and no cellular data is used.
+        if (settingsCenter.shouldDeferMediaUpload(networkMonitor.isCurrentlyMetered())) return@withContext
+
         val queued = uploadDao.getQueued()
         // Group by target message, preserving rowid (insertion) order so album
         // photos upload and are stored in the exact order the user chose (F13).
