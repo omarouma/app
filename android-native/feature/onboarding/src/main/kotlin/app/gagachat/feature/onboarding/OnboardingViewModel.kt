@@ -6,6 +6,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.gagachat.core.common.di.DispatcherProvider
 import app.gagachat.core.data.preferences.OnboardingPreferences
+import app.gagachat.core.data.preferences.SettingsPreferences
+import app.gagachat.core.model.PrivacyAudience
 import app.gagachat.core.network.dto.UserRow
 import app.gagachat.core.network.error.ErrorMapper
 import app.gagachat.core.network.rest.SupabaseRestApi
@@ -27,9 +29,9 @@ import javax.inject.Inject
 /**
  * Backing state for the post-authentication onboarding flow (Master Spec §C).
  *
- * The flow has three steps — welcome, profile setup, permissions — driven by the
- * navigation graph. This ViewModel is hoisted above the graph so all three steps
- * share one instance and one state object.
+ * The flow has four steps — profile setup → privacy preferences → permissions →
+ * "Welcome to GaGa!" — driven by the navigation graph. This ViewModel is hoisted
+ * above the graph so every step shares one instance and one state object.
  */
 data class OnboardingUiState(
     val displayName: String = "",
@@ -42,6 +44,12 @@ data class OnboardingUiState(
     /** null = unknown/not yet checked, true = free, false = taken. */
     val usernameAvailable: Boolean? = null,
     val error: String? = null,
+    // --- Privacy preferences (step 2) ---
+    val privacyLastSeen: PrivacyAudience = PrivacyAudience.FRIENDS,
+    val privacyProfilePhoto: PrivacyAudience = PrivacyAudience.FRIENDS,
+    val privacyMessages: PrivacyAudience = PrivacyAudience.FRIENDS,
+    val readReceipts: Boolean = true,
+    val privacySaving: Boolean = false,
 )
 
 @HiltViewModel
@@ -51,6 +59,7 @@ class OnboardingViewModel @Inject constructor(
     private val storageApi: SupabaseStorageApi,
     private val sessionStore: SessionStore,
     private val onboardingPreferences: OnboardingPreferences,
+    private val settingsPreferences: SettingsPreferences,
     private val dispatchers: DispatcherProvider,
 ) : ViewModel() {
 
@@ -80,6 +89,45 @@ class OnboardingViewModel @Inject constructor(
 
     fun onBioChange(value: String) = _state.update { it.copy(bio = value, error = null) }
     fun onAvatarUrlChange(value: String) = _state.update { it.copy(avatarUrl = value, error = null) }
+
+    // --- Privacy preferences -------------------------------------------------
+
+    fun onPrivacyLastSeenChange(value: PrivacyAudience) =
+        _state.update { it.copy(privacyLastSeen = value) }
+
+    fun onPrivacyProfilePhotoChange(value: PrivacyAudience) =
+        _state.update { it.copy(privacyProfilePhoto = value) }
+
+    fun onPrivacyMessagesChange(value: PrivacyAudience) =
+        _state.update { it.copy(privacyMessages = value) }
+
+    fun onReadReceiptsChange(value: Boolean) =
+        _state.update { it.copy(readReceipts = value) }
+
+    /**
+     * Persists the privacy choices to the account policy, then advances. Privacy
+     * is non-critical (and editable later in Settings), so a transient network
+     * failure never traps the user in onboarding — we advance regardless and the
+     * defaults remain in force until they retry from Settings.
+     */
+    fun savePrivacy(onSaved: () -> Unit) {
+        val snapshot = _state.value
+        viewModelScope.launch {
+            _state.update { it.copy(privacySaving = true) }
+            withContext(dispatchers.io) {
+                runCatching {
+                    settingsPreferences.savePrivacyChoices(
+                        lastSeen = snapshot.privacyLastSeen,
+                        profilePhoto = snapshot.privacyProfilePhoto,
+                        messages = snapshot.privacyMessages,
+                        readReceipts = snapshot.readReceipts,
+                    )
+                }
+            }
+            _state.update { it.copy(privacySaving = false) }
+            onSaved()
+        }
+    }
 
     /**
      * Reads the picked image, uploads it to the public `avatars` bucket under the

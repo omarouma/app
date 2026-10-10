@@ -235,7 +235,7 @@ fun PermissionsScreen(
             )
             Spacer(Modifier.height(GagaDimens.space8))
             Text(
-                text = "Step 10 of 10",
+                text = "Step 3 of 4",
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.fillMaxWidth(),

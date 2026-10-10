@@ -14,6 +14,7 @@ import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.Accessibility
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Apps
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Backup
 import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.Build
@@ -110,6 +111,7 @@ private val settingsEntries: List<SettingsEntry> = listOf(
     SettingsEntry("Device & Data", "Accessibility", "Text size and display options", Icons.Filled.Accessibility, SettingsRoutes.ACCESSIBILITY),
     SettingsEntry("Device & Data", "App permissions", "Camera, microphone, contacts, media and more", Icons.Filled.Apps, SettingsRoutes.PERMISSIONS),
 
+    SettingsEntry("Help & About", "Getting started", "Revisit GaGa's three advantages and quick tips", Icons.Filled.AutoAwesome, SettingsRoutes.GETTING_STARTED),
     SettingsEntry("Help & About", "Help & support", "FAQs and contact support", Icons.AutoMirrored.Filled.HelpOutline, SettingsRoutes.HELP),
     SettingsEntry("Help & About", "Troubleshooting", "Diagnostics and connection tests", Icons.Filled.Build, SettingsRoutes.TROUBLESHOOT),
     SettingsEntry("Help & About", "About GaGa Chat", "Version and legal information", Icons.Filled.Info, SettingsRoutes.ABOUT),

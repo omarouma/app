@@ -36,6 +36,7 @@ import app.gagachat.core.ui.theme.GagaDimens
 fun SplashRoute(
     onAuthenticated: () -> Unit,
     onNeedsLogin: () -> Unit,
+    onNeedsWelcome: () -> Unit = onNeedsLogin,
     viewModel: SplashViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -43,6 +44,7 @@ fun SplashRoute(
     LaunchedEffect(state) {
         when (state) {
             SplashState.Authenticated -> onAuthenticated()
+            SplashState.NeedsWelcome -> onNeedsWelcome()
             SplashState.NeedsLogin -> onNeedsLogin()
             SplashState.Loading -> Unit
         }

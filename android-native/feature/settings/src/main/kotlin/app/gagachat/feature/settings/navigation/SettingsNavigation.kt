@@ -21,6 +21,7 @@ import app.gagachat.feature.settings.presentation.DailyRoutinesSettingsScreen
 import app.gagachat.feature.settings.presentation.DeleteAccountSettingsScreen
 import app.gagachat.feature.settings.presentation.DeliveryServicesSettingsScreen
 import app.gagachat.feature.settings.presentation.EditProfileScreen
+import app.gagachat.feature.settings.presentation.GettingStartedScreen
 import app.gagachat.feature.settings.presentation.HelpSupportScreen
 import app.gagachat.feature.settings.presentation.LanguageSettingsScreen
 import app.gagachat.feature.settings.presentation.MultiDeviceSettingsScreen
@@ -57,6 +58,7 @@ object SettingsRoutes {
     const val ACCESSIBILITY = "settings/accessibility"
     const val LANGUAGE = "settings/language"
     const val DELETE_ACCOUNT = "settings/delete-account"
+    const val GETTING_STARTED = "settings/getting-started"
 
     // Settings Center V2.0 — categories 4, 9 and 16–30.
     const val TRUST = "settings/trust"
@@ -145,6 +147,9 @@ fun NavGraphBuilder.settingsScreen(
             onOpenPermissions = { navController.navigate(SettingsRoutes.PERMISSIONS) },
             onOpenAbout = { navController.navigate(SettingsRoutes.ABOUT) },
         )
+    }
+    composable(SettingsRoutes.GETTING_STARTED) {
+        GettingStartedScreen(onBack = { navController.popBackStack() })
     }
     composable(SettingsRoutes.PERMISSIONS) {
         AppPermissionsScreen(onBack = { navController.popBackStack() })

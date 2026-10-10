@@ -99,6 +99,19 @@ private fun Status(ui: DailyUi, vm: DailyLifeViewModel) {
     }
 }
 
+/** Compact count tile used by the "Today at a glance" summary card. */
+@Composable
+private fun GlanceStat(label: String, value: Int, modifier: Modifier = Modifier) {
+    Column(
+        modifier = modifier,
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(2.dp),
+    ) {
+        Text("$value", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+        Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+    }
+}
+
 @Composable
 fun DailyHome(nav: NavController, onSaved: () -> Unit, onChat: (String) -> Unit, vm: DailyLifeViewModel = hiltViewModel()) {
     val ui by vm.state.collectAsStateWithLifecycle()
@@ -110,12 +123,65 @@ fun DailyHome(nav: NavController, onSaved: () -> Unit, onChat: (String) -> Unit,
             val columns = if (maxWidth < 340.dp || fontScale > 1.2f) 1 else 2
             LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 item {
+                    val greeting = when (LocalTime.now().hour) {
+                        in 5..11 -> "Good morning"
+                        in 12..16 -> "Good afternoon"
+                        in 17..21 -> "Good evening"
+                        else -> "Good night"
+                    }
+                    Text("$greeting \uD83D\uDC4B", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
+                    Text(LocalDate.now().format(DateTimeFormatter.ofPattern("EEEE, d MMMM")), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(Modifier.height(8.dp))
                     Text("Your day, organized from your chats", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
                     Text("See what needs attention, then turn conversations into actions without leaving GaGa.", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 item { Status(ui, vm) }
+                // "Today at a glance" — an at-a-glance summary of what needs
+                // attention right now, computed from the same data the sections
+                // below use. Purely additive; every section still renders.
+                val glanceTasks = ui.records.filter { it.kind == "task" && !it.completed }
+                val glanceReminders = ui.records.filter { it.kind == "reminder" && !it.completed }
+                fun dueToday(value: String?): Boolean = value?.let { runCatching { Instant.parse(it).atZone(ZoneId.systemDefault()).toLocalDate() == LocalDate.now() }.getOrDefault(false) } == true
+                fun overdue(value: String?): Boolean = value?.let { runCatching { Instant.parse(it).isBefore(Instant.now()) }.getOrDefault(false) } == true
+                val tasksDueToday = glanceTasks.count { dueToday(it.dueAt) }
+                val eventsToday = ui.records.count { it.kind == "event" && !it.completed && dueToday(it.dueAt) }
+                val overdueTasks = glanceTasks.filter { overdue(it.dueAt) }
+                val overdueReminders = glanceReminders.filter { overdue(it.dueAt) }
+                val unreadTotal = ui.conversations.filter { !it.isArchived }.sumOf { it.unreadCount }
+                item {
+                    Card(Modifier.fillMaxWidth()) {
+                        Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.Today, null, tint = MaterialTheme.colorScheme.primary)
+                                Spacer(Modifier.width(10.dp))
+                                Text("Today at a glance", fontWeight = FontWeight.Bold)
+                            }
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                GlanceStat("Tasks due", tasksDueToday, Modifier.weight(1f))
+                                GlanceStat("Events", eventsToday, Modifier.weight(1f))
+                                GlanceStat("Reminders", glanceReminders.size, Modifier.weight(1f))
+                                GlanceStat("Unread", unreadTotal, Modifier.weight(1f))
+                            }
+                        }
+                    }
+                }
+                if (overdueTasks.isNotEmpty() || overdueReminders.isNotEmpty()) item {
+                    Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)) {
+                        Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.WarningAmber, null, tint = MaterialTheme.colorScheme.error)
+                                Spacer(Modifier.width(10.dp))
+                                Text("Overdue", fontWeight = FontWeight.Bold)
+                                Spacer(Modifier.weight(1f))
+                                Text("${overdueTasks.size + overdueReminders.size}", fontWeight = FontWeight.Bold)
+                            }
+                            overdueTasks.take(2).forEach { Text("\u2022 ${it.title} \u00b7 due ${date(it.dueAt)}", style = MaterialTheme.typography.bodyMedium) }
+                            overdueReminders.take(2).forEach { Text("\u2022 ${it.title} \u00b7 due ${date(it.dueAt)}", style = MaterialTheme.typography.bodyMedium) }
+                        }
+                    }
+                }
                 item { Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf("task", "event", "reminder", "expense").forEach { kind ->
+                    listOf("task", "event", "reminder", "expense", "income", "note").forEach { kind ->
                         FilledTonalButton(onClick = { nav.navigate(DailyRoutes.edit(kind)) }) { Text("Add ${labels[kind]}") }
                     }
                 } }

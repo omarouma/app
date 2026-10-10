@@ -99,6 +99,26 @@ class SettingsPreferences @Inject constructor(
         }
     }
 
+    /**
+     * Saves the three most visible privacy defaults plus read receipts in one
+     * call. Kept here so JSON serialization stays an implementation detail of
+     * core:data and the onboarding feature never needs a serialization
+     * dependency (Master Spec §C — privacy preferences step).
+     */
+    suspend fun savePrivacyChoices(
+        lastSeen: PrivacyAudience,
+        profilePhoto: PrivacyAudience,
+        messages: PrivacyAudience,
+        readReceipts: Boolean,
+    ) = savePrivacy(
+        buildJsonObject {
+            put("last_seen", lastSeen.name)
+            put("profile_photo", profilePhoto.name)
+            put("messages", messages.name)
+            put("read_receipts", readReceipts)
+        },
+    )
+
     private val previewKey = stringPreferencesKey("notification_preview")
     val notificationPreview: Flow<NotificationPreview> = context.settingsDataStore.data.map { prefs ->
         NotificationPreview.entries.firstOrNull { it.name == prefs[previewKey] } ?: NotificationPreview.SENDER_ONLY

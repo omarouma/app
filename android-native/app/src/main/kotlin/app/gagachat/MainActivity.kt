@@ -7,6 +7,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.viewModels
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.getValue
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
@@ -18,6 +19,7 @@ import app.gagachat.core.data.preferences.ThemeMode
 import app.gagachat.core.ui.theme.GagaTheme
 import app.gagachat.diagnostics.CrashReportGate
 import app.gagachat.feature.calls.call.CallPipController
+import app.gagachat.navigation.AppViewModel
 import app.gagachat.navigation.GagaApp
 import app.gagachat.push.DeepLinkRouter
 import app.gagachat.security.AppLockGate
@@ -39,6 +41,13 @@ import javax.inject.Inject
 class MainActivity : ComponentActivity() {
 
     @Inject lateinit var settingsPreferences: SettingsPreferences
+
+    /**
+     * Shared with the [GagaApp] composable (same Activity-scoped store) so the
+     * App Lock gate can be applied only to a restored session — the "Existing
+     * User: Restore Session → App Lock → Home" step (Master Spec §C).
+     */
+    private val appViewModel: AppViewModel by viewModels()
 
     override fun attachBaseContext(newBase: Context) {
         super.attachBaseContext(LocaleHelper.wrap(newBase))
@@ -69,6 +78,7 @@ class MainActivity : ComponentActivity() {
                 .collectAsStateWithLifecycle(initialValue = TextScale.DEFAULT)
             val appLockEnabled by settingsPreferences.appLockEnabled
                 .collectAsStateWithLifecycle(initialValue = false)
+            val session by appViewModel.session.collectAsStateWithLifecycle()
 
             val darkTheme = when (themeMode) {
                 ThemeMode.LIGHT -> false
@@ -82,7 +92,9 @@ class MainActivity : ComponentActivity() {
                 // trace can be copied/screenshotted even when we cannot attach a
                 // debugger. The report is also written to Downloads/gaga_crash.txt.
                 CrashReportGate {
-                    AppLockGate(enabled = appLockEnabled) {
+                    // App Lock only guards a restored session, never the
+                    // signed-out auth flow (Master Spec §C).
+                    AppLockGate(enabled = appLockEnabled && session != null) {
                         GagaApp()
                     }
                 }
