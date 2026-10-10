@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
@@ -72,6 +73,78 @@ fun DocumentOpenOverlay(
                 )
             },
             title = { Text("Can't open document") },
+            text = { Text(state.message) },
+            confirmButton = {
+                TextButton(onClick = onDismiss) { Text("OK") }
+            },
+        )
+    }
+}
+
+/**
+ * V3.0 Sprint B (row #6): shows a brief indicator while a document is written to
+ * the user-chosen location, then a confirmation or a dismissible error. Pairs
+ * with [DocumentSaver] (the "save" half of the guide's "Open/save").
+ */
+@Composable
+fun DocumentSaveOverlay(
+    state: DocumentSaveState,
+    onDismiss: () -> Unit,
+) {
+    when (state) {
+        DocumentSaveState.Idle -> Unit
+        DocumentSaveState.Saving -> Dialog(
+            onDismissRequest = {},
+            properties = DialogProperties(dismissOnBackPress = false, dismissOnClickOutside = false),
+        ) {
+            Surface(
+                shape = MaterialTheme.shapes.medium,
+                color = MaterialTheme.colorScheme.surface,
+            ) {
+                Row(
+                    modifier = Modifier.padding(20.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center,
+                ) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(20.dp),
+                        strokeWidth = 2.dp,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                    Spacer(Modifier.width(14.dp))
+                    Text(
+                        text = "Saving document\u2026",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                }
+            }
+        }
+        is DocumentSaveState.Saved -> AlertDialog(
+            onDismissRequest = onDismiss,
+            icon = {
+                Icon(
+                    Icons.Filled.CheckCircle,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                )
+            },
+            title = { Text("Saved") },
+            text = { Text("${state.name} was saved to the location you chose.") },
+            confirmButton = {
+                TextButton(onClick = onDismiss) { Text("OK") }
+            },
+        )
+        is DocumentSaveState.Error -> AlertDialog(
+            onDismissRequest = onDismiss,
+            icon = {
+                Icon(
+                    Icons.Filled.ErrorOutline,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.error,
+                )
+            },
+            title = { Text("Can't save document") },
             text = { Text(state.message) },
             confirmButton = {
                 TextButton(onClick = onDismiss) { Text("OK") }
