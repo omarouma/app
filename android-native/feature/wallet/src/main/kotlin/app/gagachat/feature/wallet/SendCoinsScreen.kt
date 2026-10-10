@@ -10,7 +10,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AttachMoney
-import androidx.compose.material.icons.filled.Notes
+import androidx.compose.material.icons.automirrored.filled.Notes
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.MaterialTheme
@@ -56,7 +56,7 @@ fun SendCoinsScreen(
                     value = state.note,
                     onValueChange = viewModel::onNoteChange,
                     label = "Note (optional)",
-                    leadingIcon = Icons.Filled.Notes,
+                    leadingIcon = Icons.AutoMirrored.Filled.Notes,
                     imeAction = ImeAction.Done,
                 )
             }

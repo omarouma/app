@@ -44,8 +44,8 @@ import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Poll
 import androidx.compose.material.icons.filled.TaskAlt
-import androidx.compose.material.icons.filled.NoteAdd
-import androidx.compose.material.icons.filled.ReceiptLong
+import androidx.compose.material.icons.automirrored.filled.NoteAdd
+import androidx.compose.material.icons.automirrored.filled.ReceiptLong
 import androidx.compose.material.icons.filled.Checklist
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCopy
@@ -987,7 +987,7 @@ private fun MessageActionSheet(
                         when (suggestion.kind) {
                             SmartActionKind.EVENT -> ActionRow(Icons.Filled.CalendarMonth, suggestion.label, onEvent)
                             SmartActionKind.REMINDER -> ActionRow(Icons.Filled.NotificationsActive, suggestion.label, onRemind)
-                            SmartActionKind.EXPENSE -> ActionRow(Icons.Filled.ReceiptLong, suggestion.label, onExpense)
+                            SmartActionKind.EXPENSE -> ActionRow(Icons.AutoMirrored.Filled.ReceiptLong, suggestion.label, onExpense)
                             SmartActionKind.SPLIT_BILL -> ActionRow(Icons.Filled.Group, suggestion.label, onSplitBill)
                             SmartActionKind.LOCATION -> ActionRow(Icons.Filled.LocationOn, suggestion.label, onOpenLocation)
                             SmartActionKind.TASK -> ActionRow(Icons.Filled.TaskAlt, suggestion.label, onTask)
@@ -1000,7 +1000,7 @@ private fun MessageActionSheet(
                 ActionRow(Icons.Filled.CalendarMonth, "Create event", onEvent)
                 ActionRow(Icons.Filled.TaskAlt, "Create task", onTask)
                 ActionRow(Icons.Filled.NotificationsActive, "Remind me", onRemind)
-                ActionRow(Icons.Filled.ReceiptLong, "Create expense", onExpense)
+                ActionRow(Icons.AutoMirrored.Filled.ReceiptLong, "Create expense", onExpense)
                 ActionRow(Icons.Filled.Group, "Split bill", onSplitBill)
                 if (canCopy) ActionRow(Icons.Filled.Language, "Translate", onTranslate)
                 if (hasLocationAction) {
@@ -1011,7 +1011,7 @@ private fun MessageActionSheet(
                     ActionRow(Icons.Filled.LocationOn, "Start live location", onStartLiveLocation)
                     ActionRow(Icons.Filled.Bookmark, "Save location plan", onSaveLocationPlan)
                 }
-                ActionRow(Icons.Filled.NoteAdd, "Save as private note", onNote)
+                ActionRow(Icons.AutoMirrored.Filled.NoteAdd, "Save as private note", onNote)
                 ActionRow(Icons.Filled.Info, "Message info", onMessageInfo)
                 ActionRow(Icons.Filled.Checklist, "Select messages", onSelectMultiple)
             }

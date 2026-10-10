@@ -17,7 +17,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChatBubble
-import androidx.compose.material.icons.filled.EventNote
+import androidx.compose.material.icons.automirrored.filled.EventNote
 import androidx.compose.material.icons.filled.TaskAlt
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -53,7 +53,7 @@ fun WelcomeCompleteScreen(
 ) {
     val recaps = listOf(
         Recap(Icons.Filled.ChatBubble, GagaGreen, "Message and call your friends in real time"),
-        Recap(Icons.Filled.EventNote, GagaTeal, "Turn chats into tasks, events and reminders"),
+        Recap(Icons.AutoMirrored.Filled.EventNote, GagaTeal, "Turn chats into tasks, events and reminders"),
         Recap(Icons.Filled.TaskAlt, Color(0xFF7E57C2), "Split bills, share location and check in safe"),
     )
 

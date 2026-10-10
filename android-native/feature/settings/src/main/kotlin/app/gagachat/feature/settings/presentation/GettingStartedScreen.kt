@@ -17,7 +17,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChatBubble
-import androidx.compose.material.icons.filled.EventNote
+import androidx.compose.material.icons.automirrored.filled.EventNote
 import androidx.compose.material.icons.filled.Lightbulb
 import androidx.compose.material.icons.filled.TaskAlt
 import androidx.compose.material3.Icon
@@ -63,7 +63,7 @@ fun GettingStartedScreen(onBack: () -> Unit) {
             description = "Message, call and share — one-to-one or in groups, all end-to-end in real time.",
         ),
         Advantage(
-            icon = Icons.Filled.EventNote,
+            icon = Icons.AutoMirrored.Filled.EventNote,
             tint = GagaTeal,
             title = "Organize Daily Life",
             description = "Turn chats into tasks, events, reminders, budgets and lists — your day, sorted.",
