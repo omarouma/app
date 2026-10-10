@@ -1,6 +1,8 @@
 package app.gagachat
 
 import android.content.Context
+import android.content.res.Configuration
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -15,6 +17,7 @@ import app.gagachat.core.data.preferences.TextScale
 import app.gagachat.core.data.preferences.ThemeMode
 import app.gagachat.core.ui.theme.GagaTheme
 import app.gagachat.diagnostics.CrashReportGate
+import app.gagachat.feature.calls.call.CallPipController
 import app.gagachat.navigation.GagaApp
 import app.gagachat.push.DeepLinkRouter
 import app.gagachat.security.AppLockGate
@@ -91,6 +94,36 @@ class MainActivity : ComponentActivity() {
         super.onNewIntent(intent)
         setIntent(intent)
         DeepLinkRouter.capture(intent)
+    }
+
+    /**
+     * Picture-in-Picture for live calls. On Android 12+ the system auto-enters PiP
+     * via [CallPipController.buildParams]'s `autoEnterEnabled`; on older releases
+     * we enter here when the user presses Home mid-call. Both paths are guarded so
+     * a non-call Home press behaves exactly as before.
+     */
+    override fun onUserLeaveHint() {
+        super.onUserLeaveHint()
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S && CallPipController.callActive) {
+            enterCallPip()
+        }
+    }
+
+    /** Keeps [CallPipController] in sync so the call UI can switch to its PiP layout. */
+    override fun onPictureInPictureModeChanged(
+        isInPictureInPictureMode: Boolean,
+        newConfig: Configuration,
+    ) {
+        super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
+        CallPipController.onPipChanged(isInPictureInPictureMode)
+    }
+
+    private fun enterCallPip() {
+        try {
+            enterPictureInPictureMode(CallPipController.buildParams())
+        } catch (_: Throwable) {
+            // PiP is best-effort: a device that refuses it must not crash the call.
+        }
     }
 }
 

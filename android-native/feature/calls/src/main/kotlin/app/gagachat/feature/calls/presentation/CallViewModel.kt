@@ -13,7 +13,9 @@ import app.gagachat.core.model.CallSignalKind
 import app.gagachat.core.model.CallStatus
 import app.gagachat.core.model.CallType
 import app.gagachat.core.ui.util.toUserMessage
+import app.gagachat.feature.calls.call.AudioDeviceInfo
 import app.gagachat.feature.calls.call.CallConnection
+import app.gagachat.feature.calls.call.CallDiagnostics
 import app.gagachat.feature.calls.call.CallEndedInfo
 import app.gagachat.feature.calls.call.CallPeer
 import app.gagachat.feature.calls.call.CallSoundPlayer
@@ -95,6 +97,12 @@ data class CallUiState(
     /** Remote participants currently in the room. */
     val peers: List<CallPeer> = emptyList(),
     val connectionQuality: ConnectionQuality = ConnectionQuality.UNKNOWN,
+    /** Audio outputs the call can be routed through right now (live). */
+    val audioDevices: List<AudioDeviceInfo> = emptyList(),
+    /** The audio output call audio is currently playing through. */
+    val currentAudioDevice: AudioDeviceInfo? = null,
+    /** Live media diagnostics for the in-call stats panel. */
+    val diagnostics: CallDiagnostics = CallDiagnostics(),
 ) {
     /** The remote participant the call surface should render, if any. */
     val primaryPeer: CallPeer? get() = peers.firstOrNull()
@@ -212,6 +220,21 @@ class CallViewModel @Inject constructor(
         viewModelScope.launch {
             liveKitCallManager.isSpeakerOn.collect { enabled ->
                 _state.update { it.copy(isSpeakerOn = enabled) }
+            }
+        }
+        viewModelScope.launch {
+            liveKitCallManager.audioDevices.collect { devices ->
+                _state.update { it.copy(audioDevices = devices) }
+            }
+        }
+        viewModelScope.launch {
+            liveKitCallManager.currentAudioDevice.collect { device ->
+                _state.update { it.copy(currentAudioDevice = device) }
+            }
+        }
+        viewModelScope.launch {
+            liveKitCallManager.diagnostics.collect { diagnostics ->
+                _state.update { it.copy(diagnostics = diagnostics) }
             }
         }
         viewModelScope.launch {
@@ -584,6 +607,21 @@ class CallViewModel @Inject constructor(
 
     fun switchCamera() {
         liveKitCallManager.switchCamera()
+    }
+
+    /**
+     * Routes call audio to a specific output (Bluetooth, wired headset, speaker,
+     * earpiece). Driven by the in-call audio-device picker.
+     */
+    fun selectAudioDevice(id: String) {
+        val changed = liveKitCallManager.selectAudioDevice(id)
+        _state.update {
+            it.copy(
+                isSpeakerOn = liveKitCallManager.isSpeakerOn.value,
+                currentAudioDevice = liveKitCallManager.currentAudioDevice.value,
+                mediaNotice = if (changed) null else "That audio output is unavailable.",
+            )
+        }
     }
 
     // ---- Video renderers ---------------------------------------------------

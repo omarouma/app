@@ -14,21 +14,85 @@ import app.gagachat.core.common.result.AppError
 fun AppError.toUserMessage(): String = when (this) {
     is AppError.Network -> "No internet connection. Please check your network and try again."
     is AppError.Server -> when (code) {
-        400 -> friendlyAuthMessage(message) ?: "Something was wrong with the request. Please try again."
+        400 -> friendlyCallMessage(message) ?: friendlyAuthMessage(message) ?: "Something was wrong with the request. Please try again."
         401 -> friendlyAuthMessage(message) ?: "Your session has expired. Please sign in again."
-        403 -> friendlyAuthMessage(message) ?: "You don't have permission to do that."
-        404 -> "We couldn't find what you were looking for."
-        409 -> friendlyConflictMessage(message) ?: "That action conflicts with existing data."
+        403 -> friendlyCallMessage(message) ?: friendlyAuthMessage(message) ?: "You don't have permission to do that."
+        404 -> friendlyCallMessage(message) ?: "We couldn't find what you were looking for."
+        409 -> friendlyCallMessage(message) ?: friendlyConflictMessage(message) ?: "That action conflicts with existing data."
         422 -> friendlyAuthMessage(message) ?: "Please check the information you entered."
         429 -> "Too many attempts. Please wait a moment and try again."
         in 500..599 -> "The server is having trouble. Please try again shortly."
-        else -> friendlyAuthMessage(message) ?: "Something went wrong. Please try again."
+        else -> friendlyCallMessage(message) ?: friendlyAuthMessage(message) ?: "Something went wrong. Please try again."
     }
     is AppError.Unauthorized -> friendlyAuthMessage(message) ?: "Your session has expired. Please sign in again."
-    is AppError.Forbidden -> "You don't have permission to do that."
+    is AppError.Forbidden ->
+        friendlyCallMessage(message) ?: friendlyAuthMessage(message) ?: "You don't have permission to do that."
     is AppError.Database -> "We couldn't save your data locally. Please try again."
     is AppError.Validation -> friendlyAuthMessage(message) ?: "Please check the information you entered."
-    is AppError.Unknown -> friendlyAuthMessage(message) ?: "Something went wrong. Please try again."
+    is AppError.Unknown -> friendlyCallMessage(message) ?: friendlyAuthMessage(message) ?: "Something went wrong. Please try again."
+}
+
+/**
+ * Translates call-signalling and call-authorisation failures into actionable
+ * copy. The `create-call` and `livekit-token` Edge Functions return a machine
+ * code plus a human sentence in the body; without this the user only ever saw
+ * the generic "You don't have permission to do that." and had no idea *why* a
+ * call was refused (not friends, blocked, busy, expired session, ...).
+ *
+ * Returns null when the message is not a recognised call error so callers can
+ * fall back to the auth/generic copy.
+ */
+internal fun friendlyCallMessage(raw: String?): String? {
+    val message = raw?.trim().orEmpty()
+    if (message.isEmpty()) return null
+    val lower = message.lowercase()
+
+    return when {
+        // Callee's privacy policy refuses calls from this caller (default
+        // `calls = FRIENDS`, so the two accounts must be mutual friends).
+        lower.contains("call_not_allowed") ||
+            lower.contains("not accepting your calls") ||
+            lower.contains("call_access_denied") ->
+            "This person isn't accepting your calls. You can only call people who have added you as a friend."
+
+        // Either side has blocked the other.
+        lower.contains("blocked") ->
+            "You can't call this person."
+
+        // The two accounts do not share a chat.
+        lower.contains("not_chat_members") ->
+            "You can only call people you share a chat with."
+
+        lower.contains("cannot_call_self") || lower.contains("call self") ->
+            "You can't call yourself."
+
+        // Callee already on another call.
+        lower.contains("busy") ->
+            "This person is on another call. Please try again in a moment."
+
+        lower.contains("call_already_finished") || lower.contains("already ended") ->
+            "This call has already ended."
+
+        lower.contains("user_not_found") || lower.contains("chat_not_found") ->
+            "We couldn't find that person or chat."
+
+        // Expired / invalid auth session (the `session_active()` guard).
+        (lower.contains("session") && (lower.contains("expired") || lower.contains("invalid") || lower.contains("not active"))) ||
+            lower.contains("jwt") && lower.contains("expired") ->
+            "Your session has expired. Please sign in again."
+
+        // LiveKit token minting refused (not a participant of the call).
+        lower.contains("not a participant") || lower.contains("not_a_participant") ||
+            lower.contains("participant") && lower.contains("denied") ->
+            "You're not part of this call."
+
+        // Expired / invalid LiveKit room token.
+        lower.contains("token") &&
+            (lower.contains("expired") || lower.contains("invalid") || lower.contains("denied")) ->
+            "This call has expired. Please start it again."
+
+        else -> null
+    }
 }
 
 /**
