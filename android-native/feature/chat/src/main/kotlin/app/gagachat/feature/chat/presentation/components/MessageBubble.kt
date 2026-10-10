@@ -582,34 +582,95 @@ private enum class MediaKind(val icon: ImageVector, val label: String) {
 }
 
 /**
+ * The single status surface a media bubble may show at any moment.
+ *
+ * A media bubble can legitimately be in several states at once from the data's
+ * point of view (no preview yet *and* an upload in flight *and* gated by the
+ * auto-download policy). Rendering a surface per condition is what produced the
+ * overlapping "Preparing…" labels: the placeholder card *and* the upload scrim
+ * were both drawn in the same box. [mediaStatus] collapses those conditions into
+ * exactly one value so the caller renders exactly one surface.
+ */
+private enum class MediaStatus {
+    /** A renderable preview exists and there is nothing to report. */
+    NONE,
+
+    /** The sender's own upload is still in flight. */
+    UPLOADING,
+
+    /** The sender's own upload failed and can be retried. */
+    UPLOAD_FAILED,
+
+    /** Received media whose fetch is paused by the auto-download policy. */
+    GATED,
+
+    /** Received media whose signed URL is still being minted. */
+    RESOLVING,
+}
+
+/**
+ * Resolves the one status a media bubble should show.
+ *
+ * Order matters: the sender's own upload (no committed `mediaUrl`) always wins,
+ * because a local preview must still show progress over it. Only once the media
+ * is committed to the server does the auto-download gate / signing state apply.
+ */
+private fun mediaStatus(message: Message, hasPreview: Boolean, gated: Boolean): MediaStatus = when {
+    message.mediaUrl == null && message.isFailed -> MediaStatus.UPLOAD_FAILED
+    message.mediaUrl == null && message.isPending -> MediaStatus.UPLOADING
+    hasPreview -> MediaStatus.NONE
+    gated -> MediaStatus.GATED
+    else -> MediaStatus.RESOLVING
+}
+
+/**
  * A neutral attachment card shown while a media item has no renderable model yet
  * (still uploading, being signed, or gated by the data policy). It names the
  * kind, shows the size when known and surfaces the upload lifecycle so a bubble
- * is never an unexplained grey box (P0). When [failed] the whole card is tappable
- * to retry the upload.
+ * is never an unexplained grey box (P0). When [status] is [MediaStatus.UPLOAD_FAILED]
+ * the whole card is tappable to retry the upload; when it is [MediaStatus.GATED]
+ * the card is tappable to load just this item.
+ *
+ * The label is derived from [status] rather than always reading "Preparing…", so
+ * a *received* item that is merely awaiting its signed URL no longer claims to be
+ * preparing, and the card is never drawn underneath [UploadStatusOverlay].
  */
 @Composable
 private fun MediaPlaceholder(
     kind: MediaKind,
     sizeBytes: Long?,
+    status: MediaStatus,
     progress: Int?,
-    failed: Boolean,
     onRetry: (() -> Unit)?,
+    onLoad: (() -> Unit)?,
     tint: Color,
     modifier: Modifier = Modifier,
 ) {
-    val subtitle = when {
-        failed -> "Tap to retry"
-        progress == null || progress <= 0 -> "Preparing\u2026"
-        progress < 100 -> "$progress%"
-        else -> "Finishing\u2026"
+    val subtitle = when (status) {
+        MediaStatus.UPLOAD_FAILED -> "Tap to retry"
+        MediaStatus.UPLOADING -> when {
+            progress == null || progress <= 0 -> "Preparing\u2026"
+            progress < 100 -> "$progress%"
+            else -> "Finishing\u2026"
+        }
+        MediaStatus.GATED -> "Tap to load"
+        MediaStatus.RESOLVING -> "Loading\u2026"
+        MediaStatus.NONE -> null
+    }
+    // The card is actionable for the two states that have a real recovery: a
+    // failed upload (retry) and a policy-gated fetch (load just this item).
+    // Every other state is informational, so the card stays inert.
+    val action = when (status) {
+        MediaStatus.UPLOAD_FAILED -> onRetry
+        MediaStatus.GATED -> onLoad
+        else -> null
     }
     Column(
         modifier = modifier
             .clip(RoundedCornerShape(12.dp))
             .background(tint.copy(alpha = 0.08f))
             .then(
-                if (failed && onRetry != null) Modifier.clickable(onClick = onRetry) else Modifier,
+                if (action != null) Modifier.clickable(onClick = action) else Modifier,
             )
             .padding(horizontal = GagaDimens.space12, vertical = GagaDimens.space8),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -628,12 +689,14 @@ private fun MediaPlaceholder(
             color = tint,
             fontWeight = FontWeight.SemiBold,
         )
-        Spacer(Modifier.height(2.dp))
-        Text(
-            text = subtitle,
-            style = MaterialTheme.typography.labelSmall,
-            color = tint.copy(alpha = 0.75f),
-        )
+        if (subtitle != null) {
+            Spacer(Modifier.height(2.dp))
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.labelSmall,
+                color = tint.copy(alpha = 0.75f),
+            )
+        }
         if (sizeBytes != null && sizeBytes > 0L) {
             Spacer(Modifier.height(2.dp))
             Text(
@@ -642,10 +705,10 @@ private fun MediaPlaceholder(
                 color = tint.copy(alpha = 0.55f),
             )
         }
-        if (!failed) {
-            Spacer(Modifier.height(GagaDimens.space6))
+        if (status == MediaStatus.UPLOADING) {
             val fraction = ((progress ?: 0).coerceIn(0, 100)) / 100f
             if (fraction > 0f) {
+                Spacer(Modifier.height(GagaDimens.space6))
                 LinearProgressIndicator(
                     progress = { fraction },
                     modifier = Modifier
@@ -669,56 +732,63 @@ private fun MediaImage(
 ) {
     val gate = rememberGatedRemoteUrl(message.localId, message.mediaUrl)
     val model = rememberExistingLocalMedia(message.localMediaPath) ?: gate.url
+    val hasPreview = model != null
+    val status = mediaStatus(message, hasPreview = hasPreview, gated = gate.needsPrompt)
     Box(
         modifier = Modifier
             .size(width = 220.dp, height = 160.dp)
             .clip(RoundedCornerShape(12.dp))
             .background(MaterialTheme.colorScheme.surfaceVariant)
-            .clickable(enabled = model != null || gate.needsPrompt) {
+            .clickable(enabled = hasPreview || gate.needsPrompt) {
                 if (gate.needsPrompt) gate.requestLoad() else onClick()
             },
         contentAlignment = Alignment.Center,
     ) {
-        if (model != null) {
+        if (hasPreview) {
             AsyncImage(
                 model = model,
                 contentDescription = "Photo",
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize(),
             )
+            // Drawn only over a real preview, so the upload lifecycle can never
+            // collide with the placeholder card's own progress (the V3.0 defect).
+            UploadStatusOverlay(status = status, progress = message.uploadProgress, onRetry = onRetry)
         } else {
-            // Identify the attachment (kind + size) even while it is gated or
-            // still uploading, so the bubble is never an unexplained grey box (P0).
+            // One surface for every "no preview yet" state (uploading, failed,
+            // gated, resolving) so the bubble is never an unexplained grey box and
+            // never stacks two lifecycle labels on top of each other (P0).
             MediaPlaceholder(
                 kind = MediaKind.PHOTO,
                 sizeBytes = message.mediaSize,
+                status = status,
                 progress = message.uploadProgress,
-                failed = message.isFailed,
                 onRetry = onRetry,
+                onLoad = gate.requestLoad,
                 tint = contentColor,
                 modifier = Modifier.fillMaxSize(),
             )
-        }
-        UploadStatusOverlay(message = message, onRetry = onRetry)
-        if (gate.needsPrompt) {
-            MediaDownloadPrompt(onClick = gate.requestLoad)
         }
     }
 }
 
 /**
- * Distinguishes the media upload lifecycle inside a bubble (F04): preparing,
- * uploading with a percentage, and failed. A bare percentage with a pending
- * clock gave the user no explanation or recovery affordance. The failed state is
- * tappable so the retry affordance is real, not just a label (P0).
+ * Distinguishes the media upload lifecycle *over a rendered preview* (F04):
+ * preparing, uploading with a percentage, and failed. A bare percentage with a
+ * pending clock gave the user no explanation or recovery affordance. The failed
+ * state is tappable so the retry affordance is real, not just a label (P0).
+ *
+ * This scrim is deliberately restricted to [MediaStatus.UPLOADING] and
+ * [MediaStatus.UPLOAD_FAILED]. When a bubble has no preview the same lifecycle is
+ * drawn by [MediaPlaceholder] instead; letting both render at once is exactly the
+ * V3.0 defect where "Preparing\u2026" appeared twice over a video bubble.
  */
 @Composable
-private fun UploadStatusOverlay(message: Message, onRetry: () -> Unit) {
-    // Only meaningful while the media has not been committed to the server.
-    if (message.mediaUrl != null || (!message.isPending && !message.isFailed)) return
-    val progress = message.uploadProgress
+private fun UploadStatusOverlay(status: MediaStatus, progress: Int?, onRetry: () -> Unit) {
+    if (status != MediaStatus.UPLOADING && status != MediaStatus.UPLOAD_FAILED) return
+    val failed = status == MediaStatus.UPLOAD_FAILED
     val label = when {
-        message.isFailed -> "Failed \u2014 tap to retry"
+        failed -> "Failed \u2014 tap to retry"
         progress == null || progress <= 0 -> "Preparing\u2026"
         progress < 100 -> "$progress%"
         else -> "Finishing\u2026"
@@ -728,12 +798,12 @@ private fun UploadStatusOverlay(message: Message, onRetry: () -> Unit) {
             .fillMaxSize()
             .background(Color.Black.copy(alpha = 0.38f))
             .then(
-                if (message.isFailed) Modifier.clickable(onClick = onRetry) else Modifier,
+                if (failed) Modifier.clickable(onClick = onRetry) else Modifier,
             ),
         contentAlignment = Alignment.Center,
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            if (!message.isFailed) {
+            if (!failed) {
                 CircularProgressIndicator(
                     modifier = Modifier.size(16.dp),
                     strokeWidth = 2.dp,
@@ -763,6 +833,8 @@ private fun MultiImageGrid(message: Message, onRetry: () -> Unit, onClick: () ->
     val signedUrls = rememberSignedMediaUrls(urls, autoDownload = allowed)
     val shown = signedUrls.take(4)
     val needsPrompt = !allowed && urls.any { it.startsWith("http") }
+    val hasPreview = shown.any { it != null }
+    val status = mediaStatus(message, hasPreview = hasPreview, gated = needsPrompt)
     Box(
         modifier = Modifier
             .width(220.dp)
@@ -825,10 +897,12 @@ private fun MultiImageGrid(message: Message, onRetry: () -> Unit, onClick: () ->
                 }
             }
         }
-        // Album upload lifecycle (preparing / % / failed) over the whole grid.
-        UploadStatusOverlay(message = message, onRetry = onRetry)
-        // Auto-download gate for the whole album.
-        if (needsPrompt) {
+        // Exactly one lifecycle surface over the grid: the upload scrim while the
+        // sender's album is still in flight, otherwise the auto-download gate.
+        // They are mutually exclusive by construction, so the grid can never stack
+        // two labels the way the video bubble used to (V3.0 defect).
+        UploadStatusOverlay(status = status, progress = message.uploadProgress, onRetry = onRetry)
+        if (status == MediaStatus.GATED) {
             MediaDownloadPrompt(onClick = { manualLoad = true })
         }
     }
@@ -842,6 +916,8 @@ private fun MediaVideo(message: Message, contentColor: Color, onRetry: () -> Uni
     val thumb = rememberExistingLocalMedia(message.thumbnailUrl)
         ?: gate.url
         ?: rememberExistingLocalMedia(message.localMediaPath)
+    val hasPreview = thumb != null
+    val status = mediaStatus(message, hasPreview = hasPreview, gated = gate.needsPrompt)
     Box(
         modifier = Modifier
             .size(width = 220.dp, height = 160.dp)
@@ -852,25 +928,13 @@ private fun MediaVideo(message: Message, contentColor: Color, onRetry: () -> Uni
             },
         contentAlignment = Alignment.Center,
     ) {
-        if (thumb != null) {
+        if (hasPreview) {
             AsyncImage(
                 model = thumb,
                 contentDescription = "Video",
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize(),
             )
-        } else {
-            MediaPlaceholder(
-                kind = MediaKind.VIDEO,
-                sizeBytes = message.mediaSize,
-                progress = message.uploadProgress,
-                failed = message.isFailed,
-                onRetry = onRetry,
-                tint = contentColor,
-                modifier = Modifier.fillMaxSize(),
-            )
-        }
-        if (thumb != null) {
             Box(
                 modifier = Modifier
                     .size(56.dp)
@@ -885,6 +949,20 @@ private fun MediaVideo(message: Message, contentColor: Color, onRetry: () -> Uni
                     modifier = Modifier.size(40.dp),
                 )
             }
+        } else {
+            // Single surface while the frame is unavailable (uploading, failed,
+            // gated or resolving). This is the fix for the stacked
+            // "Preparing\u2026" label + spinner the video bubble used to show.
+            MediaPlaceholder(
+                kind = MediaKind.VIDEO,
+                sizeBytes = message.mediaSize,
+                status = status,
+                progress = message.uploadProgress,
+                onRetry = onRetry,
+                onLoad = gate.requestLoad,
+                tint = contentColor,
+                modifier = Modifier.fillMaxSize(),
+            )
         }
         // Duration badge so the recipient knows the clip length up front.
         message.mediaDurationMs?.let { ms ->
@@ -905,9 +983,11 @@ private fun MediaVideo(message: Message, contentColor: Color, onRetry: () -> Uni
                 }
             }
         }
-        UploadStatusOverlay(message = message, onRetry = onRetry)
-        if (gate.needsPrompt) {
-            MediaDownloadPrompt(onClick = gate.requestLoad)
+        // The upload scrim is drawn only over a real frame; when there is no frame
+        // the placeholder above already carries the lifecycle, so drawing both is
+        // the exact double-label defect this change removes.
+        if (hasPreview) {
+            UploadStatusOverlay(status = status, progress = message.uploadProgress, onRetry = onRetry)
         }
     }
 }
@@ -1025,20 +1105,23 @@ private fun AudioContent(message: Message, contentColor: Color) {
 private fun FileContent(message: Message, contentColor: Color, onRetry: () -> Unit) {
     // A file that has neither a local copy nor a server URL yet is still being
     // prepared/uploaded (or failed); show the attachment card so the bubble is
-    // never an unexplained blank (P0).
+    // never an unexplained blank (P0). Files are never auto-download gated, so the
+    // only states reachable here are uploading / failed / resolving.
     val hasSource = !message.localMediaPath.isNullOrBlank() || !message.mediaUrl.isNullOrBlank()
     if (!hasSource) {
         MediaPlaceholder(
             kind = MediaKind.FILE,
             sizeBytes = message.mediaSize,
+            status = mediaStatus(message, hasPreview = false, gated = false),
             progress = message.uploadProgress,
-            failed = message.isFailed,
             onRetry = onRetry,
+            onLoad = null,
             tint = contentColor,
             modifier = Modifier.widthIn(min = 176.dp),
         )
         return
     }
+    val status = mediaStatus(message, hasPreview = true, gated = false)
     Box {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(
@@ -1068,7 +1151,9 @@ private fun FileContent(message: Message, contentColor: Color, onRetry: () -> Un
                 }
             }
         }
-        UploadStatusOverlay(message = message, onRetry = onRetry)
+        // Only the sender's own in-flight upload draws over the file row; a
+        // committed file resolves to NONE and shows no lifecycle surface.
+        UploadStatusOverlay(status = status, progress = message.uploadProgress, onRetry = onRetry)
     }
 }
 
