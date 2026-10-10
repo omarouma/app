@@ -16,8 +16,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DoneAll
 import androidx.compose.material.icons.filled.PushPin
-import androidx.compose.material.icons.filled.VolumeOff
-import androidx.compose.material.icons.filled.VolumeUp
+import androidx.compose.material.icons.automirrored.filled.VolumeOff
+import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -131,7 +131,7 @@ fun ConversationRow(
                         if (conversation.isMuted) {
                             Spacer(Modifier.width(GagaDimens.space4))
                             Icon(
-                                Icons.Filled.VolumeOff,
+                                Icons.AutoMirrored.Filled.VolumeOff,
                                 contentDescription = "Muted",
                                 modifier = Modifier.width(GagaDimens.iconSmall),
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -206,7 +206,7 @@ private fun ConversationContextMenu(
         )
         ContextMenuItem(
             label = if (isMuted) "Unmute" else "Mute",
-            icon = if (isMuted) Icons.Filled.VolumeUp else Icons.Filled.VolumeOff,
+            icon = if (isMuted) Icons.AutoMirrored.Filled.VolumeUp else Icons.AutoMirrored.Filled.VolumeOff,
             onClick = onToggleMute,
         )
         if (hasUnread) {

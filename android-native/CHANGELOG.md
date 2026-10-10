@@ -4,6 +4,35 @@ All notable changes to the GaGa Chat native Android app are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 the project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.6.0] — versionCode 44
+
+**Consolidated rebuild.** Every improvement from the 2.4.0 consolidation and the
+2.5.0 startup/onboarding wave is rebuilt together into a single, canonical 2.6.0
+artifact, with the codebase modernised (no deprecated Compose Material icons).
+
+### Changed
+- **Rebuilt with the full public backend configuration.** `ci/prepare.py`
+  regenerates `app/google-services.json` from `ci/backend-public.json` so the
+  Firebase project (`oumagachat`, sender `545448312835`) is wired exactly as in
+  the Firebase console, and `local.properties` carries the Supabase URL/key.
+- **Compose Material icon modernisation.** All 29 uses of deprecated
+  `Icons.Filled.*` / `Icons.Default.*` icons were migrated to their
+  `Icons.AutoMirrored.Filled.*` equivalents across 14 files (chat, home, profile,
+  settings, wallet, groups, dailylife, onboarding, auth). This restores correct
+  RTL mirroring and removes every Compose icon deprecation warning.
+
+### Carried forward
+- 2.5.0 startup & onboarding funnel (Welcome → Introduction → Sign up/Log in →
+  Verification → Profile → Privacy → Permissions → Welcome to GaGa!).
+- 2.4.0 Settings Center V2.0, chat-to-action drafts, call-screen upgrade,
+  profile cover video, chatroom sprints A/B/C.
+- 2.3.0 GaGa Circles, GaGa Safe, Language Bridge, Lite Mode.
+
+### Build
+- versionCode **44** · versionName **2.6.0** · `applicationId` `gagachat.app`
+- minSdk 26 · targetSdk 35 · compileSdk 35 · ABIs `arm64-v8a`, `armeabi-v7a`
+- Signed release APK (v2 + v3) and AAB produced; full unit suite green.
+
 ## [2.4.0] — versionCode 42
 
 **Consolidation release.** Every improvement branch is merged into `main`; this

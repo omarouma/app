@@ -16,9 +16,9 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowForward
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.ChatBubble
-import androidx.compose.material.icons.filled.EventNote
+import androidx.compose.material.icons.automirrored.filled.EventNote
 import androidx.compose.material.icons.filled.TaskAlt
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -74,7 +74,7 @@ fun WelcomeRoute(
             description = "Message, call and share — one-to-one or in groups, all end-to-end in real time.",
         ),
         Advantage(
-            icon = Icons.Filled.EventNote,
+            icon = Icons.AutoMirrored.Filled.EventNote,
             tint = GagaTeal,
             title = "Organize Daily Life",
             description = "Turn chats into tasks, events, reminders, budgets and lists — your day, sorted.",
@@ -151,7 +151,7 @@ fun WelcomeRoute(
         GagaPrimaryButton(
             text = "Get Started",
             onClick = onGetStarted,
-            leadingIcon = Icons.Filled.ArrowForward,
+            leadingIcon = Icons.AutoMirrored.Filled.ArrowForward,
             modifier = Modifier.fillMaxWidth(),
         )
         Spacer(Modifier.height(GagaDimens.space4))

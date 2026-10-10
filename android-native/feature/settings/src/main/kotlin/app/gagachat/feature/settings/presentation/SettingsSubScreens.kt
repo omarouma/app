@@ -49,7 +49,7 @@ import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.NotificationsActive
-import androidx.compose.material.icons.filled.OpenInNew
+import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Star
@@ -712,7 +712,7 @@ fun AppPermissionsScreen(onBack: () -> Unit) {
                     ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                     runCatching { context.startActivity(intent) }
                 },
-                leadingIcon = Icons.Filled.OpenInNew,
+                leadingIcon = Icons.AutoMirrored.Filled.OpenInNew,
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = GagaDimens.space16),

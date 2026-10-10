@@ -17,9 +17,9 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowForward
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.ChatBubble
-import androidx.compose.material.icons.filled.EventNote
+import androidx.compose.material.icons.automirrored.filled.EventNote
 import androidx.compose.material.icons.filled.TaskAlt
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -79,7 +79,7 @@ fun IntroductionRoute(
             description = "Message friends, start group chats, make HD voice and video calls, and share photos, videos and files — instantly and securely.",
         ),
         IntroPage(
-            icon = Icons.Filled.EventNote,
+            icon = Icons.AutoMirrored.Filled.EventNote,
             tint = GagaTeal,
             eyebrow = "Organize Daily Life",
             title = "Your day, from your chats",
@@ -158,7 +158,7 @@ fun IntroductionRoute(
                         scope.launch { pagerState.animateScrollToPage(pagerState.currentPage + 1) }
                     }
                 },
-                leadingIcon = Icons.Filled.ArrowForward,
+                leadingIcon = Icons.AutoMirrored.Filled.ArrowForward,
                 modifier = Modifier.fillMaxWidth(),
             )
             Spacer(Modifier.height(GagaDimens.space4))

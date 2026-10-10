@@ -20,7 +20,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Groups
-import androidx.compose.material.icons.filled.Notes
+import androidx.compose.material.icons.automirrored.filled.Notes
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
@@ -101,7 +101,7 @@ fun CreateGroupScreen(
                         value = state.description,
                         onValueChange = viewModel::onDescriptionChange,
                         label = "Description (optional)",
-                        leadingIcon = Icons.Filled.Notes,
+                        leadingIcon = Icons.AutoMirrored.Filled.Notes,
                         singleLine = false,
                         imeAction = ImeAction.Done,
                     )
