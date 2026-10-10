@@ -4,6 +4,113 @@ All notable changes to the GaGa Chat native Android app are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 the project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.4.0] — versionCode 42
+
+**Consolidation release.** Every improvement branch is merged into `main`; this
+is the single, canonical 2.4.0 build. It carries the Settings Center, the
+chat-to-action drafts, the profile cover video and the real call-screen upgrade
+on top of the 2.3.0 Circles / Safe / Lite Mode / Language Bridge wave.
+
+### Added
+- **Settings Center V2.0.** The settings surface expands to **30 searchable
+  categories**, each with a real destination or an honest, clearly-labelled
+  state, replacing the previous flat list.
+- **Chat-to-action drafts (GaGa Today).** Long-press a message to turn it into a
+  task, reminder, event or expense; the editor opens pre-filled and stores
+  **exactly once** behind an "Add to GaGa Today?" confirmation. Dismissing the
+  dialog creates nothing.
+- **Profile cover video.** A looping cover clip on the profile, using the same
+  compression / upload pipeline as avatars.
+- **Call-screen upgrade.** Real LiveKit media controls, an audio-device picker,
+  picture-in-picture, on-screen diagnostics and actionable 403 messaging.
+- **Backend call-lifecycle RPCs** and a reproducible `send-fcm-push` edge
+  function, so call admission and push delivery are server-authoritative.
+
+### Changed
+- Chatroom **Sprint A / B / C**: accurate delivery receipts and call-event
+  statuses, per-type upload caps (image 25 MB · video 100 MB · audio 25 MB ·
+  document 50 MB) and save-to-device for documents.
+- Media render states are unified so overlapping video / media lifecycle labels
+  no longer clash.
+
+### Fixed
+- Profile cover compression build (missing `ByteArrayOutputStream` import).
+- Chat Translate action icon (`Icons.Filled.Language`) so the action compiles.
+- Call-screen unit-test regression; the Supabase publishable key is wired.
+
+## [2.3.0] — versionCode 41
+
+Consolidates every improvement on top of 2.2.1 and adds the next wave of
+signature features, all wired to the live backend.
+
+### Added
+- **GaGa Circles.** Groups carry a **circle type** — General, Family, Friends,
+  Class, Work, Business — that decides which structured tools are surfaced
+  around the _same_ secure group chat. The transport is never forked; a circle
+  only changes the tools around the conversation. Circle picker on create / edit,
+  a circle badge in the groups list, and a new `circle_type` column with
+  circle-aware create / update RPCs.
+- **GaGa Safe.** Trusted contacts with priority ordering, a timed **safe
+  check-in** with a background worker that fires the due alert, **safe arrival**
+  and **SOS** resolution with owner-only escalation, and a "GaGa Safe" card on
+  the Today / Daily Life screen.
+- **Language Bridge (Translate).** Long-press any message → **Translate**, powered
+  by a new `translate-message` edge function: 16 target languages, auto source
+  detection, a clear cloud-processing disclosure and a graceful "not configured"
+  state.
+- **Lite Mode.** One switch that reduces real network use — auto-download of
+  media is disabled and heavy sync is deferred while it is on.
+
+### Fixed
+- Group create / update falls back to the original RPC signature when the live
+  project has not yet applied the circles migration, so **group creation keeps
+  working everywhere**.
+- Cancellation-safe repository calls and the `mark_chat_read` migration folded in.
+
+## [2.2.1] — versionCode 39
+
+Split-bill and location Smart Actions.
+
+### Added
+- **Shared split bills.** Detect a split bill in chat, create it from a dedicated
+  dialog, and track it in GaGa Today; shares are bounded before aggregation and
+  the detected currency is carried through.
+- **Location actions.** Detect and map locations locally, then surface them as
+  chat actions.
+
+## [2.2.0] — versionCode 38
+
+Smart Actions and a richer Today dashboard.
+
+### Added
+- **Smart Actions.** Chat messages are analysed locally for tasks, reminders,
+  events and expenses, and offered as one-tap actions.
+- **Richer GaGa Today dashboard** with the new event and action surfaces.
+
+## [2.1.0] — versionCode 37
+
+### Added
+- **GaGa Today + Action Messages MVP.** The first cut of turning a chat message
+  into a structured Today item, with server-confirmed storage.
+
+## [2.0.28] – [2.0.34]
+
+Reliability wave between the LiveKit migration and the Today features.
+
+### Fixed
+- **LiveKit call delivery, sounds and connection timeouts** (2.0.28): reliable
+  ringing, looping ringtone / ringback and a bounded connection timeout.
+- **Account privacy enforcement** (2.0.29): per-recipient message policy
+  (EVERYONE / FRIENDS / REQUESTS) and blocking, enforced server-side.
+- **LiveKit media controls and photo review** (2.0.30).
+- **Native Daily Life** (2.0.31): bookkeeping, reminders and shared shopping.
+- **Daily-life screens, navigation and server-confirmed feedback** (2.0.32).
+- **LiveKit room lifecycle isolation** and bounded media controls (2.0.33).
+- **Backend hardening and chatroom reliability** (2.0.34): call-history sync
+  failures propagate so refresh can show retry feedback, device-local
+  call-history removal persists across refresh without deleting peer records,
+  and unacknowledged record edits are rejected with clear busy / error feedback.
+
 ## [2.0.27] — versionCode 29
 
 Final chat build: reliable messaging, complete media handling and a working
