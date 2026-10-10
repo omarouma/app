@@ -17,8 +17,10 @@ import app.gagachat.core.model.FriendRequest
 import app.gagachat.core.model.FriendRequestStatus
 import app.gagachat.core.model.User
 import app.gagachat.core.network.dto.FriendRequestInsert
+import app.gagachat.core.network.dto.FriendRequestRpcResult
 import app.gagachat.core.network.dto.FriendshipInsert
 import app.gagachat.core.network.error.ErrorMapper
+import app.gagachat.core.network.error.RpcAvailability
 import app.gagachat.core.network.rest.SupabaseRestApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -168,14 +170,15 @@ class DefaultFriendsRepository @Inject constructor(
             val me = currentUserId
             if (me.isBlank()) return@withContext AppResult.Failure(AppError.Unauthorized())
             try {
-                restApi.updateFriendRequestStatus(requestId, "accepted")
-                // Symmetric friendship edges.
-                restApi.insertFriendship(FriendshipInsert(userId = me, friendId = fromUserId))
-                restApi.insertFriendship(FriendshipInsert(userId = fromUserId, friendId = me))
+                // Atomic: status change + both friendship edges in one transaction,
+                // so the sender and the recipient can never disagree (FR-04).
+                val rpc = restApi.acceptFriendRequestRpc(requestId)
+                if (rpc.error != null) return@withContext AppResult.Failure(rpc.toAppError())
                 refresh()
                 AppResult.Success(Unit)
             } catch (t: Throwable) {
-            if (t is CancellationException) throw t
+                if (t is CancellationException) throw t
+                if (RpcAvailability.isUnavailable(t)) return@withContext legacyAccept(requestId, fromUserId)
                 AppResult.Failure(ErrorMapper.map(t))
             }
         }
@@ -183,11 +186,13 @@ class DefaultFriendsRepository @Inject constructor(
     override suspend fun declineRequest(requestId: String): AppResult<Unit> =
         withContext(dispatchers.io) {
             try {
-                restApi.updateFriendRequestStatus(requestId, "declined")
+                val rpc = restApi.declineFriendRequestRpc(requestId)
+                if (rpc.error != null) return@withContext AppResult.Failure(rpc.toAppError())
                 refresh()
                 AppResult.Success(Unit)
             } catch (t: Throwable) {
-            if (t is CancellationException) throw t
+                if (t is CancellationException) throw t
+                if (RpcAvailability.isUnavailable(t)) return@withContext legacyDecline(requestId)
                 AppResult.Failure(ErrorMapper.map(t))
             }
         }
@@ -195,14 +200,56 @@ class DefaultFriendsRepository @Inject constructor(
     override suspend fun cancelRequest(requestId: String): AppResult<Unit> =
         withContext(dispatchers.io) {
             try {
-                restApi.updateFriendRequestStatus(requestId, "cancelled")
+                val rpc = restApi.cancelFriendRequestRpc(requestId)
+                if (rpc.error != null) return@withContext AppResult.Failure(rpc.toAppError())
                 refresh()
                 AppResult.Success(Unit)
             } catch (t: Throwable) {
-            if (t is CancellationException) throw t
+                if (t is CancellationException) throw t
+                if (RpcAvailability.isUnavailable(t)) return@withContext legacyCancel(requestId)
                 AppResult.Failure(ErrorMapper.map(t))
             }
         }
+
+    /**
+     * Pre-RPC accept path, retained only as a rollout fallback for a backend that
+     * has not yet applied the lifecycle migration. Kept deliberately close to the
+     * old behaviour so nothing regresses during the transition.
+     */
+    private suspend fun legacyAccept(requestId: String, fromUserId: String): AppResult<Unit> {
+        val me = currentUserId
+        return try {
+            restApi.updateFriendRequestStatus(requestId, "accepted")
+            restApi.insertFriendship(FriendshipInsert(userId = me, friendId = fromUserId))
+            restApi.insertFriendship(FriendshipInsert(userId = fromUserId, friendId = me))
+            refresh()
+            AppResult.Success(Unit)
+        } catch (t: Throwable) {
+            if (t is CancellationException) throw t
+            AppResult.Failure(ErrorMapper.map(t))
+        }
+    }
+
+    private suspend fun legacyDecline(requestId: String): AppResult<Unit> = try {
+        // The `guard_friend_request()` trigger only accepts the canonical
+        // "rejected" status. The old client sent "declined", which the guard
+        // refused with a 400, leaving the request stuck in "pending" forever.
+        restApi.updateFriendRequestStatus(requestId, "rejected")
+        refresh()
+        AppResult.Success(Unit)
+    } catch (t: Throwable) {
+        if (t is CancellationException) throw t
+        AppResult.Failure(ErrorMapper.map(t))
+    }
+
+    private suspend fun legacyCancel(requestId: String): AppResult<Unit> = try {
+        restApi.updateFriendRequestStatus(requestId, "cancelled")
+        refresh()
+        AppResult.Success(Unit)
+    } catch (t: Throwable) {
+        if (t is CancellationException) throw t
+        AppResult.Failure(ErrorMapper.map(t))
+    }
 
     override suspend fun removeFriend(friendId: String): AppResult<Unit> = withContext(dispatchers.io) {
         val me = currentUserId
@@ -223,9 +270,22 @@ class DefaultFriendsRepository @Inject constructor(
     }
 }
 
-private fun String?.toRequestStatus(): FriendRequestStatus = when (this?.lowercase()) {
+internal fun String?.toRequestStatus(): FriendRequestStatus = when (this?.lowercase()) {
     "accepted" -> FriendRequestStatus.ACCEPTED
-    "declined" -> FriendRequestStatus.DECLINED
-    "cancelled" -> FriendRequestStatus.CANCELLED
+    // The backend stores the canonical "rejected"; older rows/clients used
+    // "declined". Both must map to DECLINED so a declined request is never
+    // mistaken for a still-pending one.
+    "declined", "rejected" -> FriendRequestStatus.DECLINED
+    "cancelled", "canceled" -> FriendRequestStatus.CANCELLED
     else -> FriendRequestStatus.PENDING
+}
+
+/** Turns a lifecycle-RPC rejection code into a user-facing [AppError]. */
+internal fun FriendRequestRpcResult.toAppError(): AppError = when (error) {
+    "NOT_AUTHENTICATED" -> AppError.Unauthorized()
+    "REQUEST_NOT_FOUND" -> AppError.Validation("This request is no longer available")
+    "NOT_RECIPIENT", "NOT_SENDER" -> AppError.Forbidden("This request isn't yours to action")
+    "BLOCKED" -> AppError.Forbidden("You can't connect with a blocked account")
+    "REQUEST_NOT_PENDING" -> AppError.Validation("This request was already handled")
+    else -> AppError.Unknown(error)
 }

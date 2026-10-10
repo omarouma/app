@@ -48,7 +48,12 @@ class CallHistoryContractTest {
 
     @Test fun connectedUpdateIsConditionalAndDoesNotEndTheCall() = runBlocking {
         val engine = MockEngine { request ->
-            assertEquals("in.(calling,ringing,connecting)", request.url.parameters["status"])
+            // Must allow the callee-accepted and reconnecting states too, or the
+            // transition to "connected" is silently dropped (CALL-08).
+            assertEquals(
+                "in.(calling,ringing,connecting,connected,accepted,reconnecting)",
+                request.url.parameters["status"],
+            )
             val body = Json.parseToJsonElement(String((request.body as OutgoingContent.ByteArrayContent).bytes())).jsonObject
             assertEquals("connected", body["status"]!!.jsonPrimitive.content)
             assertFalse(body.containsKey("ended_at"))

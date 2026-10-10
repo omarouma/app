@@ -4,6 +4,49 @@ All notable changes to the GaGa Chat native Android app are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 the project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.7.0] — versionCode 45
+
+**Friends, Calls & GaGa Today correctness release.** Applies the product
+specification's P0 tracker items on top of the 2.6.0 rebuild: the friend-request
+lifecycle is now atomic and consistent across both accounts, the call-state
+heartbeat no longer drops a connected/reconnecting call, and GaGa Today surfaces
+backend failures as errors instead of masking them as empty data.
+
+### Fixed
+- **Friend request lifecycle (FR-02..FR-06, FR-08).** Accept/decline/cancel now
+  go through three new atomic, `security definer` RPCs
+  (`gaga_accept_friend_request`, `gaga_decline_friend_request`,
+  `gaga_cancel_friend_request`) that validate the caller, honour blocks, are
+  idempotent on replay, and insert **both** friendship edges in one transaction —
+  so two separate accounts always see a consistent request/friendship state
+  without manual intervention. When the RPCs are absent (older backend) the
+  client transparently falls back to the legacy REST path.
+- **Decline status mismatch.** The legacy fallback previously wrote `"declined"`,
+  which the backend guard rejected; it now writes the canonical `"rejected"`.
+- **Request-status mapping.** `"rejected"` now maps to `DECLINED` (and
+  `"canceled"` to `CANCELLED`) instead of silently falling through to `PENDING`.
+- **Call state heartbeat (CALL-08).** `markCallConnected` now accepts the
+  `accepted`/`connected`/`reconnecting` states as well as
+  `calling`/`ringing`/`connecting`, mirroring the server-side `gaga_touch_call`
+  guard, so a reconnecting call is no longer torn down by its own heartbeat.
+- **GaGa Today error surfacing (§6).** A split-bills backend failure now renders
+  an explicit error card with Retry (and a Today home tile) instead of being
+  displayed as an empty "No split bills yet" state.
+
+### Added
+- `supabase/migrations/20261014000000_friend_request_lifecycle_rpcs.sql` — the
+  atomic friend-request lifecycle RPCs (idempotent, block-aware, both-edge
+  insert), for CI/operator application.
+- `RpcAvailability` — detects a missing PostgREST function (PGRST202) so the
+  client degrades gracefully on backends that predate the new RPCs.
+- Unit tests: `FriendRequestLifecycleContractTest` (6), `FriendRequestLifecycleTest`
+  (9) plus an updated `CallHistoryContractTest`.
+
+### Build
+- versionCode **45** · versionName **2.7.0** · `applicationId` `gagachat.app`
+- minSdk 26 · targetSdk 35 · compileSdk 35 · ABIs `arm64-v8a`, `armeabi-v7a`
+- Signed release APK (v2 + v3) and AAB produced; full unit suite green.
+
 ## [2.6.0] — versionCode 44
 
 **Consolidated rebuild.** Every improvement from the 2.4.0 consolidation and the
