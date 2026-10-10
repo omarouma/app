@@ -1,6 +1,8 @@
 package app.gagachat.feature.profile.presentation
 
 import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.media.MediaMetadataRetriever
 import android.net.Uri
 import androidx.lifecycle.SavedStateHandle
@@ -26,6 +28,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.ByteArrayOutputStream
 import java.io.File
 import javax.inject.Inject
 
@@ -134,15 +137,15 @@ class ProfileViewModel @Inject constructor(
             _state.update { it.copy(isUploadingCover = true, coverUploadProgress = 0, coverUploadError = null) }
             val url = withContext(dispatchers.io) {
                 runCatching {
-                    val mime = context.contentResolver.getType(uri) ?: "image/jpeg"
+                    // Downscale + re-encode so a multi-megapixel photo never
+                    // becomes a slow upload or a heavy banner image.
+                    val (bytes, mime) = compressCoverImage(uri)
+                        ?: error("Could not read the selected image")
                     val extension = when {
                         mime.contains("png") -> "png"
                         mime.contains("webp") -> "webp"
-                        mime.contains("gif") -> "gif"
                         else -> "jpg"
                     }
-                    val bytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
-                        ?: error("Could not read the selected image")
                     storageApi.uploadToBucket(
                         bucket = COVER_BUCKET,
                         objectPath = storageApi.coverObjectPath(uid, "photo", extension),
@@ -267,6 +270,45 @@ class ProfileViewModel @Inject constructor(
     }.getOrNull()
 
     /**
+     * Decodes the picked cover image, downscales it so its longest edge is at
+     * most [MAX_COVER_EDGE] px, and re-encodes it. PNG stays PNG (so any
+     * transparency survives); everything else becomes a quality-88 JPEG. Returns
+     * the encoded bytes plus the mime to upload, or null if it can't be read.
+     */
+    private fun compressCoverImage(uri: Uri): Pair<ByteArray, String>? = runCatching {
+        val resolver = context.contentResolver
+        val sourceMime = resolver.getType(uri) ?: "image/jpeg"
+        // First pass: read only the dimensions so we can pick a sample size.
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        resolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, bounds) }
+        val longest = maxOf(bounds.outWidth, bounds.outHeight)
+        var sample = 1
+        while (longest > 0 && longest / sample > MAX_COVER_EDGE * 2) sample *= 2
+        val decoded = resolver.openInputStream(uri)?.use {
+            BitmapFactory.decodeStream(it, null, BitmapFactory.Options().apply { inSampleSize = sample })
+        } ?: return null
+        val scaled = scaleDown(decoded, MAX_COVER_EDGE)
+        val isPng = sourceMime.contains("png")
+        val format = if (isPng) Bitmap.CompressFormat.PNG else Bitmap.CompressFormat.JPEG
+        val mime = if (isPng) "image/png" else "image/jpeg"
+        val out = ByteArrayOutputStream()
+        scaled.compress(format, 88, out)
+        if (scaled !== decoded) decoded.recycle()
+        scaled.recycle()
+        out.toByteArray() to mime
+    }.getOrNull()
+
+    /** Scales a bitmap down so its longest edge is at most [maxEdge] px. */
+    private fun scaleDown(src: Bitmap, maxEdge: Int): Bitmap {
+        val longest = maxOf(src.width, src.height)
+        if (longest <= maxEdge) return src
+        val ratio = maxEdge.toFloat() / longest
+        val w = (src.width * ratio).toInt().coerceAtLeast(1)
+        val h = (src.height * ratio).toInt().coerceAtLeast(1)
+        return Bitmap.createScaledBitmap(src, w, h, true)
+    }
+
+    /**
      * Opens (or creates) the DIRECT conversation with this profile's user and
      * hands the resolved conversation id back to the caller. Previously the
      * "Message" button navigated to the profile again, so it never reached a chat.
@@ -305,5 +347,7 @@ class ProfileViewModel @Inject constructor(
         const val COVER_BUCKET = "media"
         const val MAX_COVER_VIDEO_BYTES = 100L * 1024 * 1024
         const val MAX_COVER_VIDEO_MS = 60L * 1000
+        /** Longest edge (px) a cover photo is downscaled to before upload. */
+        const val MAX_COVER_EDGE = 1600
     }
 }

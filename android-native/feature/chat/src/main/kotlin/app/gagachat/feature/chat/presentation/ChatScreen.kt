@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -281,6 +282,16 @@ fun ChatRoute(
         if (atBottom) listState.animateScrollToItem(0)
     }
 
+    // Counts messages that arrive while the user is scrolled away from the
+    // newest one, so the jump-to-latest button can show how many are waiting.
+    var pendingNewCount by remember { mutableStateOf(0) }
+    LaunchedEffect(state.messages.lastOrNull()?.localId) {
+        if (state.messages.isNotEmpty() && !atBottom) pendingNewCount += 1
+    }
+    LaunchedEffect(atBottom) {
+        if (atBottom) pendingNewCount = 0
+    }
+
     val openProfile = {
         val id = state.otherUserId
         if (id.isNotBlank()) onOpenProfile(id)
@@ -465,6 +476,7 @@ fun ChatRoute(
                     // the user scrolls away from the newest message.
                     ScrollToBottomButton(
                         visible = !atBottom,
+                        count = pendingNewCount,
                         onClick = { scope.launch { listState.animateScrollToItem(0) } },
                         modifier = Modifier
                             .align(Alignment.BottomEnd)
@@ -835,10 +847,15 @@ private fun ChatBackgroundPicker(
     }
 }
 
-/** Floating "jump to latest" button shown when the user scrolls up the history. */
+/**
+ * Floating "jump to latest" button shown when the user scrolls up the history.
+ * A badge shows how many new messages have arrived while scrolled away, so the
+ * user knows what is waiting before tapping.
+ */
 @Composable
 private fun ScrollToBottomButton(
     visible: Boolean,
+    count: Int,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -848,11 +865,30 @@ private fun ScrollToBottomButton(
         exit = fadeOut(),
         modifier = modifier,
     ) {
-        SmallFloatingActionButton(
-            onClick = onClick,
-            containerColor = MaterialTheme.colorScheme.primaryContainer,
-        ) {
-            Icon(Icons.Filled.ArrowDownward, contentDescription = "Jump to latest")
+        Box(contentAlignment = Alignment.TopEnd) {
+            SmallFloatingActionButton(
+                onClick = onClick,
+                containerColor = MaterialTheme.colorScheme.primaryContainer,
+            ) {
+                Icon(Icons.Filled.ArrowDownward, contentDescription = "Jump to latest")
+            }
+            if (count > 0) {
+                Box(
+                    modifier = Modifier
+                        .offset(x = 6.dp, y = (-6).dp)
+                        .size(20.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.primary),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        text = if (count > 99) "99+" else count.toString(),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onPrimary,
+                        fontWeight = FontWeight.Bold,
+                    )
+                }
+            }
         }
     }
 }

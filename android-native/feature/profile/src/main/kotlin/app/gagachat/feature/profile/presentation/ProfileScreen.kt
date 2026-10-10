@@ -87,23 +87,44 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
-import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import coil.compose.AsyncImage
+import coil.compose.SubcomposeAsyncImage
+import android.content.Context
+import android.graphics.Matrix
+import android.graphics.SurfaceTexture
+import android.media.MediaPlayer
+import android.view.Surface
+import android.view.TextureView
+import androidx.compose.material.icons.filled.VolumeOff
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.key
+import androidx.compose.ui.graphics.painter.ColorPainter
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 /** Warm gold used for the avatar ring + PRO badge (reference 173846). */
 private val ProfileGold = Color(0xFFF5A623)
+
+/** A cover tapped for full-screen viewing, tagged with whether it is a video. */
+private data class CoverViewer(val url: String, val isVideo: Boolean)
 
 // Coloured leading icons for the Personal Hub / Account rows (reference 173846).
 private val HubPurple = Color(0xFF7E57C2)
@@ -159,7 +180,9 @@ fun ProfileRoute(
     val coverVideoPicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickVisualMedia(),
     ) { uri -> uri?.let(viewModel::onCoverVideoPicked) }
-    var coverViewerUrl by remember { mutableStateOf<String?>(null) }
+    // Full-screen media viewers: the cover (photo or looping video) and the avatar.
+    var coverViewer by remember { mutableStateOf<CoverViewer?>(null) }
+    var avatarViewerUrl by remember { mutableStateOf<String?>(null) }
 
     GagaScaffold(
         title = if (state.isSelf) "Me" else "Profile",
@@ -201,7 +224,8 @@ fun ProfileRoute(
                         PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.VideoOnly),
                     )
                 },
-                onOpenCover = { url -> coverViewerUrl = url },
+                onOpenCover = { url, isVideo -> coverViewer = CoverViewer(url, isVideo) },
+                onOpenAvatar = { url -> avatarViewerUrl = url },
                 onEditPhoto = onEditProfile,
             )
 
@@ -364,9 +388,16 @@ fun ProfileRoute(
             Spacer(Modifier.height(GagaDimens.space48))
         }
 
-        // Full-screen cover-video playback (opened by tapping the cover video).
-        coverViewerUrl?.let { url ->
-            CoverVideoDialog(url = url, onDismiss = { coverViewerUrl = null })
+        // Full-screen media viewers (opened by tapping the cover or the avatar).
+        coverViewer?.let { viewer ->
+            if (viewer.isVideo) {
+                CoverVideoDialog(url = viewer.url, onDismiss = { coverViewer = null })
+            } else {
+                FullScreenPhotoDialog(url = viewer.url, onDismiss = { coverViewer = null })
+            }
+        }
+        avatarViewerUrl?.let { url ->
+            FullScreenPhotoDialog(url = url, onDismiss = { avatarViewerUrl = null })
         }
     }
 }
@@ -380,7 +411,8 @@ private fun ProfileHeader(
     coverUploadProgress: Int,
     onPickCoverPhoto: () -> Unit,
     onPickCoverVideo: () -> Unit,
-    onOpenCover: (String) -> Unit,
+    onOpenCover: (url: String, isVideo: Boolean) -> Unit,
+    onOpenAvatar: (String) -> Unit,
     onEditPhoto: () -> Unit,
 ) {
     Box(modifier = Modifier.fillMaxWidth()) {
@@ -389,7 +421,7 @@ private fun ProfileHeader(
         CoverBanner(
             coverImage = user?.coverImage,
             coverVideo = user?.coverVideo,
-            onOpenVideo = onOpenCover,
+            onOpen = onOpenCover,
         )
 
         if (isUploadingCover) {
@@ -435,6 +467,7 @@ private fun ProfileHeader(
                 .align(Alignment.BottomCenter)
                 .offset(y = 48.dp),
         ) {
+            val avatarUrl = user?.avatar?.takeIf { it.isNotBlank() }
             Box(
                 modifier = Modifier
                     .clip(CircleShape)
@@ -442,7 +475,14 @@ private fun ProfileHeader(
                     .padding(3.dp)
                     .clip(CircleShape)
                     .border(width = 3.dp, color = ProfileGold, shape = CircleShape)
-                    .padding(2.dp),
+                    .padding(2.dp)
+                    .then(
+                        if (avatarUrl != null) {
+                            Modifier.clickable { onOpenAvatar(avatarUrl) }
+                        } else {
+                            Modifier
+                        },
+                    ),
             ) {
                 GagaAvatar(
                     imageUrl = user?.avatar,
@@ -658,11 +698,16 @@ private fun looksLikeVideo(url: String): Boolean {
 }
 
 /**
- * Renders the profile cover: a photo via Coil, a video as an extracted first
- * frame with a play affordance, or the brand mint fallback when nothing is set.
+ * Renders the profile cover: a continuously-looping, muted video (with an
+ * instant poster frame), a photo via Coil, or the brand mint fallback when
+ * nothing is set. Tapping either opens it full-screen.
  */
 @Composable
-private fun CoverBanner(coverImage: String?, coverVideo: String?, onOpenVideo: (String) -> Unit) {
+private fun CoverBanner(
+    coverImage: String?,
+    coverVideo: String?,
+    onOpen: (url: String, isVideo: Boolean) -> Unit,
+) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -676,69 +721,114 @@ private fun CoverBanner(coverImage: String?, coverVideo: String?, onOpenVideo: (
             ?: coverImage?.takeIf { it.isNotBlank() && looksLikeVideo(it) }
         val photo = coverImage?.takeIf { it.isNotBlank() && !looksLikeVideo(it) }
         when {
-            video != null -> CoverVideoThumbnail(url = video, onClick = { onOpenVideo(video) })
-            photo != null -> AsyncImage(
-                model = photo,
-                contentDescription = "Profile cover",
-                contentScale = ContentScale.Crop,
-                modifier = Modifier.fillMaxSize(),
-            )
+            video != null -> key(video) {
+                CoverVideoPlayer(url = video, onClick = { onOpen(video, true) })
+            }
+            photo != null -> Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clickable { onOpen(photo, false) },
+            ) {
+                AsyncImage(
+                    model = photo,
+                    contentDescription = "Profile cover",
+                    contentScale = ContentScale.Crop,
+                    placeholder = ColorPainter(GagaGreenContainer),
+                    error = ColorPainter(GagaGreenContainer),
+                    modifier = Modifier.fillMaxSize(),
+                )
+            }
         }
     }
 }
 
-/** Extracts the first video frame and overlays a play button. */
+/**
+ * Inline cover video: a muted, continuously-looping player that starts as soon
+ * as its surface is ready and pauses with the host lifecycle so it never keeps
+ * decoding in the background. The first frame is shown immediately as a poster
+ * so the banner is never blank while the player prepares.
+ */
 @Composable
-private fun CoverVideoThumbnail(url: String, onClick: () -> Unit) {
+private fun CoverVideoPlayer(url: String, onClick: () -> Unit) {
     val context = LocalContext.current
-    val frame by produceState<Bitmap?>(initialValue = null, url) {
-        value = withContext(Dispatchers.IO) {
-            runCatching {
-                val retriever = MediaMetadataRetriever()
-                try {
-                    if (url.startsWith("http")) {
-                        retriever.setDataSource(url, HashMap())
-                    } else {
-                        retriever.setDataSource(context, Uri.parse(url))
-                    }
-                    retriever.getFrameAtTime(0, MediaMetadataRetriever.OPTION_CLOSEST_SYNC)
-                } finally {
-                    retriever.release()
-                }
-            }.getOrNull()
+    val lifecycleOwner = LocalLifecycleOwner.current
+    val poster by produceState<Bitmap?>(initialValue = null, url) {
+        value = withContext(Dispatchers.IO) { extractVideoFrame(context, url) }
+    }
+    val holder = remember { CoverVideoHolder() }
+    DisposableEffect(lifecycleOwner, url) {
+        val observer = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_START -> holder.resume()
+                Lifecycle.Event.ON_STOP -> holder.pause()
+                else -> Unit
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        // The host is usually already STARTED by the time this composes, so the
+        // observer would never receive ON_START — kick playback off right away.
+        if (lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) {
+            holder.resume()
+        }
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+            holder.release()
         }
     }
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.Black.copy(alpha = 0.2f))
+            .background(Color.Black)
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
-        frame?.let {
+        poster?.let {
             Image(
                 bitmap = it.asImageBitmap(),
-                contentDescription = "Profile cover video",
+                contentDescription = null,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize(),
             )
         }
+        AndroidView(
+            modifier = Modifier.fillMaxSize(),
+            factory = { ctx -> TextureView(ctx).apply { holder.attach(ctx, this, url) } },
+        )
+        // The looping cover is silent by design; make that explicit and hint that
+        // tapping opens it with sound + controls.
         Box(
             modifier = Modifier
-                .size(48.dp)
+                .align(Alignment.BottomEnd)
+                .padding(GagaDimens.space8)
+                .size(28.dp)
                 .clip(CircleShape)
                 .background(Color.Black.copy(alpha = 0.45f)),
             contentAlignment = Alignment.Center,
         ) {
             Icon(
-                Icons.Filled.PlayArrow,
-                contentDescription = "Play cover video",
+                Icons.Filled.VolumeOff,
+                contentDescription = "Cover video is muted. Tap to open with sound.",
                 tint = Color.White,
-                modifier = Modifier.size(28.dp),
+                modifier = Modifier.size(16.dp),
             )
         }
     }
 }
+
+/** Extracts the first frame of a local or remote video for use as a poster. */
+private fun extractVideoFrame(context: Context, url: String): Bitmap? = runCatching {
+    val retriever = MediaMetadataRetriever()
+    try {
+        if (url.startsWith("http")) {
+            retriever.setDataSource(url, HashMap())
+        } else {
+            retriever.setDataSource(context, Uri.parse(url))
+        }
+        retriever.getFrameAtTime(0, MediaMetadataRetriever.OPTION_CLOSEST_SYNC)
+    } finally {
+        retriever.release()
+    }
+}.getOrNull()
 
 /** Full-screen cover-video player (platform VideoView with media controls). */
 @Composable
@@ -766,6 +856,186 @@ private fun CoverVideoDialog(url: String, onDismiss: () -> Unit) {
                         setOnPreparedListener { it.isLooping = true }
                         setOnErrorListener { _, _, _ -> true }
                         start()
+                    }
+                },
+            )
+            IconButton(
+                onClick = onDismiss,
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(GagaDimens.space12),
+            ) {
+                Icon(Icons.Filled.Close, contentDescription = "Close", tint = Color.White)
+            }
+        }
+    }
+}
+
+/**
+ * Owns the platform [MediaPlayer] + [TextureView] used by the inline cover
+ * video. The player loops forever, is muted, and scales its output to
+ * CENTER_CROP so the banner is always filled regardless of the clip's aspect
+ * ratio. Every call is safe to make from the main thread.
+ */
+private class CoverVideoHolder {
+    private var player: MediaPlayer? = null
+    private var surface: Surface? = null
+    private var prepared = false
+    private var shouldPlay = false
+    private var videoWidth = 0
+    private var videoHeight = 0
+
+    fun attach(context: Context, view: TextureView, url: String) {
+        view.surfaceTextureListener = object : TextureView.SurfaceTextureListener {
+            override fun onSurfaceTextureAvailable(st: SurfaceTexture, width: Int, height: Int) {
+                val s = Surface(st)
+                surface = s
+                val mp = MediaPlayer()
+                mp.setSurface(s)
+                mp.setVolume(0f, 0f)
+                mp.isLooping = true
+                mp.setOnVideoSizeChangedListener { _, w, h ->
+                    videoWidth = w
+                    videoHeight = h
+                    applyCenterCrop(view, w, h)
+                }
+                mp.setOnPreparedListener {
+                    prepared = true
+                    applyCenterCrop(view, videoWidth, videoHeight)
+                    if (shouldPlay) runCatching { it.start() }
+                }
+                mp.setOnErrorListener { _, _, _ -> true }
+                player = mp
+                runCatching {
+                    if (url.startsWith("http") || url.startsWith("content://")) {
+                        mp.setDataSource(context, Uri.parse(url))
+                    } else {
+                        mp.setDataSource(url)
+                    }
+                    mp.prepareAsync()
+                }.onFailure { release() }
+            }
+
+            override fun onSurfaceTextureSizeChanged(st: SurfaceTexture, width: Int, height: Int) {
+                if (videoWidth > 0 && videoHeight > 0) applyCenterCrop(view, videoWidth, videoHeight)
+            }
+
+            override fun onSurfaceTextureDestroyed(st: SurfaceTexture): Boolean {
+                release()
+                return true
+            }
+
+            override fun onSurfaceTextureUpdated(st: SurfaceTexture) = Unit
+        }
+    }
+
+    fun resume() {
+        shouldPlay = true
+        player?.takeIf { prepared }?.let { if (!it.isPlaying) runCatching { it.start() } }
+    }
+
+    fun pause() {
+        shouldPlay = false
+        player?.takeIf { prepared }?.let { if (it.isPlaying) runCatching { it.pause() } }
+    }
+
+    fun release() {
+        prepared = false
+        player?.let { mp ->
+            runCatching { if (mp.isPlaying) mp.stop() }
+            runCatching { mp.reset() }
+            runCatching { mp.release() }
+        }
+        player = null
+        surface?.release()
+        surface = null
+    }
+
+    /** Scales the video to fill the view (CENTER_CROP) via a TextureView matrix. */
+    private fun applyCenterCrop(view: TextureView, vw: Int, vh: Int) {
+        val viewW = view.width.toFloat()
+        val viewH = view.height.toFloat()
+        if (viewW <= 0f || viewH <= 0f || vw <= 0 || vh <= 0) return
+        val scale = maxOf(viewW / vw, viewH / vh)
+        val dx = (viewW - vw * scale) / 2f
+        val dy = (viewH - vh * scale) / 2f
+        view.setTransform(Matrix().apply {
+            setScale(scale, scale)
+            postTranslate(dx, dy)
+        })
+    }
+}
+
+/**
+ * Full-screen, zoomable photo viewer for the cover photo and the avatar.
+ * Pinch to zoom, drag to pan, double-tap to toggle zoom, and tap the close
+ * button to dismiss. Shows a spinner while loading and a friendly message on
+ * error so a broken URL never leaves a blank black screen.
+ */
+@Composable
+private fun FullScreenPhotoDialog(url: String, onDismiss: () -> Unit) {
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false),
+    ) {
+        var scale by remember { mutableFloatStateOf(1f) }
+        var offsetX by remember { mutableFloatStateOf(0f) }
+        var offsetY by remember { mutableFloatStateOf(0f) }
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black)
+                .pointerInput(url) {
+                    detectTransformGestures { _, pan, zoom, _ ->
+                        scale = (scale * zoom).coerceIn(1f, 5f)
+                        if (scale > 1f) {
+                            offsetX += pan.x
+                            offsetY += pan.y
+                        } else {
+                            offsetX = 0f
+                            offsetY = 0f
+                        }
+                    }
+                }
+                .pointerInput(url) {
+                    detectTapGestures(
+                        onDoubleTap = {
+                            if (scale > 1f) {
+                                scale = 1f
+                                offsetX = 0f
+                                offsetY = 0f
+                            } else {
+                                scale = 2.5f
+                            }
+                        },
+                    )
+                },
+            contentAlignment = Alignment.Center,
+        ) {
+            SubcomposeAsyncImage(
+                model = url,
+                contentDescription = "Photo",
+                contentScale = ContentScale.Fit,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .graphicsLayer(
+                        scaleX = scale,
+                        scaleY = scale,
+                        translationX = offsetX,
+                        translationY = offsetY,
+                    ),
+                loading = {
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator(color = Color.White)
+                    }
+                },
+                error = {
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Text(
+                            text = "Couldn't load photo",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = Color.White,
+                        )
                     }
                 },
             )
