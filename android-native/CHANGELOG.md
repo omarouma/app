@@ -4,6 +4,52 @@ All notable changes to the GaGa Chat native Android app are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 the project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.7.1] — versionCode 46
+
+**Settings Center functional-wiring release (Master Spec §8).** The Settings
+Center previously persisted all 100+ controls to DataStore but nothing in the app
+ever read them back — every switch was cosmetic. This release closes the loop
+end-to-end for the P0 privacy and consumer keys by following the mandated
+pipeline: **Preference → Storage → Functional Consumer → Backend Enforcement →
+Test**.
+
+### Added
+- **`SettingsCenterPreferences`** — a typed facade over the generic
+  `ExpandedSettingsPreferences` store that exposes each wired setting as a
+  strongly-typed `Flow<Boolean>` and routes privacy toggles through the
+  authoritative `AccountPrivacy` bridge (`gaga_get_privacy` / `gaga_save_privacy`
+  RPCs). A `seedDiscoveryFromServer()` routine mirrors the server's privacy policy
+  into the local store on Settings Center open, so the UI always reflects the
+  value the backend actually enforces.
+- **`SettingsToggleStore`** and **`AccountPrivacyController`** seams so consumers
+  can be unit-tested without Android `DataStore`, with Hilt `@Binds` wiring the
+  existing singleton implementations.
+
+### Fixed
+- **Privacy toggles are now enforced, not just stored (Backend Enforcement).**
+  `people.searchable.username/phone/email`, `chats.typingIndicator` and
+  `ai.priorityRecommendations` now write through to the server-side
+  `user_settings.privacy_settings` JSONB (`discover_id`, `discover_phone`,
+  `discover_email`, `typing_indicator`, `recommendations`), which the
+  `gaga_profiles` discovery projection and RLS policies read. Turning a toggle off
+  now actually removes the field from search/discovery server-side.
+- **"Upload media on Wi-Fi only" and "Data saver" now gate uploads.** The durable
+  media-upload queue (`MediaRepository.drainQueue`) consults `NetworkMonitor` and
+  leaves every row queued when the active network is metered and either policy is
+  on — so no cellular data is spent, and WorkManager retries once back on Wi-Fi.
+- **"Enter to send" is honoured.** `MessageComposer` now switches the keyboard
+  IME action between *Send* and *New line* based on `chats.enterToSend`.
+- **"Link previews" and "Typing indicator" are honoured.** `ChatViewModel` skips
+  link-preview fetches and typing broadcasts when the corresponding toggles are
+  off.
+
+### Tests
+- Added `SettingsCenterPreferencesTest` (6 cases: default parity, local+server
+  writes, server enforcement, seeding, failure tolerance, deferral truth table)
+  and `MediaUploadNetworkPolicyTest` (metered deferral vs. unmetered drain).
+  Full unit suite: **82 tests, 0 failures** across `core:model`, `core:network`,
+  `core:data`, `feature:calls` and `feature:chat`.
+
 ## [2.7.0] — versionCode 45
 
 **Friends, Calls & GaGa Today correctness release.** Applies the product

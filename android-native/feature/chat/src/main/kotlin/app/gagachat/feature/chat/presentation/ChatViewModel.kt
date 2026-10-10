@@ -29,6 +29,7 @@ import app.gagachat.core.data.repository.mediaUploadLimit
 import app.gagachat.core.data.repository.mediaUploadLimitMb
 import app.gagachat.core.data.preferences.ChatBackground
 import app.gagachat.core.data.preferences.DraftStore
+import app.gagachat.core.data.preferences.SettingsCenterPreferences
 import kotlinx.coroutines.flow.first
 import app.gagachat.core.model.Conversation
 import app.gagachat.core.model.ConversationMember
@@ -197,6 +198,7 @@ class ChatViewModel @Inject constructor(
     private val friendsRepository: FriendsRepository,
     private val networkMonitor: NetworkMonitor,
     private val settingsPreferences: app.gagachat.core.data.preferences.SettingsPreferences,
+    private val settingsCenter: SettingsCenterPreferences,
     private val draftStore: DraftStore,
     private val soundPlayer: app.gagachat.core.data.media.GagaSoundPlayer,
     @ApplicationContext private val context: Context,
@@ -290,6 +292,20 @@ class ChatViewModel @Inject constructor(
     private val _linkPreviews = MutableStateFlow<Map<String, LinkPreview>>(emptyMap())
     val linkPreviews: StateFlow<Map<String, LinkPreview>> = _linkPreviews.asStateFlow()
     private val requestedPreviews = mutableSetOf<String>()
+
+    // ---- Settings Center consumers (Master Spec §8) ----
+
+    /** `chats.enterToSend` — the composer's Enter key sends instead of newlining. */
+    val enterToSend: StateFlow<Boolean> = settingsCenter.enterToSend
+        .stateIn(viewModelScope, SharingStarted.Eagerly, true)
+
+    /** `chats.linkPreviews` — when off, rich previews are never fetched. */
+    private val linkPreviewsEnabled: StateFlow<Boolean> = settingsCenter.linkPreviews
+        .stateIn(viewModelScope, SharingStarted.Eagerly, true)
+
+    /** `chats.typingIndicator` — when off, our typing state is never broadcast. */
+    private val typingIndicatorEnabled: StateFlow<Boolean> = settingsCenter.typingIndicator
+        .stateIn(viewModelScope, SharingStarted.Eagerly, true)
 
     // F21b: refreshes an active live-location share until it expires.
     private var liveLocationJob: Job? = null
@@ -432,7 +448,8 @@ class ChatViewModel @Inject constructor(
         if (value.isBlank()) {
             typingJob?.cancel()
             broadcastTyping(false)
-        } else {
+        } else if (typingIndicatorEnabled.value) {
+            // `chats.typingIndicator` off → we never advertise that we are typing.
             broadcastTyping(true)
             typingJob?.cancel()
             typingJob = viewModelScope.launch {
@@ -981,6 +998,8 @@ class ChatViewModel @Inject constructor(
      * in-flight set dedupes repeated requests from recomposition.
      */
     fun requestLinkPreview(url: String) {
+        // `chats.linkPreviews` off → never resolve or render a rich preview.
+        if (!linkPreviewsEnabled.value) return
         if (url.isBlank()) return
         if (_linkPreviews.value.containsKey(url)) return
         if (!requestedPreviews.add(url)) return

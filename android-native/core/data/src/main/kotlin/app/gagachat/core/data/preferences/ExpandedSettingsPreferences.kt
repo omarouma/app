@@ -35,9 +35,9 @@ private val Context.expandedSettingsStore: DataStore<Preferences> by preferences
 @Singleton
 class ExpandedSettingsPreferences @Inject constructor(
     @ApplicationContext private val context: Context,
-) {
+) : SettingsToggleStore {
     /** Every boolean preference, keyed by its un-prefixed name. */
-    val toggles: Flow<Map<String, Boolean>> = context.expandedSettingsStore.data.map { prefs ->
+    override val toggles: Flow<Map<String, Boolean>> = context.expandedSettingsStore.data.map { prefs ->
         prefs.asMap().entries.mapNotNull { (key, value) ->
             if (key.name.startsWith(TOGGLE_PREFIX) && value is Boolean) {
                 key.name.removePrefix(TOGGLE_PREFIX) to value
@@ -48,7 +48,7 @@ class ExpandedSettingsPreferences @Inject constructor(
     }
 
     /** Every string (choice) preference, keyed by its un-prefixed name. */
-    val choices: Flow<Map<String, String>> = context.expandedSettingsStore.data.map { prefs ->
+    override val choices: Flow<Map<String, String>> = context.expandedSettingsStore.data.map { prefs ->
         prefs.asMap().entries.mapNotNull { (key, value) ->
             if (key.name.startsWith(CHOICE_PREFIX) && value is String) {
                 key.name.removePrefix(CHOICE_PREFIX) to value
@@ -58,16 +58,16 @@ class ExpandedSettingsPreferences @Inject constructor(
         }.toMap()
     }
 
-    suspend fun setToggle(key: String, value: Boolean) {
+    override suspend fun setToggle(key: String, value: Boolean) {
         context.expandedSettingsStore.edit { it[booleanPreferencesKey(TOGGLE_PREFIX + key)] = value }
     }
 
-    suspend fun setChoice(key: String, value: String) {
+    override suspend fun setChoice(key: String, value: String) {
         context.expandedSettingsStore.edit { it[stringPreferencesKey(CHOICE_PREFIX + key)] = value }
     }
 
     /** "Reset selected preferences" — clears the whole expansion store. */
-    suspend fun resetAll() {
+    override suspend fun resetAll() {
         context.expandedSettingsStore.edit { it.clear() }
     }
 

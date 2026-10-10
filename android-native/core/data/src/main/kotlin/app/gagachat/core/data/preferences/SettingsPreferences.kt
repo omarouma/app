@@ -68,18 +68,18 @@ class SettingsPreferences @Inject constructor(
     @ApplicationContext private val context: Context,
     private val sessionStore: SessionStore,
     private val restApi: SupabaseRestApi,
-) {
+) : AccountPrivacyController {
     private val privacyJson = Json { ignoreUnknownKeys = true; encodeDefaults = true }
     private fun privacyKey(id: String) = stringPreferencesKey("privacy_account_$id")
     private val privacyOwnerKey = stringPreferencesKey("privacy_active_account")
-    val accountPrivacy: Flow<AccountPrivacy> = context.settingsDataStore.data.map { prefs ->
+    override val accountPrivacy: Flow<AccountPrivacy> = context.settingsDataStore.data.map { prefs ->
         val id = sessionStore.userId()
         if (id == null || prefs[privacyOwnerKey] != id) AccountPrivacy()
         else prefs[privacyKey(id)]?.let { raw ->
             runCatching { privacyJson.decodeFromString<AccountPrivacy>(raw) }.getOrNull()
         } ?: AccountPrivacy()
     }
-    suspend fun refreshAccountPrivacy() {
+    override suspend fun refreshAccountPrivacy() {
         val id = sessionStore.userId()
         context.settingsDataStore.edit { it[privacyOwnerKey] = id.orEmpty() }
         if (id == null) return
@@ -88,7 +88,7 @@ class SettingsPreferences @Inject constructor(
         val policy = privacyJson.decodeFromJsonElement<AccountPrivacy>(result)
         context.settingsDataStore.edit { it[privacyKey(id)] = privacyJson.encodeToString(policy) }
     }
-    suspend fun savePrivacy(patch: JsonObject) {
+    override suspend fun savePrivacy(patch: JsonObject) {
         val id = sessionStore.userId() ?: error("Sign in to change account privacy")
         val result = restApi.updateAccountPrivacy(patch)
         if (sessionStore.userId() != id) return

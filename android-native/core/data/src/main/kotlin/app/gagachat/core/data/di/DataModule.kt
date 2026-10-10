@@ -26,6 +26,10 @@ import app.gagachat.core.data.repository.NotificationRepository
 import app.gagachat.core.data.repository.SavedMessagesRepository
 import app.gagachat.core.data.repository.UserRepository
 import app.gagachat.core.data.repository.WalletRepository
+import app.gagachat.core.data.preferences.AccountPrivacyController
+import app.gagachat.core.data.preferences.ExpandedSettingsPreferences
+import app.gagachat.core.data.preferences.SettingsPreferences
+import app.gagachat.core.data.preferences.SettingsToggleStore
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -92,4 +96,14 @@ abstract class DataModule {
     @Binds
     @Singleton
     abstract fun bindLinkPreviewRepository(impl: DefaultLinkPreviewRepository): LinkPreviewRepository
+
+    /**
+     * Settings Center seams (Master Spec §8). The concrete stores are already
+     * `@Singleton`, so the interface bindings inherit that scope.
+     */
+    @Binds
+    abstract fun bindSettingsToggleStore(impl: ExpandedSettingsPreferences): SettingsToggleStore
+
+    @Binds
+    abstract fun bindAccountPrivacyController(impl: SettingsPreferences): AccountPrivacyController
 }
