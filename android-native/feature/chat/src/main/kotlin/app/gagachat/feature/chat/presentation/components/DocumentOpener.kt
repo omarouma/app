@@ -50,7 +50,7 @@ class DocumentOpener internal constructor(
         scope.launch {
             state = DocumentOpenState.Loading
             try {
-                val file = resolveFile(message)
+                val file = resolveDocumentFile(context, resolver, message)
                 launchViewer(file, message)
                 state = DocumentOpenState.Idle
             } catch (t: Throwable) {
@@ -64,37 +64,10 @@ class DocumentOpener internal constructor(
         state = DocumentOpenState.Idle
     }
 
-    private suspend fun resolveFile(message: Message): File {
-        // A locally captured/selected copy is already usable.
-        val local = message.localMediaPath
-        if (!local.isNullOrBlank()) {
-            val f = File(local)
-            if (f.exists() && f.length() > 0) return f
-        }
-        val remote = resolver.resolve(message.mediaUrl)
-            ?: throw IllegalStateException("This document isn't available yet")
-        val dir = File(context.cacheDir, "documents").apply { mkdirs() }
-        val target = File(dir, safeName(message.text))
-        if (target.exists() && target.length() > 0) return target
-        withContext(Dispatchers.IO) {
-            val conn = (URL(remote).openConnection() as HttpURLConnection).apply {
-                connectTimeout = 20_000
-                readTimeout = 60_000
-                instanceFollowRedirects = true
-            }
-            try {
-                conn.inputStream.use { input -> target.outputStream().use { input.copyTo(it) } }
-            } finally {
-                conn.disconnect()
-            }
-        }
-        return target
-    }
-
     private fun launchViewer(file: File, message: Message) {
         val authority = "${context.packageName}.fileprovider"
         val uri = FileProvider.getUriForFile(context, authority, file)
-        val mime = message.mediaMime?.takeIf { it.isNotBlank() } ?: guessMime(file.name)
+        val mime = documentMime(message, file.name)
         val intent = Intent(Intent.ACTION_VIEW).apply {
             setDataAndType(uri, mime)
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
@@ -105,22 +78,64 @@ class DocumentOpener internal constructor(
         }
         context.startActivity(intent)
     }
-
-    private fun safeName(raw: String?): String {
-        val base = raw
-            ?.substringAfterLast('/')
-            ?.substringAfterLast('\\')
-            ?.trim()
-            ?.takeIf { it.isNotEmpty() }
-            ?: "attachment"
-        return base.replace(Regex("[^A-Za-z0-9._-]"), "_")
-    }
-
-    private fun guessMime(name: String): String =
-        MimeTypeMap.getSingleton()
-            .getMimeTypeFromExtension(name.substringAfterLast('.', "").lowercase())
-            ?: "*/*"
 }
+
+/**
+ * Resolves a FILE message to a local, readable [File]: a locally captured/selected
+ * copy when present, otherwise a signed-URL download cached under
+ * `cache/documents`. Shared by [DocumentOpener] (view) and [DocumentSaver]
+ * (save-to-device, V3.0 Sprint B) so both resolve the bytes identically.
+ */
+internal suspend fun resolveDocumentFile(
+    context: Context,
+    resolver: MediaUrlResolver,
+    message: Message,
+): File {
+    // A locally captured/selected copy is already usable.
+    val local = message.localMediaPath
+    if (!local.isNullOrBlank()) {
+        val f = File(local)
+        if (f.exists() && f.length() > 0) return f
+    }
+    val remote = resolver.resolve(message.mediaUrl)
+        ?: throw IllegalStateException("This document isn't available yet")
+    val dir = File(context.cacheDir, "documents").apply { mkdirs() }
+    val target = File(dir, documentSafeName(message.text))
+    if (target.exists() && target.length() > 0) return target
+    withContext(Dispatchers.IO) {
+        val conn = (URL(remote).openConnection() as HttpURLConnection).apply {
+            connectTimeout = 20_000
+            readTimeout = 60_000
+            instanceFollowRedirects = true
+        }
+        try {
+            conn.inputStream.use { input -> target.outputStream().use { input.copyTo(it) } }
+        } finally {
+            conn.disconnect()
+        }
+    }
+    return target
+}
+
+/** A filesystem-safe file name derived from a document message's text/label. */
+internal fun documentSafeName(raw: String?): String {
+    val base = raw
+        ?.substringAfterLast('/')
+        ?.substringAfterLast('\\')
+        ?.trim()
+        ?.takeIf { it.isNotEmpty() }
+        ?: "attachment"
+    return base.replace(Regex("[^A-Za-z0-9._-]"), "_")
+}
+
+/** The MIME type to hand to the viewer/saver, preferring the stored value. */
+internal fun documentMime(message: Message, fileName: String): String =
+    message.mediaMime?.takeIf { it.isNotBlank() } ?: guessMime(fileName)
+
+private fun guessMime(name: String): String =
+    MimeTypeMap.getSingleton()
+        .getMimeTypeFromExtension(name.substringAfterLast('.', "").lowercase())
+        ?: "*/*"
 
 @Composable
 fun rememberDocumentOpener(): DocumentOpener {

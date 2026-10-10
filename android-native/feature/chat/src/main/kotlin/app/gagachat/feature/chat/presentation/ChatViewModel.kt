@@ -24,6 +24,9 @@ import app.gagachat.core.data.repository.LinkPreviewRepository
 import app.gagachat.core.data.repository.MediaRepository
 import app.gagachat.core.data.repository.MessageRepository
 import app.gagachat.core.data.repository.UserRepository
+import app.gagachat.core.data.repository.mediaKindLabel
+import app.gagachat.core.data.repository.mediaUploadLimit
+import app.gagachat.core.data.repository.mediaUploadLimitMb
 import app.gagachat.core.data.preferences.ChatBackground
 import app.gagachat.core.data.preferences.DraftStore
 import kotlinx.coroutines.flow.first
@@ -577,29 +580,28 @@ class ChatViewModel @Inject constructor(
                 else -> MessageType.FILE
             }
 
-            // Fail early with actionable validation rather than queueing media that
-            // can never be delivered. Images are normalized to a high-quality JPEG
-            // when very large; videos keep original quality but are bounded.
+            // Fail early with actionable, per-type validation rather than queueing
+            // media that can never be delivered (V3.0 Sprint B, checklist row #6).
+            // Images are normalized to a high-quality JPEG when very large; videos
+            // keep original quality but are bounded by size and duration. Audio and
+            // documents now have their own explicit caps instead of silently
+            // inheriting the 100 MB global ceiling.
+            val limit = mediaUploadLimit(type)
+            if (resolved.third > limit) {
+                error.value = "This ${mediaKindLabel(type)} is too large. " +
+                    "Maximum size is ${mediaUploadLimitMb(type)} MB."
+                return@launch
+            }
             if (type == MessageType.IMAGE) {
-                if (resolved.third > 25L * 1024 * 1024) {
-                    error.value = "This photo is too large. Choose a photo under 25 MB."
-                    return@launch
-                }
                 resolved = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { compressLargeImage(resolved) }
             }
             var durationMs: Long? = null
             if (type == MessageType.VIDEO || type == MessageType.AUDIO) {
                 durationMs = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { mediaDuration(resolved.first) }
             }
-            if (type == MessageType.VIDEO) {
-                if (resolved.third > Constants.MAX_UPLOAD_BYTES) {
-                    error.value = "This video is too large. Maximum size is 100 MB."
-                    return@launch
-                }
-                if ((durationMs ?: 0L) > 10L * 60L * 1000L) {
-                    error.value = "This video is too long. Maximum duration is 10 minutes."
-                    return@launch
-                }
+            if (type == MessageType.VIDEO && (durationMs ?: 0L) > 10L * 60L * 1000L) {
+                error.value = "This video is too long. Maximum duration is 10 minutes."
+                return@launch
             }
             val result = mediaRepository.enqueueUpload(
                 conversationId = conversationId,
@@ -638,8 +640,10 @@ class ChatViewModel @Inject constructor(
                 error.value = "One or more selected photos couldn't be read. Review the album and try again."
                 return@launch
             }
-            if (baseItems.filterNotNull().any { it.third > 25L * 1024 * 1024 }) {
-                error.value = "One or more photos exceed 25 MB. Remove the large photo and try again."
+            val imageLimit = mediaUploadLimit(MessageType.IMAGE)
+            if (baseItems.filterNotNull().any { it.third > imageLimit }) {
+                error.value = "One or more photos exceed ${mediaUploadLimitMb(MessageType.IMAGE)} MB. " +
+                    "Remove the large photo and try again."
                 return@launch
             }
             val resolved = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {

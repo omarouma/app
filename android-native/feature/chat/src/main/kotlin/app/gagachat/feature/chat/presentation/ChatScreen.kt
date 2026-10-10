@@ -49,6 +49,7 @@ import androidx.compose.material.icons.filled.Checklist
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.MoreVert
@@ -109,6 +110,7 @@ import app.gagachat.core.ui.component.GagaScaffold
 import app.gagachat.core.ui.theme.GagaDimens
 import app.gagachat.feature.chat.presentation.components.DateSeparator
 import app.gagachat.feature.chat.presentation.components.DocumentOpenOverlay
+import app.gagachat.feature.chat.presentation.components.DocumentSaveOverlay
 import app.gagachat.feature.chat.presentation.components.ForwardPickerSheet
 import app.gagachat.feature.chat.presentation.components.LocationPreviewDialog
 import app.gagachat.feature.chat.presentation.components.LiveLocationDurationDialog
@@ -124,6 +126,7 @@ import app.gagachat.feature.chat.presentation.components.MessageComposer
 import app.gagachat.feature.chat.presentation.components.TypingIndicator
 import app.gagachat.feature.chat.presentation.components.rememberContactPicker
 import app.gagachat.feature.chat.presentation.components.rememberDocumentOpener
+import app.gagachat.feature.chat.presentation.components.rememberDocumentSaver
 import app.gagachat.feature.chat.presentation.components.rememberMediaPicker
 import kotlinx.coroutines.launch
 
@@ -195,6 +198,7 @@ fun ChatRoute(
     )
     val context = LocalContext.current
     val documentOpener = rememberDocumentOpener()
+    val documentSaver = rememberDocumentSaver()
     var viewerMessage by remember { mutableStateOf<Message?>(null) }
     var forwardingMessage by remember { mutableStateOf<Message?>(null) }
     var showBackgroundPicker by remember { mutableStateOf(false) }
@@ -535,6 +539,8 @@ fun ChatRoute(
 
         DocumentOpenOverlay(state = documentOpener.state, onDismiss = documentOpener::dismiss)
 
+        DocumentSaveOverlay(state = documentSaver.state, onDismiss = documentSaver::dismiss)
+
         pendingLocation?.let { preview ->
             LocationPreviewDialog(
                 preview = preview,
@@ -618,6 +624,10 @@ fun ChatRoute(
                     viewModel.selectMessage(null)
                 },
                 onSave = { viewModel.saveMessage(selected); viewModel.selectMessage(null) },
+                onSaveToDevice = {
+                    viewModel.selectMessage(null)
+                    documentSaver.save(selected)
+                },
                 onTask = { viewModel.selectMessage(null); onDailyAction("task", selected.text.orEmpty(), selected.conversationId, selected.serverMessageId.orEmpty()) },
                 onNote = { viewModel.selectMessage(null); onDailyAction("note", selected.text.orEmpty(), selected.conversationId, selected.serverMessageId.orEmpty()) },
                 onRemind = { viewModel.selectMessage(null); onDailyAction("reminder", selected.text.orEmpty(), selected.conversationId, selected.serverMessageId.orEmpty()) },
@@ -867,6 +877,7 @@ private fun MessageActionSheet(
     onDelete: () -> Unit,
     onDeleteForMe: () -> Unit,
     onSave: () -> Unit,
+    onSaveToDevice: () -> Unit,
     onTask: () -> Unit,
     onNote: () -> Unit,
     onRemind: () -> Unit,
@@ -928,6 +939,11 @@ private fun MessageActionSheet(
             if (canCopy) ActionRow(Icons.Filled.ContentCopy, "Copy", onCopy)
             if (!message.isDeleted) {
                 ActionRow(Icons.Filled.Bookmark, "Save privately", onSave)
+                // V3.0 Sprint B (row #6): documents can be saved to a
+                // user-chosen location, not just opened (guide's "Open/save").
+                if (message.type == MessageType.FILE) {
+                    ActionRow(Icons.Filled.Download, "Save to device", onSaveToDevice)
+                }
                 HorizontalDivider(modifier = Modifier.padding(vertical = GagaDimens.space4))
                 if (smartSuggestions.isNotEmpty()) {
                     Text("Suggested", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(horizontal = GagaDimens.space24, vertical = GagaDimens.space8))

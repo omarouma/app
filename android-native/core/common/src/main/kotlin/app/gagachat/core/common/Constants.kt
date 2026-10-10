@@ -30,8 +30,25 @@ object Constants {
     /** Image thumbnails are decoded at this max dimension in lists (PDF §6). */
     const val THUMBNAIL_MAX_DIMEN_PX = 512
 
-    /** Max upload size accepted client-side before server-side validation. */
+    /**
+     * Absolute ceiling accepted client-side before server-side validation. No
+     * single attachment may exceed this regardless of type.
+     */
     const val MAX_UPLOAD_BYTES = 100L * 1024 * 1024
+
+    /**
+     * Per-type client-side upload caps (V3.0 Sprint B, checklist row #6).
+     *
+     * Documents and audio previously had no cap of their own and silently fell
+     * through to the 100 MB global ceiling, so a user could queue a 90 MB PDF and
+     * only discover the problem after a long, doomed upload. Each media kind now
+     * has an explicit, user-facing limit that is enforced *before* the item enters
+     * the durable upload queue.
+     */
+    const val MAX_IMAGE_UPLOAD_BYTES = 25L * 1024 * 1024
+    const val MAX_VIDEO_UPLOAD_BYTES = 100L * 1024 * 1024
+    const val MAX_AUDIO_UPLOAD_BYTES = 25L * 1024 * 1024
+    const val MAX_DOCUMENT_UPLOAD_BYTES = 50L * 1024 * 1024
 
     /** WorkManager unique work names. */
     const val WORK_OUTBOX_SYNC = "gaga_outbox_sync"

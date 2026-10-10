@@ -118,8 +118,16 @@ class DefaultMediaRepository @Inject constructor(
         durationMs: Long?,
         caption: String?,
     ): AppResult<Message> = withContext(dispatchers.io) {
-        if (size > app.gagachat.core.common.Constants.MAX_UPLOAD_BYTES) {
-            return@withContext AppResult.Failure(AppError.Validation("File too large"))
+        // Per-type cap (V3.0 Sprint B): audio and documents used to share the
+        // 100 MB global ceiling, so oversized items were queued and failed late.
+        val limit = mediaUploadLimit(type)
+        if (size > limit) {
+            return@withContext AppResult.Failure(
+                AppError.Validation(
+                    "This ${mediaKindLabel(type)} is too large. " +
+                        "Maximum size is ${mediaUploadLimitMb(type)} MB.",
+                ),
+            )
         }
         val clientMessageId = idGenerator.newClientMessageId()
         val uploadId = idGenerator.newUploadId()
@@ -172,8 +180,13 @@ class DefaultMediaRepository @Inject constructor(
         if (items.isEmpty()) {
             return@withContext AppResult.Failure(AppError.Validation("No photos selected"))
         }
-        if (items.any { it.size > app.gagachat.core.common.Constants.MAX_UPLOAD_BYTES }) {
-            return@withContext AppResult.Failure(AppError.Validation("File too large"))
+        val imageLimit = mediaUploadLimit(MessageType.IMAGE)
+        if (items.any { it.size > imageLimit }) {
+            return@withContext AppResult.Failure(
+                AppError.Validation(
+                    "One or more photos exceed ${mediaUploadLimitMb(MessageType.IMAGE)} MB.",
+                ),
+            )
         }
         val clientMessageId = idGenerator.newClientMessageId()
         val now = timeProvider.nowMillis()
