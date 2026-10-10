@@ -251,7 +251,8 @@ class DefaultCallRepository @Inject constructor(
                 val secs = (durationMs ?: 0L) / 1000
                 "Answered $kind \u2022 ${secs / 60}m ${secs % 60}s"
             }
-            status == CallStatus.MISSED || status == CallStatus.BUSY -> "Missed $kind"
+            status == CallStatus.MISSED -> "Missed $kind"
+            status == CallStatus.BUSY -> "Busy $kind"
             status == CallStatus.REJECTED -> "Declined $kind"
             status == CallStatus.FAILED -> "Failed $kind"
             status == CallStatus.ENDED && session.isOutgoing -> "Cancelled $kind"

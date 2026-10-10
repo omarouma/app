@@ -85,6 +85,13 @@ data class CallUiState(
     val callLaunched: Boolean = false,
     /** True while the LiveKit room is connected and calls can flow. */
     val callingReady: Boolean = false,
+    /**
+     * True once the peer actually joined the room (i.e. the call was answered).
+     * This is the durable "was connected" signal: unlike [elapsedSeconds] it
+     * survives a peer hanging up within the first second, so a short but answered
+     * call is not misclassified as MISSED.
+     */
+    val hasConnected: Boolean = false,
     /** Remote participants currently in the room. */
     val peers: List<CallPeer> = emptyList(),
     val connectionQuality: ConnectionQuality = ConnectionQuality.UNKNOWN,
@@ -183,6 +190,9 @@ class CallViewModel @Inject constructor(
                     current.copy(
                         peers = peers,
                         phase = nextPhase,
+                        // Latched once the peer joins; never cleared mid-call so a
+                        // brief connection still counts as an answered call.
+                        hasConnected = current.hasConnected || nextPhase == CallPhase.CONNECTED,
                         connectionQuality = peers.firstOrNull()?.connectionQuality
                             ?: current.connectionQuality,
                     )
@@ -310,6 +320,7 @@ class CallViewModel @Inject constructor(
                 peerAvatar = null,
                 peers = emptyList(),
                 elapsedSeconds = 0L,
+                hasConnected = false,
                 conversationId = conversationId,
                 isVideoCall = isVideo,
                 isVideoEnabled = isVideo,
@@ -354,6 +365,7 @@ class CallViewModel @Inject constructor(
                                 isVideoCall = isVideo,
                                 isVideoEnabled = isVideo,
                                 elapsedSeconds = 0L,
+                                hasConnected = false,
                             )
                         }
                         startRingTimeout()
@@ -442,6 +454,7 @@ class CallViewModel @Inject constructor(
                 isVideoCall = isVideo,
                 isVideoEnabled = false,
                 elapsedSeconds = 0L,
+                hasConnected = false,
                 error = null,
             )
         }
@@ -606,6 +619,7 @@ class CallViewModel @Inject constructor(
                 activeCall = null,
                 callId = null,
                 elapsedSeconds = 0L,
+                hasConnected = false,
                 callLaunched = false,
                 error = null,
             )
@@ -621,7 +635,10 @@ class CallViewModel @Inject constructor(
         // network dropped, SFU failure).
         val status = when {
             info.error != null -> CallStatus.FAILED
-            _state.value.elapsedSeconds > 0L -> CallStatus.ENDED
+            // A call that actually connected (the peer joined the room) is ENDED
+            // even if it lasted under a second; only a call that never connected
+            // is MISSED. Using elapsedSeconds here misread short calls.
+            _state.value.hasConnected -> CallStatus.ENDED
             else -> CallStatus.MISSED
         }
         finalizeCall(status, error = info.error)
@@ -753,11 +770,13 @@ class CallViewModel @Inject constructor(
         if (callId != null) callSignalingCoordinator.leaveCall(callId)
 
         val durationMs = _state.value.elapsedSeconds * 1000L
-        // A call that never connected (0 seconds of media) is not a completed
-        // call. Recording it as ENDED produced the misleading "Voice call \u00b7 0m 0s"
-        // bubble; classifying it as MISSED is what the user actually experienced.
+        // A call that never connected (the peer never joined the room) is not a
+        // completed call. Recording it as ENDED produced the misleading
+        // "Voice call · 0m 0s" bubble; classifying it as MISSED is what the user
+        // actually experienced. The durable [CallUiState.hasConnected] latch is the
+        // signal — a connected call that dropped quickly is still ENDED.
         val effectiveStatus =
-            if (status == CallStatus.ENDED && durationMs <= 0L) CallStatus.MISSED else status
+            if (status == CallStatus.ENDED && !_state.value.hasConnected) CallStatus.MISSED else status
 
         // Flip the UI to "ended" synchronously so the call surface closes without
         // waiting on the network write; persistence happens in the background.
