@@ -41,6 +41,8 @@ import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.http.ContentType
 import io.ktor.http.contentType
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
@@ -653,6 +655,34 @@ class SupabaseRestApi @Inject constructor(
         }
     }
 
+    // ---- Account-scoped Favorite Friends ----
+    // RLS restricts reads and writes to the authenticated owner; INSERT policy
+    // additionally requires a live friendship. Never treat a local save as sync.
+    suspend fun getFavoriteFriendIds(ownerId: String): Set<String> =
+        client.get("${config.restUrl}/favorite_friends") {
+            auth()
+            parameter("select", "friend_id")
+            parameter("user_id", "eq.$ownerId")
+        }.body<List<FavoriteFriendRow>>().map { it.friendId }.toSet()
+
+    suspend fun setFavoriteFriend(ownerId: String, friendId: String, favorite: Boolean) {
+        if (favorite) {
+            client.post("${config.restUrl}/favorite_friends") {
+                auth()
+                parameter("on_conflict", "user_id,friend_id")
+                header("Prefer", "resolution=ignore-duplicates,return=minimal")
+                contentType(ContentType.Application.Json)
+                setBody(mapOf("user_id" to ownerId, "friend_id" to friendId))
+            }
+        } else {
+            client.delete("${config.restUrl}/favorite_friends") {
+                auth()
+                parameter("user_id", "eq.$ownerId")
+                parameter("friend_id", "eq.$friendId")
+            }
+        }
+    }
+
     // ---- Friendships ----
 
     suspend fun getFriendships(userId: String): List<FriendshipRow> =
@@ -1048,3 +1078,9 @@ class SupabaseRestApi @Inject constructor(
         }
     }
 }
+
+
+@Serializable
+private data class FavoriteFriendRow(
+    @SerialName("friend_id") val friendId: String,
+)
