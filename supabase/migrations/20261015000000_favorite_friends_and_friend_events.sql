@@ -100,3 +100,14 @@ create trigger trg_gaga_friend_request_notify_accept
   execute function public.gaga_friend_event_notification();
 
 revoke all on function public.gaga_friend_event_notification() from public, anon, authenticated;
+
+-- Push delivery idempotency for the authenticated friend-event Edge Function.
+-- Only the server's service role can inspect or record dispatch attempts.
+create table if not exists public.friend_push_dispatches (
+  request_id uuid not null references public.friend_requests(id) on delete cascade,
+  event_type text not null check (event_type in ('friend_request', 'friend_accepted')),
+  created_at timestamptz not null default now(),
+  primary key (request_id, event_type)
+);
+alter table public.friend_push_dispatches enable row level security;
+revoke all on public.friend_push_dispatches from public, anon, authenticated;
