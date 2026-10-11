@@ -61,6 +61,7 @@ object DeepLinkRouter {
             "missed_call" -> "calls"
             "friend_request", "friend_accepted", "friend" -> "people"
             "security" -> "settings/security"
+            "app_update" -> "daily"
             "group", "group_message" -> conversationId?.let { "chat/$it" }
             else -> conversationId?.let { "chat/$it" }
         }
@@ -88,6 +89,7 @@ object DeepLinkRouter {
                 "chat" -> segments.firstOrNull()?.let { "chat/$it" }
                 "call" -> incomingCallRoute(uri, segments.firstOrNull())
                 "calls" -> "calls"
+                "today" -> "daily"
                 "requests", "friends" -> "people"
                 "security" -> "settings/security"
                 "settings" -> segments.firstOrNull()?.let { "settings/$it" } ?: "settings"
