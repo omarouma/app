@@ -22,6 +22,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Chat
+import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.Delete
@@ -93,6 +95,7 @@ fun ChatInfoRoute(
 
     var showReport by remember { mutableStateOf(false) }
     var selectedMedia by remember { mutableStateOf<Message?>(null) }
+    var pendingManagement by remember { mutableStateOf<String?>(null) }
     if (showReport) androidx.compose.material3.AlertDialog(
         onDismissRequest = { showReport = false },
         title = { Text("Report this user") },
@@ -162,7 +165,7 @@ fun ChatInfoRoute(
                 InfoAction(Icons.Filled.Videocam, "Video") {
                     onStartCall(state.conversationId, true)
                 }
-                InfoAction(Icons.Filled.Search, "Search") {
+                InfoAction(Icons.AutoMirrored.Filled.Chat, "Open chat") {
                     onNavigateBack()
                 }
                 InfoAction(Icons.Filled.Person, "Profile") {
@@ -285,19 +288,19 @@ fun ChatInfoRoute(
                 icon = Icons.Filled.Delete,
                 label = "Clear Chat",
                 description = "Remove this conversation's messages from this device.",
-                onClick = viewModel::clearChat,
+                onClick = { pendingManagement = "clear" },
             )
             ManagementRow(
                 icon = Icons.Filled.PersonRemove,
                 label = "Remove Friend",
                 description = "Remove this contact from your friends list.",
-                onClick = viewModel::removeFriend,
+                onClick = { pendingManagement = "remove" },
             )
             ManagementRow(
                 icon = Icons.Filled.Block,
                 label = "Block User",
                 description = "Stop receiving messages and calls from this contact.",
-                onClick = viewModel::blockUser,
+                onClick = { pendingManagement = "block" },
                 destructive = true,
             )
             ManagementRow(
@@ -312,6 +315,40 @@ fun ChatInfoRoute(
     }
     selectedMedia?.let { message ->
         MediaViewerOverlay(message = message, onDismiss = { selectedMedia = null })
+    }
+    pendingManagement?.let { action ->
+        val title = when (action) {
+            "clear" -> "Clear this chat?"
+            "remove" -> "Remove this friend?"
+            else -> "Block this user?"
+        }
+        val description = when (action) {
+            "clear" -> "Remove this conversation's locally stored messages from this device. This cannot be undone."
+            "remove" -> "Remove this person from your friends. Existing messages remain."
+            else -> "Stop receiving messages and calls from this person until unblocked."
+        }
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { pendingManagement = null },
+            title = { Text(title) },
+            text = { Text(description) },
+            confirmButton = {
+                androidx.compose.material3.TextButton(onClick = {
+                    pendingManagement = null
+                    when (action) {
+                        "clear" -> viewModel.clearChat()
+                        "remove" -> viewModel.removeFriend()
+                        "block" -> viewModel.blockUser()
+                    }
+                }) {
+                    Text("Confirm", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                androidx.compose.material3.TextButton(onClick = { pendingManagement = null }) {
+                    Text("Cancel")
+                }
+            },
+        )
     }
 }
 
@@ -342,7 +379,16 @@ private fun SharedMediaThumbnail(
                 Text("Video", modifier = Modifier.align(Alignment.BottomCenter).padding(6.dp),
                     style = MaterialTheme.typography.labelMedium)
             } else {
-                CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
+                // A private link can fail to resolve while offline; never
+                // display an endless loading spinner. The user can tap to try
+                // the authenticated in-app viewer.
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Icon(Icons.Filled.Image, contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(28.dp))
+                    Text("Tap to view", style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
             }
         } else {
             SubcomposeAsyncImage(
