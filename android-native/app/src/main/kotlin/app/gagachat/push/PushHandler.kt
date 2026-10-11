@@ -127,6 +127,7 @@ class PushHandler @Inject constructor(
                     title = title,
                     body = body,
                     route = "requests",
+                    friendEvent = true,
                     soundEnabled = soundsEnabled,
                     notificationsEnabled = notificationsEnabled,
                 )
