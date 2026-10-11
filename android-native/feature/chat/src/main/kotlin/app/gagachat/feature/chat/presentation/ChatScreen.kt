@@ -317,7 +317,7 @@ fun ChatRoute(
     val forwardSelected = {
         // ForwardPicker supports one message. Never silently discard the rest
         // of a user's multi-selection.
-        if (selectedIds.size == 1) {
+        if (canForwardSelection(selectedIds.size)) {
             state.messages.firstOrNull { it.localId in selectedIds }?.let { forwardingMessage = it }
             exitSelectionMode()
         }
@@ -358,7 +358,7 @@ fun ChatRoute(
                     }
                     IconButton(
                         onClick = { forwardSelected() },
-                        enabled = selectedIds.size == 1,
+                        enabled = canForwardSelection(selectedIds.size),
                     ) {
                         Icon(Icons.AutoMirrored.Filled.Forward, contentDescription = "Forward one selected message")
                     }
