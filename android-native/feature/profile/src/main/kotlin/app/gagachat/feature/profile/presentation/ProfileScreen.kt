@@ -462,7 +462,7 @@ private fun ProfileHeader(
             }
         }
 
-        // Overlapping avatar with a gold ring + verified check.
+        // Avatar ring is gold only when the account has the verified premium entitlement.
         Box(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
@@ -475,7 +475,9 @@ private fun ProfileHeader(
                     .background(MaterialTheme.colorScheme.surface)
                     .padding(3.dp)
                     .clip(CircleShape)
-                    .border(width = 3.dp, color = ProfileGold, shape = CircleShape)
+                    .border(width = 3.dp,
+                        color = if (user?.isPremium == true) ProfileGold else MaterialTheme.colorScheme.outlineVariant,
+                        shape = CircleShape)
                     .padding(2.dp)
                     .then(
                         if (avatarUrl != null) {
@@ -1119,8 +1121,8 @@ private fun CompletenessCard(percent: Int, privacy: app.gagachat.core.model.Acco
         )
         Spacer(Modifier.height(GagaDimens.space12))
         Row(horizontalArrangement = Arrangement.spacedBy(GagaDimens.space8)) {
-            Box(Modifier.clickable(onClick = onPrivacy)) { StatusTag("Online: " + (if (privacy.onlineStatus == app.gagachat.core.model.PrivacyAudience.SAME_AS_LAST_SEEN) privacy.lastSeen.label else privacy.onlineStatus.label)) }
-            Box(Modifier.clickable(onClick = onPrivacy)) { StatusTag("Friends: " + privacy.friendList.label) }
+            Box(Modifier.clickable(onClick = onPrivacy)) { StatusTag("Online visibility: " + (if (privacy.onlineStatus == app.gagachat.core.model.PrivacyAudience.SAME_AS_LAST_SEEN) privacy.lastSeen.label else privacy.onlineStatus.label)) }
+            Box(Modifier.clickable(onClick = onPrivacy)) { StatusTag("Friend list: " + privacy.friendList.label) }
         }
     }
 }
