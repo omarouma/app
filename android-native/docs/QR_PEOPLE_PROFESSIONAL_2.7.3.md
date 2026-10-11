@@ -35,10 +35,10 @@
 
 ## Build/test locally
 
-Open the project root `android-native/` in Android Studio (JDK 17, Android SDK API 36), configure the existing Firebase public client files and secure backend config per the repository guide, then run:
+Open the project root `android-native/` in Android Studio (JDK 17, Android SDK API 36), configure the existing Firebase public client files and secure backend config per the repository guide, then run from the \`android-native\` directory (with Gradle installed; this repository's CI uses the Gradle executable rather than a checked-in \`./gradlew\` script):
 
 ```bash
-./gradlew :feature:qr:testReleaseUnitTest :app:assembleRelease :app:bundleRelease
+gradle --no-daemon :feature:qr:testReleaseUnitTest :app:assembleRelease :app:bundleRelease
 ```
 
 For direct terminal use in GitHub Actions, follow `.github/workflows/android-repair.yml`; the current keyless CI typically produces unsigned artifacts. A *signed* release still requires the **same original matching keystore** as the installed GaGa 2.7.2 releases. The QR source ZIP is **not** an APK.
