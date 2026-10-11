@@ -177,11 +177,16 @@ object NotificationHelper {
         body: String,
         route: String? = null,
         security: Boolean = false,
+        friendEvent: Boolean = false,
         soundEnabled: Boolean = true,
         notificationsEnabled: Boolean = true,
     ) {
         if (!notificationsEnabled) return
-        val channel = if (security) NotificationChannels.SECURITY else NotificationChannels.MESSAGES
+        val channel = when {
+            security -> NotificationChannels.SECURITY
+            friendEvent -> NotificationChannels.FRIEND_REQUESTS
+            else -> NotificationChannels.MESSAGES
+        }
         val intent = Intent(context, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
             if (route != null) data = android.net.Uri.parse("gagachat://$route")
