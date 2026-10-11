@@ -5,7 +5,6 @@ import android.app.NotificationManager
 import android.content.Context
 import android.media.AudioAttributes
 import android.media.RingtoneManager
-import android.os.Build
 
 /**
  * Notification channels (PDF §8 / Master Spec §C — notifications).
@@ -38,7 +37,6 @@ object NotificationChannels {
     const val GENERAL = "gaga_general"
 
     fun createAll(context: Context) {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
         val manager = context.getSystemService(NotificationManager::class.java) ?: return
 
         val defaultSound = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
