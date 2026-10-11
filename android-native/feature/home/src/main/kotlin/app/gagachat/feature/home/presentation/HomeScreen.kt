@@ -1,5 +1,9 @@
 package app.gagachat.feature.home.presentation
 
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
@@ -15,6 +19,9 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -28,6 +35,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -38,7 +46,19 @@ import app.gagachat.core.ui.component.GagaLoading
 import app.gagachat.core.ui.component.GagaScaffold
 import app.gagachat.core.ui.component.GagaSearchBar
 import app.gagachat.core.ui.theme.GagaDimens
+import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
+
+/**
+ * Presentation-only filters. Conversation ordering and privacy remain owned by
+ * HomeViewModel and ConversationRepository; these tabs never mutate messages.
+ */
+private enum class ChatInboxFilter(val label: String) {
+    ALL("All"),
+    UNREAD("Unread"),
+    PINNED("Pinned"),
+    ARCHIVED("Archived"),
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -55,6 +75,16 @@ fun HomeRoute(
 
     // Conversation awaiting delete confirmation (opened from the context menu).
     var pendingDelete by remember { mutableStateOf<Conversation?>(null) }
+    var currentFilter by rememberSaveable { mutableStateOf(ChatInboxFilter.ALL.name) }
+
+    val visibleConversations = remember(state.conversations, currentFilter) {
+        when (currentFilter) {
+            ChatInboxFilter.UNREAD.name -> state.conversations.filter { it.unreadCount > 0 && !it.isArchived }
+            ChatInboxFilter.PINNED.name -> state.conversations.filter { it.isPinned && !it.isArchived }
+            ChatInboxFilter.ARCHIVED.name -> state.conversations.filter { it.isArchived }
+            else -> state.conversations.filterNot { it.isArchived }
+        }
+    }
 
     LaunchedEffect(state.errorMessage) {
         state.errorMessage?.let {
@@ -66,11 +96,11 @@ fun HomeRoute(
     pendingDelete?.let { conversation ->
         AlertDialog(
             onDismissRequest = { pendingDelete = null },
-            title = { Text("Delete conversation?") },
+            title = { Text("Delete chat for everyone?") },
             text = {
                 Text(
-                    "This deletes the shared conversation on the server, including its messages for participants. " +
-                        "This can't be undone.",
+                    "This permanently removes the shared conversation and messages for all participants. " +
+                        "This is not the same as archiving or deleting only for yourself. This can't be undone.",
                 )
             },
             confirmButton = {
@@ -81,7 +111,7 @@ fun HomeRoute(
                         }
                         pendingDelete = null
                     },
-                ) { Text("Delete") }
+                ) { Text("Delete for everyone") }
             },
             dismissButton = {
                 TextButton(onClick = { pendingDelete = null }) { Text("Cancel") }
@@ -123,18 +153,42 @@ fun HomeRoute(
             GagaSearchBar(
                 query = state.query,
                 onQueryChange = viewModel::onQueryChange,
-                placeholder = "Search conversations",
+                placeholder = "Search chats or messages",
             )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState())
+                    .padding(horizontal = GagaDimens.space16, vertical = GagaDimens.space4),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                ChatInboxFilter.entries.forEach { filter ->
+                    FilterChip(
+                        selected = currentFilter == filter.name,
+                        onClick = { currentFilter = filter.name },
+                        label = { Text(filter.label) },
+                    )
+                }
+            }
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.40f))
             when {
                 state.isLoading && state.conversations.isEmpty() -> GagaLoading()
-                state.conversations.isEmpty() -> GagaEmptyState(
+                visibleConversations.isEmpty() -> GagaEmptyState(
                     icon = Icons.Filled.ChatBubbleOutline,
-                    title = if (state.query.isBlank()) "No conversations yet" else "No matches",
-                    brandMark = state.query.isBlank(),
-                    description = if (state.query.isBlank()) {
-                        "Start a new chat to see it here."
-                    } else {
-                        "Try a different search term."
+                    title = when {
+                        state.query.isNotBlank() -> "No matching conversations"
+                        currentFilter == ChatInboxFilter.UNREAD.name -> "You're all caught up"
+                        currentFilter == ChatInboxFilter.PINNED.name -> "No pinned chats"
+                        currentFilter == ChatInboxFilter.ARCHIVED.name -> "No archived chats"
+                        else -> "No conversations yet"
+                    },
+                    brandMark = state.query.isBlank() && currentFilter == ChatInboxFilter.ALL.name,
+                    description = when {
+                        state.query.isNotBlank() -> "Try another name or message preview."
+                        currentFilter == ChatInboxFilter.UNREAD.name -> "Unread conversations will appear here."
+                        currentFilter == ChatInboxFilter.PINNED.name -> "Long-press a chat to pin it."
+                        currentFilter == ChatInboxFilter.ARCHIVED.name -> "Conversations you archive appear here."
+                        else -> "Start a new chat to see it here."
                     },
                 )
                 else -> PullToRefreshBox(
@@ -147,7 +201,7 @@ fun HomeRoute(
                         contentPadding = PaddingValues(bottom = GagaDimens.space48),
                     ) {
                         items(
-                            items = state.conversations,
+                            items = visibleConversations,
                             key = { it.id },
                         ) { conversation ->
                             ConversationRow(
