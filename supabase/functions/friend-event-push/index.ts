@@ -7,7 +7,7 @@
  * Durable inbox notifications originate from the database trigger, regardless
  * of whether FCM delivery succeeds.
  */
-const URL = Deno.env.get("SUPABASE_URL") ?? "";
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const ANON = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
 const SERVICE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -25,7 +25,7 @@ async function fetchTimed(path: string, init: RequestInit) {
 
 Deno.serve(async req => {
   if (req.method !== "POST") return json({ error: "METHOD_NOT_ALLOWED" }, 405);
-  if (!URL || !ANON || !SERVICE) return json({ error: "NOT_CONFIGURED" }, 503);
+  if (!SUPABASE_URL || !ANON || !SERVICE) return json({ error: "NOT_CONFIGURED" }, 503);
   const authorization = req.headers.get("Authorization") ?? "";
   if (!authorization.startsWith("Bearer ") || authorization === `Bearer ${SERVICE}`) {
     return json({ error: "USER_AUTH_REQUIRED" }, 401);
@@ -38,7 +38,7 @@ Deno.serve(async req => {
     return json({ error: "INVALID_EVENT" }, 400);
   }
 
-  const verified = await fetchTimed(`${URL}/auth/v1/user`, {
+  const verified = await fetchTimed(`${SUPABASE_URL}/auth/v1/user`, {
     headers: { apikey: ANON, Authorization: authorization },
   }).catch(() => null);
   if (!verified) return json({ error: "AUTH_UNAVAILABLE" }, 503);
@@ -52,7 +52,7 @@ Deno.serve(async req => {
     Authorization: `Bearer ${SERVICE}`,
     "Content-Type": "application/json",
   };
-  const query = new URL(`${URL}/rest/v1/friend_requests`);
+  const query = new URL(`${SUPABASE_URL}/rest/v1/friend_requests`);
   query.searchParams.set("select", "id,from_user_id,to_user_id,status");
   query.searchParams.set("id", `eq.${id}`);
   query.searchParams.set("limit", "1");
@@ -72,7 +72,7 @@ Deno.serve(async req => {
 
   // DB uniqueness makes repeated client invocations a no-op, preventing a
   // compromised client from flooding the other user's devices.
-  const reserve = new URL(`${URL}/rest/v1/friend_push_dispatches`);
+  const reserve = new URL(`${SUPABASE_URL}/rest/v1/friend_push_dispatches`);
   reserve.searchParams.set("on_conflict", "request_id,event_type");
   const reservation = await fetchTimed(reserve.toString(), {
     method: "POST",
@@ -88,7 +88,7 @@ Deno.serve(async req => {
   const text = isRequest
     ? "Someone wants to connect with you on GaGa."
     : "Your friend request was accepted on GaGa.";
-  const send = await fetchTimed(`${URL}/functions/v1/send-fcm-push`, {
+  const send = await fetchTimed(`${SUPABASE_URL}/functions/v1/send-fcm-push`, {
     method: "POST",
     headers: serviceHeaders,
     body: JSON.stringify({
