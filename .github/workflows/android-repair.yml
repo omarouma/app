@@ -30,6 +30,10 @@ jobs:
           node-version: '24'
       - name: Test LiveKit token authorization
         run: node --test supabase/functions/livekit-token/tests/token.test.mjs supabase/functions/create-call/tests/admission.test.mjs
+      - name: Test friend-event push authorization
+        run: node --test supabase/functions/friend-event-push/tests/dispatch.test.mjs
+      - name: Test FCM notification recipient protection
+        run: node --test supabase/functions/send-fcm-push/tests/push.test.mjs
       - name: Read app version
         run: |
           python3 - <<'PYVERSION'
@@ -46,7 +50,7 @@ jobs:
       - uses: android-actions/setup-android@v3
         with:
           cmdline-tools-version: '11076708'
-          packages: 'platform-tools platforms;android-35 build-tools;34.0.0'
+          packages: 'platform-tools platforms;android-36 build-tools;35.0.0'
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.11.1'
@@ -91,9 +95,60 @@ jobs:
           PYFIREBASE
       - name: Configure existing public backend
         run: python3 android-native/ci/prepare.py
+      - name: Package professional chat source files
+        # Source can still be inspected if later Android compilation fails.
+        run: |
+          mkdir -p deliverables
+          zip -q deliverables/GaGa-2.7.3-professional-chat-source.zip \
+            android-native/feature/home/src/main/kotlin/app/gagachat/feature/home/presentation/HomeScreen.kt \
+            android-native/feature/home/src/main/kotlin/app/gagachat/feature/home/presentation/HomeViewModel.kt \
+            android-native/feature/home/src/main/kotlin/app/gagachat/feature/home/presentation/ConversationRow.kt \
+            android-native/feature/chat/src/main/kotlin/app/gagachat/feature/chat/presentation/ChatScreen.kt \
+            android-native/feature/chat/src/main/kotlin/app/gagachat/feature/chat/presentation/ChatUiPolicy.kt \
+            android-native/feature/chat/src/main/kotlin/app/gagachat/feature/chat/presentation/components/MessageBubble.kt \
+            android-native/feature/chat/src/main/kotlin/app/gagachat/feature/chat/presentation/components/MessageComposer.kt \
+            android-native/feature/chat/src/test/kotlin/app/gagachat/feature/chat/presentation/ChatUiPolicyTest.kt \
+            android-native/docs/PROFESSIONAL_CHAT_UI_2.7.3.md
+      - name: Package QR and People source files
+        run: |
+          mkdir -p deliverables
+          zip -q deliverables/GaGa-2.7.3-QR-People-improvements-source.zip \
+            android-native/feature/qr/src/main/kotlin/app/gagachat/feature/qr/MyQrViewModel.kt \
+            android-native/feature/qr/src/main/kotlin/app/gagachat/feature/qr/MyQrScreen.kt \
+            android-native/feature/qr/src/main/kotlin/app/gagachat/feature/qr/AddByCodeViewModel.kt \
+            android-native/feature/qr/src/main/kotlin/app/gagachat/feature/qr/AddByCodeScreen.kt \
+            android-native/feature/qr/src/main/kotlin/app/gagachat/feature/qr/QrCameraScanner.kt \
+            android-native/feature/qr/src/main/kotlin/app/gagachat/feature/qr/QrImageDecoder.kt \
+            android-native/feature/qr/src/main/kotlin/app/gagachat/feature/qr/QrNavigation.kt \
+            android-native/feature/qr/src/test/kotlin/app/gagachat/feature/qr/QrPayloadTest.kt \
+            android-native/feature/qr/build.gradle.kts \
+            android-native/feature/people/src/main/kotlin/app/gagachat/feature/people/PeopleScreen.kt \
+            android-native/feature/people/src/main/kotlin/app/gagachat/feature/people/PeopleViewModel.kt \
+            android-native/feature/people/src/main/kotlin/app/gagachat/feature/people/PeopleNavigation.kt \
+            android-native/feature/people/src/main/kotlin/app/gagachat/feature/people/DiscoverScreen.kt \
+            android-native/feature/people/src/main/kotlin/app/gagachat/feature/people/DiscoverViewModel.kt \
+            android-native/app/src/main/kotlin/app/gagachat/navigation/MainNavHost.kt \
+            android-native/docs/QR_PEOPLE_PROFESSIONAL_2.7.3.md
+      - name: Package People synchronization sources
+        run: |
+          mkdir -p deliverables
+          zip -q deliverables/GaGa-2.7.3-People-Sync-Notifications-source.zip \
+            android-native/core/network/src/main/kotlin/app/gagachat/core/network/rest/SupabaseRestApi.kt \
+            android-native/core/data/src/main/kotlin/app/gagachat/core/data/preferences/FavoritePeoplePreferences.kt \
+            android-native/core/data/src/main/kotlin/app/gagachat/core/data/repository/FriendsRepository.kt \
+            android-native/feature/people/src/main/kotlin/app/gagachat/feature/people/PeopleViewModel.kt \
+            android-native/feature/people/src/main/kotlin/app/gagachat/feature/people/DiscoverScreen.kt \
+            android-native/app/src/main/kotlin/app/gagachat/push/PushHandler.kt \
+            android-native/app/src/main/kotlin/app/gagachat/push/NotificationHelper.kt \
+            android-native/app/src/main/kotlin/app/gagachat/push/NotificationChannels.kt \
+            supabase/migrations/20261015000000_favorite_friends_and_friend_events.sql \
+            supabase/functions/friend-event-push/index.ts \
+            supabase/functions/friend-event-push/tests/dispatch.test.mjs \
+            supabase/functions/send-fcm-push/index.ts \
+            android-native/docs/PEOPLE_SYNC_NOTIFICATIONS_2.7.3.md
       - name: Compile release and test messaging and call contracts
         working-directory: android-native
-        run: gradle --no-daemon --no-build-cache --max-workers=2 -Pksp.incremental=false :feature:dailylife:compileReleaseKotlin :app:assembleRelease :app:bundleRelease :core:model:test :core:data:testReleaseUnitTest :core:network:testReleaseUnitTest :feature:chat:testReleaseUnitTest :feature:calls:testReleaseUnitTest
+        run: gradle --no-daemon --no-build-cache --max-workers=2 -Pksp.incremental=false :feature:dailylife:compileReleaseKotlin :app:assembleRelease :app:bundleRelease :core:model:test :core:data:testReleaseUnitTest :core:network:testReleaseUnitTest :feature:chat:testReleaseUnitTest :feature:qr:testReleaseUnitTest :feature:calls:testReleaseUnitTest
       - name: Package release artifacts
         run: |
           mkdir -p deliverables
@@ -115,13 +170,14 @@ jobs:
           trap 'rm -f "$keyfile"' EXIT
           printf '%s' "$KEYSTORE_BASE64" | base64 -d > "$keyfile"
           actual=$(keytool -exportcert -keystore "$keyfile" -storepass:env STORE_PASSWORD -alias "$KEY_ALIAS" | sha256sum | cut -d' ' -f1)
+          # 2.7.2 (versionCode 47) is the chosen release identity. Never
+          # silently substitute a new or older key: that would break in-place
+          # Android updates and could also invalidate Play upload signing.
           case "$actual" in
-            c06fd3ccb3a7e66e56e6a7be8a7253db1b54afab666647d63c4e4d6de5161c57)
-              echo 'Signing certificate matches the supplied 2.0.30 APK.' > deliverables/UPDATE-COMPATIBILITY.txt ;;
-            f3eab57a0acda4d380681056d325503180e0f7185cd8773a7887a8048e207cc2)
-              echo 'Signing certificate matches the supplied 2.0.27 APK only. This cannot update the differently signed 2.0.30 APK.' > deliverables/UPDATE-COMPATIBILITY.txt ;;
+            bd95b298a3e64314f3135579c3b827e982c033556472693a59472dc8ebf6c89a)
+              echo 'Signer matches the verified GaGa 2.7.2 certificate; in-place APK updates are compatible.' > deliverables/UPDATE-COMPATIBILITY.txt ;;
             *)
-              echo 'The configured signing certificate does not match either supplied APK. No replacement key was used.' > deliverables/SIGNING-REQUIRED.txt
+              echo 'Configured keystore is NOT the current GaGa 2.7.2 signing identity. No mismatched APK/AAB will be signed.' > deliverables/SIGNING-REQUIRED.txt
               exit 0 ;;
           esac
           signer=$(find "$ANDROID_HOME/build-tools" -name apksigner | sort -V | tail -1)
@@ -138,6 +194,8 @@ jobs:
           path: |
             deliverables/
             android-native/core/model/build/reports/tests/test/
+            android-native/feature/qr/build/reports/tests/testReleaseUnitTest/
+            android-native/feature/qr/build/test-results/testReleaseUnitTest/
             android-native/feature/chat/build/reports/tests/testReleaseUnitTest/
             android-native/feature/chat/build/test-results/testReleaseUnitTest/
             android-native/feature/calls/build/reports/tests/testReleaseUnitTest/

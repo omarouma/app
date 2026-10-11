@@ -148,6 +148,8 @@ async function loadDeviceTokens(userId: string): Promise<string[]> {
   query.searchParams.set('user_id', `eq.${userId}`);
   query.searchParams.set('select', 'push_token');
   query.searchParams.set('push_token', 'not.is.null');
+  // Revoked devices must never keep receiving message or friend notifications.
+  query.searchParams.set('revoked_at', 'is.null');
   try {
     const response = await fetch(query, {
       headers: {
@@ -249,7 +251,8 @@ Deno.serve(async (req: Request) => {
     (isCall ? `Incoming ${callType} call` : 'New message');
 
   const data = toStringMap(body);
-  const channelId = isCall ? 'gaga_calls' : 'gaga_messages';
+  const isFriendEvent = type === 'friend_request' || type === 'friend_accepted';
+  const channelId = isCall ? 'gaga_calls' : isFriendEvent ? 'gaga_friend_requests' : 'gaga_messages';
 
   try {
     const tokens = await loadDeviceTokens(userId);

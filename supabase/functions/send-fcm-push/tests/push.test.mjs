@@ -51,3 +51,15 @@ test('answers CORS preflight', async () => {
   const response = await handler(new Request('https://example/functions/v1/send-fcm-push', { method: 'OPTIONS' }));
   assert.equal(response.status, 204);
 });
+
+test('does not load push tokens from revoked devices', async () => {
+  let requestedUrl = '';
+  globalThis.fetch = async url => {
+    requestedUrl = String(url);
+    return Response.json([]);
+  };
+  const response = await request();
+  assert.equal(response.status, 200);
+  const query = new URL(requestedUrl);
+  assert.equal(query.searchParams.get('revoked_at'), 'is.null');
+});

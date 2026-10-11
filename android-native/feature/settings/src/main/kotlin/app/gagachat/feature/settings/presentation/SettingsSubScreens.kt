@@ -601,14 +601,10 @@ fun AppPermissionsScreen(onBack: () -> Unit) {
             ),
             PermRow(
                 label = "Photos & media",
-                description = "Send and save photos and videos",
-                permissions = mediaPermissions(),
+                description = "Android's file picker grants access only to photos or files you select.",
+                permissions = emptyList(),
                 icon = Icons.Filled.PhotoLibrary,
-                partialPermission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-                    Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED
-                } else {
-                    null
-                },
+                managed = true,
             ),
             PermRow(
                 label = "Location",
@@ -808,20 +804,6 @@ private fun notificationPermissions(): List<String> =
         listOf(Manifest.permission.POST_NOTIFICATIONS)
     } else {
         emptyList()
-    }
-
-private fun mediaPermissions(): List<String> =
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-        buildList {
-            add(Manifest.permission.READ_MEDIA_IMAGES)
-            add(Manifest.permission.READ_MEDIA_VIDEO)
-            // Android 14+ lets users grant partial ("Select photos") access.
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-                add(Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED)
-            }
-        }
-    } else {
-        listOf(Manifest.permission.READ_EXTERNAL_STORAGE)
     }
 
 /** Security settings (Master Spec §C). */

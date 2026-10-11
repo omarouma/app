@@ -30,6 +30,7 @@ fun NavGraphBuilder.peopleGraph(
             onOpenDiscover = { navController.navigate(PeopleRoutes.DISCOVER) },
             onOpenGroups = onOpenGroups,
             onOpenMyQr = onOpenMyQr,
+            onOpenAddByCode = onOpenAddByCode,
         )
     }
     composable(PeopleRoutes.DISCOVER) {

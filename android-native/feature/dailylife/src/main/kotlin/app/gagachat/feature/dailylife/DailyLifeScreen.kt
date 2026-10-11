@@ -85,7 +85,7 @@ private fun month(value: String) = runCatching { YearMonth.from(Instant.parse(va
 private fun ResumeRefresh(vm: DailyLifeViewModel) {
     val owner = LocalLifecycleOwner.current
     DisposableEffect(owner, vm) {
-        val observer = LifecycleEventObserver { _, event -> if (event == Lifecycle.Event.ON_RESUME) vm.refresh() }
+        val observer = LifecycleEventObserver { _, event -> if (event == Lifecycle.Event.ON_RESUME) { vm.refresh(); vm.checkUpdates() } }
         owner.lifecycle.addObserver(observer)
         onDispose { owner.lifecycle.removeObserver(observer) }
     }
@@ -117,6 +117,7 @@ private fun GlanceStat(label: String, value: Int, modifier: Modifier = Modifier)
 @Composable
 fun DailyHome(nav: NavController, onSaved: () -> Unit, onChat: (String) -> Unit, vm: DailyLifeViewModel = hiltViewModel()) {
     val ui by vm.state.collectAsStateWithLifecycle()
+    val context = LocalContext.current
     val fontScale = LocalDensity.current.fontScale
     ResumeRefresh(vm)
     val sections = listOf("task" to Icons.Default.TaskAlt, "event" to Icons.Default.Event, "reminder" to Icons.Default.NotificationsActive, "money" to Icons.Default.AccountBalanceWallet, "shopping" to Icons.Default.ShoppingCart, "debts" to Icons.Default.People, "goal" to Icons.Default.Savings, "budget" to Icons.Default.PieChart, "account" to Icons.Default.AccountBalance, "note" to Icons.AutoMirrored.Filled.Note)
@@ -138,6 +139,22 @@ fun DailyHome(nav: NavController, onSaved: () -> Unit, onChat: (String) -> Unit,
                     Text("See what needs attention, then turn conversations into actions without leaving GaGa.", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 item { Status(ui, vm) }
+                ui.availableAppUpdate?.let { update ->
+                    item(key = "available_app_update") {
+                        Card(Modifier.fillMaxWidth()) {
+                            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Text(if (update.required) "GaGa update required" else "GaGa update available", fontWeight = FontWeight.Bold)
+                                Text("Version ${update.versionName} is available.", style = MaterialTheme.typography.bodyMedium)
+                                if (update.releaseNotes.isNotBlank()) Text(update.releaseNotes, style = MaterialTheme.typography.bodySmall)
+                                TextButton(onClick = {
+                                    runCatching {
+                                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(update.destination)))
+                                    }
+                                }) { Text("Review update") }
+                            }
+                        }
+                    }
+                }
                 // "Today at a glance" — an at-a-glance summary of what needs
                 // attention right now, computed from the same data the sections
                 // below use. Purely additive; every section still renders.

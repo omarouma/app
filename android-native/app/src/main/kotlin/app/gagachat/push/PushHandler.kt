@@ -2,6 +2,7 @@ package app.gagachat.push
 
 import android.content.Context
 import app.gagachat.core.data.preferences.SettingsPreferences
+import app.gagachat.core.data.updates.AppUpdateRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.first
 import javax.inject.Inject
@@ -38,6 +39,7 @@ class PushHandler @Inject constructor(
     private val settingsPreferences: SettingsPreferences,
     private val sessionStore: app.gagachat.core.network.session.SessionStore,
     private val privacyApi: app.gagachat.core.network.rest.SupabaseRestApi,
+    private val updates: AppUpdateRepository,
 ) {
 
     /**
@@ -74,6 +76,16 @@ class PushHandler @Inject constructor(
         val isGroup = data["isGroup"] == "true" || type == "group" || type == "group_message"
 
         when (type) {
+            "app_update" -> {
+                // Never trust release URLs or version claims delivered inside FCM.
+                val available = updates.availableUpdate(force = true) ?: return
+                NotificationHelper.showAppUpdate(
+                    context = context,
+                    versionName = available.versionName,
+                    required = available.required,
+                    notificationsEnabled = notificationsEnabled,
+                )
+            }
             "call", "incoming_call" -> {
                 if (callId == null || !privacyApi.validateIncomingCall(callId, data["caller_id"] ?: data["callerId"])) return
                 if (conversationId != null) {
@@ -115,6 +127,7 @@ class PushHandler @Inject constructor(
                     title = title,
                     body = body,
                     route = "requests",
+                    friendEvent = true,
                     soundEnabled = soundsEnabled,
                     notificationsEnabled = notificationsEnabled,
                 )

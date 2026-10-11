@@ -23,4 +23,6 @@ dependencies {
     // com.google.guava:listenablefuture artifact to an EMPTY version, so the
     // ListenableFuture interface must be supplied by guava itself.
     implementation(libs.guava)
+
+    testImplementation(libs.junit)
 }

@@ -198,6 +198,7 @@ fun MainNavHost(pendingDeepLink: String?) {
             qrGraph(
                 navController = navController,
                 onOpenChat = { conversationId -> navController.navigate(ChatRoutes.chat(conversationId)) },
+                onOpenProfile = { userId -> navController.navigate(ProfileRoutes.profile(userId)) },
             )
             callHistoryScreen(
                 navController = navController,

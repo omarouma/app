@@ -6,6 +6,8 @@ import androidx.lifecycle.viewModelScope
 import androidx.work.*
 import app.gagachat.core.model.*
 import app.gagachat.core.data.repository.CallRepository
+import app.gagachat.core.data.updates.AppUpdateRepository
+import app.gagachat.core.data.updates.GaGaUpdate
 import app.gagachat.core.data.repository.ConversationRepository
 import app.gagachat.core.network.rest.DailyLifeApi
 import app.gagachat.core.network.rest.SupabaseRestApi
@@ -43,6 +45,7 @@ data class DailyUi(
      * screen — but it is still surfaced, never shown as "no data" (§6).
      */
     val splitError: String? = null,
+    val availableAppUpdate: GaGaUpdate? = null,
 )
 
 @HiltViewModel
@@ -53,6 +56,7 @@ class DailyLifeViewModel @Inject constructor(
     private val conversations: ConversationRepository,
     private val calls: CallRepository,
     private val splitBillApi: app.gagachat.core.network.rest.SplitBillApi,
+    private val updates: AppUpdateRepository,
     @ApplicationContext private val context: Context,
 ) : ViewModel() {
     private val _state = MutableStateFlow(DailyUi())
@@ -71,6 +75,12 @@ class DailyLifeViewModel @Inject constructor(
             }
         }
         refresh()
+        checkUpdates()
+    }
+
+    fun checkUpdates(force: Boolean = false) = viewModelScope.launch {
+        val update = updates.availableUpdate(force)
+        _state.update { it.copy(availableAppUpdate = update) }
     }
 
     fun refresh() = viewModelScope.launch {

@@ -25,6 +25,7 @@ import android.media.RingtoneManager
  */
 object NotificationChannels {
     const val MESSAGES = "gaga_messages"
+    const val FRIEND_REQUESTS = "gaga_friend_requests"
     const val GROUP_MESSAGES = "gaga_group_messages"
     const val CALLS = "gaga_calls"
     const val CALLS_NO_VIBRATION = "gaga_calls_sound_only"
@@ -32,6 +33,7 @@ object NotificationChannels {
     const val CALLS_QUIET = "gaga_calls_quiet"
     const val MISSED_CALLS = "gaga_missed_calls"
     const val SECURITY = "gaga_security"
+    const val UPDATES = "gaga_updates"
 
     /** Retained for backwards compatibility with older installs. */
     const val GENERAL = "gaga_general"
@@ -52,6 +54,18 @@ object NotificationChannels {
                 NotificationManager.IMPORTANCE_HIGH,
             ).apply {
                 description = "New direct chat messages"
+                enableVibration(true)
+                setSound(defaultSound, soundAttrs)
+            },
+        )
+
+        manager.createNotificationChannel(
+            NotificationChannel(
+                FRIEND_REQUESTS,
+                "Friend Requests",
+                NotificationManager.IMPORTANCE_DEFAULT,
+            ).apply {
+                description = "New friend requests and accepted invitations"
                 enableVibration(true)
                 setSound(defaultSound, soundAttrs)
             },
@@ -97,6 +111,16 @@ object NotificationChannels {
                 description = "Missed voice and video calls"
                 enableVibration(true)
                 setSound(defaultSound, soundAttrs)
+            },
+        )
+
+        manager.createNotificationChannel(
+            NotificationChannel(
+                UPDATES,
+                "App Updates",
+                NotificationManager.IMPORTANCE_DEFAULT,
+            ).apply {
+                description = "New GaGa Chat versions and important upgrade notices"
             },
         )
 

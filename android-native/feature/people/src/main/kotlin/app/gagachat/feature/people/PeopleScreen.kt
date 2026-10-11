@@ -13,6 +13,7 @@ import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.PersonRemove
 import androidx.compose.material.icons.filled.QrCode2
+import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.StarBorder
 import androidx.compose.material.icons.filled.MoreVert
@@ -69,6 +70,7 @@ fun PeopleScreen(
     onOpenDiscover: () -> Unit,
     onOpenGroups: () -> Unit = {},
     onOpenMyQr: () -> Unit = {},
+    onOpenAddByCode: () -> Unit = {},
     viewModel: PeopleViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -76,20 +78,25 @@ fun PeopleScreen(
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }
     val favoriteIds by viewModel.favoriteIds.collectAsStateWithLifecycle()
     val busy by viewModel.busy.collectAsStateWithLifecycle()
+    val incomingCount by viewModel.incomingCount.collectAsStateWithLifecycle()
+    val sentCount by viewModel.sentCount.collectAsStateWithLifecycle()
     val notice by viewModel.notice.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
     var pendingRemove by remember { mutableStateOf<Friend?>(null) }
     var topMenu by remember { mutableStateOf(false) }
     LaunchedEffect(notice) { notice?.let { snackbar.showSnackbar(it); viewModel.consumeNotice() } }
 
-    val tabs = listOf("Friends", "Favorites", "Requests", "Sent", "Blocked")
+    val tabs = listOf("Friends", "Favorites", "Requests" + if (incomingCount > 0) " ($incomingCount)" else "", "Sent" + if (sentCount > 0) " ($sentCount)" else "", "Blocked")
 
     GagaScaffold(
         title = "People",
         snackbarHostState = snackbar,
         actions = {
+            IconButton(onClick = onOpenAddByCode) {
+                Icon(Icons.Filled.QrCodeScanner, contentDescription = "Scan friend QR code")
+            }
             IconButton(onClick = onOpenDiscover) {
-                Icon(Icons.Filled.PersonAdd, contentDescription = "Add people")
+                Icon(Icons.Filled.PersonAdd, contentDescription = "Find and add friends")
             }
             Box {
                 IconButton(onClick = { topMenu = true }) { Icon(Icons.Filled.MoreVert, "People options") }
@@ -134,6 +141,7 @@ fun PeopleScreen(
                         onRemove = { pendingRemove = it },
                         favorites = favoriteIds,
                         onFavorite = viewModel::favorite,
+                        onFindPeople = onOpenDiscover,
                     )
                     1 -> FavoritesTab(
                         friends = data.friends.filter { it.user.id in favoriteIds },
@@ -146,16 +154,19 @@ fun PeopleScreen(
                         onAccept = viewModel::accept,
                         onDecline = viewModel::decline,
                         onOpenProfile = onOpenProfile,
+                        busy = busy,
                     )
                     3 -> SentTab(
                         outgoing = data.outgoing,
                         onCancel = viewModel::cancel,
                         onOpenProfile = onOpenProfile,
+                        busy = busy,
                     )
                     else -> BlockedTab(
                         blocked = data.blocked,
                         onUnblock = viewModel::unblock,
                         onOpenProfile = onOpenProfile,
+                        busy = busy,
                     )
                 }
             }
@@ -179,13 +190,15 @@ private fun FriendsTab(
     onRemove: (Friend) -> Unit,
     favorites: Set<String>,
     onFavorite: (String, Boolean) -> Unit,
+    onFindPeople: () -> Unit,
 ) {
-    val filtered = remember(friends, query) {
-        if (query.isBlank()) friends
+    val filtered = remember(friends, query, favorites) {
+        val matched = if (query.isBlank()) friends
         else friends.filter {
             it.user.displayLabel.contains(query, ignoreCase = true) ||
                 it.user.username?.contains(query, ignoreCase = true) == true
         }
+        matched.sortedWith(compareByDescending<Friend> { it.user.id in favorites }.thenBy { it.user.displayLabel.lowercase() })
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
@@ -195,11 +208,14 @@ private fun FriendsTab(
                 icon = Icons.Filled.PersonAdd,
                 title = if (query.isBlank()) "No friends yet" else "No matches",
                 description = if (query.isBlank()) {
-                    "Add people to start chatting."
+                    "Add people or scan their GaGa QR code to get started."
                 } else {
                     "Try a different name or username."
                 },
             )
+            if (query.isBlank()) {
+                TextButton(onClick = onFindPeople) { Text("Find friends") }
+            }
         } else {
             LazyColumn(modifier = Modifier.fillMaxSize()) {
                 items(filtered, key = { it.user.id }) { friend ->
@@ -292,6 +308,7 @@ private fun IncomingTab(
     onAccept: (FriendRequest) -> Unit,
     onDecline: (FriendRequest) -> Unit,
     onOpenProfile: (String) -> Unit,
+    busy: Boolean = false,
 ) {
     if (incoming.isEmpty()) {
         GagaEmptyState(
@@ -310,8 +327,8 @@ private fun IncomingTab(
                 avatar = { GagaAvatar(imageUrl = request.fromAvatar, name = request.fromName) },
                 trailing = {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        TextButton(onClick = { onAccept(request) }) { Text("Accept") }
-                        TextButton(onClick = { onDecline(request) }) { Text("Decline") }
+                        TextButton(onClick = { onAccept(request) }, enabled = !busy) { Text("Accept") }
+                        TextButton(onClick = { onDecline(request) }, enabled = !busy) { Text("Decline") }
                     }
                 },
                 onClick = { onOpenProfile(request.fromUserId) },
@@ -325,6 +342,7 @@ private fun SentTab(
     outgoing: List<FriendRequest>,
     onCancel: (FriendRequest) -> Unit,
     onOpenProfile: (String) -> Unit,
+    busy: Boolean = false,
 ) {
     if (outgoing.isEmpty()) {
         GagaEmptyState(
@@ -342,7 +360,7 @@ private fun SentTab(
                 subtitle = "Request pending",
                 avatar = { GagaAvatar(imageUrl = request.toAvatar, name = request.toName) },
                 trailing = {
-                    TextButton(onClick = { onCancel(request) }) { Text("Cancel") }
+                    TextButton(onClick = { onCancel(request) }, enabled = !busy) { Text("Cancel") }
                 },
                 onClick = { onOpenProfile(request.toUserId) },
             )
@@ -355,6 +373,7 @@ private fun BlockedTab(
     blocked: List<User>,
     onUnblock: (String) -> Unit,
     onOpenProfile: (String) -> Unit,
+    busy: Boolean = false,
 ) {
     if (blocked.isEmpty()) {
         GagaEmptyState(
@@ -372,7 +391,7 @@ private fun BlockedTab(
                 subtitle = user.username?.let { "@$it" } ?: "Blocked",
                 avatar = { GagaAvatar(imageUrl = user.avatar, name = user.displayLabel) },
                 trailing = {
-                    TextButton(onClick = { onUnblock(user.id) }) { Text("Unblock") }
+                    TextButton(onClick = { onUnblock(user.id) }, enabled = !busy) { Text("Unblock") }
                 },
                 onClick = { onOpenProfile(user.id) },
             )

@@ -61,7 +61,10 @@ class HomeViewModel @Inject constructor(
         val filtered = if (q.isBlank()) {
             conversations
         } else {
-            conversations.filter { it.displayTitle(me).contains(q, ignoreCase = true) }
+            conversations.filter {
+                it.displayTitle(me).contains(q, ignoreCase = true) ||
+                    it.lastMessagePreview.orEmpty().contains(q, ignoreCase = true)
+            }
         }
         HomeUiState(
             conversations = filtered.sortedWith(

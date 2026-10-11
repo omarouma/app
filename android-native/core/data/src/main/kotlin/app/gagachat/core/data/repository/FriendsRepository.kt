@@ -139,6 +139,17 @@ class DefaultFriendsRepository @Inject constructor(
         }
     }
 
+    private suspend fun notifyPushBestEffort(requestId: String, type: String) {
+        try {
+            restApi.dispatchFriendEvent(requestId, type)
+        } catch (error: CancellationException) {
+            throw error
+        } catch (_: Exception) {
+            // Never mark a successful DB transition as failed due to a push.
+            // Receiver still discovers requests through authenticated refresh.
+        }
+    }
+
     override suspend fun sendRequest(toUserId: String, message: String?): AppResult<Unit> =
         withContext(dispatchers.io) {
             val me = currentUserId
@@ -156,8 +167,11 @@ class DefaultFriendsRepository @Inject constructor(
                 return@withContext acceptRequest(incoming.id, incoming.fromUserId)
             }
             try {
-                restApi.insertFriendRequest(FriendRequestInsert(fromUserId = me, toUserId = toUserId, message = message))
+                val inserted = restApi.insertFriendRequest(FriendRequestInsert(fromUserId = me, toUserId = toUserId, message = message))
                 refresh()
+                // The DB trigger records a durable inbox notification; FCM is
+                // supplementary and may fail without reversing a valid request.
+                notifyPushBestEffort(inserted.id, "friend_request")
                 AppResult.Success(Unit)
             } catch (t: Throwable) {
             if (t is CancellationException) throw t
@@ -175,6 +189,7 @@ class DefaultFriendsRepository @Inject constructor(
                 val rpc = restApi.acceptFriendRequestRpc(requestId)
                 if (rpc.error != null) return@withContext AppResult.Failure(rpc.toAppError())
                 refresh()
+                notifyPushBestEffort(requestId, "friend_accepted")
                 AppResult.Success(Unit)
             } catch (t: Throwable) {
                 if (t is CancellationException) throw t
@@ -223,6 +238,7 @@ class DefaultFriendsRepository @Inject constructor(
             restApi.insertFriendship(FriendshipInsert(userId = me, friendId = fromUserId))
             restApi.insertFriendship(FriendshipInsert(userId = fromUserId, friendId = me))
             refresh()
+            notifyPushBestEffort(requestId, "friend_accepted")
             AppResult.Success(Unit)
         } catch (t: Throwable) {
             if (t is CancellationException) throw t

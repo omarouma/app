@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.CancellationException
 import javax.inject.Inject
 
 /**
@@ -40,6 +41,11 @@ class SettingsCenterViewModel @Inject constructor(
     private val _state = MutableStateFlow(SettingsCenterState())
     val state: StateFlow<SettingsCenterState> = _state.asStateFlow()
 
+    private val _saveError = MutableStateFlow<String?>(null)
+    val saveError: StateFlow<String?> = _saveError.asStateFlow()
+
+    fun clearSaveError() { _saveError.value = null }
+
     init {
         viewModelScope.launch {
             combine(prefs.toggles, prefs.choices) { toggles, choices ->
@@ -60,7 +66,9 @@ class SettingsCenterViewModel @Inject constructor(
      */
     fun setToggle(key: String, value: Boolean) {
         viewModelScope.launch {
-            when (key) {
+            _saveError.value = null
+            try {
+                when (key) {
                 SettingsCenterPreferences.KEY_SEARCHABLE_USERNAME -> facade.setSearchableUsername(value)
                 SettingsCenterPreferences.KEY_SEARCHABLE_PHONE -> facade.setSearchablePhone(value)
                 SettingsCenterPreferences.KEY_SEARCHABLE_EMAIL -> facade.setSearchableEmail(value)
@@ -72,6 +80,13 @@ class SettingsCenterViewModel @Inject constructor(
                 SettingsCenterPreferences.KEY_WIFI_ONLY_UPLOADS -> facade.setWifiOnlyUploads(value)
                 SettingsCenterPreferences.KEY_DATA_SAVER -> facade.setDataSaver(value)
                 else -> prefs.setToggle(key, value)
+                }
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                // Server-enforced privacy toggles roll back in the facade.
+                // Surface a recoverable error rather than crashing this screen.
+                _saveError.value = "Could not save this setting. Check your connection and retry."
             }
         }
     }

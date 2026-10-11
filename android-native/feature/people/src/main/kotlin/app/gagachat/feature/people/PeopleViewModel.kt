@@ -22,6 +22,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -62,6 +63,10 @@ class PeopleViewModel @Inject constructor(
     val notice = MutableStateFlow<String?>(null)
     val favoriteIds = authRepository.sessionFlow.flatMapLatest { favorites.observe(it?.userId.orEmpty()) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
+    val incomingCount = friendsRepository.incomingRequests.map { it.size }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
+    val sentCount = friendsRepository.outgoingRequests.map { it.size }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
     fun consumeNotice() { notice.value = null }
 
     fun favorite(userId: String, enabled: Boolean) = viewModelScope.launch {
@@ -105,6 +110,16 @@ class PeopleViewModel @Inject constructor(
                     else notice.value = result.error.toUserMessage()
                 }
                 AppResult.Loading -> Unit
+            }
+            // Favorites remain readable offline. Reconcile with the server
+            // after authentication so they appear on every signed-in device.
+            val owner = authRepository.sessionFlow.value?.userId
+            if (!owner.isNullOrBlank()) {
+                try { favorites.refreshFromServer(owner) }
+                catch (e: CancellationException) { throw e }
+                catch (e: Exception) {
+                    notice.value = "Could not sync favorites. Your cached list is still available."
+                }
             }
             // Blocked users are loaded alongside friends so the Blocked tab is
             // populated without a second round-trip when the user opens it.

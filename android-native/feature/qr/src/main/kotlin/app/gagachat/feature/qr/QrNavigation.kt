@@ -17,6 +17,7 @@ object QrRoutes {
 fun NavGraphBuilder.qrGraph(
     navController: NavController,
     onOpenChat: (String) -> Unit,
+    onOpenProfile: (String) -> Unit = {},
 ) {
     composable(QrRoutes.MY_QR) {
         // Share + copy-link are handled inside MyQrScreen via the system share sheet
@@ -29,6 +30,7 @@ fun NavGraphBuilder.qrGraph(
     composable(QrRoutes.ADD_BY_CODE) {
         AddByCodeScreen(
             onOpenChat = onOpenChat,
+            onOpenProfile = onOpenProfile,
             onBack = { navController.popBackStack() },
         )
     }

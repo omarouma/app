@@ -222,21 +222,21 @@ fun AdvancedTroubleshootingSettingsScreen(
             SettingsBanner("Diagnostic reports never include API keys, access tokens or private message contents.")
             SettingsGroup("STATUS") {
                 InfoRow("App version", version, icon = Icons.Filled.Build)
-                InfoRow("Backend connection", "Connected")
-                InfoRow("Authentication session", "Signed in")
-                InfoRow("Notification delivery", "Channels registered")
-                InfoRow("Last synchronization", "Up to date")
+                InfoRow("Backend connection", "Not tested — verify via authenticated API")
+                InfoRow("Authentication session", "Not checked on this screen")
+                InfoRow("Notification delivery", "Not verified — test on device")
+                InfoRow("Last synchronization", "Not measured")
             }
             SettingsGroup("DIAGNOSTIC TESTS") {
-                ActionRow("Run media upload test", "Check that uploads work") { vm.clearValue("diag.uploadTestAt") }
-                ActionRow("Run network connectivity test", "Check reachability") { vm.clearValue("diag.networkTestAt") }
+                ComingSoonRow("Media upload test", "Unavailable until an actual media diagnostic is implemented")
+                ComingSoonRow("Backend connectivity test", "Unavailable until an authenticated test is implemented")
                 ActionRow("Recheck Android permissions", "Review what GaGa can access", onClick = onOpenPermissions)
                 InfoRow("Review failed actions", "Nothing failed recently")
             }
             SettingsGroup("REPORTS & SUPPORT") {
-                ActionRow("Export redacted diagnostic report", "Share a privacy-safe report") { vm.clearValue("diag.exportAt") }
+                ComingSoonRow("Export redacted diagnostic report", "Unavailable until a real privacy-safe export is implemented")
                 ActionRow("Contact support with diagnostics", "Attach a redacted report", onClick = onOpenHelp)
-                ActionRow("Check for app updates", "Open the store listing") {
+                ActionRow("Open Google Play listing", "Does not check the installed APK version") {
                     val market = Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=${context.packageName}")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                     runCatching { context.startActivity(market) }.onFailure {
                         runCatching {

@@ -71,14 +71,22 @@ class SettingsCenterPreferences @Inject constructor(
         setPrivacyToggle(KEY_PRIORITY_RECOMMENDATIONS, value, "recommendations")
 
     /**
-     * Writes the toggle locally (instant feedback) and pushes the matching
-     * server field so the backend enforces it for other accounts. A failed
-     * server write is non-fatal: the local value stays, and the next
-     * [seedDiscoveryFromServer] reconciles with the authoritative policy.
+     * Privacy is server-authoritative. Optimistic local changes roll back on an
+     * RPC failure so the UI cannot claim a privacy rule is active when it is not.
+     * Callers receive the failure and can present a retry action.
      */
     private suspend fun setPrivacyToggle(key: String, value: Boolean, field: String) {
+        val before = store.toggles.first()[key] ?: when (key) {
+            KEY_SEARCHABLE_USERNAME, KEY_TYPING_INDICATOR -> true
+            else -> false
+        }
         store.setToggle(key, value)
-        runCatching { privacy.savePrivacy(buildJsonObject { put(field, value) }) }
+        try {
+            privacy.savePrivacy(buildJsonObject { put(field, value) })
+        } catch (error: Exception) {
+            store.setToggle(key, before)
+            throw error
+        }
     }
 
     /**
