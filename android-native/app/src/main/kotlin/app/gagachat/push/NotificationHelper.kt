@@ -215,6 +215,36 @@ object NotificationHelper {
     }
 
 
+    /** An update notice uses a fixed, trusted in-app destination, not an FCM-provided URL. */
+    fun showAppUpdate(
+        context: Context,
+        versionName: String,
+        required: Boolean,
+        notificationsEnabled: Boolean,
+    ) {
+        if (!notificationsEnabled) return
+        val id = "gaga-update-$versionName".hashCode()
+        val intent = Intent(context, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            data = android.net.Uri.parse("gagachat://today")
+        }
+        val pending = PendingIntent.getActivity(
+            context, id, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+        val title = if (required) "GaGa update required" else "GaGa update available"
+        val message = "Version $versionName is available. Review the release in GaGa Today."
+        val notification = NotificationCompat.Builder(context, NotificationChannels.UPDATES)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setContentTitle(title)
+            .setContentText(message)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setAutoCancel(true)
+            .setContentIntent(pending)
+            .build()
+        post(context, id, notification)
+    }
+
     /** Cancels the deterministic incoming-call notification for a conversation. */
     fun cancelIncomingCall(context: Context, conversationId: String) {
         cancel(context, conversationId.hashCode() + 1)
