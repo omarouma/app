@@ -87,8 +87,8 @@ import app.gagachat.core.ui.util.TimeFormat
 
 /**
  * The message composer (reference screenshot 174452). A round "+" opens the
- * attachment sheet, the field carries emoji + mic affordances, and a schedule
- * (timer) button sits on the far right. Shows a reply quote or an edit banner
+ * attachment sheet, a compact emoji affordance and one trailing primary action
+ * that changes between record/send/save. Scheduling is in the attachment menu. Shows a reply quote or an edit banner
  * above the field when active and swaps the field for a recording strip while a
  * voice clip is being captured.
  */
@@ -140,6 +140,9 @@ fun MessageComposer(
                 .navigationBarsPadding()
                 .imePadding(),
         ) {
+            androidx.compose.material3.HorizontalDivider(
+                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f),
+            )
             if (editingMessage != null && !isRecording) {
                 EditBanner(message = editingMessage, onCancel = onCancelEdit)
             } else if (replyTo != null && !isRecording) {
@@ -159,7 +162,7 @@ fun MessageComposer(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = GagaDimens.space8, vertical = GagaDimens.space6),
+                        .padding(horizontal = GagaDimens.space8, vertical = GagaDimens.space8),
                     verticalAlignment = Alignment.Bottom,
                 ) {
                     // Round "+" affordance that opens the attachment sheet.
@@ -174,6 +177,7 @@ fun MessageComposer(
                                 // the hoisted state.
                                 focusManager.clearFocus()
                                 keyboardController?.hide()
+                                showEmojiPanel = false
                                 showAttachSheet = true
                             },
                         contentAlignment = Alignment.Center,
@@ -190,7 +194,7 @@ fun MessageComposer(
                         onValueChange = onDraftChange,
                         modifier = Modifier.weight(1f),
                         placeholder = { Text(if (editingMessage != null) "Edit message" else "Message") },
-                        maxLines = 5,
+                        maxLines = 6,
                         shape = MaterialTheme.shapes.extraLarge,
                         colors = TextFieldDefaults.colors(
                             focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
@@ -209,7 +213,7 @@ fun MessageComposer(
                                 IconButton(onClick = { showEmojiPanel = !showEmojiPanel }) {
                                     Icon(
                                         Icons.Filled.EmojiEmotions,
-                                        contentDescription = "Emoji",
+                                        contentDescription = if (showEmojiPanel) "Close emoji picker" else "Open emoji picker",
                                         tint = if (showEmojiPanel) {
                                             MaterialTheme.colorScheme.primary
                                         } else {
@@ -217,34 +221,18 @@ fun MessageComposer(
                                         },
                                     )
                                 }
-                                if (draft.isBlank() && editingMessage == null) {
-                                    IconButton(onClick = onStartRecording) {
-                                        Icon(
-                                            Icons.Filled.Mic,
-                                            contentDescription = "Record voice message",
-                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        )
-                                    }
-                                }
+
                             }
                         },
                     )
                     Spacer(Modifier.width(GagaDimens.space4))
                     if (draft.isBlank() && editingMessage == null) {
-                        // Schedule / timer affordance on the far right.
-                        Box(
-                            modifier = Modifier
-                                .size(46.dp)
-                                .clip(CircleShape)
-                                .background(MaterialTheme.colorScheme.surfaceVariant)
-                                .clickable(onClick = onScheduleClick),
-                            contentAlignment = Alignment.Center,
+                        FilledIconButton(
+                            onClick = onStartRecording,
+                            shape = CircleShape,
+                            modifier = Modifier.size(48.dp),
                         ) {
-                            Icon(
-                                Icons.Filled.Schedule,
-                                contentDescription = "Schedule message",
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
+                            Icon(Icons.Filled.Mic, contentDescription = "Record voice message")
                         }
                     } else {
                         FilledIconButton(
@@ -252,13 +240,14 @@ fun MessageComposer(
                                 haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                                 onSend()
                             },
+                            enabled = draft.isNotBlank(),
                             shape = CircleShape,
                             modifier = Modifier.size(48.dp),
                         ) {
                             if (editingMessage != null) {
                                 Icon(Icons.Filled.Edit, contentDescription = "Save edit")
                             } else {
-                                Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Send")
+                                Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Send message")
                             }
                         }
                     }
@@ -282,6 +271,7 @@ fun MessageComposer(
                 onShareLiveLocation = { showAttachSheet = false; onShareLiveLocation() },
                 onPickFile = { showAttachSheet = false; onAttach() },
                 onSendPoll = { showAttachSheet = false; onSendPoll() },
+                onScheduleClick = { showAttachSheet = false; onScheduleClick() },
             )
         }
     }
@@ -303,6 +293,7 @@ private fun AttachmentSheet(
     onShareLiveLocation: () -> Unit,
     onPickFile: () -> Unit,
     onSendPoll: () -> Unit,
+    onScheduleClick: () -> Unit,
 ) {
     val options = listOf(
         Triple(Icons.Filled.Image, "Photos", onPickImage),
@@ -314,6 +305,7 @@ private fun AttachmentSheet(
         Triple(Icons.Filled.NearMe, "Live location", onShareLiveLocation),
         Triple(Icons.Filled.Description, "Document", onPickFile),
         Triple(Icons.Filled.Poll, "Poll", onSendPoll),
+        Triple(Icons.Filled.Schedule, "Schedule", onScheduleClick),
     )
     BoxWithConstraints {
     val columns = if (maxWidth < 360.dp || LocalDensity.current.fontScale > 1.2f) 3 else 4
