@@ -14,16 +14,9 @@
     <!-- Media capture (PDF §5) -->
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
-    <uses-permission
-        android:name="android.permission.READ_EXTERNAL_STORAGE"
-        android:maxSdkVersion="32" />
-    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
-    <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
-    <!-- Android 14+ partial ("Select photos") access: declaring this alongside
-         READ_MEDIA_IMAGES/VIDEO lets the system offer limited-library access
-         instead of all-or-nothing (resolves lint SelectedPhotoAccess). -->
-    <uses-permission android:name="android.permission.READ_MEDIA_VISUAL_USER_SELECTED" />
-    <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
+    <!-- Chat attachments use Android system content/document pickers, which
+         grant scoped URI access. Broad photos/videos/audio library permissions
+         are neither required nor justified for this messaging workflow. -->
 
     <!-- Location sharing (PDF §5) -->
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
