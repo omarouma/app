@@ -35,6 +35,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -50,7 +52,7 @@ import app.gagachat.core.ui.util.TimeFormat
  * Interactions (reference screenshots 174101 / 174108):
  *  - Tap opens the chat.
  *  - Long-press opens a context menu: Pin/Unpin, Mute/Unmute, Mark as read, Delete.
- *  - Swipe right-to-left deletes the conversation.
+ *  - Swipe right-to-left asks for confirmation before deleting for everyone.
  */
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
@@ -98,7 +100,9 @@ fun ConversationRow(
                     .background(MaterialTheme.colorScheme.surface)
                     .combinedClickable(
                         onClick = onClick,
+                        onClickLabel = "Open chat: $title",
                         onLongClick = { menuExpanded = true },
+                        onLongClickLabel = "More conversation actions",
                     )
                     .padding(horizontal = GagaDimens.space16, vertical = GagaDimens.space12),
                 verticalAlignment = Alignment.CenterVertically,
@@ -165,7 +169,11 @@ fun ConversationRow(
                         )
                     }
                     Spacer(Modifier.width(GagaDimens.space4))
-                    Box {
+                    Box(
+                        modifier = if (hasUnread) {
+                            Modifier.semantics { contentDescription = "${conversation.unreadCount} unread messages" }
+                        } else Modifier,
+                    ) {
                         GagaBadge(count = conversation.unreadCount)
                     }
                 }
@@ -217,7 +225,7 @@ private fun ConversationContextMenu(
             )
         }
         ContextMenuItem(
-            label = "Delete",
+            label = "Delete for everyone",
             icon = Icons.Filled.Delete,
             onClick = onDelete,
         )
@@ -248,7 +256,7 @@ private fun DeleteBackground() {
     ) {
         Icon(
             Icons.Filled.Delete,
-            contentDescription = "Delete",
+            contentDescription = "Confirm delete for everyone",
             tint = MaterialTheme.colorScheme.onErrorContainer,
         )
     }
