@@ -111,3 +111,4 @@ create table if not exists public.friend_push_dispatches (
 );
 alter table public.friend_push_dispatches enable row level security;
 revoke all on public.friend_push_dispatches from public, anon, authenticated;
+grant select, insert on public.friend_push_dispatches to service_role;
