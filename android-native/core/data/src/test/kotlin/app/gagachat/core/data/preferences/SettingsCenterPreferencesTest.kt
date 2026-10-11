@@ -126,10 +126,19 @@ class SettingsCenterPreferencesTest {
     }
 
     @Test
-    fun `server write failure is non-fatal and keeps the local value`() = runTest {
+    fun `server write failure rolls back the local privacy value`() = runTest {
         val f = facade(FakeToggleStore(), FakePrivacy(failWrites = true))
-        f.setSearchablePhone(true)
-        assertTrue(f.searchablePhone.first())
+        val error = runCatching { f.setSearchablePhone(true) }.exceptionOrNull()
+        assertTrue(error is IllegalStateException)
+        assertFalse(f.searchablePhone.first())
+    }
+
+    @Test
+    fun `failed opt-out preserves the existing server authoritative default`() = runTest {
+        val f = facade(FakeToggleStore(), FakePrivacy(failWrites = true))
+        val error = runCatching { f.setSearchableUsername(false) }.exceptionOrNull()
+        assertTrue(error is IllegalStateException)
+        assertTrue(f.searchableUsername.first())
     }
 
     @Test
