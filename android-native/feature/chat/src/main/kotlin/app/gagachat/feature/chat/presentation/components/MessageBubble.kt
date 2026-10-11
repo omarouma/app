@@ -1,5 +1,7 @@
 package app.gagachat.feature.chat.presentation.components
 
+import app.gagachat.feature.chat.presentation.opensMediaViewer
+
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.Canvas
@@ -163,9 +165,7 @@ fun MessageBubble(
                                 // Only media/document bubbles open the viewer or
                                 // document opener. Call events, contacts, polls,
                                 // locations and audio have their own actions.
-                                message.type == MessageType.IMAGE ||
-                                    message.type == MessageType.VIDEO ||
-                                    message.type == MessageType.FILE -> onMediaClick(message)
+                                message.type.opensMediaViewer() -> onMediaClick(message)
                             }
                         },
                         onLongClick = {
