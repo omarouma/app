@@ -30,6 +30,8 @@ jobs:
           node-version: '24'
       - name: Test LiveKit token authorization
         run: node --test supabase/functions/livekit-token/tests/token.test.mjs supabase/functions/create-call/tests/admission.test.mjs
+      - name: Test friend-event push authorization
+        run: node --test supabase/functions/friend-event-push/tests/dispatch.test.mjs
       - name: Read app version
         run: |
           python3 - <<'PYVERSION'
@@ -125,6 +127,23 @@ jobs:
             android-native/feature/people/src/main/kotlin/app/gagachat/feature/people/DiscoverViewModel.kt \
             android-native/app/src/main/kotlin/app/gagachat/navigation/MainNavHost.kt \
             android-native/docs/QR_PEOPLE_PROFESSIONAL_2.7.3.md
+      - name: Package People synchronization sources
+        run: |
+          mkdir -p deliverables
+          zip -q deliverables/GaGa-2.7.3-People-Sync-Notifications-source.zip \
+            android-native/core/network/src/main/kotlin/app/gagachat/core/network/rest/SupabaseRestApi.kt \
+            android-native/core/data/src/main/kotlin/app/gagachat/core/data/preferences/FavoritePeoplePreferences.kt \
+            android-native/core/data/src/main/kotlin/app/gagachat/core/data/repository/FriendsRepository.kt \
+            android-native/feature/people/src/main/kotlin/app/gagachat/feature/people/PeopleViewModel.kt \
+            android-native/feature/people/src/main/kotlin/app/gagachat/feature/people/DiscoverScreen.kt \
+            android-native/app/src/main/kotlin/app/gagachat/push/PushHandler.kt \
+            android-native/app/src/main/kotlin/app/gagachat/push/NotificationHelper.kt \
+            android-native/app/src/main/kotlin/app/gagachat/push/NotificationChannels.kt \
+            supabase/migrations/20261015000000_favorite_friends_and_friend_events.sql \
+            supabase/functions/friend-event-push/index.ts \
+            supabase/functions/friend-event-push/tests/dispatch.test.mjs \
+            supabase/functions/send-fcm-push/index.ts \
+            android-native/docs/PEOPLE_SYNC_NOTIFICATIONS_2.7.3.md
       - name: Compile release and test messaging and call contracts
         working-directory: android-native
         run: gradle --no-daemon --no-build-cache --max-workers=2 -Pksp.incremental=false :feature:dailylife:compileReleaseKotlin :app:assembleRelease :app:bundleRelease :core:model:test :core:data:testReleaseUnitTest :core:network:testReleaseUnitTest :feature:chat:testReleaseUnitTest :feature:qr:testReleaseUnitTest :feature:calls:testReleaseUnitTest
