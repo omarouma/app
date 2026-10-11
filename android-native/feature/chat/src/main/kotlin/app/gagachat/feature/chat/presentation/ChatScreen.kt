@@ -944,13 +944,21 @@ private fun MessageActionSheet(
     val canEdit = isOwn && message.type == MessageType.TEXT && !message.isDeleted
     val canCopy = !message.text.isNullOrBlank() && !message.isDeleted
     val canDelete = isOwn && !message.isDeleted
+    var showAdvancedActions by remember(message.localId) { mutableStateOf(false) }
     val smartSuggestions = remember(message.text, isGroup) {
         SmartActionDetector.detect(message.text, isGroup)
     }
     val hasLocationAction = (message.type == MessageType.LOCATION && message.latitude != null && message.longitude != null) || SmartActionDetector.hasLocation(message.text)
 
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
-        Column(modifier = Modifier.padding(bottom = GagaDimens.space16)) {
+        Column(
+            modifier = Modifier.heightIn(max = 540.dp)
+                .verticalScroll(rememberScrollState())
+                .padding(bottom = GagaDimens.space16),
+        ) {
+            Text("Message actions", style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.padding(horizontal = GagaDimens.space24, vertical = GagaDimens.space8))
             // Quick reaction strip.
             Row(
                 modifier = Modifier
@@ -979,7 +987,6 @@ private fun MessageActionSheet(
             }
             HorizontalDivider()
             ActionRow(Icons.AutoMirrored.Filled.Reply, "Reply", onReply)
-            ActionRow(Icons.Filled.AddReaction, "React", { onReact(QuickReactions.first()) })
             if (canEdit) ActionRow(Icons.Filled.Edit, "Edit", onEdit)
             ActionRow(Icons.AutoMirrored.Filled.Forward, "Forward", onForward)
             if (canCopy) ActionRow(Icons.Filled.ContentCopy, "Copy", onCopy)
@@ -1006,6 +1013,11 @@ private fun MessageActionSheet(
                     }
                     HorizontalDivider(modifier = Modifier.padding(vertical = GagaDimens.space4))
                 }
+                TextButton(
+                    onClick = { showAdvancedActions = !showAdvancedActions },
+                    modifier = Modifier.padding(horizontal = GagaDimens.space16),
+                ) { Text(if (showAdvancedActions) "Hide GaGa actions" else "More GaGa actions") }
+                if (showAdvancedActions) {
                 Text("GaGa Actions", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(horizontal = GagaDimens.space24, vertical = GagaDimens.space8))
                 ActionRow(Icons.Filled.CalendarMonth, "Create event", onEvent)
                 ActionRow(Icons.Filled.TaskAlt, "Create task", onTask)
@@ -1022,6 +1034,7 @@ private fun MessageActionSheet(
                     ActionRow(Icons.Filled.Bookmark, "Save location plan", onSaveLocationPlan)
                 }
                 ActionRow(Icons.AutoMirrored.Filled.NoteAdd, "Save as private note", onNote)
+                }
                 ActionRow(Icons.Filled.Info, "Message info", onMessageInfo)
                 ActionRow(Icons.Filled.Checklist, "Select messages", onSelectMultiple)
             }
