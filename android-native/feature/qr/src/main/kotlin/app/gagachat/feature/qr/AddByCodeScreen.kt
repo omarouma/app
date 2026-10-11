@@ -173,7 +173,6 @@ fun AddByCodeScreen(
                                 modifier = Modifier.fillMaxWidth(),
                                 enabled = !state.isSending,
                                 loading = state.isSending,
-                                enabled = !state.isSending,
                                 leadingIcon = Icons.Filled.PersonAdd,
                             )
                         } else if (state.requestSent) {
@@ -194,6 +193,7 @@ fun AddByCodeScreen(
                                 text = "Add friend",
                                 onClick = viewModel::sendRequest,
                                 modifier = Modifier.fillMaxWidth(),
+                                enabled = !state.isSending,
                                 loading = state.isSending,
                                 leadingIcon = Icons.Filled.PersonAdd,
                             )
