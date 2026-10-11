@@ -111,6 +111,16 @@ class PeopleViewModel @Inject constructor(
                 }
                 AppResult.Loading -> Unit
             }
+            // Favorites remain readable offline. Reconcile with the server
+            // after authentication so they appear on every signed-in device.
+            val owner = authRepository.sessionFlow.value?.userId
+            if (!owner.isNullOrBlank()) {
+                try { favorites.refreshFromServer(owner) }
+                catch (e: CancellationException) { throw e }
+                catch (e: Exception) {
+                    notice.value = "Could not sync favorites. Your cached list is still available."
+                }
+            }
             // Blocked users are loaded alongside friends so the Blocked tab is
             // populated without a second round-trip when the user opens it.
             try {
