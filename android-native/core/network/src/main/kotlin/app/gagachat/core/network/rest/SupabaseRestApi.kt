@@ -712,6 +712,22 @@ class SupabaseRestApi @Inject constructor(
         }
     }
 
+    /** Best-effort, authenticated friend push after a committed transition.
+     * Service-side checks prevent a client from claiming another actor's event.
+     * Failing FCM must never roll back a valid friend request.
+     */
+    suspend fun dispatchFriendEvent(requestId: String, type: String) {
+        require(type == "friend_request" || type == "friend_accepted")
+        client.post("${config.functionsUrl}/friend-event-push") {
+            auth()
+            contentType(ContentType.Application.Json)
+            setBody(buildJsonObject {
+                put("request_id", requestId)
+                put("type", type)
+            })
+        }
+    }
+
     // ---- Friend requests ----
 
     suspend fun getFriendRequests(userId: String): List<FriendRequestRow> =
