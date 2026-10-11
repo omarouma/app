@@ -10,6 +10,7 @@ import app.gagachat.core.data.repository.ConversationRepository
 import app.gagachat.core.data.repository.FriendsRepository
 import app.gagachat.core.data.repository.MessageRepository
 import app.gagachat.core.data.repository.UserRepository
+import app.gagachat.core.model.Message
 import app.gagachat.core.model.MessageType
 import app.gagachat.core.model.User
 import app.gagachat.core.model.UserStatus
@@ -35,6 +36,8 @@ data class SharedMediaItem(
     val localId: String,
     val url: String,
     val isVideo: Boolean,
+    val thumbnailUrl: String?,
+    val message: Message,
 )
 
 /** A shared document. */
@@ -179,9 +182,16 @@ class ChatInfoViewModel @Inject constructor(
             media = newestFirst.flatMap { m ->
                 when (m.type) {
                     MessageType.VIDEO ->
-                        m.allMediaUrls.take(1).map { SharedMediaItem(m.localId, it, isVideo = true) }
+                        m.allMediaUrls.take(1).map { url ->
+                            SharedMediaItem(m.localId, url, isVideo = true, thumbnailUrl = m.thumbnailUrl,
+                                message = m.copy(mediaUrl = url, mediaUrls = emptyList()))
+                        }
                     MessageType.IMAGE ->
-                        m.allMediaUrls.map { SharedMediaItem(m.localId, it, isVideo = false) }
+                        m.allMediaUrls.map { url ->
+                            SharedMediaItem(m.localId, url, isVideo = false, thumbnailUrl = null,
+                                message = m.copy(mediaUrl = url, mediaUrls = emptyList(),
+                                    localMediaPath = if (url == m.mediaUrl) m.localMediaPath else null))
+                        }
                     else -> emptyList()
                 }
             },
