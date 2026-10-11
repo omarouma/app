@@ -276,9 +276,13 @@ fun DailyHome(nav: NavController, onSaved: () -> Unit, onChat: (String) -> Unit,
                     }
                 }
 
-                val missedCalls = ui.calls
+                val missedCallEvents = ui.calls
                     .filter { it.status == CallStatus.MISSED && !it.isOutgoing && it.conversationId.isNotBlank() }
                     .sortedByDescending { it.startedAt }
+                val missedCallCounts = missedCallEvents.groupingBy { it.conversationId }.eachCount()
+                // One summary per caller on Today; full individual records remain
+                // available on the Calls screen.
+                val missedCalls = missedCallEvents.distinctBy { it.conversationId }
                 if (missedCalls.isNotEmpty()) item {
                     Card(Modifier.fillMaxWidth()) {
                         Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -292,7 +296,12 @@ fun DailyHome(nav: NavController, onSaved: () -> Unit, onChat: (String) -> Unit,
                                     Modifier.fillMaxWidth().clickable { onChat(call.conversationId) }.padding(vertical = 4.dp),
                                     verticalAlignment = Alignment.CenterVertically,
                                 ) {
-                                    Text(call.peerName?.takeIf { it.isNotBlank() } ?: "GaGa contact", modifier = Modifier.weight(1f))
+                                    Text(
+                                        (call.peerName?.takeIf { it.isNotBlank() } ?: "GaGa contact") +
+                                            ((missedCallCounts[call.conversationId] ?: 0).takeIf { it > 1 }
+                                                ?.let { " · $it missed" } ?: ""),
+                                        modifier = Modifier.weight(1f),
+                                    )
                                     Text("Open chat", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelMedium)
                                 }
                             }
@@ -379,10 +388,16 @@ fun DailyHome(nav: NavController, onSaved: () -> Unit, onChat: (String) -> Unit,
                 items(current.filter { it.kind in listOf("income", "expense") }.map { it.currency }.distinct()) { currency ->
                     val income = current.filter { it.kind == "income" && it.currency == currency }.sumOf { it.amountMinor }
                     val expense = current.filter { it.kind == "expense" && it.currency == currency }.sumOf { it.amountMinor }
-                    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)) {
+                    Card(colors = CardDefaults.cardColors(
+                        containerColor = if (expense > income) MaterialTheme.colorScheme.errorContainer
+                                         else MaterialTheme.colorScheme.primaryContainer,
+                    )) {
                         Column(Modifier.fillMaxWidth().padding(16.dp)) {
                             Text("This month · $currency", fontWeight = FontWeight.Bold)
-                            Text("Recorded difference ${DailyMoney.format(income - expense)}", style = MaterialTheme.typography.titleLarge)
+                            Text("Net recorded ${DailyMoney.format(income - expense)}",
+                                style = MaterialTheme.typography.titleLarge,
+                                color = if (expense > income) MaterialTheme.colorScheme.error
+                                        else MaterialTheme.colorScheme.onPrimaryContainer)
                             Text("Income ${DailyMoney.format(income)}")
                             Text("Expenses ${DailyMoney.format(expense)}")
                         }
