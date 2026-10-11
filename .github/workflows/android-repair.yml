@@ -114,6 +114,7 @@ jobs:
             android-native/feature/qr/src/main/kotlin/app/gagachat/feature/qr/AddByCodeViewModel.kt \
             android-native/feature/qr/src/main/kotlin/app/gagachat/feature/qr/AddByCodeScreen.kt \
             android-native/feature/qr/src/main/kotlin/app/gagachat/feature/qr/QrCameraScanner.kt \
+            android-native/feature/qr/src/main/kotlin/app/gagachat/feature/qr/QrImageDecoder.kt \
             android-native/feature/qr/src/main/kotlin/app/gagachat/feature/qr/QrNavigation.kt \
             android-native/feature/qr/src/test/kotlin/app/gagachat/feature/qr/QrPayloadTest.kt \
             android-native/feature/qr/build.gradle.kts \
