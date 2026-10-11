@@ -124,6 +124,7 @@ fun DailyHome(nav: NavController, onSaved: () -> Unit, onChat: (String) -> Unit,
     GagaScaffold(title = "GaGa Today", actions = { IconButton(onClick = { vm.refresh() }) { Icon(Icons.Default.Refresh, "Refresh") } }) { padding ->
         BoxWithConstraints(Modifier.fillMaxSize().padding(padding)) {
             val columns = if (maxWidth < 340.dp || fontScale > 1.2f) 1 else 2
+            val statsPerRow = if (maxWidth < 480.dp || fontScale > 1.2f) 2 else 4
             LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 item {
                     val greeting = when (LocalTime.now().hour) {
@@ -183,7 +184,6 @@ fun DailyHome(nav: NavController, onSaved: () -> Unit, onChat: (String) -> Unit,
                                 "Reminders" to glanceReminders.size,
                                 "Unread" to unreadTotal,
                             )
-                            val statsPerRow = if (maxWidth < 480.dp || fontScale > 1.2f) 2 else 4
                             stats.chunked(statsPerRow).forEach { rowStats ->
                                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                     rowStats.forEach { (label, count) ->
