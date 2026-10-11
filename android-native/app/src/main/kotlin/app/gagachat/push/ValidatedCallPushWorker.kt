@@ -18,7 +18,7 @@ class ValidatedCallPushWorker @AssistedInject constructor(
     override suspend fun getForegroundInfo(): androidx.work.ForegroundInfo {
         val channel = "gaga_call_setup"
         val manager = applicationContext.getSystemService(android.app.NotificationManager::class.java)
-        if (android.os.Build.VERSION.SDK_INT >= 26) manager?.createNotificationChannel(android.app.NotificationChannel(channel, "Call connection", android.app.NotificationManager.IMPORTANCE_LOW).apply { setSound(null, null) })
+        manager?.createNotificationChannel(android.app.NotificationChannel(channel, "Call connection", android.app.NotificationManager.IMPORTANCE_LOW).apply { setSound(null, null) })
         val notification = androidx.core.app.NotificationCompat.Builder(applicationContext, channel)
             .setSmallIcon(app.gagachat.R.drawable.ic_notification).setContentTitle("GaGa Chat")
             .setSilent(true).setOngoing(true).setVisibility(androidx.core.app.NotificationCompat.VISIBILITY_PRIVATE).build()

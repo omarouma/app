@@ -4,6 +4,34 @@ All notable changes to the GaGa Chat native Android app are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 the project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.7.2] — versionCode 47
+
+**Final polish & hardening release.** A full-app audit (code, manifest,
+resources, CI, tests, lint) followed by a set of low-risk correctness and
+cleanliness fixes. No user-facing behaviour is intentionally changed; the goal
+is a clean, warning-free, reproducible build of the whole 25-module project.
+
+### Fixed
+- **Debug variant now resolves its Firebase client.** `ci/prepare.py` only
+  emitted a `gagachat.app` client in `google-services.json`, so any
+  `:app` task on the `debug` build type (which uses the `.debug` application-id
+  suffix) failed with *"No matching client found for package name
+  'gagachat.app.debug'"*. The generator now emits both the release and debug
+  clients, so `assembleDebug`, `testDebugUnitTest` and `lintDebug` all run.
+
+### Changed
+- **Lint cleanup (0 errors, warnings reduced).** Removed four unused colour
+  resources (`gaga_green_dark`, `gaga_teal`, `black`, `ic_launcher_background`),
+  two redundant `SDK_INT` guards that can never be false at `minSdk 26`
+  (`NotificationChannels`, `ValidatedCallPushWorker`), and an obsolete
+  `tools:targetApi="m"` annotation in `themes.xml`.
+- **Deep-link `<data>` tags split** into single-attribute elements for the
+  custom `gagachat://` scheme (semantically identical; silences
+  `IntentFilterUniqueDataAttributes`).
+- **App Bundle language splits disabled** (`bundle { language { enableSplit =
+  false } }`) so the runtime language picker keeps every language in the base
+  APK (silences `AppBundleLocaleChanges`).
+
 ## [2.7.1] — versionCode 46
 
 **Settings Center functional-wiring release (Master Spec §8).** The Settings

@@ -22,6 +22,36 @@ root = Path(__file__).resolve().parents[1]
 config = json.loads((root / "ci/backend-public.json").read_text())
 v = config["firebase"]
 
+
+def client(package_name: str) -> dict:
+    """A single Firebase Android client entry for the given application id.
+
+    The `com.google.gms.google-services` plugin resolves the client by the
+    *merged* applicationId, which differs between build types because the debug
+    build adds an `.debug` suffix. Both ids must therefore be present or
+    `process<Variant>GoogleServices` fails with "No matching client found".
+    """
+    return {
+        "client_info": {
+            "mobilesdk_app_id": v["google_app_id"],
+            "android_client_info": {"package_name": package_name},
+        },
+        "oauth_client": [
+            {"client_id": v["oauth_client_id"], "client_type": 3},
+        ],
+        "api_key": [
+            {"current_key": v["google_api_key"]},
+        ],
+        "services": {
+            "appinvite_service": {
+                "other_platform_oauth_client": [
+                    {"client_id": v["oauth_client_id"], "client_type": 3},
+                ],
+            },
+        },
+    }
+
+
 google = {
     "project_info": {
         "project_number": v["gcm_defaultSenderId"],
@@ -30,25 +60,10 @@ google = {
         "storage_bucket": v["google_storage_bucket"],
     },
     "client": [
-        {
-            "client_info": {
-                "mobilesdk_app_id": v["google_app_id"],
-                "android_client_info": {"package_name": "gagachat.app"},
-            },
-            "oauth_client": [
-                {"client_id": v["oauth_client_id"], "client_type": 3},
-            ],
-            "api_key": [
-                {"current_key": v["google_api_key"]},
-            ],
-            "services": {
-                "appinvite_service": {
-                    "other_platform_oauth_client": [
-                        {"client_id": v["oauth_client_id"], "client_type": 3},
-                    ],
-                },
-            },
-        },
+        client("gagachat.app"),
+        # Debug variant (applicationIdSuffix ".debug") so assembleDebug /
+        # lintDebug resolve a client too.
+        client("gagachat.app.debug"),
     ],
     "configuration_version": "1",
 }

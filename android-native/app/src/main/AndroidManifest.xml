@@ -90,9 +90,10 @@
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="gagachat" android:host="chat" />
-                <data android:scheme="gagachat" android:host="call" />
-                <data android:scheme="gagachat" android:host="profile" />
+                <data android:scheme="gagachat" />
+                <data android:host="chat" />
+                <data android:host="call" />
+                <data android:host="profile" />
             </intent-filter>
             <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW" />
