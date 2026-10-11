@@ -78,9 +78,9 @@ import kotlinx.coroutines.launch
 
 /**
  * "Add Friends" (reference screenshot 173620). Mirrors the previous web app:
- * a Search / Suggestions / Requests / Nearby tab strip over the QR actions, the
- * shareable "Your Profile Link" card, a directory search and an
- * "Add by QR or Link" paste box.
+ * Search + Requests, QR scanning, shareable profile links and real directory
+ * lookups. Suggestions and Nearby are intentionally not advertised until
+ * privacy-safe backend functionality exists.
  */
 @Composable
 fun DiscoverScreen(
@@ -104,7 +104,11 @@ fun DiscoverScreen(
     }
 
     fun shareLink() {
-        val link = state.profileLink.ifBlank { "https://gagachat.app" }
+        val link = state.profileLink
+        if (link.isBlank()) {
+            scope.launch { snackbarHostState.showSnackbar("Your profile link is unavailable. Sign in and retry.") }
+            return
+        }
         val sendIntent = Intent(Intent.ACTION_SEND).apply {
             type = "text/plain"
             putExtra(Intent.EXTRA_TEXT, "Add me on GaGa Chat: $link")
@@ -113,7 +117,7 @@ fun DiscoverScreen(
         context.startActivity(Intent.createChooser(sendIntent, "Share your GaGa profile"))
     }
 
-    val tabs = listOf("Search", "Suggestions", "Requests (${state.incoming.size})", "Nearby")
+    val tabs = listOf("Find Friends", "Requests" + if (state.incoming.isNotEmpty()) " (${state.incoming.size})" else "")
 
     GagaScaffold(
         title = "Add Friends",
@@ -138,18 +142,19 @@ fun DiscoverScreen(
                     onOpenMyQr = onOpenMyQr,
                     onOpenAddByCode = onOpenAddByCode,
                     onShare = ::shareLink,
-                    onCopyLink = { copy("GaGa profile", state.profileLink, "Profile link copied") },
+                    onCopyLink = {
+                        if (state.profileLink.isNotBlank()) copy("GaGa profile", state.profileLink, "Profile link copied")
+                        else scope.launch { snackbarHostState.showSnackbar("Profile link unavailable.") }
+                    },
                     onOpenProfile = onOpenProfile,
                     onAdd = viewModel::sendRequest,
                 )
-                1 -> SuggestionsTab(state = state, onOpenProfile = onOpenProfile, onAdd = viewModel::sendRequest)
-                2 -> RequestsTab(
+                else -> RequestsTab(
                     incoming = state.incoming,
                     onAccept = viewModel::accept,
                     onDecline = viewModel::decline,
                     onOpenProfile = onOpenProfile,
                 )
-                else -> NearbyTab()
             }
         }
     }
@@ -166,8 +171,6 @@ private fun SearchTab(
     onOpenProfile: (String) -> Unit,
     onAdd: (User) -> Unit,
 ) {
-    var paste by remember { mutableStateOf("") }
-
     Column(modifier = Modifier.fillMaxSize()) {
         // QR action buttons ------------------------------------------------
         Row(
@@ -220,54 +223,16 @@ private fun SearchTab(
         GagaSearchBar(
             query = state.query,
             onQueryChange = onQueryChange,
-            placeholder = "Search by username, email, phone, or ID…",
+            placeholder = "Search GaGa username or name",
         )
 
-        // Add by QR or Link ------------------------------------------------
-        GagaSectionHeader("Add by QR or Link")
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = GagaDimens.space16),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(GagaDimens.space8),
-        ) {
-            Box(modifier = Modifier.weight(1f)) {
-                GagaTextField(
-                    value = paste,
-                    onValueChange = { paste = it },
-                    label = "Paste GaGa link or user ID",
-                    singleLine = true,
-                )
-            }
-            Box(
-                modifier = Modifier
-                    .size(48.dp)
-                    .clip(CircleShape)
-                    .background(GagaGreen)
-                    .clickable {
-                        val token = extractToken(paste)
-                        if (token.isNotBlank()) onQueryChange(token)
-                    },
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    Icons.Filled.PersonAdd,
-                    contentDescription = "Add by link",
-                    tint = Color.White,
-                )
-            }
-        }
-        Spacer(Modifier.height(GagaDimens.space8))
         GagaSecondaryButton(
-            text = "Upload QR Image",
+            text = "Find someone by QR or profile link",
             onClick = onOpenAddByCode,
-            leadingIcon = Icons.Filled.Image,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = GagaDimens.space16),
+            leadingIcon = Icons.Filled.QrCodeScanner,
+            modifier = Modifier.fillMaxWidth().padding(horizontal = GagaDimens.space16, vertical = GagaDimens.space8),
         )
-        Spacer(Modifier.height(GagaDimens.space12))
+        Spacer(Modifier.height(GagaDimens.space8))
 
         // Results ----------------------------------------------------------
         when {
@@ -308,35 +273,6 @@ private fun SearchTab(
 }
 
 @Composable
-private fun SuggestionsTab(
-    state: DiscoverUiState,
-    onOpenProfile: (String) -> Unit,
-    onAdd: (User) -> Unit,
-) {
-    // No suggestions backend yet: surface the search results as "people to add"
-    // when the user has searched, otherwise a friendly empty state.
-    if (state.results.isEmpty()) {
-        GagaEmptyState(
-            icon = Icons.Filled.Star,
-            title = "No suggestions yet",
-            description = "Search for people you know to add them as friends.",
-        )
-        return
-    }
-    LazyColumn(modifier = Modifier.fillMaxSize()) {
-        items(state.results, key = { it.id }) { user ->
-            DiscoverRow(
-                user = user,
-                isFriend = state.friendIds.contains(user.id),
-                requested = state.sentIds.contains(user.id),
-                onAdd = { onAdd(user) },
-                onClick = { onOpenProfile(user.id) },
-            )
-        }
-    }
-}
-
-@Composable
 private fun RequestsTab(
     incoming: List<FriendRequest>,
     onAccept: (FriendRequest) -> Unit,
@@ -367,15 +303,6 @@ private fun RequestsTab(
             )
         }
     }
-}
-
-@Composable
-private fun NearbyTab() {
-    GagaEmptyState(
-        icon = Icons.Filled.Place,
-        title = "Nearby people",
-        description = "Turn on location sharing to discover people around you.",
-    )
 }
 
 @Composable
@@ -435,13 +362,3 @@ private fun DiscoverRow(
 }
 
 /** Extracts a user id or @username from a pasted GaGa link or bare token. */
-private fun extractToken(raw: String): String {
-    val value = raw.trim()
-    if (value.isBlank()) return ""
-    // https://gagachat.app/profile/<id>  |  gaga://user/<id>  |  @username  |  <id>
-    val afterProfile = value.substringAfterLast("/profile/", "")
-    if (afterProfile.isNotBlank()) return afterProfile.trim().trimEnd('/')
-    val afterUser = value.substringAfterLast("user/", "")
-    if (afterUser.isNotBlank() && afterUser != value) return afterUser.trim().trimEnd('/')
-    return value.trimStart('@')
-}
