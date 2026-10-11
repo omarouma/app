@@ -14,6 +14,8 @@
 | UXP-06 | Chat Info | Resolve private storage URLs for shared gallery thumbnails, show useful loading/placeholder labels, show all image rows, open image/video via existing full-screen media viewer | `feature/chat/ChatInfoScreen.kt`, `feature/chat/ChatInfoViewModel.kt` |
 | UXP-07 | Chat actions | Compact and scrollable bottom sheet; show essential actions by default, expose advanced GaGa tools on demand; remove duplicated React action (reactions remain accessible) | `feature/chat/ChatScreen.kt` |
 | UXP-08 | Notifications | All/Unread/Calls/People/Chats filters and clearer all-read labeling; retain real event rows rather than silently hiding or auto-marking events | `feature/settings/NotificationInboxScreen.kt` |
+| UXP-09 | Chat Info actions & links | User-confirmed Clear/Remove/Block, a truthful Open Chat shortcut instead of no-op Search, and clickable shared HTTP(S) links with failure feedback | `feature/chat/ChatInfoScreen.kt` |
+| UXP-10 | Profile identity | Gold avatar ring only for users with premium entitlement; privacy audience chips labeled clearly | `feature/profile/ProfileScreen.kt` |
 
 ## Visual system to apply across the full app
 
