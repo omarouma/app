@@ -52,6 +52,8 @@ import com.google.zxing.NotFoundException
 import com.google.zxing.PlanarYUVLuminanceSource
 import com.google.zxing.common.HybridBinarizer
 import java.util.concurrent.Executors
+import java.util.concurrent.Executor
+import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * In-app QR scanner (Master Spec §C). Renders a CameraX preview and decodes QR
@@ -136,7 +138,8 @@ private fun CameraPreview(
         }
     }
     val executor = remember { Executors.newSingleThreadExecutor() }
-    val analyzer = remember { QrCodeAnalyzer(onCodeScanned) }
+    val uiExecutor = remember(context) { ContextCompat.getMainExecutor(context) }
+    val analyzer = remember(uiExecutor) { QrCodeAnalyzer(onCodeScanned, uiExecutor) }
 
     DisposableEffect(lifecycleOwner) {
         val cameraProviderFuture = ProcessCameraProvider.getInstance(context)
@@ -187,7 +190,9 @@ private fun CameraPreview(
 /** ZXing analyzer that decodes a QR code from each YUV frame, throttled. */
 private class QrCodeAnalyzer(
     private val onCodeScanned: (String) -> Unit,
+    private val mainExecutor: Executor,
 ) : ImageAnalysis.Analyzer {
+    private val delivered = AtomicBoolean(false)
 
     private val reader = MultiFormatReader().apply {
         setHints(
@@ -204,7 +209,7 @@ private class QrCodeAnalyzer(
     override fun analyze(image: ImageProxy) {
         try {
             val now = System.currentTimeMillis()
-            if (now - lastScanAt < 750L) return
+            if (delivered.get() || now - lastScanAt < 750L) return
             val bytes = image.toLuminanceBytes() ?: return
             val source = PlanarYUVLuminanceSource(
                 bytes,
@@ -218,9 +223,11 @@ private class QrCodeAnalyzer(
             )
             val bitmap = BinaryBitmap(HybridBinarizer(source))
             val text = reader.decodeWithState(bitmap).text
-            if (!text.isNullOrBlank()) {
+            if (!text.isNullOrBlank() && delivered.compareAndSet(false, true)) {
                 lastScanAt = now
-                onCodeScanned(text)
+                // Analyzer runs on a camera executor. Route once on Android's
+                // main executor so navigation/state are changed on the UI thread.
+                mainExecutor.execute { onCodeScanned(text) }
             }
         } catch (_: NotFoundException) {
             // No QR in this frame; keep scanning.
