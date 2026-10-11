@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "packageName": "gagachat.app",
+  "latestVersionCode": 47,
+  "latestVersionName": "2.7.2",
+  "minimumSupportedVersionCode": 0,
+  "publishedAt": "2026-10-11T05:58:16Z",
+  "releaseNotes": "Release 2.7.2 improves build stability, Firebase debug configuration, Android resources and deep-link declarations.",
+  "channels": {
+    "apk": {
+      "versionCode": 47,
+      "url": "https://gagachat.app/downloads/gaga-latest.apk"
+    },
+    "play": {
+      "versionCode": 0,
+      "url": "https://play.google.com/store/apps/details?id=gagachat.app"
+    }
+  }
+}
