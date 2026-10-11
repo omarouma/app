@@ -1,14 +1,14 @@
 {
   "schemaVersion": 1,
   "packageName": "gagachat.app",
-  "latestVersionCode": 47,
-  "latestVersionName": "2.7.2",
+  "latestVersionCode": 48,
+  "latestVersionName": "2.7.3",
   "minimumSupportedVersionCode": 0,
-  "publishedAt": "2026-10-11T05:58:16Z",
-  "releaseNotes": "Release 2.7.2 improves build stability, Firebase debug configuration, Android resources and deep-link declarations.",
+  "publishedAt": "2026-10-11T12:49:35Z",
+  "releaseNotes": "Release 2.7.3 consolidates the professional Chats UI, secure QR profile codes with image scanning, cross-device favorites, friend-event notifications, and API 36 release hardening.",
   "channels": {
     "apk": {
-      "versionCode": 47,
+      "versionCode": 48,
       "url": "https://gagachat.app/downloads/gaga-latest.apk"
     },
     "play": {
