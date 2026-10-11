@@ -41,6 +41,7 @@ import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -96,6 +97,9 @@ fun DiscoverScreen(
     val context = LocalContext.current
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
+    LaunchedEffect(state.notice) {
+        state.notice?.let { snackbarHostState.showSnackbar(it); viewModel.consumeNotice() }
+    }
 
     fun copy(label: String, value: String, message: String) {
         val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
@@ -154,6 +158,7 @@ fun DiscoverScreen(
                     onAccept = viewModel::accept,
                     onDecline = viewModel::decline,
                     onOpenProfile = onOpenProfile,
+                    processingIds = state.processingIds,
                 )
             }
         }
@@ -263,6 +268,7 @@ private fun SearchTab(
                         user = user,
                         isFriend = state.friendIds.contains(user.id),
                         requested = state.sentIds.contains(user.id),
+                        processing = user.id in state.processingIds,
                         onAdd = { onAdd(user) },
                         onClick = { onOpenProfile(user.id) },
                     )
@@ -278,6 +284,7 @@ private fun RequestsTab(
     onAccept: (FriendRequest) -> Unit,
     onDecline: (FriendRequest) -> Unit,
     onOpenProfile: (String) -> Unit,
+    processingIds: Set<String> = emptySet(),
 ) {
     if (incoming.isEmpty()) {
         GagaEmptyState(
@@ -295,8 +302,8 @@ private fun RequestsTab(
                 avatar = { GagaAvatar(imageUrl = request.fromAvatar, name = request.fromName) },
                 trailing = {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        TextButton(onClick = { onAccept(request) }) { Text("Accept") }
-                        TextButton(onClick = { onDecline(request) }) { Text("Decline") }
+                        TextButton(onClick = { onAccept(request) }, enabled = request.id !in processingIds) { Text("Accept") }
+                        TextButton(onClick = { onDecline(request) }, enabled = request.id !in processingIds) { Text("Decline") }
                     }
                 },
                 onClick = { onOpenProfile(request.fromUserId) },
@@ -336,6 +343,7 @@ private fun DiscoverRow(
     user: User,
     isFriend: Boolean,
     requested: Boolean,
+    processing: Boolean = false,
     onAdd: () -> Unit,
     onClick: () -> Unit,
 ) {
@@ -351,9 +359,9 @@ private fun DiscoverRow(
                     contentDescription = "Requested",
                     modifier = Modifier.padding(end = GagaDimens.space8),
                 )
-                else -> TextButton(onClick = onAdd) {
+                else -> TextButton(onClick = onAdd, enabled = !processing) {
                     Icon(Icons.Filled.PersonAdd, contentDescription = null)
-                    Text("Add", modifier = Modifier.padding(start = GagaDimens.space4))
+                    Text(if (processing) "Sending..." else "Add", modifier = Modifier.padding(start = GagaDimens.space4))
                 }
             }
         },
@@ -361,4 +369,3 @@ private fun DiscoverRow(
     )
 }
 
-/** Extracts a user id or @username from a pasted GaGa link or bare token. */
