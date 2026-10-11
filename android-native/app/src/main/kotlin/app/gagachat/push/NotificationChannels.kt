@@ -25,6 +25,7 @@ import android.media.RingtoneManager
  */
 object NotificationChannels {
     const val MESSAGES = "gaga_messages"
+    const val FRIEND_REQUESTS = "gaga_friend_requests"
     const val GROUP_MESSAGES = "gaga_group_messages"
     const val CALLS = "gaga_calls"
     const val CALLS_NO_VIBRATION = "gaga_calls_sound_only"
@@ -53,6 +54,18 @@ object NotificationChannels {
                 NotificationManager.IMPORTANCE_HIGH,
             ).apply {
                 description = "New direct chat messages"
+                enableVibration(true)
+                setSound(defaultSound, soundAttrs)
+            },
+        )
+
+        manager.createNotificationChannel(
+            NotificationChannel(
+                FRIEND_REQUESTS,
+                "Friend Requests",
+                NotificationManager.IMPORTANCE_DEFAULT,
+            ).apply {
+                description = "New friend requests and accepted invitations"
                 enableVibration(true)
                 setSound(defaultSound, soundAttrs)
             },
