@@ -16,6 +16,7 @@
 | UXP-08 | Notifications | All/Unread/Calls/People/Chats filters and clearer all-read labeling; retain real event rows rather than silently hiding or auto-marking events | `feature/settings/NotificationInboxScreen.kt` |
 | UXP-09 | Chat Info actions & links | User-confirmed Clear/Remove/Block, a truthful Open Chat shortcut instead of no-op Search, and clickable shared HTTP(S) links with failure feedback | `feature/chat/ChatInfoScreen.kt` |
 | UXP-10 | Profile identity | Gold avatar ring only for users with premium entitlement; privacy audience chips labeled clearly | `feature/profile/ProfileScreen.kt` |
+| UXP-11 | Today summaries | De-duplicate repeated missed callers with accurate counts; show negative net recorded cash flow in error semantic color rather than green | `feature/dailylife/DailyLifeScreen.kt` |
 
 ## Visual system to apply across the full app
 
