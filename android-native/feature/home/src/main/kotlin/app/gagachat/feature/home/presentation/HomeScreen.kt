@@ -57,7 +57,7 @@ private enum class ChatInboxFilter(val label: String) {
     ALL("All"),
     UNREAD("Unread"),
     PINNED("Pinned"),
-    ARCHIVED("Archived"),
+    GROUPS("Groups"),
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -79,10 +79,10 @@ fun HomeRoute(
 
     val visibleConversations = remember(state.conversations, currentFilter) {
         when (currentFilter) {
-            ChatInboxFilter.UNREAD.name -> state.conversations.filter { it.unreadCount > 0 && !it.isArchived }
-            ChatInboxFilter.PINNED.name -> state.conversations.filter { it.isPinned && !it.isArchived }
-            ChatInboxFilter.ARCHIVED.name -> state.conversations.filter { it.isArchived }
-            else -> state.conversations.filterNot { it.isArchived }
+            ChatInboxFilter.UNREAD.name -> state.conversations.filter { it.unreadCount > 0 }
+            ChatInboxFilter.PINNED.name -> state.conversations.filter { it.isPinned }
+            ChatInboxFilter.GROUPS.name -> state.conversations.filter { it.type != app.gagachat.core.model.ConversationType.DIRECT }
+            else -> state.conversations
         }
     }
 
@@ -153,7 +153,7 @@ fun HomeRoute(
             GagaSearchBar(
                 query = state.query,
                 onQueryChange = viewModel::onQueryChange,
-                placeholder = "Search chats or messages",
+                placeholder = "Search names or recent messages",
             )
             Row(
                 modifier = Modifier
@@ -179,7 +179,7 @@ fun HomeRoute(
                         state.query.isNotBlank() -> "No matching conversations"
                         currentFilter == ChatInboxFilter.UNREAD.name -> "You're all caught up"
                         currentFilter == ChatInboxFilter.PINNED.name -> "No pinned chats"
-                        currentFilter == ChatInboxFilter.ARCHIVED.name -> "No archived chats"
+                        currentFilter == ChatInboxFilter.GROUPS.name -> "No group conversations"
                         else -> "No conversations yet"
                     },
                     brandMark = state.query.isBlank() && currentFilter == ChatInboxFilter.ALL.name,
@@ -187,7 +187,7 @@ fun HomeRoute(
                         state.query.isNotBlank() -> "Try another name or message preview."
                         currentFilter == ChatInboxFilter.UNREAD.name -> "Unread conversations will appear here."
                         currentFilter == ChatInboxFilter.PINNED.name -> "Long-press a chat to pin it."
-                        currentFilter == ChatInboxFilter.ARCHIVED.name -> "Conversations you archive appear here."
+                        currentFilter == ChatInboxFilter.GROUPS.name -> "Your group chats will appear here."
                         else -> "Start a new chat to see it here."
                     },
                 )
