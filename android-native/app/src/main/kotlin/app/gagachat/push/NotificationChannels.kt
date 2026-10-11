@@ -32,6 +32,7 @@ object NotificationChannels {
     const val CALLS_QUIET = "gaga_calls_quiet"
     const val MISSED_CALLS = "gaga_missed_calls"
     const val SECURITY = "gaga_security"
+    const val UPDATES = "gaga_updates"
 
     /** Retained for backwards compatibility with older installs. */
     const val GENERAL = "gaga_general"
@@ -97,6 +98,16 @@ object NotificationChannels {
                 description = "Missed voice and video calls"
                 enableVibration(true)
                 setSound(defaultSound, soundAttrs)
+            },
+        )
+
+        manager.createNotificationChannel(
+            NotificationChannel(
+                UPDATES,
+                "App Updates",
+                NotificationManager.IMPORTANCE_DEFAULT,
+            ).apply {
+                description = "New GaGa Chat versions and important upgrade notices"
             },
         )
 
