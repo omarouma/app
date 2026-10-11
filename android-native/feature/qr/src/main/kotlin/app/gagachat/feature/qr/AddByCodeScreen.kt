@@ -44,6 +44,7 @@ import app.gagachat.core.ui.theme.GagaDimens
 fun AddByCodeScreen(
     onOpenChat: (String) -> Unit,
     onBack: () -> Unit,
+    onOpenProfile: (String) -> Unit = {},
     viewModel: AddByCodeViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -57,7 +58,7 @@ fun AddByCodeScreen(
                 .padding(GagaDimens.space16),
         ) {
             Text(
-                text = "Scan a GaGa QR code, or paste/type a code or @username to find someone.",
+                text = "Scan a GaGa profile code or enter a profile link, GaGa ID or @username. You choose whether to send a friend request.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -91,7 +92,7 @@ fun AddByCodeScreen(
                 text = "Find",
                 onClick = viewModel::lookup,
                 modifier = Modifier.fillMaxWidth(),
-                enabled = state.input.isNotBlank(),
+                enabled = state.input.isNotBlank() && state.status != AddByCodeStatus.SEARCHING,
                 loading = state.status == AddByCodeStatus.SEARCHING,
                 leadingIcon = Icons.Filled.Search,
             )
@@ -118,10 +119,20 @@ fun AddByCodeScreen(
                         Spacer(Modifier.height(GagaDimens.space16))
                         if (state.isFriend) {
                             GagaSecondaryButton(
-                                text = "Open chat",
+                                text = "Open Chat",
                                 onClick = { viewModel.openChat(onOpenChat) },
                                 modifier = Modifier.fillMaxWidth(),
                                 leadingIcon = Icons.AutoMirrored.Filled.Chat,
+                            )
+                        } else if (state.incomingRequest != null) {
+                            GagaPrimaryButton(
+                                text = "Accept Friend Request",
+                                onClick = viewModel::acceptIncoming,
+                                modifier = Modifier.fillMaxWidth(),
+                                enabled = !state.isSending,
+                                loading = state.isSending,
+                                enabled = !state.isSending,
+                                leadingIcon = Icons.Filled.PersonAdd,
                             )
                         } else if (state.requestSent) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -144,6 +155,16 @@ fun AddByCodeScreen(
                                 loading = state.isSending,
                                 leadingIcon = Icons.Filled.PersonAdd,
                             )
+                        }
+                        Spacer(Modifier.height(GagaDimens.space12))
+                        GagaSecondaryButton(
+                            text = "View Profile",
+                            onClick = { onOpenProfile(user.id) },
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                        if (!state.error.isNullOrBlank()) {
+                            Text(state.error.orEmpty(), color = MaterialTheme.colorScheme.error,
+                                style = MaterialTheme.typography.bodySmall)
                         }
                     }
                 }
