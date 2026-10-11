@@ -315,8 +315,12 @@ fun ChatRoute(
         exitSelectionMode()
     }
     val forwardSelected = {
-        state.messages.lastOrNull { it.localId in selectedIds }?.let { forwardingMessage = it }
-        exitSelectionMode()
+        // ForwardPicker supports one message. Never silently discard the rest
+        // of a user's multi-selection.
+        if (selectedIds.size == 1) {
+            state.messages.firstOrNull { it.localId in selectedIds }?.let { forwardingMessage = it }
+            exitSelectionMode()
+        }
     }
     val deleteSelected = {
         state.messages.filter { it.localId in selectedIds }.forEach { viewModel.deleteForMe(it) }
@@ -348,31 +352,35 @@ fun ChatRoute(
                     )
                     IconButton(
                         onClick = { copySelected() },
-                        enabled = selectedIds.isNotEmpty(),
+                        enabled = state.messages.any { it.localId in selectedIds && !it.text.isNullOrBlank() },
                     ) {
-                        Icon(Icons.Filled.ContentCopy, contentDescription = "Copy selected")
+                        Icon(Icons.Filled.ContentCopy, contentDescription = "Copy selected message text")
                     }
                     IconButton(
                         onClick = { forwardSelected() },
-                        enabled = selectedIds.isNotEmpty(),
+                        enabled = selectedIds.size == 1,
                     ) {
-                        Icon(Icons.AutoMirrored.Filled.Forward, contentDescription = "Forward selected")
+                        Icon(Icons.AutoMirrored.Filled.Forward, contentDescription = "Forward one selected message")
                     }
                     IconButton(
                         onClick = { deleteSelected() },
                         enabled = selectedIds.isNotEmpty(),
                     ) {
-                        Icon(Icons.Filled.Delete, contentDescription = "Delete selected")
+                        Icon(Icons.Filled.Delete, contentDescription = "Delete selected for me")
                     }
                     IconButton(onClick = { exitSelectionMode() }) {
                         Icon(Icons.Filled.Close, contentDescription = "Cancel selection")
                     }
                 } else {
-                    IconButton(onClick = { onStartCall(state.conversationId, false) }) {
-                        Icon(Icons.Filled.Call, contentDescription = "Voice call")
-                    }
-                    IconButton(onClick = { onStartCall(state.conversationId, true) }) {
-                        Icon(Icons.Filled.Videocam, contentDescription = "Video call")
+                    // 1:1 LiveKit calling is supported. Do not display the same
+                    // controls on group conversations without group-call support.
+                    if (!state.isGroup && state.conversationId.isNotBlank()) {
+                        IconButton(onClick = { onStartCall(state.conversationId, false) }) {
+                            Icon(Icons.Filled.Call, contentDescription = "Start voice call")
+                        }
+                        IconButton(onClick = { onStartCall(state.conversationId, true) }) {
+                            Icon(Icons.Filled.Videocam, contentDescription = "Start video call")
+                        }
                     }
                     ChatOverflowMenu(
                         onSearch = viewModel::toggleSearch,
