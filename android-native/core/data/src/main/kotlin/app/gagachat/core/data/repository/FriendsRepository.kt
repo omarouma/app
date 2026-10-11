@@ -238,6 +238,7 @@ class DefaultFriendsRepository @Inject constructor(
             restApi.insertFriendship(FriendshipInsert(userId = me, friendId = fromUserId))
             restApi.insertFriendship(FriendshipInsert(userId = fromUserId, friendId = me))
             refresh()
+            notifyPushBestEffort(requestId, "friend_accepted")
             AppResult.Success(Unit)
         } catch (t: Throwable) {
             if (t is CancellationException) throw t
