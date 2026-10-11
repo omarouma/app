@@ -38,6 +38,7 @@ import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
@@ -46,6 +47,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -56,11 +58,14 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import app.gagachat.core.model.Message
+import app.gagachat.feature.chat.presentation.components.MediaViewerOverlay
+import app.gagachat.feature.chat.presentation.components.rememberSignedMediaUrl
 import app.gagachat.core.ui.component.GagaAvatar
 import app.gagachat.core.ui.component.GagaSectionHeader
 import app.gagachat.core.ui.component.GagaScaffold
 import app.gagachat.core.ui.theme.GagaDimens
-import coil.compose.AsyncImage
+import coil.compose.SubcomposeAsyncImage
 
 /**
  * Chat Info + shared-media gallery (Phase 10.2/10.3). A single scrollable surface
@@ -86,7 +91,8 @@ fun ChatInfoRoute(
         }
     }
 
-    var showReport by remember { androidx.compose.runtime.mutableStateOf(false) }
+    var showReport by remember { mutableStateOf(false) }
+    var selectedMedia by remember { mutableStateOf<Message?>(null) }
     if (showReport) androidx.compose.material3.AlertDialog(
         onDismissRequest = { showReport = false },
         title = { Text("Report this user") },
@@ -167,44 +173,29 @@ fun ChatInfoRoute(
 
             Spacer(Modifier.height(GagaDimens.space16))
 
-            // Media gallery.
+            // The gallery must use the same private-media URL resolver as the
+            // chatroom. A raw private bucket URL can show a blank gray tile.
             GagaSectionHeader("Photos & Videos (${state.media.size})")
             if (state.media.isEmpty()) {
                 EmptyRow("No shared photos or videos yet.")
             } else {
-                LazyVerticalGrid(
-                    columns = GridCells.Fixed(3),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(240.dp)
-                        .padding(horizontal = GagaDimens.space4),
-                    horizontalArrangement = Arrangement.spacedBy(2.dp),
-                    verticalArrangement = Arrangement.spacedBy(2.dp),
-                    userScrollEnabled = false,
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = GagaDimens.space8),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
-                    items(state.media, key = { it.localId + it.url }) { item ->
-                        Box(
-                            modifier = Modifier
-                                .aspectRatio(1f)
-                                .clip(RoundedCornerShape(6.dp))
-                                .background(MaterialTheme.colorScheme.surfaceVariant),
+                    state.media.chunked(3).forEach { items ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(4.dp),
                         ) {
-                            AsyncImage(
-                                model = item.url,
-                                contentDescription = null,
-                                contentScale = ContentScale.Crop,
-                                modifier = Modifier.fillMaxSize(),
-                            )
-                            if (item.isVideo) {
-                                Icon(
-                                    Icons.Filled.PlayArrow,
-                                    contentDescription = "Video",
-                                    tint = Color.White,
-                                    modifier = Modifier
-                                        .align(Alignment.Center)
-                                        .size(28.dp),
+                            items.forEach { item ->
+                                SharedMediaThumbnail(
+                                    item = item,
+                                    modifier = Modifier.weight(1f).aspectRatio(1f),
+                                    onClick = { selectedMedia = item.message },
                                 )
                             }
+                            repeat(3 - items.size) { Spacer(Modifier.weight(1f)) }
                         }
                     }
                 }
@@ -317,6 +308,70 @@ fun ChatInfoRoute(
                 destructive = true,
             )
             Spacer(Modifier.height(GagaDimens.space24))
+        }
+    }
+    selectedMedia?.let { message ->
+        MediaViewerOverlay(message = message, onDismiss = { selectedMedia = null })
+    }
+}
+
+
+/**
+ * Private media must be signed before Coil can fetch it.
+ * Videos without a thumbnail use a clear labeled preview instead of gray
+ * empty rectangles; both types open the existing in-app media viewer.
+ */
+@Composable
+private fun SharedMediaThumbnail(
+    item: SharedMediaItem,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+) {
+    val preview = rememberSignedMediaUrl(if (item.isVideo) item.thumbnailUrl else item.url)
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(10.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .clickable(onClickLabel = if (item.isVideo) "Play shared video" else "View shared photo", onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        if (preview.isNullOrBlank()) {
+            if (item.isVideo && item.thumbnailUrl.isNullOrBlank()) {
+                Icon(Icons.Filled.Videocam, contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(32.dp))
+                Text("Video", modifier = Modifier.align(Alignment.BottomCenter).padding(6.dp),
+                    style = MaterialTheme.typography.labelMedium)
+            } else {
+                CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
+            }
+        } else {
+            SubcomposeAsyncImage(
+                model = preview,
+                contentDescription = if (item.isVideo) "Shared video preview" else "Shared photo",
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize(),
+                loading = {
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
+                    }
+                },
+                error = {
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Text("Preview unavailable", style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                },
+            )
+        }
+        if (item.isVideo) {
+            Icon(
+                Icons.Filled.PlayArrow,
+                contentDescription = "Play video",
+                tint = Color.White,
+                modifier = Modifier.align(Alignment.Center)
+                    .size(32.dp)
+                    .background(Color.Black.copy(alpha = 0.45f), CircleShape),
+            )
         }
     }
 }
