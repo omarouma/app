@@ -186,7 +186,8 @@ fun ProfileRoute(
 
     GagaScaffold(
         title = if (state.isSelf) "Me" else "Profile",
-        onBack = onNavigateBack,
+        // Me is a top-level tab; showing Back here misleads navigation.
+        onBack = if (state.isSelf) null else onNavigateBack,
         snackbarHostState = snackbarHostState,
         actions = {
             // The Me tab IS the account hub now (the old "More" menu was removed),
@@ -314,7 +315,7 @@ fun ProfileRoute(
                     subtitle = user?.username?.takeIf { it.isNotBlank() }?.let { "@$it" } ?: "Not set",
                 )
             }
-            user?.lastSeen?.let {
+            if (!state.isSelf) user?.lastSeen?.let {
                 GagaDivider()
                 GagaSettingsRow(title = "Last seen", subtitle = TimeFormat.lastSeen(it))
             }
