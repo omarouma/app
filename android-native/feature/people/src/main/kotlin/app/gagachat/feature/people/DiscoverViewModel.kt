@@ -11,6 +11,7 @@ import app.gagachat.core.model.User
 import app.gagachat.core.ui.util.toUserMessage
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -29,6 +30,8 @@ data class DiscoverUiState(
     val profileLink: String = "",
     val error: String? = null,
     val searched: Boolean = false,
+    val processingIds: Set<String> = emptySet(),
+    val notice: String? = null,
 )
 
 @HiltViewModel
@@ -43,6 +46,8 @@ class DiscoverViewModel @Inject constructor(
 
     private var searchJob: Job? = null
 
+    fun consumeNotice() { _state.update { it.copy(notice = null) } }
+
     init {
         // Seed the current user's shareable profile link.
         authRepository.sessionFlow.value?.userId?.let { me ->
@@ -52,6 +57,12 @@ class DiscoverViewModel @Inject constructor(
         viewModelScope.launch {
             friendsRepository.friends.collect { friends ->
                 _state.update { it.copy(friendIds = friends.map { f -> f.user.id }.toSet()) }
+            }
+        }
+        // Keep outgoing request status accurate even after reopening the screen.
+        viewModelScope.launch {
+            friendsRepository.outgoingRequests.collect { requests ->
+                _state.update { it.copy(sentIds = requests.map { r -> r.toUserId }.toSet()) }
             }
         }
         // Incoming friend requests power the "Requests" tab.
@@ -77,7 +88,7 @@ class DiscoverViewModel @Inject constructor(
         searchJob = viewModelScope.launch {
             delay(300) // debounce
             _state.update { it.copy(isSearching = true, error = null) }
-            when (val result = userRepository.searchUsersRemote(value)) {
+            when (val result = userRepository.searchUsersRemote(value.trim())) {
                 is AppResult.Success -> {
                     val me = authRepository.sessionFlow.value?.userId
                     _state.update {
@@ -97,20 +108,47 @@ class DiscoverViewModel @Inject constructor(
     }
 
     fun sendRequest(user: User) {
+        val current = _state.value
+        if (user.id in current.friendIds || user.id in current.sentIds ||
+            user.id in current.processingIds) return
         viewModelScope.launch {
-            when (val result = friendsRepository.sendRequest(user.id)) {
-                is AppResult.Success -> _state.update { it.copy(sentIds = it.sentIds + user.id) }
-                is AppResult.Failure -> _state.update { it.copy(error = result.error.toUserMessage()) }
-                AppResult.Loading -> Unit
-            }
+            _state.update { it.copy(processingIds = it.processingIds + user.id) }
+            try {
+                when (val result = friendsRepository.sendRequest(user.id)) {
+                    is AppResult.Success -> _state.update { it.copy(sentIds = it.sentIds + user.id) }
+                    is AppResult.Failure -> _state.update { it.copy(notice = result.error.toUserMessage()) }
+                    AppResult.Loading -> Unit
+                }
+            } catch (error: CancellationException) { throw error }
+            catch (_: Exception) { _state.update { it.copy(notice = "Could not send friend request.") } }
+            finally { _state.update { it.copy(processingIds = it.processingIds - user.id) } }
         }
     }
 
-    fun accept(request: FriendRequest) = viewModelScope.launch {
+    fun accept(request: FriendRequest) = changeRequest(request) {
         friendsRepository.acceptRequest(request.id, request.fromUserId)
     }
 
-    fun decline(request: FriendRequest) = viewModelScope.launch {
+    fun decline(request: FriendRequest) = changeRequest(request) {
         friendsRepository.declineRequest(request.id)
+    }
+
+    private fun changeRequest(
+        request: FriendRequest,
+        operation: suspend () -> AppResult<Unit>,
+    ) {
+        if (request.id in _state.value.processingIds) return
+        viewModelScope.launch {
+            _state.update { it.copy(processingIds = it.processingIds + request.id) }
+            try {
+                when (val result = operation()) {
+                    is AppResult.Success -> Unit
+                    is AppResult.Failure -> _state.update { it.copy(notice = result.error.toUserMessage()) }
+                    AppResult.Loading -> Unit
+                }
+            } catch (error: CancellationException) { throw error }
+            catch (_: Exception) { _state.update { it.copy(notice = "Couldn't update friend request. Retry.") } }
+            finally { _state.update { it.copy(processingIds = it.processingIds - request.id) } }
+        }
     }
 }
