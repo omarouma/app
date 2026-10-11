@@ -4,6 +4,9 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
+import android.provider.ContactsContract
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -32,6 +35,7 @@ import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -97,6 +101,19 @@ fun DiscoverScreen(
     val context = LocalContext.current
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
+    var selectedContactName by remember { mutableStateOf<String?>(null) }
+    val pickContact = rememberLauncherForActivityResult(ActivityResultContracts.PickContact()) { uri ->
+        if (uri != null) {
+            val name = runCatching {
+                context.contentResolver.query(
+                    uri, arrayOf(ContactsContract.Contacts.DISPLAY_NAME_PRIMARY), null, null, null,
+                )?.use { cursor ->
+                    if (cursor.moveToFirst()) cursor.getString(0) else null
+                }
+            }.getOrNull()
+            selectedContactName = name?.takeIf { it.isNotBlank() } ?: "this contact"
+        }
+    }
     LaunchedEffect(state.notice) {
         state.notice?.let { snackbarHostState.showSnackbar(it); viewModel.consumeNotice() }
     }
@@ -146,6 +163,13 @@ fun DiscoverScreen(
                     onOpenMyQr = onOpenMyQr,
                     onOpenAddByCode = onOpenAddByCode,
                     onShare = ::shareLink,
+                    onInviteContact = {
+                        if (state.profileLink.isBlank()) {
+                            scope.launch { snackbarHostState.showSnackbar("Sign in to share your profile link.") }
+                        } else {
+                            pickContact.launch(null)
+                        }
+                    },
                     onCopyLink = {
                         if (state.profileLink.isNotBlank()) copy("GaGa profile", state.profileLink, "Profile link copied")
                         else scope.launch { snackbarHostState.showSnackbar("Profile link unavailable.") }
@@ -163,6 +187,20 @@ fun DiscoverScreen(
             }
         }
     }
+
+    selectedContactName?.let { contact ->
+        AlertDialog(
+            onDismissRequest = { selectedContactName = null },
+            title = { Text("Invite $contact?") },
+            text = { Text("GaGa will open Android's share sheet with your profile link. Your contacts are not uploaded to GaGa.") },
+            confirmButton = {
+                TextButton(onClick = { selectedContactName = null; shareLink() }) { Text("Share invitation") }
+            },
+            dismissButton = {
+                TextButton(onClick = { selectedContactName = null }) { Text("Cancel") }
+            },
+        )
+    }
 }
 
 @Composable
@@ -172,6 +210,7 @@ private fun SearchTab(
     onOpenMyQr: () -> Unit,
     onOpenAddByCode: () -> Unit,
     onShare: () -> Unit,
+    onInviteContact: () -> Unit,
     onCopyLink: () -> Unit,
     onOpenProfile: (String) -> Unit,
     onAdd: (User) -> Unit,
@@ -231,6 +270,12 @@ private fun SearchTab(
             placeholder = "Search GaGa username or name",
         )
 
+        GagaSecondaryButton(
+            text = "Invite a Phone Contact",
+            onClick = onInviteContact,
+            leadingIcon = Icons.Filled.PersonAdd,
+            modifier = Modifier.fillMaxWidth().padding(horizontal = GagaDimens.space16, vertical = GagaDimens.space8),
+        )
         GagaSecondaryButton(
             text = "Find someone by QR or profile link",
             onClick = onOpenAddByCode,
