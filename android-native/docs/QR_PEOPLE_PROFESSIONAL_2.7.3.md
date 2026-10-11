@@ -11,7 +11,7 @@
 - **Validation:** Reject arbitrary URLs, email addresses and random text as user IDs; no automatic external navigation or payment action occurs on scan.
 - **Scan result:** Distinguish invalid code, self-scan, no matching user and lookup/connection error. A user must review identity before confirming a friend request.
 - **Request states:** Recognize friend, outgoing pending request or incoming request; disable duplicate requests and permit accepting an incoming request. Provide a View Profile route.
-- **CameraX:** Dispatch scan result once on the main executor, rather than repeatedly invoking navigation from analyzer threads.
+- **CameraX:** Dispatch scan result once on the main executor, rather than repeatedly invoking navigation from analyzer threads.\n- **Image QR import:** Pick an existing QR screenshot using Android's scoped system photo picker; decode a bounded-size bitmap locally with ZXing. No broad photo-library permission.
 - **People:** Direct Scan QR entry, live Received/Sent request counts, favorites-first sorting, protected actions during mutation and friend discovery shortcut.
 - **Add Friends:** Remove misleading Suggestions/Nearby tabs and fake Upload QR Image control pending real services; actual search and request list remain.
 - **Friend request UI:** Sync Sent status from the repository, guard repeated taps and display backend errors in the screen instead of silently swallowing failures.
@@ -48,7 +48,7 @@ For direct terminal use in GitHub Actions, follow `.github/workflows/android-rep
 1. Open **People** → Scan QR, grant or deny camera, confirm manual entry still works.
 2. Open **My QR**, display QR on phone A and scan it on phone B. Correct profile must resolve, never trigger a payment or join a Circle.
 3. Scan legacy `gaga://user/<UUID>` and new https code; both find the same user.
-4. Scan random/foreign QR code, malformed ID, email, own QR; show safe explanatory error.
+4. Scan random/foreign QR code, malformed ID, email, own QR; show safe explanatory error. Import a QR screenshot from the Android image picker, confirm the same verified user, and reject an image with no QR.
 5. View profile from scanned identity, send *one* request, verify outgoing pending status on both Add By Code and People screens.
 6. While request pending, scan same user again: no duplicate Add button.
 7. On recipient phone, open People → Requests → Accept; both accounts then see friendship and are able to open a permitted chat.
@@ -63,6 +63,6 @@ For direct terminal use in GitHub Actions, follow `.github/workflows/android-rep
 - Nearby people discovery: requires opt-in consent, expiry, obfuscated distance and anti-abuse protections.
 - Friend recommendations: requires server-supported privacy-safe suggestion data.
 - Favorites cross-device sync: currently device/account-local; add server persistence separately.
-- **Gallery QR import:** scanner is CameraX/manual-entry only; no claim of image-file scanning is made.
+- **Gallery QR import:** implemented via the system content picker; test against different QR sizes, rotations and low-contrast screenshots on real phones.
 - Transfer, group-join and Wallet QR: require entirely separate signed/authorized payload formats and confirmation; never use profile QR to authorize funds movement.
 - Profile discovery privacy and block/RLS enforcement must be validated with two real accounts against production Supabase; source changes alone do not prove it.
