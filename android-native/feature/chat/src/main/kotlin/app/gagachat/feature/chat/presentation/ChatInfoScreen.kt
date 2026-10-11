@@ -49,11 +49,13 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -68,6 +70,7 @@ import app.gagachat.core.ui.component.GagaSectionHeader
 import app.gagachat.core.ui.component.GagaScaffold
 import app.gagachat.core.ui.theme.GagaDimens
 import coil.compose.SubcomposeAsyncImage
+import kotlinx.coroutines.launch
 
 /**
  * Chat Info + shared-media gallery (Phase 10.2/10.3). A single scrollable surface
@@ -85,6 +88,8 @@ fun ChatInfoRoute(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val notice by viewModel.notice.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
+    val uriHandler = LocalUriHandler.current
+    val scope = rememberCoroutineScope()
 
     LaunchedEffect(notice) {
         notice?.let {
@@ -246,6 +251,16 @@ fun ChatInfoRoute(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
+                            .clickable(onClickLabel = "Open shared link", onClick = {
+                                runCatching {
+                                    if (!link.url.startsWith("https://") && !link.url.startsWith("http://")) {
+                                        error("Unsupported link")
+                                    }
+                                    uriHandler.openUri(link.url)
+                                }.onFailure {
+                                    scope.launch { snackbarHostState.showSnackbar("Couldn't open link.") }
+                                }
+                            })
                             .padding(horizontal = GagaDimens.space16, vertical = GagaDimens.space8),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
