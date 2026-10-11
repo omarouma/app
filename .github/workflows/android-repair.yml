@@ -105,6 +105,25 @@ jobs:
             android-native/feature/chat/src/main/kotlin/app/gagachat/feature/chat/presentation/components/MessageComposer.kt \
             android-native/feature/chat/src/test/kotlin/app/gagachat/feature/chat/presentation/ChatUiPolicyTest.kt \
             android-native/docs/PROFESSIONAL_CHAT_UI_2.7.3.md
+      - name: Package QR and People source files
+        run: |
+          mkdir -p deliverables
+          zip -q deliverables/GaGa-2.7.3-QR-People-improvements-source.zip \
+            android-native/feature/qr/src/main/kotlin/app/gagachat/feature/qr/MyQrViewModel.kt \
+            android-native/feature/qr/src/main/kotlin/app/gagachat/feature/qr/MyQrScreen.kt \
+            android-native/feature/qr/src/main/kotlin/app/gagachat/feature/qr/AddByCodeViewModel.kt \
+            android-native/feature/qr/src/main/kotlin/app/gagachat/feature/qr/AddByCodeScreen.kt \
+            android-native/feature/qr/src/main/kotlin/app/gagachat/feature/qr/QrCameraScanner.kt \
+            android-native/feature/qr/src/main/kotlin/app/gagachat/feature/qr/QrNavigation.kt \
+            android-native/feature/qr/src/test/kotlin/app/gagachat/feature/qr/QrPayloadTest.kt \
+            android-native/feature/qr/build.gradle.kts \
+            android-native/feature/people/src/main/kotlin/app/gagachat/feature/people/PeopleScreen.kt \
+            android-native/feature/people/src/main/kotlin/app/gagachat/feature/people/PeopleViewModel.kt \
+            android-native/feature/people/src/main/kotlin/app/gagachat/feature/people/PeopleNavigation.kt \
+            android-native/feature/people/src/main/kotlin/app/gagachat/feature/people/DiscoverScreen.kt \
+            android-native/feature/people/src/main/kotlin/app/gagachat/feature/people/DiscoverViewModel.kt \
+            android-native/app/src/main/kotlin/app/gagachat/navigation/MainNavHost.kt \
+            android-native/docs/QR_PEOPLE_PROFESSIONAL_2.7.3.md
       - name: Compile release and test messaging and call contracts
         working-directory: android-native
         run: gradle --no-daemon --no-build-cache --max-workers=2 -Pksp.incremental=false :feature:dailylife:compileReleaseKotlin :app:assembleRelease :app:bundleRelease :core:model:test :core:data:testReleaseUnitTest :core:network:testReleaseUnitTest :feature:chat:testReleaseUnitTest :feature:calls:testReleaseUnitTest
