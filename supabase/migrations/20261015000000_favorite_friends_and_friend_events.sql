@@ -2,6 +2,15 @@
 -- Source-only until the production schema is backed up and migration reviewed.
 -- Existing user_settings and friendships schemas are intentionally untouched.
 
+-- PRIVACY BUG FOUND IN LIVE SCHEMA (read-only advisor review):
+-- These two PERMISSIVE SELECT ... USING (true) policies currently let
+-- authenticated clients see every friend-request/friendship row, defeating
+-- the participant-specific policies. The existing session-active policy is
+-- RESTRICTIVE and does not itself enforce per-row ownership.
+-- Preserve participant and intentional friend-list visibility policies.
+drop policy if exists friend_requests_select_public on public.friend_requests;
+drop policy if exists friendships_select_public on public.friendships;
+
 create table if not exists public.favorite_friends (
   user_id uuid not null references public.users(id) on delete cascade,
   friend_id uuid not null references public.users(id) on delete cascade,
