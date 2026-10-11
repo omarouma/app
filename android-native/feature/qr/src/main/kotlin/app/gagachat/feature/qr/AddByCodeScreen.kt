@@ -1,5 +1,9 @@
 package app.gagachat.feature.qr
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -12,6 +16,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material.icons.filled.Search
@@ -22,8 +27,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
@@ -35,6 +42,7 @@ import app.gagachat.core.ui.component.GagaScaffold
 import app.gagachat.core.ui.component.GagaSecondaryButton
 import app.gagachat.core.ui.component.GagaTextField
 import app.gagachat.core.ui.theme.GagaDimens
+import kotlinx.coroutines.launch
 
 /**
  * "Add by code" (Master Spec §C). Paste or type a GaGa code
@@ -49,12 +57,34 @@ fun AddByCodeScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     var showScanner by remember { mutableStateOf(false) }
+    var isReadingImage by remember { mutableStateOf(false) }
+    var imageError by remember { mutableStateOf<String?>(null) }
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val imagePicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        if (uri != null) {
+            scope.launch {
+                isReadingImage = true
+                imageError = null
+                val code = QrImageDecoder.decode(context, uri)
+                isReadingImage = false
+                if (code.isNullOrBlank()) {
+                    imageError = "No QR code found in that picture. Try another image or use the camera."
+                } else {
+                    viewModel.onInputChange(code)
+                    viewModel.lookup()
+                    showScanner = false
+                }
+            }
+        }
+    }
 
     GagaScaffold(title = "Add by code", onBack = onBack) { padding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
+                .verticalScroll(rememberScrollState())
                 .padding(GagaDimens.space16),
         ) {
             Text(
@@ -69,6 +99,18 @@ fun AddByCodeScreen(
                 modifier = Modifier.fillMaxWidth(),
                 leadingIcon = Icons.Filled.QrCodeScanner,
             )
+            Spacer(Modifier.height(GagaDimens.space8))
+            GagaSecondaryButton(
+                text = if (isReadingImage) "Reading image..." else "Scan QR from Image",
+                onClick = { imagePicker.launch("image/*") },
+                enabled = !isReadingImage,
+                modifier = Modifier.fillMaxWidth(),
+                leadingIcon = Icons.Filled.Image,
+            )
+            imageError?.let {
+                Spacer(Modifier.height(GagaDimens.space8))
+                Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+            }
             if (showScanner) {
                 Spacer(Modifier.height(GagaDimens.space12))
                 QrCameraScanner(
@@ -83,7 +125,7 @@ fun AddByCodeScreen(
             GagaTextField(
                 value = state.input,
                 onValueChange = viewModel::onInputChange,
-                label = "gaga://user/… or @username",
+                label = "GaGa profile link, user ID or @username",
                 leadingIcon = Icons.Filled.QrCodeScanner,
                 imeAction = ImeAction.Search,
             )
