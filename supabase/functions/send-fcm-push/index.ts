@@ -249,7 +249,8 @@ Deno.serve(async (req: Request) => {
     (isCall ? `Incoming ${callType} call` : 'New message');
 
   const data = toStringMap(body);
-  const channelId = isCall ? 'gaga_calls' : 'gaga_messages';
+  const isFriendEvent = type === 'friend_request' || type === 'friend_accepted';
+  const channelId = isCall ? 'gaga_calls' : isFriendEvent ? 'gaga_friend_requests' : 'gaga_messages';
 
   try {
     const tokens = await loadDeviceTokens(userId);
