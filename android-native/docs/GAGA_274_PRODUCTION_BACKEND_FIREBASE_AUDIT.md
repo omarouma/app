@@ -43,6 +43,18 @@ Relevant Supabase advisor reference:
 - https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection
 - https://supabase.com/docs/guides/database/database-linter?lint=0003_auth_rls_initplan
 
+## Additional P0 discovered: link-preview server-side URL fetching
+Read-only inspection of the deployed `link-preview` handler found it checks only that an `Authorization` string was supplied, rather than verifying a Supabase session, then follows redirects when fetching a user-supplied `http(s)` URL. That creates server-side request forgery (SSRF) risk and should be fixed before continued public use.
+
+**Source fix added under `supabase/functions/link-preview/` (not deployed):**
+- Verifies the bearer against `/auth/v1/user`, requiring an authentic user ID.
+- Only fetches from a strict list of known public HTTPS hosts; all other URLs receive text-only fallback (no backend fetch or redirects).
+- Rejects HTTP, private hosts/IP addresses, credentials and unexpected ports.
+- Never follows 3xx redirects; caps streamed HTML to 500 KB before decoding, and removes upstream exception details from API responses.
+- Node contract tests cover private metadata destinations, spoofed domains, username-in-URL tricks, oversized URLs and safe fallback.
+- **Staging test required:** invalid/no JWT = 401; unapproved URL = text-only preview without outbound network; approved URL = bounded preview. Verify legitimate Android chat link rendering after update.
+- **Deployment must be separately approved:** production function is still the earlier insecure version until reviewed patch is deployed. Roll out with Supabase Edge Function source, retain a rollback revision and watch function error logs.
+
 ## Source-only CI hardening included
 1. `android-native/ci/verify_firebase_release_config.py`: validates real Firebase public client project/package/FCM config, Crashlytics/Google Services Gradle integration and presence of the Android push service. Does not touch private credentials or claim live Firebase connectivity.
 2. `android-native/ci/verify_production_release.py`: produces `PRODUCTION-READINESS.txt`, differentiates unsigned development artifacts from signed verified builds, blocks production-tag/manual strict releases if the approved key is absent, and checks matching tag/version.
