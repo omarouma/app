@@ -30,6 +30,21 @@ data class ChinaShopProduct(
     @SerialName("origin_city") val originCity: String? = null,
 )
 
+@Serializable
+data class ChinaShopLandedQuote(
+    val id: String,
+    @SerialName("product_id") val productId: String,
+    val quantity: Int,
+    @SerialName("quote_status") val status: String,
+    @SerialName("product_cost_bdt") val productCostBdt: Double,
+    @SerialName("international_freight_bdt") val freightBdt: Double,
+    @SerialName("customs_duty_bdt") val customsBdt: Double,
+    @SerialName("taxes_bdt") val taxesBdt: Double,
+    @SerialName("local_delivery_bdt") val deliveryBdt: Double,
+    @SerialName("service_fee_bdt") val serviceFeeBdt: Double,
+    @SerialName("total_bdt") val totalBdt: Double,
+    @SerialName("expires_at") val expiresAt: String,
+)
 @Singleton
 class ChinaShopApi @Inject constructor(
     private val client: HttpClient,
@@ -69,6 +84,16 @@ class ChinaShopApi @Inject constructor(
             }
         }
     }
+
+    /** Read only: quotes must be created and verified by an authorized server. */
+    suspend fun myQuotes(limit: Int = 40): List<ChinaShopLandedQuote> =
+        client.get("${config.restUrl}/china_shop_landed_quotes") {
+            header("apikey", config.anonKey)
+            header("Authorization", "Bearer ${token()}")
+            parameter("select", "id,product_id,quantity,quote_status,product_cost_bdt,international_freight_bdt,customs_duty_bdt,taxes_bdt,local_delivery_bdt,service_fee_bdt,total_bdt,expires_at")
+            parameter("order", "created_at.desc")
+            parameter("limit", limit.coerceIn(1, 100))
+        }.body()
 
     suspend fun publishedProducts(limit: Int = 40): List<ChinaShopProduct> {
         val token = requireNotNull(session.accessToken()) { "Sign in to view China Direct" }
