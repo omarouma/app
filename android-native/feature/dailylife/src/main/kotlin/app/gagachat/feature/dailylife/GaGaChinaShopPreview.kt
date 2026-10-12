@@ -42,7 +42,29 @@ class ChinaShopViewModel @Inject constructor(private val api: ChinaShopApi) : Vi
         private set
     var error by mutableStateOf<String?>(null)
         private set
-    init { refresh() }
+    var cart by mutableStateOf<Map<String, Int>>(emptyMap())
+        private set
+    var cartError by mutableStateOf<String?>(null)
+        private set
+    init { refresh(); refreshCart() }
+    fun refreshCart() {
+        viewModelScope.launch {
+            try {
+                cart = api.cart().associate { it.productId to it.quantity }
+                cartError = null
+            } catch (_: Exception) { cartError = "Cart could not sync. Please retry." }
+        }
+    }
+    fun add(productId: String) {
+        val quantity = (cart[productId] ?: 0) + 1
+        if (quantity > 99) return
+        viewModelScope.launch {
+            try {
+                api.setCartQuantity(productId, quantity)
+                refreshCart()
+            } catch (_: Exception) { cartError = "Could not save cart. Please retry." }
+        }
+    }
     fun refresh() {
         viewModelScope.launch {
             loading = true
@@ -64,7 +86,7 @@ fun GaGaChinaShopPreview(onBack: () -> Unit = {}, viewModel: ChinaShopViewModel 
     var search by remember { mutableStateOf("") }
     var selected by remember { mutableStateOf<ShopDemoProduct?>(null) }
     var showCart by remember { mutableStateOf(false) }
-    val cart = remember { mutableStateMapOf<String, Int>() }
+    val cart = viewModel.cart
     val catalog = viewModel.products
     val categories = listOf("All", "Electronics", "Fashion", "Home", "Computers", "Sports", "Toys")
     MaterialTheme(colorScheme = lightColorScheme(primary = Emerald)) {
@@ -75,7 +97,7 @@ fun GaGaChinaShopPreview(onBack: () -> Unit = {}, viewModel: ChinaShopViewModel 
             }
             Spacer(Modifier.height(10.dp))
             if (showCart) {
-                Text("Your demo cart", style = MaterialTheme.typography.headlineSmall)
+                Text("Your saved cart", style = MaterialTheme.typography.headlineSmall)
                 catalog.filter { (cart[it.id] ?: 0) > 0 }.forEach { product ->
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         Text("${product.name} × ${cart[product.id] ?: 0}")
@@ -92,7 +114,7 @@ fun GaGaChinaShopPreview(onBack: () -> Unit = {}, viewModel: ChinaShopViewModel 
                         Text(p.name, style = MaterialTheme.typography.headlineSmall)
                         Text("China source price · ¥${p.cny}", color = Emerald)
                         Text("China source price only. Bangladesh landed cost requires verified freight, customs and FX quote.")
-                        Button(onClick = { cart[p.id] = (cart[p.id] ?: 0) + 1 }) { Text("Add to demo cart") }
+                        Button(onClick = { viewModel.add(p.id) }) { Text("Add to demo cart") }
                     }
                 }
             } else {
@@ -116,6 +138,7 @@ fun GaGaChinaShopPreview(onBack: () -> Unit = {}, viewModel: ChinaShopViewModel 
                     TextButton(onClick = { showCart = true }) { Text("View cart") }
                 }
                 if (viewModel.loading) { LinearProgressIndicator(Modifier.fillMaxWidth()) }
+                viewModel.cartError?.let { Text(it, color = MaterialTheme.colorScheme.error); TextButton(onClick = viewModel::refreshCart) { Text("Retry cart") } }
                 if (viewModel.error != null) {
                     Text(viewModel.error!!, color = MaterialTheme.colorScheme.error)
                     TextButton(onClick = viewModel::refresh) { Text("Retry") }
@@ -131,7 +154,7 @@ fun GaGaChinaShopPreview(onBack: () -> Unit = {}, viewModel: ChinaShopViewModel 
                                 Box(Modifier.fillMaxWidth().height(72.dp).background(Color(0xFFE6F5EF), RoundedCornerShape(12.dp)))
                                 Text(p.name, fontWeight = FontWeight.SemiBold)
                                 Text("¥${p.cny} · China source", color = Emerald)
-                                OutlinedButton(onClick = { cart[p.id] = (cart[p.id] ?: 0) + 1 }) { Text("Add +") }
+                                OutlinedButton(onClick = { viewModel.add(p.id) }) { Text("Add +") }
                             }
                         }
                     }
