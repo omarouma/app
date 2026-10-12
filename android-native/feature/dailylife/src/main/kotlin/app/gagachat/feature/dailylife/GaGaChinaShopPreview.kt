@@ -176,6 +176,18 @@ class ChinaShopViewModel @Inject constructor(private val api: ChinaShopApi) : Vi
             } catch (_: Exception) { cartError = "Could not save cart. Please retry." }
         }
     }
+    fun changeCartQuantity(productId: String, quantity: Int) {
+        if (quantity !in 0..99) return
+        viewModelScope.launch {
+            try {
+                api.setCartQuantity(productId, quantity)
+                refreshCart()
+                cartError = null
+            } catch (_: Exception) {
+                cartError = "Could not update cart. Please retry."
+            }
+        }
+    }
     fun refresh() {
         viewModelScope.launch {
             loading = true
@@ -317,10 +329,18 @@ fun GaGaChinaShopPreview(onBack: () -> Unit = {}, viewModel: ChinaShopViewModel 
                         }
                     }
                 }
+                viewModel.cartError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+                TextButton(onClick = viewModel::refreshCart) { Text("Refresh cart") }
                 catalog.filter { (cart[it.id] ?: 0) > 0 }.forEach { product ->
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text("${product.name} × ${cart[product.id] ?: 0}")
-                        Text("¥${product.sourcePriceCny * (cart[product.id] ?: 0)}")
+                    val quantity = cart[product.id] ?: 0
+                    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text(product.name, fontWeight = FontWeight.SemiBold)
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            OutlinedButton(onClick = { viewModel.changeCartQuantity(product.id, quantity - 1) }) { Text("−") }
+                            Text("$quantity × ¥${product.sourcePriceCny} = ¥${product.sourcePriceCny * quantity}")
+                            OutlinedButton(onClick = { viewModel.changeCartQuantity(product.id, quantity + 1) }, enabled = quantity < 99 && (product.availableQuantity == null || quantity < product.availableQuantity)) { Text("+") }
+                        }
+                        TextButton(onClick = { viewModel.changeCartQuantity(product.id, 0) }) { Text("Remove") }
                     }
                 }
                 Text("China source subtotal: ¥${catalog.sumOf { it.sourcePriceCny * (cart[it.id] ?: 0) }}")
@@ -349,7 +369,7 @@ fun GaGaChinaShopPreview(onBack: () -> Unit = {}, viewModel: ChinaShopViewModel 
                     Column(Modifier.fillMaxWidth().padding(20.dp)) {
                         Text("Shop in China", color = Color.White, style = MaterialTheme.typography.headlineMedium)
                         Text("Delivered to Bangladesh", color = Color(0xFF65E188))
-                        Text("Verified sourcing · Transparent landed costs", color = Color.White)
+                        Text("Supplier verification required · Landed-cost quotes on request", color = Color.White)
                     }
                 }
                 TextButton(onClick = { showSupplierForm = true }) { Text("Become a China Supplier") }
