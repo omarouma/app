@@ -112,6 +112,26 @@ class ChinaShopApi @Inject constructor(
         }
     }
 
+    /** Creates an unpublished draft; price and inventory verification are server-side gates. */
+    suspend fun adminCreateDraftProduct(supplierId: String, title: String, category: String,
+        priceCny: Double, stock: Int, originCity: String) {
+        require(title.trim().length in 3..180 && category.trim().length in 2..80)
+        require(priceCny > 0.0 && priceCny.isFinite() && stock >= 0 && originCity.trim().length in 2..120)
+        client.post("${config.restUrl}/rpc/china_shop_admin_create_product") {
+            header("apikey", config.anonKey)
+            header("Authorization", "Bearer ${token()}")
+            contentType(ContentType.Application.Json)
+            setBody(buildJsonObject {
+                put("p_supplier_id", supplierId.trim())
+                put("p_title", title.trim())
+                put("p_category", category.trim())
+                put("p_description", "")
+                put("p_source_price_cny", priceCny)
+                put("p_available_quantity", stock)
+                put("p_origin_city", originCity.trim())
+            })
+        }
+    }
     /** Access is enforced by the server-managed admin allowlist inside both RPCs. */
     suspend fun adminReviewQueue(): List<ChinaShopAdminApplication> =
         client.post("${config.restUrl}/rpc/china_shop_admin_list_supplier_applications") {
