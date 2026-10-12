@@ -164,8 +164,8 @@ Deno.serve(async (req: Request) => {
   }
 
   const url = body.url;
-  if (!url) {
-    return json({ error: "Missing 'url' field." }, 400);
+  if (typeof url !== "string" || url.trim().length === 0 || url.length > 2048) {
+    return json({ error: "URL must be a string between 1 and 2048 characters." }, 400);
   }
 
   // Validate URL format
