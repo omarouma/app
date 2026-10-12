@@ -112,6 +112,30 @@ class ChinaShopApi @Inject constructor(
         }
     }
 
+    suspend fun adminVerifyProduct(id: String, priceCny: Double, stock: Int, priceEvidence: String, stockEvidence: String) {
+        require(priceCny > 0 && priceCny.isFinite() && stock >= 0)
+        require(priceEvidence.trim().length >= 8 && stockEvidence.trim().length >= 8)
+        client.post("${config.restUrl}/rpc/china_shop_admin_verify_product") {
+            header("apikey", config.anonKey)
+            header("Authorization", "Bearer ${token()}")
+            contentType(ContentType.Application.Json)
+            setBody(buildJsonObject {
+                put("p_product_id", id.trim())
+                put("p_price_cny", priceCny)
+                put("p_stock", stock)
+                put("p_price_evidence", priceEvidence.trim())
+                put("p_inventory_evidence", stockEvidence.trim())
+            })
+        }
+    }
+    suspend fun adminPublishProduct(id: String, publish: Boolean) {
+        client.post("${config.restUrl}/rpc/china_shop_admin_publish_product") {
+            header("apikey", config.anonKey)
+            header("Authorization", "Bearer ${token()}")
+            contentType(ContentType.Application.Json)
+            setBody(buildJsonObject { put("p_product_id", id.trim()); put("p_publish", publish) })
+        }
+    }
     /** Creates an unpublished draft; price and inventory verification are server-side gates. */
     suspend fun adminCreateDraftProduct(supplierId: String, title: String, category: String,
         priceCny: Double, stock: Int, originCity: String) {
