@@ -1,6 +1,11 @@
 package app.gagachat.feature.settings.presentation
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -21,6 +26,8 @@ import androidx.compose.material.icons.filled.VerifiedUser
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Icon
@@ -65,7 +72,8 @@ fun NotificationInboxScreen(
     val busy by viewModel.busy.collectAsStateWithLifecycle()
     val notice by viewModel.notice.collectAsStateWithLifecycle()
     val unread by viewModel.unreadCount.collectAsStateWithLifecycle()
-    var unreadOnly by rememberSaveable { mutableStateOf(false) }
+    var activeFilter by rememberSaveable { mutableStateOf("All") }
+    val filters = listOf("All", "Unread", "Calls", "People", "Chats")
     val snackbar = remember { SnackbarHostState() }
     LaunchedEffect(notice) { notice?.let { snackbar.showSnackbar(it); viewModel.consumeNotice() } }
 
@@ -75,13 +83,26 @@ fun NotificationInboxScreen(
         onBack = onBack,
         actions = {
             IconButton(onClick = { viewModel.refresh() }, enabled = !busy) { Icon(Icons.Filled.Refresh, "Refresh notifications") }
-            TextButton(onClick = { viewModel.markAllRead() }, enabled = !busy && unread > 0) { Text("Read all") }
+            TextButton(onClick = { viewModel.markAllRead() }, enabled = !busy && unread > 0) { Text("Mark all read") }
         },
     ) { padding ->
         Column(Modifier.fillMaxSize().padding(padding)) {
         if (busy) LinearProgressIndicator()
-        FilterChip(selected = unreadOnly, onClick = { unreadOnly = !unreadOnly },
-            label = { Text("Unread ($unread)") }, modifier = Modifier.padding(horizontal = 16.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth()
+                .horizontalScroll(rememberScrollState())
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            filters.forEach { filter ->
+                FilterChip(
+                    selected = activeFilter == filter,
+                    onClick = { activeFilter = filter },
+                    label = { Text(if (filter == "Unread") "Unread ($unread)" else filter) },
+                )
+            }
+        }
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
         GagaStateHost(
             state = state,
             modifier = Modifier.fillMaxSize(),
@@ -90,9 +111,22 @@ fun NotificationInboxScreen(
             emptyTitle = "No notifications",
             emptyDescription = "Messages, friend requests and calls will show up here.",
         ) { items ->
-            val visible = items.filter { !unreadOnly || !it.read }
+            val visible = items.filter { notification ->
+                when (activeFilter) {
+                    "Unread" -> !notification.read
+                    "Calls" -> notification.type == NotificationType.CALL
+                    "People" -> notification.type == NotificationType.FRIEND_REQUEST ||
+                        notification.type == NotificationType.FRIEND_ACCEPTED ||
+                        notification.type == NotificationType.GROUP_INVITE
+                    "Chats" -> notification.type == NotificationType.MESSAGE
+                    else -> true
+                }
+            }
             LazyColumn(modifier = Modifier.fillMaxSize()) {
-                if (visible.isEmpty()) item { Text("You're all caught up", Modifier.padding(16.dp)) }
+                if (visible.isEmpty()) item {
+                    Text(if (activeFilter == "Unread") "You're all caught up" else "No notifications in this category",
+                        Modifier.padding(16.dp))
+                }
                 items(visible, key = { it.id }) { notification ->
                     NotificationRowItem(
                         notification = notification,

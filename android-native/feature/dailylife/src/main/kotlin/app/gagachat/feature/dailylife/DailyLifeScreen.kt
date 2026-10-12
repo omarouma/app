@@ -124,6 +124,7 @@ fun DailyHome(nav: NavController, onSaved: () -> Unit, onChat: (String) -> Unit,
     GagaScaffold(title = "GaGa Today", actions = { IconButton(onClick = { vm.refresh() }) { Icon(Icons.Default.Refresh, "Refresh") } }) { padding ->
         BoxWithConstraints(Modifier.fillMaxSize().padding(padding)) {
             val columns = if (maxWidth < 340.dp || fontScale > 1.2f) 1 else 2
+            val statsPerRow = if (maxWidth < 480.dp || fontScale > 1.2f) 2 else 4
             LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 item {
                     val greeting = when (LocalTime.now().hour) {
@@ -135,8 +136,8 @@ fun DailyHome(nav: NavController, onSaved: () -> Unit, onChat: (String) -> Unit,
                     Text("$greeting \uD83D\uDC4B", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
                     Text(LocalDate.now().format(DateTimeFormatter.ofPattern("EEEE, d MMMM")), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Spacer(Modifier.height(8.dp))
-                    Text("Your day, organized from your chats", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-                    Text("See what needs attention, then turn conversations into actions without leaving GaGa.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("Your day at a glance", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+                    Text("Your conversations, plans and priorities in one place.", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 item { Status(ui, vm) }
                 ui.availableAppUpdate?.let { update ->
@@ -175,11 +176,20 @@ fun DailyHome(nav: NavController, onSaved: () -> Unit, onChat: (String) -> Unit,
                                 Spacer(Modifier.width(10.dp))
                                 Text("Today at a glance", fontWeight = FontWeight.Bold)
                             }
-                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                GlanceStat("Tasks due", tasksDueToday, Modifier.weight(1f))
-                                GlanceStat("Events", eventsToday, Modifier.weight(1f))
-                                GlanceStat("Reminders", glanceReminders.size, Modifier.weight(1f))
-                                GlanceStat("Unread", unreadTotal, Modifier.weight(1f))
+                            // Keep every label readable at large font sizes and
+                            // on 320–400dp Android phones (not four tiny columns).
+                            val stats = listOf(
+                                "Tasks due" to tasksDueToday,
+                                "Events" to eventsToday,
+                                "Reminders" to glanceReminders.size,
+                                "Unread" to unreadTotal,
+                            )
+                            stats.chunked(statsPerRow).forEach { rowStats ->
+                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    rowStats.forEach { (label, count) ->
+                                        GlanceStat(label, count, Modifier.weight(1f))
+                                    }
+                                }
                             }
                         }
                     }
@@ -199,11 +209,23 @@ fun DailyHome(nav: NavController, onSaved: () -> Unit, onChat: (String) -> Unit,
                         }
                     }
                 }
-                item { Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf("task", "event", "reminder", "expense", "income", "note").forEach { kind ->
-                        FilledTonalButton(onClick = { nav.navigate(DailyRoutes.edit(kind)) }) { Text("Add ${labels[kind]}") }
+                item(key = "quick_actions") {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("Quick add", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                        listOf("task", "event", "reminder", "expense", "income", "note")
+                            .chunked(2)
+                            .forEach { pair ->
+                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    pair.forEach { kind ->
+                                        FilledTonalButton(
+                                            onClick = { nav.navigate(DailyRoutes.edit(kind)) },
+                                            modifier = Modifier.weight(1f).heightIn(min = 48.dp),
+                                        ) { Text("Add ${labels[kind]}", maxLines = 2) }
+                                    }
+                                }
+                            }
                     }
-                } }
+                }
                 val needsReply = ui.conversations
                     .filter { it.unreadCount > 0 && !it.isArchived }
                     .sortedByDescending { it.lastMessageAt ?: it.updatedAt }
@@ -254,9 +276,13 @@ fun DailyHome(nav: NavController, onSaved: () -> Unit, onChat: (String) -> Unit,
                     }
                 }
 
-                val missedCalls = ui.calls
+                val missedCallEvents = ui.calls
                     .filter { it.status == CallStatus.MISSED && !it.isOutgoing && it.conversationId.isNotBlank() }
                     .sortedByDescending { it.startedAt }
+                val missedCallCounts = missedCallEvents.groupingBy { it.conversationId }.eachCount()
+                // One summary per caller on Today; full individual records remain
+                // available on the Calls screen.
+                val missedCalls = missedCallEvents.distinctBy { it.conversationId }
                 if (missedCalls.isNotEmpty()) item {
                     Card(Modifier.fillMaxWidth()) {
                         Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -270,7 +296,12 @@ fun DailyHome(nav: NavController, onSaved: () -> Unit, onChat: (String) -> Unit,
                                     Modifier.fillMaxWidth().clickable { onChat(call.conversationId) }.padding(vertical = 4.dp),
                                     verticalAlignment = Alignment.CenterVertically,
                                 ) {
-                                    Text(call.peerName?.takeIf { it.isNotBlank() } ?: "GaGa contact", modifier = Modifier.weight(1f))
+                                    Text(
+                                        (call.peerName?.takeIf { it.isNotBlank() } ?: "GaGa contact") +
+                                            ((missedCallCounts[call.conversationId] ?: 0).takeIf { it > 1 }
+                                                ?.let { " · $it missed" } ?: ""),
+                                        modifier = Modifier.weight(1f),
+                                    )
                                     Text("Open chat", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelMedium)
                                 }
                             }
@@ -357,10 +388,16 @@ fun DailyHome(nav: NavController, onSaved: () -> Unit, onChat: (String) -> Unit,
                 items(current.filter { it.kind in listOf("income", "expense") }.map { it.currency }.distinct()) { currency ->
                     val income = current.filter { it.kind == "income" && it.currency == currency }.sumOf { it.amountMinor }
                     val expense = current.filter { it.kind == "expense" && it.currency == currency }.sumOf { it.amountMinor }
-                    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)) {
+                    Card(colors = CardDefaults.cardColors(
+                        containerColor = if (expense > income) MaterialTheme.colorScheme.errorContainer
+                                         else MaterialTheme.colorScheme.primaryContainer,
+                    )) {
                         Column(Modifier.fillMaxWidth().padding(16.dp)) {
                             Text("This month · $currency", fontWeight = FontWeight.Bold)
-                            Text("Recorded difference ${DailyMoney.format(income - expense)}", style = MaterialTheme.typography.titleLarge)
+                            Text("Net recorded ${DailyMoney.format(income - expense)}",
+                                style = MaterialTheme.typography.titleLarge,
+                                color = if (expense > income) MaterialTheme.colorScheme.error
+                                        else MaterialTheme.colorScheme.onPrimaryContainer)
                             Text("Income ${DailyMoney.format(income)}")
                             Text("Expenses ${DailyMoney.format(expense)}")
                         }

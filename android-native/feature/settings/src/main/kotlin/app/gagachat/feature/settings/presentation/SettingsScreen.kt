@@ -48,6 +48,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -140,6 +141,7 @@ fun SettingsRoute(
     val context = LocalContext.current
     val versionLabel = remember { appVersionLabel(context) }
     var query by remember { mutableStateOf("") }
+    var showPlanned by remember { mutableStateOf(false) }
 
     LaunchedEffect(state.signedOut) {
         if (state.signedOut) onSignedOut()
@@ -195,9 +197,19 @@ fun SettingsRoute(
                 )
                 GagaDivider()
 
-                results.groupBy { it.section }.forEach { (section, entries) ->
+                results.filterNot { it.soon }.groupBy { it.section }.forEach { (section, entries) ->
                     GagaSectionHeader(text = section.uppercase())
                     entries.forEach { entry -> SettingsEntryRow(entry, onNavigate) }
+                }
+                TextButton(
+                    onClick = { showPlanned = !showPlanned },
+                    modifier = Modifier.padding(horizontal = GagaDimens.space12),
+                ) {
+                    Text(if (showPlanned) "Hide planned features" else "View planned features")
+                }
+                if (showPlanned) {
+                    GagaSectionHeader(text = "PLANNED FEATURES")
+                    results.filter { it.soon }.forEach { entry -> SettingsEntryRow(entry, onNavigate) }
                 }
             } else {
                 if (results.isEmpty()) {
@@ -245,7 +257,7 @@ private fun SettingsEntryRow(entry: SettingsEntry, onNavigate: (String) -> Unit)
         title = entry.title,
         subtitle = entry.subtitle,
         leadingIcon = entry.icon,
-        leadingIconTint = IconGreen,
+        leadingIconTint = MaterialTheme.colorScheme.onSurfaceVariant,
         onClick = { onNavigate(entry.route) },
         trailing = if (entry.soon) {
             {

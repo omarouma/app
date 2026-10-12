@@ -96,7 +96,7 @@ fun ConversationRow(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(min = 72.dp)
+                    .heightIn(min = 68.dp)
                     .background(MaterialTheme.colorScheme.surface)
                     .combinedClickable(
                         onClick = onClick,
@@ -104,13 +104,13 @@ fun ConversationRow(
                         onLongClick = { menuExpanded = true },
                         onLongClickLabel = "More conversation actions",
                     )
-                    .padding(horizontal = GagaDimens.space16, vertical = GagaDimens.space12),
+                    .padding(horizontal = GagaDimens.space16, vertical = GagaDimens.space8),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 GagaAvatar(
                     imageUrl = avatarUrl,
                     name = title,
-                    size = GagaDimens.avatarLarge,
+                    size = GagaDimens.avatarMedium,
                 )
                 Spacer(Modifier.width(GagaDimens.space12))
                 Column(modifier = Modifier.weight(1f)) {
@@ -144,7 +144,7 @@ fun ConversationRow(
                     }
                     Spacer(Modifier.width(GagaDimens.space2))
                     Text(
-                        text = conversation.lastMessagePreview ?: "No messages yet",
+                        text = conversation.lastMessagePreview?.takeIf { it.isNotBlank() } ?: "No messages yet",
                         style = MaterialTheme.typography.bodyMedium,
                         color = if (hasUnread) {
                             MaterialTheme.colorScheme.onSurface
