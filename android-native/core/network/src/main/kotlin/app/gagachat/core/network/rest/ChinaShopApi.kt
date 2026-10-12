@@ -85,6 +85,23 @@ class ChinaShopApi @Inject constructor(
         }
     }
 
+    /** Customer submits a request, not a price or an approval. RLS enforces verified stock. */
+    suspend fun requestQuote(productId: String, quantity: Int, destinationCity: String) {
+        require(quantity in 1..99)
+        require(destinationCity.trim().length in 2..120)
+        val userId = requireNotNull(session.userId()) { "Sign in to request a quote" }
+        client.post("${config.restUrl}/china_shop_quote_requests") {
+            header("apikey", config.anonKey)
+            header("Authorization", "Bearer ${token()}")
+            contentType(ContentType.Application.Json)
+            setBody(buildJsonObject {
+                put("user_id", userId)
+                put("product_id", productId)
+                put("quantity", quantity)
+                put("destination_city", destinationCity.trim())
+            })
+        }
+    }
     /** Read only: quotes must be created and verified by an authorized server. */
     suspend fun myQuotes(limit: Int = 40): List<ChinaShopLandedQuote> =
         client.get("${config.restUrl}/china_shop_landed_quotes") {
