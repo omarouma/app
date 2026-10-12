@@ -50,3 +50,20 @@ test("oversized, malformed and unsupported input cannot reach network", () => {
   assert.equal(mayFetchRemotePreview(null), false);
   assert.equal(mayFetchRemotePreview({}), false);
 });
+
+test("handler verifies caller and never follows remote redirects", async () => {
+  // Defense-in-depth: helper tests alone cannot prove that the deployed
+  // handler actually calls the helper, validates user identity, or avoids
+  // following redirects. These source-level assertions prevent an accidental
+  // bypass in later maintenance.
+  const { readFileSync } = await import("node:fs");
+  const source = readFileSync(new URL("../index.ts", import.meta.url), "utf8");
+  assert.match(source, /\/auth\/v1\/user/);
+  assert.match(source, /Authorization: authHeader/);
+  assert.match(source, /if \(!mayFetchRemotePreview\(url\)\)/);
+  assert.match(source, /redirect: "manual"/);
+  assert.match(source, /response\.status >= 300 && response\.status < 400/);
+  assert.match(source, /received > 500_000/);
+  assert.doesNotMatch(source, /redirect: "follow"/);
+  assert.doesNotMatch(source, /html = await response\.text\(\)/);
+});
