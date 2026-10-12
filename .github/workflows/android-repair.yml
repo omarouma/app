@@ -179,6 +179,11 @@ jobs:
             echo 'Release signing key is unavailable; artifacts are explicitly unsigned.' > deliverables/SIGNING-REQUIRED.txt
             exit 0
           fi
+          if [ -z "$STORE_PASSWORD" ] || [ -z "$KEY_ALIAS" ] || [ -z "$KEY_PASSWORD" ]; then
+            echo 'Signing secrets are incomplete; signed artifacts will not be produced.' > deliverables/SIGNING-REQUIRED.txt
+            exit 0
+          fi
+          umask 077
           keyfile="$RUNNER_TEMP/gaga-release.jks"
           trap 'rm -f "$keyfile"' EXIT
           printf '%s' "$KEYSTORE_BASE64" | base64 -d > "$keyfile"
