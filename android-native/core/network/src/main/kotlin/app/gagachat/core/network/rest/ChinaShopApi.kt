@@ -31,6 +31,13 @@ data class ChinaShopProduct(
 )
 
 @Serializable
+data class ChinaShopSupplierApplication(
+    val id: String,
+    @SerialName("legal_business_name") val legalBusinessName: String,
+    val status: String,
+    @SerialName("submitted_at") val submittedAt: String,
+)
+@Serializable
 data class ChinaShopQuoteRequest(
     val id: String,
     @SerialName("product_id") val productId: String,
@@ -94,6 +101,32 @@ class ChinaShopApi @Inject constructor(
         }
     }
 
+    suspend fun mySupplierApplications(): List<ChinaShopSupplierApplication> =
+        client.get("${config.restUrl}/china_shop_supplier_applications") {
+            header("apikey", config.anonKey)
+            header("Authorization", "Bearer ${token()}")
+            parameter("select", "id,legal_business_name,status,submitted_at")
+            parameter("order", "submitted_at.desc")
+            parameter("limit", 30)
+        }.body()
+    suspend fun applyAsSupplier(business: String, contact: String, email: String, city: String, registration: String) {
+        require(business.trim().length in 2..160 && contact.trim().length in 2..120)
+            && email.trim().length in 5..254 && city.trim().length in 2..120 && registration.trim().length in 3..120)
+        val userId = requireNotNull(session.userId()) { "Sign in to apply" }
+        client.post("${config.restUrl}/china_shop_supplier_applications") {
+            header("apikey", config.anonKey)
+            header("Authorization", "Bearer ${token()}")
+            contentType(ContentType.Application.Json)
+            setBody(buildJsonObject {
+                put("applicant_user_id", userId)
+                put("legal_business_name", business.trim())
+                put("contact_name", contact.trim())
+                put("contact_email", email.trim())
+                put("business_city", city.trim())
+                put("registration_number", registration.trim())
+            })
+        }
+    }
     /** Customer submits a request, not a price or an approval. RLS enforces verified stock. */
     suspend fun requestQuote(productId: String, quantity: Int, destinationCity: String) {
         require(quantity in 1..99)
