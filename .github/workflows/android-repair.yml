@@ -41,6 +41,8 @@ jobs:
         run: node --test supabase/functions/friend-event-push/tests/dispatch.test.mjs
       - name: Test FCM notification recipient protection
         run: node --test supabase/functions/send-fcm-push/tests/push.test.mjs
+      - name: Test link-preview server-side URL fetch protection
+        run: node --test supabase/functions/link-preview/tests/security.test.mjs
       - name: Read app version
         run: |
           python3 - <<'PYVERSION'
