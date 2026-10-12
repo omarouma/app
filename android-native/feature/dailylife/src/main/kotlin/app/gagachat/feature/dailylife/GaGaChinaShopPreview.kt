@@ -23,20 +23,24 @@ import androidx.compose.ui.unit.dp
 /** Preview-only China Direct shopping surface. No checkout or live supplier connection. */
 private val Emerald = Color(0xFF008D76)
 private val Dark = Color(0xFF09141B)
-data class ShopDemoProduct(val id: String, val name: String, val category: String, val cny: Int)
-private val demo = listOf(
-    ShopDemoProduct("a", "Wireless Earbuds", "Electronics", 39),
-    ShopDemoProduct("b", "Smart Watch", "Electronics", 79),
-    ShopDemoProduct("c", "Canvas Backpack", "Fashion", 46),
-    ShopDemoProduct("d", "Kitchen Organizer", "Home", 28),
-    ShopDemoProduct("e", "USB-C Hub", "Computers", 55),
-    ShopDemoProduct("f", "LED Desk Lamp", "Home", 33),
-    ShopDemoProduct("g", "Sports Bottle", "Sports", 19),
-    ShopDemoProduct("h", "Toy Building Set", "Toys", 49)
+data class ShopProduct(
+    val id: String,
+    val name: String,
+    val category: String,
+    val sourcePriceCny: Double,
+    val availableQuantity: Int?,
+    val inventoryCheckedAt: String?,
+    val originCity: String?,
+    val imageUrls: List<String>,
 )
+private fun stockLabel(p: ShopProduct): String = when {
+    p.availableQuantity == null || p.inventoryCheckedAt == null -> "Stock not verified"
+    p.availableQuantity == 0 -> "Out of stock"
+    else -> "Supplier-reported stock: ${p.availableQuantity}"
+}
 @HiltViewModel
 class ChinaShopViewModel @Inject constructor(private val api: ChinaShopApi) : ViewModel() {
-    var products by mutableStateOf<List<ShopDemoProduct>>(emptyList())
+    var products by mutableStateOf<List<ShopProduct>>(emptyList())
         private set
     var loading by mutableStateOf(true)
         private set
@@ -70,7 +74,7 @@ class ChinaShopViewModel @Inject constructor(private val api: ChinaShopApi) : Vi
             loading = true
             error = null
             try {
-                products = api.publishedProducts().map { ShopDemoProduct(it.id, it.title, it.category, it.sourcePriceCny.toInt()) }
+                products = api.publishedProducts().map { ShopProduct(it.id, it.title, it.category, it.sourcePriceCny, it.availableQuantity, it.inventoryCheckedAt, it.originCity, it.imageUrls) }
             } catch (_: Exception) {
                 error = "Could not load the live catalog. Please retry."
             } finally {
@@ -84,7 +88,7 @@ class ChinaShopViewModel @Inject constructor(private val api: ChinaShopApi) : Vi
 fun GaGaChinaShopPreview(onBack: () -> Unit = {}, viewModel: ChinaShopViewModel = hiltViewModel()) {
     var category by remember { mutableStateOf("All") }
     var search by remember { mutableStateOf("") }
-    var selected by remember { mutableStateOf<ShopDemoProduct?>(null) }
+    var selected by remember { mutableStateOf<ShopProduct?>(null) }
     var showCart by remember { mutableStateOf(false) }
     val cart = viewModel.cart
     val catalog = viewModel.products
@@ -101,10 +105,10 @@ fun GaGaChinaShopPreview(onBack: () -> Unit = {}, viewModel: ChinaShopViewModel 
                 catalog.filter { (cart[it.id] ?: 0) > 0 }.forEach { product ->
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         Text("${product.name} × ${cart[product.id] ?: 0}")
-                        Text("¥${product.cny * (cart[product.id] ?: 0)}")
+                        Text("¥${product.sourcePriceCny * (cart[product.id] ?: 0)}")
                     }
                 }
-                Text("China source subtotal: ¥${catalog.sumOf { it.cny * (cart[it.id] ?: 0) }}")
+                Text("China source subtotal: ¥${catalog.sumOf { it.sourcePriceCny * (cart[it.id] ?: 0) }}")
                 Text("Shipping, customs, tax, exchange rate and Bangladesh delivery are not included.")
                 Text("Checkout is unavailable until supplier and landed-cost verification.", color = Emerald)
             } else if (selected != null) {
@@ -112,9 +116,11 @@ fun GaGaChinaShopPreview(onBack: () -> Unit = {}, viewModel: ChinaShopViewModel 
                 Card(colors = CardDefaults.cardColors(containerColor = Color.White)) {
                     Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         Text(p.name, style = MaterialTheme.typography.headlineSmall)
-                        Text("China source price · ¥${p.cny}", color = Emerald)
+                        Text("China source price · ¥${p.sourcePriceCny}", color = Emerald)
+                        Text(stockLabel(p))
+                        p.originCity?.let { Text("Origin: $it, China") }
                         Text("China source price only. Bangladesh landed cost requires verified freight, customs and FX quote.")
-                        Button(onClick = { viewModel.add(p.id) }) { Text("Add to demo cart") }
+                        Button(onClick = { viewModel.add(p.id) }, enabled = p.availableQuantity != 0 && p.inventoryCheckedAt != null && p.availableQuantity != null) { Text("Add to cart") }
                     }
                 }
             } else {
@@ -154,7 +160,7 @@ fun GaGaChinaShopPreview(onBack: () -> Unit = {}, viewModel: ChinaShopViewModel 
                                 Box(Modifier.fillMaxWidth().height(72.dp).background(Color(0xFFE6F5EF), RoundedCornerShape(12.dp)))
                                 Text(p.name, fontWeight = FontWeight.SemiBold)
                                 Text("¥${p.cny} · China source", color = Emerald)
-                                OutlinedButton(onClick = { viewModel.add(p.id) }) { Text("Add +") }
+                                OutlinedButton(onClick = { viewModel.add(p.id) }, enabled = p.availableQuantity != 0 && p.inventoryCheckedAt != null && p.availableQuantity != null) { Text("Add +") }
                             }
                         }
                     }
