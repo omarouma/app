@@ -596,9 +596,9 @@ class SupabaseRestApi @Inject constructor(
      * Registers/refreshes this install's FCM token in a single atomic upsert.
      *
      * Production has UNIQUE(user_id, device_id), verified on 2026-10-12.
-     * Read-then-write used to race after token rotation. A freshly registered
-     * token also clears revoked_at: otherwise revived devices remain invisible
-     * to send-fcm-push's active-device filter.
+     * Read-then-write used to race after token rotation. Never modify the
+     * server's revoked_at flag: explicit device revocation must remain in force
+     * until a separately authenticated device-restoration flow authorizes it.
      */
     suspend fun unregisterCurrentDevice(deviceId: String) {
         val me = sessionStore.userId() ?: return
@@ -621,7 +621,6 @@ class SupabaseRestApi @Inject constructor(
             row.deviceName?.let { put("device_name", it) }
             row.appVersion?.let { put("app_version", it) }
             put("last_seen_at", iso(row.lastSeenAt ?: System.currentTimeMillis()))
-            put("revoked_at", kotlinx.serialization.json.JsonNull)
         }
         client.post("${config.restUrl}/user_devices") {
             auth()
