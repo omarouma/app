@@ -11,6 +11,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import app.gagachat.core.network.rest.ChinaShopApi
+import app.gagachat.core.network.rest.ChinaShopLandedQuote
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -52,7 +53,19 @@ class ChinaShopViewModel @Inject constructor(private val api: ChinaShopApi) : Vi
         private set
     var cartError by mutableStateOf<String?>(null)
         private set
-    init { refresh(); refreshCart() }
+    var quotes by mutableStateOf<List<ChinaShopLandedQuote>>(emptyList())
+        private set
+    var quoteError by mutableStateOf<String?>(null)
+        private set
+    init { refresh(); refreshCart(); refreshQuotes() }
+    fun refreshQuotes() {
+        viewModelScope.launch {
+            try {
+                quotes = api.myQuotes()
+                quoteError = null
+            } catch (_: Exception) { quoteError = "Unable to load quotations." }
+        }
+    }
     fun refreshCart() {
         viewModelScope.launch {
             try {
@@ -104,6 +117,30 @@ fun GaGaChinaShopPreview(onBack: () -> Unit = {}, viewModel: ChinaShopViewModel 
             Spacer(Modifier.height(10.dp))
             if (showCart) {
                 Text("Your saved cart", style = MaterialTheme.typography.headlineSmall)
+                Text("BDT landed-cost quotations", style = MaterialTheme.typography.titleMedium)
+                viewModel.quoteError?.let {
+                    Text(it, color = MaterialTheme.colorScheme.error)
+                    TextButton(onClick = viewModel::refreshQuotes) { Text("Retry quotations") }
+                }
+                if (viewModel.quotes.isEmpty() && viewModel.quoteError == null) {
+                    Text("No supplier-verified quotations available yet.")
+                }
+                viewModel.quotes.forEach { quote ->
+                    Card {
+                        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text("Quote status: ${quote.status} · Quantity ${quote.quantity}")
+                            Text("Product: ৳${quote.productCostBdt}")
+                            Text("International freight: ৳${quote.freightBdt}")
+                            Text("Customs duty: ৳${quote.customsBdt}")
+                            Text("Taxes: ৳${quote.taxesBdt}")
+                            Text("Local delivery: ৳${quote.deliveryBdt}")
+                            Text("Service fee: ৳${quote.serviceFeeBdt}")
+                            Text("Total: ৳${quote.totalBdt}", fontWeight = FontWeight.Bold)
+                            Text("Valid until: ${quote.expiresAt}")
+                            Text("Quote display only. Payment and checkout are disabled.")
+                        }
+                    }
+                }
                 catalog.filter { (cart[it.id] ?: 0) > 0 }.forEach { product ->
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         Text("${product.name} × ${cart[product.id] ?: 0}")
