@@ -12,6 +12,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import app.gagachat.core.network.rest.ChinaShopApi
 import app.gagachat.core.network.rest.ChinaShopLandedQuote
+import app.gagachat.core.network.rest.ChinaShopQuoteRequest
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -57,6 +58,18 @@ class ChinaShopViewModel @Inject constructor(private val api: ChinaShopApi) : Vi
         private set
     var quoteError by mutableStateOf<String?>(null)
         private set
+    var requests by mutableStateOf<List<ChinaShopQuoteRequest>>(emptyList())
+        private set
+    var requestError by mutableStateOf<String?>(null)
+        private set
+    fun refreshRequests() {
+        viewModelScope.launch {
+            try {
+                requests = api.myQuoteRequests()
+                requestError = null
+            } catch (_: Exception) { requestError = "Could not load request history." }
+        }
+    }
     var quoteRequestMessage by mutableStateOf<String?>(null)
         private set
     fun requestQuote(productId: String, quantity: Int, city: String) {
@@ -64,12 +77,13 @@ class ChinaShopViewModel @Inject constructor(private val api: ChinaShopApi) : Vi
             try {
                 api.requestQuote(productId, quantity, city)
                 quoteRequestMessage = "Quotation request submitted for supplier review."
+                refreshRequests()
             } catch (_: Exception) {
                 quoteRequestMessage = "Request failed. Check sign-in, verified stock and destination."
             }
         }
     }
-    init { refresh(); refreshCart(); refreshQuotes() }
+    init { refresh(); refreshCart(); refreshQuotes(); refreshRequests() }
     fun refreshQuotes() {
         viewModelScope.launch {
             try {
@@ -130,6 +144,13 @@ fun GaGaChinaShopPreview(onBack: () -> Unit = {}, viewModel: ChinaShopViewModel 
             Spacer(Modifier.height(10.dp))
             if (showCart) {
                 Text("Your saved cart", style = MaterialTheme.typography.headlineSmall)
+                Text("My quote requests", style = MaterialTheme.typography.titleMedium)
+                viewModel.requestError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+                TextButton(onClick = viewModel::refreshRequests) { Text("Refresh request status") }
+                if (viewModel.requests.isEmpty() && viewModel.requestError == null) Text("No quote requests submitted yet.")
+                viewModel.requests.forEach { request ->
+                    Text("${request.destinationCity} · ${request.quantity} item(s) · ${request.status}")
+                }
                 Text("BDT landed-cost quotations", style = MaterialTheme.typography.titleMedium)
                 viewModel.quoteError?.let {
                     Text(it, color = MaterialTheme.colorScheme.error)
