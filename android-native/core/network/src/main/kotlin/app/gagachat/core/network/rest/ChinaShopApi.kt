@@ -110,7 +110,7 @@ class ChinaShopApi @Inject constructor(
             parameter("limit", 30)
         }.body()
     suspend fun applyAsSupplier(business: String, contact: String, email: String, city: String, registration: String) {
-        require(business.trim().length in 2..160 && contact.trim().length in 2..120)
+        require(business.trim().length in 2..160 && contact.trim().length in 2..120
             && email.trim().length in 5..254 && city.trim().length in 2..120 && registration.trim().length in 3..120)
         val userId = requireNotNull(session.userId()) { "Sign in to apply" }
         client.post("${config.restUrl}/china_shop_supplier_applications") {
