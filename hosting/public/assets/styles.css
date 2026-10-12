@@ -211,3 +211,70 @@ p { margin: 0 0 1rem; color: var(--muted); }
 .reveal { opacity: 0; transform: translateY(22px); transition: opacity .6s ease, transform .6s ease; }
 .reveal.in { opacity: 1; transform: none; }
 @media (prefers-reduced-motion: reduce) { .reveal { opacity: 1; transform: none; transition: none; } .hero__float { animation: none; } }
+
+/* ============================================================
+   v2.7.6 improvements — accessibility, new sections, print
+   ============================================================ */
+
+/* Skip link (keyboard accessibility) */
+.skip-link {
+  position: absolute; left: 12px; top: -60px; z-index: 200;
+  background: var(--ink); color: #fff; padding: 10px 16px; border-radius: 0 0 12px 12px;
+  font-weight: 700; font-size: .9rem; transition: top .18s ease;
+}
+.skip-link:focus { top: 0; }
+
+/* Visible focus ring for keyboard users */
+a:focus-visible, .btn:focus-visible, summary:focus-visible, button:focus-visible {
+  outline: 3px solid var(--green-600); outline-offset: 3px; border-radius: 8px;
+}
+
+/* Steps ("How it works") */
+.steps-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 22px; margin-top: 48px; }
+.step {
+  background: #fff; border: 1px solid var(--line); border-radius: var(--radius);
+  padding: 28px; box-shadow: var(--shadow-sm); position: relative;
+}
+.step__n {
+  width: 42px; height: 42px; border-radius: 12px; display: grid; place-items: center;
+  background: var(--green); color: #fff; font-weight: 800; font-size: 1.1rem; margin-bottom: 16px;
+  box-shadow: 0 8px 20px rgba(0,195,0,.3);
+}
+.step h3 { margin-bottom: 8px; }
+.step p { margin: 0; font-size: .95rem; }
+@media (max-width: 860px) { .steps-grid { grid-template-columns: 1fr; } }
+
+/* Security list */
+.security-list { display: grid; grid-template-columns: 1fr 1fr; gap: 16px 30px; margin-top: 42px; }
+.security-list__item { display: flex; gap: 12px; align-items: flex-start; color: var(--ink-2); font-size: .97rem; }
+.security-list__item .tick {
+  flex: 0 0 24px; width: 24px; height: 24px; border-radius: 50%; background: var(--green-050);
+  color: var(--green-700); display: grid; place-items: center; margin-top: 2px; font-weight: 700;
+}
+.security-list__item a { color: var(--green-700); font-weight: 600; text-decoration: underline; }
+@media (max-width: 760px) { .security-list { grid-template-columns: 1fr; } }
+
+/* FAQ (native <details>) */
+.faq { max-width: 780px; margin: 40px auto 0; display: grid; gap: 14px; }
+.faq__item {
+  background: #fff; border: 1px solid var(--line); border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-sm); overflow: hidden;
+}
+.faq__q {
+  cursor: pointer; list-style: none; padding: 20px 22px; font-weight: 700; font-size: 1.02rem;
+  color: var(--ink); display: flex; align-items: center; justify-content: space-between; gap: 16px;
+}
+.faq__q::-webkit-details-marker { display: none; }
+.faq__q::after { content: "+"; font-size: 1.4rem; font-weight: 400; color: var(--green-700); transition: transform .2s ease; }
+.faq__item[open] .faq__q::after { transform: rotate(45deg); }
+.faq__a { padding: 0 22px 20px; color: var(--muted); font-size: .96rem; }
+.faq__a a { color: var(--green-700); font-weight: 600; text-decoration: underline; }
+
+/* Print styles */
+@media print {
+  .header, .footer, .hero__float, .cta-band__actions, .skip-link { display: none !important; }
+  body { color: #000; }
+  .section { padding: 18px 0; }
+  .card, .step, .quote, .faq__item { box-shadow: none; border-color: #ccc; }
+  a { text-decoration: underline; }
+}

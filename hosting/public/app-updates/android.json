@@ -1,15 +1,17 @@
 {
   "schemaVersion": 1,
   "packageName": "gagachat.app",
-  "latestVersionCode": 48,
-  "latestVersionName": "2.7.3",
+  "latestVersionCode": 51,
+  "latestVersionName": "2.7.6",
   "minimumSupportedVersionCode": 0,
-  "publishedAt": "2026-10-11T12:49:35Z",
-  "releaseNotes": "Release 2.7.3 consolidates the professional Chats UI, secure QR profile codes with image scanning, cross-device favorites, friend-event notifications, and API 36 release hardening.",
+  "publishedAt": "2026-10-12T14:35:00Z",
+  "releaseNotes": "GaGa 2.7.6 adds a secure in-app updater: GaGa now checks for new releases, downloads them over a verified HTTPS channel, checks the SHA-256 and size, and hands the APK to the Android installer without leaving the app. This release also fixes an SSRF issue in link previews (authenticated callers, HTTPS egress allow-list) and hardens FCM recipient isolation so a queued push can never surface under the wrong account. Privacy Policy and Terms were expanded (legal bases, retention, international transfers, GDPR/CCPA rights, liability, payments, termination), and the website gained structured data, an accessible FAQ, sitemap.xml and robots.txt. Builds on the 2.7.5 push-isolation and 2.7.4/2.7.3 frontend repairs.",
   "channels": {
     "apk": {
-      "versionCode": 48,
-      "url": "https://gagachat.app/downloads/gaga-latest.apk"
+      "versionCode": 51,
+      "url": "https://gagachat.app/downloads/gaga-latest.apk",
+      "sha256": "53d4da27fd50e6ebbd7ac4f5fe21f578d3dee3ba43d5dfb6d003025baf93a0eb",
+      "sizeBytes": 47755984
     },
     "play": {
       "versionCode": 0,

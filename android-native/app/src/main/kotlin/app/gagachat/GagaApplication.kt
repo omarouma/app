@@ -14,6 +14,7 @@ import app.gagachat.core.data.preferences.SettingsPreferences
 import app.gagachat.core.data.sync.RealtimeCoordinator
 import app.gagachat.diagnostics.CrashReporter
 import app.gagachat.push.NotificationChannels
+import app.gagachat.updates.UpdateScheduler
 import coil.imageLoader
 import coil.ImageLoader
 import coil.ImageLoaderFactory
@@ -58,6 +59,9 @@ class GagaApplication : Application(), Configuration.Provider, ImageLoaderFactor
     @Inject
     lateinit var settingsPreferences: SettingsPreferences
 
+    @Inject
+    lateinit var updateScheduler: UpdateScheduler
+
     /** Cached privacy flag — when false we never advertise "online" (Master Spec §C). */
     @Volatile
     @javax.inject.Inject lateinit var userDao: app.gagachat.core.database.dao.UserDao
@@ -79,6 +83,10 @@ class GagaApplication : Application(), Configuration.Provider, ImageLoaderFactor
         // before a session exists: subscriptions are re-joined on reconnect.
         runCatching { realtimeCoordinator.start(applicationScope) }
             .onFailure { Log.w(TAG, "Realtime start failed", it) }
+        // Register the periodic update check (PDF §8 — update notifications).
+        // Idempotent: re-running keeps the existing schedule.
+        runCatching { updateScheduler.schedulePeriodic() }
+            .onFailure { Log.w(TAG, "Update check scheduling failed", it) }
 
         applicationScope.launch {
             authRepository.sessionFlow.collect { session ->

@@ -43,8 +43,8 @@ android {
 
     defaultConfig {
         applicationId = "gagachat.app"
-        versionCode = 50
-        versionName = "2.7.5"
+        versionCode = 51
+        versionName = "2.7.6"
 
         // LiveKit ships its WebRTC native libraries for the two ABIs every real
         // Android phone uses (64-bit and 32-bit ARM). Restricting the set keeps
