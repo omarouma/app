@@ -1,6 +1,8 @@
 package app.gagachat.feature.dailylife
 
 import androidx.compose.foundation.*
+import coil.compose.AsyncImage
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -115,6 +117,9 @@ fun GaGaChinaShopPreview(onBack: () -> Unit = {}, viewModel: ChinaShopViewModel 
                 val p = selected!!
                 Card(colors = CardDefaults.cardColors(containerColor = Color.White)) {
                     Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        p.imageUrls.firstOrNull()?.takeIf { it.startsWith("https://") }?.let { url ->
+                            AsyncImage(model = url, contentDescription = p.name, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxWidth().height(190.dp))
+                        }
                         Text(p.name, style = MaterialTheme.typography.headlineSmall)
                         Text("China source price · ¥${p.sourcePriceCny}", color = Emerald)
                         Text(stockLabel(p))
@@ -157,7 +162,12 @@ fun GaGaChinaShopPreview(onBack: () -> Unit = {}, viewModel: ChinaShopViewModel 
                     items(filtered, key = { it.id }) { p ->
                         Card(onClick = { selected = p }, colors = CardDefaults.cardColors(containerColor = Color.White), shape = RoundedCornerShape(16.dp)) {
                             Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Box(Modifier.fillMaxWidth().height(72.dp).background(Color(0xFFE6F5EF), RoundedCornerShape(12.dp)))
+                                val imageUrl = p.imageUrls.firstOrNull()?.takeIf { it.startsWith("https://") }
+                                if (imageUrl != null) {
+                                    AsyncImage(model = imageUrl, contentDescription = p.name, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxWidth().height(96.dp))
+                                } else {
+                                    Box(Modifier.fillMaxWidth().height(96.dp).background(Color(0xFFE6F5EF), RoundedCornerShape(12.dp)))
+                                }
                                 Text(p.name, fontWeight = FontWeight.SemiBold)
                                 Text("¥${p.cny} · China source", color = Emerald)
                                 OutlinedButton(onClick = { viewModel.add(p.id) }, enabled = p.availableQuantity != 0 && p.inventoryCheckedAt != null && p.availableQuantity != null) { Text("Add +") }
