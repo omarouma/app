@@ -169,7 +169,7 @@ fun GaGaChinaShopPreview(onBack: () -> Unit = {}, viewModel: ChinaShopViewModel 
                                     Box(Modifier.fillMaxWidth().height(96.dp).background(Color(0xFFE6F5EF), RoundedCornerShape(12.dp)))
                                 }
                                 Text(p.name, fontWeight = FontWeight.SemiBold)
-                                Text("¥${p.cny} · China source", color = Emerald)
+                                Text("¥${p.sourcePriceCny} · China source", color = Emerald)
                                 OutlinedButton(onClick = { viewModel.add(p.id) }, enabled = p.availableQuantity != 0 && p.inventoryCheckedAt != null && p.availableQuantity != null) { Text("Add +") }
                             }
                         }
