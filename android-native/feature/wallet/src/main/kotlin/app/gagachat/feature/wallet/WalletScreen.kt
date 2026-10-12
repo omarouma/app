@@ -87,7 +87,7 @@ fun WalletScreen(
         ) { ui ->
             LazyColumn(modifier = Modifier.fillMaxSize()) {
                 item { WalletHeader(ui.wallet) }
-                item { ActionRow(onDeposit = { viewModel.topUp(500L) }, onSend = onSendCoins) }
+                item { ActionRow(onSend = onSendCoins) }
                 item { WalletInfoCard() }
                 item { GagaSectionHeader("Recent Transactions") }
                 if (ui.activity.isEmpty()) {
@@ -193,9 +193,9 @@ private fun WalletHeader(wallet: Wallet) {
     }
 }
 
-/** The only actions that are backed by a working service. */
+/** Show only the available action; disabled real-money funding is not a button. */
 @Composable
-private fun ActionRow(onDeposit: () -> Unit, onSend: () -> Unit) {
+private fun ActionRow(onSend: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -203,7 +203,6 @@ private fun ActionRow(onDeposit: () -> Unit, onSend: () -> Unit) {
         horizontalArrangement = Arrangement.spacedBy(GagaDimens.space16),
     ) {
         ActionChip(label = "Send", icon = Icons.AutoMirrored.Filled.Send, onClick = onSend)
-        ActionChip(label = "Deposit", icon = Icons.Filled.Add, onClick = onDeposit)
     }
 }
 
