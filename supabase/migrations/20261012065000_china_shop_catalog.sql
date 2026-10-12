@@ -56,7 +56,7 @@ for insert to authenticated with check (
 );
 drop policy if exists china_shop_own_cart_update on public.china_shop_cart_items;
 create policy china_shop_own_cart_update on public.china_shop_cart_items
-for update to authenticated using (user_id = (select auth.uid())) with check (user_id = (select auth.uid()));
+for update to authenticated using (user_id = (select auth.uid())) with check (\n  user_id = (select auth.uid())\n  and exists (\n    select 1 from public.china_shop_products p join public.china_shop_suppliers s on s.id = p.supplier_id\n    where p.id = product_id and p.is_published and s.verification_status = 'verified'\n  )\n);
 drop policy if exists china_shop_own_cart_delete on public.china_shop_cart_items;
 create policy china_shop_own_cart_delete on public.china_shop_cart_items
 for delete to authenticated using (user_id = (select auth.uid()));
