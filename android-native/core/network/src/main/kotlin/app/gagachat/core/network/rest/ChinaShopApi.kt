@@ -31,6 +31,17 @@ data class ChinaShopProduct(
 )
 
 @Serializable
+data class ChinaShopAdminApplication(
+    val id: String,
+    @SerialName("legal_business_name") val businessName: String,
+    @SerialName("contact_name") val contactName: String,
+    @SerialName("contact_email") val contactEmail: String,
+    @SerialName("business_city") val city: String,
+    @SerialName("registration_number") val registration: String,
+    val status: String,
+    @SerialName("submitted_at") val submittedAt: String,
+)
+@Serializable
 data class ChinaShopSupplierApplication(
     val id: String,
     @SerialName("legal_business_name") val legalBusinessName: String,
@@ -101,6 +112,30 @@ class ChinaShopApi @Inject constructor(
         }
     }
 
+    /** Access is enforced by the server-managed admin allowlist inside both RPCs. */
+    suspend fun adminReviewQueue(): List<ChinaShopAdminApplication> =
+        client.post("${config.restUrl}/rpc/china_shop_admin_list_supplier_applications") {
+            header("apikey", config.anonKey)
+            header("Authorization", "Bearer ${token()}")
+            contentType(ContentType.Application.Json)
+            setBody(buildJsonObject { put("p_limit", 50) })
+        }.body()
+    suspend fun adminReviewSupplier(applicationId: String, decision: String, notes: String, evidence: String) {
+        require(decision in setOf("under_review", "approved", "rejected"))
+        require(notes.isNotBlank())
+        if (decision == "approved") require(evidence.isNotBlank())
+        client.post("${config.restUrl}/rpc/china_shop_admin_review_supplier") {
+            header("apikey", config.anonKey)
+            header("Authorization", "Bearer ${token()}")
+            contentType(ContentType.Application.Json)
+            setBody(buildJsonObject {
+                put("p_application_id", applicationId)
+                put("p_decision", decision)
+                put("p_review_notes", notes.trim())
+                put("p_verification_reference", evidence.trim())
+            })
+        }
+    }
     suspend fun mySupplierApplications(): List<ChinaShopSupplierApplication> =
         client.get("${config.restUrl}/china_shop_supplier_applications") {
             header("apikey", config.anonKey)
