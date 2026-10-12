@@ -2,7 +2,7 @@ name: GaGa Android repair validation
 
 on:
   push:
-    branches: [codex/gaga-livekit-call-repair]
+    branches: [main, codex/gaga-livekit-call-repair]
     tags: ['android-*']
   pull_request:
     paths:
