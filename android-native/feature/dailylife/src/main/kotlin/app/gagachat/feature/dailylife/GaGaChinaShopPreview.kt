@@ -14,6 +14,7 @@ import app.gagachat.core.network.rest.ChinaShopApi
 import app.gagachat.core.network.rest.ChinaShopLandedQuote
 import app.gagachat.core.network.rest.ChinaShopQuoteRequest
 import app.gagachat.core.network.rest.ChinaShopSupplierApplication
+import app.gagachat.core.network.rest.ChinaShopAdminApplication
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -59,6 +60,25 @@ class ChinaShopViewModel @Inject constructor(private val api: ChinaShopApi) : Vi
         private set
     var quoteError by mutableStateOf<String?>(null)
         private set
+    var adminQueue by mutableStateOf<List<ChinaShopAdminApplication>>(emptyList())
+        private set
+    var adminMessage by mutableStateOf<String?>(null)
+        private set
+    fun refreshAdminQueue() {
+        viewModelScope.launch {
+            try { adminQueue = api.adminReviewQueue(); adminMessage = null }
+            catch (_: Exception) { adminMessage = "Admin access required or queue unavailable." }
+        }
+    }
+    fun reviewSupplier(id: String, decision: String, notes: String, evidence: String) {
+        viewModelScope.launch {
+            try {
+                api.adminReviewSupplier(id, decision, notes, evidence)
+                adminMessage = "Review saved."
+                refreshAdminQueue()
+            } catch (_: Exception) { adminMessage = "Review failed. Check permissions and verification evidence." }
+        }
+    }
     var supplierApplications by mutableStateOf<List<ChinaShopSupplierApplication>>(emptyList())
         private set
     var supplierMessage by mutableStateOf<String?>(null)
@@ -152,6 +172,9 @@ fun GaGaChinaShopPreview(onBack: () -> Unit = {}, viewModel: ChinaShopViewModel 
     var selected by remember { mutableStateOf<ShopProduct?>(null) }
     var showCart by remember { mutableStateOf(false) }
     var showSupplierForm by remember { mutableStateOf(false) }
+    var showAdminReview by remember { mutableStateOf(false) }
+    var reviewNotes by remember { mutableStateOf("") }
+    var evidenceReference by remember { mutableStateOf("") }
     var supplierBusiness by remember { mutableStateOf("") }
     var supplierContact by remember { mutableStateOf("") }
     var supplierEmail by remember { mutableStateOf("") }
@@ -164,11 +187,33 @@ fun GaGaChinaShopPreview(onBack: () -> Unit = {}, viewModel: ChinaShopViewModel 
     MaterialTheme(colorScheme = lightColorScheme(primary = Emerald)) {
         Column(Modifier.fillMaxSize().background(Color(0xFFF5F7F8)).padding(16.dp)) {
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                TextButton(onClick = { if (showSupplierForm) showSupplierForm = false else if (showCart) showCart = false else if (selected != null) selected = null else onBack() }) { Text("‹ Back") }
+                TextButton(onClick = { if (showAdminReview) showAdminReview = false else if (showSupplierForm) showSupplierForm = false else if (showCart) showCart = false else if (selected != null) selected = null else onBack() }) { Text("‹ Back") }
                 Text("GaGa · China Direct", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
             }
             Spacer(Modifier.height(10.dp))
-            if (showSupplierForm) {
+            if (showAdminReview) {
+                Text("Supplier Admin Review", style = MaterialTheme.typography.headlineSmall)
+                Text("Restricted to authorized GaGa reviewers. Verify registration documents independently.")
+                TextButton(onClick = viewModel::refreshAdminQueue) { Text("Load pending applications") }
+                viewModel.adminMessage?.let { Text(it) }
+                OutlinedTextField(reviewNotes, { reviewNotes = it }, label = { Text("Review notes (required)") })
+                OutlinedTextField(evidenceReference, { evidenceReference = it }, label = { Text("Verified document reference") })
+                viewModel.adminQueue.forEach { application ->
+                    Card {
+                        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Text(application.businessName, fontWeight = FontWeight.Bold)
+                            Text("${application.city} · ${application.registration}")
+                            Text("${application.contactName} · ${application.contactEmail}")
+                            Text("Status: ${application.status}")
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                OutlinedButton(onClick = { viewModel.reviewSupplier(application.id, "under_review", reviewNotes, "") }, enabled = reviewNotes.isNotBlank()) { Text("Review") }
+                                OutlinedButton(onClick = { viewModel.reviewSupplier(application.id, "rejected", reviewNotes, "") }, enabled = reviewNotes.isNotBlank()) { Text("Reject") }
+                            }
+                            Button(onClick = { viewModel.reviewSupplier(application.id, "approved", reviewNotes, evidenceReference) }, enabled = reviewNotes.isNotBlank() && evidenceReference.isNotBlank()) { Text("Approve verified supplier") }
+                        }
+                    }
+                }
+            } else if (showSupplierForm) {
                 Text("Apply as China Supplier", style = MaterialTheme.typography.headlineSmall)
                 Text("Application only. GaGa will verify business registration before publishing products.")
                 OutlinedTextField(supplierBusiness, { supplierBusiness = it }, label = { Text("Legal business name") })
@@ -251,6 +296,7 @@ fun GaGaChinaShopPreview(onBack: () -> Unit = {}, viewModel: ChinaShopViewModel 
                     }
                 }
                 TextButton(onClick = { showSupplierForm = true }) { Text("Become a China Supplier") }
+                TextButton(onClick = { showAdminReview = true; viewModel.refreshAdminQueue() }) { Text("Supplier admin review (restricted)") }
                 Spacer(Modifier.height(12.dp))
                 OutlinedTextField(search, { search = it }, label = { Text("Search products") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 Spacer(Modifier.height(8.dp))
