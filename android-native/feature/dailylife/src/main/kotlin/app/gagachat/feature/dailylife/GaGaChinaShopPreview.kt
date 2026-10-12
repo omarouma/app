@@ -60,6 +60,16 @@ class ChinaShopViewModel @Inject constructor(private val api: ChinaShopApi) : Vi
         private set
     var quoteError by mutableStateOf<String?>(null)
         private set
+    var draftMessage by mutableStateOf<String?>(null)
+        private set
+    fun createDraftProduct(supplierId: String, title: String, category: String, price: Double, stock: Int, city: String) {
+        viewModelScope.launch {
+            try {
+                api.adminCreateDraftProduct(supplierId, title, category, price, stock, city)
+                draftMessage = "Unpublished product draft saved. Verify source price and inventory before publishing."
+            } catch (_: Exception) { draftMessage = "Could not create draft. Check admin access and verified supplier." }
+        }
+    }
     var adminQueue by mutableStateOf<List<ChinaShopAdminApplication>>(emptyList())
         private set
     var adminMessage by mutableStateOf<String?>(null)
@@ -173,6 +183,12 @@ fun GaGaChinaShopPreview(onBack: () -> Unit = {}, viewModel: ChinaShopViewModel 
     var showCart by remember { mutableStateOf(false) }
     var showSupplierForm by remember { mutableStateOf(false) }
     var showAdminReview by remember { mutableStateOf(false) }
+    var draftSupplierId by remember { mutableStateOf("") }
+    var draftTitle by remember { mutableStateOf("") }
+    var draftCategory by remember { mutableStateOf("") }
+    var draftPrice by remember { mutableStateOf("") }
+    var draftStock by remember { mutableStateOf("") }
+    var draftOrigin by remember { mutableStateOf("") }
     var reviewNotes by remember { mutableStateOf("") }
     var evidenceReference by remember { mutableStateOf("") }
     var supplierBusiness by remember { mutableStateOf("") }
@@ -198,6 +214,17 @@ fun GaGaChinaShopPreview(onBack: () -> Unit = {}, viewModel: ChinaShopViewModel 
                 viewModel.adminMessage?.let { Text(it) }
                 OutlinedTextField(reviewNotes, { reviewNotes = it }, label = { Text("Review notes (required)") })
                 OutlinedTextField(evidenceReference, { evidenceReference = it }, label = { Text("Verified document reference") })
+                HorizontalDivider()
+                Text("New product draft", style = MaterialTheme.typography.titleMedium)
+                Text("Use the verified supplier UUID. Draft products are not public until separately verified and published.")
+                OutlinedTextField(draftSupplierId, { draftSupplierId = it }, label = { Text("Verified supplier UUID") })
+                OutlinedTextField(draftTitle, { draftTitle = it }, label = { Text("Product title") })
+                OutlinedTextField(draftCategory, { draftCategory = it }, label = { Text("Category") })
+                OutlinedTextField(draftPrice, { draftPrice = it }, label = { Text("Source price (CNY)") })
+                OutlinedTextField(draftStock, { draftStock = it }, label = { Text("Supplier-reported stock") })
+                OutlinedTextField(draftOrigin, { draftOrigin = it }, label = { Text("Origin city, China") })
+                Button(onClick = { viewModel.createDraftProduct(draftSupplierId, draftTitle, draftCategory, draftPrice.toDoubleOrNull() ?: 0.0, draftStock.toIntOrNull() ?: -1, draftOrigin) }, enabled = draftSupplierId.isNotBlank() && draftTitle.length >= 3 && draftCategory.length >= 2 && (draftPrice.toDoubleOrNull() ?: 0.0) > 0.0 && (draftStock.toIntOrNull() ?: -1) >= 0 && draftOrigin.length >= 2) { Text("Save unpublished draft") }
+                viewModel.draftMessage?.let { Text(it) }
                 viewModel.adminQueue.forEach { application ->
                     Card {
                         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
