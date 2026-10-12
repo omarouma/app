@@ -109,6 +109,7 @@ fun NotificationInboxScreen(
             onValueChange = { searchQuery = it.take(120) },
             label = { Text("Search notifications") },
             singleLine = true,
+            placeholder = { Text("Search titles and messages") },
             modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
         )
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
@@ -122,7 +123,7 @@ fun NotificationInboxScreen(
         ) { items ->
             val visible = items.filter { notification ->
                 val matchesSearch = searchQuery.isBlank() ||
-                    notification.title.orEmpty().contains(searchQuery.trim(), ignoreCase = true) ||
+                    (notification.title?.takeIf { it.isNotBlank() } ?: defaultTitle(notification.type)).contains(searchQuery.trim(), ignoreCase = true) ||
                     notification.body.orEmpty().contains(searchQuery.trim(), ignoreCase = true)
                 matchesSearch && when (activeFilter) {
                     "Unread" -> !notification.read
