@@ -4,6 +4,25 @@ plugins {
     alias(libs.plugins.kotlin.serialization)
 }
 
+// A developer must never accidentally generate a production release with
+// Firebase Messaging/Crashlytics silently disabled. Debug & Gradle sync can
+// still run without credentials; the release pipeline requires the public
+// google-services.json that CI generates with ci/prepare.py.
+val requiresFirebaseForRelease = gradle.startParameter.taskNames.any { task ->
+    task.contains("release", ignoreCase = true) ||
+        task.equals("assemble", ignoreCase = true) ||
+        task.endsWith(":assemble") ||
+        task.equals("bundle", ignoreCase = true) ||
+        task.endsWith(":bundle")
+}
+if (requiresFirebaseForRelease && !file("google-services.json").isFile) {
+    throw GradleException(
+        "GaGa production Android release is missing app/google-services.json. " +
+        "Run python3 android-native/ci/prepare.py using the verified public configuration; " +
+        "never substitute a Firebase Admin SDK service-account JSON."
+    )
+}
+
 // Apply Google Services only when the Firebase Android config is present.
 // This keeps source control secret-free while ensuring production builds do not
 // silently ship an FCM dependency that was never initialized.

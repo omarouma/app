@@ -20,6 +20,11 @@ debug/
 local.properties
 local.properties.bak
 google-services.json
+# Firebase Admin service-account credentials are NEVER Android client configuration
+*firebase-adminsdk*.json
+*service-account*.json
+*service_account*.json
+firebase-admin.json
 GoogleService-Info.plist
 *.jks
 *.keystore
