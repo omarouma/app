@@ -60,6 +60,22 @@ class ChinaShopViewModel @Inject constructor(private val api: ChinaShopApi) : Vi
         private set
     var quoteError by mutableStateOf<String?>(null)
         private set
+    var verificationMessage by mutableStateOf<String?>(null)
+        private set
+    fun verifyProduct(id: String, price: Double, stock: Int, priceEvidence: String, stockEvidence: String) {
+        viewModelScope.launch {
+            try { api.adminVerifyProduct(id, price, stock, priceEvidence, stockEvidence)
+                verificationMessage = "Price and stock verification saved. Product remains unpublished."
+            } catch (_: Exception) { verificationMessage = "Verification failed. Check admin permissions, supplier and evidence." }
+        }
+    }
+    fun publishProduct(id: String) {
+        viewModelScope.launch {
+            try { api.adminPublishProduct(id, true)
+                verificationMessage = "Product published after server validation."
+            } catch (_: Exception) { verificationMessage = "Publishing blocked. Verify supplier, recent price and inventory." }
+        }
+    }
     var draftMessage by mutableStateOf<String?>(null)
         private set
     fun createDraftProduct(supplierId: String, title: String, category: String, price: Double, stock: Int, city: String) {
@@ -183,6 +199,11 @@ fun GaGaChinaShopPreview(onBack: () -> Unit = {}, viewModel: ChinaShopViewModel 
     var showCart by remember { mutableStateOf(false) }
     var showSupplierForm by remember { mutableStateOf(false) }
     var showAdminReview by remember { mutableStateOf(false) }
+    var verifyProductId by remember { mutableStateOf("") }
+    var verifyPrice by remember { mutableStateOf("") }
+    var verifyStock by remember { mutableStateOf("") }
+    var priceEvidence by remember { mutableStateOf("") }
+    var stockEvidence by remember { mutableStateOf("") }
     var draftSupplierId by remember { mutableStateOf("") }
     var draftTitle by remember { mutableStateOf("") }
     var draftCategory by remember { mutableStateOf("") }
@@ -215,6 +236,16 @@ fun GaGaChinaShopPreview(onBack: () -> Unit = {}, viewModel: ChinaShopViewModel 
                 OutlinedTextField(reviewNotes, { reviewNotes = it }, label = { Text("Review notes (required)") })
                 OutlinedTextField(evidenceReference, { evidenceReference = it }, label = { Text("Verified document reference") })
                 HorizontalDivider()
+                HorizontalDivider()
+                Text("Verify and publish product", style = MaterialTheme.typography.titleMedium)
+                OutlinedTextField(verifyProductId, { verifyProductId = it }, label = { Text("Existing draft product UUID") })
+                OutlinedTextField(verifyPrice, { verifyPrice = it }, label = { Text("Verified source price CNY") })
+                OutlinedTextField(verifyStock, { verifyStock = it }, label = { Text("Verified stock quantity") })
+                OutlinedTextField(priceEvidence, { priceEvidence = it }, label = { Text("Independent price evidence reference") })
+                OutlinedTextField(stockEvidence, { stockEvidence = it }, label = { Text("Independent stock evidence reference") })
+                Button(onClick = { viewModel.verifyProduct(verifyProductId, verifyPrice.toDoubleOrNull() ?: 0.0, verifyStock.toIntOrNull() ?: -1, priceEvidence, stockEvidence) }, enabled = verifyProductId.isNotBlank() && (verifyPrice.toDoubleOrNull() ?: 0.0) > 0 && (verifyStock.toIntOrNull() ?: -1) >= 0 && priceEvidence.length >= 8 && stockEvidence.length >= 8) { Text("Record independent verification") }
+                OutlinedButton(onClick = { viewModel.publishProduct(verifyProductId) }, enabled = verifyProductId.isNotBlank()) { Text("Publish verified product") }
+                viewModel.verificationMessage?.let { Text(it) }
                 Text("New product draft", style = MaterialTheme.typography.titleMedium)
                 Text("Use the verified supplier UUID. Draft products are not public until separately verified and published.")
                 OutlinedTextField(draftSupplierId, { draftSupplierId = it }, label = { Text("Verified supplier UUID") })
