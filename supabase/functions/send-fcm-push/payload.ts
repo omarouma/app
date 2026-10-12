@@ -2,6 +2,7 @@ export type Push = {
   type: string; user_id: string; chat_id?: string; caller_id?: string;
   call_id?: string; caller_name?: string; sender_name?: string;
   title?: string; body?: string; request_id?: string; actor_id?: string; event_id?: string;
+  data?: Record<string, string>;
   message_preview?: string; room_id?: string; is_video?: boolean | string;
 };
 export const supportedTypes = new Set(["message", "call", "call_cancel", "call_ended", "friend_request", "friend_accepted"]);
@@ -26,8 +27,8 @@ export function buildMessage(body: Push, token: string) {
       body.type === "friend_request" ? "Someone wants to connect with you on GaGa." :
       "Your friend request was accepted on GaGa."
     )).slice(0, 300);
-    data.request_id = String(body.request_id ?? "").slice(0, 100);
-    data.actor_id = String(body.actor_id ?? "").slice(0, 100);
+    data.request_id = String(body.request_id ?? body.data?.request_id ?? "").slice(0, 100);
+    data.actor_id = String(body.actor_id ?? body.data?.actor_id ?? "").slice(0, 100);
     data.event_id = String(body.event_id ?? "").slice(0, 160);
   } else {
     data.call_id = String(body.call_id ?? "");
