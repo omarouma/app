@@ -24,6 +24,10 @@ data class ChinaShopProduct(
     @SerialName("source_price_cny") val sourcePriceCny: Double,
     @SerialName("source_price_checked_at") val priceCheckedAt: String? = null,
     @SerialName("supplier_id") val supplierId: String,
+    @SerialName("image_urls") val imageUrls: List<String> = emptyList(),
+    @SerialName("available_quantity") val availableQuantity: Int? = null,
+    @SerialName("inventory_checked_at") val inventoryCheckedAt: String? = null,
+    @SerialName("origin_city") val originCity: String? = null,
 )
 
 @Singleton
@@ -71,7 +75,7 @@ class ChinaShopApi @Inject constructor(
         return client.get("${config.restUrl}/china_shop_products") {
             header("apikey", config.anonKey)
             header("Authorization", "Bearer $token")
-            parameter("select", "id,title,category,description,source_price_cny,source_price_checked_at,supplier_id")
+            parameter("select", "id,title,category,description,source_price_cny,source_price_checked_at,supplier_id,image_urls,available_quantity,inventory_checked_at,origin_city")
             parameter("order", "created_at.desc")
             parameter("limit", limit.coerceIn(1, 100))
         }.body()
