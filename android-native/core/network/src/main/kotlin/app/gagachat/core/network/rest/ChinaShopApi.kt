@@ -31,6 +31,15 @@ data class ChinaShopProduct(
 )
 
 @Serializable
+data class ChinaShopQuoteRequest(
+    val id: String,
+    @SerialName("product_id") val productId: String,
+    val quantity: Int,
+    @SerialName("destination_city") val destinationCity: String,
+    val status: String,
+    @SerialName("created_at") val createdAt: String,
+)
+@Serializable
 data class ChinaShopLandedQuote(
     val id: String,
     @SerialName("product_id") val productId: String,
@@ -102,6 +111,14 @@ class ChinaShopApi @Inject constructor(
             })
         }
     }
+    suspend fun myQuoteRequests(limit: Int = 40): List<ChinaShopQuoteRequest> =
+        client.get("${config.restUrl}/china_shop_quote_requests") {
+            header("apikey", config.anonKey)
+            header("Authorization", "Bearer ${token()}")
+            parameter("select", "id,product_id,quantity,destination_city,status,created_at")
+            parameter("order", "created_at.desc")
+            parameter("limit", limit.coerceIn(1, 100))
+        }.body()
     /** Read only: quotes must be created and verified by an authorized server. */
     suspend fun myQuotes(limit: Int = 40): List<ChinaShopLandedQuote> =
         client.get("${config.restUrl}/china_shop_landed_quotes") {
