@@ -315,7 +315,7 @@ private fun AttachmentSheet(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .heightIn(max = 420.dp)
+            .heightIn(max = 520.dp)
             // Keep every option reachable on short screens / landscape instead of
             // letting the last row fall off the bottom of the sheet.
             .verticalScroll(rememberScrollState())
@@ -363,7 +363,7 @@ private fun AttachOption(icon: ImageVector, label: String, onClick: () -> Unit, 
         modifier = modifier
             .clip(MaterialTheme.shapes.medium)
             .clickable(onClick = onClick)
-            .padding(GagaDimens.space4),
+            .padding(horizontal = GagaDimens.space4, vertical = GagaDimens.space8),
     ) {
         Box(
             modifier = Modifier
