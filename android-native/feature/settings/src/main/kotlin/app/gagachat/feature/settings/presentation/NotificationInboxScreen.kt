@@ -32,6 +32,7 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -73,6 +74,7 @@ fun NotificationInboxScreen(
     val notice by viewModel.notice.collectAsStateWithLifecycle()
     val unread by viewModel.unreadCount.collectAsStateWithLifecycle()
     var activeFilter by rememberSaveable { mutableStateOf("All") }
+    var searchQuery by rememberSaveable { mutableStateOf("") }
     val filters = listOf("All", "Unread", "Calls", "People", "Chats")
     val snackbar = remember { SnackbarHostState() }
     LaunchedEffect(notice) { notice?.let { snackbar.showSnackbar(it); viewModel.consumeNotice() } }
@@ -102,6 +104,13 @@ fun NotificationInboxScreen(
                 )
             }
         }
+        OutlinedTextField(
+            value = searchQuery,
+            onValueChange = { searchQuery = it.take(120) },
+            label = { Text("Search notifications") },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+        )
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
         GagaStateHost(
             state = state,
@@ -112,7 +121,10 @@ fun NotificationInboxScreen(
             emptyDescription = "Messages, friend requests and calls will show up here.",
         ) { items ->
             val visible = items.filter { notification ->
-                when (activeFilter) {
+                val matchesSearch = searchQuery.isBlank() ||
+                    notification.title.orEmpty().contains(searchQuery.trim(), ignoreCase = true) ||
+                    notification.body.orEmpty().contains(searchQuery.trim(), ignoreCase = true)
+                matchesSearch && when (activeFilter) {
                     "Unread" -> !notification.read
                     "Calls" -> notification.type == NotificationType.CALL
                     "People" -> notification.type == NotificationType.FRIEND_REQUEST ||
