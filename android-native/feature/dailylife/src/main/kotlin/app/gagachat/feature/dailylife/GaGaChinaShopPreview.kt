@@ -32,16 +32,28 @@ fun GaGaChinaShopPreview(onBack: () -> Unit = {}) {
     var category by remember { mutableStateOf("All") }
     var search by remember { mutableStateOf("") }
     var selected by remember { mutableStateOf<ShopDemoProduct?>(null) }
+    var showCart by remember { mutableStateOf(false) }
     val cart = remember { mutableStateMapOf<String, Int>() }
     val categories = listOf("All", "Electronics", "Fashion", "Home", "Computers", "Sports", "Toys")
     MaterialTheme(colorScheme = lightColorScheme(primary = Emerald)) {
         Column(Modifier.fillMaxSize().background(Color(0xFFF5F7F8)).padding(16.dp)) {
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                TextButton(onClick = { if (selected != null) selected = null else onBack() }) { Text("‹ Back") }
+                TextButton(onClick = { if (showCart) showCart = false else if (selected != null) selected = null else onBack() }) { Text("‹ Back") }
                 Text("GaGa · China Direct", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
             }
             Spacer(Modifier.height(10.dp))
-            if (selected != null) {
+            if (showCart) {
+                Text("Your demo cart", style = MaterialTheme.typography.headlineSmall)
+                demo.filter { (cart[it.id] ?: 0) > 0 }.forEach { product ->
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text("${product.name} × ${cart[product.id] ?: 0}")
+                        Text("¥${product.cny * (cart[product.id] ?: 0)}")
+                    }
+                }
+                Text("China source subtotal: ¥${demo.sumOf { it.cny * (cart[it.id] ?: 0) }}")
+                Text("Shipping, customs, tax, exchange rate and Bangladesh delivery are not included.")
+                Text("Checkout is unavailable until supplier and landed-cost verification.", color = Emerald)
+            } else if (selected != null) {
                 val p = selected!!
                 Card(colors = CardDefaults.cardColors(containerColor = Color.White)) {
                     Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -67,7 +79,10 @@ fun GaGaChinaShopPreview(onBack: () -> Unit = {}) {
                         FilterChip(selected = category == categories[i], onClick = { category = categories[i] }, label = { Text(categories[i]) })
                     }
                 }
-                Text("Demo catalog · Cart items: ${cart.values.sum()}", modifier = Modifier.padding(vertical = 10.dp))
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text("Demo catalog · ${cart.values.sum()} items", modifier = Modifier.padding(vertical = 10.dp))
+                    TextButton(onClick = { showCart = true }) { Text("View cart") }
+                }
                 val filtered = demo.filter { (category == "All" || it.category == category) && it.name.contains(search, ignoreCase = true) }
                 LazyVerticalGrid(columns = GridCells.Fixed(2), horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     items(filtered, key = { it.id }) { p ->
