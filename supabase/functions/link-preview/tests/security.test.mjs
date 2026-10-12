@@ -61,6 +61,7 @@ test("handler verifies caller and never follows remote redirects", async () => {
   assert.match(source, /\/auth\/v1\/user/);
   assert.match(source, /Authorization: authHeader/);
   assert.match(source, /if \(!mayFetchRemotePreview\(url\)\)/);
+  assert.match(source, /typeof url !== "string"/);
   assert.match(source, /redirect: "manual"/);
   assert.match(source, /response\.status >= 300 && response\.status < 400/);
   assert.match(source, /received > 500_000/);
