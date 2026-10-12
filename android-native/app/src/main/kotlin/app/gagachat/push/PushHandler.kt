@@ -53,8 +53,10 @@ class PushHandler @Inject constructor(
         notificationBody: String? = null,
     ) {
         val currentUser = sessionStore.userId() ?: return
-        val recipient = data["user_id"] ?: data["callee_id"] ?: data["recipient_id"]
-        if (recipient != null && recipient != currentUser) return
+        // FCM's current data-only payload addresses recipients with
+        // recipient_user_id. Old clients used user_id/callee_id/recipient_id.
+        // Reject conflicting fields AND account-switch leftovers.
+        if (!app.gagachat.core.model.PushRecipientPolicy.canDisplay(currentUser, data)) return
         val preview = settingsPreferences.notificationPreview.first()
         val locked = settingsPreferences.appLockEnabled.first()
         val notificationsEnabled = settingsPreferences.notificationsEnabled.first()

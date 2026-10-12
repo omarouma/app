@@ -593,38 +593,41 @@ class SupabaseRestApi @Inject constructor(
     // ---- Devices ----
 
     /**
-     * Registers/refreshes this install's push token in the LIVE `user_devices`
-     * table. There is no server-side unique constraint on (user_id, device_id),
-     * so we look the row up first and PATCH when it already exists, otherwise
-     * INSERT. Safe to call repeatedly (e.g. on every FCM token refresh).
+     * Registers/refreshes this install's FCM token in a single atomic upsert.
+     *
+     * Production has UNIQUE(user_id, device_id), verified on 2026-10-12.
+     * Read-then-write used to race after token rotation. Never modify the
+     * server's revoked_at flag: explicit device revocation must remain in force
+     * until a separately authenticated device-restoration flow authorizes it.
      */
     suspend fun unregisterCurrentDevice(deviceId: String) {
-        client.delete("${config.restUrl}/user_devices") { auth(); sessionStore.userId()?.let { parameter("user_id", "eq.$it") }; parameter("device_id", "eq.$deviceId") }
-    }
-    suspend fun upsertDevice(row: DeviceRow) {
-        val existing = client.get("${config.restUrl}/user_devices") {
+        val me = sessionStore.userId() ?: return
+        client.delete("${config.restUrl}/user_devices") {
             auth()
-            parameter("select", "id")
-            parameter("user_id", "eq.${row.userId}")
-            parameter("device_id", "eq.${row.deviceId}")
-            parameter("limit", 1)
-        }.body<List<JsonObject>>().firstOrNull()
-        if (existing != null) {
-            client.patch("${config.restUrl}/user_devices") {
-                auth()
-                parameter("user_id", "eq.${row.userId}")
-                parameter("device_id", "eq.${row.deviceId}")
-                header("Prefer", "return=minimal")
-                contentType(ContentType.Application.Json)
-                setBody(row)
-            }
-        } else {
-            client.post("${config.restUrl}/user_devices") {
-                auth()
-                header("Prefer", "return=minimal")
-                contentType(ContentType.Application.Json)
-                setBody(row)
-            }
+            parameter("user_id", "eq.$me")
+            parameter("device_id", "eq.$deviceId")
+        }
+    }
+
+    suspend fun upsertDevice(row: DeviceRow) {
+        check(row.userId == sessionStore.userId()) { "Device owner changed during registration" }
+        check(row.pushToken?.isNotBlank() == true) { "FCM token must not be empty" }
+        check(row.deviceId.isNotBlank()) { "Device identifier must not be empty" }
+        val payload = buildJsonObject {
+            put("user_id", row.userId)
+            put("device_id", row.deviceId)
+            put("push_token", row.pushToken)
+            put("platform", row.platform)
+            row.deviceName?.let { put("device_name", it) }
+            row.appVersion?.let { put("app_version", it) }
+            put("last_seen_at", iso(row.lastSeenAt ?: System.currentTimeMillis()))
+        }
+        client.post("${config.restUrl}/user_devices") {
+            auth()
+            parameter("on_conflict", "user_id,device_id")
+            header("Prefer", "resolution=merge-duplicates,return=minimal")
+            contentType(ContentType.Application.Json)
+            setBody(payload)
         }
     }
 
