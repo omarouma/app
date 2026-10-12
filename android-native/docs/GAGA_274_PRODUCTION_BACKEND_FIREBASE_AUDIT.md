@@ -13,6 +13,16 @@ Checked 2026-10-12. Source branch: `feat/gaga-2.7.4-backend-firebase-release-gat
 - A separate `firebase-session` function uses a prefixed `sb_<supabase_uuid>` Firebase UID, unlike `firebase-token`. Do not mix those two authentication paths without a full Firebase Rules review.
 - A `users` BEFORE UPDATE trigger explicitly blocks client changes to `is_admin`, `is_verified`, `is_premium`, balances, coins, and other server-managed fields. `activate_premium` requires server-owned coins, and `admin_update_user` verifies admin status. Avoid applying sweeping revocations without inspecting legitimate application RPC calls.
 
+## P0: Deployed link-preview Edge Function lacks adequate authorization / egress restriction
+Read-only source review of live `link-preview` v27 confirmed that it only tests whether an Authorization header has a nonempty value before fetching the requested URL. It does not verify the token against Supabase Auth, accepts arbitrary HTTP(S) hosts, follows redirects, and calls `response.text()` before limiting the response size.
+
+**Source fix included in this PR (NOT deployed):**
+- `supabase/functions/link-preview/index.ts` copied from actual live function and revised to validate the bearer token against Supabase Auth, require approved public HTTPS hostnames before any outgoing request/cache lookup, block redirects, cap streamed HTML response bytes and return generic network errors.
+- `supabase/functions/link-preview/security.mjs` exact-host allowlist with a text-only preview for unapproved sites.
+- `supabase/functions/link-preview/tests/security.test.mjs` regression tests for internal/metadata hosts, user-info deception, IP literals, scheme/port restrictions and safe fallback.
+
+The restrictive allowlist deliberately trades rich previews on unknown sites for safety. Expanding arbitrary URL preview support requires a dedicated fetching service with network-level egress filtering and DNS/redirect protections. **Deploy this security patch after source/Edge tests and planned rollback; do not leave the vulnerable live function serving untrusted URLs.**
+
 ## Important remaining security/release work (NO PRODUCTION CHANGES MADE)
 | Priority | Issue | Production gate |
 |---|---|---|
