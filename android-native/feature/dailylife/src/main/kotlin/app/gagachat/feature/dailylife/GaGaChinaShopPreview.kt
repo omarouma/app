@@ -8,6 +8,13 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import app.gagachat.core.network.rest.ChinaShopApi
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.launch
+import javax.inject.Inject
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -27,13 +34,38 @@ private val demo = listOf(
     ShopDemoProduct("g", "Sports Bottle", "Sports", 19),
     ShopDemoProduct("h", "Toy Building Set", "Toys", 49)
 )
+@HiltViewModel
+class ChinaShopViewModel @Inject constructor(private val api: ChinaShopApi) : ViewModel() {
+    var products by mutableStateOf<List<ShopDemoProduct>>(emptyList())
+        private set
+    var loading by mutableStateOf(true)
+        private set
+    var error by mutableStateOf<String?>(null)
+        private set
+    init { refresh() }
+    fun refresh() {
+        viewModelScope.launch {
+            loading = true
+            error = null
+            try {
+                products = api.publishedProducts().map { ShopDemoProduct(it.id, it.title, it.category, it.sourcePriceCny.toInt()) }
+            } catch (_: Exception) {
+                error = "Could not load the live catalog. Please retry."
+            } finally {
+                loading = false
+            }
+        }
+    }
+}
+
 @Composable
-fun GaGaChinaShopPreview(onBack: () -> Unit = {}) {
+fun GaGaChinaShopPreview(onBack: () -> Unit = {}, viewModel: ChinaShopViewModel = hiltViewModel()) {
     var category by remember { mutableStateOf("All") }
     var search by remember { mutableStateOf("") }
     var selected by remember { mutableStateOf<ShopDemoProduct?>(null) }
     var showCart by remember { mutableStateOf(false) }
     val cart = remember { mutableStateMapOf<String, Int>() }
+    val catalog = viewModel.products
     val categories = listOf("All", "Electronics", "Fashion", "Home", "Computers", "Sports", "Toys")
     MaterialTheme(colorScheme = lightColorScheme(primary = Emerald)) {
         Column(Modifier.fillMaxSize().background(Color(0xFFF5F7F8)).padding(16.dp)) {
@@ -44,13 +76,13 @@ fun GaGaChinaShopPreview(onBack: () -> Unit = {}) {
             Spacer(Modifier.height(10.dp))
             if (showCart) {
                 Text("Your demo cart", style = MaterialTheme.typography.headlineSmall)
-                demo.filter { (cart[it.id] ?: 0) > 0 }.forEach { product ->
+                catalog.filter { (cart[it.id] ?: 0) > 0 }.forEach { product ->
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         Text("${product.name} × ${cart[product.id] ?: 0}")
                         Text("¥${product.cny * (cart[product.id] ?: 0)}")
                     }
                 }
-                Text("China source subtotal: ¥${demo.sumOf { it.cny * (cart[it.id] ?: 0) }}")
+                Text("China source subtotal: ¥${catalog.sumOf { it.cny * (cart[it.id] ?: 0) }}")
                 Text("Shipping, customs, tax, exchange rate and Bangladesh delivery are not included.")
                 Text("Checkout is unavailable until supplier and landed-cost verification.", color = Emerald)
             } else if (selected != null) {
@@ -59,7 +91,7 @@ fun GaGaChinaShopPreview(onBack: () -> Unit = {}) {
                     Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         Text(p.name, style = MaterialTheme.typography.headlineSmall)
                         Text("China source price · ¥${p.cny}", color = Emerald)
-                        Text("Demo product. Bangladesh landed cost is calculated only after verified supplier, freight, customs and FX quote.")
+                        Text("China source price only. Bangladesh landed cost requires verified freight, customs and FX quote.")
                         Button(onClick = { cart[p.id] = (cart[p.id] ?: 0) + 1 }) { Text("Add to demo cart") }
                     }
                 }
@@ -80,17 +112,25 @@ fun GaGaChinaShopPreview(onBack: () -> Unit = {}) {
                     }
                 }
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text("Demo catalog · ${cart.values.sum()} items", modifier = Modifier.padding(vertical = 10.dp))
+                    Text("China catalog · ${cart.values.sum()} items", modifier = Modifier.padding(vertical = 10.dp))
                     TextButton(onClick = { showCart = true }) { Text("View cart") }
                 }
-                val filtered = demo.filter { (category == "All" || it.category == category) && it.name.contains(search, ignoreCase = true) }
+                if (viewModel.loading) { LinearProgressIndicator(Modifier.fillMaxWidth()) }
+                if (viewModel.error != null) {
+                    Text(viewModel.error!!, color = MaterialTheme.colorScheme.error)
+                    TextButton(onClick = viewModel::refresh) { Text("Retry") }
+                }
+                if (!viewModel.loading && viewModel.error == null && catalog.isEmpty()) {
+                    Text("No verified China products published yet. Check back soon.")
+                }
+                val filtered = catalog.filter { (category == "All" || it.category == category) && it.name.contains(search, ignoreCase = true) }
                 LazyVerticalGrid(columns = GridCells.Fixed(2), horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     items(filtered, key = { it.id }) { p ->
                         Card(onClick = { selected = p }, colors = CardDefaults.cardColors(containerColor = Color.White), shape = RoundedCornerShape(16.dp)) {
                             Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                 Box(Modifier.fillMaxWidth().height(72.dp).background(Color(0xFFE6F5EF), RoundedCornerShape(12.dp)))
                                 Text(p.name, fontWeight = FontWeight.SemiBold)
-                                Text("¥${p.cny} · China source demo", color = Emerald)
+                                Text("¥${p.cny} · China source", color = Emerald)
                                 OutlinedButton(onClick = { cart[p.id] = (cart[p.id] ?: 0) + 1 }) { Text("Add +") }
                             }
                         }
