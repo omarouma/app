@@ -222,7 +222,7 @@ fun GaGaChinaShopPreview(onBack: () -> Unit = {}, viewModel: ChinaShopViewModel 
     val catalog = viewModel.products
     val categories = listOf("All", "Electronics", "Fashion", "Home", "Computers", "Sports", "Toys")
     MaterialTheme(colorScheme = lightColorScheme(primary = Emerald)) {
-        Column(Modifier.fillMaxSize().background(Color(0xFFF5F7F8)).padding(16.dp)) {
+        Column(Modifier.fillMaxSize().background(Color(0xFFF5F7F8)).then(if (showAdminReview || showSupplierForm) Modifier.verticalScroll(rememberScrollState()) else Modifier).padding(16.dp)) {
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 TextButton(onClick = { if (showAdminReview) showAdminReview = false else if (showSupplierForm) showSupplierForm = false else if (showCart) showCart = false else if (selected != null) selected = null else onBack() }) { Text("‹ Back") }
                 Text("GaGa · China Direct", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
@@ -235,7 +235,6 @@ fun GaGaChinaShopPreview(onBack: () -> Unit = {}, viewModel: ChinaShopViewModel 
                 viewModel.adminMessage?.let { Text(it) }
                 OutlinedTextField(reviewNotes, { reviewNotes = it }, label = { Text("Review notes (required)") })
                 OutlinedTextField(evidenceReference, { evidenceReference = it }, label = { Text("Verified document reference") })
-                HorizontalDivider()
                 HorizontalDivider()
                 Text("Verify and publish product", style = MaterialTheme.typography.titleMedium)
                 OutlinedTextField(verifyProductId, { verifyProductId = it }, label = { Text("Existing draft product UUID") })
