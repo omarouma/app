@@ -3,6 +3,7 @@ name: GaGa Android repair validation
 on:
   push:
     branches: [codex/gaga-livekit-call-repair]
+    tags: ['android-*']
   pull_request:
     paths:
       - 'android-native/**'
@@ -15,6 +16,12 @@ on:
       - 'storage.rules'
       - '.github/workflows/android-repair.yml'
   workflow_dispatch:
+    inputs:
+      production_release:
+        description: 'Require matching-key signed APK and AAB; block unsigned uploads'
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -95,6 +102,8 @@ jobs:
           PYFIREBASE
       - name: Configure existing public backend
         run: python3 android-native/ci/prepare.py
+      - name: Verify Firebase project, app, FCM and Crashlytics build identity
+        run: python3 android-native/ci/verify_firebase_release_config.py
       - name: Package professional chat source files
         # Source can still be inspected if later Android compilation fails.
         run: |
@@ -187,6 +196,22 @@ jobs:
           "$signer" verify --verbose --print-certs deliverables/GaGa-${GAGA_VERSION}-release.apk > deliverables/signature-verification.txt
       - name: Checksums
         run: cd deliverables && sha256sum *.apk *.aab > SHA256SUMS.txt
+      - name: Production release gate (never upload an unsigned build as Play-ready)
+        if: always()
+        env:
+          GAGA_PRODUCTION_RELEASE: ${{ (github.event_name == 'workflow_dispatch' && inputs.production_release) || startsWith(github.ref, 'refs/tags/android-') }}
+        run: |
+          if [ -f deliverables/GaGa-${GAGA_VERSION}-release-unsigned.apk ] && [ -f deliverables/GaGa-${GAGA_VERSION}-release-unsigned.aab ]; then
+            if [ "$GAGA_PRODUCTION_RELEASE" = 'true' ]; then
+              python3 android-native/ci/verify_production_release.py --artifacts deliverables --version "$GAGA_VERSION" --strict
+            else
+              python3 android-native/ci/verify_production_release.py --artifacts deliverables --version "$GAGA_VERSION"
+            fi
+          else
+            mkdir -p deliverables
+            echo 'BUILD FAILED: signed/unsigned Android artifacts were not generated.' > deliverables/PRODUCTION-READINESS.txt
+            exit 1
+          fi
       - uses: actions/upload-artifact@v4
         if: always()
         with:
