@@ -33,11 +33,11 @@ object PushRecipientPolicy {
     )
 
     fun canDisplay(activeUserId: String?, data: Map<String, String>): Boolean {
-        val owner = activeUserId?.takeIf(String::isNotBlank) ?: return false
+        val owner = activeUserId?.takeIf { it.isNotBlank() } ?: return false
         val recipientValues = recipientKeys.mapNotNull { key ->
             data[key]?.trim()?.takeIf(String::isNotBlank)
         }
         if (recipientValues.any { it != owner }) return false
-        return recipientValues.isNotEmpty() || data["type"] !in addressedEvents
+        return recipientValues.isNotEmpty() || data["type"].orEmpty() !in addressedEvents
     }
 }
