@@ -13,6 +13,7 @@ import androidx.compose.runtime.*
 import app.gagachat.core.network.rest.ChinaShopApi
 import app.gagachat.core.network.rest.ChinaShopLandedQuote
 import app.gagachat.core.network.rest.ChinaShopQuoteRequest
+import app.gagachat.core.network.rest.ChinaShopSupplierApplication
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -58,6 +59,25 @@ class ChinaShopViewModel @Inject constructor(private val api: ChinaShopApi) : Vi
         private set
     var quoteError by mutableStateOf<String?>(null)
         private set
+    var supplierApplications by mutableStateOf<List<ChinaShopSupplierApplication>>(emptyList())
+        private set
+    var supplierMessage by mutableStateOf<String?>(null)
+        private set
+    fun refreshSupplierApplications() {
+        viewModelScope.launch {
+            try { supplierApplications = api.mySupplierApplications() }
+            catch (_: Exception) { supplierMessage = "Could not load supplier applications." }
+        }
+    }
+    fun applyAsSupplier(business: String, contact: String, email: String, city: String, registration: String) {
+        viewModelScope.launch {
+            try {
+                api.applyAsSupplier(business, contact, email, city, registration)
+                supplierMessage = "Application submitted. Verification is pending."
+                refreshSupplierApplications()
+            } catch (_: Exception) { supplierMessage = "Supplier application failed. Check details and sign-in." }
+        }
+    }
     var requests by mutableStateOf<List<ChinaShopQuoteRequest>>(emptyList())
         private set
     var requestError by mutableStateOf<String?>(null)
@@ -83,7 +103,7 @@ class ChinaShopViewModel @Inject constructor(private val api: ChinaShopApi) : Vi
             }
         }
     }
-    init { refresh(); refreshCart(); refreshQuotes(); refreshRequests() }
+    init { refresh(); refreshCart(); refreshQuotes(); refreshRequests(); refreshSupplierApplications() }
     fun refreshQuotes() {
         viewModelScope.launch {
             try {
@@ -131,6 +151,12 @@ fun GaGaChinaShopPreview(onBack: () -> Unit = {}, viewModel: ChinaShopViewModel 
     var search by remember { mutableStateOf("") }
     var selected by remember { mutableStateOf<ShopProduct?>(null) }
     var showCart by remember { mutableStateOf(false) }
+    var showSupplierForm by remember { mutableStateOf(false) }
+    var supplierBusiness by remember { mutableStateOf("") }
+    var supplierContact by remember { mutableStateOf("") }
+    var supplierEmail by remember { mutableStateOf("") }
+    var supplierCity by remember { mutableStateOf("") }
+    var supplierRegistration by remember { mutableStateOf("") }
     var destinationCity by remember { mutableStateOf("") }
     val cart = viewModel.cart
     val catalog = viewModel.products
@@ -138,11 +164,25 @@ fun GaGaChinaShopPreview(onBack: () -> Unit = {}, viewModel: ChinaShopViewModel 
     MaterialTheme(colorScheme = lightColorScheme(primary = Emerald)) {
         Column(Modifier.fillMaxSize().background(Color(0xFFF5F7F8)).padding(16.dp)) {
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                TextButton(onClick = { if (showCart) showCart = false else if (selected != null) selected = null else onBack() }) { Text("‹ Back") }
+                TextButton(onClick = { if (showSupplierForm) showSupplierForm = false else if (showCart) showCart = false else if (selected != null) selected = null else onBack() }) { Text("‹ Back") }
                 Text("GaGa · China Direct", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
             }
             Spacer(Modifier.height(10.dp))
-            if (showCart) {
+            if (showSupplierForm) {
+                Text("Apply as China Supplier", style = MaterialTheme.typography.headlineSmall)
+                Text("Application only. GaGa will verify business registration before publishing products.")
+                OutlinedTextField(supplierBusiness, { supplierBusiness = it }, label = { Text("Legal business name") })
+                OutlinedTextField(supplierContact, { supplierContact = it }, label = { Text("Contact person") })
+                OutlinedTextField(supplierEmail, { supplierEmail = it }, label = { Text("Business email") })
+                OutlinedTextField(supplierCity, { supplierCity = it }, label = { Text("China city") })
+                OutlinedTextField(supplierRegistration, { supplierRegistration = it }, label = { Text("Registration number") })
+                Button(onClick = { viewModel.applyAsSupplier(supplierBusiness, supplierContact, supplierEmail, supplierCity, supplierRegistration) }, enabled = supplierBusiness.trim().length >= 2 && supplierContact.trim().length >= 2 && supplierEmail.trim().length >= 5 && supplierCity.trim().length >= 2 && supplierRegistration.trim().length >= 3) { Text("Submit for verification") }
+                viewModel.supplierMessage?.let { Text(it) }
+                TextButton(onClick = viewModel::refreshSupplierApplications) { Text("Refresh application status") }
+                viewModel.supplierApplications.forEach { application ->
+                    Text("${application.legalBusinessName} · ${application.status}")
+                }
+            } else if (showCart) {
                 Text("Your saved cart", style = MaterialTheme.typography.headlineSmall)
                 Text("My quote requests", style = MaterialTheme.typography.titleMedium)
                 viewModel.requestError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
@@ -210,6 +250,7 @@ fun GaGaChinaShopPreview(onBack: () -> Unit = {}, viewModel: ChinaShopViewModel 
                         Text("Verified sourcing · Transparent landed costs", color = Color.White)
                     }
                 }
+                TextButton(onClick = { showSupplierForm = true }) { Text("Become a China Supplier") }
                 Spacer(Modifier.height(12.dp))
                 OutlinedTextField(search, { search = it }, label = { Text("Search products") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 Spacer(Modifier.height(8.dp))
