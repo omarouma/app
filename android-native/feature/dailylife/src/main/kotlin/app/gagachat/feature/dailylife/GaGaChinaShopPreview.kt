@@ -57,6 +57,18 @@ class ChinaShopViewModel @Inject constructor(private val api: ChinaShopApi) : Vi
         private set
     var quoteError by mutableStateOf<String?>(null)
         private set
+    var quoteRequestMessage by mutableStateOf<String?>(null)
+        private set
+    fun requestQuote(productId: String, quantity: Int, city: String) {
+        viewModelScope.launch {
+            try {
+                api.requestQuote(productId, quantity, city)
+                quoteRequestMessage = "Quotation request submitted for supplier review."
+            } catch (_: Exception) {
+                quoteRequestMessage = "Request failed. Check sign-in, verified stock and destination."
+            }
+        }
+    }
     init { refresh(); refreshCart(); refreshQuotes() }
     fun refreshQuotes() {
         viewModelScope.launch {
@@ -105,6 +117,7 @@ fun GaGaChinaShopPreview(onBack: () -> Unit = {}, viewModel: ChinaShopViewModel 
     var search by remember { mutableStateOf("") }
     var selected by remember { mutableStateOf<ShopProduct?>(null) }
     var showCart by remember { mutableStateOf(false) }
+    var destinationCity by remember { mutableStateOf("") }
     val cart = viewModel.cart
     val catalog = viewModel.products
     val categories = listOf("All", "Electronics", "Fashion", "Home", "Computers", "Sports", "Toys")
@@ -163,6 +176,9 @@ fun GaGaChinaShopPreview(onBack: () -> Unit = {}, viewModel: ChinaShopViewModel 
                         p.originCity?.let { Text("Origin: $it, China") }
                         Text("China source price only. Bangladesh landed cost requires verified freight, customs and FX quote.")
                         Button(onClick = { viewModel.add(p.id) }, enabled = p.availableQuantity != 0 && p.inventoryCheckedAt != null && p.availableQuantity != null) { Text("Add to cart") }
+                        OutlinedTextField(value = destinationCity, onValueChange = { destinationCity = it }, label = { Text("Bangladesh destination city") }, singleLine = true)
+                        Button(onClick = { viewModel.requestQuote(p.id, 1, destinationCity) }, enabled = destinationCity.trim().length in 2..120 && p.availableQuantity != null && p.availableQuantity > 0 && p.inventoryCheckedAt != null) { Text("Request BDT landed-cost quote") }
+                        viewModel.quoteRequestMessage?.let { Text(it) }
                     }
                 }
             } else {
