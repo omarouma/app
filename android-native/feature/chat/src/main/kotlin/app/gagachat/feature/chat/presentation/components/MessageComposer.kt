@@ -295,15 +295,18 @@ private fun AttachmentSheet(
     onSendPoll: () -> Unit,
     onScheduleClick: () -> Unit,
 ) {
-    val options = listOf(
-        Triple(Icons.Filled.Image, "Photos", onPickImage),
+    // Only actions with real handlers appear here. Wallet/Coins are deliberately excluded.
+    val mediaOptions = listOf(
+        Triple(Icons.Filled.Image, "Gallery", onPickImage),
         Triple(Icons.Filled.CameraAlt, "Camera", onTakePhoto),
         Triple(Icons.Filled.Videocam, "Video", onPickVideo),
+        Triple(Icons.Filled.Description, "Files & documents", onPickFile),
         Triple(Icons.Filled.Audiotrack, "Audio file", onPickAudio),
-        Triple(Icons.Filled.Person, "Contact", onPickContact),
+    )
+    val actionOptions = listOf(
         Triple(Icons.Filled.LocationOn, "Location", onShareLocation),
         Triple(Icons.Filled.NearMe, "Live location", onShareLiveLocation),
-        Triple(Icons.Filled.Description, "Document", onPickFile),
+        Triple(Icons.Filled.Person, "Contact", onPickContact),
         Triple(Icons.Filled.Poll, "Poll", onSendPoll),
         Triple(Icons.Filled.Schedule, "Schedule", onScheduleClick),
     )
@@ -319,9 +322,16 @@ private fun AttachmentSheet(
             .padding(bottom = GagaDimens.space24),
     ) {
         Text(
-            text = "Add attachment",
+            text = "Share in chat",
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.padding(horizontal = GagaDimens.space16, vertical = GagaDimens.space8),
+        )
+        listOf("MEDIA & FILES" to mediaOptions, "SHARE & ORGANIZE" to actionOptions).forEach { (heading, options) ->
+        Text(
+            text = heading,
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(horizontal = GagaDimens.space16, vertical = GagaDimens.space8),
         )
         options.chunked(columns).forEach { row ->
@@ -340,6 +350,7 @@ private fun AttachmentSheet(
                     Spacer(Modifier.weight(1f))
                 }
             }
+        }
         }
     }
     }
