@@ -74,6 +74,7 @@ android_home = os.environ.get("ANDROID_HOME") or os.environ.get("ANDROID_SDK_ROO
     "sdk.dir=" + android_home + "\n"
     + "SUPABASE_URL=" + config["SUPABASE_URL"] + "\n"
     + "SUPABASE_ANON_KEY=" + config["SUPABASE_ANON_KEY"] + "\n"
+    + "SUPABASE_REALTIME_ANON_KEY=" + config["SUPABASE_REALTIME_ANON_KEY"] + "\n"
     + "SUPABASE_STORAGE_BUCKET=chat-media\n"
 )
 print("Wrote app/google-services.json (app_id=" + v["google_app_id"] + ") and local.properties")
