@@ -30,17 +30,28 @@
         "headers": [
           { "key": "Cache-Control", "value": "public, max-age=604800" }
         ]
+      },
+      {
+        "source": "/app-updates/**",
+        "headers": [
+          { "key": "Cache-Control", "value": "public, max-age=300" }
+        ]
       }
     ],
     "redirects": [
       {
         "source": "/downloads/gaga-latest.apk",
-        "destination": "https://github.com/omarouma/app/releases/download/android-2.7.3/GaGa-2.7.3-release.apk",
+        "destination": "https://github.com/omarouma/app/releases/download/android-2.7.5/GaGa-2.7.5-release.apk",
         "type": 302
       },
       {
         "source": "/downloads/gaga-latest.aab",
-        "destination": "https://github.com/omarouma/app/releases/download/android-2.7.3/GaGa-2.7.3-release.aab",
+        "destination": "https://github.com/omarouma/app/releases/download/android-2.7.5/GaGa-2.7.5-release.aab",
+        "type": 302
+      },
+      {
+        "source": "/downloads/SHA256SUMS.txt",
+        "destination": "https://github.com/omarouma/app/releases/download/android-2.7.5/SHA256SUMS.txt",
         "type": 302
       }
     ],

@@ -12,4 +12,8 @@
     <cache-path
         name="documents"
         path="documents/" />
+    <!-- Verified in-app update APKs handed to the system package installer. -->
+    <files-path
+        name="updates"
+        path="updates/" />
 </paths>

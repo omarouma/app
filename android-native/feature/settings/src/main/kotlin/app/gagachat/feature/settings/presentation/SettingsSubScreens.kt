@@ -54,6 +54,7 @@ import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Storage
+import androidx.compose.material.icons.filled.SystemUpdate
 import androidx.compose.material.icons.filled.Vibration
 import androidx.compose.material3.Icon
 import androidx.compose.material3.AlertDialog
@@ -429,7 +430,7 @@ fun StorageSettingsScreen(
 
 /** About screen (Master Spec §C + spec §11 completeness). */
 @Composable
-fun AboutSettingsScreen(onBack: () -> Unit) {
+fun AboutSettingsScreen(onBack: () -> Unit, onOpenUpdate: () -> Unit = {}) {
     val uriHandler = LocalUriHandler.current
     val context = LocalContext.current
     val versionLabel = remember { appVersionLabel(context) }
@@ -466,6 +467,14 @@ fun AboutSettingsScreen(onBack: () -> Unit) {
                 style = MaterialTheme.typography.bodyMedium,
             )
             Spacer(Modifier.height(GagaDimens.space16))
+            GagaSettingsRow(
+                title = "App update",
+                subtitle = "Check for and install the latest version",
+                leadingIcon = Icons.Filled.SystemUpdate,
+                leadingIconTint = AboutGreen,
+                onClick = onOpenUpdate,
+            )
+            GagaDivider()
             GagaSettingsRow(
                 title = "Rate GaGa Chat",
                 subtitle = "Leave a review on Google Play",

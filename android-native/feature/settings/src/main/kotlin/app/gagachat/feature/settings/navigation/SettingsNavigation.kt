@@ -11,6 +11,7 @@ import app.gagachat.feature.settings.presentation.AdvancedTroubleshootingSetting
 import app.gagachat.feature.settings.presentation.AiAssistantSettingsScreen
 import app.gagachat.feature.settings.presentation.AntiSpamTrustSettingsScreen
 import app.gagachat.feature.settings.presentation.AppPermissionsScreen
+import app.gagachat.feature.settings.presentation.AppUpdateScreen
 import app.gagachat.feature.settings.presentation.AppearanceSettingsScreen
 import app.gagachat.feature.settings.presentation.BackupRestoreSettingsScreen
 import app.gagachat.feature.settings.presentation.BlockedUsersScreen
@@ -53,6 +54,7 @@ object SettingsRoutes {
     const val BLOCKED = "settings/blocked"
     const val HELP = "settings/help"
     const val ABOUT = "settings/about"
+    const val APP_UPDATE = "settings/app-update"
     const val PERMISSIONS = "settings/permissions"
     const val SECURITY = "settings/security"
     const val ACCESSIBILITY = "settings/accessibility"
@@ -139,7 +141,13 @@ fun NavGraphBuilder.settingsScreen(
         BlockedUsersScreen(onBack = { navController.popBackStack() })
     }
     composable(SettingsRoutes.ABOUT) {
-        AboutSettingsScreen(onBack = { navController.popBackStack() })
+        AboutSettingsScreen(
+            onBack = { navController.popBackStack() },
+            onOpenUpdate = { navController.navigate(SettingsRoutes.APP_UPDATE) },
+        )
+    }
+    composable(SettingsRoutes.APP_UPDATE) {
+        AppUpdateScreen(onBack = { navController.popBackStack() })
     }
     composable(SettingsRoutes.HELP) {
         HelpSupportScreen(

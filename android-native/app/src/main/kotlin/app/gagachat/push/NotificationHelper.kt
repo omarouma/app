@@ -231,21 +231,25 @@ object NotificationHelper {
         val id = "gaga-update-$versionName".hashCode()
         val intent = Intent(context, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-            data = android.net.Uri.parse("gagachat://today")
+            // Opens the in-app update screen, where the user can download and
+            // install the new build without ever leaving GaGa.
+            data = android.net.Uri.parse("gagachat://settings/app-update")
         }
         val pending = PendingIntent.getActivity(
             context, id, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
         val title = if (required) "GaGa update required" else "GaGa update available"
-        val message = "Version $versionName is available. Review the release in GaGa Today."
+        val message = "Version $versionName is ready. Tap to update inside the app."
         val notification = NotificationCompat.Builder(context, NotificationChannels.UPDATES)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(title)
             .setContentText(message)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(message))
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .setAutoCancel(true)
             .setContentIntent(pending)
+            .addAction(0, "Update now", pending)
             .build()
         post(context, id, notification)
     }

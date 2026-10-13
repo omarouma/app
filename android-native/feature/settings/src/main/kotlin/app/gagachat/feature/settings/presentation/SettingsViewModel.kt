@@ -12,6 +12,7 @@ import app.gagachat.core.data.preferences.ThemeMode
 import app.gagachat.core.data.repository.AuthRepository
 import app.gagachat.core.common.result.AppResult
 import app.gagachat.core.data.repository.UserRepository
+import app.gagachat.core.data.updates.AppUpdateRepository
 import app.gagachat.core.model.User
 import app.gagachat.core.model.AccountPrivacy
 import kotlinx.serialization.json.buildJsonObject
@@ -69,6 +70,8 @@ data class SettingsUiState(
     val signedOut: Boolean = false,
     val isDeletingAccount: Boolean = false,
     val accountDeleted: Boolean = false,
+    /** Version name of a newer published build, or null when the app is current. */
+    val appUpdateVersion: String? = null,
 )
 
 @HiltViewModel
@@ -79,6 +82,7 @@ class SettingsViewModel @Inject constructor(
     private val userRepository: UserRepository,
     private val settingsPreferences: SettingsPreferences,
     private val api: app.gagachat.core.network.rest.SupabaseRestApi,
+    private val updates: AppUpdateRepository,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(
@@ -99,6 +103,19 @@ class SettingsViewModel @Inject constructor(
         refreshPrivacy()
         loadProfile()
         refreshCacheSize()
+        checkForAppUpdate()
+    }
+
+    /**
+     * Surfaces a "New" badge on the App update row when a newer build has been
+     * published. Uses the cached registry result (no forced network hit) so
+     * opening Settings never blocks on the update server.
+     */
+    private fun checkForAppUpdate() {
+        viewModelScope.launch {
+            val update = updates.availableUpdate(force = false)
+            _state.update { it.copy(appUpdateVersion = update?.versionName) }
+        }
     }
 
     /**
