@@ -203,7 +203,7 @@ class SupabaseRealtimeClient @Inject constructor(
                 // connects but every channel join is rejected and live message
                 // delivery silently stops until the app is restarted.
                 runCatching { tokenRefresher.ensureFresh() }
-                val url = "${config.realtimeUrl}?apikey=${config.anonKey}&vsn=1.0.0"
+                val url = config.realtimeSocketUrl
                 val session = client.webSocketSession(url)
                 try {
                     logger.i(TAG, "Realtime connected")
