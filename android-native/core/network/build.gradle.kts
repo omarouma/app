@@ -35,11 +35,12 @@ fun backendValue(name: String, default: String = ""): String {
 
 val supabaseUrl = backendValue("SUPABASE_URL")
 val supabaseAnonKey = backendValue("SUPABASE_ANON_KEY")
+val supabaseRealtimeAnonKey = backendValue("SUPABASE_REALTIME_ANON_KEY")
 val supabaseBucket = backendValue("SUPABASE_STORAGE_BUCKET", "chat-media")
 
-if (supabaseUrl.isBlank() || supabaseAnonKey.isBlank()) {
+if (supabaseUrl.isBlank() || supabaseAnonKey.isBlank() || supabaseRealtimeAnonKey.isBlank()) {
     logger.warn(
-        "[gaga] WARNING: SUPABASE_URL / SUPABASE_ANON_KEY are empty. The built app " +
+        "[gaga] WARNING: Supabase URL, REST key, or Realtime anon key is empty. The built app " +
             "will fail every network call (\"No internet connection\"). Provide them via " +
             "local.properties, -PSUPABASE_URL=... / -PSUPABASE_ANON_KEY=..., or env vars.",
     )
@@ -54,6 +55,7 @@ android {
         // a public client key; privileged service keys never ship in the APK.
         buildConfigField("String", "SUPABASE_URL", "\"$supabaseUrl\"")
         buildConfigField("String", "SUPABASE_ANON_KEY", "\"$supabaseAnonKey\"")
+        buildConfigField("String", "SUPABASE_REALTIME_ANON_KEY", "\"$supabaseRealtimeAnonKey\"")
         buildConfigField("String", "SUPABASE_STORAGE_BUCKET", "\"$supabaseBucket\"")
     }
 }
