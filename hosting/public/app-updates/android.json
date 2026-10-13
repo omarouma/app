@@ -1,17 +1,17 @@
 {
   "schemaVersion": 1,
   "packageName": "gagachat.app",
-  "latestVersionCode": 51,
-  "latestVersionName": "2.7.6",
+  "latestVersionCode": 52,
+  "latestVersionName": "2.7.7",
   "minimumSupportedVersionCode": 0,
-  "publishedAt": "2026-10-13T15:04:16Z",
-  "releaseNotes": "GaGa 2.7.6 adds a secure in-app updater: GaGa now checks for new releases, downloads them over a verified HTTPS channel, checks the SHA-256 and size, and hands the APK to the Android installer without leaving the app. This release also fixes an SSRF issue in link previews (authenticated callers, HTTPS egress allow-list) and hardens FCM recipient isolation so a queued push can never surface under the wrong account. Privacy Policy and Terms were expanded (legal bases, retention, international transfers, GDPR/CCPA rights, liability, payments, termination), and the website gained structured data, an accessible FAQ, sitemap.xml and robots.txt. Builds on the 2.7.5 push-isolation and 2.7.4/2.7.3 frontend repairs.",
+  "publishedAt": "2026-10-13T23:08:42Z",
+  "releaseNotes": "GaGa 2.7.7 is a signed re-release that ships every consolidated improvement on the current main branch: the auth fix that delivers sign-in emails, accepts link-or-code and completes account recovery; the realtime WebSocket auth fix that uses the active legacy anon key; the server-authoritative wallet ledger; the secure in-app updater (SHA-256 + size verified); the GaGa Today / China Direct shop; people sync + notifications inbox; and the SSRF-hardened link previews. IMPORTANT: this build is signed with a new release certificate, so it cannot install as an in-place update over older GaGa builds. Please uninstall the previous version once, then install 2.7.7. Future updates will install normally.",
   "channels": {
     "apk": {
-      "versionCode": 51,
+      "versionCode": 52,
       "url": "https://gagachat.app/downloads/gaga-latest.apk",
-      "sha256": "53d4da27fd50e6ebbd7ac4f5fe21f578d3dee3ba43d5dfb6d003025baf93a0eb",
-      "sizeBytes": 47755984
+      "sha256": "e058af70f42ec851cf954bee1a479c28928e37eaf4160237acd6f8a7f1ec8653",
+      "sizeBytes": 47824752
     },
     "play": {
       "versionCode": 0,
