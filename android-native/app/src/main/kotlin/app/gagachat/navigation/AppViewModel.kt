@@ -16,7 +16,9 @@ import app.gagachat.core.model.CallSignalKind
 import app.gagachat.core.network.session.AuthSession
 import app.gagachat.feature.calls.call.LiveKitCallManager
 import app.gagachat.feature.calls.navigation.CallRoutes
+import app.gagachat.push.PendingAuthLink
 import app.gagachat.push.PendingDeepLink
+import app.gagachat.core.data.auth.PendingRecovery
 import app.gagachat.push.PushTokenRegistrar
 import app.gagachat.sync.workers.SyncInitializer
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -111,6 +113,20 @@ class AppViewModel @Inject constructor(
     /** Live connectivity, surfaced as the app-wide offline banner (Master Spec \u00a7E). */
     val isOnline: StateFlow<Boolean> = networkMonitor.isOnline
 
+    /**
+     * True while a recovery deep link is waiting to be completed. Rendered as a
+     * full-screen "set a new password" gate by [GagaApp], above the nav graphs, so
+     * it can't race the auth graph's splash navigation.
+     */
+    private val _pendingRecovery = MutableStateFlow(false)
+    val pendingRecovery: StateFlow<Boolean> = _pendingRecovery.asStateFlow()
+
+    /** Dismisses the recovery gate (after a successful reset or a cancel). */
+    fun clearPendingRecovery() {
+        PendingRecovery.consume()
+        _pendingRecovery.value = false
+    }
+
     /** Last invite rung through [PendingDeepLink], used to de-duplicate replays. */
     private var lastRungCallId: String? = null
     private var lastRungAt: Long = 0L
@@ -135,6 +151,32 @@ class AppViewModel @Inject constructor(
         // Firestore/RTDB mirror is authorised (uid == Supabase uid). No-op unless
         // the Hybrid transport flag is enabled at build time.
         firebaseSessionCoordinator.start(applicationScope, authRepository.sessionFlow)
+        // Complete emailed sign-in / recovery links that returned to the app.
+        observeAuthCallbacks()
+    }
+
+    /**
+     * Consumes an auth callback delivered by an emailed link
+     * (`https://gagachat.app/auth-callback`). A passwordless sign-in adopts the
+     * session directly; a recovery link routes to the set-new-password screen.
+     */
+    private fun observeAuthCallbacks() {
+        viewModelScope.launch {
+            PendingAuthLink.callback.collect { callback ->
+                if (callback == null) return@collect
+                PendingAuthLink.consume()
+                if (callback.type == "recovery") {
+                    PendingRecovery.set(callback.accessToken)
+                    _pendingRecovery.value = true
+                } else {
+                    authRepository.adoptSession(
+                        accessToken = callback.accessToken,
+                        refreshToken = callback.refreshToken,
+                        expiresInSeconds = callback.expiresInSeconds,
+                    )
+                }
+            }
+        }
     }
 
     /**

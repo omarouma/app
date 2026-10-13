@@ -18,6 +18,7 @@ data class OtpUiState(
     val code: String = "",
     val isVerifying: Boolean = false,
     val isResending: Boolean = false,
+    val isSending: Boolean = false,
     val errorMessage: String? = null,
     val infoMessage: String? = null,
     val isAuthenticated: Boolean = false,
@@ -32,24 +33,54 @@ class OtpViewModel @Inject constructor(
     private val _state = MutableStateFlow(OtpUiState())
     val state: StateFlow<OtpUiState> = _state.asStateFlow()
 
+    /** Guards the one-time initial send so re-entering the screen doesn't spam. */
+    private var initialSendStarted = false
+
     fun onCodeChange(value: String) {
-        val digits = value.filter { it.isDigit() }.take(6)
-        _state.update { it.copy(code = digits, errorMessage = null) }
-        if (digits.length == 6) verify(digits)
+        val trimmed = value.trim()
+        _state.update { it.copy(code = trimmed, errorMessage = null) }
+        // A typed 6-digit code verifies automatically; a pasted link waits for the
+        // explicit "Verify" tap (it is far longer than a code).
+        if (trimmed.length == 6 && trimmed.all { it.isDigit() }) verify(trimmed)
     }
 
-    fun verify(code: String = _state.value.code) {
-        if (code.length < 6) {
-            _state.update { it.copy(errorMessage = "Enter the 6-digit code") }
+    /**
+     * Sends the sign-in email the first time the screen is shown. Previously the
+     * "Email me a sign-in code instead" button only navigated here without ever
+     * requesting the email, so nothing was ever delivered.
+     */
+    fun sendInitial() {
+        if (initialSendStarted) return
+        initialSendStarted = true
+        _state.update { it.copy(isSending = true, errorMessage = null) }
+        viewModelScope.launch {
+            when (val result = authRepository.sendOtp(email = pendingEmail, phone = pendingPhone)) {
+                is AppResult.Success -> {
+                    _state.update { it.copy(isSending = false, infoMessage = "We emailed a sign-in link to $identifierLabel") }
+                    startCooldown()
+                }
+                is AppResult.Failure -> _state.update {
+                    it.copy(isSending = false, errorMessage = result.error.toUserMessage())
+                }
+                AppResult.Loading -> Unit
+            }
+        }
+    }
+
+    fun verify(proof: String = _state.value.code) {
+        val value = proof.trim()
+        if (value.isEmpty()) {
+            _state.update { it.copy(errorMessage = "Enter the code or paste the sign-in link") }
+            return
+        }
+        val looksLikeLink = value.contains("://") || value.contains("token=")
+        if (!looksLikeLink && value.count { it.isDigit() } < 6) {
+            _state.update { it.copy(errorMessage = "Enter the 6-digit code or paste the sign-in link") }
             return
         }
         _state.update { it.copy(isVerifying = true, errorMessage = null) }
         viewModelScope.launch {
-            val result = authRepository.verifyOtp(
-                email = pendingEmail,
-                phone = pendingPhone,
-                token = code,
-            )
+            val result = authRepository.verifyEmailOtp(email = pendingEmail, proof = value)
             when (result) {
                 is AppResult.Success -> _state.update { it.copy(isVerifying = false, isAuthenticated = true) }
                 is AppResult.Failure -> _state.update {
@@ -64,10 +95,9 @@ class OtpViewModel @Inject constructor(
         if (_state.value.resendCooldownSeconds > 0) return
         _state.update { it.copy(isResending = true, errorMessage = null) }
         viewModelScope.launch {
-            val result = authRepository.sendOtp(email = pendingEmail, phone = pendingPhone)
-            when (result) {
+            when (val result = authRepository.sendOtp(email = pendingEmail, phone = pendingPhone)) {
                 is AppResult.Success -> {
-                    _state.update { it.copy(isResending = false, infoMessage = "A new code was sent") }
+                    _state.update { it.copy(isResending = false, infoMessage = "A new sign-in link was sent") }
                     startCooldown()
                 }
                 is AppResult.Failure -> _state.update {
@@ -93,4 +123,6 @@ class OtpViewModel @Inject constructor(
     // Set by the route before verification.
     var pendingEmail: String? = null
     var pendingPhone: String? = null
+
+    private val identifierLabel: String get() = pendingEmail ?: pendingPhone ?: "your email"
 }

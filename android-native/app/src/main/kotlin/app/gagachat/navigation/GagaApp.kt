@@ -14,6 +14,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.gagachat.core.ui.component.GagaLoading
 import app.gagachat.core.ui.component.GagaOfflineBanner
+import app.gagachat.feature.auth.presentation.recovery.ResetPasswordRoute
 import app.gagachat.feature.onboarding.OnboardingNavHost
 import app.gagachat.push.PendingDeepLink
 
@@ -44,6 +45,7 @@ fun GagaApp(
     val session by viewModel.session.collectAsStateWithLifecycle()
     val needsOnboarding by viewModel.needsOnboarding.collectAsStateWithLifecycle()
     val isOnline by viewModel.isOnline.collectAsStateWithLifecycle()
+    val pendingRecovery by viewModel.pendingRecovery.collectAsStateWithLifecycle()
     // Observed rather than read once: a deep link that arrives *after* the first
     // composition still has to route. That covers a warm-start notification tap
     // (onNewIntent) and a live Realtime call invite, both of which land while the
@@ -60,6 +62,13 @@ fun GagaApp(
 
     Box(modifier = Modifier.fillMaxSize()) {
         when {
+            // A recovery deep link opened the app: finish the reset before anything
+            // else so the auth graph's splash navigation can't race it.
+            pendingRecovery -> ResetPasswordRoute(
+                onDone = { viewModel.clearPendingRecovery() },
+                onCancel = { viewModel.clearPendingRecovery() },
+            )
+
             session == null -> AuthNavHost()
 
             // Onboarding state has not resolved yet — show a neutral splash frame.

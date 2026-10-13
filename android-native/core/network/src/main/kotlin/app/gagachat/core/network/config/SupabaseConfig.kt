@@ -17,6 +17,13 @@ data class SupabaseConfig(
     val authUrl: String get() = "$url/auth/v1"
     val storageUrl: String get() = "$url/storage/v1"
     val functionsUrl: String get() = "$url/functions/v1"
+
+    /**
+     * App Link the emailed auth links return to. Matches the Android App Link
+     * filter for `gagachat.app` and Supabase's `uri_allow_list`, so a tap on a
+     * sign-in / recovery email opens the app instead of the website.
+     */
+    val authRedirectUrl: String get() = "$SITE_URL/auth-callback"
     val realtimeUrl: String
         get() {
             val ws = url.replaceFirst("https://", "wss://").replaceFirst("http://", "ws://")
@@ -24,6 +31,9 @@ data class SupabaseConfig(
         }
 
     companion object {
+        /** Public site / App Link host used for auth email redirects. */
+        const val SITE_URL = "https://gagachat.app"
+
         fun fromBuildConfig(): SupabaseConfig = SupabaseConfig(
             url = BuildConfig.SUPABASE_URL.trimEnd('/'),
             anonKey = BuildConfig.SUPABASE_ANON_KEY,
