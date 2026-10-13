@@ -22,6 +22,8 @@ fun NavGraphBuilder.chatScreen(
     onStartCall: (conversationId: String, isVideo: Boolean) -> Unit,
     onOpenProfile: (userId: String) -> Unit,
     onDailyAction: (String, String, String, String) -> Unit = { _, _, _, _ -> },
+    onTransferCoins: () -> Unit = {},
+    onOpenPaymentHistory: () -> Unit = {},
 ) {
     composable(
         route = ChatRoutes.CHAT,
@@ -32,6 +34,8 @@ fun NavGraphBuilder.chatScreen(
             onNavigateBack = { navController.popBackStack() },
             onStartCall = onStartCall,
             onOpenProfile = onOpenProfile,
+            onTransferCoins = onTransferCoins,
+            onOpenPaymentHistory = onOpenPaymentHistory,
             onOpenChatInfo = { conversationId ->
                 navController.navigate(ChatRoutes.chatInfo(conversationId))
             },

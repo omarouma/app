@@ -161,6 +161,8 @@ fun MainNavHost(pendingDeepLink: String?) {
                 onOpenProfile = { userId ->
                     navController.navigate(ProfileRoutes.profile(userId))
                 },
+                onTransferCoins = { navController.navigate(WalletRoutes.SEND) },
+                onOpenPaymentHistory = { navController.navigate(WalletRoutes.WALLET) },
             )
             chatInfoScreen(
                 navController = navController,

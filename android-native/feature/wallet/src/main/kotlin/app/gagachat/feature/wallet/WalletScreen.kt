@@ -26,6 +26,7 @@ import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -269,15 +270,20 @@ private fun WalletInfoCard() {
 @Composable
 private fun ActivityRow(entry: CoinActivity) {
     val (icon, sign) = when (entry.type) {
-        CoinActivityType.SENT -> Icons.Filled.ArrowUpward to "-"
-        CoinActivityType.RECEIVED, CoinActivityType.TOPUP, CoinActivityType.REWARD ->
-            Icons.Filled.ArrowDownward to "+"
+        CoinActivityType.SENT, CoinActivityType.SPEND -> Icons.Filled.ArrowUpward to "-"
+        CoinActivityType.RECEIVED, CoinActivityType.TOPUP, CoinActivityType.REWARD,
+        CoinActivityType.REFUND -> Icons.Filled.ArrowDownward to "+"
+        CoinActivityType.CONVERT, CoinActivityType.ADJUST -> Icons.Filled.SwapHoriz to ""
     }
     val title = when (entry.type) {
         CoinActivityType.SENT -> entry.counterpartyName?.let { "Sent to $it" } ?: "Sent"
         CoinActivityType.RECEIVED -> entry.counterpartyName?.let { "Received from $it" } ?: "Received"
         CoinActivityType.TOPUP -> "Top-up"
         CoinActivityType.REWARD -> "Reward"
+        CoinActivityType.SPEND -> "Spent"
+        CoinActivityType.CONVERT -> "Converted"
+        CoinActivityType.ADJUST -> "Adjustment"
+        CoinActivityType.REFUND -> "Refund"
     }
     GagaListRow(
         title = title,
