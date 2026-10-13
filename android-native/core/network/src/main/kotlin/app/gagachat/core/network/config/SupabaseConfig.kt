@@ -10,6 +10,8 @@ data class SupabaseConfig(
     val url: String,
     val anonKey: String,
     val storageBucket: String,
+    /** Legacy anon JWT used for Realtime WebSocket authentication. */
+    val realtimeAnonKey: String = anonKey,
 ) {
     val isConfigured: Boolean get() = url.isNotBlank() && anonKey.isNotBlank()
 
@@ -22,12 +24,14 @@ data class SupabaseConfig(
             val ws = url.replaceFirst("https://", "wss://").replaceFirst("http://", "ws://")
             return "$ws/realtime/v1/websocket"
         }
+    val realtimeSocketUrl: String get() = "$realtimeUrl?apikey=$realtimeAnonKey&vsn=1.0.0"
 
     companion object {
         fun fromBuildConfig(): SupabaseConfig = SupabaseConfig(
             url = BuildConfig.SUPABASE_URL.trimEnd('/'),
             anonKey = BuildConfig.SUPABASE_ANON_KEY,
             storageBucket = BuildConfig.SUPABASE_STORAGE_BUCKET,
+            realtimeAnonKey = BuildConfig.SUPABASE_REALTIME_ANON_KEY,
         )
     }
 }

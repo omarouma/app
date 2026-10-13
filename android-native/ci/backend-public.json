@@ -9,5 +9,6 @@
     "google_storage_bucket": "oumagachat.firebasestorage.app",
     "firebase_database_url": "https://oumagachat-default-rtdb.asia-southeast1.firebasedatabase.app",
     "oauth_client_id": "545448312835-tj9n8msagdijgjae3ol5pqqvg910opih.apps.googleusercontent.com"
-  }
+  },
+  "SUPABASE_REALTIME_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZjamdiYm1mcWRrdWNmcHFqeGFlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODcyNTYyOTAsImV4cCI6MjEwMjgzMjI5MH0.aB0eNNa9O8Kzg6dXJoF-ccJhXzz0t0bRchO6j6rupMs"
 }
