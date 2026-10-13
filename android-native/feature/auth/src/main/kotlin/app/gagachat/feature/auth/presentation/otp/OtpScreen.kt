@@ -49,7 +49,13 @@ fun OtpRoute(
     val isEmailChannel = channel == "email"
 
     LaunchedEffect(identifier, channel) {
-        if (isEmailChannel) viewModel.pendingEmail = identifier else viewModel.pendingPhone = identifier
+        if (isEmailChannel) {
+            viewModel.pendingEmail = identifier
+            // Actually request the email: the previous build only navigated here.
+            viewModel.sendInitial()
+        } else {
+            viewModel.pendingPhone = identifier
+        }
     }
     LaunchedEffect(state.isAuthenticated) {
         if (state.isAuthenticated) onAuthenticated()
@@ -94,12 +100,13 @@ fun OtpRoute(
             )
             Spacer(Modifier.height(GagaDimens.space16))
             Text(
-                text = "Enter the code",
+                text = "Check your email",
                 style = MaterialTheme.typography.headlineSmall,
             )
             Spacer(Modifier.height(GagaDimens.space8))
             Text(
-                text = "We sent a 6-digit code to $identifier",
+                text = "We sent a sign-in link to $identifier. Open the email and tap the link, " +
+                    "or paste the link (or code) below.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,
@@ -108,29 +115,29 @@ fun OtpRoute(
             OutlinedTextField(
                 value = state.code,
                 onValueChange = viewModel::onCodeChange,
-                label = { Text("6-digit code") },
+                label = { Text("Sign-in link or code") },
                 singleLine = true,
                 isError = state.errorMessage != null,
                 shape = MaterialTheme.shapes.medium,
                 keyboardOptions = KeyboardOptions(
-                    keyboardType = KeyboardType.NumberPassword,
+                    keyboardType = KeyboardType.Text,
                     imeAction = ImeAction.Done,
                 ),
                 modifier = Modifier.fillMaxWidth(),
             )
             Spacer(Modifier.height(GagaDimens.space24))
             GagaPrimaryButton(
-                text = "Verify",
+                text = if (state.isSending) "Sending link\u2026" else "Verify",
                 onClick = { viewModel.verify() },
-                loading = state.isVerifying,
-                enabled = state.code.length == 6,
+                loading = state.isVerifying || state.isSending,
+                enabled = state.code.isNotBlank(),
             )
             Spacer(Modifier.height(GagaDimens.space8))
             GagaTextButton(
                 text = if (state.resendCooldownSeconds > 0) {
                     "Resend in ${state.resendCooldownSeconds}s"
                 } else {
-                    "Resend code"
+                    "Resend email"
                 },
                 onClick = viewModel::resend,
                 enabled = state.resendCooldownSeconds == 0 && !state.isResending,

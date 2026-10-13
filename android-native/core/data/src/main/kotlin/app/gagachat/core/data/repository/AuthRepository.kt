@@ -41,13 +41,29 @@ interface AuthRepository {
         displayName: String?,
     ): AppResult<AuthSession>
 
-    suspend fun sendOtp(email: String?, phone: String?): AppResult<Unit>
+    suspend fun sendOtp(email: String?, phone: String?, redirectTo: String? = null): AppResult<Unit>
     suspend fun verifyOtp(email: String?, phone: String?, token: String): AppResult<AuthSession>
+
+    /**
+     * Verifies a passwordless sign-in proof: either the full magic link the email
+     * contains, or a typed one-time code.
+     */
+    suspend fun verifyEmailOtp(email: String?, proof: String): AppResult<AuthSession>
+
+    /**
+     * Establishes a session from tokens delivered by an emailed deep link
+     * (`https://gagachat.app/auth-callback#access_token=...`), fetching the user
+     * so the app can render Home immediately.
+     */
+    suspend fun adoptSession(accessToken: String, refreshToken: String, expiresInSeconds: Long): AppResult<AuthSession>
 
     suspend fun reauthenticate(password: String): AppResult<Unit>
     suspend fun changePassword(currentPassword: String, newPassword: String): AppResult<Unit>
-    suspend fun requestRecovery(email: String): AppResult<Unit>
+    suspend fun requestRecovery(email: String, redirectTo: String? = null): AppResult<Unit>
     suspend fun completeRecovery(email: String, proof: String, password: String): AppResult<Unit>
+
+    /** Sets a new password using the short-lived token from a recovery deep link. */
+    suspend fun resetPasswordWithToken(accessToken: String, newPassword: String): AppResult<Unit>
     suspend fun signOut()
 
     /**
@@ -71,6 +87,7 @@ class DefaultAuthRepository @Inject constructor(
     private val logger: AppLogger,
     @dagger.hilt.android.qualifiers.ApplicationContext private val context: android.content.Context,
     private val database: app.gagachat.core.database.GagaDatabase,
+    private val config: app.gagachat.core.network.config.SupabaseConfig,
 ) : AuthRepository {
 
     private val _sessionFlow = MutableStateFlow(sessionStore.load())
@@ -129,10 +146,11 @@ class DefaultAuthRepository @Inject constructor(
         runAuth(newAccount = true) { authApi.signUpWithPassword(email, phone, password, displayName).toSession() }
     }
 
-    override suspend fun sendOtp(email: String?, phone: String?): AppResult<Unit> =
+    override suspend fun sendOtp(email: String?, phone: String?, redirectTo: String?): AppResult<Unit> =
         withContext(dispatchers.io) {
             try {
-                authApi.sendOtp(email, phone)
+                // Default the emailed link back into the app so a tap can sign in.
+                authApi.sendOtp(email, phone, redirectTo ?: config.authRedirectUrl)
                 AppResult.Success(Unit)
             } catch (t: Throwable) {
                 AppResult.Failure(ErrorMapper.map(t))
@@ -148,6 +166,40 @@ class DefaultAuthRepository @Inject constructor(
         // so leave the onboarding status unresolved (null) and let the gate
         // decide from the account's actual profile.
         runAuth(newAccount = null) { authApi.verifyOtp(email, phone, token).toSession() }
+    }
+
+    override suspend fun verifyEmailOtp(
+        email: String?,
+        proof: String,
+    ): AppResult<AuthSession> = withContext(dispatchers.io) {
+        // Accepts either the emailed magic link or a typed code; onboarding stays
+        // unresolved so the gate decides from the account's real profile.
+        runAuth(newAccount = null) { authApi.verifyEmailOtp(email, proof).toSession() }
+    }
+
+    override suspend fun adoptSession(
+        accessToken: String,
+        refreshToken: String,
+        expiresInSeconds: Long,
+    ): AppResult<AuthSession> = withContext(dispatchers.io) {
+        try {
+            val user = authApi.fetchUser(accessToken)
+            val session = AuthSession(
+                userId = user.id,
+                accessToken = accessToken,
+                refreshToken = refreshToken,
+                expiresAtMillis = timeProvider.nowMillis() + expiresInSeconds.coerceAtLeast(60L) * 1000L,
+                email = user.email,
+                phone = user.phone,
+                displayName = user.userMetadata?.get("display_name"),
+            )
+            sessionStore.save(session)
+            _sessionFlow.value = session
+            AppResult.Success(session)
+        } catch (t: Throwable) {
+            if (t is kotlinx.coroutines.CancellationException) throw t
+            AppResult.Failure(ErrorMapper.map(t))
+        }
     }
 
     override suspend fun reauthenticate(password: String): AppResult<Unit> = withContext(dispatchers.io) {
@@ -167,8 +219,8 @@ class DefaultAuthRepository @Inject constructor(
                 catch (e: Exception) { if (e is kotlinx.coroutines.CancellationException) throw e; AppResult.Failure(ErrorMapper.map(e)) }
         }
     }
-    override suspend fun requestRecovery(email: String): AppResult<Unit> = withContext(dispatchers.io) {
-        try { authApi.requestRecovery(email); AppResult.Success(Unit) }
+    override suspend fun requestRecovery(email: String, redirectTo: String?): AppResult<Unit> = withContext(dispatchers.io) {
+        try { authApi.requestRecovery(email, redirectTo ?: config.authRedirectUrl); AppResult.Success(Unit) }
         catch (e: Exception) { if (e is kotlinx.coroutines.CancellationException) throw e; AppResult.Failure(ErrorMapper.map(e)) }
     }
     override suspend fun completeRecovery(email: String, proof: String, password: String): AppResult<Unit> = withContext(dispatchers.io) {
@@ -177,6 +229,15 @@ class DefaultAuthRepository @Inject constructor(
             val verified = authApi.verifyRecovery(email, proof).toSession()
             authApi.updatePassword(verified.accessToken, password)
             runCatching { authApi.signOut(verified.accessToken, "global") }
+            AppResult.Success(Unit)
+        } catch (e: Exception) { if (e is kotlinx.coroutines.CancellationException) throw e; AppResult.Failure(ErrorMapper.map(e)) }
+    }
+
+    override suspend fun resetPasswordWithToken(accessToken: String, newPassword: String): AppResult<Unit> = withContext(dispatchers.io) {
+        if (newPassword.length < 8) return@withContext AppResult.Failure(AppError.Validation("Use at least 8 characters"))
+        try {
+            authApi.updatePassword(accessToken, newPassword)
+            runCatching { authApi.signOut(accessToken, "global") }
             AppResult.Success(Unit)
         } catch (e: Exception) { if (e is kotlinx.coroutines.CancellationException) throw e; AppResult.Failure(ErrorMapper.map(e)) }
     }

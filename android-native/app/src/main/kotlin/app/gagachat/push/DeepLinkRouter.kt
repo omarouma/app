@@ -32,11 +32,38 @@ object DeepLinkRouter {
 
     private const val SCHEME = "gagachat"
     private const val WEB_HOST = "gagachat.app"
+    private const val AUTH_CALLBACK = "auth-callback"
 
     /** Parses an [Intent] and stores any resulting route as pending. */
     fun capture(intent: Intent?) {
         val data = intent?.data ?: return
+        // Emailed auth links return to the app as https://gagachat.app/auth-callback
+        // with the session in the URL fragment; hand those to the auth shell.
+        if (isAuthCallback(data)) {
+            parseAuthCallback(data)?.let(PendingAuthLink::set)
+            return
+        }
         routeFor(data)?.let(PendingDeepLink::set)
+    }
+
+    /** True for the emailed auth callback App Link (`.../auth-callback`). */
+    private fun isAuthCallback(uri: Uri): Boolean =
+        uri.scheme == "https" && uri.host == WEB_HOST && uri.pathSegments.firstOrNull() == AUTH_CALLBACK
+
+    /**
+     * Parses the tokens Supabase appends to the redirect as a URL fragment
+     * (`#access_token=...&refresh_token=...&expires_in=...&type=magiclink`).
+     */
+    private fun parseAuthCallback(uri: Uri): AuthCallback? {
+        val fragment = uri.fragment ?: return null
+        val params = fragment.split("&")
+            .mapNotNull { item -> item.split("=", limit = 2).takeIf { it.size == 2 }?.let { it[0] to it[1] } }
+            .toMap()
+        val access = params["access_token"] ?: return null
+        val refresh = params["refresh_token"] ?: return null
+        val expires = params["expires_in"]?.toLongOrNull() ?: 3600L
+        val type = params["type"] ?: "magiclink"
+        return AuthCallback(access, refresh, expires, type)
     }
 
     /** Builds a route from a push data payload (FCM `data` map). */

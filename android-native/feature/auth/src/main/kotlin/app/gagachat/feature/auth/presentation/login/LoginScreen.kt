@@ -57,7 +57,7 @@ fun LoginRoute(
         text = { Column(Modifier.verticalScroll(rememberScrollState())) {
             GagaTextField(value = recoveryEmail, onValueChange = { recoveryEmail = it }, label = "Email", keyboardType = KeyboardType.Email, enabled = !state.recoveryBusy)
             androidx.compose.material3.TextButton(onClick = { viewModel.requestRecovery(recoveryEmail) }, enabled = !state.recoveryBusy) { Text("Send recovery email") }
-            GagaTextField(value = recoveryProof, onValueChange = { recoveryProof = it }, label = "Recovery link or code", enabled = !state.recoveryBusy)
+            GagaTextField(value = recoveryProof, onValueChange = { recoveryProof = it }, label = "Reset link or code (from the email)", enabled = !state.recoveryBusy)
             GagaPasswordField(value = recoveryPassword, onValueChange = { recoveryPassword = it }, label = "New password", enabled = !state.recoveryBusy)
             GagaPasswordField(value = recoveryConfirmation, onValueChange = { recoveryConfirmation = it }, label = "Confirm password", enabled = !state.recoveryBusy)
             state.recoveryNotice?.let { Text(it) }

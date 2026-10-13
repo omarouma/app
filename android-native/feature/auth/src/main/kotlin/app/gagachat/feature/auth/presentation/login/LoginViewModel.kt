@@ -75,12 +75,12 @@ class LoginViewModel @Inject constructor(
         _state.update { it.copy(recoveryBusy = true, recoveryNotice = null) }
         viewModelScope.launch {
             val result = authRepository.requestRecovery(email.trim())
-            _state.update { it.copy(recoveryBusy = false, recoveryNotice = if (result is AppResult.Failure) result.error.toUserMessage() else "If an account exists, a recovery email has been sent. Paste its unused recovery link or code below.") }
+            _state.update { it.copy(recoveryBusy = false, recoveryNotice = if (result is AppResult.Failure) result.error.toUserMessage() else "If an account exists, we emailed a password-reset link. Open the email and tap the link, or copy it and paste it below.") }
         }
     }
     fun completeRecovery(email: String, proof: String, password: String, confirmation: String) {
         if (_state.value.recoveryBusy) return
-        if (password.length < 8 || password != confirmation || proof.isBlank()) { _state.update { it.copy(recoveryNotice = "Enter the recovery proof and matching passwords of at least 8 characters.") }; return }
+        if (password.length < 8 || password != confirmation || proof.isBlank()) { _state.update { it.copy(recoveryNotice = "Paste the reset link (or code) from the email, and enter matching passwords of at least 8 characters.") }; return }
         _state.update { it.copy(recoveryBusy = true, recoveryNotice = null) }
         viewModelScope.launch {
             val result = authRepository.completeRecovery(email.trim(), proof.trim(), password)
