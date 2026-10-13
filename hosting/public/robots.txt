@@ -1,8 +1,3 @@
-# GaGa Chat — https://gagachat.app
 User-agent: *
 Allow: /
-Disallow: /open.html
-Disallow: /404.html
-Disallow: /.well-known/
-
 Sitemap: https://gagachat.app/sitemap.xml

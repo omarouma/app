@@ -1,0 +1,15 @@
+{
+  "name": "GaGa Chat",
+  "short_name": "GaGa",
+  "description": "Free global messaging, HD voice and video calls, live location, wallet and coins.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#09100b",
+  "theme_color": "#00c300",
+  "icons": [
+    { "src": "/assets/logo-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/assets/logo-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/assets/logo-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
