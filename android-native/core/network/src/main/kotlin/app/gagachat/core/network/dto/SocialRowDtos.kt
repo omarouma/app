@@ -81,6 +81,27 @@ data class WalletInsert(
     val transactions: List<CoinActivity> = emptyList(),
 )
 
+/**
+ * A row from the append-only `wallet_transactions` ledger — the single source of
+ * truth for wallet history (the legacy `wallets.transactions` jsonb column is no
+ * longer authoritative). [amount] is always positive; the direction is encoded
+ * by [type] (`transfer_in` / `transfer_out` / `spend` / `topup` / `challenge` /
+ * `convert` / `earn` / `adjust` / `refund`). The ledger is written exclusively by
+ * SECURITY DEFINER RPCs, never by the client.
+ */
+@Serializable
+data class WalletTransactionRow(
+    val id: String,
+    @SerialName("user_id") val userId: String,
+    @SerialName("related_user_id") val relatedUserId: String? = null,
+    val type: String,
+    val amount: Long,
+    val currency: String = "coins",
+    val description: String? = null,
+    @SerialName("balance_after") val balanceAfter: Long? = null,
+    @SerialName("created_at") @Serializable(with = EpochMillisSerializer::class) val createdAt: Long? = null,
+)
+
 @Serializable
 data class GroupRow(
     val id: String,

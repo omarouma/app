@@ -22,6 +22,8 @@ data class SendCoinsUiState(
     val note: String = "",
     val isSending: Boolean = false,
     val error: String? = null,
+    /** True while the explicit "confirm this transfer" step is on screen. */
+    val showConfirm: Boolean = false,
 ) {
     val amount: Long get() = amountText.toLongOrNull() ?: 0L
     val canSend: Boolean get() = selected != null && amount > 0 && !isSending
@@ -52,15 +54,27 @@ class SendCoinsViewModel @Inject constructor(
     }
     fun onNoteChange(value: String) = _state.update { it.copy(note = value, error = null) }
 
+    /**
+     * Opens the explicit confirmation step. Nothing is sent yet — the transfer
+     * only leaves the device after the user confirms here, and the UI only shows
+     * success once the server `wallet_transfer` RPC returns success.
+     */
+    fun requestConfirmation() {
+        if (!_state.value.canSend) return
+        _state.update { it.copy(showConfirm = true, error = null) }
+    }
+
+    fun dismissConfirmation() = _state.update { it.copy(showConfirm = false) }
+
     fun send(onSent: () -> Unit) {
         val snapshot = _state.value
         val target = snapshot.selected ?: return
         if (snapshot.amount <= 0) {
-            _state.update { it.copy(error = "Enter an amount greater than zero") }
+            _state.update { it.copy(showConfirm = false, error = "Enter an amount greater than zero") }
             return
         }
         viewModelScope.launch {
-            _state.update { it.copy(isSending = true, error = null) }
+            _state.update { it.copy(isSending = true, showConfirm = false, error = null) }
             when (val r = walletRepository.sendCoins(
                 toUserId = target.user.id,
                 toName = target.user.displayName,

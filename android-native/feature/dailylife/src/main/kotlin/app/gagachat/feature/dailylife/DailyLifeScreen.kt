@@ -57,6 +57,7 @@ object DailyRoutes {
     const val RECORDS = "daily/records/{section}"
     const val EDIT = "daily/edit/{kind}?id={id}&text={text}&chat={chat}&message={message}"
     const val SHOP = "daily/shop/{id}"
+    const val CHINA_DIRECT = "daily/china-direct"
     const val SPLITS = "daily/splits"
     const val SAFE = "daily/safe"
     fun records(section: String) = "daily/records/$section"
@@ -71,6 +72,7 @@ fun NavGraphBuilder.dailyLifeGraph(nav: NavController, onSaved: () -> Unit, onCh
         RecordEditor(entry.arguments?.getString("kind").orEmpty(), entry.arguments?.getString("id").orEmpty(), entry.arguments?.getString("text").orEmpty(), entry.arguments?.getString("chat").orEmpty(), entry.arguments?.getString("message").orEmpty(), nav)
     }
     composable(DailyRoutes.SHOP) { entry -> ShoppingScreen(entry.arguments?.getString("id").orEmpty(), nav) }
+    composable(DailyRoutes.CHINA_DIRECT) { GaGaChinaShopPreview(onBack = { nav.popBackStack() }) }
     composable(DailyRoutes.SPLITS) { SplitBillsScreen(nav, onChat) }
     composable(DailyRoutes.SAFE) { SafeScreen(onBack = { nav.popBackStack() }) }
 }
@@ -191,6 +193,20 @@ fun DailyHome(nav: NavController, onSaved: () -> Unit, onChat: (String) -> Unit,
                                     }
                                 }
                             }
+                        }
+                    }
+                }
+                item(key = "china_direct_entry") {
+                    Card(
+                        onClick = { nav.navigate(DailyRoutes.CHINA_DIRECT) },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+                    ) {
+                        Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Text("🇨🇳 GaGa China Direct", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                            Text("Shop in China · Delivered to Bangladesh")
+                            Text("Explore products, categories and demo cart", style = MaterialTheme.typography.bodySmall)
+                            Text("Preview only · Supplier prices and checkout are not live", style = MaterialTheme.typography.labelSmall)
                         }
                     }
                 }

@@ -29,21 +29,26 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ReceiptLong
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Audiotrack
 import androidx.compose.material.icons.filled.CameraAlt
+import androidx.compose.material.icons.filled.CardGiftcard
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.EmojiEmotions
+import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.NearMe
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Poll
+import androidx.compose.material.icons.filled.RequestQuote
 import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledIconButton
@@ -118,6 +123,15 @@ fun MessageComposer(
     onShareLiveLocation: () -> Unit = onShareLocation,
     onSendPoll: () -> Unit = {},
     onScheduleClick: () -> Unit = {},
+    /**
+     * Opens the P2P coin transfer flow. This routes to the real `wallet_transfer`
+     * RPC (server-authoritative ledger), never a client-side balance mutation.
+     */
+    onTransferCoins: () -> Unit = {},
+    /** Opens the shared-expense split flow backed by the real split-bill RPCs. */
+    onSplitBill: () -> Unit = {},
+    /** Opens the authoritative wallet ledger (payment history) screen. */
+    onOpenPaymentHistory: () -> Unit = {},
     /** `chats.enterToSend` — Enter sends the message instead of inserting a newline. */
     enterToSend: Boolean = true,
     modifier: Modifier = Modifier,
@@ -272,15 +286,32 @@ fun MessageComposer(
                 onPickFile = { showAttachSheet = false; onAttach() },
                 onSendPoll = { showAttachSheet = false; onSendPoll() },
                 onScheduleClick = { showAttachSheet = false; onScheduleClick() },
+                onTransferCoins = { showAttachSheet = false; onTransferCoins() },
+                onSplitBill = { showAttachSheet = false; onSplitBill() },
+                onOpenPaymentHistory = { showAttachSheet = false; onOpenPaymentHistory() },
             )
         }
     }
 }
 
 /**
+ * One tile in the attachment sheet. [enabled] = false renders a visibly disabled
+ * tile with an optional [badge] so a capability that has no backend yet can never
+ * be mistaken for a working one.
+ */
+private data class AttachItem(
+    val icon: ImageVector,
+    val label: String,
+    val onClick: () -> Unit,
+    val enabled: Boolean = true,
+    val badge: String? = null,
+)
+
+/**
  * Attachment grid (reference screenshot 174602): a four-column grid of green
  * icons on light-green circular tiles — Photos / Camera / Video / Audio file,
- * Contact / Location / Live location / Document, then Poll.
+ * Contact / Location / Live location / Document, then Poll. A dedicated "Money"
+ * section sits below it and routes to the real wallet/split-bill backend.
  */
 @Composable
 private fun AttachmentSheet(
@@ -294,77 +325,145 @@ private fun AttachmentSheet(
     onPickFile: () -> Unit,
     onSendPoll: () -> Unit,
     onScheduleClick: () -> Unit,
+    onTransferCoins: () -> Unit,
+    onSplitBill: () -> Unit,
+    onOpenPaymentHistory: () -> Unit,
 ) {
-    val options = listOf(
-        Triple(Icons.Filled.Image, "Photos", onPickImage),
-        Triple(Icons.Filled.CameraAlt, "Camera", onTakePhoto),
-        Triple(Icons.Filled.Videocam, "Video", onPickVideo),
-        Triple(Icons.Filled.Audiotrack, "Audio file", onPickAudio),
-        Triple(Icons.Filled.Person, "Contact", onPickContact),
-        Triple(Icons.Filled.LocationOn, "Location", onShareLocation),
-        Triple(Icons.Filled.NearMe, "Live location", onShareLiveLocation),
-        Triple(Icons.Filled.Description, "Document", onPickFile),
-        Triple(Icons.Filled.Poll, "Poll", onSendPoll),
-        Triple(Icons.Filled.Schedule, "Schedule", onScheduleClick),
+    val mediaOptions = listOf(
+        AttachItem(Icons.Filled.Image, "Photos", onPickImage),
+        AttachItem(Icons.Filled.CameraAlt, "Camera", onTakePhoto),
+        AttachItem(Icons.Filled.Videocam, "Video", onPickVideo),
+        AttachItem(Icons.Filled.Audiotrack, "Audio file", onPickAudio),
+        AttachItem(Icons.Filled.Person, "Contact", onPickContact),
+        AttachItem(Icons.Filled.LocationOn, "Location", onShareLocation),
+        AttachItem(Icons.Filled.NearMe, "Live location", onShareLiveLocation),
+        AttachItem(Icons.Filled.Description, "Document", onPickFile),
+        AttachItem(Icons.Filled.Poll, "Poll", onSendPoll),
+        AttachItem(Icons.Filled.Schedule, "Schedule", onScheduleClick),
+    )
+    // Money actions. Transfer / Split bill / History are wired to real server RPCs
+    // and the authoritative ledger. Request / Gift coins are shown but disabled
+    // ("Soon") because no backend exists yet — a disabled tile cannot fake success.
+    val moneyOptions = listOf(
+        AttachItem(Icons.Filled.SwapHoriz, "Transfer", onTransferCoins),
+        AttachItem(Icons.AutoMirrored.Filled.ReceiptLong, "Split bill", onSplitBill),
+        AttachItem(Icons.Filled.History, "History", onOpenPaymentHistory),
+        AttachItem(Icons.Filled.RequestQuote, "Request", {}, enabled = false, badge = "Soon"),
+        AttachItem(Icons.Filled.CardGiftcard, "Gift coins", {}, enabled = false, badge = "Soon"),
     )
     BoxWithConstraints {
-    val columns = if (maxWidth < 360.dp || LocalDensity.current.fontScale > 1.2f) 3 else 4
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .heightIn(max = 420.dp)
-            // Keep every option reachable on short screens / landscape instead of
-            // letting the last row fall off the bottom of the sheet.
-            .verticalScroll(rememberScrollState())
-            .padding(bottom = GagaDimens.space24),
-    ) {
-        Text(
-            text = "Add attachment",
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.SemiBold,
-            modifier = Modifier.padding(horizontal = GagaDimens.space16, vertical = GagaDimens.space8),
-        )
-        options.chunked(columns).forEach { row ->
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = GagaDimens.space8, vertical = GagaDimens.space4),
-                horizontalArrangement = Arrangement.SpaceEvenly,
-            ) {
-                row.forEach { (icon, label, onClick) ->
-                    AttachOption(icon = icon, label = label, onClick = onClick, modifier = Modifier.weight(1f))
-                }
-                // Pad the final (partial) row so its items stay aligned to the
-                // four-column grid instead of drifting to the centre.
-                repeat(columns - row.size) {
-                    Spacer(Modifier.weight(1f))
-                }
-            }
+        val columns = if (maxWidth < 360.dp || LocalDensity.current.fontScale > 1.2f) 3 else 4
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(max = 520.dp)
+                // Keep every option reachable on short screens / landscape instead of
+                // letting the last row fall off the bottom of the sheet.
+                .verticalScroll(rememberScrollState())
+                .padding(bottom = GagaDimens.space24),
+        ) {
+            Text(
+                text = "Add attachment",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.padding(horizontal = GagaDimens.space16, vertical = GagaDimens.space8),
+            )
+            AttachGrid(options = mediaOptions, columns = columns)
+            Text(
+                text = "Money",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.padding(horizontal = GagaDimens.space16, vertical = GagaDimens.space8),
+            )
+            AttachGrid(options = moneyOptions, columns = columns)
         }
-    }
     }
 }
 
 @Composable
-private fun AttachOption(icon: ImageVector, label: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
+private fun AttachGrid(options: List<AttachItem>, columns: Int) {
+    options.chunked(columns).forEach { row ->
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = GagaDimens.space8, vertical = GagaDimens.space4),
+            horizontalArrangement = Arrangement.SpaceEvenly,
+        ) {
+            row.forEach { item ->
+                AttachOption(
+                    icon = item.icon,
+                    label = item.label,
+                    onClick = item.onClick,
+                    enabled = item.enabled,
+                    badge = item.badge,
+                    modifier = Modifier.weight(1f),
+                )
+            }
+            // Pad the final (partial) row so its items stay aligned to the
+            // four-column grid instead of drifting to the centre.
+            repeat(columns - row.size) {
+                Spacer(Modifier.weight(1f))
+            }
+        }
+    }
+}
+
+@Composable
+private fun AttachOption(
+    icon: ImageVector,
+    label: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    badge: String? = null,
+) {
+    val tileColor = if (enabled) GagaGreenContainer else MaterialTheme.colorScheme.surfaceVariant
+    val iconTint = if (enabled) GagaGreen else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = modifier
             .clip(MaterialTheme.shapes.medium)
-            .clickable(onClick = onClick)
+            .clickable(enabled = enabled, onClick = onClick)
             .padding(GagaDimens.space4),
     ) {
-        Box(
-            modifier = Modifier
-                .size(52.dp)
-                .clip(CircleShape)
-                .background(GagaGreenContainer),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(icon, contentDescription = label, tint = GagaGreen)
+        Box(contentAlignment = Alignment.Center) {
+            Box(
+                modifier = Modifier
+                    .size(52.dp)
+                    .clip(CircleShape)
+                    .background(tileColor),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(icon, contentDescription = label, tint = iconTint)
+            }
+            if (badge != null) {
+                Surface(
+                    color = MaterialTheme.colorScheme.tertiaryContainer,
+                    shape = MaterialTheme.shapes.small,
+                    modifier = Modifier.align(Alignment.TopEnd),
+                ) {
+                    Text(
+                        text = badge,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onTertiaryContainer,
+                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp),
+                    )
+                }
+            }
         }
         Spacer(Modifier.size(GagaDimens.space4))
-        Text(text = label, style = MaterialTheme.typography.labelSmall, maxLines = 2, textAlign = TextAlign.Center, overflow = TextOverflow.Ellipsis)
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            maxLines = 2,
+            textAlign = TextAlign.Center,
+            overflow = TextOverflow.Ellipsis,
+            color = if (enabled) {
+                MaterialTheme.colorScheme.onSurface
+            } else {
+                MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+            },
+        )
     }
 }
 

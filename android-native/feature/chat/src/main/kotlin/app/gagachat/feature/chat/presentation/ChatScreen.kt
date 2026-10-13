@@ -172,6 +172,8 @@ fun ChatRoute(
     onOpenProfile: (userId: String) -> Unit,
     onOpenChatInfo: (conversationId: String) -> Unit,
     onDailyAction: (String, String, String, String) -> Unit = { _, _, _, _ -> },
+    onTransferCoins: () -> Unit = {},
+    onOpenPaymentHistory: () -> Unit = {},
     viewModel: ChatViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -207,6 +209,9 @@ fun ChatRoute(
     var showPollComposer by remember { mutableStateOf(false) }
     var pollSeedQuestion by remember { mutableStateOf("") }
     var splitSourceMessage by remember { mutableStateOf<Message?>(null) }
+    // Opened from the composer's "Money" section, where there is no source
+    // message; the split is created against the conversation itself.
+    var showSplitBillFromMenu by remember { mutableStateOf(false) }
     var translateSourceMessage by remember { mutableStateOf<Message?>(null) }
     var showLiveLocationPicker by remember { mutableStateOf(false) }
     var showSchedulePicker by remember { mutableStateOf(false) }
@@ -534,6 +539,9 @@ fun ChatRoute(
                         showPollComposer = true
                     },
                     onScheduleClick = { showSchedulePicker = true },
+                    onTransferCoins = onTransferCoins,
+                    onSplitBill = { showSplitBillFromMenu = true },
+                    onOpenPaymentHistory = onOpenPaymentHistory,
                     isRecording = state.isRecording,
                     recordingElapsedMs = state.recordingElapsedMs,
                     recordingLevels = state.recordingLevels,
@@ -709,22 +717,27 @@ fun ChatRoute(
             )
         }
 
-        splitSourceMessage?.let { source ->
+        if (splitSourceMessage != null || showSplitBillFromMenu) {
+            val source = splitSourceMessage
             SplitBillDialog(
                 members = state.members,
                 currentUserId = state.currentUserId,
-                suggestedAmount = SmartActionDetector.money(source.text)?.amountText,
-                suggestedCurrency = SmartActionDetector.money(source.text)?.currency,
-                onDismiss = { splitSourceMessage = null },
+                suggestedAmount = source?.let { SmartActionDetector.money(it.text)?.amountText },
+                suggestedCurrency = source?.let { SmartActionDetector.money(it.text)?.currency },
+                onDismiss = {
+                    splitSourceMessage = null
+                    showSplitBillFromMenu = false
+                },
                 onCreate = { title, amountMinor, currency, participantIds ->
                     viewModel.createSplitBill(
                         title = title,
                         totalMinor = amountMinor,
                         currency = currency,
                         participantIds = participantIds,
-                        sourceMessageId = source.serverMessageId,
+                        sourceMessageId = source?.serverMessageId,
                     )
                     splitSourceMessage = null
+                    showSplitBillFromMenu = false
                 },
             )
         }

@@ -40,6 +40,7 @@ import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.SmartToy
 import androidx.compose.material.icons.filled.Storage
+import androidx.compose.material.icons.filled.SystemUpdate
 import androidx.compose.material.icons.filled.Today
 import androidx.compose.material.icons.filled.Widgets
 import androidx.compose.material.icons.filled.WorkspacePremium
