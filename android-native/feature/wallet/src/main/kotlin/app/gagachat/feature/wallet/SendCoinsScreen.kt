@@ -12,9 +12,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AttachMoney
 import androidx.compose.material.icons.automirrored.filled.Notes
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
@@ -99,12 +101,51 @@ fun SendCoinsScreen(
 
             GagaPrimaryButton(
                 text = "Send",
-                onClick = { viewModel.send(onSent) },
+                onClick = viewModel::requestConfirmation,
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(GagaDimens.space16),
                 enabled = state.canSend,
                 loading = state.isSending,
+            )
+        }
+
+        // Explicit confirmation step: the transfer is only submitted to the
+        // server `wallet_transfer` RPC after the user confirms here, and success
+        // is only shown once that RPC actually returns success.
+        if (state.showConfirm) {
+            val target = state.selected
+            AlertDialog(
+                onDismissRequest = viewModel::dismissConfirmation,
+                title = { Text("Confirm transfer") },
+                text = {
+                    Column {
+                        Text(
+                            text = "Send ${state.amount} coins to ${target?.user?.displayLabel ?: "this friend"}?",
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                        if (state.note.isNotBlank()) {
+                            Spacer(Modifier.height(GagaDimens.space8))
+                            Text(
+                                text = "Note: ${state.note}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        Spacer(Modifier.height(GagaDimens.space12))
+                        Text(
+                            text = "GaGa Coins are reward points and are not redeemable for cash. This transfer is final once confirmed.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                },
+                confirmButton = {
+                    TextButton(onClick = { viewModel.send(onSent) }) { Text("Send") }
+                },
+                dismissButton = {
+                    TextButton(onClick = viewModel::dismissConfirmation) { Text("Cancel") }
+                },
             )
         }
     }

@@ -72,7 +72,12 @@ class WalletViewModel @Inject constructor(
     fun refresh() = load()
 
     fun topUp(amount: Long) {
-        _topUpMessage.value = "Coin funding is not available yet. Use Daily Life → Money Book to record personal expenses."
+        // Funding is intentionally not exposed: coins may only be credited by the
+        // provider-settlement webhook after a verified payment. There is no
+        // client-side balance write path, so we never fake a successful top-up.
+        _topUpMessage.value = "Coin funding isn't available yet — top-ups are credited only " +
+            "after a verified payment settlement. Use Daily Life → Money Book to record " +
+            "personal expenses."
     }
 
     fun consumeTopUpMessage() { _topUpMessage.value = null }

@@ -25,9 +25,10 @@ data class Wallet(
 }
 
 /**
- * A single wallet activity entry. The live schema does not yet expose a ledger
- * table, so entries are derived client-side from wallet deltas and stored in a
- * local, per-user activity log (never authoritative for balance).
+ * A single wallet activity entry, projected from one row of the append-only
+ * `wallet_transactions` ledger (the authoritative source of wallet history).
+ * The ledger is written exclusively by server-side RPCs; the client only reads
+ * it. [amount] is always positive — direction is encoded by [type].
  */
 @Serializable
 data class CoinActivity(
@@ -46,4 +47,8 @@ enum class CoinActivityType {
     @SerialName("sent") SENT,
     @SerialName("topup") TOPUP,
     @SerialName("reward") REWARD,
+    @SerialName("spend") SPEND,
+    @SerialName("convert") CONVERT,
+    @SerialName("adjust") ADJUST,
+    @SerialName("refund") REFUND,
 }

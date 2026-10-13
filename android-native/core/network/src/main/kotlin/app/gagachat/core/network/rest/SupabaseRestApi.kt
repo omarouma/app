@@ -1,6 +1,5 @@
 package app.gagachat.core.network.rest
 
-import app.gagachat.core.model.CoinActivity
 import app.gagachat.core.network.config.SupabaseConfig
 import app.gagachat.core.network.dto.BlockRow
 import app.gagachat.core.network.dto.CallHistoryRow
@@ -26,6 +25,7 @@ import app.gagachat.core.network.dto.SavedMessageRow
 import app.gagachat.core.network.dto.UserRow
 import app.gagachat.core.network.dto.WalletInsert
 import app.gagachat.core.network.dto.WalletRow
+import app.gagachat.core.network.dto.WalletTransactionRow
 import app.gagachat.core.network.dto.LiveKitTokenResponse
 import app.gagachat.core.network.session.SessionStore
 import io.ktor.client.HttpClient
@@ -805,26 +805,20 @@ class SupabaseRestApi @Inject constructor(
             setBody(row)
         }.body<List<WalletRow>>().first()
 
-    suspend fun updateWalletCoins(userId: String, coins: Long) {
-        client.patch("${config.restUrl}/wallets") {
+    /**
+     * Reads the append-only `wallet_transactions` ledger for [userId], newest
+     * first. This is the authoritative wallet history; the client must never
+     * derive history from (or write to) the legacy `wallets.transactions` jsonb
+     * column.
+     */
+    suspend fun getWalletTransactions(userId: String, limit: Int = 100): List<WalletTransactionRow> =
+        client.get("${config.restUrl}/wallet_transactions") {
             auth()
+            parameter("select", "*")
             parameter("user_id", "eq.$userId")
-            header("Prefer", "return=minimal")
-            contentType(ContentType.Application.Json)
-            setBody(mapOf("coins" to coins))
-        }
-    }
-
-    /** Persist the wallet ledger (jsonb `transactions` column) for [userId]. */
-    suspend fun updateWalletTransactions(userId: String, transactions: List<CoinActivity>) {
-        client.patch("${config.restUrl}/wallets") {
-            auth()
-            parameter("user_id", "eq.$userId")
-            header("Prefer", "return=minimal")
-            contentType(ContentType.Application.Json)
-            setBody(mapOf("transactions" to transactions))
-        }
-    }
+            parameter("order", "created_at.desc")
+            parameter("limit", limit)
+        }.body()
 
     /**
      * Atomically transfers [amount] coins from the signed-in user to [toUserId]
@@ -832,8 +826,17 @@ class SupabaseRestApi @Inject constructor(
      * (and block status) and commits the debit + credit in a single transaction,
      * so concurrent transfers cannot double-spend and a failed credit cannot lose
      * the sender's coins. Returns `false` when the balance is insufficient.
+     *
+     * [idempotencyKey] makes the call safe to retry: the server records it on the
+     * sender's ledger row and replays become a no-op, so a network timeout or a
+     * double-tap can never move the same coins twice.
      */
-    suspend fun transferCoins(toUserId: String, amount: Long, note: String?): Boolean =
+    suspend fun transferCoins(
+        toUserId: String,
+        amount: Long,
+        note: String?,
+        idempotencyKey: String? = null,
+    ): Boolean =
         client.post("${config.restUrl}/rpc/wallet_transfer") {
             auth()
             contentType(ContentType.Application.Json)
@@ -844,6 +847,33 @@ class SupabaseRestApi @Inject constructor(
                     // The RPC only accepts the exact literals 'USD' / 'BDT' / 'coins'.
                     put("p_currency", "coins")
                     put("p_description", note.orEmpty())
+                    if (!idempotencyKey.isNullOrBlank()) put("p_idempotency_key", idempotencyKey)
+                },
+            )
+        }.body()
+
+    /**
+     * Creates a *pending* top-up intent via the server-side `create_topup_intent`
+     * RPC and returns its id. This deliberately does NOT change the balance: the
+     * wallet is only credited by `credit_wallet_from_settlement`, which runs as
+     * `service_role` after a payment provider settlement has been verified. The
+     * client can never credit itself.
+     */
+    suspend fun createTopUpIntent(
+        amount: Long,
+        currency: String = "coins",
+        provider: String? = null,
+        idempotencyKey: String? = null,
+    ): String =
+        client.post("${config.restUrl}/rpc/create_topup_intent") {
+            auth()
+            contentType(ContentType.Application.Json)
+            setBody(
+                buildJsonObject {
+                    put("p_amount", amount)
+                    put("p_currency", currency)
+                    if (!provider.isNullOrBlank()) put("p_provider", provider)
+                    if (!idempotencyKey.isNullOrBlank()) put("p_idempotency_key", idempotencyKey)
                 },
             )
         }.body()
