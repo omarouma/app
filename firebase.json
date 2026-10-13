@@ -41,17 +41,22 @@
     "redirects": [
       {
         "source": "/downloads/gaga-latest.apk",
-        "destination": "https://github.com/omarouma/app/releases/download/android-2.7.5/GaGa-2.7.5-release.apk",
+        "destination": "https://github.com/omarouma/app/releases/download/android-2.7.6/GaGa-2.7.6-release.apk",
+        "type": 302
+      },
+      {
+        "source": "/downloads/gaga-latest-consolidated.apk",
+        "destination": "https://github.com/omarouma/app/releases/download/android-2.7.6/GaGa-2.7.6-consolidated.apk",
         "type": 302
       },
       {
         "source": "/downloads/gaga-latest.aab",
-        "destination": "https://github.com/omarouma/app/releases/download/android-2.7.5/GaGa-2.7.5-release.aab",
+        "destination": "https://github.com/omarouma/app/releases/download/android-2.7.6/GaGa-2.7.6-consolidated.aab",
         "type": 302
       },
       {
         "source": "/downloads/SHA256SUMS.txt",
-        "destination": "https://github.com/omarouma/app/releases/download/android-2.7.5/SHA256SUMS.txt",
+        "destination": "https://github.com/omarouma/app/releases/download/android-2.7.6/SHA256SUMS.txt",
         "type": 302
       }
     ],
