@@ -28,7 +28,8 @@ async function notify(call: CallResult, chatId: string) {
   ]).then(results => { if (results.some(r => r.status === "rejected")) console.warn("A call notification delivery path failed"); });
 }
 Deno.serve(createHandler({
-  appId: Number(Deno.env.get("ZEGO_APP_ID") ?? "0"),
+  // Legacy response field retained for older clients; LiveKit does not use a ZEGO app ID.
+  appId: 0,
   authenticate: async authorization => {
     const response = await fetch(`${url}/auth/v1/user`, {
       headers: { apikey: anon, Authorization: authorization }, signal: AbortSignal.timeout(10_000),

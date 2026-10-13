@@ -1,6 +1,9 @@
 package app.gagachat.feature.settings.presentation
 
 import androidx.compose.foundation.background
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Row
@@ -32,6 +35,7 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -73,7 +77,8 @@ fun NotificationInboxScreen(
     val notice by viewModel.notice.collectAsStateWithLifecycle()
     val unread by viewModel.unreadCount.collectAsStateWithLifecycle()
     var activeFilter by rememberSaveable { mutableStateOf("All") }
-    val filters = listOf("All", "Unread", "Calls", "People", "Chats")
+    var searchQuery by rememberSaveable { mutableStateOf("") }
+    val filters = listOf("All", "Unread", "Mentions", "Calls", "Tasks", "People", "Shopping")
     val snackbar = remember { SnackbarHostState() }
     LaunchedEffect(notice) { notice?.let { snackbar.showSnackbar(it); viewModel.consumeNotice() } }
 
@@ -102,6 +107,14 @@ fun NotificationInboxScreen(
                 )
             }
         }
+        OutlinedTextField(
+            value = searchQuery,
+            onValueChange = { searchQuery = it.take(120) },
+            label = { Text("Search notifications") },
+            singleLine = true,
+            placeholder = { Text("Search titles and messages") },
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+        )
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
         GagaStateHost(
             state = state,
@@ -112,13 +125,21 @@ fun NotificationInboxScreen(
             emptyDescription = "Messages, friend requests and calls will show up here.",
         ) { items ->
             val visible = items.filter { notification ->
-                when (activeFilter) {
+                val matchesSearch = searchQuery.isBlank() ||
+                    (notification.title?.takeIf { it.isNotBlank() } ?: defaultTitle(notification.type)).contains(searchQuery.trim(), ignoreCase = true) ||
+                    notification.body.orEmpty().contains(searchQuery.trim(), ignoreCase = true)
+                matchesSearch && when (activeFilter) {
                     "Unread" -> !notification.read
                     "Calls" -> notification.type == NotificationType.CALL
                     "People" -> notification.type == NotificationType.FRIEND_REQUEST ||
                         notification.type == NotificationType.FRIEND_ACCEPTED ||
                         notification.type == NotificationType.GROUP_INVITE
-                    "Chats" -> notification.type == NotificationType.MESSAGE
+                    "Mentions" -> notification.data.orEmpty().contains("mention", ignoreCase = true)
+                    "Tasks" -> notification.data.orEmpty().contains("task", ignoreCase = true) ||
+                        notification.data.orEmpty().contains("reminder", ignoreCase = true)
+                    "Shopping" -> notification.data.orEmpty().contains("china_shop", ignoreCase = true) ||
+                        notification.data.orEmpty().contains("quotation", ignoreCase = true) ||
+                        notification.data.orEmpty().contains("supplier_application", ignoreCase = true)
                     else -> true
                 }
             }
@@ -127,11 +148,30 @@ fun NotificationInboxScreen(
                     Text(if (activeFilter == "Unread") "You're all caught up" else "No notifications in this category",
                         Modifier.padding(16.dp))
                 }
-                items(visible, key = { it.id }) { notification ->
-                    NotificationRowItem(
-                        notification = notification,
-                        onClick = { if (!notification.read) viewModel.markRead(notification.id); onOpenNotification(notification) },
-                    )
+                val today = LocalDate.now()
+                var previousSection: String? = null
+                visible.sortedByDescending { it.createdAt }.forEach { notification ->
+                    val date = if (notification.createdAt > 0L)
+                        Instant.ofEpochMilli(notification.createdAt).atZone(ZoneId.systemDefault()).toLocalDate()
+                    else null
+                    val section = when (date) {
+                        today -> "Today"
+                        today.minusDays(1) -> "Yesterday"
+                        else -> "Earlier"
+                    }
+                    if (section != previousSection) {
+                        item(key = "section-$section") {
+                            Text(section, style = MaterialTheme.typography.titleSmall,
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp))
+                        }
+                        previousSection = section
+                    }
+                    item(key = notification.id) {
+                        NotificationRowItem(
+                            notification = notification,
+                            onClick = { if (!notification.read) viewModel.markRead(notification.id); onOpenNotification(notification) },
+                        )
+                    }
                 }
             }
         }
