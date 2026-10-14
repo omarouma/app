@@ -1,17 +1,17 @@
 {
   "schemaVersion": 1,
   "packageName": "gagachat.app",
-  "latestVersionCode": 54,
-  "latestVersionName": "2.7.9",
+  "latestVersionCode": 55,
+  "latestVersionName": "2.8.0",
   "minimumSupportedVersionCode": 0,
-  "publishedAt": "2026-10-14T01:52:00Z",
-  "releaseNotes": "GaGa 2.7.9: realtime notification inbox, exact unread badges, read-all fixes, refreshed Today deadlines and verified release downloads. This release uses a new signing key: older APK installations require one uninstall and reinstall. Back up local-only drafts before reinstalling. Future APK updates will retain this key.",
+  "publishedAt": "2026-10-14T03:10:00Z",
+  "releaseNotes": "GaGa 2.8.0: refreshed green light/dark design, rounded conversation and settings cards, new Today header, notification multi-select dismissal and older-page loading, and explicit location map preview. Signed with the same approved certificate as 2.7.9. Full bespoke screen redesign and real-device validation continue.",
   "channels": {
     "apk": {
-      "versionCode": 54,
+      "versionCode": 55,
       "url": "https://gagachat.app/downloads/gaga-latest.apk",
-      "sha256": "008cd62244bc58d4eb0c8c50d5d2d9fb4dc7a46b1bc76ba22567e42e0c9279e3",
-      "sizeBytes": 47828840
+      "sha256": "3cca97fa6eee664bc24de8a166dbecaaee058a0be9b31a5bd8fa30e932183f39",
+      "sizeBytes": 47845224
     },
     "play": {
       "versionCode": 0,
