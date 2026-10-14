@@ -191,6 +191,7 @@ class AppUpdateDownloader @Inject constructor(
             "gagachat.app",
             "www.gagachat.app",
             "oumagachat.web.app",
+            "fcjgbbmfqdkucfpqjxae.supabase.co",
             "github.com",
             "objects.githubusercontent.com",
             "release-assets.githubusercontent.com",

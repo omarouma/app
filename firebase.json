@@ -21,46 +21,78 @@
       {
         "source": "/.well-known/assetlinks.json",
         "headers": [
-          { "key": "Content-Type", "value": "application/json" },
-          { "key": "Cache-Control", "value": "public, max-age=3600" }
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Cache-Control",
+            "value": "public, max-age=3600"
+          }
         ]
       },
       {
         "source": "**/*.@(png|jpg|jpeg|svg|webp|ico|css|js)",
         "headers": [
-          { "key": "Cache-Control", "value": "public, max-age=604800" }
+          {
+            "key": "Cache-Control",
+            "value": "public, max-age=604800"
+          }
         ]
       },
       {
         "source": "/app-updates/**",
         "headers": [
-          { "key": "Cache-Control", "value": "public, max-age=300" }
+          {
+            "key": "Cache-Control",
+            "value": "public, max-age=300"
+          }
         ]
       }
     ],
     "redirects": [
       {
         "source": "/downloads/gaga-latest.apk",
-        "destination": "https://github.com/omarouma/app/releases/download/android-2.7.7/GaGa-2.7.7-release.apk",
+        "destination": "https://github.com/omarouma/app/releases/download/android-2.7.9/GaGa-2.7.9-release.apk",
         "type": 302
       },
       {
         "source": "/downloads/gaga-latest.aab",
-        "destination": "https://github.com/omarouma/app/releases/download/android-2.7.7/GaGa-2.7.7-release.aab",
+        "destination": "https://github.com/omarouma/app/releases/download/android-2.7.9/GaGa-2.7.9-release.aab",
         "type": 302
       },
       {
         "source": "/downloads/SHA256SUMS.txt",
-        "destination": "https://github.com/omarouma/app/releases/download/android-2.7.7/SHA256SUMS.txt",
+        "destination": "https://github.com/omarouma/app/releases/download/android-2.7.9/SHA256SUMS.txt",
+        "type": 302
+      },
+      {
+        "source": "/downloads/gaga-latest-consolidated.apk",
+        "destination": "https://github.com/omarouma/app/releases/download/android-2.7.9/GaGa-2.7.9-release.apk",
         "type": 302
       }
     ],
     "rewrites": [
-      { "source": "/chat/**", "destination": "/open.html" },
-      { "source": "/call/**", "destination": "/open.html" },
-      { "source": "/u/**", "destination": "/open.html" },
-      { "source": "/profile/**", "destination": "/open.html" },
-      { "source": "/app", "destination": "/open.html" }
+      {
+        "source": "/chat/**",
+        "destination": "/open.html"
+      },
+      {
+        "source": "/call/**",
+        "destination": "/open.html"
+      },
+      {
+        "source": "/u/**",
+        "destination": "/open.html"
+      },
+      {
+        "source": "/profile/**",
+        "destination": "/open.html"
+      },
+      {
+        "source": "/app",
+        "destination": "/open.html"
+      }
     ]
   }
 }

@@ -52,6 +52,12 @@ class AppUpdateVersionTest {
         assertTrue(AppUpdateDownloader.isAllowedHost("oumagachat.web.app"))
     }
 
+    @Test fun releaseStorageIsLimitedToOurExactSupabaseProject() {
+        assertTrue(AppUpdateDownloader.isAllowedHost("fcjgbbmfqdkucfpqjxae.supabase.co"))
+        assertFalse(AppUpdateDownloader.isAllowedHost("another-project.supabase.co"))
+        assertFalse(AppUpdateDownloader.isAllowedHost("fcjgbbmfqdkucfpqjxae.supabase.co.evil.example"))
+    }
+
     @Test fun githubReleaseHostsAreAllowed() {
         assertTrue(AppUpdateDownloader.isAllowedHost("github.com"))
         assertTrue(AppUpdateDownloader.isAllowedHost("objects.githubusercontent.com"))

@@ -28,7 +28,7 @@ class MutationContractTest {
         val engine = MockEngine { request ->
             assertEquals(HttpMethod.Patch, request.method)
             assertEquals("eq.owner", request.url.parameters["user_id"])
-            assertEquals("eq.false", request.url.parameters["read"])
+            assertEquals("(read.eq.false,read.is.null)", request.url.parameters["or"])
             assertEquals("Bearer test-session", request.headers["Authorization"])
             respond("", HttpStatusCode.NoContent)
         }

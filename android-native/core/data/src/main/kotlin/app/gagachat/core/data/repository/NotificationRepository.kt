@@ -24,7 +24,7 @@ import javax.inject.Singleton
 
 /**
  * In-app notifications (LIVE table `notifications`). Network-first with an
- * in-memory cache; unread count is derived from the cached list.
+ * in-memory cache; unread count is fetched across all server pages.
  */
 interface NotificationRepository {
     val notifications: StateFlow<List<AppNotification>>
@@ -70,9 +70,10 @@ class DefaultNotificationRepository @Inject constructor(
         if (me.isBlank()) return@withContext AppResult.Failure(AppError.Unauthorized("Not signed in"))
         try {
             val rows = restApi.getNotifications(me)
+            val unread = restApi.getUnreadNotificationCount(me)
             if (me != currentUserId) return@withContext AppResult.Failure(AppError.Unauthorized("Account changed"))
             _notifications.value = rows.map { it.toDomain() }
-            _unreadCount.value = _notifications.value.count { !it.read }
+            _unreadCount.value = unread
             AppResult.Success(Unit)
         } catch (t: Throwable) {
             if (t is CancellationException) throw t
@@ -85,9 +86,10 @@ class DefaultNotificationRepository @Inject constructor(
         if (me.isBlank()) return@withContext AppResult.Failure(AppError.Unauthorized())
         try {
             restApi.markNotificationRead(id)
+            val unread = restApi.getUnreadNotificationCount(me)
             if (me != currentUserId) return@withContext AppResult.Failure(AppError.Unauthorized("Account changed"))
             _notifications.value = _notifications.value.map { if (it.id == id) it.copy(read = true) else it }
-            _unreadCount.value = _notifications.value.count { !it.read }
+            _unreadCount.value = unread
             AppResult.Success(Unit)
         } catch (t: Throwable) {
             if (t is CancellationException) throw t
@@ -100,9 +102,12 @@ class DefaultNotificationRepository @Inject constructor(
         if (me.isBlank()) return@withContext AppResult.Failure(AppError.Unauthorized())
         try {
             restApi.markAllNotificationsRead(me)
+            // A new notification may arrive after the PATCH; do not force badge zero.
+            val rows = restApi.getNotifications(me)
+            val unread = restApi.getUnreadNotificationCount(me)
             if (me != currentUserId) return@withContext AppResult.Failure(AppError.Unauthorized("Account changed"))
-            _notifications.value = _notifications.value.map { it.copy(read = true) }
-            _unreadCount.value = 0
+            _notifications.value = rows.map { it.toDomain() }
+            _unreadCount.value = unread
             AppResult.Success(Unit)
         } catch (t: Throwable) {
             if (t is CancellationException) throw t

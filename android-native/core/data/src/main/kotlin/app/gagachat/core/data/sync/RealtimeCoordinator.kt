@@ -1,6 +1,11 @@
 package app.gagachat.core.data.sync
 
 import app.gagachat.core.common.util.AppLogger
+import app.gagachat.core.data.repository.NotificationRepository
+import app.gagachat.core.data.repository.AuthRepository
+import kotlinx.coroutines.channels.Channel
+import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.contentOrNull
 import app.gagachat.core.data.repository.MessageRepository
 import app.gagachat.core.data.repository.ConversationRepository
 import kotlinx.coroutines.CancellationException
@@ -30,11 +35,15 @@ class RealtimeCoordinator @Inject constructor(
     private val messageRepository: MessageRepository,
     private val conversationRepository: ConversationRepository,
     private val logger: AppLogger,
+    private val notificationRepository: NotificationRepository,
+    private val authRepository: AuthRepository,
 ) {
 
     private var scope: CoroutineScope? = null
     private var eventJob: Job? = null
     private var started = false
+    private var notificationJob: Job? = null
+    private val notificationRefreshes = Channel<Unit>(Channel.CONFLATED)
 
     /** Connects the socket and begins applying delta events to the cache. */
     @Synchronized
@@ -42,6 +51,13 @@ class RealtimeCoordinator @Inject constructor(
         if (started) return
         started = true
         scope = appScope
+        notificationJob = appScope.launch {
+            for (ignored in notificationRefreshes) {
+                try { notificationRepository.refresh() }
+                catch (cancelled: CancellationException) { throw cancelled }
+                catch (error: Exception) { logger.w(TAG, "Could not refresh notification inbox", error) }
+            }
+        }
         eventJob = appScope.launch(start = CoroutineStart.UNDISPATCHED) {
             realtime.events.collect { event ->
                 try { handleEvent(event) }
@@ -53,6 +69,7 @@ class RealtimeCoordinator @Inject constructor(
         realtime.subscribe(TABLE_MESSAGES)
         realtime.subscribe(TABLE_CHATS)
         realtime.subscribe(TABLE_TYPING)
+        realtime.subscribe(TABLE_NOTIFICATIONS)
         logger.i(TAG, "Realtime coordinator started")
     }
 
@@ -73,9 +90,12 @@ class RealtimeCoordinator @Inject constructor(
         if (!started) return
         started = false
         eventJob?.cancel(); eventJob = null
+        notificationJob?.cancel(); notificationJob = null
+        while (notificationRefreshes.tryReceive().isSuccess) { /* discard prior-account signals */ }
         realtime.unsubscribe(TABLE_MESSAGES)
         realtime.unsubscribe(TABLE_CHATS)
         realtime.unsubscribe(TABLE_TYPING)
+        realtime.unsubscribe(TABLE_NOTIFICATIONS)
         realtime.disconnect()
         logger.i(TAG, "Realtime coordinator stopped")
     }
@@ -94,10 +114,24 @@ class RealtimeCoordinator @Inject constructor(
                         ChangeType.DELETE -> Unit
                     }
                     TABLE_CHATS -> conversationRepository.syncConversations()
+                    TABLE_NOTIFICATIONS -> {
+                        // Delete payloads may carry only a primary key. Refresh through
+                        // RLS instead of displaying or trusting a foreign event payload.
+                        val owner = authRepository.sessionFlow.value?.userId
+                        val recipient = event.record["user_id"]?.jsonPrimitive?.contentOrNull
+                        if (!owner.isNullOrBlank() && (recipient == null || recipient == owner)) {
+                            notificationRefreshes.trySend(Unit)
+                        }
+                    }
                     else -> Unit
                 }
             }
             is RealtimeEvent.Subscribed -> {
+                if (event.topic == "realtime:public:notifications") {
+                    // Reconcile changes missed during disconnect, without posting
+                    // a second Android push notification.
+                    notificationRefreshes.trySend(Unit)
+                }
                 if (event.topic == "realtime:public:messages") {
                     conversationRepository.syncConversations()
                     conversationRepository.observeConversations().first().forEach {
@@ -116,5 +150,6 @@ class RealtimeCoordinator @Inject constructor(
         const val TABLE_MESSAGES = "messages"
         const val TABLE_CHATS = "chats"
         const val TABLE_TYPING = "typing"
+        const val TABLE_NOTIFICATIONS = "notifications"
     }
 }
