@@ -54,6 +54,40 @@ class NotificationRegressionTest {
         assertFalse(repository.notifications.value.single().read)
     }
 
+    @Test fun failedDismissKeepsVisibleEvidence() = runTest {
+        val api = mockk<SupabaseRestApi>()
+        val auth = mockk<AuthRepository>()
+        every { auth.sessionFlow } returns MutableStateFlow<AuthSession?>(session("a"))
+        coEvery { api.getNotifications("a", any()) } returns listOf(NotificationRow("n", "a", read = false))
+        coEvery { api.getUnreadNotificationCount("a") } returns 1
+        coEvery { api.dismissNotifications("a", listOf("n")) } throws IllegalStateException("offline")
+        val repository = DefaultNotificationRepository(api, auth, dispatchers(StandardTestDispatcher(testScheduler)), backgroundScope)
+        runCurrent(); repository.refresh()
+        assertTrue(repository.dismiss(listOf("n")) is AppResult.Failure)
+        assertEquals("n", repository.notifications.value.single().id)
+        assertEquals(1, repository.unreadCount.value)
+    }
+
+    @Test fun oldAccountPageCannotPopulateNewAccountInbox() = runTest {
+        val api = mockk<SupabaseRestApi>()
+        val auth = mockk<AuthRepository>()
+        val sessions = MutableStateFlow<AuthSession?>(session("a"))
+        every { auth.sessionFlow } returns sessions
+        coEvery { api.getNotifications("a", any()) } returns (0 until 50).map { NotificationRow("n$it", "a", read = false) }
+        coEvery { api.getUnreadNotificationCount("a") } returns 51
+        val response = CompletableDeferred<List<NotificationRow>>()
+        coEvery { api.getNotificationsPage("a", 50) } coAnswers { response.await() }
+        val repository = DefaultNotificationRepository(api, auth, dispatchers(StandardTestDispatcher(testScheduler)), backgroundScope)
+        runCurrent(); repository.refresh()
+        assertTrue(repository.hasMore.value)
+        val page = async { repository.loadMore() }; runCurrent()
+        sessions.value = session("b"); runCurrent()
+        response.complete(listOf(NotificationRow("late", "a", read = false)))
+        assertTrue(page.await() is AppResult.Failure)
+        assertTrue(repository.notifications.value.isEmpty())
+        assertFalse(repository.hasMore.value)
+    }
+
     @Test fun accountChangeClearsNotificationsAndRejectsLateRefresh() = runTest {
         val api = mockk<SupabaseRestApi>()
         coEvery { api.getUnreadNotificationCount("a") } returns 1

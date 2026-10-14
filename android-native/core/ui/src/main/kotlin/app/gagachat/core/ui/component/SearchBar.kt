@@ -1,5 +1,7 @@
 package app.gagachat.core.ui.component
 
+import androidx.compose.ui.graphics.Color
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.KeyboardOptions
@@ -38,6 +40,12 @@ fun GagaSearchBar(
                 }
             }
         },
+        colors = OutlinedTextFieldDefaults.colors(
+            focusedContainerColor = MaterialTheme.colorScheme.surface,
+            unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+            focusedBorderColor = MaterialTheme.colorScheme.primary,
+            unfocusedBorderColor = Color.Transparent,
+        ),
         singleLine = true,
         shape = MaterialTheme.shapes.extraLarge,
         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),

@@ -33,6 +33,9 @@ interface NotificationRepository {
     suspend fun refresh(): AppResult<Unit>
     suspend fun markRead(id: String): AppResult<Unit>
     suspend fun markAllRead(): AppResult<Unit>
+    suspend fun loadMore(): AppResult<Unit>
+    suspend fun dismiss(ids: List<String>): AppResult<Unit>
+    val hasMore: StateFlow<Boolean>
 }
 
 @Singleton
@@ -49,6 +52,11 @@ class DefaultNotificationRepository @Inject constructor(
     private val _unreadCount = MutableStateFlow(0)
     override val unreadCount: StateFlow<Int> = _unreadCount.asStateFlow()
 
+    private val _hasMore = MutableStateFlow(false)
+    override val hasMore = _hasMore.asStateFlow()
+    private var nextOffset = 0
+    private var generation = 0
+
     init {
         var previousOwner = authRepository.sessionFlow.value?.userId
         scope.launch {
@@ -56,6 +64,9 @@ class DefaultNotificationRepository @Inject constructor(
                 if (owner != previousOwner) {
                 _notifications.value = emptyList()
                 _unreadCount.value = 0
+                _hasMore.value = false
+                nextOffset = 0
+                generation++
                 }
                 previousOwner = owner
             }
@@ -73,6 +84,9 @@ class DefaultNotificationRepository @Inject constructor(
             val unread = restApi.getUnreadNotificationCount(me)
             if (me != currentUserId) return@withContext AppResult.Failure(AppError.Unauthorized("Account changed"))
             _notifications.value = rows.map { it.toDomain() }
+            nextOffset = rows.size
+            _hasMore.value = rows.size == 50
+            generation++
             _unreadCount.value = unread
             AppResult.Success(Unit)
         } catch (t: Throwable) {
@@ -107,6 +121,9 @@ class DefaultNotificationRepository @Inject constructor(
             val unread = restApi.getUnreadNotificationCount(me)
             if (me != currentUserId) return@withContext AppResult.Failure(AppError.Unauthorized("Account changed"))
             _notifications.value = rows.map { it.toDomain() }
+            nextOffset = rows.size
+            _hasMore.value = rows.size == 50
+            generation++
             _unreadCount.value = unread
             AppResult.Success(Unit)
         } catch (t: Throwable) {
@@ -114,6 +131,43 @@ class DefaultNotificationRepository @Inject constructor(
             AppResult.Failure(ErrorMapper.map(t))
         }
     }
+    override suspend fun loadMore(): AppResult<Unit> = withContext(dispatchers.io) {
+        val me = currentUserId
+        if (me.isBlank()) return@withContext AppResult.Failure(AppError.Unauthorized())
+        if (!_hasMore.value) return@withContext AppResult.Success(Unit)
+        val snapshot = generation
+        val offset = nextOffset
+        try {
+            val rows = restApi.getNotificationsPage(me, offset)
+            if (me != currentUserId || snapshot != generation || offset != nextOffset)
+                return@withContext AppResult.Failure(AppError.Unauthorized("Inbox changed; refresh and try again"))
+            _notifications.value = (_notifications.value + rows.map { it.toDomain() }).distinctBy { it.id }
+            nextOffset += rows.size
+            _hasMore.value = rows.size == 50
+            AppResult.Success(Unit)
+        } catch (t: Throwable) {
+            if (t is CancellationException) throw t
+            AppResult.Failure(ErrorMapper.map(t))
+        }
+    }
+
+    override suspend fun dismiss(ids: List<String>): AppResult<Unit> = withContext(dispatchers.io) {
+        val me = currentUserId
+        if (me.isBlank()) return@withContext AppResult.Failure(AppError.Unauthorized())
+        try {
+            require(ids.isNotEmpty() && ids.size <= 100)
+            require(ids.all { id -> _notifications.value.any { it.id == id && it.userId == me } })
+            restApi.dismissNotifications(me, ids)
+            if (me != currentUserId) return@withContext AppResult.Failure(AppError.Unauthorized("Account changed"))
+            _notifications.value = _notifications.value.filterNot { it.id in ids }
+            generation++
+            refresh()
+        } catch (t: Throwable) {
+            if (t is CancellationException) throw t
+            AppResult.Failure(ErrorMapper.map(t))
+        }
+    }
+
 }
 
 private fun NotificationRow.toDomain(): AppNotification = AppNotification(

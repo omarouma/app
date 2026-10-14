@@ -1,5 +1,7 @@
 package app.gagachat.navigation
 
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
@@ -275,6 +277,7 @@ private fun GagaBottomBar(
             color = MaterialTheme.colorScheme.outlineVariant,
         )
         NavigationBar(
+            modifier = Modifier.clip(RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)),
             containerColor = MaterialTheme.colorScheme.surface,
             tonalElevation = 0.dp,
         ) {

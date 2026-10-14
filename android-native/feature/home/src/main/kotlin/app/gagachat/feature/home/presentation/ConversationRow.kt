@@ -1,5 +1,6 @@
 package app.gagachat.feature.home.presentation
 
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
@@ -96,8 +97,10 @@ fun ConversationRow(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(min = 68.dp)
-                    .background(MaterialTheme.colorScheme.surface)
+                    .padding(horizontal = 12.dp, vertical = 4.dp)
+                    .clip(MaterialTheme.shapes.large)
+                    .heightIn(min = 80.dp)
+                    .background(if (hasUnread) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f) else MaterialTheme.colorScheme.surface)
                     .combinedClickable(
                         onClick = onClick,
                         onClickLabel = "Open chat: $title",

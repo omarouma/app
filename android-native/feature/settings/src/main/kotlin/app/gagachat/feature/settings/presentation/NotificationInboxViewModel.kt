@@ -45,6 +45,9 @@ class NotificationInboxViewModel @Inject constructor(
         }
     }
     val unreadCount = repository.unreadCount
+    val hasMore = repository.hasMore
+    fun loadMore() = mutate { repository.loadMore() }
+    fun dismiss(ids: List<String>) = mutate { repository.dismiss(ids) }
     fun markRead(id: String) = mutate { repository.markRead(id) }
     fun markAllRead() = mutate { repository.markAllRead() }
 

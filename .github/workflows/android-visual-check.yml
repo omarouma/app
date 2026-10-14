@@ -1,0 +1,52 @@
+name: GaGa native redesign visual checks
+on:
+  pull_request:
+    paths:
+      - 'android-native/core/ui/**'
+      - '.github/workflows/android-visual-check.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: 'platform-tools platforms;android-36 build-tools;35.0.0'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Configure verified public backend
+        run: python3 android-native/ci/prepare.py
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 29
+          arch: x86_64
+          profile: pixel_2
+          disable-animations: true
+          script: |
+            adb shell wm size 360x800
+            adb shell wm density 160
+            gradle -p android-native --no-daemon --max-workers=2 -Pandroid.injected.androidTest.leaveApksInstalledAfterRun=true :core:ui:connectedDebugAndroidTest
+            mkdir -p visual-checks
+            adb pull /sdcard/Android/data/app.gagachat.core.ui/files/screenshots visual-checks/ || adb pull /sdcard/Android/data/app.gagachat.core.ui.test/files/screenshots visual-checks/
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: GaGa-native-redesign-visual-checks
+          path: |
+            visual-checks/
+            android-native/core/ui/build/reports/androidTests/
+          retention-days: 14

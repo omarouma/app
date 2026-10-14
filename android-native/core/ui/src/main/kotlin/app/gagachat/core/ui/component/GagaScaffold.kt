@@ -1,5 +1,6 @@
 package app.gagachat.core.ui.component
 
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -35,6 +36,7 @@ fun GagaScaffold(
 ) {
     Scaffold(
         modifier = modifier,
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             GagaTopAppBar(
                 title = title,
