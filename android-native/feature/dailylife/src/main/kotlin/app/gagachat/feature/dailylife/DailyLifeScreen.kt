@@ -327,7 +327,7 @@ fun TodayDashboard(
                 val upcomingEvents = ui.records
                     .filter { it.kind == "event" && !it.completed }
                     .mapNotNull { record -> record.dueAt?.let { runCatching { Instant.parse(it) }.getOrNull() }?.let { record to it } }
-                    .filter { (_, due) -> dashboardTime.isUpcoming(due.toString()) }
+                    .filter { (_, due) -> dashboardTime.isUpcoming(due.toString()) && !dashboardTime.isDueToday(due.toString()) }
                     .sortedBy { it.second }
                 if (upcomingEvents.isNotEmpty()) item {
                     Card(Modifier.fillMaxWidth().clickable { onNavigate(DailyRoutes.records("event")) }) {
