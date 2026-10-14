@@ -38,10 +38,10 @@ class TodayDesignTest {
     }
     @Test fun populatedLightAndActions() {
         render(DailyUi(records = records, loading = false))
-        compose.onNodeWithText("Plan your day").assertIsDisplayed()
+        compose.onNodeWithText("Make today count").assertIsDisplayed()
         compose.onNodeWithText("GaGa China Direct", substring = true).assertDoesNotExist()
         capture("today-light.png")
-        compose.onNodeWithTag("today_content").performScrollToNode(hasText("Your agenda"))
+        compose.onNodeWithTag("today_content").performScrollToNode(hasText("Needs your attention"))
         compose.onNodeWithText("Last month meeting").assertDoesNotExist()
         compose.onNodeWithTag("today_content").performScrollToNode(hasContentDescription("Complete Review class notes"))
         compose.onNodeWithContentDescription("Complete Review class notes").performClick()
@@ -74,7 +74,7 @@ class TodayDesignTest {
     @Test fun failureIsNotAnEmptySuccess() {
         render(DailyUi(loading = false, error = "Sample connection failure"))
         compose.onNodeWithText("Couldn't refresh your day").assertIsDisplayed()
-        compose.onNodeWithTag("today_content").performScrollToNode(hasText("Your agenda is unavailable"))
+        compose.onNodeWithTag("today_content").performScrollToNode(hasText("Needs your attention is unavailable"))
         compose.onNodeWithText("Nothing due today").assertDoesNotExist()
         capture("today-error.png")
     }
