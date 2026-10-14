@@ -74,7 +74,7 @@ class TodayDesignTest {
     @Test fun failureIsNotAnEmptySuccess() {
         render(DailyUi(loading = false, error = "Sample connection failure"))
         compose.onNodeWithText("Couldn't refresh your day").assertIsDisplayed()
-        compose.onNodeWithTag("today_content").performScrollToNode(hasText("Needs your attention is unavailable"))
+        compose.onNodeWithTag("today_content").performScrollToNode(hasText("Your agenda is unavailable"))
         compose.onNodeWithText("Nothing due today").assertDoesNotExist()
         capture("today-error.png")
     }
