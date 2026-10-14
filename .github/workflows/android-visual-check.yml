@@ -39,7 +39,7 @@ jobs:
           script: |
             adb shell wm size 360x800
             adb shell wm density 160
-            gradle -p android-native --no-daemon --max-workers=2 :core:ui:connectedDebugAndroidTest
+            gradle -p android-native --no-daemon --max-workers=2 -Pandroid.injected.androidTest.leaveApksInstalledAfterRun=true :core:ui:connectedDebugAndroidTest
             mkdir -p visual-checks
             adb pull /sdcard/Android/data/app.gagachat.core.ui/files/screenshots visual-checks/ || adb pull /sdcard/Android/data/app.gagachat.core.ui.test/files/screenshots visual-checks/
       - uses: actions/upload-artifact@v4
