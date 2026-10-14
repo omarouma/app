@@ -18,6 +18,7 @@ class TodayDesignTest {
     @get:Rule val compose = createComposeRule()
     private val now = Instant.parse("2026-10-14T08:00:00Z")
     private val records = listOf(
+        DailyRecord("old-event", "sample", "event", "Last month meeting", happenedAt = now.toString(), dueAt = "2026-09-14T10:00:00Z"),
         DailyRecord("test-task", "sample", "task", "Review class notes", happenedAt = now.toString(), dueAt = "2026-10-14T10:00:00Z"),
         DailyRecord("test-event", "sample", "event", "Team catch-up", happenedAt = now.toString(), dueAt = "2026-10-14T11:00:00Z"),
         DailyRecord("test-reminder", "sample", "reminder", "Bring the documents", happenedAt = now.toString(), dueAt = "2026-10-13T10:00:00Z"),
@@ -37,9 +38,11 @@ class TodayDesignTest {
     }
     @Test fun populatedLightAndActions() {
         render(DailyUi(records = records, loading = false))
-        compose.onNodeWithText("Your day, organized.").assertIsDisplayed()
+        compose.onNodeWithText("Plan your day").assertIsDisplayed()
         compose.onNodeWithText("GaGa China Direct", substring = true).assertDoesNotExist()
         capture("today-light.png")
+        compose.onNodeWithTag("today_content").performScrollToNode(hasText("Your agenda"))
+        compose.onNodeWithText("Last month meeting").assertDoesNotExist()
         compose.onNodeWithTag("today_content").performScrollToNode(hasContentDescription("Complete Review class notes"))
         compose.onNodeWithContentDescription("Complete Review class notes").performClick()
         assertEquals("test-task", completed)

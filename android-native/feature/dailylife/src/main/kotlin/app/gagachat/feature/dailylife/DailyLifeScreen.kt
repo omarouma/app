@@ -181,9 +181,9 @@ fun TodayDashboard(
                         Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                             Text("$greeting · ${dashboardNow.atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofPattern("EEE, d MMM"))}",
                                 style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text("Your day, organized.", style = MaterialTheme.typography.headlineSmall,
+                            Text("Plan your day", style = MaterialTheme.typography.headlineSmall,
                                 fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
-                            Text("Focus on what needs your attention.", style = MaterialTheme.typography.bodyMedium,
+                            Text("Start with what matters.", style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
@@ -252,7 +252,8 @@ fun TodayDashboard(
                         listOf("task", "event", "reminder").chunked(if (columns == 1) 1 else 3).forEach { actions ->
                             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 actions.forEach { kind ->
-                                    FilledTonalButton(onClick = { onNavigate(DailyRoutes.edit(kind)) }, modifier = Modifier.weight(1f).heightIn(min = 48.dp)) {
+                                    FilledTonalButton(onClick = { onNavigate(DailyRoutes.edit(kind)) }, modifier = Modifier.weight(1f).heightIn(min = 48.dp),
+                                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 12.dp)) {
                                         Text(labels.getValue(kind))
                                     }
                                 }
@@ -260,8 +261,9 @@ fun TodayDashboard(
                         }
                     }
                 }
-                val agenda = ui.records.filter { !it.completed && it.kind in listOf("task", "event", "reminder") &&
-                    (dueToday(it.dueAt) || overdue(it.dueAt)) }.sortedBy { it.dueAt }
+                val agenda = ui.records.filter { !it.completed &&
+                    ((it.kind == "event" && dueToday(it.dueAt)) ||
+                        (it.kind in listOf("task", "reminder") && (dueToday(it.dueAt) || overdue(it.dueAt)))) }.sortedBy { it.dueAt }
                 item(key = "agenda_heading") {
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                         Text("Your agenda", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
