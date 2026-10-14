@@ -1,16 +1,16 @@
 {
   "schemaVersion": 1,
   "packageName": "gagachat.app",
-  "latestVersionCode": 55,
-  "latestVersionName": "2.8.0",
+  "latestVersionCode": 56,
+  "latestVersionName": "2.8.1",
   "minimumSupportedVersionCode": 0,
-  "publishedAt": "2026-10-14T03:10:00Z",
-  "releaseNotes": "GaGa 2.8.0: refreshed green light/dark design, rounded conversation and settings cards, new Today header, notification multi-select dismissal and older-page loading, and explicit location map preview. Signed with the same approved certificate as 2.7.9. Full bespoke screen redesign and real-device validation continue.",
+  "publishedAt": "2026-10-14T08:35:26.170847Z",
+  "releaseNotes": "GaGa 2.8.1: redesigned Today with a compact header, readable summary tiles, focused create actions, actionable due/overdue agenda, historical-event filtering, and expandable secondary tools. Loading and errors are distinct from an empty day. Uses the same approved signing certificate as 2.7.9 and 2.8.0.",
   "channels": {
     "apk": {
-      "versionCode": 55,
+      "versionCode": 56,
       "url": "https://gagachat.app/downloads/gaga-latest.apk",
-      "sha256": "3cca97fa6eee664bc24de8a166dbecaaee058a0be9b31a5bd8fa30e932183f39",
+      "sha256": "2a69fbf2b2a485321520ec234806fa808a6fb68f21abfa8402d4eed38e66cbc5",
       "sizeBytes": 47845224
     },
     "play": {

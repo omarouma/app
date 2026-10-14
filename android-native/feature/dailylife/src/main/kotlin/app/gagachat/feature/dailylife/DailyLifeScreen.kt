@@ -25,6 +25,9 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -103,24 +106,22 @@ private fun Status(ui: DailyUi, vm: DailyLifeViewModel) {
     }
 }
 
-/** Compact count tile used by the "Today at a glance" summary card. */
+/** Summary tiles remain readable without fixed-height or single-line text clipping. */
 @Composable
-private fun GlanceStat(label: String, value: Int, modifier: Modifier = Modifier) {
-    Column(
-        modifier = modifier,
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(2.dp),
-    ) {
-        Text("$value", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-        Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+private fun GlanceStat(label: String, value: Int?, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    Surface(onClick = onClick, modifier = modifier, shape = MaterialTheme.shapes.large,
+        color = MaterialTheme.colorScheme.surface) {
+        Column(Modifier.heightIn(min = 88.dp).padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(value?.toString() ?: "—", style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+            Text(label, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
     }
 }
 
 @Composable
 fun DailyHome(nav: NavController, onSaved: () -> Unit, onChat: (String) -> Unit, vm: DailyLifeViewModel = hiltViewModel()) {
     val ui by vm.state.collectAsStateWithLifecycle()
-    val context = LocalContext.current
-    val fontScale = LocalDensity.current.fontScale
     // Recompute due sections while Today remains open, including midnight rollover.
     val lifecycleOwner = LocalLifecycleOwner.current
     var dashboardNow by remember { mutableStateOf(Instant.now()) }
@@ -132,14 +133,43 @@ fun DailyHome(nav: NavController, onSaved: () -> Unit, onChat: (String) -> Unit,
             }
         }
     }
-    val dashboardTime = TodayTimePolicy(dashboardNow, ZoneId.systemDefault())
     ResumeRefresh(vm)
+    TodayDashboard(ui, dashboardNow, vm.userId, onRefresh = { vm.refresh() },
+        onNavigate = { nav.navigate(it) }, onSaved = onSaved, onChat = onChat,
+        onComplete = { vm.complete(it) })
+}
+
+/** The production Today surface, separated from lifecycle/navigation for native visual checks. */
+@Composable
+fun TodayDashboard(
+    ui: DailyUi,
+    dashboardNow: Instant,
+    userId: String,
+    onRefresh: () -> Unit,
+    onNavigate: (String) -> Unit,
+    onSaved: () -> Unit,
+    onChat: (String) -> Unit,
+    onComplete: (DailyRecord) -> Unit,
+) {
+    val context = LocalContext.current
+    val fontScale = LocalDensity.current.fontScale
+    val dashboardTime = TodayTimePolicy(dashboardNow, ZoneId.systemDefault())
+    var toolsExpanded by rememberSaveable { mutableStateOf(false) }
+    var moreActions by rememberSaveable { mutableStateOf(false) }
+    if (moreActions) AlertDialog(onDismissRequest = { moreActions = false },
+        title = { Text("Create a record") },
+        text = { Column { listOf("expense", "income", "note").forEach { kind ->
+            TextButton(onClick = { moreActions = false; onNavigate(DailyRoutes.edit(kind)) }, modifier = Modifier.fillMaxWidth()) {
+                Text("Add ${labels[kind]}")
+            }
+        } } }, confirmButton = { TextButton(onClick = { moreActions = false }) { Text("Close") } })
     val sections = listOf("task" to Icons.Default.TaskAlt, "event" to Icons.Default.Event, "reminder" to Icons.Default.NotificationsActive, "money" to Icons.Default.AccountBalanceWallet, "shopping" to Icons.Default.ShoppingCart, "debts" to Icons.Default.People, "goal" to Icons.Default.Savings, "budget" to Icons.Default.PieChart, "account" to Icons.Default.AccountBalance, "note" to Icons.AutoMirrored.Filled.Note)
-    GagaScaffold(title = "GaGa Today", actions = { IconButton(onClick = { vm.refresh() }) { Icon(Icons.Default.Refresh, "Refresh") } }) { padding ->
+    GagaScaffold(title = "GaGa Today", actions = { IconButton(onClick = onRefresh, enabled = !ui.loading && !ui.busy) { Icon(Icons.Default.Refresh, "Refresh") } }) { padding ->
         BoxWithConstraints(Modifier.fillMaxSize().padding(padding)) {
-            val columns = if (maxWidth < 340.dp || fontScale > 1.2f) 1 else 2
-            val statsPerRow = if (maxWidth < 480.dp || fontScale > 1.2f) 2 else 4
-            LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            val largeText = fontScale > 1.2f || MaterialTheme.typography.bodyLarge.fontSize.value > 19f
+            val columns = if (maxWidth < 340.dp || largeText) 1 else 2
+            val statsPerRow = if (maxWidth < 480.dp || largeText) 2 else 4
+            LazyColumn(Modifier.fillMaxSize().testTag("today_content"), contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 item {
                     val greeting = when (dashboardNow.atZone(ZoneId.systemDefault()).hour) {
                         in 5..11 -> "Good morning"
@@ -147,16 +177,27 @@ fun DailyHome(nav: NavController, onSaved: () -> Unit, onChat: (String) -> Unit,
                         in 17..21 -> "Good evening"
                         else -> "Good night"
                     }
-                    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer), modifier = Modifier.fillMaxWidth()) {
-                        Column(Modifier.padding(22.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Text(dashboardNow.atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofPattern("EEEE, d MMMM")), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onPrimaryContainer)
-                            Text("$greeting", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimaryContainer)
-                            Text("Make room for what matters.", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onPrimaryContainer)
-                            Text("Your chats, tasks and plans — together.", color = MaterialTheme.colorScheme.onPrimaryContainer, style = MaterialTheme.typography.bodyMedium)
+                    Surface(color = MaterialTheme.colorScheme.surfaceVariant, shape = MaterialTheme.shapes.large, modifier = Modifier.fillMaxWidth()) {
+                        Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Text("$greeting · ${dashboardNow.atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofPattern("EEE, d MMM"))}",
+                                style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f))
+                            Text("Plan your day", style = MaterialTheme.typography.headlineSmall,
+                                fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                            Text("Start with what matters.", style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f))
                         }
                     }
                 }
-                item { Status(ui, vm) }
+                if (ui.loading) item(key = "loading") { LinearProgressIndicator(Modifier.fillMaxWidth()) }
+                ui.error?.let { error -> item(key = "error") {
+                    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)) {
+                        Column(Modifier.padding(16.dp)) {
+                            Text("Couldn't refresh your day", fontWeight = FontWeight.Bold)
+                            Text(error, style = MaterialTheme.typography.bodyMedium)
+                            TextButton(onClick = onRefresh, enabled = !ui.busy && !ui.loading) { Text("Retry loading") }
+                        }
+                    }
+                } }
                 ui.availableAppUpdate?.let { update ->
                     item(key = "available_app_update") {
                         Card(Modifier.fillMaxWidth()) {
@@ -185,63 +226,75 @@ fun DailyHome(nav: NavController, onSaved: () -> Unit, onChat: (String) -> Unit,
                 val overdueTasks = glanceTasks.filter { overdue(it.dueAt) }
                 val overdueReminders = glanceReminders.filter { overdue(it.dueAt) }
                 val unreadTotal = ui.conversations.filter { !it.isArchived }.sumOf { it.unreadCount }
-                item {
-                    Card(Modifier.fillMaxWidth()) {
-                        Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(Icons.Default.Today, null, tint = MaterialTheme.colorScheme.primary)
-                                Spacer(Modifier.width(10.dp))
-                                Text("Today at a glance", fontWeight = FontWeight.Bold)
-                            }
-                            // Keep every label readable at large font sizes and
-                            // on 320–400dp Android phones (not four tiny columns).
-                            val stats = listOf(
-                                "Tasks due" to tasksDueToday,
-                                "Events" to eventsToday,
-                                "Reminders due" to glanceReminders.count { dueToday(it.dueAt) },
-                                "Unread" to unreadTotal,
-                            )
-                            stats.chunked(statsPerRow).forEach { rowStats ->
-                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    rowStats.forEach { (label, count) ->
-                                        GlanceStat(label, count, Modifier.weight(1f))
+                item(key = "summary") {
+                    val available = !ui.loading && ui.error == null
+                    val stats = listOf("Tasks due" to tasksDueToday, "Events today" to eventsToday,
+                        "Reminders due" to glanceReminders.count { dueToday(it.dueAt) }, "Unread messages" to unreadTotal)
+                    val destinations = listOf("task", "event", "reminder", "messages")
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        stats.indices.toList().chunked(statsPerRow).forEach { indices ->
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                indices.forEach { index ->
+                                    GlanceStat(stats[index].first, if (available) stats[index].second else null, Modifier.weight(1f)) {
+                                        if (index == 3) onNavigate("home") else onNavigate(DailyRoutes.records(destinations[index]))
                                     }
                                 }
                             }
-                        }
-                    }
-                }
-                if (overdueTasks.isNotEmpty() || overdueReminders.isNotEmpty()) item {
-                    Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)) {
-                        Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(Icons.Default.WarningAmber, null, tint = MaterialTheme.colorScheme.error)
-                                Spacer(Modifier.width(10.dp))
-                                Text("Overdue", fontWeight = FontWeight.Bold)
-                                Spacer(Modifier.weight(1f))
-                                Text("${overdueTasks.size + overdueReminders.size}", fontWeight = FontWeight.Bold)
-                            }
-                            overdueTasks.take(2).forEach { Text("\u2022 ${it.title} \u00b7 due ${date(it.dueAt)}", style = MaterialTheme.typography.bodyMedium) }
-                            overdueReminders.take(2).forEach { Text("\u2022 ${it.title} \u00b7 due ${date(it.dueAt)}", style = MaterialTheme.typography.bodyMedium) }
                         }
                     }
                 }
                 item(key = "quick_actions") {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text("Quick actions", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                        listOf("task", "event", "reminder", "expense", "income", "note")
-                            .chunked(2)
-                            .forEach { pair ->
-                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    pair.forEach { kind ->
-                                        FilledTonalButton(
-                                            onClick = { nav.navigate(DailyRoutes.edit(kind)) },
-                                            modifier = Modifier.weight(1f).heightIn(min = 48.dp),
-                                        ) { Text("Add ${labels[kind]}", maxLines = 2) }
+                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                            Text("Create", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                            TextButton(onClick = { moreActions = true }) { Text("More") }
+                        }
+                        listOf("task", "event", "reminder").chunked(if (columns == 1) 1 else 3).forEach { actions ->
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                actions.forEach { kind ->
+                                    FilledTonalButton(onClick = { onNavigate(DailyRoutes.edit(kind)) }, modifier = Modifier.weight(1f).heightIn(min = 48.dp),
+                                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 12.dp)) {
+                                        Text(labels.getValue(kind))
                                     }
                                 }
                             }
+                        }
                     }
+                }
+                val agenda = ui.records.filter { !it.completed &&
+                    ((it.kind == "event" && dueToday(it.dueAt)) ||
+                        (it.kind in listOf("task", "reminder") && (dueToday(it.dueAt) || overdue(it.dueAt)))) }.sortedBy { it.dueAt }
+                item(key = "agenda_heading") {
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Text("Your agenda", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                        if (overdueTasks.isNotEmpty() || overdueReminders.isNotEmpty()) Text("${overdueTasks.size + overdueReminders.size} overdue", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.labelMedium)
+                    }
+                }
+                if (agenda.isEmpty()) item(key = "agenda_empty") {
+                    Surface(Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surface) {
+                        Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Text(when { ui.loading -> "Loading your agenda…"; ui.error != null -> "Your agenda is unavailable"; else -> "Nothing due today" }, fontWeight = FontWeight.SemiBold)
+                            Text(if (ui.loading || ui.error != null) "Your records will appear after loading succeeds." else "Add a task or reminder above to plan your day.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                }
+                items(agenda.take(5), key = { "agenda-${it.id}" }) { record ->
+                    Surface(onClick = { onNavigate(DailyRoutes.edit(record.kind, id = record.id)) }, modifier = Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surface) {
+                        Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                            if (record.kind != "event") Checkbox(checked = false, onCheckedChange = { onComplete(record) }, enabled = !ui.busy && !ui.loading,
+                                modifier = Modifier.semantics { contentDescription = "Complete ${record.title}" })
+                            else Icon(Icons.Default.Event, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(12.dp))
+                            Column(Modifier.weight(1f).padding(horizontal = 4.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Text(record.title, fontWeight = FontWeight.SemiBold)
+                                Text("${labels[record.kind]} · ${if (overdue(record.dueAt)) "Overdue · " else ""}${date(record.dueAt)}", style = MaterialTheme.typography.bodySmall,
+                                    color = if (overdue(record.dueAt)) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            Icon(Icons.Default.ChevronRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                }
+                if (agenda.size > 5) item(key = "agenda_more") {
+                    Text("Showing 5 of ${agenda.size} due records. Open Tasks, Events or Reminders in your tools to see all.", style = MaterialTheme.typography.bodySmall)
                 }
                 val needsReply = ui.conversations
                     .filter { it.unreadCount > 0 && !it.isArchived }
@@ -261,7 +314,7 @@ fun DailyHome(nav: NavController, onSaved: () -> Unit, onChat: (String) -> Unit,
                                     verticalAlignment = Alignment.CenterVertically,
                                 ) {
                                     Column(Modifier.weight(1f)) {
-                                        Text(conversation.displayTitle(vm.userId), fontWeight = FontWeight.SemiBold)
+                                        Text(conversation.displayTitle(userId), fontWeight = FontWeight.SemiBold)
                                         conversation.lastMessagePreview?.takeIf { it.isNotBlank() }?.let {
                                             Text(it, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall)
                                         }
@@ -276,10 +329,10 @@ fun DailyHome(nav: NavController, onSaved: () -> Unit, onChat: (String) -> Unit,
                 val upcomingEvents = ui.records
                     .filter { it.kind == "event" && !it.completed }
                     .mapNotNull { record -> record.dueAt?.let { runCatching { Instant.parse(it) }.getOrNull() }?.let { record to it } }
-                    .filter { (_, due) -> dashboardTime.isUpcoming(due.toString()) }
+                    .filter { (_, due) -> dashboardTime.isUpcoming(due.toString()) && !dashboardTime.isDueToday(due.toString()) }
                     .sortedBy { it.second }
                 if (upcomingEvents.isNotEmpty()) item {
-                    Card(Modifier.fillMaxWidth().clickable { nav.navigate(DailyRoutes.records("event")) }) {
+                    Card(Modifier.fillMaxWidth().clickable { onNavigate(DailyRoutes.records("event")) }) {
                         Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Icon(Icons.Default.Event, null, tint = MaterialTheme.colorScheme.primary)
@@ -293,19 +346,6 @@ fun DailyHome(nav: NavController, onSaved: () -> Unit, onChat: (String) -> Unit,
                     }
                 }
 
-                item(key = "china_direct_entry") {
-                    Card(
-                        onClick = { nav.navigate(DailyRoutes.CHINA_DIRECT) },
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
-                    ) {
-                        Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Text("🇨🇳 GaGa China Direct", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                            Text("Shop in China · Delivered to Bangladesh")
-                            Text("Preview only · Supplier prices and checkout are not live", style = MaterialTheme.typography.labelSmall)
-                        }
-                    }
-                }
                 val missedCallEvents = ui.calls
                     .filter { it.status == CallStatus.MISSED && !it.isOutgoing && it.conversationId.isNotBlank() }
                     .sortedByDescending { it.startedAt }
@@ -339,9 +379,9 @@ fun DailyHome(nav: NavController, onSaved: () -> Unit, onChat: (String) -> Unit,
                     }
                 }
 
-                val myOpenSplitShares = ui.splitMembers.filter { it.userId == vm.userId && !it.settled }
+                val myOpenSplitShares = ui.splitMembers.filter { it.userId == userId && !it.settled }
                 if (ui.splitError != null && ui.splitBills.isEmpty()) item {
-                    Card(Modifier.fillMaxWidth().clickable { nav.navigate(DailyRoutes.SPLITS) }) {
+                    Card(Modifier.fillMaxWidth().clickable { onNavigate(DailyRoutes.SPLITS) }) {
                         Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.Default.Groups, null, tint = MaterialTheme.colorScheme.error)
                             Spacer(Modifier.width(12.dp))
@@ -363,7 +403,7 @@ fun DailyHome(nav: NavController, onSaved: () -> Unit, onChat: (String) -> Unit,
                     } else {
                         "${ui.splitBills.size} tracked ${if (ui.splitBills.size == 1) "bill" else "bills"}"
                     }
-                    Card(Modifier.fillMaxWidth().clickable { nav.navigate(DailyRoutes.SPLITS) }) {
+                    Card(Modifier.fillMaxWidth().clickable { onNavigate(DailyRoutes.SPLITS) }) {
                         Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.Default.Groups, null, tint = MaterialTheme.colorScheme.primary)
                             Spacer(Modifier.width(12.dp))
@@ -377,7 +417,7 @@ fun DailyHome(nav: NavController, onSaved: () -> Unit, onChat: (String) -> Unit,
                 }
 
                 item {
-                    Card(Modifier.fillMaxWidth().clickable { nav.navigate(DailyRoutes.SAFE) }) {
+                    Card(Modifier.fillMaxWidth().clickable { onNavigate(DailyRoutes.SAFE) }) {
                         Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.Default.HealthAndSafety, null, tint = MaterialTheme.colorScheme.primary)
                             Spacer(Modifier.width(12.dp))
@@ -390,31 +430,27 @@ fun DailyHome(nav: NavController, onSaved: () -> Unit, onChat: (String) -> Unit,
                     }
                 }
 
-                val tasks = ui.records.filter { it.kind == "task" && !it.completed }
-                if (tasks.isNotEmpty()) item {
-                    val dueToday = tasks.count { it.dueAt?.let { due -> runCatching { Instant.parse(due).atZone(ZoneId.systemDefault()).toLocalDate() == LocalDate.now() }.getOrDefault(false) } == true }
-                    Card(Modifier.fillMaxWidth().clickable { nav.navigate(DailyRoutes.records("task")) }) {
-                        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.TaskAlt, null, tint = MaterialTheme.colorScheme.primary)
-                            Spacer(Modifier.width(12.dp))
-                            Column(Modifier.weight(1f)) { Text("${tasks.size} open tasks", fontWeight = FontWeight.SemiBold); Text("$dueToday due today", style = MaterialTheme.typography.bodySmall) }
-                            Icon(Icons.Default.ChevronRight, null)
+                item(key = "tools_toggle") {
+                    OutlinedButton(onClick = { toolsExpanded = !toolsExpanded }, modifier = Modifier.fillMaxWidth()) {
+                        Text(if (toolsExpanded) "Hide your tools" else "Explore your tools")
+                        Spacer(Modifier.width(8.dp)); Icon(if (toolsExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore, null)
+                    }
+                }
+                if (toolsExpanded) {
+                item(key = "china_direct_entry") {
+                    Card(
+                        onClick = { onNavigate(DailyRoutes.CHINA_DIRECT) },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+                    ) {
+                        Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text("🇨🇳 GaGa China Direct", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                            Text("Shop in China · Delivered to Bangladesh")
+                            Text("Preview only · Supplier prices and checkout are not live", style = MaterialTheme.typography.labelSmall)
                         }
                     }
                 }
-                val reminders = ui.records.filter { it.kind == "reminder" && !it.completed }
-                if (reminders.isNotEmpty()) item {
-                    val overdue = reminders.count { it.dueAt?.let { due -> Instant.parse(due).isBefore(Instant.now()) } == true }
-                    Card(Modifier.fillMaxWidth().clickable { nav.navigate(DailyRoutes.records("reminder")) }) {
-                        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.NotificationsActive, null, tint = MaterialTheme.colorScheme.primary)
-                            Spacer(Modifier.width(12.dp))
-                            Column(Modifier.weight(1f)) { Text("${reminders.size} pending reminders", fontWeight = FontWeight.SemiBold); Text("$overdue overdue", style = MaterialTheme.typography.bodySmall) }
-                            Icon(Icons.Default.ChevronRight, null)
-                        }
-                    }
-                }
-                val current = ui.records.filter { month(it.happenedAt) == YearMonth.now() }
+                val current = ui.records.filter { month(it.happenedAt) == YearMonth.from(dashboardNow.atZone(ZoneId.systemDefault())) }
                 items(current.filter { it.kind in listOf("income", "expense") }.map { it.currency }.distinct()) { currency ->
                     val income = current.filter { it.kind == "income" && it.currency == currency }.sumOf { it.amountMinor }
                     val expense = current.filter { it.kind == "expense" && it.currency == currency }.sumOf { it.amountMinor }
@@ -436,7 +472,7 @@ fun DailyHome(nav: NavController, onSaved: () -> Unit, onChat: (String) -> Unit,
                 items(sections.chunked(columns)) { row ->
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         row.forEach { (section, icon) ->
-                            Card(Modifier.weight(1f).clickable { nav.navigate(DailyRoutes.records(section)) }) {
+                            Card(Modifier.weight(1f).clickable { onNavigate(DailyRoutes.records(section)) }) {
                                 Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                     Icon(icon, null, tint = MaterialTheme.colorScheme.primary)
                                     Text(title(section), fontWeight = FontWeight.SemiBold)
@@ -446,6 +482,7 @@ fun DailyHome(nav: NavController, onSaved: () -> Unit, onChat: (String) -> Unit,
                             }
                         }
                     }
+                }
                 }
                 item { OutlinedButton(onClick = onSaved, modifier = Modifier.fillMaxWidth()) { Icon(Icons.Default.Bookmark, null); Spacer(Modifier.width(8.dp)); Text("Saved messages") } }
                 item { Text("Personal records stay private. Only your chosen members can see shared shopping lists. Recorded amounts are not money held by GaGa.", style = MaterialTheme.typography.bodySmall) }
