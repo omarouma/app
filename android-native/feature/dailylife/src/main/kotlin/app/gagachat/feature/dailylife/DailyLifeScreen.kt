@@ -196,20 +196,6 @@ fun DailyHome(nav: NavController, onSaved: () -> Unit, onChat: (String) -> Unit,
                         }
                     }
                 }
-                item(key = "china_direct_entry") {
-                    Card(
-                        onClick = { nav.navigate(DailyRoutes.CHINA_DIRECT) },
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
-                    ) {
-                        Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                            Text("🇨🇳 GaGa China Direct", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                            Text("Shop in China · Delivered to Bangladesh")
-                            Text("Explore products, categories and demo cart", style = MaterialTheme.typography.bodySmall)
-                            Text("Preview only · Supplier prices and checkout are not live", style = MaterialTheme.typography.labelSmall)
-                        }
-                    }
-                }
                 if (overdueTasks.isNotEmpty() || overdueReminders.isNotEmpty()) item {
                     Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)) {
                         Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -227,7 +213,7 @@ fun DailyHome(nav: NavController, onSaved: () -> Unit, onChat: (String) -> Unit,
                 }
                 item(key = "quick_actions") {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text("Quick add", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                        Text("Quick actions", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                         listOf("task", "event", "reminder", "expense", "income", "note")
                             .chunked(2)
                             .forEach { pair ->
@@ -292,6 +278,19 @@ fun DailyHome(nav: NavController, onSaved: () -> Unit, onChat: (String) -> Unit,
                     }
                 }
 
+                item(key = "china_direct_entry") {
+                    Card(
+                        onClick = { nav.navigate(DailyRoutes.CHINA_DIRECT) },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+                    ) {
+                        Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text("🇨🇳 GaGa China Direct", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                            Text("Shop in China · Delivered to Bangladesh")
+                            Text("Preview only · Supplier prices and checkout are not live", style = MaterialTheme.typography.labelSmall)
+                        }
+                    }
+                }
                 val missedCallEvents = ui.calls
                     .filter { it.status == CallStatus.MISSED && !it.isOutgoing && it.conversationId.isNotBlank() }
                     .sortedByDescending { it.startedAt }
