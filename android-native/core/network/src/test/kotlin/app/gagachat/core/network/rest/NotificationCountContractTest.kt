@@ -24,7 +24,7 @@ class NotificationCountContractTest {
         val engine = MockEngine { request ->
             assertEquals(HttpMethod.Head, request.method)
             assertEquals("eq.a", request.url.parameters["user_id"])
-            assertEquals("eq.false", request.url.parameters["read"])
+            assertEquals("(read.eq.false,read.is.null)", request.url.parameters["or"])
             assertEquals("count=exact", request.headers["Prefer"])
             assertEquals("Bearer test-token", request.headers["Authorization"])
             respond("", HttpStatusCode.PartialContent, headersOf("Content-Range", "0-0/83"))

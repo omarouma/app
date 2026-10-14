@@ -1034,7 +1034,7 @@ class SupabaseRestApi @Inject constructor(
             auth()
             parameter("select", "id")
             parameter("user_id", "eq.$userId")
-            parameter("read", "eq.false")
+            parameter("or", "(read.eq.false,read.is.null)")
             parameter("limit", 1)
             header("Prefer", "count=exact")
         }
@@ -1059,7 +1059,7 @@ class SupabaseRestApi @Inject constructor(
         client.patch("${config.restUrl}/notifications") {
             auth()
             parameter("user_id", "eq.$userId")
-            parameter("read", "eq.false")
+            parameter("or", "(read.eq.false,read.is.null)")
             header("Prefer", "return=minimal")
             contentType(ContentType.Application.Json)
             setBody(mapOf("read" to true))
