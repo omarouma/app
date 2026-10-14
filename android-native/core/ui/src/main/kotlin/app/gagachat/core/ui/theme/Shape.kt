@@ -6,23 +6,23 @@ import androidx.compose.ui.unit.dp
 
 val GagaShapes = Shapes(
     extraSmall = RoundedCornerShape(6.dp),
-    small = RoundedCornerShape(10.dp),
-    medium = RoundedCornerShape(14.dp),
-    large = RoundedCornerShape(20.dp),
+    small = RoundedCornerShape(20.dp),
+    medium = RoundedCornerShape(20.dp),
+    large = RoundedCornerShape(24.dp),
     extraLarge = RoundedCornerShape(28.dp),
 )
 
 /** Chat bubble corner radii — asymmetric so the "tail" side is tighter. */
 val OutgoingBubbleShape = RoundedCornerShape(
-    topStart = 18.dp,
-    topEnd = 18.dp,
-    bottomStart = 18.dp,
+    topStart = 20.dp,
+    topEnd = 20.dp,
+    bottomStart = 20.dp,
     bottomEnd = 4.dp,
 )
 
 val IncomingBubbleShape = RoundedCornerShape(
-    topStart = 18.dp,
-    topEnd = 18.dp,
+    topStart = 20.dp,
+    topEnd = 20.dp,
     bottomStart = 4.dp,
-    bottomEnd = 18.dp,
+    bottomEnd = 20.dp,
 )

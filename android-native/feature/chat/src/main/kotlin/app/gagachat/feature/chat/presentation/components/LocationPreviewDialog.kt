@@ -1,5 +1,11 @@
 package app.gagachat.feature.chat.presentation.components
 
+import androidx.compose.foundation.layout.height
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Surface
+import android.net.Uri
+import android.content.Intent
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -34,6 +40,7 @@ fun LocationPreviewDialog(
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,
 ) {
+    val context = LocalContext.current
     AlertDialog(
         onDismissRequest = onDismiss,
         icon = {
@@ -43,9 +50,20 @@ fun LocationPreviewDialog(
                 tint = MaterialTheme.colorScheme.primary,
             )
         },
-        title = { Text("Share this location?") },
+        title = { Text("Share a location") },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Surface(color = MaterialTheme.colorScheme.primaryContainer, shape = MaterialTheme.shapes.large, modifier = Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(Icons.Filled.LocationOn, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(48.dp))
+                        Text("Your selected pin", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        Text("Check the exact place before sending", style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+                OutlinedButton(onClick = {
+                    val point = "${preview.latitude},${preview.longitude}"
+                    runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("geo:$point?q=$point"))) }
+                }, modifier = Modifier.fillMaxWidth()) { Text("Preview in Maps") }
                 Text(
                     text = String.format(
                         Locale.US,

@@ -90,7 +90,7 @@ fun GagaTopAppBar(
                         Text(
                             text = title,
                             style = MaterialTheme.typography.titleLarge,
-                            fontWeight = if (brandMark) FontWeight.ExtraBold else FontWeight.SemiBold,
+                            fontWeight = if (brandMark) FontWeight.ExtraBold else FontWeight.Bold,
                             color = if (brandMark) {
                                 MaterialTheme.colorScheme.primary
                             } else {
@@ -104,7 +104,7 @@ fun GagaTopAppBar(
                             Text(
                                 text = title,
                                 style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.SemiBold,
+                                fontWeight = FontWeight.Bold,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
                             )
@@ -137,7 +137,7 @@ fun GagaTopAppBar(
         if (showDivider) {
             HorizontalDivider(
                 thickness = GagaDimens.hairline,
-                color = MaterialTheme.colorScheme.outlineVariant,
+                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f),
             )
         }
     }

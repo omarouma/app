@@ -1,5 +1,12 @@
 package app.gagachat.feature.settings.presentation
 
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Card
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.background
 import java.time.Instant
 import java.time.LocalDate
@@ -66,6 +73,7 @@ import app.gagachat.core.ui.util.TimeFormat
  * LIVE `notifications` table, shows an unread dot per row, and offers a single
  * "Mark all read" action.
  */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun NotificationInboxScreen(
     onBack: () -> Unit,
@@ -76,6 +84,20 @@ fun NotificationInboxScreen(
     val busy by viewModel.busy.collectAsStateWithLifecycle()
     val notice by viewModel.notice.collectAsStateWithLifecycle()
     val unread by viewModel.unreadCount.collectAsStateWithLifecycle()
+    val hasMore by viewModel.hasMore.collectAsStateWithLifecycle()
+    var selected by remember { mutableStateOf(setOf<String>()) }
+    var confirmDismiss by remember { mutableStateOf(false) }
+    LaunchedEffect(state) {
+        val current = (state as? app.gagachat.core.ui.state.ScreenState.Content<List<AppNotification>>)?.data?.map { it.id }?.toSet().orEmpty()
+        selected = selected.intersect(current)
+    }
+    if (confirmDismiss) AlertDialog(
+        onDismissRequest = { confirmDismiss = false },
+        title = { Text("Dismiss ${selected.size} notifications?") },
+        text = { Text("This removes them from your notification inbox. Chats and tasks stay available.") },
+        confirmButton = { TextButton(onClick = { viewModel.dismiss(selected.toList()); selected = emptySet(); confirmDismiss = false }) { Text("Dismiss") } },
+        dismissButton = { TextButton(onClick = { confirmDismiss = false }) { Text("Keep") } },
+    )
     var activeFilter by rememberSaveable { mutableStateOf("All") }
     var searchQuery by rememberSaveable { mutableStateOf("") }
     val filters = listOf("All", "Unread", "Mentions", "Calls", "Tasks", "People", "Shopping")
@@ -93,6 +115,16 @@ fun NotificationInboxScreen(
     ) { padding ->
         Column(Modifier.fillMaxSize().padding(padding)) {
         if (busy) LinearProgressIndicator()
+        Card(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)) {
+            Column(Modifier.padding(18.dp)) {
+                Text(if (unread == 0) "You're all caught up" else "$unread unread updates", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                Text("Messages, people and plans. Long-press to select.", style = MaterialTheme.typography.bodyMedium)
+            }
+        }
+        if (selected.isNotEmpty()) Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+            TextButton(onClick = { selected = emptySet() }) { Text("Clear (${selected.size})") }
+            TextButton(onClick = { confirmDismiss = true }, enabled = !busy) { Text("Dismiss selected") }
+        }
         Row(
             modifier = Modifier.fillMaxWidth()
                 .horizontalScroll(rememberScrollState())
@@ -167,11 +199,20 @@ fun NotificationInboxScreen(
                         previousSection = section
                     }
                     item(key = notification.id) {
-                        NotificationRowItem(
-                            notification = notification,
-                            onClick = { if (!notification.read) viewModel.markRead(notification.id); onOpenNotification(notification) },
-                        )
+                        Row(Modifier.fillMaxWidth().combinedClickable(
+                            onClick = {
+                                if (selected.isNotEmpty()) selected = if (notification.id in selected) selected - notification.id else (selected + notification.id).take(100).toSet()
+                                else { if (!notification.read) viewModel.markRead(notification.id); onOpenNotification(notification) }
+                            },
+                            onLongClick = { selected = (selected + notification.id).take(100).toSet() },
+                        ), verticalAlignment = Alignment.CenterVertically) {
+                            if (selected.isNotEmpty()) Checkbox(checked = notification.id in selected, onCheckedChange = { checked -> selected = if (checked) (selected + notification.id).take(100).toSet() else selected - notification.id })
+                            Box(Modifier.weight(1f)) { NotificationRowItem(notification, onClick = null) }
+                        }
                     }
+                }
+                if (hasMore) item(key = "load_older_notifications") {
+                    TextButton(onClick = { viewModel.loadMore() }, enabled = !busy, modifier = Modifier.fillMaxWidth().padding(12.dp)) { Text("Load older updates") }
                 }
             }
         }
@@ -180,7 +221,7 @@ fun NotificationInboxScreen(
 }
 
 @Composable
-private fun NotificationRowItem(notification: AppNotification, onClick: () -> Unit) {
+private fun NotificationRowItem(notification: AppNotification, onClick: (() -> Unit)?) {
     GagaListRow(
         title = notification.title?.takeIf { it.isNotBlank() } ?: defaultTitle(notification.type),
         subtitle = buildString {

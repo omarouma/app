@@ -35,20 +35,20 @@ val GagaTypography = Typography(
     titleLarge = TextStyle(
         fontFamily = FontFamily.Default,
         fontWeight = FontWeight.SemiBold,
-        fontSize = 20.sp,
-        lineHeight = 28.sp,
+        fontSize = 23.sp,
+        lineHeight = 30.sp,
     ),
     titleMedium = TextStyle(
         fontFamily = FontFamily.Default,
         fontWeight = FontWeight.SemiBold,
         fontSize = 16.sp,
-        lineHeight = 22.sp,
+        lineHeight = 24.sp,
     ),
     bodyLarge = TextStyle(
         fontFamily = FontFamily.Default,
         fontWeight = FontWeight.Normal,
         fontSize = 16.sp,
-        lineHeight = 22.sp,
+        lineHeight = 24.sp,
     ),
     bodyMedium = TextStyle(
         fontFamily = FontFamily.Default,

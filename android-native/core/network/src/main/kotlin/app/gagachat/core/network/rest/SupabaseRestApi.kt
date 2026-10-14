@@ -1024,9 +1024,26 @@ class SupabaseRestApi @Inject constructor(
             auth()
             parameter("select", "*")
             parameter("user_id", "eq.$userId")
-            parameter("order", "created_at.desc")
+            parameter("order", "created_at.desc,id.desc")
             parameter("limit", limit)
         }.body()
+
+    suspend fun getNotificationsPage(userId: String, offset: Int): List<NotificationRow> =
+        client.get("${config.restUrl}/notifications") {
+            require(offset >= 0)
+            auth(); parameter("select", "*"); parameter("user_id", "eq.$userId")
+            parameter("order", "created_at.desc,id.desc"); parameter("limit", 50); parameter("offset", offset)
+        }.body()
+
+    suspend fun dismissNotifications(userId: String, ids: List<String>) {
+        require(ids.isNotEmpty() && ids.size <= 100)
+        require(ids.all { it.matches(Regex("[a-zA-Z0-9-]+")) })
+        val removed: List<NotificationRow> = client.delete("${config.restUrl}/notifications") {
+            auth(); parameter("user_id", "eq.$userId"); parameter("id", "in.(${ids.distinct().joinToString(",")})")
+            header("Prefer", "return=representation")
+        }.body()
+        check(removed.map { it.id }.toSet() == ids.toSet()) { "Some notifications could not be dismissed" }
+    }
 
     /** Exact unread count across all pages, protected by the caller's RLS. */
     suspend fun getUnreadNotificationCount(userId: String): Int {

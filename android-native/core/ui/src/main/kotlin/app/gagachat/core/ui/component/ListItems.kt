@@ -1,5 +1,8 @@
 package app.gagachat.core.ui.component
 
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -45,7 +48,10 @@ fun GagaSettingsRow(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .heightIn(min = GagaDimens.listItemMinHeight)
+            .padding(horizontal = 12.dp, vertical = 4.dp)
+            .clip(MaterialTheme.shapes.large)
+            .background(MaterialTheme.colorScheme.surface)
+            .heightIn(min = 68.dp)
             .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
             .padding(horizontal = GagaDimens.space16, vertical = GagaDimens.space8),
         verticalAlignment = Alignment.CenterVertically,
@@ -55,7 +61,10 @@ fun GagaSettingsRow(
                 imageVector = leadingIcon,
                 contentDescription = null,
                 tint = leadingIconTint,
-                modifier = Modifier.size(GagaDimens.iconMedium),
+                modifier = Modifier
+                    .background(MaterialTheme.colorScheme.primaryContainer, MaterialTheme.shapes.medium)
+                    .padding(10.dp)
+                    .size(GagaDimens.iconMedium),
             )
             Spacer(Modifier.width(GagaDimens.space16))
         }
@@ -102,7 +111,10 @@ fun GagaListRow(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .heightIn(min = GagaDimens.listItemMinHeight)
+            .padding(horizontal = 12.dp, vertical = 4.dp)
+            .clip(MaterialTheme.shapes.large)
+            .background(MaterialTheme.colorScheme.surface)
+            .heightIn(min = 68.dp)
             .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
             .padding(horizontal = GagaDimens.space16, vertical = GagaDimens.space8),
         verticalAlignment = Alignment.CenterVertically,

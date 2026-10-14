@@ -37,6 +37,21 @@ class MutationContractTest {
         finally { client.close() }
     }
 
+    @Test fun dismissalUsesOwnerScopeAndChecksReturnedIds() = runBlocking {
+        val engine = MockEngine { request ->
+            assertEquals(HttpMethod.Delete, request.method)
+            assertEquals("eq.owner", request.url.parameters["user_id"])
+            assertEquals("in.(n)", request.url.parameters["id"])
+            assertEquals("Bearer test-session", request.headers["Authorization"])
+            respond("[]", HttpStatusCode.OK, headersOf(HttpHeaders.ContentType, "application/json"))
+        }
+        val client = HttpClient(engine) { install(ContentNegotiation) { json() } }
+        try {
+            val api = SupabaseRestApi(client, SupabaseConfig("https://example.test", "key", "media"), store)
+            assertTrue(runCatching { api.dismissNotifications("owner", listOf("n")) }.exceptionOrNull() is IllegalStateException)
+        } finally { client.close() }
+    }
+
     @Test fun rejectedRecordEditCannotFallBackToAnUnchangedRecord() = runBlocking {
         val engine = MockEngine { request ->
             assertEquals(HttpMethod.Patch, request.method)

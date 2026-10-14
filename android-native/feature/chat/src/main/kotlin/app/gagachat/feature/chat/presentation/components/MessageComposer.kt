@@ -1,5 +1,6 @@
 package app.gagachat.feature.chat.presentation.components
 
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.ui.platform.LocalDensity
@@ -146,7 +147,8 @@ fun MessageComposer(
     Surface(
         modifier = modifier.fillMaxWidth(),
         color = MaterialTheme.colorScheme.surface,
-        tonalElevation = 2.dp,
+        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+        tonalElevation = 6.dp,
     ) {
         Column(
             modifier = Modifier
@@ -155,7 +157,7 @@ fun MessageComposer(
                 .imePadding(),
         ) {
             androidx.compose.material3.HorizontalDivider(
-                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f),
+                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f),
             )
             if (editingMessage != null && !isRecording) {
                 EditBanner(message = editingMessage, onCancel = onCancelEdit)
