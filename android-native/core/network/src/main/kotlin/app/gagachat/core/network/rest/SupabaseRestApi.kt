@@ -34,6 +34,7 @@ import io.ktor.client.plugins.ResponseException
 import io.ktor.client.request.HttpRequestBuilder
 import io.ktor.client.request.delete
 import io.ktor.client.request.get
+import io.ktor.client.request.head
 import io.ktor.client.request.header
 import io.ktor.client.request.parameter
 import io.ktor.client.request.patch
@@ -1026,6 +1027,22 @@ class SupabaseRestApi @Inject constructor(
             parameter("order", "created_at.desc")
             parameter("limit", limit)
         }.body()
+
+    /** Exact unread count across all pages, protected by the caller's RLS. */
+    suspend fun getUnreadNotificationCount(userId: String): Int {
+        val response = client.head("${config.restUrl}/notifications") {
+            auth()
+            parameter("select", "id")
+            parameter("user_id", "eq.$userId")
+            parameter("read", "eq.false")
+            parameter("limit", 1)
+            header("Prefer", "count=exact")
+        }
+        check(response.status.value in 200..299) { "Unread count request failed" }
+        val total = response.headers["Content-Range"]?.substringAfterLast('/')?.toIntOrNull()
+        check(total != null && total >= 0) { "Unread count unavailable" }
+        return total
+    }
 
     suspend fun markNotificationRead(id: String) {
         val rows: List<NotificationRow> = client.patch("${config.restUrl}/notifications") {

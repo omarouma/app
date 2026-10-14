@@ -24,6 +24,7 @@ class NotificationRegressionTest {
 
     @Test fun failedReadAllRetainsUnreadEvidence() = runTest {
         val api = mockk<SupabaseRestApi>()
+        coEvery { api.getUnreadNotificationCount("a") } returns 1
         val auth = mockk<AuthRepository>()
         val sessions = MutableStateFlow<AuthSession?>(session("a"))
         every { auth.sessionFlow } returns sessions
@@ -37,8 +38,25 @@ class NotificationRegressionTest {
         assertFalse(repository.notifications.value.single().read)
     }
 
+    @Test fun badgeIncludesUnreadOutsideTheLoadedPage() = runTest {
+        val api = mockk<SupabaseRestApi>()
+        val auth = mockk<AuthRepository>()
+        every { auth.sessionFlow } returns MutableStateFlow<AuthSession?>(session("a"))
+        coEvery { api.getNotifications("a", any()) } returns listOf(NotificationRow("n", "a", read = false))
+        coEvery { api.getUnreadNotificationCount("a") } returns 83
+        val repository = DefaultNotificationRepository(api, auth, dispatchers(StandardTestDispatcher(testScheduler)), backgroundScope)
+        runCurrent(); repository.refresh()
+        assertEquals(83, repository.unreadCount.value)
+        coEvery { api.markAllNotificationsRead("a") } returns Unit
+        coEvery { api.getUnreadNotificationCount("a") } returns 1
+        assertTrue(repository.markAllRead() is AppResult.Success)
+        assertEquals(1, repository.unreadCount.value)
+        assertFalse(repository.notifications.value.single().read)
+    }
+
     @Test fun accountChangeClearsNotificationsAndRejectsLateRefresh() = runTest {
         val api = mockk<SupabaseRestApi>()
+        coEvery { api.getUnreadNotificationCount("a") } returns 1
         val auth = mockk<AuthRepository>()
         val sessions = MutableStateFlow<AuthSession?>(session("a"))
         every { auth.sessionFlow } returns sessions
