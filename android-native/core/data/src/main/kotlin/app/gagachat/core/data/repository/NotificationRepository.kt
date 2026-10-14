@@ -121,6 +121,9 @@ class DefaultNotificationRepository @Inject constructor(
             val unread = restApi.getUnreadNotificationCount(me)
             if (me != currentUserId) return@withContext AppResult.Failure(AppError.Unauthorized("Account changed"))
             _notifications.value = rows.map { it.toDomain() }
+            nextOffset = rows.size
+            _hasMore.value = rows.size == 50
+            generation++
             _unreadCount.value = unread
             AppResult.Success(Unit)
         } catch (t: Throwable) {
