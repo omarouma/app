@@ -121,7 +121,7 @@ fun HomeRoute(
     }
 
     GagaScaffold(
-        title = "GaGa Chat",
+        title = "GaGa Chats",
         brandMark = true,
         snackbarHostState = snackbarHostState,
         actions = {
@@ -151,6 +151,13 @@ fun HomeRoute(
                 .fillMaxSize()
                 .padding(padding),
         ) {
+            Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                Text("Messages", style = MaterialTheme.typography.headlineMedium, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+                if (!state.isLoading) {
+                    Badge(modifier = Modifier.padding(start = 10.dp), containerColor = MaterialTheme.colorScheme.primaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer) { Text("${state.conversations.size}") }
+                }
+            }
             GagaSearchBar(
                 query = state.query,
                 onQueryChange = viewModel::onQueryChange,
@@ -167,7 +174,15 @@ fun HomeRoute(
                     FilterChip(
                         selected = currentFilter == filter.name,
                         onClick = { currentFilter = filter.name },
-                        label = { Text(filter.label) },
+                        label = {
+                            val count = when (filter) {
+                                ChatInboxFilter.ALL -> state.conversations.size
+                                ChatInboxFilter.UNREAD -> state.conversations.count { it.unreadCount > 0 }
+                                ChatInboxFilter.PINNED -> state.conversations.count { it.isPinned }
+                                ChatInboxFilter.GROUPS -> state.conversations.count { it.type != app.gagachat.core.model.ConversationType.DIRECT }
+                            }
+                            Text(if (state.isLoading) filter.label else "${filter.label} $count")
+                        },
                     )
                 }
             }
@@ -201,19 +216,26 @@ fun HomeRoute(
                         modifier = Modifier.fillMaxSize(),
                         contentPadding = PaddingValues(bottom = GagaDimens.space48),
                     ) {
-                        items(
-                            items = visibleConversations,
-                            key = { it.id },
-                        ) { conversation ->
-                            ConversationRow(
-                                conversation = conversation,
-                                currentUserId = state.currentUserId,
-                                onClick = { onOpenConversation(conversation.id) },
-                                onTogglePin = { viewModel.onTogglePin(conversation) },
-                                onToggleMute = { viewModel.onToggleMute(conversation) },
-                                onMarkRead = { viewModel.onMarkRead(conversation) },
-                                onRequestDelete = { pendingDelete = conversation },
-                            )
+                        val sections = listOf("Pinned" to visibleConversations.filter { it.isPinned },
+                            "Recent" to visibleConversations.filterNot { it.isPinned })
+                        sections.forEach { (heading, conversations) ->
+                            if (conversations.isNotEmpty()) {
+                                item(key = "section-$heading") {
+                                    Text(heading.uppercase(), modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
+                                        style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                                items(items = conversations, key = { it.id }) { conversation ->
+                                    ConversationRow(
+                                        conversation = conversation,
+                                        currentUserId = state.currentUserId,
+                                        onClick = { onOpenConversation(conversation.id) },
+                                        onTogglePin = { viewModel.onTogglePin(conversation) },
+                                        onToggleMute = { viewModel.onToggleMute(conversation) },
+                                        onMarkRead = { viewModel.onMarkRead(conversation) },
+                                        onRequestDelete = { pendingDelete = conversation },
+                                    )
+                                }
+                            }
                         }
                     }
                 }

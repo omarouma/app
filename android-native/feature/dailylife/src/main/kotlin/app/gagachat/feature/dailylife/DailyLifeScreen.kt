@@ -432,6 +432,12 @@ fun TodayDashboard(
                     }
                 }
                 if (toolsExpanded) {
+                item(key = "workspace_heading") {
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text("Today workspace", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+                        Text("All tools & activity", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
                 item(key = "china_direct_entry") {
                     Card(
                         onClick = { onNavigate(DailyRoutes.CHINA_DIRECT) },
@@ -469,8 +475,14 @@ fun TodayDashboard(
                         row.forEach { (section, icon) ->
                             Card(Modifier.weight(1f).clickable { onNavigate(DailyRoutes.records(section)) }) {
                                 Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    Icon(icon, null, tint = MaterialTheme.colorScheme.primary)
-                                    Text(title(section), fontWeight = FontWeight.SemiBold)
+                                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                                        Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.primaryContainer) {
+                                            Icon(icon, null, tint = MaterialTheme.colorScheme.onPrimaryContainer, modifier = Modifier.padding(10.dp))
+                                        }
+                                        Spacer(Modifier.weight(1f))
+                                        Icon(Icons.Default.ChevronRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
+                                    Text(when (section) { "note" -> "Private notes"; "shopping" -> "Shared lists"; "debts" -> "Borrowed & lent"; else -> title(section) }, fontWeight = FontWeight.SemiBold)
                                     val count = if (section == "shopping") ui.lists.size else ui.records.count { it.kind in kinds(section) }
                                     Text("$count ${if (section == "shopping") "lists" else "records"}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }

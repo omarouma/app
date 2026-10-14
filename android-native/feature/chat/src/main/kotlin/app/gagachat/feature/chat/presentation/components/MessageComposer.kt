@@ -148,7 +148,7 @@ fun MessageComposer(
         modifier = modifier.fillMaxWidth(),
         color = MaterialTheme.colorScheme.surface,
         shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
-        tonalElevation = 6.dp,
+        tonalElevation = 0.dp,
     ) {
         Column(
             modifier = Modifier
@@ -184,9 +184,9 @@ fun MessageComposer(
                     // Round "+" affordance that opens the attachment sheet.
                     Box(
                         modifier = Modifier
-                            .size(46.dp)
+                            .size(48.dp)
                             .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.surfaceVariant)
+                            .background(MaterialTheme.colorScheme.primary)
                             .clickable {
                                 // Dismiss the keyboard first so the sheet is not
                                 // pushed off-screen; the draft is preserved in
@@ -201,7 +201,7 @@ fun MessageComposer(
                         Icon(
                             Icons.Filled.Add,
                             contentDescription = "Attach",
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            tint = MaterialTheme.colorScheme.onPrimary,
                         )
                     }
                     Spacer(Modifier.width(GagaDimens.space8))
