@@ -121,6 +121,18 @@ fun DailyHome(nav: NavController, onSaved: () -> Unit, onChat: (String) -> Unit,
     val ui by vm.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val fontScale = LocalDensity.current.fontScale
+    // Recompute due sections while Today remains open, including midnight rollover.
+    val lifecycleOwner = LocalLifecycleOwner.current
+    var dashboardNow by remember { mutableStateOf(Instant.now()) }
+    LaunchedEffect(lifecycleOwner) {
+        lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            while (true) {
+                dashboardNow = Instant.now()
+                delay(30_000)
+            }
+        }
+    }
+    val dashboardTime = TodayTimePolicy(dashboardNow, ZoneId.systemDefault())
     ResumeRefresh(vm)
     val sections = listOf("task" to Icons.Default.TaskAlt, "event" to Icons.Default.Event, "reminder" to Icons.Default.NotificationsActive, "money" to Icons.Default.AccountBalanceWallet, "shopping" to Icons.Default.ShoppingCart, "debts" to Icons.Default.People, "goal" to Icons.Default.Savings, "budget" to Icons.Default.PieChart, "account" to Icons.Default.AccountBalance, "note" to Icons.AutoMirrored.Filled.Note)
     GagaScaffold(title = "GaGa Today", actions = { IconButton(onClick = { vm.refresh() }) { Icon(Icons.Default.Refresh, "Refresh") } }) { padding ->
@@ -129,7 +141,7 @@ fun DailyHome(nav: NavController, onSaved: () -> Unit, onChat: (String) -> Unit,
             val statsPerRow = if (maxWidth < 480.dp || fontScale > 1.2f) 2 else 4
             LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 item {
-                    val greeting = when (LocalTime.now().hour) {
+                    val greeting = when (dashboardNow.atZone(ZoneId.systemDefault()).hour) {
                         in 5..11 -> "Good morning"
                         in 12..16 -> "Good afternoon"
                         in 17..21 -> "Good evening"
@@ -163,8 +175,8 @@ fun DailyHome(nav: NavController, onSaved: () -> Unit, onChat: (String) -> Unit,
                 // below use. Purely additive; every section still renders.
                 val glanceTasks = ui.records.filter { it.kind == "task" && !it.completed }
                 val glanceReminders = ui.records.filter { it.kind == "reminder" && !it.completed }
-                fun dueToday(value: String?): Boolean = value?.let { runCatching { Instant.parse(it).atZone(ZoneId.systemDefault()).toLocalDate() == LocalDate.now() }.getOrDefault(false) } == true
-                fun overdue(value: String?): Boolean = value?.let { runCatching { Instant.parse(it).isBefore(Instant.now()) }.getOrDefault(false) } == true
+                fun dueToday(value: String?) = dashboardTime.isDueToday(value)
+                fun overdue(value: String?) = dashboardTime.isOverdue(value)
                 val tasksDueToday = glanceTasks.count { dueToday(it.dueAt) }
                 val eventsToday = ui.records.count { it.kind == "event" && !it.completed && dueToday(it.dueAt) }
                 val overdueTasks = glanceTasks.filter { overdue(it.dueAt) }
@@ -183,7 +195,7 @@ fun DailyHome(nav: NavController, onSaved: () -> Unit, onChat: (String) -> Unit,
                             val stats = listOf(
                                 "Tasks due" to tasksDueToday,
                                 "Events" to eventsToday,
-                                "Reminders" to glanceReminders.size,
+                                "Reminders due" to glanceReminders.count { dueToday(it.dueAt) },
                                 "Unread" to unreadTotal,
                             )
                             stats.chunked(statsPerRow).forEach { rowStats ->
@@ -261,7 +273,7 @@ fun DailyHome(nav: NavController, onSaved: () -> Unit, onChat: (String) -> Unit,
                 val upcomingEvents = ui.records
                     .filter { it.kind == "event" && !it.completed }
                     .mapNotNull { record -> record.dueAt?.let { runCatching { Instant.parse(it) }.getOrNull() }?.let { record to it } }
-                    .filter { (_, due) -> due.isAfter(Instant.now().minusSeconds(60)) }
+                    .filter { (_, due) -> dashboardTime.isUpcoming(due.toString()) }
                     .sortedBy { it.second }
                 if (upcomingEvents.isNotEmpty()) item {
                     Card(Modifier.fillMaxWidth().clickable { nav.navigate(DailyRoutes.records("event")) }) {

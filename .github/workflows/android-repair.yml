@@ -108,6 +108,11 @@ jobs:
         run: python3 android-native/ci/prepare.py
       - name: Verify Firebase project, app, FCM and Crashlytics build identity
         run: python3 android-native/ci/verify_firebase_release_config.py
+      - name: Package complete verified source snapshot
+        run: |
+          mkdir -p deliverables
+          git archive --format=zip --output=deliverables/GaGa-${GAGA_VERSION}-complete-source.zip HEAD
+          git rev-parse HEAD > deliverables/SOURCE-COMMIT.txt
       - name: Package professional chat source files
         # Source can still be inspected if later Android compilation fails.
         run: |
@@ -161,7 +166,7 @@ jobs:
             android-native/docs/PEOPLE_SYNC_NOTIFICATIONS_2.7.3.md
       - name: Compile release and test messaging and call contracts
         working-directory: android-native
-        run: gradle --no-daemon --no-build-cache --max-workers=2 -Pksp.incremental=false :feature:dailylife:compileReleaseKotlin :app:assembleRelease :app:bundleRelease :core:model:test :core:data:testReleaseUnitTest :core:network:testReleaseUnitTest :feature:chat:testReleaseUnitTest :feature:qr:testReleaseUnitTest :feature:calls:testReleaseUnitTest
+        run: gradle --no-daemon --no-build-cache --max-workers=2 -Pksp.incremental=false :feature:dailylife:compileReleaseKotlin :feature:dailylife:testReleaseUnitTest :feature:settings:compileReleaseKotlin :app:assembleRelease :app:bundleRelease :core:model:test :core:data:testReleaseUnitTest :core:network:testReleaseUnitTest :feature:chat:testReleaseUnitTest :feature:qr:testReleaseUnitTest :feature:calls:testReleaseUnitTest
       - name: Package release artifacts
         run: |
           mkdir -p deliverables
