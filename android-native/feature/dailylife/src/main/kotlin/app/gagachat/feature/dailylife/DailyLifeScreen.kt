@@ -180,11 +180,11 @@ fun TodayDashboard(
                     Surface(color = MaterialTheme.colorScheme.surfaceVariant, shape = MaterialTheme.shapes.large, modifier = Modifier.fillMaxWidth()) {
                         Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                             Text("$greeting · ${dashboardNow.atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofPattern("EEE, d MMM"))}",
-                                style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f))
                             Text("Plan your day", style = MaterialTheme.typography.headlineSmall,
                                 fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
                             Text("Start with what matters.", style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f))
                         }
                     }
                 }
