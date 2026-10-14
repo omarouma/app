@@ -1,54 +1,21 @@
-# GaGa Android release signing
+# GaGa release signing identity — 2.7.8 onward
 
-## Current release identity (2.7.7+)
+The owner explicitly authorized a new release key on 14 October 2026.
 
-The GaGa 2.7.7 re-release is signed with a **new** release certificate because the original
-keystore (used for the earlier 2.7.6 download) was not available.
+- Alias: `gaga`
+- Algorithm: RSA 3072
+- SHA-256: `dd6b6f166100e0db29a3f58af7439f5065c0148632d78ca5cd1d1a585a19af13`
+- SHA-1: `cd2f9de5f1932c836d79573726e1033de44bedf9`
+- Package: `gagachat.app`
 
-| Property | Value |
-| --- | --- |
-| Distinguished name | `CN=GaGa Chat, OU=Mobile, O=GaGa, L=Dhaka, ST=Dhaka, C=BD` |
-| Key algorithm | RSA 2048 |
-| Certificate SHA-256 | `19a68b9615bef4967a5ad0b1f32ddb91910014052fea5b8fd353d44a065b88f8` |
-| Certificate SHA-1 | `7d84940a3b72aa3804da3e1cd7b19ae7d4660984` |
-| Signature schemes | APK Signature Scheme v2 + v3 |
+APK/AAB signatures were verified. Firebase SHA-1 and SHA-256 registration is checked through the management API. Asset Links retains older fingerprints and adds the new certificate.
 
-The keystore file (`gaga-release.jks`), its store/key passwords and alias are delivered with the
-release. **Store them in a secure secret manager. Never commit them to git.**
+## Migration
+Older APKs signed with different certificates cannot update in place. Back up local-only drafts, uninstall once and reinstall the new APK. Preserve this exact new keystore for all subsequent direct APK releases. Server-side account data is not deleted by an Android uninstall, but local-only data can be lost.
 
-### Compatibility note
-Android refuses to install an update whose signature differs from the installed app. Because this
-is a new key, users on older GaGa builds must **uninstall once and reinstall** 2.7.7. After that,
-in-place updates work normally.
+Google Play upload signing is separate: an already registered Play app requires the appropriate upload-key reset/Play App Signing process. Creating this key does not update the Play Console or replace the Play app-signing certificate.
 
-## Approved identities in CI
+## Private backup and CI
+The keystore and generated passwords are supplied separately in the private signing backup. Never commit that backup, JKS or credentials to git.
 
-`.github/workflows/android-repair.yml` signs a release only when the configured keystore's
-certificate matches one of the approved identities:
-
-- `bd95b298a3e64314f3135579c3b827e982c033556472693a59472dc8ebf6c89a` — original GaGa 2.7.2 key
-- `19a68b9615bef4967a5ad0b1f32ddb91910014052fea5b8fd353d44a065b88f8` — GaGa 2.7.7 key (current)
-
-If no keystore is configured, CI produces **unsigned** artifacts plus a `SIGNING-REQUIRED.txt`
-marker and the strict production gate refuses to certify them.
-
-## Enabling signed CI releases
-
-Set these four repository secrets (Settings → Secrets and variables → Actions):
-
-| Secret | Value |
-| --- | --- |
-| `GAGA_RELEASE_KEYSTORE_BASE64` | `base64 -w0 gaga-release.jks` |
-| `GAGA_RELEASE_STORE_PASSWORD` | keystore store password |
-| `GAGA_RELEASE_KEY_ALIAS` | `gaga-release` |
-| `GAGA_RELEASE_KEY_PASSWORD` | key password |
-
-Then run the **GaGa Android repair validation** workflow with `production_release = true`
-(or push an `android-*` tag) to produce a signed `GaGa-<version>-release.apk` and `.aab`.
-
-## Firebase / App Links
-
-The release certificate fingerprints are registered in:
-
-- Firebase → Project settings → Android app `gagachat.app` → SHA certificate fingerprints
-- `hosting/public/.well-known/assetlinks.json` (served at `https://gagachat.app/.well-known/assetlinks.json`)
+Configure `GAGA_RELEASE_KEYSTORE_BASE64`, `GAGA_RELEASE_STORE_PASSWORD`, `GAGA_RELEASE_KEY_ALIAS` and `GAGA_RELEASE_KEY_PASSWORD` using `ci/configure_signing_secrets.py`. CI rejects any other certificate. GitHub secrets cannot be configured through the current connector's exposed tools; until installed, CI will produce unsigned artifacts. The separately delivered 2.7.8 APK/AAB are already signed locally.

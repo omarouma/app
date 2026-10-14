@@ -193,14 +193,13 @@ jobs:
           trap 'rm -f "$keyfile"' EXIT
           printf '%s' "$KEYSTORE_BASE64" | base64 -d > "$keyfile"
           actual=$(keytool -exportcert -keystore "$keyfile" -storepass:env STORE_PASSWORD -alias "$KEY_ALIAS" | sha256sum | cut -d' ' -f1)
-          # 2.7.2 (versionCode 47) is the chosen release identity. Never
-          # silently substitute a new or older key: that would break in-place
-          # Android updates and could also invalidate Play upload signing.
+          # User-authorized release-key rotation on 2026-10-14. Preserve this
+          # identity for every subsequent direct APK release.
           case "$actual" in
-            bd95b298a3e64314f3135579c3b827e982c033556472693a59472dc8ebf6c89a)
-              echo 'Signer matches the verified GaGa 2.7.2 certificate; in-place APK updates are compatible.' > deliverables/UPDATE-COMPATIBILITY.txt ;;
+            dd6b6f166100e0db29a3f58af7439f5065c0148632d78ca5cd1d1a585a19af13)
+              echo 'Signer matches GaGa 2.7.8. Older signing identities require reinstall; subsequent releases using this key support in-place updates.' > deliverables/UPDATE-COMPATIBILITY.txt ;;
             *)
-              echo 'Configured keystore is NOT the current GaGa 2.7.2 signing identity. No mismatched APK/AAB will be signed.' > deliverables/SIGNING-REQUIRED.txt
+              echo 'Configured keystore is NOT the approved GaGa 2.7.8 signing identity.' > deliverables/SIGNING-REQUIRED.txt
               exit 0 ;;
           esac
           signer=$(find "$ANDROID_HOME/build-tools" -name apksigner | sort -V | tail -1)
