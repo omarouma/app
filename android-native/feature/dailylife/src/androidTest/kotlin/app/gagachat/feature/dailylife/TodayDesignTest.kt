@@ -78,4 +78,27 @@ class TodayDesignTest {
         compose.onNodeWithText("Nothing due today").assertDoesNotExist()
         capture("today-error.png")
     }
+
+    @Test fun opensRealDataWorkspace() {
+        render(DailyUi(records = records, loading = false))
+        compose.onNodeWithTag("today_content").performScrollToNode(hasText("All tools"))
+        compose.onNodeWithText("All tools").performClick()
+        assertEquals(DailyRoutes.WORKSPACE, route)
+    }
+    @Test fun workspaceCardsUseRealCountsAndRoutes() {
+        compose.setContent {
+            GagaTheme {
+                TodayWorkspaceScreen(
+                    ui = DailyUi(records = records, loading = false),
+                    onBack = {},
+                    onRefresh = {},
+                    onNavigate = { route = it },
+                )
+            }
+        }
+        compose.onNodeWithText("Organize your day").assertIsDisplayed()
+        compose.onNodeWithText("Tasks").performClick()
+        assertEquals(DailyRoutes.records("task"), route)
+        capture("today-workspace-light.png")
+    }
 }
