@@ -5,7 +5,7 @@ import org.junit.Test
 
 class SupabaseConfigTest {
     @Test
-    fun realtimeSocketUsesDedicatedLegacyAnonKey() {
+    fun realtimeSocketPrefersActivePublishableKeyAndRetainsLegacyFallback() {
         val config = SupabaseConfig(
             url = "https://example.supabase.co",
             anonKey = "sb_publishable_test",
@@ -14,8 +14,12 @@ class SupabaseConfigTest {
         )
 
         assertEquals(
-            "wss://example.supabase.co/realtime/v1/websocket?apikey=eyJlegacy.header.signature&vsn=1.0.0",
+            "wss://example.supabase.co/realtime/v1/websocket?apikey=sb_publishable_test&vsn=1.0.0",
             config.realtimeSocketUrl,
+        )
+        assertEquals(
+            "wss://example.supabase.co/realtime/v1/websocket?apikey=eyJlegacy.header.signature&vsn=1.0.0",
+            config.realtimeSocketUrls[1],
         )
     }
 
