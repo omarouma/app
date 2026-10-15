@@ -51,10 +51,10 @@ fun GagaTiledMap(
     longitude: Double,
     zoom: Int,
     onSelected: ((Double, Double) -> Unit)?,
-    modifier: Modifier = Modifier,
+    modifier: Modifier = Modifier.height(205.dp),
 ) {
     BoxWithConstraints(
-        modifier = modifier.fillMaxWidth().height(205.dp)
+        modifier = modifier.fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
             .background(androidx.compose.ui.graphics.Color(0xFFE4EBE6)),
     ) {
