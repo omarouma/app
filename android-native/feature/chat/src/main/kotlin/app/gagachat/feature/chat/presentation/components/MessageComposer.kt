@@ -147,7 +147,7 @@ fun MessageComposer(
     Surface(
         modifier = modifier.fillMaxWidth(),
         color = MaterialTheme.colorScheme.surface,
-        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+        shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
         tonalElevation = 0.dp,
     ) {
         Column(
@@ -178,7 +178,7 @@ fun MessageComposer(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = GagaDimens.space8, vertical = GagaDimens.space8),
+                        .padding(horizontal = GagaDimens.space12, vertical = GagaDimens.space8),
                     verticalAlignment = Alignment.Bottom,
                 ) {
                     // Round "+" affordance that opens the attachment sheet.
@@ -208,10 +208,10 @@ fun MessageComposer(
                     TextField(
                         value = draft,
                         onValueChange = onDraftChange,
-                        modifier = Modifier.weight(1f),
-                        placeholder = { Text(if (editingMessage != null) "Edit message" else "Message") },
+                        modifier = Modifier.weight(1f).heightIn(min = 48.dp),
+                        placeholder = { Text(if (editingMessage != null) "Edit message" else "Message…") },
                         maxLines = 6,
-                        shape = MaterialTheme.shapes.extraLarge,
+                        shape = RoundedCornerShape(24.dp),
                         colors = TextFieldDefaults.colors(
                             focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
                             unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
