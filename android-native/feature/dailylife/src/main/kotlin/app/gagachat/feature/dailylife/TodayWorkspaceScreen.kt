@@ -107,7 +107,7 @@ fun TodayWorkspaceScreen(
                                     Icon(tool.icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary,
                                         modifier = Modifier.size(26.dp))
                                     Text(tool.title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                                    Text(if (loading || ui.error != null) "Syncing…" else tool.detail,
+                                    Text(when { ui.error != null -> "Unavailable · Retry"; loading -> "Syncing…"; else -> tool.detail },
                                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
                             }
