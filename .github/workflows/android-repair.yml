@@ -78,7 +78,10 @@ jobs:
           assert firebase['gcm_defaultSenderId'] == '545448312835'
           assert 'applicationId = "gagachat.app"' in gradle
           json.loads(pathlib.Path('database.rules.json').read_text())
-          json.loads(pathlib.Path('firebase.json').read_text())
+          firebase_hosting = json.loads(pathlib.Path('firebase.json').read_text())['hosting']
+          local_hosting = json.loads(pathlib.Path('hosting/firebase.json').read_text())['hosting']
+          expected_hosting = dict(firebase_hosting, public='public')
+          assert local_hosting == expected_hosting, 'Hosting root/subdirectory configs drifted: stale download target risk'
           json.loads(pathlib.Path('firestore.indexes.json').read_text())
           service_marker = '"type": ' + '"service_' + 'account"'
           private_marker = '-----BEGIN' + ' PRIVATE KEY-----'
