@@ -2,6 +2,8 @@ package app.gagachat.navigation
 
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
@@ -107,6 +109,10 @@ private val bottomBarRoutes: Set<String> = TopLevelDestination.entries
     .map { it.routePattern }
     .toSet()
 
+/** The keyboard must never compete for height with five main navigation tabs. */
+internal fun shouldShowBottomTabs(route: String?, keyboardVisible: Boolean): Boolean =
+    route in bottomBarRoutes && !keyboardVisible
+
 /**
  * Main graph (PDF §2.1). Hosts the four top-level destinations behind a bottom
  * bar plus the detail surfaces (chat, profile, active call, More menu). Deep
@@ -117,7 +123,8 @@ fun MainNavHost(pendingDeepLink: String?) {
     val navController = rememberNavController()
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route
-    val showBottomBar = currentRoute in bottomBarRoutes
+    val keyboardVisible = WindowInsets.ime.getBottom(LocalDensity.current) > 0
+    val showBottomBar = shouldShowBottomTabs(currentRoute, keyboardVisible)
     val viewModel: MainNavViewModel = hiltViewModel()
     val totalUnread by viewModel.totalUnread.collectAsStateWithLifecycle()
     val pendingRequests by viewModel.pendingRequests.collectAsStateWithLifecycle()
