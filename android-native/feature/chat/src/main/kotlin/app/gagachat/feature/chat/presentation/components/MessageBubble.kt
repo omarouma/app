@@ -11,6 +11,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -141,91 +142,95 @@ fun MessageBubble(
     }
     val shape = if (isOutgoing) OutgoingBubbleShape else IncomingBubbleShape
 
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = GagaDimens.space12, vertical = GagaDimens.space2),
-        horizontalArrangement = if (isOutgoing) Arrangement.End else Arrangement.Start,
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        if (selectionMode) {
-            SelectionCheck(selected = isSelected)
-            Spacer(Modifier.width(GagaDimens.space8))
-        }
-        Column(horizontalAlignment = if (isOutgoing) Alignment.End else Alignment.Start) {
-            Column(
-                modifier = Modifier
-                    .widthIn(max = 320.dp)
-                    .clip(shape)
-                    .background(bubbleColor)
-                    .combinedClickable(
-                        onClick = {
-                            when {
-                                selectionMode -> onToggleSelect(message)
-                                // Only media/document bubbles open the viewer or
-                                // document opener. Call events, contacts, polls,
-                                // locations and audio have their own actions.
-                                message.type.opensMediaViewer() -> onMediaClick(message)
-                            }
-                        },
-                        onLongClick = {
-                            if (selectionMode) onToggleSelect(message) else onLongPress(message)
-                        },
-                    )
-                    .padding(horizontal = GagaDimens.space12, vertical = GagaDimens.space8),
-            ) {
-                if (message.forwardedFrom != null && !message.isDeleted) {
-                    ForwardedLabel(contentColor = contentColor)
-                }
-                if (repliedMessage != null && !message.isDeleted) {
-                    ReplyQuote(
-                        replied = repliedMessage,
-                        contentColor = contentColor,
-                        onClick = { onReplyClick(repliedMessage) },
-                    )
-                    Spacer(Modifier.height(GagaDimens.space4))
-                }
-                if (message.isDeleted) {
-                    Text(
-                        text = "This message was deleted",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = contentColor.copy(alpha = 0.6f),
-                        fontStyle = FontStyle.Italic,
-                    )
-                } else {
-                    MessageContent(
-                        message = message,
-                        contentColor = contentColor,
-                        isOutgoing = isOutgoing,
-                        onMediaClick = onMediaClick,
-                        onRetry = onRetry,
-                        currentUserId = currentUserId,
-                        onVotePoll = onVotePoll,
-                        onStopLiveLocation = onStopLiveLocation,
-                        onCallBack = onCallBack,
-                        linkPreview = linkPreview,
-                        onRequestLinkPreview = onRequestLinkPreview,
-                    )
-                }
-                Spacer(Modifier.height(GagaDimens.space2))
-                MessageMeta(
-                    message = message,
-                    isOutgoing = isOutgoing,
-                    contentColor = contentColor,
-                    onRetry = onRetry,
-                    // Trailing-aligned but content-sized: the meta row must not
-                    // stretch the bubble to its 320dp cap (F03). A short message
-                    // now hugs its text instead of filling a wide bubble.
-                    modifier = Modifier.align(Alignment.End),
-                )
+    BoxWithConstraints(modifier.fillMaxWidth()) {
+        // Keep a visible opposite-side gutter, including in split-screen and selection mode.
+        val bubbleWidth = minOf(320.dp, (maxWidth - 24.dp - if (selectionMode) 30.dp else 0.dp).coerceAtLeast(0.dp) * 0.86f)
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = GagaDimens.space12, vertical = GagaDimens.space2),
+            horizontalArrangement = if (isOutgoing) Arrangement.End else Arrangement.Start,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            if (selectionMode) {
+                SelectionCheck(selected = isSelected)
+                Spacer(Modifier.width(GagaDimens.space8))
             }
-            if (message.hasReactions) {
-                Spacer(Modifier.height(GagaDimens.space2))
-                ReactionsRow(
-                    message = message,
-                    currentUserId = currentUserId,
-                    onClick = { emoji -> onReactionClick(message, emoji) },
-                )
+            Column(modifier = Modifier.widthIn(max = bubbleWidth), horizontalAlignment = if (isOutgoing) Alignment.End else Alignment.Start) {
+                Column(
+                    modifier = Modifier
+                        .widthIn(max = bubbleWidth)
+                        .clip(shape)
+                        .background(bubbleColor)
+                        .combinedClickable(
+                            onClick = {
+                                when {
+                                    selectionMode -> onToggleSelect(message)
+                                    // Only media/document bubbles open the viewer or
+                                    // document opener. Call events, contacts, polls,
+                                    // locations and audio have their own actions.
+                                    message.type.opensMediaViewer() -> onMediaClick(message)
+                                }
+                            },
+                            onLongClick = {
+                                if (selectionMode) onToggleSelect(message) else onLongPress(message)
+                            },
+                        )
+                        .padding(horizontal = GagaDimens.space12, vertical = GagaDimens.space8),
+                ) {
+                    if (message.forwardedFrom != null && !message.isDeleted) {
+                        ForwardedLabel(contentColor = contentColor)
+                    }
+                    if (repliedMessage != null && !message.isDeleted) {
+                        ReplyQuote(
+                            replied = repliedMessage,
+                            contentColor = contentColor,
+                            onClick = { onReplyClick(repliedMessage) },
+                        )
+                        Spacer(Modifier.height(GagaDimens.space4))
+                    }
+                    if (message.isDeleted) {
+                        Text(
+                            text = "This message was deleted",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = contentColor.copy(alpha = 0.6f),
+                            fontStyle = FontStyle.Italic,
+                        )
+                    } else {
+                        MessageContent(
+                            message = message,
+                            contentColor = contentColor,
+                            isOutgoing = isOutgoing,
+                            onMediaClick = onMediaClick,
+                            onRetry = onRetry,
+                            currentUserId = currentUserId,
+                            onVotePoll = onVotePoll,
+                            onStopLiveLocation = onStopLiveLocation,
+                            onCallBack = onCallBack,
+                            linkPreview = linkPreview,
+                            onRequestLinkPreview = onRequestLinkPreview,
+                        )
+                    }
+                    Spacer(Modifier.height(GagaDimens.space2))
+                    MessageMeta(
+                        message = message,
+                        isOutgoing = isOutgoing,
+                        contentColor = contentColor,
+                        onRetry = onRetry,
+                        // Trailing-aligned but content-sized: the meta row must not
+                        // stretch the bubble to its 320dp cap (F03). A short message
+                        // now hugs its text instead of filling a wide bubble.
+                        modifier = Modifier.align(Alignment.End),
+                    )
+                }
+                if (message.hasReactions) {
+                    Spacer(Modifier.height(GagaDimens.space2))
+                    ReactionsRow(
+                        message = message,
+                        currentUserId = currentUserId,
+                        onClick = { emoji -> onReactionClick(message, emoji) },
+                    )
+                }
             }
         }
     }
