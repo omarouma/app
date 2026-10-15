@@ -47,11 +47,12 @@ fun rememberContactPicker(
 private fun resolveContact(context: Context, uri: Uri): PickedContact? = runCatching {
     var name: String? = null
     var phone: String? = null
+    var contactId: String? = null
 
     // Display name is available straight from the picked contact row.
     context.contentResolver.query(
         uri,
-        arrayOf(ContactsContract.Contacts.DISPLAY_NAME),
+        arrayOf(ContactsContract.Contacts.DISPLAY_NAME, ContactsContract.Contacts._ID),
         null,
         null,
         null,
@@ -59,22 +60,28 @@ private fun resolveContact(context: Context, uri: Uri): PickedContact? = runCatc
         if (cursor.moveToFirst()) {
             val idx = cursor.getColumnIndex(ContactsContract.Contacts.DISPLAY_NAME)
             if (idx >= 0) name = cursor.getString(idx)
+            val idIndex = cursor.getColumnIndex(ContactsContract.Contacts._ID)
+            if (idIndex >= 0) contactId = cursor.getString(idIndex)
         }
     }
 
-    // Phone numbers live in the data table keyed by the contact lookup id.
-    val lookupKey = uri.lastPathSegment
-    if (!lookupKey.isNullOrBlank()) {
-        context.contentResolver.query(
-            ContactsContract.CommonDataKinds.Phone.CONTENT_URI,
-            arrayOf(ContactsContract.CommonDataKinds.Phone.NUMBER),
-            ContactsContract.CommonDataKinds.Phone.LOOKUP_KEY + " = ?",
-            arrayOf(lookupKey),
-            null,
-        )?.use { cursor ->
-            if (cursor.moveToFirst()) {
-                val idx = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.NUMBER)
-                if (idx >= 0) phone = cursor.getString(idx)
+    // A picked Contacts URI's lastPathSegment is usually a row ID, not a
+    // LOOKUP_KEY. Resolve the actual _ID returned by the contact query.
+    // Some Android providers give only scoped access to the selected contact,
+    // not Phone.CONTENT_URI; handle this gracefully and send name-only.
+    contactId?.let { id ->
+        runCatching {
+            context.contentResolver.query(
+                ContactsContract.CommonDataKinds.Phone.CONTENT_URI,
+                arrayOf(ContactsContract.CommonDataKinds.Phone.NUMBER),
+                ContactsContract.CommonDataKinds.Phone.CONTACT_ID + " = ?",
+                arrayOf(id),
+                null,
+            )?.use { cursor ->
+                if (cursor.moveToFirst()) {
+                    val idx = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.NUMBER)
+                    if (idx >= 0) phone = cursor.getString(idx)
+                }
             }
         }
     }
