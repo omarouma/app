@@ -15,7 +15,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.filled.ChatBubbleOutline
 import androidx.compose.material.icons.filled.Notifications
-import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
@@ -125,8 +125,9 @@ fun HomeRoute(
         brandMark = true,
         snackbarHostState = snackbarHostState,
         actions = {
-            IconButton(onClick = viewModel::refresh, enabled = !state.isRefreshing) {
-                Icon(Icons.Filled.Refresh, "Refresh chats")
+            // Compose uses the existing create-chat route; list refresh remains available by pull-down.
+            IconButton(onClick = onOpenNewChat) {
+                Icon(Icons.Filled.Add, contentDescription = "New chat")
             }
             IconButton(onClick = onOpenNotifications) {
                 BadgedBox(
@@ -140,18 +141,13 @@ fun HomeRoute(
                 }
             }
         },
-        floatingActionButton = {
-            FloatingActionButton(onClick = onOpenNewChat) {
-                Icon(Icons.AutoMirrored.Filled.Chat, contentDescription = "New chat")
-            }
-        },
     ) { padding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding),
         ) {
-            Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+            Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
                 Text("Messages", style = MaterialTheme.typography.headlineMedium, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
                 if (!state.isLoading) {
                     Badge(modifier = Modifier.padding(start = 10.dp), containerColor = MaterialTheme.colorScheme.primaryContainer,
@@ -161,7 +157,7 @@ fun HomeRoute(
             GagaSearchBar(
                 query = state.query,
                 onQueryChange = viewModel::onQueryChange,
-                placeholder = "Search names or recent messages",
+                placeholder = "Search people, messages…",
             )
             Row(
                 modifier = Modifier

@@ -57,6 +57,7 @@ import java.util.UUID
 
 object DailyRoutes {
     const val HOME = "daily"
+    const val WORKSPACE = "daily/workspace"
     const val RECORDS = "daily/records/{section}"
     const val EDIT = "daily/edit/{kind}?id={id}&text={text}&chat={chat}&message={message}"
     const val SHOP = "daily/shop/{id}"
@@ -70,6 +71,7 @@ object DailyRoutes {
 
 fun NavGraphBuilder.dailyLifeGraph(nav: NavController, onSaved: () -> Unit, onChat: (String) -> Unit) {
     composable(DailyRoutes.HOME) { DailyHome(nav, onSaved, onChat) }
+    composable(DailyRoutes.WORKSPACE) { TodayWorkspaceRoute(nav) }
     composable(DailyRoutes.RECORDS) { entry -> RecordList(entry.arguments?.getString("section").orEmpty(), nav, onChat) }
     composable(DailyRoutes.EDIT, arguments = listOf("id", "text", "chat", "message").map { navArgument(it) { type = NavType.StringType; defaultValue = "" } }) { entry ->
         RecordEditor(entry.arguments?.getString("kind").orEmpty(), entry.arguments?.getString("id").orEmpty(), entry.arguments?.getString("text").orEmpty(), entry.arguments?.getString("chat").orEmpty(), entry.arguments?.getString("message").orEmpty(), nav)
@@ -151,7 +153,7 @@ fun TodayDashboard(
             }
         } } }, confirmButton = { TextButton(onClick = { moreActions = false }) { Text("Close") } })
     val sections = listOf("task" to Icons.Default.TaskAlt, "event" to Icons.Default.Event, "reminder" to Icons.Default.NotificationsActive, "money" to Icons.Default.AccountBalanceWallet, "shopping" to Icons.Default.ShoppingCart, "debts" to Icons.Default.People, "goal" to Icons.Default.Savings, "budget" to Icons.Default.PieChart, "account" to Icons.Default.AccountBalance, "note" to Icons.AutoMirrored.Filled.Note)
-    GagaScaffold(title = "GaGa Today", actions = { IconButton(onClick = onRefresh, enabled = !ui.loading && !ui.busy) { Icon(Icons.Default.Refresh, "Refresh") } }) { padding ->
+    GagaScaffold(title = "GaGa Today", brandMark = true, actions = { IconButton(onClick = onRefresh, enabled = !ui.loading && !ui.busy) { Icon(Icons.Default.Refresh, "Refresh") } }) { padding ->
         BoxWithConstraints(Modifier.fillMaxSize().padding(padding)) {
             val largeText = fontScale > 1.2f || MaterialTheme.typography.bodyLarge.fontSize.value > 19f
             val columns = if (maxWidth < 340.dp || largeText) 1 else 2
@@ -163,8 +165,8 @@ fun TodayDashboard(
                         in 17..21 -> "Good evening"
                         else -> "Good night"
                     }
-                    Surface(color = MaterialTheme.colorScheme.surfaceVariant, shape = MaterialTheme.shapes.large, modifier = Modifier.fillMaxWidth()) {
-                        Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Surface(color = MaterialTheme.colorScheme.background, shape = MaterialTheme.shapes.large, modifier = Modifier.fillMaxWidth()) {
+                        Column(Modifier.padding(horizontal = 4.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                             Text("$greeting · ${dashboardNow.atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofPattern("EEE, d MMM"))}",
                                 style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f))
                             Text("Make today count", style = MaterialTheme.typography.headlineSmall,
@@ -235,11 +237,42 @@ fun TodayDashboard(
                         }
                     }
                 }
+                val needsReply = ui.conversations
+                    .filter { it.unreadCount > 0 && !it.isArchived }
+                    .sortedByDescending { it.lastMessageAt ?: it.updatedAt }
+                if (needsReply.isNotEmpty()) item {
+                    Card(Modifier.fillMaxWidth()) {
+                        Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.MarkUnreadChatAlt, null, tint = MaterialTheme.colorScheme.primary)
+                                Spacer(Modifier.width(10.dp))
+                                Text("Needs reply", fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                                Text("${needsReply.sumOf { it.unreadCount }} unread", style = MaterialTheme.typography.labelMedium)
+                            }
+                            needsReply.take(3).forEach { conversation ->
+                                Row(
+                                    Modifier.fillMaxWidth().clickable { onChat(conversation.id) }.padding(vertical = 4.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Column(Modifier.weight(1f)) {
+                                        Text(conversation.displayTitle(userId), fontWeight = FontWeight.SemiBold)
+                                        conversation.lastMessagePreview?.takeIf { it.isNotBlank() }?.let {
+                                            Text(it, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall)
+                                        }
+                                    }
+                                    Text("${conversation.unreadCount}", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                                }
+                            }
+                        }
+                    }
+                }
+
                 item(key = "quick_actions") {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                             Text("Quick actions", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
                             TextButton(onClick = { moreActions = true }) { Text("More") }
+                            TextButton(onClick = { onNavigate(DailyRoutes.WORKSPACE) }) { Text("All tools") }
                         }
                         // Horizontal scrolling preserves readable labels and 48dp targets at large text sizes.
                         Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -291,36 +324,6 @@ fun TodayDashboard(
                 if (agenda.size > 5) item(key = "agenda_more") {
                     Text("Showing 5 of ${agenda.size} due records. Open Tasks, Events or Reminders in your tools to see all.", style = MaterialTheme.typography.bodySmall)
                 }
-                val needsReply = ui.conversations
-                    .filter { it.unreadCount > 0 && !it.isArchived }
-                    .sortedByDescending { it.lastMessageAt ?: it.updatedAt }
-                if (needsReply.isNotEmpty()) item {
-                    Card(Modifier.fillMaxWidth()) {
-                        Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(Icons.Default.MarkUnreadChatAlt, null, tint = MaterialTheme.colorScheme.primary)
-                                Spacer(Modifier.width(10.dp))
-                                Text("Needs reply", fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                                Text("${needsReply.sumOf { it.unreadCount }} unread", style = MaterialTheme.typography.labelMedium)
-                            }
-                            needsReply.take(3).forEach { conversation ->
-                                Row(
-                                    Modifier.fillMaxWidth().clickable { onChat(conversation.id) }.padding(vertical = 4.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                ) {
-                                    Column(Modifier.weight(1f)) {
-                                        Text(conversation.displayTitle(userId), fontWeight = FontWeight.SemiBold)
-                                        conversation.lastMessagePreview?.takeIf { it.isNotBlank() }?.let {
-                                            Text(it, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall)
-                                        }
-                                    }
-                                    Text("${conversation.unreadCount}", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
-                                }
-                            }
-                        }
-                    }
-                }
-
                 val upcomingEvents = ui.records
                     .filter { it.kind == "event" && !it.completed }
                     .mapNotNull { record -> record.dueAt?.let { runCatching { Instant.parse(it) }.getOrNull() }?.let { record to it } }
