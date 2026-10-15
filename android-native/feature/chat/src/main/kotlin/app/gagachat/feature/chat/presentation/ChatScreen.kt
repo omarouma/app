@@ -646,8 +646,8 @@ fun ChatRoute(
             MediaReviewSheet(
                 uris = uris,
                 onDismiss = { reviewUris = null },
-                onSend = { ordered, caption ->
-                    viewModel.sendImageAlbum(ordered, caption)
+                onSend = { ordered, caption, original ->
+                    viewModel.sendImageAlbum(ordered, caption, original)
                     reviewUris = null
                 },
             )
