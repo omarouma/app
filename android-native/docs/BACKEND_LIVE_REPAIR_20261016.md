@@ -20,9 +20,10 @@ GaGa Supabase project `fcjgbbmfqdkucfpqjxae` reports **ACTIVE_HEALTHY** on Postg
 
 The last-24-hour Supabase API gateway log sample contained roughly **1,643 WebSocket HTTP 401s** against **69 HTTP 101 successful upgrades**. The failures came from the GaGa Kotlin/Ktor Android client, covering **seven distinct authenticated sessions**. These were still present and not expired in `auth.sessions`; this is NOT evidence of general Auth downtime or a reason to delete users.
 
-The Android Realtime client previously opened a socket after swallowing a token-refresh failure and always used the legacy JWT API key on the WebSocket URL. This PR now:
+The Android Realtime client previously opened a socket after swallowing a token-refresh failure, always used the legacy JWT API key on the WebSocket URL, and attached a user Bearer JWT to the HTTP Upgrade itself. GaGa **2.8.5 (versionCode 60)** now:
 - Requires a nonblank refreshed user token before a socket connection.
 - Uses the current publishable API key for the gateway first, with the configured active legacy anon key as a fallback **only for HTTP 401**; both were confirmed active in the live project.
+- Keeps the HTTP WebSocket upgrade on public-key authentication only; **private Phoenix channel joins still include the user JWT**, per the Realtime protocol.
 - Forces token refresh after a rejected upgrade and slows repeated reconnect attempts (max 120 seconds).
 - Keeps per-channel user access-token authentication and private database RLS in place. No service-role key is bundled or used.
 - Adds regression tests for handshake URL selection/deduplication.
