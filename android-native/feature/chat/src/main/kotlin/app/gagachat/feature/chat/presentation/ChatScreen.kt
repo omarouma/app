@@ -183,7 +183,7 @@ private fun ChatPlanSuggestion(
     ) {
         Column(Modifier.padding(start = 12.dp, top = 8.dp, end = 4.dp, bottom = 4.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.EventAvailable, contentDescription = null,
+                Icon(Icons.Default.CalendarMonth, contentDescription = null,
                     tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
                 Spacer(Modifier.width(8.dp))
                 Text("Turn this message into a plan?",
