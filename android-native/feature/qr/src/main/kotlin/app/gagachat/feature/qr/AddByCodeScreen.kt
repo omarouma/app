@@ -116,6 +116,7 @@ fun AddByCodeScreen(
             if (showScanner) {
                 Spacer(Modifier.height(GagaDimens.space12))
                 QrCameraScanner(
+                    requestPermissionOnOpen = startWithCamera,
                     onCodeScanned = { scanned ->
                         viewModel.onInputChange(scanned)
                         viewModel.lookup()
