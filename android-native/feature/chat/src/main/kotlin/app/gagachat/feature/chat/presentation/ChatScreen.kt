@@ -167,7 +167,7 @@ private fun locationPlanText(message: Message): String =
 /** Conservative, optional hint only. No dates, tasks, or notifications are created here. */
 internal fun looksLikeAPlan(text: String): Boolean {
     if (text.length !in 4..1200) return false
-    return Regex("""(?i)\\b(tomorrow|meeting|appointment|class at|at \\d{1,2}(?::\\d{2})?\\s*(?:am|pm))\\b""").containsMatchIn(text)
+    return Regex("""(?i)\b(tomorrow|meeting|appointment|class at|at \d{1,2}(?::\d{2})?\s*(?:am|pm))\b""").containsMatchIn(text)
 }
 
 @Composable
