@@ -29,7 +29,7 @@ fun TodayWorkspaceRoute(
 ) {
     val ui by vm.state.collectAsStateWithLifecycle()
     TodayWorkspaceScreen(ui, onBack = { nav.popBackStack() }, onRefresh = vm::refresh,
-        onNavigate = nav::navigate)
+        onNavigate = { nav.navigate(it) })
 }
 
 private data class WorkspaceTool(
