@@ -16,6 +16,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Remove
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -37,10 +40,17 @@ import java.util.Locale
 @Composable
 fun LocationPreviewDialog(
     preview: LocationPreview,
-    onConfirm: () -> Unit,
+    onConfirm: (Double, Double) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    val context = LocalContext.current
+    var latitude by androidx.compose.runtime.remember(preview) {
+        androidx.compose.runtime.mutableDoubleStateOf(preview.latitude)
+    }
+    var longitude by androidx.compose.runtime.remember(preview) {
+        androidx.compose.runtime.mutableDoubleStateOf(preview.longitude)
+    }
+    var zoom by androidx.compose.runtime.remember(preview) { androidx.compose.runtime.mutableIntStateOf(16) }
+    val changed = latitude != preview.latitude || longitude != preview.longitude
     AlertDialog(
         onDismissRequest = onDismiss,
         icon = {
@@ -53,29 +63,35 @@ fun LocationPreviewDialog(
         title = { Text("Share a location") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Surface(color = MaterialTheme.colorScheme.primaryContainer, shape = MaterialTheme.shapes.large, modifier = Modifier.fillMaxWidth()) {
-                    Column(Modifier.padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                        Icon(Icons.Filled.LocationOn, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(48.dp))
-                        Text("Your selected pin", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                        Text("Check the exact place before sending", style = MaterialTheme.typography.bodySmall)
+                GagaTiledMap(latitude, longitude, zoom,
+                    onSelected = { lat, lng -> latitude = lat; longitude = lng })
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Tap map to choose a pin",
+                        style = MaterialTheme.typography.labelMedium,
+                        modifier = Modifier.weight(1f))
+                    TextButton(onClick = {
+                        latitude = preview.latitude
+                        longitude = preview.longitude
+                    }) { Text("My position") }
+                    IconButton(onClick = { zoom = (zoom - 1).coerceAtLeast(3) }) {
+                        Icon(Icons.Default.Remove, contentDescription = "Zoom out")
+                    }
+                    IconButton(onClick = { zoom = (zoom + 1).coerceAtMost(18) }) {
+                        Icon(Icons.Default.Add, contentDescription = "Zoom in")
                     }
                 }
-                OutlinedButton(onClick = {
-                    val point = "${preview.latitude},${preview.longitude}"
-                    runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("geo:$point?q=$point"))) }
-                }, modifier = Modifier.fillMaxWidth()) { Text("Preview in Maps") }
                 Text(
                     text = String.format(
                         Locale.US,
                         "%.5f, %.5f",
-                        preview.latitude,
-                        preview.longitude,
+                        latitude,
+                        longitude,
                     ),
                     style = MaterialTheme.typography.bodyLarge,
                     fontWeight = FontWeight.Medium,
                 )
                 Text(
-                    text = accuracyLabel(preview.accuracyMeters),
+                    text = if (changed) "Pin chosen manually" else accuracyLabel(preview.accuracyMeters),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -100,7 +116,7 @@ fun LocationPreviewDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = onConfirm) { Text("Send") }
+            TextButton(onClick = { onConfirm(latitude, longitude) }) { Text("Share pin") }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) { Text("Cancel") }

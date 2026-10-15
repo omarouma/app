@@ -634,7 +634,7 @@ fun ChatRoute(
         pendingLocation?.let { preview ->
             LocationPreviewDialog(
                 preview = preview,
-                onConfirm = viewModel::confirmShareLocation,
+                onConfirm = { lat, lon -> viewModel.confirmShareLocation(lat, lon) },
                 onDismiss = viewModel::dismissLocationPreview,
             )
         }
@@ -654,8 +654,8 @@ fun ChatRoute(
             VideoReviewSheet(
                 uri = uri,
                 onDismiss = { videoReviewUri = null },
-                onSend = { caption ->
-                    viewModel.sendMedia(uri, "video", caption)
+                onSend = { editedUri, caption ->
+                    viewModel.sendMedia(editedUri, "video", caption)
                     videoReviewUri = null
                 },
             )

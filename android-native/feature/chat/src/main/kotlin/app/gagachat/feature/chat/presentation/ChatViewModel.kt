@@ -970,8 +970,14 @@ class ChatViewModel @Inject constructor(
     }
 
     /** F21: user confirmed the staged fix — send it as a LOCATION message. */
-    fun confirmShareLocation() {
+    fun confirmShareLocation(latitude: Double, longitude: Double) {
         val preview = _pendingLocation.value ?: return
+        if (!latitude.isFinite() || !longitude.isFinite() ||
+            latitude !in -85.0511..85.0511 || longitude !in -180.0..180.0
+        ) {
+            error.value = "Invalid map location."
+            return
+        }
         _pendingLocation.value = null
         viewModelScope.launch {
             val session = authRepository.sessionFlow.value
@@ -980,8 +986,8 @@ class ChatViewModel @Inject constructor(
                 senderId = currentUserId,
                 senderName = session?.displayName,
                 senderAvatar = null,
-                latitude = preview.latitude,
-                longitude = preview.longitude,
+                latitude = latitude,
+                longitude = longitude,
             )
             if (result is AppResult.Failure) error.value = result.error.toUserMessage()
         }
