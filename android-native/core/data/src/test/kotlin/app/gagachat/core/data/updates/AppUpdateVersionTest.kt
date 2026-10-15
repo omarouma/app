@@ -7,6 +7,11 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class AppUpdateVersionTest {
+    @Test fun redesignRolloutUpgradesCode56To57() {
+        assertTrue(AppUpdateRepository.shouldOfferUpdate(56, 57, 57))
+        assertFalse(AppUpdateRepository.shouldOfferUpdate(57, 57, 57))
+    }
+
     @Test fun noOfferWhenCurrent() {
         assertFalse(AppUpdateRepository.shouldOfferUpdate(47, 47, 47))
     }

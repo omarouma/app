@@ -85,7 +85,10 @@ class GagaApplication : Application(), Configuration.Provider, ImageLoaderFactor
             .onFailure { Log.w(TAG, "Realtime start failed", it) }
         // Register the periodic update check (PDF §8 — update notifications).
         // Idempotent: re-running keeps the existing schedule.
-        runCatching { updateScheduler.schedulePeriodic() }
+        runCatching {
+            updateScheduler.schedulePeriodic()
+            updateScheduler.checkNow()
+        }
             .onFailure { Log.w(TAG, "Update check scheduling failed", it) }
 
         applicationScope.launch {
