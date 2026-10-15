@@ -59,17 +59,23 @@ class MediaUploadNetworkPolicyTest {
     )
 
     @Test
-    fun `metered network with wifi-only policy leaves the queue untouched`() = runTest {
+    fun `metered wifi-only upload stays queued and asks WorkManager to retry`() = runTest {
         val d = UnconfinedTestDispatcher(testScheduler)
         val settingsCenter = mockk<SettingsCenterPreferences>()
         coEvery { settingsCenter.shouldDeferMediaUpload(any()) } returns true
         val networkMonitor = mockk<NetworkMonitor>()
         every { networkMonitor.isCurrentlyMetered() } returns true
         val uploadDao = mockk<UploadDao>(relaxed = true)
+        coEvery { uploadDao.getQueued() } returns listOf(
+            mockk<app.gagachat.core.database.entity.PendingUploadEntity>(relaxed = true),
+        )
 
-        repo(settingsCenter, networkMonitor, uploadDao, this, d).processQueue()
-
-        coVerify(exactly = 0) { uploadDao.getQueued() }
+        val result = runCatching { repo(settingsCenter, networkMonitor, uploadDao, this, d).processQueue() }
+        // The worker interprets this exception as a retry, not a successful
+        // drain. Rows remain untouched and resume when Wi-Fi is permitted.
+        org.junit.Assert.assertTrue(result.exceptionOrNull() is java.io.IOException)
+        coVerify(exactly = 1) { uploadDao.getQueued() }
+        coVerify(exactly = 0) { uploadDao.updateState(any(), any(), any(), any(), any()) }
     }
 
     @Test
