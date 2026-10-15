@@ -36,7 +36,7 @@ BEGIN
     IF position('auth.uid()' IN (coalesce(p.qual,'') || coalesce(p.with_check,'')))=0 THEN
       RAISE EXCEPTION 'Unexpected RLS expression: %.%', p.tablename, p.policyname;
     END IF;
-    IF (coalesce(p.qual,'') || coalesce(p.with_check,'')) ~* '\\mselect[[:space:]]+auth[.]uid[(][)]' THEN
+    IF (coalesce(p.qual,'') || coalesce(p.with_check,'')) ~* '\mselect[[:space:]]+auth[.]uid[(][)]' THEN
       RAISE EXCEPTION 'Manual review required for existing cached auth.uid in %.%', p.tablename, p.policyname;
     END IF;
     new_using := replace(p.qual,'auth.uid()','(SELECT auth.uid())');
