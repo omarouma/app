@@ -106,19 +106,6 @@ private fun Status(ui: DailyUi, vm: DailyLifeViewModel) {
     }
 }
 
-/** Summary tiles remain readable without fixed-height or single-line text clipping. */
-@Composable
-private fun GlanceStat(label: String, value: Int?, modifier: Modifier = Modifier, onClick: () -> Unit) {
-    Surface(onClick = onClick, modifier = modifier, shape = MaterialTheme.shapes.large,
-        color = MaterialTheme.colorScheme.surface) {
-        Column(Modifier.heightIn(min = 88.dp).padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(value?.toString() ?: "—", style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-            Text(label, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-    }
-}
-
 @Composable
 fun DailyHome(nav: NavController, onSaved: () -> Unit, onChat: (String) -> Unit, vm: DailyLifeViewModel = hiltViewModel()) {
     val ui by vm.state.collectAsStateWithLifecycle()
@@ -168,7 +155,6 @@ fun TodayDashboard(
         BoxWithConstraints(Modifier.fillMaxSize().padding(padding)) {
             val largeText = fontScale > 1.2f || MaterialTheme.typography.bodyLarge.fontSize.value > 19f
             val columns = if (maxWidth < 340.dp || largeText) 1 else 2
-            val statsPerRow = if (maxWidth < 480.dp || largeText) 2 else 4
             LazyColumn(Modifier.fillMaxSize().testTag("today_content"), contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 item {
                     val greeting = when (dashboardNow.atZone(ZoneId.systemDefault()).hour) {
@@ -181,9 +167,9 @@ fun TodayDashboard(
                         Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                             Text("$greeting · ${dashboardNow.atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofPattern("EEE, d MMM"))}",
                                 style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f))
-                            Text("Plan your day", style = MaterialTheme.typography.headlineSmall,
+                            Text("Make today count", style = MaterialTheme.typography.headlineSmall,
                                 fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
-                            Text("Start with what matters.", style = MaterialTheme.typography.bodyMedium,
+                            Text("Everything important, in one place.", style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f))
                         }
                     }
@@ -221,22 +207,28 @@ fun TodayDashboard(
                 val glanceReminders = ui.records.filter { it.kind == "reminder" && !it.completed }
                 fun dueToday(value: String?) = dashboardTime.isDueToday(value)
                 fun overdue(value: String?) = dashboardTime.isOverdue(value)
-                val tasksDueToday = glanceTasks.count { dueToday(it.dueAt) }
                 val eventsToday = ui.records.count { it.kind == "event" && !it.completed && dueToday(it.dueAt) }
                 val overdueTasks = glanceTasks.filter { overdue(it.dueAt) }
                 val overdueReminders = glanceReminders.filter { overdue(it.dueAt) }
-                val unreadTotal = ui.conversations.filter { !it.isArchived }.sumOf { it.unreadCount }
                 item(key = "summary") {
                     val available = !ui.loading && ui.error == null
-                    val stats = listOf("Tasks due" to tasksDueToday, "Events today" to eventsToday,
-                        "Reminders due" to glanceReminders.count { dueToday(it.dueAt) }, "Unread messages" to unreadTotal)
-                    val destinations = listOf("task", "event", "reminder", "messages")
-                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        stats.indices.toList().chunked(statsPerRow).forEach { indices ->
-                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                                indices.forEach { index ->
-                                    GlanceStat(stats[index].first, if (available) stats[index].second else null, Modifier.weight(1f)) {
-                                        if (index == 3) onNavigate("home") else onNavigate(DailyRoutes.records(destinations[index]))
+                    val dueRecords = ui.records.filter { !it.completed &&
+                        ((it.kind == "event" && dueToday(it.dueAt)) ||
+                            (it.kind in listOf("task", "reminder") && (dueToday(it.dueAt) || overdue(it.dueAt)))) }
+                    val replyChats = ui.conversations.count { !it.isArchived && it.unreadCount > 0 }
+                    val attention = dueRecords.size + replyChats
+                    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primary), modifier = Modifier.fillMaxWidth()) {
+                        Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            Text("TODAY'S FOCUS", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onPrimary)
+                            Text(if (!available) "Your day is syncing" else if (attention == 0) "You're all caught up" else "$attention ${if (attention == 1) "thing needs" else "things need"} your attention",
+                                style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimary)
+                            // Each count is a real record/chat count; no sample progress or inferred replies.
+                            Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                listOf("$replyChats unread chats" to "home", "${dueRecords.count { it.kind == "task" }} tasks" to DailyRoutes.records("task"), "${dueRecords.count { it.kind == "reminder" }} reminders" to DailyRoutes.records("reminder"), "$eventsToday events" to DailyRoutes.records("event")).forEach { (label, destination) ->
+                                    Surface(onClick = { onNavigate(destination) }, shape = MaterialTheme.shapes.large,
+                                        color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.16f)) {
+                                        Text(if (available) label else "—", modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                                            style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onPrimary)
                                     }
                                 }
                             }
@@ -246,16 +238,19 @@ fun TodayDashboard(
                 item(key = "quick_actions") {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                            Text("Create", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                            Text("Quick actions", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
                             TextButton(onClick = { moreActions = true }) { Text("More") }
                         }
-                        listOf("task", "event", "reminder").chunked(if (columns == 1) 1 else 3).forEach { actions ->
-                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                actions.forEach { kind ->
-                                    FilledTonalButton(onClick = { onNavigate(DailyRoutes.edit(kind)) }, modifier = Modifier.weight(1f).heightIn(min = 48.dp),
-                                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 12.dp)) {
-                                        Text(labels.getValue(kind))
+                        // Horizontal scrolling preserves readable labels and 48dp targets at large text sizes.
+                        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            listOf("task" to Icons.Default.TaskAlt, "reminder" to Icons.Default.NotificationsActive,
+                                "event" to Icons.Default.Event, "note" to Icons.AutoMirrored.Filled.Note,
+                                "shopping" to Icons.Default.ShoppingCart).forEach { (kind, icon) ->
+                                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.widthIn(min = 64.dp)) {
+                                    FilledTonalIconButton(onClick = { onNavigate(if (kind == "shopping") DailyRoutes.records(kind) else DailyRoutes.edit(kind)) }, modifier = Modifier.size(52.dp)) {
+                                        Icon(icon, contentDescription = "Open ${labels[kind] ?: "Shared lists"}")
                                     }
+                                    Text(if (kind == "shopping") "Shared lists" else labels.getValue(kind), style = MaterialTheme.typography.labelMedium)
                                 }
                             }
                         }
@@ -266,7 +261,7 @@ fun TodayDashboard(
                         (it.kind in listOf("task", "reminder") && (dueToday(it.dueAt) || overdue(it.dueAt)))) }.sortedBy { it.dueAt }
                 item(key = "agenda_heading") {
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                        Text("Your agenda", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                        Text("Needs your attention", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
                         if (overdueTasks.isNotEmpty() || overdueReminders.isNotEmpty()) Text("${overdueTasks.size + overdueReminders.size} overdue", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.labelMedium)
                     }
                 }
@@ -437,6 +432,12 @@ fun TodayDashboard(
                     }
                 }
                 if (toolsExpanded) {
+                item(key = "workspace_heading") {
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text("Today workspace", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+                        Text("All tools & activity", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
                 item(key = "china_direct_entry") {
                     Card(
                         onClick = { onNavigate(DailyRoutes.CHINA_DIRECT) },
@@ -474,8 +475,14 @@ fun TodayDashboard(
                         row.forEach { (section, icon) ->
                             Card(Modifier.weight(1f).clickable { onNavigate(DailyRoutes.records(section)) }) {
                                 Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    Icon(icon, null, tint = MaterialTheme.colorScheme.primary)
-                                    Text(title(section), fontWeight = FontWeight.SemiBold)
+                                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                                        Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.primaryContainer) {
+                                            Icon(icon, null, tint = MaterialTheme.colorScheme.onPrimaryContainer, modifier = Modifier.padding(10.dp))
+                                        }
+                                        Spacer(Modifier.weight(1f))
+                                        Icon(Icons.Default.ChevronRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
+                                    Text(when (section) { "note" -> "Private notes"; "shopping" -> "Shared lists"; "debts" -> "Borrowed & lent"; else -> title(section) }, fontWeight = FontWeight.SemiBold)
                                     val count = if (section == "shopping") ui.lists.size else ui.records.count { it.kind in kinds(section) }
                                     Text("$count ${if (section == "shopping") "lists" else "records"}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
