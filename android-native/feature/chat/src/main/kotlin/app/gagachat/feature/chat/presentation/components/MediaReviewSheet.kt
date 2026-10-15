@@ -21,6 +21,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -60,6 +61,7 @@ fun MediaReviewSheet(
 ) {
     var ordered by remember(uris) { mutableStateOf(uris) }
     var caption by remember { mutableStateOf("") }
+    var editingUri by remember { mutableStateOf<Uri?>(null) }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
@@ -75,7 +77,7 @@ fun MediaReviewSheet(
             )
             Spacer(Modifier.size(GagaDimens.space4))
             Text(
-                text = "${ordered.size} selected \u00b7 use the arrows to reorder",
+                text = "${ordered.size} selected · tap the pencil to edit, arrows to reorder",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -103,6 +105,7 @@ fun MediaReviewSheet(
                         onRemove = {
                             ordered = ordered.toMutableList().apply { removeAt(index) }
                         },
+                        onEdit = { editingUri = uri },
                     )
                 }
             }
@@ -130,6 +133,16 @@ fun MediaReviewSheet(
             Spacer(Modifier.size(GagaDimens.space12))
         }
     }
+    editingUri?.let { selected ->
+        PhotoEditorDialog(
+            uri = selected,
+            onSave = { edited ->
+                ordered = ordered.map { if (it == selected) edited else it }
+                editingUri = null
+            },
+            onDismiss = { editingUri = null },
+        )
+    }
 }
 
 @Composable
@@ -141,6 +154,7 @@ private fun ReviewTile(
     onMoveEarlier: () -> Unit,
     onMoveLater: () -> Unit,
     onRemove: () -> Unit,
+    onEdit: () -> Unit,
 ) {
     Box(
         modifier = Modifier
@@ -186,6 +200,21 @@ private fun ReviewTile(
                         tint = MaterialTheme.colorScheme.onPrimary,
                         modifier = Modifier.size(14.dp),
                     )
+                }
+            }
+        }
+        IconButton(
+            onClick = onEdit,
+            modifier = Modifier.align(Alignment.Center).size(40.dp),
+        ) {
+            Surface(
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.scrim.copy(alpha = 0.65f),
+            ) {
+                Box(Modifier.size(36.dp), contentAlignment = Alignment.Center) {
+                    Icon(Icons.Filled.Edit, contentDescription = "Edit photo $position",
+                        tint = MaterialTheme.colorScheme.onPrimary,
+                        modifier = Modifier.size(20.dp))
                 }
             }
         }
