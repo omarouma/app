@@ -28,6 +28,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -69,6 +70,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 fun QrCameraScanner(
     onCodeScanned: (String) -> Unit,
     modifier: Modifier = Modifier,
+    requestPermissionOnOpen: Boolean = false,
 ) {
     val context = LocalContext.current
     var hasPermission by remember {
@@ -84,6 +86,15 @@ fun QrCameraScanner(
     ) { granted ->
         askedOnce = true
         hasPermission = granted
+    }
+
+    // This is only enabled after an explicit Scan QR tap in the Chats header.
+    // Avoid a second permission prompt when the user returns after denying.
+    LaunchedEffect(requestPermissionOnOpen) {
+        if (requestPermissionOnOpen && !hasPermission && !askedOnce) {
+            askedOnce = true
+            permissionLauncher.launch(Manifest.permission.CAMERA)
+        }
     }
 
     if (hasPermission) {

@@ -8,6 +8,7 @@ import androidx.navigation.compose.composable
 object QrRoutes {
     const val MY_QR = "qr/my"
     const val ADD_BY_CODE = "qr/add"
+    const val SCAN = "qr/scan"
 }
 
 /**
@@ -25,6 +26,14 @@ fun NavGraphBuilder.qrGraph(
         MyQrScreen(
             onBack = { navController.popBackStack() },
             onScan = { navController.navigate(QrRoutes.ADD_BY_CODE) },
+        )
+    }
+    composable(QrRoutes.SCAN) {
+        AddByCodeScreen(
+            startWithCamera = true,
+            onOpenChat = onOpenChat,
+            onOpenProfile = onOpenProfile,
+            onBack = { navController.popBackStack() },
         )
     }
     composable(QrRoutes.ADD_BY_CODE) {

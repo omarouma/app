@@ -16,7 +16,13 @@ import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.filled.ChatBubbleOutline
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.QrCodeScanner
+import androidx.compose.material.icons.filled.Groups
+import androidx.compose.material.icons.filled.QrCode
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.foundation.layout.Box
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -66,6 +72,9 @@ private enum class ChatInboxFilter(val label: String) {
 fun HomeRoute(
     onOpenConversation: (conversationId: String) -> Unit,
     onOpenNewChat: () -> Unit,
+    onOpenNewGroup: () -> Unit,
+    onOpenQrScan: () -> Unit,
+    onOpenMyQr: () -> Unit,
     onOpenNotifications: () -> Unit = {},
     viewModel: HomeViewModel = hiltViewModel(),
 ) {
@@ -77,6 +86,7 @@ fun HomeRoute(
     // Conversation awaiting delete confirmation (opened from the context menu).
     var pendingDelete by remember { mutableStateOf<Conversation?>(null) }
     var currentFilter by rememberSaveable { mutableStateOf(ChatInboxFilter.ALL.name) }
+    var createMenuExpanded by remember { mutableStateOf(false) }
 
     val visibleConversations = remember(state.conversations, currentFilter) {
         when (currentFilter) {
@@ -121,13 +131,38 @@ fun HomeRoute(
     }
 
     GagaScaffold(
-        title = "GaGa Chats",
+        title = "GaGa",
         brandMark = true,
+        compactHeader = true,
         snackbarHostState = snackbarHostState,
         actions = {
-            // Compose uses the existing create-chat route; list refresh remains available by pull-down.
-            IconButton(onClick = onOpenNewChat) {
-                Icon(Icons.Filled.Add, contentDescription = "New chat")
+            Box {
+                IconButton(onClick = { createMenuExpanded = true }) {
+                    Icon(Icons.Filled.Add, contentDescription = "Create chat or group")
+                }
+                DropdownMenu(
+                    expanded = createMenuExpanded,
+                    onDismissRequest = { createMenuExpanded = false },
+                ) {
+                    DropdownMenuItem(
+                        text = { Text("New chat") },
+                        leadingIcon = { Icon(Icons.Filled.Add, contentDescription = null) },
+                        onClick = { createMenuExpanded = false; onOpenNewChat() },
+                    )
+                    DropdownMenuItem(
+                        text = { Text("New group") },
+                        leadingIcon = { Icon(Icons.Filled.Groups, contentDescription = null) },
+                        onClick = { createMenuExpanded = false; onOpenNewGroup() },
+                    )
+                    DropdownMenuItem(
+                        text = { Text("My QR code") },
+                        leadingIcon = { Icon(Icons.Filled.QrCode, contentDescription = null) },
+                        onClick = { createMenuExpanded = false; onOpenMyQr() },
+                    )
+                }
+            }
+            IconButton(onClick = onOpenQrScan) {
+                Icon(Icons.Filled.QrCodeScanner, contentDescription = "Scan QR code")
             }
             IconButton(onClick = onOpenNotifications) {
                 BadgedBox(
@@ -147,14 +182,6 @@ fun HomeRoute(
                 .fillMaxSize()
                 .padding(padding),
         ) {
-            Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-                Text("Recent conversations", style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
-                if (!state.isLoading) {
-                    Badge(modifier = Modifier.padding(start = 10.dp), containerColor = MaterialTheme.colorScheme.primaryContainer,
-                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer) { Text("${state.conversations.size}") }
-                }
-            }
             GagaSearchBar(
                 query = state.query,
                 onQueryChange = viewModel::onQueryChange,
@@ -211,15 +238,17 @@ fun HomeRoute(
                 ) {
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(bottom = GagaDimens.space48),
+                        contentPadding = PaddingValues(bottom = GagaDimens.space24),
                     ) {
                         val sections = listOf("Pinned" to visibleConversations.filter { it.isPinned },
                             "Recent" to visibleConversations.filterNot { it.isPinned })
                         sections.forEach { (heading, conversations) ->
                             if (conversations.isNotEmpty()) {
-                                item(key = "section-$heading") {
-                                    Text(heading.uppercase(), modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
-                                        style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                if (heading == "Pinned") {
+                                    item(key = "section-$heading") {
+                                        Text("PINNED", modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp),
+                                            style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
                                 }
                                 items(items = conversations, key = { it.id }) { conversation ->
                                     ConversationRow(

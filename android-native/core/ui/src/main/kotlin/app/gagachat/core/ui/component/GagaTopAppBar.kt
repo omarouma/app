@@ -26,6 +26,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -51,6 +55,8 @@ fun GagaTopAppBar(
     subtitle: String? = null,
     onBack: (() -> Unit)? = null,
     brandMark: Boolean = false,
+    compactHeader: Boolean = false,
+    titleHighlight: String? = null,
     avatarUrl: String? = null,
     avatarStatus: UserStatus? = null,
     onTitleClick: (() -> Unit)? = null,
@@ -71,11 +77,21 @@ fun GagaTopAppBar(
         if (subtitleText == null) MaterialTheme.typography.titleLarge.lineHeight.toDp()
         else MaterialTheme.typography.titleMedium.lineHeight.toDp() + MaterialTheme.typography.bodySmall.lineHeight.toDp()
     }
+    val highlightedTitle: AnnotatedString = if (!titleHighlight.isNullOrBlank() && title.endsWith(titleHighlight)) {
+        buildAnnotatedString {
+            append(title.removeSuffix(titleHighlight))
+            withStyle(SpanStyle(color = MaterialTheme.colorScheme.primary)) { append(titleHighlight) }
+        }
+    } else AnnotatedString(title)
     Column(modifier = modifier) {
         TopAppBar(
             // A stable baseline prevents oversized empty header bands, while
             // still allowing a taller touch-safe title at accessibility scales.
-            expandedHeight = (textHeight + 18.dp).coerceIn(64.dp, 88.dp),
+            expandedHeight = if (compactHeader && subtitleText == null) {
+                // Keep the primary Chats/Today headers to one comfortable row,
+                // without reducing icon targets below Android's 48dp minimum.
+                (textHeight + 14.dp).coerceIn(56.dp, 76.dp)
+            } else (textHeight + 18.dp).coerceIn(64.dp, 88.dp),
             title = {
                 val headerModifier = if (onTitleClick != null) {
                     Modifier
@@ -110,11 +126,11 @@ fun GagaTopAppBar(
                     }
                     if (subtitleText == null) {
                         Text(
-                            text = title,
+                            text = highlightedTitle,
                             modifier = Modifier.weight(1f),
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = if (brandMark) FontWeight.ExtraBold else FontWeight.Bold,
-                            color = if (brandMark) {
+                            color = if (brandMark && titleHighlight == null) {
                                 MaterialTheme.colorScheme.primary
                             } else {
                                 MaterialTheme.colorScheme.onSurface

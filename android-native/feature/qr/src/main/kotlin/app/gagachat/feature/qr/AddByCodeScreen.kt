@@ -27,6 +27,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -51,12 +52,13 @@ import kotlinx.coroutines.launch
 @Composable
 fun AddByCodeScreen(
     onOpenChat: (String) -> Unit,
+    startWithCamera: Boolean = false,
     onBack: () -> Unit,
     onOpenProfile: (String) -> Unit = {},
     viewModel: AddByCodeViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    var showScanner by remember { mutableStateOf(false) }
+    var showScanner by rememberSaveable { mutableStateOf(startWithCamera) }
     var isReadingImage by remember { mutableStateOf(false) }
     var imageError by remember { mutableStateOf<String?>(null) }
     val context = LocalContext.current
@@ -114,6 +116,7 @@ fun AddByCodeScreen(
             if (showScanner) {
                 Spacer(Modifier.height(GagaDimens.space12))
                 QrCameraScanner(
+                    requestPermissionOnOpen = startWithCamera,
                     onCodeScanned = { scanned ->
                         viewModel.onInputChange(scanned)
                         viewModel.lookup()

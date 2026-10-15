@@ -58,6 +58,7 @@ import java.util.UUID
 object DailyRoutes {
     const val HOME = "daily"
     const val WORKSPACE = "daily/workspace"
+    const val OVERVIEW = "daily/overview"
     const val RECORDS = "daily/records/{section}"
     const val EDIT = "daily/edit/{kind}?id={id}&text={text}&chat={chat}&message={message}"
     const val SHOP = "daily/shop/{id}"
@@ -70,8 +71,12 @@ object DailyRoutes {
 }
 
 fun NavGraphBuilder.dailyLifeGraph(nav: NavController, onSaved: () -> Unit, onChat: (String) -> Unit) {
-    composable(DailyRoutes.HOME) { DailyHome(nav, onSaved, onChat) }
+    // The Today bottom tab now opens the real-data workspace matching the
+    // approved layout. The original agenda stays reachable from its options
+    // menu and existing chat-to-action deep links remain unchanged.
+    composable(DailyRoutes.HOME) { TodayWorkspaceRoute(nav, showBack = false) }
     composable(DailyRoutes.WORKSPACE) { TodayWorkspaceRoute(nav) }
+    composable(DailyRoutes.OVERVIEW) { DailyHome(nav, onSaved, onChat) }
     composable(DailyRoutes.RECORDS) { entry -> RecordList(entry.arguments?.getString("section").orEmpty(), nav, onChat) }
     composable(DailyRoutes.EDIT, arguments = listOf("id", "text", "chat", "message").map { navArgument(it) { type = NavType.StringType; defaultValue = "" } }) { entry ->
         RecordEditor(entry.arguments?.getString("kind").orEmpty(), entry.arguments?.getString("id").orEmpty(), entry.arguments?.getString("text").orEmpty(), entry.arguments?.getString("chat").orEmpty(), entry.arguments?.getString("message").orEmpty(), nav)

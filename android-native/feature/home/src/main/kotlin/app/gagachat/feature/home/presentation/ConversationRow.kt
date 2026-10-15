@@ -100,7 +100,7 @@ fun ConversationRow(
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 2.dp)
                     .clip(RoundedCornerShape(14.dp))
-                    .heightIn(min = 76.dp)
+                    .heightIn(min = 64.dp)
                     .background(if (hasUnread) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.30f) else MaterialTheme.colorScheme.surface)
                     .combinedClickable(
                         onClick = onClick,
@@ -108,7 +108,7 @@ fun ConversationRow(
                         onLongClick = { menuExpanded = true },
                         onLongClickLabel = "More conversation actions",
                     )
-                    .padding(horizontal = GagaDimens.space12, vertical = GagaDimens.space8),
+                    .padding(horizontal = GagaDimens.space12, vertical = GagaDimens.space4),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 GagaAvatar(
