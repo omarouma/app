@@ -114,6 +114,7 @@ fun TodayWorkspaceScreen(
 
     GagaScaffold(
         title = "Today workspace",
+        titleHighlight = "workspace",
         brandMark = !showBack,
         compactHeader = true,
         onBack = if (showBack) onBack else null,
