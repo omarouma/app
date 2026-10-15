@@ -28,7 +28,7 @@ fun TodayWorkspaceRoute(
     vm: DailyLifeViewModel = hiltViewModel(),
 ) {
     val ui by vm.state.collectAsStateWithLifecycle()
-    TodayWorkspaceScreen(ui, onBack = { nav.popBackStack() }, onRefresh = vm::refresh,
+    TodayWorkspaceScreen(ui, onBack = { nav.popBackStack() }, onRefresh = { vm.refresh() },
         onNavigate = { nav.navigate(it) })
 }
 
