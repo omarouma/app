@@ -60,8 +60,8 @@ fun GagaTopAppBar(
     val density = LocalDensity.current
     val subtitleText = subtitle?.takeIf { it.isNotBlank() }
     val textHeight = with(density) {
-        (if (subtitleText == null) MaterialTheme.typography.titleLarge.lineHeight
-         else MaterialTheme.typography.titleMedium.lineHeight + MaterialTheme.typography.bodySmall.lineHeight).toDp()
+        if (subtitleText == null) MaterialTheme.typography.titleLarge.lineHeight.toDp()
+        else MaterialTheme.typography.titleMedium.lineHeight.toDp() + MaterialTheme.typography.bodySmall.lineHeight.toDp()
     }
     Column(modifier = modifier) {
         TopAppBar(
