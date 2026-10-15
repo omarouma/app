@@ -26,7 +26,9 @@ class MediaUploadWorker @AssistedInject constructor(
             Result.success()
         }.getOrElse {
             if (it is kotlinx.coroutines.CancellationException) throw it
-            if (runAttemptCount < 5) Result.retry() else Result.failure()
+            // WorkManager must keep trying after long Wi-Fi-only deferrals;
+            // the repository marks exhausted per-file failures terminal.
+            Result.retry()
         }
     }
 }

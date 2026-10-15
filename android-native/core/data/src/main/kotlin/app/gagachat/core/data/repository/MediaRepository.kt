@@ -82,6 +82,9 @@ interface MediaRepository {
         caption: String?,
     ): AppResult<Message>
 
+    /** Requeue failed media instead of sending an empty message RPC. */
+    suspend fun retryFailedUpload(clientMessageId: String): Boolean
+
     /** Processes the durable upload queue; safe to call from a background worker. */
     suspend fun processQueue()
 
@@ -260,6 +263,29 @@ class DefaultMediaRepository @Inject constructor(
         }
     }
 
+    override suspend fun retryFailedUpload(clientMessageId: String): Boolean =
+        withContext(dispatchers.io) {
+            // Preserve already-uploaded album rows; reuse each upload's stable
+            // storage key. Never enqueue an incomplete album.
+            val message = messageDao.getByClientMessageId(clientMessageId) ?: return@withContext false
+            if (message.mediaUrl != null) return@withContext false
+            val uploads = uploadDao.forMessage(clientMessageId)
+            if (uploads.isEmpty() || uploads.none { it.state == UploadState.FAILED.name }) {
+                return@withContext false
+            }
+            if (uploads.any { it.remoteUrl == null && (!File(it.localPath).exists() || File(it.localPath).length() == 0L) }) {
+                return@withContext false
+            }
+            uploads.filter { it.state == UploadState.FAILED.name }.forEach {
+                uploadDao.updateState(it.uploadId, UploadState.QUEUED.name, 0, null, null)
+                uploadDao.updateProgress(it.uploadId, 0)
+            }
+            messageDao.updateStatus(clientMessageId, MessageStatus.PENDING.name, null, null)
+            messageDao.updateUploadProgress(clientMessageId, 0)
+            kickOffUpload()
+            true
+        }
+
     override suspend fun processQueue() = queueMutex.withLock {
         reconcileOrphanedMedia()
         drainQueue()
@@ -282,7 +308,14 @@ class DefaultMediaRepository @Inject constructor(
         // network is metered, leave every row durably queued: the WorkManager job
         // (which requires NetworkType.CONNECTED) retries once the device is back
         // on an unmetered network, so nothing is lost and no cellular data is used.
-        if (settingsCenter.shouldDeferMediaUpload(networkMonitor.isCurrentlyMetered())) return@withContext
+        if (settingsCenter.shouldDeferMediaUpload(networkMonitor.isCurrentlyMetered())) {
+            // A success return permanently stranded uploads when the user chose
+            // Wi-Fi only. Keep WorkManager on backoff until allowed connectivity.
+            if (uploadDao.getQueued().isNotEmpty()) {
+                throw java.io.IOException("Waiting for Wi-Fi to upload attachments")
+            }
+            return@withContext
+        }
 
         val queued = uploadDao.getQueued()
         // Group by target message, preserving rowid (insertion) order so album

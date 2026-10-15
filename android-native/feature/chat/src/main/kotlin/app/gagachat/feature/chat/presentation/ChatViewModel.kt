@@ -1280,6 +1280,17 @@ class ChatViewModel @Inject constructor(
 
     fun retry(message: Message) {
         viewModelScope.launch {
+            if (message.type in setOf(MessageType.IMAGE, MessageType.VIDEO, MessageType.AUDIO, MessageType.FILE) &&
+                message.mediaUrl.isNullOrBlank()
+            ) {
+                val restored = mediaRepository.retryFailedUpload(message.clientMessageId ?: message.localId)
+                if (!restored) {
+                    error.value = "This attachment cannot be retried. Select the file again to resend it."
+                } else {
+                    notice.value = "Retrying attachment upload…"
+                }
+                return@launch
+            }
             when (val result = messageRepository.retry(message.localId)) {
                 is AppResult.Failure -> error.value = result.error.toUserMessage()
                 else -> Unit
