@@ -1457,7 +1457,8 @@ private fun LocationContent(message: Message) {
                 Text("Directions")
             }
         }
-    }    if (showMapDetails && lat != null && lng != null) {
+    }
+    if (showMapDetails && lat != null && lng != null) {
         LocationMapViewerDialog(
             title = placeLabel,
             latitude = lat,
