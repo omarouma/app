@@ -126,6 +126,8 @@ import app.gagachat.feature.chat.presentation.components.SplitBillDialog
 import app.gagachat.feature.chat.presentation.components.TranslateDialog
 import app.gagachat.feature.chat.presentation.components.MessageComposer
 import app.gagachat.feature.chat.presentation.components.TypingIndicator
+import app.gagachat.feature.chat.presentation.components.PickedContact
+import app.gagachat.feature.chat.presentation.components.ContactShareReviewDialog
 import app.gagachat.feature.chat.presentation.components.rememberContactPicker
 import app.gagachat.feature.chat.presentation.components.rememberDocumentOpener
 import app.gagachat.feature.chat.presentation.components.rememberDocumentSaver
@@ -236,8 +238,9 @@ fun ChatRoute(
         onAudioPicked = { viewModel.sendMedia(it, "audio") },
         onCameraPhotoPicked = { reviewUris = listOf(it) },
     )
+    var contactToReview by remember { mutableStateOf<PickedContact?>(null) }
     val contactPicker = rememberContactPicker(
-        onContactPicked = { viewModel.shareContact(it.name, it.phone) },
+        onContactPicked = { contactToReview = it },
     )
     val context = LocalContext.current
     val documentOpener = rememberDocumentOpener()
@@ -639,6 +642,18 @@ fun ChatRoute(
                 preview = preview,
                 onConfirm = { lat, lon -> viewModel.confirmShareLocation(lat, lon) },
                 onDismiss = viewModel::dismissLocationPreview,
+            )
+        }
+
+        contactToReview?.let { contact ->
+            ContactShareReviewDialog(
+                contact = contact,
+                onCancel = { contactToReview = null },
+                onConfirm = { name, phone ->
+                    // No phone-book data leaves this device before consent.
+                    viewModel.shareContact(name, phone)
+                    contactToReview = null
+                },
             )
         }
 
