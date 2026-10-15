@@ -31,7 +31,21 @@ data class SupabaseConfig(
             val ws = url.replaceFirst("https://", "wss://").replaceFirst("http://", "ws://")
             return "$ws/realtime/v1/websocket"
         }
-    val realtimeSocketUrl: String get() = "$realtimeUrl?apikey=$realtimeAnonKey&vsn=1.0.0"
+    /** WebSocket's apikey is public; authenticated JWT is still required in
+     * the Authorization header and each Phoenix channel join.
+     * On projects that expose both modern publishable and legacy anon keys,
+     * prefer the publishable key and fall back to the still-active legacy key
+     * ONLY when the gateway rejects the first handshake with HTTP 401.
+     */
+    val realtimeSocketUrls: List<String>
+        get() = listOf(anonKey, realtimeAnonKey)
+            .filter { it.isNotBlank() }
+            .distinct()
+            .map { "$realtimeUrl?apikey=$it&vsn=1.0.0" }
+
+    /** Retained for compatibility with existing callers. */
+    val realtimeSocketUrl: String get() = realtimeSocketUrls.firstOrNull()
+        ?: "$realtimeUrl?apikey=&vsn=1.0.0"
 
     companion object {
         /** Public site / App Link host used for auth email redirects. */
