@@ -5,7 +5,7 @@ Source-level inventory and layout/interaction risk scan across the feature scree
 
 ## Fixes included
 - Constrained avatar/title layout, density-aware header height, compact call menu and selection action menu (PR #87).
-- Shared primary/secondary and account sign-out buttons grow with wrapped or enlarged labels.
+- Shared primary/secondary and account sign-out buttons grow with wrapped or enlarged labels; onboarding permission actions have a 48dp minimum height.
 - Email verification and unsupported-phone recovery content can scroll when keyboard or text consumes vertical space.
 - Notification toolbar mark-all-read uses a compact accessible icon; bulk actions scroll horizontally.
 - Update checks retry transient registry failures and do not mark a release notified when app/system/channel notification settings prevent posting.

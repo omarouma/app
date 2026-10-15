@@ -1,6 +1,7 @@
 package app.gagachat.core.ui
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
