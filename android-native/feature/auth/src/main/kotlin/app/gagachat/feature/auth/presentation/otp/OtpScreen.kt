@@ -16,6 +16,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -87,6 +89,7 @@ fun OtpRoute(
                 .fillMaxSize()
                 .padding(padding)
                 .imePadding()
+                .verticalScroll(rememberScrollState())
                 .padding(horizontal = GagaDimens.space24, vertical = GagaDimens.space16),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Top,
@@ -156,7 +159,7 @@ private fun PhoneUnavailableContent(
     onNavigateBack: () -> Unit,
 ) {
     Column(
-        modifier = modifier.padding(horizontal = GagaDimens.space24, vertical = GagaDimens.space16),
+        modifier = modifier.verticalScroll(rememberScrollState()).padding(horizontal = GagaDimens.space24, vertical = GagaDimens.space16),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {

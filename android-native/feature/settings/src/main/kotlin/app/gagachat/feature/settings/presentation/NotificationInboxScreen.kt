@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.filled.DoneAll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.filled.AccountBalanceWallet
@@ -110,7 +111,7 @@ fun NotificationInboxScreen(
         onBack = onBack,
         actions = {
             IconButton(onClick = { viewModel.refresh() }, enabled = !busy) { Icon(Icons.Filled.Refresh, "Refresh notifications") }
-            TextButton(onClick = { viewModel.markAllRead() }, enabled = !busy && unread > 0) { Text("Mark all read") }
+            IconButton(onClick = { viewModel.markAllRead() }, enabled = !busy && unread > 0) { Icon(Icons.Filled.DoneAll, "Mark all notifications read") }
         },
     ) { padding ->
         Column(Modifier.fillMaxSize().padding(padding)) {
@@ -121,7 +122,7 @@ fun NotificationInboxScreen(
                 Text("Messages, people and plans. Long-press to select.", style = MaterialTheme.typography.bodyMedium)
             }
         }
-        if (selected.isNotEmpty()) Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+        if (selected.isNotEmpty()) Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp), horizontalArrangement = Arrangement.SpaceBetween) {
             TextButton(onClick = { selected = emptySet() }) { Text("Clear (${selected.size})") }
             TextButton(onClick = { confirmDismiss = true }, enabled = !busy) { Text("Dismiss selected") }
         }
