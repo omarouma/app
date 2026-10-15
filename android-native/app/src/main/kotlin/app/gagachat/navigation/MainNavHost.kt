@@ -98,6 +98,10 @@ private enum class TopLevelDestination(
     PROFILE(ProfileRoutes.profile(), ProfileRoutes.PROFILE, "Me", Icons.Filled.Person, Icons.Outlined.Person),
 }
 
+/** Five tabs stay available on small screens; larger text collapses only unselected labels. */
+internal fun useCompactBottomLabels(widthDp: Float, textScale: Float): Boolean =
+    widthDp < 350f || textScale > 1.40f
+
 /** Routes that keep the bottom bar visible (top-level tabs only). */
 private val bottomBarRoutes: Set<String> = TopLevelDestination.entries
     .map { it.routePattern }
@@ -276,7 +280,11 @@ private fun GagaBottomBar(
     callsBadgeCount: Int,
 ) {
     BoxWithConstraints {
-        val compactLabels = maxWidth < 350.dp || LocalDensity.current.fontScale > 1.40f
+        val effectiveTextScale = maxOf(
+            LocalDensity.current.fontScale,
+            MaterialTheme.typography.labelMedium.fontSize.value / 12f,
+        )
+        val compactLabels = useCompactBottomLabels(maxWidth.value, effectiveTextScale)
     Column {
         HorizontalDivider(
             thickness = GagaDimens.hairline,

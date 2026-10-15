@@ -145,7 +145,11 @@ fun MessageComposer(
     val keyboardController = LocalSoftwareKeyboardController.current
 
     BoxWithConstraints(modifier = modifier.fillMaxWidth()) {
-    val compactComposer = maxWidth < 360.dp || LocalDensity.current.fontScale > 1.25f
+    val effectiveTextScale = maxOf(
+        LocalDensity.current.fontScale,
+        MaterialTheme.typography.bodyLarge.fontSize.value / 16f,
+    )
+    val compactComposer = maxWidth < 360.dp || effectiveTextScale > 1.25f
     Surface(
         modifier = Modifier.fillMaxWidth(),
         color = MaterialTheme.colorScheme.surface,

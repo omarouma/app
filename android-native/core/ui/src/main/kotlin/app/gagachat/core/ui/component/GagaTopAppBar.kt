@@ -59,10 +59,14 @@ fun GagaTopAppBar(
     actions: @Composable RowScope.() -> Unit = {},
 ) {
     val density = LocalDensity.current
+    val effectiveTextScale = maxOf(
+        density.fontScale,
+        MaterialTheme.typography.titleMedium.fontSize.value / 16f,
+    )
     // At 200% font scale a two-line identity consumes the entire top bar.
     // Keep the peer name and all 48dp actions visible; presence remains in
     // the chat info screen when the second line cannot fit safely.
-    val subtitleText = subtitle?.takeIf { it.isNotBlank() && density.fontScale < 1.65f }
+    val subtitleText = subtitle?.takeIf { it.isNotBlank() && effectiveTextScale < 1.65f }
     val textHeight = with(density) {
         if (subtitleText == null) MaterialTheme.typography.titleLarge.lineHeight.toDp()
         else MaterialTheme.typography.titleMedium.lineHeight.toDp() + MaterialTheme.typography.bodySmall.lineHeight.toDp()
@@ -81,7 +85,7 @@ fun GagaTopAppBar(
                     Modifier
                 }
                 BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
-                val smallTitleSpace = maxWidth < 185.dp || density.fontScale > 1.35f
+                val smallTitleSpace = maxWidth < 185.dp || effectiveTextScale > 1.35f
                 Row(
                     modifier = headerModifier.fillMaxWidth().heightIn(min = 48.dp),
                     verticalAlignment = Alignment.CenterVertically,

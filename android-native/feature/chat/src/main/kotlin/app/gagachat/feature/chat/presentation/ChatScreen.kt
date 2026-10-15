@@ -373,7 +373,10 @@ fun ChatRoute(
     }
 
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
-        val fontScale = LocalDensity.current.fontScale
+        val fontScale = maxOf(
+            LocalDensity.current.fontScale,
+            MaterialTheme.typography.titleMedium.fontSize.value / 16f,
+        )
         // More and Back always stay reachable. On 320–400dp phones, keeping
         // phone+video+overflow beside a profile/avatar makes the title unusable.
         val voiceInHeader = maxWidth >= 420.dp && fontScale <= 1.15f
