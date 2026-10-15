@@ -125,7 +125,7 @@ class SupabaseRealtimeClient @Inject constructor(
                 // A newly joined topic must use a refreshed, syntactically valid
                 // user JWT. The old code sent cached/empty access_token values,
                 // producing repeated MalformedJWT errors on the Realtime socket.
-                val token = runCatching { tokenRefresher.ensureFresh() }.getOrNull()
+                val token = runCatching { authenticatedAccessToken() }.getOrNull()
                 if (isCompactJwt(token)) {
                     runCatching {
                         session.send(Frame.Text(if (topic in broadcastTopics)
@@ -192,7 +192,7 @@ class SupabaseRealtimeClient @Inject constructor(
         currentScope.launch {
             try {
                 withTimeout(5_000L) {
-                    val token = tokenRefresher.ensureFresh()?.takeIf(::isCompactJwt)
+                    val token = authenticatedAccessToken()
                         ?: return@withTimeout
                     val response = client.post("${config.url}/realtime/v1/api/broadcast") {
                         header("apikey", config.anonKey)
@@ -220,6 +220,17 @@ class SupabaseRealtimeClient @Inject constructor(
         }
     }
 
+    /**
+     * An apparently unexpired token may still be a corrupted or opaque string.
+     * One forced refresh repairs that state instead of retrying the same bad JWT
+     * every 30 seconds until its recorded expiry.
+     */
+    private suspend fun authenticatedAccessToken(): String? {
+        val cached = tokenRefresher.ensureFresh()
+        if (isCompactJwt(cached)) return cached
+        return tokenRefresher.ensureFresh(force = true)?.takeIf(::isCompactJwt)
+    }
+
     private fun wireTopic(topic: String): String =
         if (topic.startsWith("realtime:")) topic else "realtime:$topic"
 
@@ -235,7 +246,7 @@ class SupabaseRealtimeClient @Inject constructor(
                 // connects but every channel join is rejected and live message
                 // delivery silently stops until the app is restarted.
                 val initialToken = try {
-                    tokenRefresher.ensureFresh()
+                    authenticatedAccessToken()
                 } catch (cancelled: CancellationException) {
                     throw cancelled
                 } catch (error: Exception) {
@@ -267,7 +278,7 @@ class SupabaseRealtimeClient @Inject constructor(
                         while (isActive) {
                             delay(25_000)
                             session.send(Frame.Text(heartbeatMessage()))
-                            val token = tokenRefresher.ensureFresh()
+                            val token = authenticatedAccessToken()
                             check(isCompactJwt(token)) { "Realtime access token unavailable" }
                             activeTopics.toList().forEach { topic ->
                                 session.send(Frame.Text(buildJsonObject {
