@@ -51,6 +51,7 @@ fun GagaTopAppBar(
     subtitle: String? = null,
     onBack: (() -> Unit)? = null,
     brandMark: Boolean = false,
+    compactHeader: Boolean = false,
     avatarUrl: String? = null,
     avatarStatus: UserStatus? = null,
     onTitleClick: (() -> Unit)? = null,
@@ -75,7 +76,11 @@ fun GagaTopAppBar(
         TopAppBar(
             // A stable baseline prevents oversized empty header bands, while
             // still allowing a taller touch-safe title at accessibility scales.
-            expandedHeight = (textHeight + 18.dp).coerceIn(64.dp, 88.dp),
+            expandedHeight = if (compactHeader && subtitleText == null) {
+                // Keep the primary Chats/Today headers to one comfortable row,
+                // without reducing icon targets below Android's 48dp minimum.
+                (textHeight + 14.dp).coerceIn(56.dp, 76.dp)
+            } else (textHeight + 18.dp).coerceIn(64.dp, 88.dp),
             title = {
                 val headerModifier = if (onTitleClick != null) {
                     Modifier

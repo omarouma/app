@@ -15,12 +15,18 @@ fun NavGraphBuilder.homeScreen(
     navController: NavController,
     onOpenConversation: (String) -> Unit,
     onOpenNewChat: () -> Unit,
+    onOpenNewGroup: () -> Unit,
+    onOpenQrScan: () -> Unit,
+    onOpenMyQr: () -> Unit,
     onOpenNotifications: () -> Unit = {},
 ) {
     composable(HomeRoutes.HOME) {
         HomeRoute(
             onOpenConversation = onOpenConversation,
             onOpenNewChat = onOpenNewChat,
+            onOpenNewGroup = onOpenNewGroup,
+            onOpenQrScan = onOpenQrScan,
+            onOpenMyQr = onOpenMyQr,
             onOpenNotifications = onOpenNotifications,
         )
     }

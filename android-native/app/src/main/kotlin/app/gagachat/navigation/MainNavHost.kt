@@ -167,6 +167,9 @@ fun MainNavHost(pendingDeepLink: String?) {
                 navController = navController,
                 onOpenConversation = { id -> navController.navigate(ChatRoutes.chat(id)) },
                 onOpenNewChat = { navController.navigate(PeopleRoutes.PEOPLE) },
+                onOpenNewGroup = { navController.navigate(GroupsRoutes.CREATE) },
+                onOpenQrScan = { navController.navigate(QrRoutes.SCAN) },
+                onOpenMyQr = { navController.navigate(QrRoutes.MY_QR) },
                 onOpenNotifications = { navController.navigate(SettingsRoutes.NOTIFICATIONS_INBOX) },
             )
             chatScreen(
