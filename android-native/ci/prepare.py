@@ -36,9 +36,21 @@ def client(package_name: str) -> dict:
             "mobilesdk_app_id": v["google_app_id"],
             "android_client_info": {"package_name": package_name},
         },
-        "oauth_client": [
-            {"client_id": v["oauth_client_id"], "client_type": 3},
-        ],
+        "oauth_client": (
+            [
+                {
+                    "client_id": entry["client_id"],
+                    "client_type": 1,
+                    "android_info": {
+                        "package_name": package_name,
+                        "certificate_hash": entry["certificate_hash"],
+                    },
+                }
+                for entry in v.get("android_oauth_clients", [])
+                if package_name == "gagachat.app"
+            ]
+            + [{"client_id": v["oauth_client_id"], "client_type": 3}]
+        ),
         "api_key": [
             {"current_key": v["google_api_key"]},
         ],

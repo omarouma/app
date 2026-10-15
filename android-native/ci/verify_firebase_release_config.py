@@ -51,6 +51,27 @@ def verify() -> dict[str, str]:
                and x.get("client_id") == expected["oauth_client_id"]
                for x in release_client.get("oauth_client", []))
 
+    # The downloaded Firebase Android configuration contains three publicly
+    # registered certificate-specific OAuth client entries. Keep them in the
+    # generated release variant, or Google Sign-In/certificate association may
+    # silently differ from the real Firebase registration.
+    expected_oauth = {
+        (entry["client_id"], entry["certificate_hash"].lower())
+        for entry in expected["android_oauth_clients"]
+    }
+    registered_oauth = {
+        (entry["client_id"], entry["android_info"]["certificate_hash"].lower())
+        for entry in release_client["oauth_client"]
+        if entry.get("client_type") == 1
+        and entry.get("android_info", {}).get("package_name") == EXPECTED_PACKAGE
+    }
+    assert registered_oauth == expected_oauth, "Registered Android OAuth SHA-1 clients do not match"
+    assert len(registered_oauth) == 3
+    assert "cd2f9de5f1932c836d79573726e1033de44bedf9" in {
+        certificate for _, certificate in registered_oauth
+    }, "Approved GaGa release signing certificate SHA-1 missing from Firebase Android config"
+    assert all(re.fullmatch(r"[0-9a-f]{40}", digest) for _, digest in registered_oauth)
+
     app_gradle = (ROOT / "app/build.gradle.kts").read_text(encoding="utf-8")
     assert f'applicationId = "{EXPECTED_PACKAGE}"' in app_gradle
     assert 'pluginManager.apply("com.google.gms.google-services")' in app_gradle
