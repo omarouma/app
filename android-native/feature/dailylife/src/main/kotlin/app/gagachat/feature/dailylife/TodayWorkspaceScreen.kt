@@ -9,6 +9,9 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -31,6 +34,16 @@ fun TodayWorkspaceRoute(
     vm: DailyLifeViewModel = hiltViewModel(),
 ) {
     val ui by vm.state.collectAsStateWithLifecycle()
+    // Re-fetch real Today records after returning from an editor or a call.
+    // No fake cache rows are inserted, and a failed refresh remains visible.
+    val owner = LocalLifecycleOwner.current
+    DisposableEffect(owner, vm) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) vm.refresh()
+        }
+        owner.lifecycle.addObserver(observer)
+        onDispose { owner.lifecycle.removeObserver(observer) }
+    }
     TodayWorkspaceScreen(
         ui = ui,
         onBack = { nav.popBackStack() },
