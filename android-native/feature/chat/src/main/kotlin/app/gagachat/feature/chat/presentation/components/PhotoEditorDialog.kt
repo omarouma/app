@@ -201,8 +201,34 @@ internal fun writeEditedPhoto(
         BitmapFactory.decodeStream(it, null, options)
     }) { "Could not decode photo" }
     try {
-        if (rotation % 360 != 0 || flipped) {
+        // BitmapFactory can return raw sensor orientation while Coil previews
+        // follow EXIF. Normalize camera EXIF first so exported portrait photos
+        // match what the sender saw in the review sheet.
+        val exifOrientation = runCatching {
+            resolver.openInputStream(uri)?.use { stream ->
+                android.media.ExifInterface(stream).getAttributeInt(
+                    android.media.ExifInterface.TAG_ORIENTATION,
+                    android.media.ExifInterface.ORIENTATION_NORMAL,
+                )
+            } ?: android.media.ExifInterface.ORIENTATION_NORMAL
+        }.getOrDefault(android.media.ExifInterface.ORIENTATION_NORMAL)
+        if (rotation % 360 != 0 || flipped ||
+            exifOrientation != android.media.ExifInterface.ORIENTATION_NORMAL
+        ) {
             val matrix = Matrix().apply {
+                when (exifOrientation) {
+                    android.media.ExifInterface.ORIENTATION_ROTATE_90 -> postRotate(90f)
+                    android.media.ExifInterface.ORIENTATION_ROTATE_180 -> postRotate(180f)
+                    android.media.ExifInterface.ORIENTATION_ROTATE_270 -> postRotate(270f)
+                    android.media.ExifInterface.ORIENTATION_FLIP_HORIZONTAL -> postScale(-1f, 1f)
+                    android.media.ExifInterface.ORIENTATION_FLIP_VERTICAL -> postScale(1f, -1f)
+                    android.media.ExifInterface.ORIENTATION_TRANSPOSE -> {
+                        postRotate(90f); postScale(-1f, 1f)
+                    }
+                    android.media.ExifInterface.ORIENTATION_TRANSVERSE -> {
+                        postRotate(270f); postScale(-1f, 1f)
+                    }
+                }
                 postRotate((rotation % 360).toFloat())
                 if (flipped) postScale(-1f, 1f)
             }
