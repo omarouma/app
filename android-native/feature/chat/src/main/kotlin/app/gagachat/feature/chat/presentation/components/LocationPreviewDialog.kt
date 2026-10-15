@@ -1,6 +1,17 @@
 package app.gagachat.feature.chat.presentation.components
 
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import android.location.Geocoder
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import android.net.Uri
@@ -51,6 +62,11 @@ fun LocationPreviewDialog(
     }
     var zoom by androidx.compose.runtime.remember(preview) { androidx.compose.runtime.mutableIntStateOf(16) }
     val changed = latitude != preview.latitude || longitude != preview.longitude
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var placeQuery by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf("") }
+    var searching by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+    var searchError by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf<String?>(null) }
     AlertDialog(
         onDismissRequest = onDismiss,
         icon = {
@@ -62,7 +78,50 @@ fun LocationPreviewDialog(
         },
         title = { Text("Share a location") },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+                modifier = Modifier.verticalScroll(rememberScrollState()),
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    OutlinedTextField(
+                        value = placeQuery,
+                        onValueChange = { placeQuery = it.take(120) },
+                        label = { Text("Search an address or place") },
+                        modifier = Modifier.weight(1f),
+                        singleLine = true,
+                    )
+                    TextButton(
+                        enabled = !searching && placeQuery.isNotBlank(),
+                        onClick = {
+                            searching = true
+                            searchError = null
+                            scope.launch {
+                                // Android's device geocoder varies by provider.
+                                // Work off the UI thread and never auto-send.
+                                val address = withContext(Dispatchers.IO) {
+                                    @Suppress("DEPRECATION")
+                                    runCatching {
+                                        Geocoder(context, Locale.getDefault())
+                                            .getFromLocationName(placeQuery.trim(), 3)
+                                            ?.firstOrNull()
+                                    }.getOrNull()
+                                }
+                                searching = false
+                                if (address == null) {
+                                    searchError = "Place not found. Tap the map to choose a pin."
+                                } else {
+                                    latitude = address.latitude
+                                    longitude = address.longitude
+                                    zoom = 16
+                                }
+                            }
+                        },
+                    ) { Text("Find") }
+                }
+                searchError?.let {
+                    Text(it, style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error)
+                }
                 GagaTiledMap(latitude, longitude, zoom,
                     onSelected = { lat, lng -> latitude = lat; longitude = lng })
                 Row(verticalAlignment = Alignment.CenterVertically) {
