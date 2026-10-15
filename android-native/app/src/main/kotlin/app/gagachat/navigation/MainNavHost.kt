@@ -2,6 +2,8 @@ package app.gagachat.navigation
 
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
@@ -13,6 +15,9 @@ import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.outlined.Call
 import androidx.compose.material.icons.outlined.People
 import androidx.compose.material.icons.outlined.Person
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.size
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.foundation.layout.Column
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
@@ -31,6 +36,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.text.style.TextOverflow
 import app.gagachat.core.ui.theme.GagaDimens
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -94,10 +100,18 @@ private enum class TopLevelDestination(
     PROFILE(ProfileRoutes.profile(), ProfileRoutes.PROFILE, "Me", Icons.Filled.Person, Icons.Outlined.Person),
 }
 
+/** Five tabs stay available on small screens; larger text collapses only unselected labels. */
+internal fun useCompactBottomLabels(widthDp: Float, textScale: Float): Boolean =
+    widthDp < 350f || textScale > 1.40f
+
 /** Routes that keep the bottom bar visible (top-level tabs only). */
 private val bottomBarRoutes: Set<String> = TopLevelDestination.entries
     .map { it.routePattern }
     .toSet()
+
+/** The keyboard must never compete for height with five main navigation tabs. */
+internal fun shouldShowBottomTabs(route: String?, keyboardVisible: Boolean): Boolean =
+    route in bottomBarRoutes && !keyboardVisible
 
 /**
  * Main graph (PDF §2.1). Hosts the four top-level destinations behind a bottom
@@ -109,7 +123,8 @@ fun MainNavHost(pendingDeepLink: String?) {
     val navController = rememberNavController()
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route
-    val showBottomBar = currentRoute in bottomBarRoutes
+    val keyboardVisible = WindowInsets.ime.getBottom(LocalDensity.current) > 0
+    val showBottomBar = shouldShowBottomTabs(currentRoute, keyboardVisible)
     val viewModel: MainNavViewModel = hiltViewModel()
     val totalUnread by viewModel.totalUnread.collectAsStateWithLifecycle()
     val pendingRequests by viewModel.pendingRequests.collectAsStateWithLifecycle()
@@ -271,6 +286,12 @@ private fun GagaBottomBar(
     peopleBadgeCount: Int,
     callsBadgeCount: Int,
 ) {
+    BoxWithConstraints {
+        val effectiveTextScale = maxOf(
+            LocalDensity.current.fontScale,
+            MaterialTheme.typography.labelMedium.fontSize.value / 12f,
+        )
+        val compactLabels = useCompactBottomLabels(maxWidth.value, effectiveTextScale)
     Column {
         HorizontalDivider(
             thickness = GagaDimens.hairline,
@@ -285,6 +306,9 @@ private fun GagaBottomBar(
                 val selected = currentRoute == destination.routePattern
                 NavigationBarItem(
                     selected = selected,
+                    // Large-text and 320dp layouts retain five accessible targets.
+                    // Hide unselected labels only when they would overlap.
+                    alwaysShowLabel = !compactLabels,
                     onClick = {
                         if (currentRoute != destination.routePattern) {
                             navController.navigate(destination.route) {
@@ -315,16 +339,19 @@ private fun GagaBottomBar(
                                     }
                                 },
                             ) {
-                                Icon(icon, contentDescription = destination.label)
+                                Icon(icon, contentDescription = destination.label, modifier = Modifier.size(if (compactLabels) 22.dp else 24.dp))
                             }
                         } else {
-                            Icon(icon, contentDescription = destination.label)
+                            Icon(icon, contentDescription = destination.label, modifier = Modifier.size(if (compactLabels) 22.dp else 24.dp))
                         }
                     },
                     label = {
                         Text(
                             text = destination.label,
-                            style = MaterialTheme.typography.labelMedium,
+                            style = if (compactLabels) MaterialTheme.typography.labelSmall else MaterialTheme.typography.labelMedium,
+                            maxLines = 1,
+                            softWrap = false,
+                            overflow = TextOverflow.Ellipsis,
                             fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
                         )
                     },
@@ -338,5 +365,6 @@ private fun GagaBottomBar(
                 )
             }
         }
+    }
     }
 }

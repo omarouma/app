@@ -15,6 +15,9 @@ interface UploadDao {
     @Query("SELECT * FROM pending_uploads WHERE state IN ('QUEUED', 'UPLOADING', 'UPLOADED') ORDER BY rowid ASC")
     suspend fun getQueued(): List<PendingUploadEntity>
 
+    @Query("SELECT * FROM pending_uploads WHERE clientMessageId = :clientMessageId ORDER BY rowid ASC")
+    suspend fun forMessage(clientMessageId: String): List<PendingUploadEntity>
+
     @Query("SELECT * FROM pending_uploads WHERE clientMessageId = :clientMessageId LIMIT 1")
     fun observeByClientMessageId(clientMessageId: String): Flow<PendingUploadEntity?>
 

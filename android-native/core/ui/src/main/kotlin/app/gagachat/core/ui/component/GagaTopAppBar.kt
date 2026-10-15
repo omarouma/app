@@ -1,6 +1,7 @@
 package app.gagachat.core.ui.component
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
@@ -58,14 +59,23 @@ fun GagaTopAppBar(
     actions: @Composable RowScope.() -> Unit = {},
 ) {
     val density = LocalDensity.current
-    val subtitleText = subtitle?.takeIf { it.isNotBlank() }
+    val effectiveTextScale = maxOf(
+        density.fontScale,
+        MaterialTheme.typography.titleMedium.fontSize.value / 16f,
+    )
+    // At 200% font scale a two-line identity consumes the entire top bar.
+    // Keep the peer name and all 48dp actions visible; presence remains in
+    // the chat info screen when the second line cannot fit safely.
+    val subtitleText = subtitle?.takeIf { it.isNotBlank() && effectiveTextScale < 1.65f }
     val textHeight = with(density) {
         if (subtitleText == null) MaterialTheme.typography.titleLarge.lineHeight.toDp()
         else MaterialTheme.typography.titleMedium.lineHeight.toDp() + MaterialTheme.typography.bodySmall.lineHeight.toDp()
     }
     Column(modifier = modifier) {
         TopAppBar(
-            expandedHeight = maxOf(64.dp, textHeight + 20.dp),
+            // A stable baseline prevents oversized empty header bands, while
+            // still allowing a taller touch-safe title at accessibility scales.
+            expandedHeight = (textHeight + 18.dp).coerceIn(64.dp, 88.dp),
             title = {
                 val headerModifier = if (onTitleClick != null) {
                     Modifier
@@ -74,6 +84,8 @@ fun GagaTopAppBar(
                 } else {
                     Modifier
                 }
+                BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+                val smallTitleSpace = maxWidth < 185.dp || effectiveTextScale > 1.35f
                 Row(
                     modifier = headerModifier.fillMaxWidth().heightIn(min = 48.dp),
                     verticalAlignment = Alignment.CenterVertically,
@@ -90,11 +102,11 @@ fun GagaTopAppBar(
                         GagaAvatar(
                             imageUrl = avatarUrl,
                             name = title,
-                            size = GagaDimens.avatarSmall,
+                            size = if (smallTitleSpace) 30.dp else GagaDimens.avatarSmall,
                             status = avatarStatus,
                             showStatus = avatarStatus != null,
                         )
-                        Spacer(Modifier.width(8.dp))
+                        Spacer(Modifier.width(if (smallTitleSpace) 5.dp else 8.dp))
                     }
                     if (subtitleText == null) {
                         Text(
@@ -128,6 +140,7 @@ fun GagaTopAppBar(
                             )
                         }
                     }
+                }
                 }
             },
             navigationIcon = {

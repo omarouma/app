@@ -23,13 +23,14 @@ import app.gagachat.core.ui.theme.GagaDimens
 
 @Composable
 fun ContactsRoute(
+    onNavigateBack: () -> Unit,
     onOpenProfile: (userId: String) -> Unit,
     onOpenConversation: (conversationId: String) -> Unit,
     viewModel: ContactsViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
 
-    GagaScaffold(title = "Contacts") { padding ->
+    GagaScaffold(title = "Contacts", onBack = onNavigateBack) { padding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()

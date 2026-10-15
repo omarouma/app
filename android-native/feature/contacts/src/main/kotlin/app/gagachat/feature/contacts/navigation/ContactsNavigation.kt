@@ -16,6 +16,7 @@ fun NavGraphBuilder.contactsScreen(
 ) {
     composable(ContactsRoutes.CONTACTS) {
         ContactsRoute(
+            onNavigateBack = { navController.popBackStack() },
             onOpenProfile = onOpenProfile,
             onOpenConversation = onOpenConversation,
         )

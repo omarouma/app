@@ -1,6 +1,17 @@
 package app.gagachat.feature.chat.presentation.components
 
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import android.location.Geocoder
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import android.net.Uri
@@ -16,6 +27,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Remove
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -37,10 +51,22 @@ import java.util.Locale
 @Composable
 fun LocationPreviewDialog(
     preview: LocationPreview,
-    onConfirm: () -> Unit,
+    onConfirm: (Double, Double) -> Unit,
     onDismiss: () -> Unit,
 ) {
+    var latitude by androidx.compose.runtime.remember(preview) {
+        androidx.compose.runtime.mutableDoubleStateOf(preview.latitude)
+    }
+    var longitude by androidx.compose.runtime.remember(preview) {
+        androidx.compose.runtime.mutableDoubleStateOf(preview.longitude)
+    }
+    var zoom by androidx.compose.runtime.remember(preview) { androidx.compose.runtime.mutableIntStateOf(16) }
+    val changed = latitude != preview.latitude || longitude != preview.longitude
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var placeQuery by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf("") }
+    var searching by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+    var searchError by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf<String?>(null) }
     AlertDialog(
         onDismissRequest = onDismiss,
         icon = {
@@ -52,30 +78,79 @@ fun LocationPreviewDialog(
         },
         title = { Text("Share a location") },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Surface(color = MaterialTheme.colorScheme.primaryContainer, shape = MaterialTheme.shapes.large, modifier = Modifier.fillMaxWidth()) {
-                    Column(Modifier.padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                        Icon(Icons.Filled.LocationOn, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(48.dp))
-                        Text("Your selected pin", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                        Text("Check the exact place before sending", style = MaterialTheme.typography.bodySmall)
+            Column(
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+                modifier = Modifier.verticalScroll(rememberScrollState()),
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    OutlinedTextField(
+                        value = placeQuery,
+                        onValueChange = { placeQuery = it.take(120) },
+                        label = { Text("Search an address or place") },
+                        modifier = Modifier.weight(1f),
+                        singleLine = true,
+                    )
+                    TextButton(
+                        enabled = !searching && placeQuery.isNotBlank(),
+                        onClick = {
+                            searching = true
+                            searchError = null
+                            scope.launch {
+                                // Android's device geocoder varies by provider.
+                                // Work off the UI thread and never auto-send.
+                                val address = withContext(Dispatchers.IO) {
+                                    @Suppress("DEPRECATION")
+                                    runCatching {
+                                        Geocoder(context, Locale.getDefault())
+                                            .getFromLocationName(placeQuery.trim(), 3)
+                                            ?.firstOrNull()
+                                    }.getOrNull()
+                                }
+                                searching = false
+                                if (address == null) {
+                                    searchError = "Place not found. Tap the map to choose a pin."
+                                } else {
+                                    latitude = address.latitude
+                                    longitude = address.longitude
+                                    zoom = 16
+                                }
+                            }
+                        },
+                    ) { Text("Find") }
+                }
+                searchError?.let {
+                    Text(it, style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error)
+                }
+                GagaTiledMap(latitude, longitude, zoom,
+                    onSelected = { lat, lng -> latitude = lat; longitude = lng })
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Tap map to choose a pin",
+                        style = MaterialTheme.typography.labelMedium,
+                        modifier = Modifier.weight(1f))
+                    TextButton(onClick = {
+                        latitude = preview.latitude
+                        longitude = preview.longitude
+                    }) { Text("My position") }
+                    IconButton(onClick = { zoom = (zoom - 1).coerceAtLeast(3) }) {
+                        Icon(Icons.Default.Remove, contentDescription = "Zoom out")
+                    }
+                    IconButton(onClick = { zoom = (zoom + 1).coerceAtMost(18) }) {
+                        Icon(Icons.Default.Add, contentDescription = "Zoom in")
                     }
                 }
-                OutlinedButton(onClick = {
-                    val point = "${preview.latitude},${preview.longitude}"
-                    runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("geo:$point?q=$point"))) }
-                }, modifier = Modifier.fillMaxWidth()) { Text("Preview in Maps") }
                 Text(
                     text = String.format(
                         Locale.US,
                         "%.5f, %.5f",
-                        preview.latitude,
-                        preview.longitude,
+                        latitude,
+                        longitude,
                     ),
                     style = MaterialTheme.typography.bodyLarge,
                     fontWeight = FontWeight.Medium,
                 )
                 Text(
-                    text = accuracyLabel(preview.accuracyMeters),
+                    text = if (changed) "Pin chosen manually" else accuracyLabel(preview.accuracyMeters),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -100,7 +175,7 @@ fun LocationPreviewDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = onConfirm) { Text("Send") }
+            TextButton(onClick = { onConfirm(latitude, longitude) }) { Text("Share pin") }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) { Text("Cancel") }

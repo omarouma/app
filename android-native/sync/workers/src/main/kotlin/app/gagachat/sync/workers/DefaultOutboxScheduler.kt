@@ -53,7 +53,7 @@ class DefaultOutboxScheduler @Inject constructor(
             .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 15, TimeUnit.SECONDS)
             .addTag(OutboxWork.MEDIA_UPLOAD)
             .build()
-        workManager.enqueueUniqueWork(OutboxWork.MEDIA_UPLOAD, ExistingWorkPolicy.APPEND_OR_REPLACE, request)
+        workManager.enqueueUniqueWork(OutboxWork.MEDIA_UPLOAD, ExistingWorkPolicy.KEEP, request)
     }
 
     override fun enqueueConversationSync() {

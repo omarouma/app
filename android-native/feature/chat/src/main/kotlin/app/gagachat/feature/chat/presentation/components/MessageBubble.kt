@@ -1286,6 +1286,7 @@ private fun CallEventContent(
 private fun LocationContent(message: Message) {
     val context = LocalContext.current
     val clipboard = LocalClipboardManager.current
+    var showMapDetails by remember(message.localId) { mutableStateOf(false) }
     val lat = message.latitude
     val lng = message.longitude
     val hasCoords = lat != null && lng != null
@@ -1299,14 +1300,7 @@ private fun LocationContent(message: Message) {
     val placeLabel = message.text?.takeIf { it.isNotBlank() } ?: "Shared location"
 
     val openMap = {
-        if (hasCoords) {
-            val label = Uri.encode(placeLabel)
-            val uri = Uri.parse("geo:$lat,$lng?q=$lat,$lng($label)")
-            val intent = Intent(Intent.ACTION_VIEW, uri).apply {
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            }
-            runCatching { context.startActivity(intent) }
-        }
+        if (hasCoords) showMapDetails = true
         Unit
     }
     val directions = {
@@ -1457,13 +1451,22 @@ private fun LocationContent(message: Message) {
                 ),
         ) {
             TextButton(onClick = openMap, enabled = hasCoords, modifier = Modifier.weight(1f)) {
-                Text("Open map")
+                Text("View in GaGa")
             }
             TextButton(onClick = directions, enabled = hasCoords, modifier = Modifier.weight(1f)) {
                 Text("Directions")
             }
         }
     }
+    if (showMapDetails && lat != null && lng != null) {
+        LocationMapViewerDialog(
+            title = placeLabel,
+            latitude = lat,
+            longitude = lng,
+            onDismiss = { showMapDetails = false },
+        )
+    }
+
 }
 
 /** Small translucent label chip used over the map thumbnail. */

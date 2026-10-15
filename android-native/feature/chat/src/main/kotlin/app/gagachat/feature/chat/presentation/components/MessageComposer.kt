@@ -144,8 +144,14 @@ fun MessageComposer(
     val focusManager = LocalFocusManager.current
     val keyboardController = LocalSoftwareKeyboardController.current
 
+    BoxWithConstraints(modifier = modifier.fillMaxWidth()) {
+    val effectiveTextScale = maxOf(
+        LocalDensity.current.fontScale,
+        MaterialTheme.typography.bodyLarge.fontSize.value / 16f,
+    )
+    val compactComposer = maxWidth < 360.dp || effectiveTextScale > 1.25f
     Surface(
-        modifier = modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth(),
         color = MaterialTheme.colorScheme.surface,
         shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
         tonalElevation = 0.dp,
@@ -178,7 +184,8 @@ fun MessageComposer(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = GagaDimens.space12, vertical = GagaDimens.space8),
+                        .padding(horizontal = if (compactComposer) 8.dp else GagaDimens.space12,
+                            vertical = GagaDimens.space8),
                     verticalAlignment = Alignment.Bottom,
                 ) {
                     // Round "+" affordance that opens the attachment sheet.
@@ -224,22 +231,18 @@ fun MessageComposer(
                         keyboardActions = KeyboardActions(
                             onSend = { if (enterToSend && draft.isNotBlank()) onSend() },
                         ),
-                        trailingIcon = {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                IconButton(onClick = { showEmojiPanel = !showEmojiPanel }) {
-                                    Icon(
-                                        Icons.Filled.EmojiEmotions,
-                                        contentDescription = if (showEmojiPanel) "Close emoji picker" else "Open emoji picker",
-                                        tint = if (showEmojiPanel) {
-                                            MaterialTheme.colorScheme.primary
-                                        } else {
-                                            MaterialTheme.colorScheme.onSurfaceVariant
-                                        },
-                                    )
-                                }
-
+                        // Native keyboard emoji remains available on narrow
+                        // screens; don't reserve a 48dp slot that hides text.
+                        trailingIcon = if (compactComposer) null else ({
+                            IconButton(onClick = { showEmojiPanel = !showEmojiPanel }) {
+                                Icon(
+                                    Icons.Filled.EmojiEmotions,
+                                    contentDescription = if (showEmojiPanel) "Close emoji picker" else "Open emoji picker",
+                                    tint = if (showEmojiPanel) MaterialTheme.colorScheme.primary
+                                        else MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
                             }
-                        },
+                        }),
                     )
                     Spacer(Modifier.width(GagaDimens.space4))
                     if (draft.isBlank() && editingMessage == null) {
@@ -271,6 +274,8 @@ fun MessageComposer(
             }
         }
     }
+
+    } // End responsive composer width container.
 
     if (showAttachSheet) {
         ModalBottomSheet(
@@ -331,15 +336,18 @@ private fun AttachmentSheet(
     onSplitBill: () -> Unit,
     onOpenPaymentHistory: () -> Unit,
 ) {
+    var moneyExpanded by remember { mutableStateOf(false) }
     val mediaOptions = listOf(
         AttachItem(Icons.Filled.Image, "Photos", onPickImage),
         AttachItem(Icons.Filled.CameraAlt, "Camera", onTakePhoto),
         AttachItem(Icons.Filled.Videocam, "Video", onPickVideo),
-        AttachItem(Icons.Filled.Audiotrack, "Audio file", onPickAudio),
-        AttachItem(Icons.Filled.Person, "Contact", onPickContact),
+        AttachItem(Icons.Filled.Description, "Document", onPickFile),
         AttachItem(Icons.Filled.LocationOn, "Location", onShareLocation),
         AttachItem(Icons.Filled.NearMe, "Live location", onShareLiveLocation),
-        AttachItem(Icons.Filled.Description, "Document", onPickFile),
+        AttachItem(Icons.Filled.Person, "Contact", onPickContact),
+        AttachItem(Icons.Filled.Audiotrack, "Audio file", onPickAudio),
+    )
+    val actionOptions = listOf(
         AttachItem(Icons.Filled.Poll, "Poll", onSendPoll),
         AttachItem(Icons.Filled.Schedule, "Schedule", onScheduleClick),
     )
@@ -365,19 +373,40 @@ private fun AttachmentSheet(
                 .padding(bottom = GagaDimens.space24),
         ) {
             Text(
-                text = "Add attachment",
+                text = "Share in chat",
                 style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
+                fontWeight = FontWeight.Bold,
                 modifier = Modifier.padding(horizontal = GagaDimens.space16, vertical = GagaDimens.space8),
+            )
+            Text(
+                text = "Review and edit photos or videos before sending.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = GagaDimens.space16),
             )
             AttachGrid(options = mediaOptions, columns = columns)
             Text(
-                text = "Money",
-                style = MaterialTheme.typography.titleMedium,
+                text = "Plan & organize",
+                style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.SemiBold,
                 modifier = Modifier.padding(horizontal = GagaDimens.space16, vertical = GagaDimens.space8),
             )
-            AttachGrid(options = moneyOptions, columns = columns)
+            AttachGrid(options = actionOptions, columns = columns)
+            TextButton(
+                onClick = { moneyExpanded = !moneyExpanded },
+                modifier = Modifier.padding(horizontal = GagaDimens.space8),
+            ) {
+                Text(if (moneyExpanded) "Hide money tools" else "Money tools (coins) · Show")
+            }
+            if (moneyExpanded) {
+                AttachGrid(options = moneyOptions, columns = columns)
+                Text(
+                    "Real-money payments are not enabled. Coin tools require an active wallet.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = GagaDimens.space16),
+                )
+            }
         }
     }
 }

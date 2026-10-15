@@ -108,7 +108,6 @@ import app.gagachat.core.model.Message
 import app.gagachat.core.model.MessageStatus
 import app.gagachat.core.model.MessageType
 import app.gagachat.core.ui.component.GagaEmptyState
-import app.gagachat.core.ui.component.GagaOfflineBanner
 import app.gagachat.core.ui.component.GagaScaffold
 import app.gagachat.core.ui.theme.GagaDimens
 import app.gagachat.feature.chat.presentation.components.DateSeparator
@@ -374,12 +373,14 @@ fun ChatRoute(
     }
 
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
-        val compactHeader = maxWidth < 400.dp || LocalDensity.current.fontScale > 1.2f ||
-            MaterialTheme.typography.titleMedium.fontSize.value > 20f
-        // Preserve a readable identity line on 320dp devices and at 200% text scale.
-        // A voice-call shortcut fits at 360dp; video and remaining actions stay in overflow.
-        val voiceInHeader = !compactHeader ||
-            (maxWidth >= 360.dp && LocalDensity.current.fontScale <= 1.2f)
+        val fontScale = maxOf(
+            LocalDensity.current.fontScale,
+            MaterialTheme.typography.titleMedium.fontSize.value / 16f,
+        )
+        // More and Back always stay reachable. On 320–400dp phones, keeping
+        // phone+video+overflow beside a profile/avatar makes the title unusable.
+        val voiceInHeader = maxWidth >= 420.dp && fontScale <= 1.15f
+        val videoInHeader = maxWidth >= 500.dp && fontScale <= 1.10f
         GagaScaffold(
             title = if (selectionMode) "${selectedIds.size} selected" else state.title,
             subtitle = when {
@@ -420,14 +421,14 @@ fun ChatRoute(
                             Icon(Icons.Filled.Call, contentDescription = "Start voice call")
                         }
                     }
-                    if (!compactHeader && !state.isGroup && state.conversationId.isNotBlank()) {
+                    if (videoInHeader && !state.isGroup && state.conversationId.isNotBlank()) {
                         IconButton(onClick = { onStartCall(state.conversationId, true) }) {
                             Icon(Icons.Filled.Videocam, contentDescription = "Start video call")
                         }
                     }
                     ChatOverflowMenu(
                         onVoiceCall = if (!voiceInHeader && !state.isGroup && state.conversationId.isNotBlank()) ({ onStartCall(state.conversationId, false) }) else null,
-                        onVideoCall = if (compactHeader && !state.isGroup && state.conversationId.isNotBlank()) ({ onStartCall(state.conversationId, true) }) else null,
+                        onVideoCall = if (!videoInHeader && !state.isGroup && state.conversationId.isNotBlank()) ({ onStartCall(state.conversationId, true) }) else null,
                         onSearch = viewModel::toggleSearch,
                         onToggleMute = viewModel::toggleMute,
                         onChatBackground = { showBackgroundPicker = true },
@@ -443,7 +444,9 @@ fun ChatRoute(
                     .fillMaxSize()
                     .padding(padding),
             ) {
-                GagaOfflineBanner(visible = !state.isOnline)
+                // The app shell already owns the global offline banner. A
+                // second banner inside chat added a full extra inset below
+                // the title and shrank the message viewport.
                 if (state.isSearching) {
                     MessageSearchBar(
                         query = state.searchQuery,
@@ -634,7 +637,7 @@ fun ChatRoute(
         pendingLocation?.let { preview ->
             LocationPreviewDialog(
                 preview = preview,
-                onConfirm = viewModel::confirmShareLocation,
+                onConfirm = { lat, lon -> viewModel.confirmShareLocation(lat, lon) },
                 onDismiss = viewModel::dismissLocationPreview,
             )
         }
@@ -654,8 +657,8 @@ fun ChatRoute(
             VideoReviewSheet(
                 uri = uri,
                 onDismiss = { videoReviewUri = null },
-                onSend = { caption ->
-                    viewModel.sendMedia(uri, "video", caption)
+                onSend = { editedUri, caption ->
+                    viewModel.sendMedia(editedUri, "video", caption)
                     videoReviewUri = null
                 },
             )
