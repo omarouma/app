@@ -16,6 +16,19 @@ GaGa Supabase project `fcjgbbmfqdkucfpqjxae` reports **ACTIVE_HEALTHY** on Postg
 - Inspecting `send_message` alone suggested missing block enforcement, but `gaga_private.guard_message` and `enforce_message_insert_rules` pre-insert triggers already enforce direct-message restrictions and rate limits. No duplicate policy should be added without a tested failing case.
 - Recent Edge Function HTTP 409 responses in `create-call` and `livekit-token` require correlation with an actual failing call; do not treat them as unconditional 500s. Most observed function responses are HTTP 200.
 
+### Realtime WebSocket authentication failure isolated (client patch in this PR)
+
+The last-24-hour Supabase API gateway log sample contained roughly **1,643 WebSocket HTTP 401s** against **69 HTTP 101 successful upgrades**. The failures came from the GaGa Kotlin/Ktor Android client, covering **seven distinct authenticated sessions**. These were still present and not expired in `auth.sessions`; this is NOT evidence of general Auth downtime or a reason to delete users.
+
+The Android Realtime client previously opened a socket after swallowing a token-refresh failure and always used the legacy JWT API key on the WebSocket URL. This PR now:
+- Requires a nonblank refreshed user token before a socket connection.
+- Uses the current publishable API key for the gateway first, with the configured active legacy anon key as a fallback **only for HTTP 401**; both were confirmed active in the live project.
+- Forces token refresh after a rejected upgrade and slows repeated reconnect attempts (max 120 seconds).
+- Keeps per-channel user access-token authentication and private database RLS in place. No service-role key is bundled or used.
+- Adds regression tests for handshake URL selection/deduplication.
+
+This is a **code fix requiring a newly built Android APK**, not a claim that already-installed clients have recovered. The next Android device release must demonstrate a 101 upgrade, successful channel joins, two-account message sync, no 401 storm, and proper token-refresh/logout behavior before being called fixed.
+
 ### Remaining backend risks / next remediation
 1. **Migration drift:** 106 applied migration records (including this fix) but only 57 SQL files tracked in the previous GitHub `main` revision. Approximately 66 previously applied live versions lack matching GitHub migration filenames. Reconcile each version and its exact SQL **before** provisioning or resetting a database. Never run all tracked migrations blindly.
 2. **Security-definer RPCs:** 68 signed-in-callable functions flagged by the advisor. Some are intentionally public RPCs with `auth.uid()`, wallet and membership checks, but each role escalation and sensitive operation requires a negative-path authorization test. No anonymous EXECUTE access to the inspected privileged functions.
