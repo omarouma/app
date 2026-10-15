@@ -126,6 +126,8 @@ import app.gagachat.feature.chat.presentation.components.SplitBillDialog
 import app.gagachat.feature.chat.presentation.components.TranslateDialog
 import app.gagachat.feature.chat.presentation.components.MessageComposer
 import app.gagachat.feature.chat.presentation.components.TypingIndicator
+import app.gagachat.feature.chat.presentation.components.PickedContact
+import app.gagachat.feature.chat.presentation.components.ContactCardConfirmDialog
 import app.gagachat.feature.chat.presentation.components.rememberContactPicker
 import app.gagachat.feature.chat.presentation.components.rememberDocumentOpener
 import app.gagachat.feature.chat.presentation.components.rememberDocumentSaver
@@ -236,8 +238,9 @@ fun ChatRoute(
         onAudioPicked = { viewModel.sendMedia(it, "audio") },
         onCameraPhotoPicked = { reviewUris = listOf(it) },
     )
+    var pendingContactCard by remember { mutableStateOf<PickedContact?>(null) }
     val contactPicker = rememberContactPicker(
-        onContactPicked = { viewModel.shareContact(it.name, it.phone) },
+        onContactPicked = { pendingContactCard = it },
     )
     val context = LocalContext.current
     val documentOpener = rememberDocumentOpener()
@@ -649,6 +652,17 @@ fun ChatRoute(
                 onSend = { ordered, caption, original ->
                     viewModel.sendImageAlbum(ordered, caption, original)
                     reviewUris = null
+                },
+            )
+        }
+
+        pendingContactCard?.let { card ->
+            ContactCardConfirmDialog(
+                contact = card,
+                onDismiss = { pendingContactCard = null },
+                onConfirm = { name, phone ->
+                    viewModel.shareContact(name, phone)
+                    pendingContactCard = null
                 },
             )
         }
