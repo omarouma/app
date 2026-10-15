@@ -60,7 +60,7 @@ fun LocationPreviewDialog(
     var zoom by remember(preview) { mutableIntStateOf(16) }
     var query by remember { mutableStateOf("") }
     var searchBusy by remember { mutableStateOf(false) }
-    var searching by remember { mutableStateOf(false) }
+    var showingSearchResults by remember { mutableStateOf(false) }
     var candidates by remember { mutableStateOf<List<AddressCandidate>>(emptyList()) }
     var lookupError by remember { mutableStateOf<String?>(null) }
     var pinLabel by remember { mutableStateOf("Selected map pin") }
@@ -68,7 +68,8 @@ fun LocationPreviewDialog(
     val scope = rememberCoroutineScope()
 
     // Nearby reverse-address suggestions, not unverified commercial venues.
-    LaunchedEffect(latitude, longitude) {
+    LaunchedEffect(latitude, longitude, showingSearchResults) {
+        if (showingSearchResults) return@LaunchedEffect
         delay(450)
         val selectedLat = latitude
         val selectedLng = longitude
@@ -113,6 +114,7 @@ fun LocationPreviewDialog(
                         onSelected = { lat, lng ->
                             latitude = lat
                             longitude = lng
+                            showingSearchResults = false
                             pinLabel = "Selected map pin"
                             lookupError = null
                         },
@@ -128,6 +130,7 @@ fun LocationPreviewDialog(
                         FilledTonalIconButton(onClick = {
                             latitude = preview.latitude
                             longitude = preview.longitude
+                            showingSearchResults = false
                             pinLabel = "Current location"
                         }) {
                             Icon(Icons.Default.MyLocation, contentDescription = "My location")
@@ -168,6 +171,7 @@ fun LocationPreviewDialog(
                                                 lookupError = "No matching address. Tap the map to select a pin."
                                             } else {
                                                 candidates = matches.distinctBy { it.label to it.detail }
+                                                showingSearchResults = true
                                                 latitude = candidates.first().lat
                                                 longitude = candidates.first().lon
                                                 pinLabel = candidates.first().label
@@ -209,6 +213,7 @@ fun LocationPreviewDialog(
                                     modifier = Modifier.fillMaxWidth().clickable {
                                         latitude = place.lat
                                         longitude = place.lon
+                                        showingSearchResults = true
                                         pinLabel = place.label
                                         lookupError = null
                                     }.padding(vertical = 10.dp),
