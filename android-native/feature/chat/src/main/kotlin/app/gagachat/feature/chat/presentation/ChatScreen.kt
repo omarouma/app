@@ -164,6 +164,44 @@ private fun shareMessageLocation(context: android.content.Context, message: Mess
 private fun locationPlanText(message: Message): String =
     messageLocationUrl(message)?.let { "Location plan: $it" } ?: "Location plan"
 
+/** Conservative, optional hint only. No dates, tasks, or notifications are created here. */
+internal fun looksLikeAPlan(text: String): Boolean {
+    if (text.length !in 4..1200) return false
+    return Regex("""(?i)\\b(tomorrow|meeting|appointment|class at|at \\d{1,2}(?::\\d{2})?\\s*(?:am|pm))\\b""").containsMatchIn(text)
+}
+
+@Composable
+private fun ChatPlanSuggestion(
+    onCreateEvent: () -> Unit,
+    onRemind: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    Surface(
+        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.55f),
+        shape = RoundedCornerShape(16.dp),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
+    ) {
+        Column(Modifier.padding(start = 12.dp, top = 8.dp, end = 4.dp, bottom = 4.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.EventAvailable, contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                Spacer(Modifier.width(8.dp))
+                Text("Turn this message into a plan?",
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.weight(1f))
+                IconButton(onClick = onDismiss, modifier = Modifier.size(44.dp)) {
+                    Icon(Icons.Default.Close, contentDescription = "Dismiss plan suggestion")
+                }
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                TextButton(onClick = onCreateEvent) { Text("Create event") }
+                TextButton(onClick = onRemind) { Text("Set reminder") }
+            }
+        }
+    }
+}
+
 private val QuickReactions = listOf("\uD83D\uDC4D", "\u2764\uFE0F", "\uD83D\uDE02", "\uD83D\uDE2E", "\uD83D\uDE22", "\uD83D\uDE4F")
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -222,6 +260,7 @@ fun ChatRoute(
     var selectionMode by remember { mutableStateOf(false) }
     var selectedIds by remember { mutableStateOf(setOf<String>()) }
     var infoMessage by remember { mutableStateOf<Message?>(null) }
+    var dismissedPlanMessageId by remember { mutableStateOf<String?>(null) }
     // Requests RECORD_AUDIO the first time the mic is tapped, then starts the
     // recording. If the user denies, the ViewModel surfaces an actionable notice.
     val micPermissionLauncher = rememberLauncherForActivityResult(
@@ -337,6 +376,10 @@ fun ChatRoute(
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
         val compactHeader = maxWidth < 400.dp || LocalDensity.current.fontScale > 1.2f ||
             MaterialTheme.typography.titleMedium.fontSize.value > 20f
+        // Preserve a readable identity line on 320dp devices and at 200% text scale.
+        // A voice-call shortcut fits at 360dp; video and remaining actions stay in overflow.
+        val voiceInHeader = !compactHeader ||
+            (maxWidth >= 360.dp && LocalDensity.current.fontScale <= 1.2f)
         GagaScaffold(
             title = if (selectionMode) "${selectedIds.size} selected" else state.title,
             subtitle = when {
@@ -372,16 +415,18 @@ fun ChatRoute(
                 } else {
                     // 1:1 LiveKit calling is supported. Do not display the same
                     // controls on group conversations without group-call support.
-                    if (!compactHeader && !state.isGroup && state.conversationId.isNotBlank()) {
+                    if (voiceInHeader && !state.isGroup && state.conversationId.isNotBlank()) {
                         IconButton(onClick = { onStartCall(state.conversationId, false) }) {
                             Icon(Icons.Filled.Call, contentDescription = "Start voice call")
                         }
+                    }
+                    if (!compactHeader && !state.isGroup && state.conversationId.isNotBlank()) {
                         IconButton(onClick = { onStartCall(state.conversationId, true) }) {
                             Icon(Icons.Filled.Videocam, contentDescription = "Start video call")
                         }
                     }
                     ChatOverflowMenu(
-                        onVoiceCall = if (compactHeader && !state.isGroup && state.conversationId.isNotBlank()) ({ onStartCall(state.conversationId, false) }) else null,
+                        onVoiceCall = if (!voiceInHeader && !state.isGroup && state.conversationId.isNotBlank()) ({ onStartCall(state.conversationId, false) }) else null,
                         onVideoCall = if (compactHeader && !state.isGroup && state.conversationId.isNotBlank()) ({ onStartCall(state.conversationId, true) }) else null,
                         onSearch = viewModel::toggleSearch,
                         onToggleMute = viewModel::toggleMute,
@@ -490,6 +535,26 @@ fun ChatRoute(
                         modifier = Modifier
                             .align(Alignment.BottomEnd)
                             .padding(GagaDimens.space16),
+                    )
+                }
+                // A suggestion never writes a task/event itself. Both options open the
+                // existing record editor, where the user must explicitly save.
+                val latestPlanMessage = state.messages.lastOrNull()?.takeIf {
+                    it.localId != dismissedPlanMessageId && looksLikeAPlan(it.text.orEmpty())
+                }
+                if (latestPlanMessage != null && !selectionMode && !state.isSearching) {
+                    ChatPlanSuggestion(
+                        onCreateEvent = {
+                            dismissedPlanMessageId = latestPlanMessage.localId
+                            onDailyAction("event", latestPlanMessage.text.orEmpty(),
+                                latestPlanMessage.conversationId, latestPlanMessage.serverMessageId.orEmpty())
+                        },
+                        onRemind = {
+                            dismissedPlanMessageId = latestPlanMessage.localId
+                            onDailyAction("reminder", latestPlanMessage.text.orEmpty(),
+                                latestPlanMessage.conversationId, latestPlanMessage.serverMessageId.orEmpty())
+                        },
+                        onDismiss = { dismissedPlanMessageId = latestPlanMessage.localId },
                     )
                 }
                 MessageComposer(
