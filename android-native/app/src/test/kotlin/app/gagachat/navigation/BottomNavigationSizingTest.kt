@@ -17,4 +17,10 @@ class BottomNavigationSizingTest {
         assertTrue(useCompactBottomLabels(600f, 2f))
         assertFalse(useCompactBottomLabels(412f, 1.15f))
     }
+    @Test fun keyboardSuppressesOnlyPrimaryBottomTabs() {
+        assertTrue(shouldShowBottomTabs(app.gagachat.feature.home.navigation.HomeRoutes.HOME, false))
+        assertTrue(shouldShowBottomTabs(app.gagachat.feature.dailylife.DailyRoutes.HOME, false))
+        assertFalse(shouldShowBottomTabs(app.gagachat.feature.home.navigation.HomeRoutes.HOME, true))
+        assertFalse(shouldShowBottomTabs("chat/room/123", false))
+    }
 }
