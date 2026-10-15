@@ -59,3 +59,10 @@ Source-level inventory and layout/interaction risk scan across the feature scree
 - `android-native/feature/settings/src/main/kotlin/app/gagachat/feature/settings/presentation/SettingsSubScreens.kt`
 - `android-native/feature/wallet/src/main/kotlin/app/gagachat/feature/wallet/SendCoinsScreen.kt`
 - `android-native/feature/wallet/src/main/kotlin/app/gagachat/feature/wallet/WalletScreen.kt`
+
+## Validated build
+
+- Android release compilation and 97 JUnit tests: run 38740724111, zero failures/errors.
+- Native UI checks: run 38740724274, 5 shared/header/button checks and 5 Today checks passed.
+- Compiled source branch revision: d34fc5a8e450650dbc05ef3d1d9fc95e580c6fb2. Metadata/documentation changes after this revision do not alter Android source.
+- Signed package gagachat.app, 2.8.3/code58; approved certificate SHA-256 dd6b6f166100e0db29a3f58af7439f5065c0148632d78ca5cd1d1a585a19af13.
