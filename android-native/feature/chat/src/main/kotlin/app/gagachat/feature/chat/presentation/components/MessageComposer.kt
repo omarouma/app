@@ -331,15 +331,18 @@ private fun AttachmentSheet(
     onSplitBill: () -> Unit,
     onOpenPaymentHistory: () -> Unit,
 ) {
+    var moneyExpanded by remember { mutableStateOf(false) }
     val mediaOptions = listOf(
         AttachItem(Icons.Filled.Image, "Photos", onPickImage),
         AttachItem(Icons.Filled.CameraAlt, "Camera", onTakePhoto),
         AttachItem(Icons.Filled.Videocam, "Video", onPickVideo),
-        AttachItem(Icons.Filled.Audiotrack, "Audio file", onPickAudio),
-        AttachItem(Icons.Filled.Person, "Contact", onPickContact),
+        AttachItem(Icons.Filled.Description, "Document", onPickFile),
         AttachItem(Icons.Filled.LocationOn, "Location", onShareLocation),
         AttachItem(Icons.Filled.NearMe, "Live location", onShareLiveLocation),
-        AttachItem(Icons.Filled.Description, "Document", onPickFile),
+        AttachItem(Icons.Filled.Person, "Contact", onPickContact),
+        AttachItem(Icons.Filled.Audiotrack, "Audio file", onPickAudio),
+    )
+    val actionOptions = listOf(
         AttachItem(Icons.Filled.Poll, "Poll", onSendPoll),
         AttachItem(Icons.Filled.Schedule, "Schedule", onScheduleClick),
     )
@@ -365,19 +368,40 @@ private fun AttachmentSheet(
                 .padding(bottom = GagaDimens.space24),
         ) {
             Text(
-                text = "Add attachment",
+                text = "Share in chat",
                 style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
+                fontWeight = FontWeight.Bold,
                 modifier = Modifier.padding(horizontal = GagaDimens.space16, vertical = GagaDimens.space8),
+            )
+            Text(
+                text = "Review and edit photos or videos before sending.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = GagaDimens.space16),
             )
             AttachGrid(options = mediaOptions, columns = columns)
             Text(
-                text = "Money",
-                style = MaterialTheme.typography.titleMedium,
+                text = "Plan & organize",
+                style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.SemiBold,
                 modifier = Modifier.padding(horizontal = GagaDimens.space16, vertical = GagaDimens.space8),
             )
-            AttachGrid(options = moneyOptions, columns = columns)
+            AttachGrid(options = actionOptions, columns = columns)
+            TextButton(
+                onClick = { moneyExpanded = !moneyExpanded },
+                modifier = Modifier.padding(horizontal = GagaDimens.space8),
+            ) {
+                Text(if (moneyExpanded) "Hide money tools" else "Money tools (coins) · Show")
+            }
+            if (moneyExpanded) {
+                AttachGrid(options = moneyOptions, columns = columns)
+                Text(
+                    "Real-money payments are not enabled. Coin tools require an active wallet.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = GagaDimens.space16),
+                )
+            }
         }
     }
 }
