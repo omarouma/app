@@ -156,7 +156,13 @@ class ContactsViewModel @Inject constructor(
             // Instant local results first.
             runCatching {
                 val local = userRepository.searchUsers(trimmed).first()
-                _state.update { it.copy(contacts = local) }
+                // Search private aliases too, but only among users already
+                // available in this account's local contact cache.
+                val aliasMatches = userRepository.searchUsers("").first().filter { user ->
+                    _state.value.remarks[user.id]?.alias
+                        ?.contains(trimmed, ignoreCase = true) == true
+                }
+                _state.update { it.copy(contacts = merge(aliasMatches, local)) }
             }
             delay(300) // debounce before hitting the network
             _state.update { it.copy(isLoading = true) }
