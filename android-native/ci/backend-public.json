@@ -8,7 +8,21 @@
     "gcm_defaultSenderId": "545448312835",
     "google_storage_bucket": "oumagachat.firebasestorage.app",
     "firebase_database_url": "https://oumagachat-default-rtdb.asia-southeast1.firebasedatabase.app",
-    "oauth_client_id": "545448312835-tj9n8msagdijgjae3ol5pqqvg910opih.apps.googleusercontent.com"
+    "oauth_client_id": "545448312835-tj9n8msagdijgjae3ol5pqqvg910opih.apps.googleusercontent.com",
+    "android_oauth_clients": [
+      {
+        "client_id": "545448312835-mahs35uqvtn2qr9u98v6uo8emdj5ed4b.apps.googleusercontent.com",
+        "certificate_hash": "cd2f9de5f1932c836d79573726e1033de44bedf9"
+      },
+      {
+        "client_id": "545448312835-ojffhgg4hoaln09jpo7vf99ensqak4gt.apps.googleusercontent.com",
+        "certificate_hash": "25b486ab79bf49b8d9e4d2924554eb20645ba5fa"
+      },
+      {
+        "client_id": "545448312835-qculot3o7q2qilm2j14q6jnmso9sicai.apps.googleusercontent.com",
+        "certificate_hash": "7d84940a3b72aa3804da3e1cd7b19ae7d4660984"
+      }
+    ]
   },
   "SUPABASE_REALTIME_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZjamdiYm1mcWRrdWNmcHFqeGFlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODcyNTYyOTAsImV4cCI6MjEwMjgzMjI5MH0.aB0eNNa9O8Kzg6dXJoF-ccJhXzz0t0bRchO6j6rupMs"
 }

@@ -113,6 +113,8 @@ jobs:
         run: python3 android-native/ci/prepare.py
       - name: Verify Firebase project, app, FCM and Crashlytics build identity
         run: python3 android-native/ci/verify_firebase_release_config.py
+      - name: Check Firebase Android OAuth clients and Admin-key separation
+        run: python3 -m unittest discover -s android-native/ci -p 'test_firebase_public_client_config.py' -v
       - name: Package complete verified source snapshot
         run: |
           mkdir -p deliverables
