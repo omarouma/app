@@ -1,16 +1,16 @@
 {
   "schemaVersion": 1,
   "packageName": "gagachat.app",
-  "latestVersionCode": 56,
-  "latestVersionName": "2.8.1",
+  "latestVersionCode": 57,
+  "latestVersionName": "2.8.2",
   "minimumSupportedVersionCode": 0,
-  "publishedAt": "2026-10-14T08:35:26.170847Z",
-  "releaseNotes": "GaGa 2.8.1: redesigned Today with a compact header, readable summary tiles, focused create actions, actionable due/overdue agenda, historical-event filtering, and expandable secondary tools. Loading and errors are distinct from an empty day. Uses the same approved signing certificate as 2.7.9 and 2.8.0.",
+  "publishedAt": "2026-10-15T07:13:13.813052+00:00",
+  "releaseNotes": "GaGa 2.8.2: Today focus dashboard and workspace, grouped Chats, responsive Chatroom bubbles, and automatic update checks at app launch. Uses the approved signing key. Update installation requires your confirmation.",
   "channels": {
     "apk": {
-      "versionCode": 56,
-      "url": "https://gagachat.app/downloads/gaga-latest.apk",
-      "sha256": "2a69fbf2b2a485321520ec234806fa808a6fb68f21abfa8402d4eed38e66cbc5",
+      "versionCode": 57,
+      "url": "https://fcjgbbmfqdkucfpqjxae.supabase.co/storage/v1/object/public/gaga-app-releases/2.8.2/GaGa-2.8.2-release.apk",
+      "sha256": "e342ead13b386d52915cd69a15b6acd29d2e1089615c2ea52f2d24dc0f767036",
       "sizeBytes": 47845224
     },
     "play": {
