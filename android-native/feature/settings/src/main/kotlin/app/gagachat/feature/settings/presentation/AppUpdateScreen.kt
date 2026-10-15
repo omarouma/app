@@ -1,5 +1,8 @@
 package app.gagachat.feature.settings.presentation
 
+import android.content.Intent
+import android.net.Uri
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -18,12 +21,10 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.SystemUpdate
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Icon
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -33,23 +34,19 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
-import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.gagachat.core.ui.component.GagaDivider
+import app.gagachat.core.data.updates.GaGaUpdate
 import app.gagachat.core.ui.component.GagaPrimaryButton
 import app.gagachat.core.ui.component.GagaScaffold
 import app.gagachat.core.ui.component.GagaSecondaryButton
 import app.gagachat.core.ui.component.GagaSectionHeader
 import app.gagachat.core.ui.component.GagaSettingsRow
 import app.gagachat.core.ui.theme.GagaDimens
-import java.util.Locale
 
 /**
- * The in-app update screen. It shows the installed version, checks the trusted
- * registry for a newer build, and — the whole point of the feature — downloads
- * and installs it **without the user ever leaving GaGa**.
+ * Updates are resolved from the trusted release registry; installation is user-initiated
+ * through the Play Store or official download page, not through package-install permission.
  *
  * The screen is reachable from Settings ("App update"), from the About screen,
  * and from the update notification's tap/action, so a user who taps "Update now"
@@ -62,17 +59,6 @@ fun AppUpdateScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
-    val lifecycleOwner = LocalLifecycleOwner.current
-
-    // When the user returns from the "install unknown apps" settings page, the
-    // capability may now be granted, so re-evaluate it.
-    DisposableEffect(lifecycleOwner) {
-        val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_RESUME) viewModel.refreshInstallPermission()
-        }
-        lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
-    }
 
     GagaScaffold(title = "App update", onBack = onBack) { padding ->
         Column(
@@ -136,60 +122,31 @@ fun AppUpdateScreen(
                             )
                         }
                         Spacer(Modifier.height(GagaDimens.space16))
-                        if (!state.canInstall) {
-                            Text(
-                                text = "To install updates, allow GaGa to install unknown apps.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.error,
-                                modifier = Modifier.padding(horizontal = GagaDimens.space16),
-                            )
-                            Spacer(Modifier.height(GagaDimens.space8))
-                            GagaPrimaryButton(
-                                text = "Allow installs",
-                                modifier = Modifier.padding(horizontal = GagaDimens.space16),
-                                onClick = {
-                                    viewModel.installPermissionIntent()
-                                        ?.let { intent -> runCatching { context.startActivity(intent) } }
-                                },
-                            )
-                        } else {
-                            GagaPrimaryButton(
-                                text = "Download & install",
-                                leadingIcon = Icons.Filled.Download,
-                                modifier = Modifier.padding(horizontal = GagaDimens.space16),
-                                onClick = viewModel::downloadAndInstall,
-                            )
-                        }
+                        Text(
+                            text = if (update.channel == GaGaUpdate.CHANNEL_PLAY)
+                                "Google Play securely manages installation and updates."
+                            else "For direct APK installations, the official website opens in your browser. Android asks you to approve installation.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(horizontal = GagaDimens.space16),
+                        )
+                        Spacer(Modifier.height(GagaDimens.space8))
+                        GagaPrimaryButton(
+                            text = if (update.channel == GaGaUpdate.CHANNEL_PLAY)
+                                "Open Google Play" else "Open official download",
+                            leadingIcon = Icons.Filled.Download,
+                            modifier = Modifier.padding(horizontal = GagaDimens.space16),
+                            onClick = {
+                                // Destination is selected by AppUpdateRepository, never by notification input.
+                                if (update.destination.startsWith("https://play.google.com/") ||
+                                    update.destination.startsWith("https://gagachat.app/")) {
+                                    runCatching {
+                                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(update.destination)))
+                                    }
+                                }
+                            },
+                        )
                     }
-                }
-
-                UpdatePhase.DOWNLOADING -> {
-                    InfoBlock(
-                        icon = Icons.Filled.Download,
-                        title = "Downloading update\u2026",
-                        body = progressLabel(state),
-                        tint = MaterialTheme.colorScheme.primary,
-                    )
-                    LinearProgressIndicator(
-                        progress = { state.progress ?: 0f },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = GagaDimens.space16),
-                    )
-                }
-
-                UpdatePhase.READY, UpdatePhase.INSTALLING -> {
-                    InfoBlock(
-                        icon = Icons.Filled.CheckCircle,
-                        title = "Ready to install",
-                        body = "Follow the on-screen prompt to finish updating GaGa Chat.",
-                        tint = MaterialTheme.colorScheme.primary,
-                    )
-                    GagaSecondaryButton(
-                        text = "Install again",
-                        modifier = Modifier.padding(horizontal = GagaDimens.space16),
-                        onClick = viewModel::downloadAndInstall,
-                    )
                 }
 
                 UpdatePhase.ERROR -> {
@@ -254,17 +211,4 @@ private fun ActionButton(text: String, icon: ImageVector, onClick: () -> Unit) {
         modifier = Modifier.padding(horizontal = GagaDimens.space16),
         onClick = onClick,
     )
-}
-
-private fun progressLabel(state: AppUpdateUiState): String =
-    if (state.totalBytes > 0L) {
-        "${formatBytes(state.downloadedBytes)} of ${formatBytes(state.totalBytes)}"
-    } else {
-        "${formatBytes(state.downloadedBytes)} downloaded"
-    }
-
-private fun formatBytes(bytes: Long): String = when {
-    bytes < 1024L -> "$bytes B"
-    bytes < 1024L * 1024L -> String.format(Locale.US, "%.0f KB", bytes / 1024.0)
-    else -> String.format(Locale.US, "%.1f MB", bytes / (1024.0 * 1024.0))
 }

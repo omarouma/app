@@ -11,10 +11,8 @@
     <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
 
-    <!-- In-app updates: lets GaGa hand a verified, downloaded APK to the system
-         package installer so users update without re-downloading from a browser.
-         The user still confirms the install; this only removes the browser step. -->
-    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <!-- User-initiated updates open Google Play or the official website.
+         The release does not request package-install permissions. -->
 
     <!-- Media capture (PDF §5) -->
     <uses-permission android:name="android.permission.CAMERA" />
