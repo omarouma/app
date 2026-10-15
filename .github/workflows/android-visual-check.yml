@@ -5,6 +5,7 @@ on:
       - 'android-native/core/ui/**'
       - 'android-native/feature/dailylife/**'
       - 'android-native/feature/chat/**'
+      - 'android-native/feature/contacts/**'
       - 'android-native/core/data/**'
       - 'android-native/sync/workers/**'
       - '.github/workflows/android-visual-check.yml'
@@ -43,7 +44,7 @@ jobs:
           script: |
             adb shell wm size 360x800
             adb shell wm density 160
-            gradle -p android-native --no-daemon --max-workers=2 -Pandroid.injected.androidTest.leaveApksInstalledAfterRun=true :core:ui:connectedDebugAndroidTest :feature:dailylife:connectedDebugAndroidTest :feature:chat:connectedDebugAndroidTest
+            gradle -p android-native --no-daemon --max-workers=2 -Pandroid.injected.androidTest.leaveApksInstalledAfterRun=true :core:ui:connectedDebugAndroidTest :feature:dailylife:connectedDebugAndroidTest :feature:chat:connectedDebugAndroidTest :feature:contacts:connectedDebugAndroidTest
             mkdir -p visual-checks
             adb pull /sdcard/Android/data/app.gagachat.core.ui/files/screenshots visual-checks/ || adb pull /sdcard/Android/data/app.gagachat.core.ui.test/files/screenshots visual-checks/
             adb pull /sdcard/Android/data/app.gagachat.feature.dailylife.test/files/screenshots visual-checks/today/
@@ -56,4 +57,5 @@ jobs:
             android-native/core/ui/build/reports/androidTests/
             android-native/feature/dailylife/build/reports/androidTests/
             android-native/feature/chat/build/reports/androidTests/
+            android-native/feature/contacts/build/reports/androidTests/
           retention-days: 14
