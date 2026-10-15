@@ -44,6 +44,7 @@ fun VideoReviewSheet(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var caption by remember(uri) { mutableStateOf("") }
+    var muteOriginalAudio by remember(uri) { mutableStateOf(false) }
     var busy by remember(uri) { mutableStateOf(false) }
     var error by remember(uri) { mutableStateOf<String?>(null) }
     val durationMs by produceState(0L, uri) {
@@ -63,6 +64,7 @@ fun VideoReviewSheet(
     val canTrim = durationMs > 1000L && (context.contentResolver.getType(uri)
         ?.contains("mp4", ignoreCase = true) == true || uri.toString().endsWith(".mp4", true))
     val edited = canTrim && (range.start > 0.5f || range.endInclusive < totalSeconds - 0.5f)
+    val requiresExport = edited || (canTrim && muteOriginalAudio)
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val videoView = remember(uri) {
         VideoView(context).apply {
@@ -108,6 +110,19 @@ fun VideoReviewSheet(
                 TextButton(onClick = { range = 0f..totalSeconds }, enabled = !busy) {
                     Text("Reset trim")
                 }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Mute original audio", style = MaterialTheme.typography.bodyMedium)
+                        Text("Removes the video's audio track in the exported MP4.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    Switch(
+                        checked = muteOriginalAudio,
+                        onCheckedChange = { muteOriginalAudio = it },
+                        enabled = !busy,
+                    )
+                }
             } else {
                 Text("Trimming is available for MP4. Other video formats can be sent without edits.",
                     style = MaterialTheme.typography.bodySmall,
@@ -131,7 +146,7 @@ fun VideoReviewSheet(
                 Spacer(Modifier.width(8.dp))
                 Button(
                     onClick = {
-                        if (!edited) {
+                        if (!requiresExport) {
                             videoView.stopPlayback()
                             onSend(uri, caption)
                         } else {
@@ -143,12 +158,13 @@ fun VideoReviewSheet(
                                     runCatching {
                                         trimMp4(context, uri,
                                             (range.start * 1000).toLong(),
-                                            (range.endInclusive * 1000).toLong())
+                                            (range.endInclusive * 1000).toLong(),
+                                            muteAudio = muteOriginalAudio)
                                     }
                                 }
                                 busy = false
                                 result.onSuccess { onSend(it, caption) }.onFailure {
-                                    error = "Could not trim this video. Reset the trim to send the original."
+                                    error = "Could not export this MP4. Reset trim and audio options to send the original."
                                 }
                             }
                         }
@@ -157,7 +173,7 @@ fun VideoReviewSheet(
                 ) {
                     if (busy) CircularProgressIndicator(Modifier.size(16.dp),
                         strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onPrimary)
-                    else Text(if (edited) "Trim & send" else "Send video")
+                    else Text(if (requiresExport) "Export & send" else "Send video")
                 }
             }
             Spacer(Modifier.height(16.dp))
@@ -170,7 +186,10 @@ fun VideoReviewSheet(
  * The requested start is moved backward to the previous sync sample.
  * Abort cleanly on unsupported codecs or malformed tracks.
  */
-internal fun trimMp4(context: Context, source: Uri, startMs: Long, endMs: Long): Uri {
+internal fun muxTrackIncluded(mime: String, muteAudio: Boolean): Boolean =
+    mime.startsWith("video/") || (!muteAudio && mime.startsWith("audio/"))
+
+internal fun trimMp4(context: Context, source: Uri, startMs: Long, endMs: Long, muteAudio: Boolean = false): Uri {
     require(startMs >= 0 && endMs - startMs >= 1000L)
     val dir = File(context.cacheDir, "gaga_video_edits").apply { mkdirs() }
     val output = File(dir, "clip_${UUID.randomUUID()}.mp4")
@@ -185,12 +204,17 @@ internal fun trimMp4(context: Context, source: Uri, startMs: Long, endMs: Long):
         for (index in 0 until extractor.trackCount) {
             val format = extractor.getTrackFormat(index)
             val mime = format.getString(MediaFormat.KEY_MIME).orEmpty()
-            if (mime.startsWith("video/") || mime.startsWith("audio/")) {
+            if (muxTrackIncluded(mime, muteAudio)) {
                 map[index] = mux.addTrack(format)
                 extractor.selectTrack(index)
             }
         }
-        require(map.isNotEmpty()) { "No compatible media tracks" }
+        require(map.isNotEmpty() &&
+            (0 until extractor.trackCount).any {
+                map.containsKey(it) && extractor.getTrackFormat(it)
+                    .getString(MediaFormat.KEY_MIME).orEmpty().startsWith("video/")
+            }
+        ) { "No compatible video track" }
         val retriever = MediaMetadataRetriever()
         try {
             retriever.setDataSource(context, source)
