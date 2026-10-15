@@ -44,7 +44,7 @@ fun NavGraphBuilder.callHistoryScreen(
 ) {
     composable(CallRoutes.CALL_HISTORY) {
         CallHistoryRoute(
-            onNavigateBack = { navController.popBackStack() },
+            onNavigateBack = null,
             onOpenConversation = onOpenConversation,
             onStartCall = onStartCall,
         )

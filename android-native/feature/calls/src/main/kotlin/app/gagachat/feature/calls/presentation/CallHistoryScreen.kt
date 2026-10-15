@@ -69,7 +69,7 @@ import java.util.Locale
  */
 @Composable
 fun CallHistoryRoute(
-    onNavigateBack: () -> Unit,
+    onNavigateBack: (() -> Unit)? = null,
     onOpenConversation: (String) -> Unit,
     onStartCall: (conversationId: String, isVideo: Boolean) -> Unit,
     viewModel: CallViewModel = hiltViewModel(),
@@ -110,6 +110,7 @@ fun CallHistoryRoute(
         title = "Calls",
         subtitle = subtitle,
         snackbarHostState = snackbar,
+        // Calls is a primary bottom tab; avoid a misleading Back button.
         onBack = onNavigateBack,
         actions = {
             IconButton(onClick = viewModel::refreshHistory) { Icon(Icons.Filled.Refresh, "Refresh call history") }

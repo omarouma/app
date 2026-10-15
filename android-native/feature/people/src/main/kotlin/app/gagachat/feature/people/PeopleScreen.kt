@@ -41,6 +41,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.gagachat.core.model.Friend
@@ -86,21 +88,31 @@ fun PeopleScreen(
     var topMenu by remember { mutableStateOf(false) }
     LaunchedEffect(notice) { notice?.let { snackbar.showSnackbar(it); viewModel.consumeNotice() } }
 
+    val compactActions = LocalConfiguration.current.screenWidthDp < 420 ||
+        LocalDensity.current.fontScale > 1.2f
     val tabs = listOf("Friends", "Favorites", "Requests" + if (incomingCount > 0) " ($incomingCount)" else "", "Sent" + if (sentCount > 0) " ($sentCount)" else "", "Blocked")
 
     GagaScaffold(
         title = "People",
         snackbarHostState = snackbar,
         actions = {
+            if (!compactActions) {
             IconButton(onClick = onOpenAddByCode) {
                 Icon(Icons.Filled.QrCodeScanner, contentDescription = "Scan friend QR code")
             }
             IconButton(onClick = onOpenDiscover) {
                 Icon(Icons.Filled.PersonAdd, contentDescription = "Find and add friends")
             }
+            }
             Box {
                 IconButton(onClick = { topMenu = true }) { Icon(Icons.Filled.MoreVert, "People options") }
                 DropdownMenu(topMenu, { topMenu = false }) {
+                    if (compactActions) {
+                        DropdownMenuItem(text = { Text("Scan friend QR code") },
+                            onClick = { topMenu = false; onOpenAddByCode() })
+                        DropdownMenuItem(text = { Text("Find and add friends") },
+                            onClick = { topMenu = false; onOpenDiscover() })
+                    }
                     DropdownMenuItem(text = { Text("My QR code") }, onClick = { topMenu = false; onOpenMyQr() })
                     DropdownMenuItem(text = { Text("Groups") }, onClick = { topMenu = false; onOpenGroups() })
                     DropdownMenuItem(text = { Text("Refresh people") }, onClick = { topMenu = false; viewModel.refresh() }, enabled = !busy)
