@@ -100,7 +100,7 @@ fun ConversationRow(
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 2.dp)
                     .clip(RoundedCornerShape(14.dp))
-                    .heightIn(min = 68.dp)
+                    .heightIn(min = 64.dp)
                     .background(if (hasUnread) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.30f) else MaterialTheme.colorScheme.surface)
                     .combinedClickable(
                         onClick = onClick,
