@@ -212,11 +212,12 @@ object NotificationHelper {
         post(context, id, builder.build())
     }
 
-    private fun post(context: Context, id: Int, notification: android.app.Notification) {
+    private fun post(context: Context, id: Int, notification: android.app.Notification): Boolean {
         val manager = NotificationManagerCompat.from(context)
-        if (manager.areNotificationsEnabled()) {
-            runCatching { manager.notify(id, notification) }
-        }
+        if (!manager.areNotificationsEnabled()) return false
+        if (android.os.Build.VERSION.SDK_INT >= 26 &&
+            manager.getNotificationChannel(notification.channelId)?.importance == android.app.NotificationManager.IMPORTANCE_NONE) return false
+        return runCatching { manager.notify(id, notification); true }.getOrDefault(false)
     }
 
 
@@ -226,8 +227,8 @@ object NotificationHelper {
         versionName: String,
         required: Boolean,
         notificationsEnabled: Boolean,
-    ) {
-        if (!notificationsEnabled) return
+    ): Boolean {
+        if (!notificationsEnabled) return false
         val id = "gaga-update-$versionName".hashCode()
         val intent = Intent(context, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
@@ -251,7 +252,7 @@ object NotificationHelper {
             .setContentIntent(pending)
             .addAction(0, "Update now", pending)
             .build()
-        post(context, id, notification)
+        return post(context, id, notification)
     }
 
     /** Cancels the deterministic incoming-call notification for a conversation. */

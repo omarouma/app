@@ -16,6 +16,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -88,6 +89,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalClipboardManager
@@ -332,9 +334,11 @@ fun ChatRoute(
         exitSelectionMode()
     }
 
-    Box(modifier = Modifier.fillMaxSize()) {
+    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+        val compactHeader = maxWidth < 400.dp || LocalDensity.current.fontScale > 1.2f ||
+            MaterialTheme.typography.titleMedium.fontSize.value > 20f
         GagaScaffold(
-            title = state.title,
+            title = if (selectionMode) "${selectedIds.size} selected" else state.title,
             subtitle = when {
                 state.isOtherTyping -> "typing\u2026"
                 // Groups/channels show the participant count; direct chats show
@@ -349,29 +353,18 @@ fun ChatRoute(
             snackbarHostState = snackbarHostState,
             actions = {
                 if (selectionMode) {
-                    Text(
-                        text = "${selectedIds.size} selected",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        modifier = Modifier.padding(end = GagaDimens.space4),
-                    )
-                    IconButton(
-                        onClick = { copySelected() },
-                        enabled = state.messages.any { it.localId in selectedIds && !it.text.isNullOrBlank() },
-                    ) {
-                        Icon(Icons.Filled.ContentCopy, contentDescription = "Copy selected message text")
+                    var selectionMenu by remember { mutableStateOf(false) }
+                    IconButton(onClick = { selectionMenu = true }) {
+                        Icon(Icons.Filled.MoreVert, contentDescription = "Selected message actions")
                     }
-                    IconButton(
-                        onClick = { forwardSelected() },
-                        enabled = canForwardSelection(selectedIds.size),
-                    ) {
-                        Icon(Icons.AutoMirrored.Filled.Forward, contentDescription = "Forward one selected message")
-                    }
-                    IconButton(
-                        onClick = { deleteSelected() },
-                        enabled = selectedIds.isNotEmpty(),
-                    ) {
-                        Icon(Icons.Filled.Delete, contentDescription = "Delete selected for me")
+                    DropdownMenu(expanded = selectionMenu, onDismissRequest = { selectionMenu = false }) {
+                        DropdownMenuItem(text = { Text("Copy text") },
+                            enabled = state.messages.any { it.localId in selectedIds && !it.text.isNullOrBlank() },
+                            onClick = { selectionMenu = false; copySelected() })
+                        DropdownMenuItem(text = { Text("Forward") }, enabled = canForwardSelection(selectedIds.size),
+                            onClick = { selectionMenu = false; forwardSelected() })
+                        DropdownMenuItem(text = { Text("Delete for me") }, enabled = selectedIds.isNotEmpty(),
+                            onClick = { selectionMenu = false; deleteSelected() })
                     }
                     IconButton(onClick = { exitSelectionMode() }) {
                         Icon(Icons.Filled.Close, contentDescription = "Cancel selection")
@@ -379,7 +372,7 @@ fun ChatRoute(
                 } else {
                     // 1:1 LiveKit calling is supported. Do not display the same
                     // controls on group conversations without group-call support.
-                    if (!state.isGroup && state.conversationId.isNotBlank()) {
+                    if (!compactHeader && !state.isGroup && state.conversationId.isNotBlank()) {
                         IconButton(onClick = { onStartCall(state.conversationId, false) }) {
                             Icon(Icons.Filled.Call, contentDescription = "Start voice call")
                         }
@@ -388,6 +381,8 @@ fun ChatRoute(
                         }
                     }
                     ChatOverflowMenu(
+                        onVoiceCall = if (compactHeader && !state.isGroup && state.conversationId.isNotBlank()) ({ onStartCall(state.conversationId, false) }) else null,
+                        onVideoCall = if (compactHeader && !state.isGroup && state.conversationId.isNotBlank()) ({ onStartCall(state.conversationId, true) }) else null,
                         onSearch = viewModel::toggleSearch,
                         onToggleMute = viewModel::toggleMute,
                         onChatBackground = { showBackgroundPicker = true },
@@ -1149,6 +1144,8 @@ private fun ChatOverflowMenu(
     onOpenMedia: () -> Unit,
     onChatInfo: () -> Unit,
     isMuted: Boolean,
+    onVoiceCall: (() -> Unit)? = null,
+    onVideoCall: (() -> Unit)? = null,
 ) {
     var expanded by remember { mutableStateOf(false) }
 
@@ -1156,6 +1153,8 @@ private fun ChatOverflowMenu(
         Icon(Icons.Filled.MoreVert, contentDescription = "More")
     }
     DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+        onVoiceCall?.let { call -> MenuItem("Voice call") { expanded = false; call() } }
+        onVideoCall?.let { call -> MenuItem("Video call") { expanded = false; call() } }
         MenuItem("Search Messages") { expanded = false; onSearch() }
         MenuItem(if (isMuted) "Unmute Notifications" else "Mute Notifications") {
             expanded = false

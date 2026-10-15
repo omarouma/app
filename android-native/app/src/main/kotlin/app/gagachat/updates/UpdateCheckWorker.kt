@@ -39,20 +39,23 @@ class UpdateCheckWorker @AssistedInject constructor(
     override suspend fun doWork(): Result {
         if (!updatePreferences.autoCheckEnabled.first()) return Result.success()
 
-        val available = (updates.checkForUpdate(force = true) as? UpdateCheckResult.Available)?.update
-            ?: return Result.success()
+        val available = when (val result = updates.checkForUpdate(force = true)) {
+            is UpdateCheckResult.Available -> result.update
+            is UpdateCheckResult.Failed -> return Result.retry()
+            is UpdateCheckResult.UpToDate -> return Result.success()
+        }
 
         if (!updatePreferences.shouldNotify(available.versionCode)) return Result.success()
 
         val notificationsEnabled = settingsPreferences.notificationsEnabled.first()
-        NotificationHelper.showAppUpdate(
+        val posted = NotificationHelper.showAppUpdate(
             context = applicationContext,
             versionName = available.versionName,
             required = available.required,
             notificationsEnabled = notificationsEnabled,
         )
         // Record the notification so the same release is never announced twice.
-        updatePreferences.markNotified(available.versionCode)
+        if (posted) updatePreferences.markNotified(available.versionCode)
         return Result.success()
     }
 

@@ -5,8 +5,10 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -18,6 +20,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -54,18 +57,25 @@ fun GagaTopAppBar(
     showDivider: Boolean = true,
     actions: @Composable RowScope.() -> Unit = {},
 ) {
+    val density = LocalDensity.current
+    val subtitleText = subtitle?.takeIf { it.isNotBlank() }
+    val textHeight = with(density) {
+        if (subtitleText == null) MaterialTheme.typography.titleLarge.lineHeight.toDp()
+        else MaterialTheme.typography.titleMedium.lineHeight.toDp() + MaterialTheme.typography.bodySmall.lineHeight.toDp()
+    }
     Column(modifier = modifier) {
         TopAppBar(
+            expandedHeight = maxOf(64.dp, textHeight + 20.dp),
             title = {
                 val headerModifier = if (onTitleClick != null) {
                     Modifier
-                        .clip(CircleShape)
+                        .clip(RoundedCornerShape(12.dp))
                         .clickable(onClick = onTitleClick)
                 } else {
                     Modifier
                 }
                 Row(
-                    modifier = headerModifier,
+                    modifier = headerModifier.fillMaxWidth().heightIn(min = 48.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     if (brandMark) {
@@ -73,7 +83,7 @@ fun GagaTopAppBar(
                         // wordmark on primary screens (home) so the logo is
                         // always visible.
                         GagaLogo(size = 32.dp, elevation = 0.dp)
-                        Spacer(Modifier.width(GagaDimens.space12))
+                        Spacer(Modifier.width(8.dp))
                     } else if (avatarUrl != null || avatarStatus != null || onTitleClick != null) {
                         // Chat header identity: real avatar (or initials fallback)
                         // with a live presence dot, then the name + subtitle.
@@ -84,11 +94,12 @@ fun GagaTopAppBar(
                             status = avatarStatus,
                             showStatus = avatarStatus != null,
                         )
-                        Spacer(Modifier.width(GagaDimens.space12))
+                        Spacer(Modifier.width(8.dp))
                     }
-                    if (subtitle == null) {
+                    if (subtitleText == null) {
                         Text(
                             text = title,
+                            modifier = Modifier.weight(1f),
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = if (brandMark) FontWeight.ExtraBold else FontWeight.Bold,
                             color = if (brandMark) {
@@ -100,7 +111,7 @@ fun GagaTopAppBar(
                             overflow = TextOverflow.Ellipsis,
                         )
                     } else {
-                        Column {
+                        Column(Modifier.weight(1f)) {
                             Text(
                                 text = title,
                                 style = MaterialTheme.typography.titleMedium,
@@ -109,7 +120,7 @@ fun GagaTopAppBar(
                                 overflow = TextOverflow.Ellipsis,
                             )
                             Text(
-                                text = subtitle,
+                                text = subtitleText,
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 maxLines = 1,
