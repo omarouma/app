@@ -13,6 +13,9 @@ import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.outlined.Call
 import androidx.compose.material.icons.outlined.People
 import androidx.compose.material.icons.outlined.Person
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.size
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.foundation.layout.Column
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
@@ -31,6 +34,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.text.style.TextOverflow
 import app.gagachat.core.ui.theme.GagaDimens
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -271,6 +275,8 @@ private fun GagaBottomBar(
     peopleBadgeCount: Int,
     callsBadgeCount: Int,
 ) {
+    BoxWithConstraints {
+        val compactLabels = maxWidth < 350.dp || LocalDensity.current.fontScale > 1.40f
     Column {
         HorizontalDivider(
             thickness = GagaDimens.hairline,
@@ -285,6 +291,9 @@ private fun GagaBottomBar(
                 val selected = currentRoute == destination.routePattern
                 NavigationBarItem(
                     selected = selected,
+                    // Large-text and 320dp layouts retain five accessible targets.
+                    // Hide unselected labels only when they would overlap.
+                    alwaysShowLabel = !compactLabels,
                     onClick = {
                         if (currentRoute != destination.routePattern) {
                             navController.navigate(destination.route) {
@@ -315,16 +324,19 @@ private fun GagaBottomBar(
                                     }
                                 },
                             ) {
-                                Icon(icon, contentDescription = destination.label)
+                                Icon(icon, contentDescription = destination.label, modifier = Modifier.size(if (compactLabels) 22.dp else 24.dp))
                             }
                         } else {
-                            Icon(icon, contentDescription = destination.label)
+                            Icon(icon, contentDescription = destination.label, modifier = Modifier.size(if (compactLabels) 22.dp else 24.dp))
                         }
                     },
                     label = {
                         Text(
                             text = destination.label,
-                            style = MaterialTheme.typography.labelMedium,
+                            style = if (compactLabels) MaterialTheme.typography.labelSmall else MaterialTheme.typography.labelMedium,
+                            maxLines = 1,
+                            softWrap = false,
+                            overflow = TextOverflow.Ellipsis,
                             fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
                         )
                     },
@@ -338,5 +350,6 @@ private fun GagaBottomBar(
                 )
             }
         }
+    }
     }
 }

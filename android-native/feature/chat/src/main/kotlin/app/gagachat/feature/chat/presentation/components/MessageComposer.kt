@@ -144,8 +144,10 @@ fun MessageComposer(
     val focusManager = LocalFocusManager.current
     val keyboardController = LocalSoftwareKeyboardController.current
 
+    BoxWithConstraints(modifier = modifier.fillMaxWidth()) {
+    val compactComposer = maxWidth < 360.dp || LocalDensity.current.fontScale > 1.25f
     Surface(
-        modifier = modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth(),
         color = MaterialTheme.colorScheme.surface,
         shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
         tonalElevation = 0.dp,
@@ -178,7 +180,8 @@ fun MessageComposer(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = GagaDimens.space12, vertical = GagaDimens.space8),
+                        .padding(horizontal = if (compactComposer) 8.dp else GagaDimens.space12,
+                            vertical = GagaDimens.space8),
                     verticalAlignment = Alignment.Bottom,
                 ) {
                     // Round "+" affordance that opens the attachment sheet.
@@ -224,22 +227,18 @@ fun MessageComposer(
                         keyboardActions = KeyboardActions(
                             onSend = { if (enterToSend && draft.isNotBlank()) onSend() },
                         ),
-                        trailingIcon = {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                IconButton(onClick = { showEmojiPanel = !showEmojiPanel }) {
-                                    Icon(
-                                        Icons.Filled.EmojiEmotions,
-                                        contentDescription = if (showEmojiPanel) "Close emoji picker" else "Open emoji picker",
-                                        tint = if (showEmojiPanel) {
-                                            MaterialTheme.colorScheme.primary
-                                        } else {
-                                            MaterialTheme.colorScheme.onSurfaceVariant
-                                        },
-                                    )
-                                }
-
+                        // Native keyboard emoji remains available on narrow
+                        // screens; don't reserve a 48dp slot that hides text.
+                        trailingIcon = if (compactComposer) null else ({
+                            IconButton(onClick = { showEmojiPanel = !showEmojiPanel }) {
+                                Icon(
+                                    Icons.Filled.EmojiEmotions,
+                                    contentDescription = if (showEmojiPanel) "Close emoji picker" else "Open emoji picker",
+                                    tint = if (showEmojiPanel) MaterialTheme.colorScheme.primary
+                                        else MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
                             }
-                        },
+                        }),
                     )
                     Spacer(Modifier.width(GagaDimens.space4))
                     if (draft.isBlank() && editingMessage == null) {
@@ -271,6 +270,8 @@ fun MessageComposer(
             }
         }
     }
+
+    } // End responsive composer width container.
 
     if (showAttachSheet) {
         ModalBottomSheet(
