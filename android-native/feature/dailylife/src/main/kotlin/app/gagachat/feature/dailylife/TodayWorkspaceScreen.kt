@@ -54,7 +54,7 @@ fun TodayWorkspaceScreen(
         WorkspaceTool("Events", "${ui.records.count { it.kind == "event" && !it.completed }} upcoming", Icons.Default.Event, DailyRoutes.records("event")),
         WorkspaceTool("Private notes", "${ui.records.count { it.kind == "note" }} saved", Icons.Default.Description, DailyRoutes.records("note")),
         WorkspaceTool("Shared lists", "${ui.lists.size} lists", Icons.Default.Checklist, DailyRoutes.records("shopping")),
-        WorkspaceTool("Bills & expenses", "${ui.records.count { it.kind == "expense" }} recorded", Icons.Default.ReceiptLong, DailyRoutes.records("expense")),
+        WorkspaceTool("Bills & expenses", "${ui.records.count { it.kind == "expense" }} recorded", Icons.Default.ReceiptLong, DailyRoutes.records("money")),
         WorkspaceTool("Borrowed & lent", "${ui.records.count { it.kind in listOf("borrowed", "lent") }} records", Icons.Default.People, DailyRoutes.records("debts")),
         WorkspaceTool("Calls & people", "${ui.calls.count { it.status.name == "MISSED" }} missed calls", Icons.Default.Call, "calls"),
     )
