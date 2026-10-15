@@ -85,6 +85,31 @@ class TodayDesignTest {
         compose.onNodeWithText("All tools").performClick()
         assertEquals(DailyRoutes.WORKSPACE, route)
     }
+
+    @Test fun workspaceShowsOnlyActualActivityAndHasSearch() {
+        compose.setContent {
+            GagaTheme {
+                TodayWorkspaceScreen(
+                    ui = DailyUi(records = records, loading = false),
+                    onBack = {},
+                    onRefresh = {},
+                    onNavigate = { route = it },
+                    showBack = false,
+                )
+            }
+        }
+        compose.onNodeWithText("Today workspace").assertIsDisplayed()
+        compose.onNodeWithText("Organize your day").assertIsDisplayed()
+        compose.onNodeWithText("1 open · 0 completed").assertIsDisplayed()
+        compose.onNodeWithText("Family, Class & Work").assertDoesNotExist()
+        capture("today-workspace-approved-layout.png")
+        compose.onNodeWithContentDescription("Search Today tools").performClick()
+        compose.onNode(hasSetTextAction()).performTextInput("reminders")
+        compose.onNodeWithText("Tasks").assertDoesNotExist()
+        compose.onNodeWithText("Reminders").assertIsDisplayed()
+        capture("today-workspace-search.png")
+    }
+
     @Test fun workspaceCardsUseRealCountsAndRoutes() {
         compose.setContent {
             GagaTheme {
