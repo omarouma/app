@@ -117,6 +117,16 @@ class AuthTokenRefresher @Inject constructor(
  * expired token now performs its first conversation sync successfully instead of
  * showing an empty chat list until the user restarts.
  */
+/**
+ * Per Supabase Realtime protocol the WebSocket upgrade is authorized by the
+ * public API key in the URL. The user's JWT belongs in authenticated Phoenix
+ * phx_join/access_token channel frames, not the HTTP Upgrade Authorization
+ * header. An ES256 user bearer at gateway upgrade can reject an otherwise
+ * valid session with HTTP 401 before any channel has been joined.
+ */
+internal fun isRealtimeUpgradePath(path: String): Boolean =
+    path == "/realtime/v1/websocket"
+
 class AuthTokenInterceptor(
     private val refresher: AuthTokenRefresher,
     private val config: SupabaseConfig,
@@ -125,6 +135,11 @@ class AuthTokenInterceptor(
     override fun intercept(chain: Interceptor.Chain): Response {
         val request = chain.request()
         val url = request.url.toString()
+        // WebSocket upgrade carries only the validated public apikey query
+        // parameter. Authenticated row access remains JWT-gated via phx_join.
+        if (isRealtimeUpgradePath(request.url.encodedPath)) {
+            return chain.proceed(request)
+        }
         if (config.url.isBlank() || !url.startsWith(config.url) || url.contains("/auth/v1/")) {
             return chain.proceed(request)
         }

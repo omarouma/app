@@ -11,8 +11,10 @@ import io.ktor.client.request.setBody
 import io.ktor.http.ContentType
 import io.ktor.http.contentType
 import kotlinx.coroutines.withTimeout
+import io.ktor.client.plugins.ClientRequestException
 import io.ktor.client.plugins.websocket.DefaultClientWebSocketSession
 import io.ktor.client.plugins.websocket.webSocketSession
+import io.ktor.http.HttpStatusCode
 import io.ktor.websocket.Frame
 import io.ktor.websocket.close
 import io.ktor.websocket.readText
@@ -194,6 +196,31 @@ class SupabaseRealtimeClient @Inject constructor(
     private fun topicFor(table: String, filter: String?): String =
         if (filter.isNullOrBlank()) "realtime:public:$table" else "realtime:public:$table:$filter"
 
+    /** A rejected WebSocket must not spin forever with an unvalidated token.
+     * REST may work under the modern publishable key while a legacy socket
+     * handshake is rejected. Attempt both active public API-key formats and
+     * refresh the user token on 401; never downgrade user authorization.
+     */
+    private suspend fun openAuthenticatedSocket(): DefaultClientWebSocketSession {
+        val token = tokenRefresher.ensureFresh()
+        check(!token.isNullOrBlank()) { "Realtime auth unavailable; sign in again" }
+        var lastUnauthorized: ClientRequestException? = null
+        for (url in config.realtimeSocketUrls) {
+            try {
+                return client.webSocketSession(url)
+            } catch (e: ClientRequestException) {
+                if (e.response.status != HttpStatusCode.Unauthorized) throw e
+                lastUnauthorized = e
+                // The interceptor already retries once. An explicit refresh
+                // here ensures the NEXT key attempt gets the latest JWT.
+                if (tokenRefresher.ensureFresh(force = true).isNullOrBlank()) {
+                    throw IllegalStateException("Realtime token refresh rejected")
+                }
+            }
+        }
+        throw lastUnauthorized ?: IllegalStateException("No Realtime API key configured")
+    }
+
     private suspend fun runConnectionLoop() {
         var backoff = 1_000L
         while (currentCoroutineContext().isActive) {
@@ -202,9 +229,7 @@ class SupabaseRealtimeClient @Inject constructor(
                 // sure it is fresh before (re)connecting -- otherwise the socket
                 // connects but every channel join is rejected and live message
                 // delivery silently stops until the app is restarted.
-                runCatching { tokenRefresher.ensureFresh() }
-                val url = config.realtimeSocketUrl
-                val session = client.webSocketSession(url)
+                val session = openAuthenticatedSocket()
                 try {
                     logger.i(TAG, "Realtime connected")
                     backoff = 1_000L
@@ -249,7 +274,9 @@ class SupabaseRealtimeClient @Inject constructor(
                 _events.tryEmit(RealtimeEvent.ConnectionError(t.message ?: "disconnected"))
             }
             delay(backoff)
-            backoff = (backoff * 2).coerceAtMost(30_000L)
+            // Throttle long-lived invalid sessions: 401 reconnect storms
+            // otherwise spam the Supabase gateway and drain phone battery.
+            backoff = (backoff * 2).coerceAtMost(120_000L)
         }
     }
 
