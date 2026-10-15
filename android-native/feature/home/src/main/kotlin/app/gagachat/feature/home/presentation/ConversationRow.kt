@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DoneAll
@@ -97,17 +98,17 @@ fun ConversationRow(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 12.dp, vertical = 4.dp)
-                    .clip(MaterialTheme.shapes.large)
-                    .heightIn(min = 80.dp)
-                    .background(if (hasUnread) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f) else MaterialTheme.colorScheme.surface)
+                    .padding(horizontal = 16.dp, vertical = 2.dp)
+                    .clip(RoundedCornerShape(14.dp))
+                    .heightIn(min = 76.dp)
+                    .background(if (hasUnread) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.30f) else MaterialTheme.colorScheme.surface)
                     .combinedClickable(
                         onClick = onClick,
                         onClickLabel = "Open chat: $title",
                         onLongClick = { menuExpanded = true },
                         onLongClickLabel = "More conversation actions",
                     )
-                    .padding(horizontal = GagaDimens.space16, vertical = GagaDimens.space8),
+                    .padding(horizontal = GagaDimens.space12, vertical = GagaDimens.space8),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 GagaAvatar(
