@@ -3,6 +3,9 @@ package app.gagachat.feature.profile.presentation
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -128,8 +131,8 @@ private data class CoverViewer(val url: String, val isVideo: Boolean)
 
 // Coloured leading icons for the Personal Hub / Account rows (reference 173846).
 private val HubPurple = Color(0xFF7E57C2)
-private val HubTeal = Color(0xFF26A69A)
-private val HubAmber = Color(0xFFF2B705)
+private val HubTeal = Color(0xFF008577)
+private val HubAmber = Color(0xFF9A6700)
 private val HubBlue = Color(0xFF2F80ED)
 private val HubGreen = Color(0xFF00A651)
 private val HubRed = Color(0xFFEB5757)
@@ -325,7 +328,7 @@ fun ProfileRoute(
             // tab is the single account hub. Settings owns the full preference
             // tree, so Me only surfaces the essentials — QR, Saved Messages,
             // Settings and Support — instead of duplicating every settings row.
-            // All non-destructive leading icons share the one GaGa brand green.
+            // Each destination has a distinct icon colour and a soft matching tile.
             if (state.isSelf) {
                 Spacer(Modifier.height(GagaDimens.space8))
                 GagaDivider()
@@ -334,7 +337,8 @@ fun ProfileRoute(
                     title = "My QR Code",
                     subtitle = "Let others add you instantly",
                     leadingIcon = Icons.Filled.QrCode2,
-                    leadingIconTint = GagaGreen,
+                    leadingIconTint = HubPurple,
+                    leadingIconContainerColor = HubPurple.copy(alpha = 0.14f),
                     trailing = { ChevronRight() },
                     onClick = onOpenMyQr,
                 )
@@ -343,7 +347,8 @@ fun ProfileRoute(
                     title = "GaGa Wallet",
                     subtitle = "Coins and activity • top-up availability varies",
                     leadingIcon = Icons.Filled.AccountBalanceWallet,
-                    leadingIconTint = GagaGreen,
+                    leadingIconTint = HubAmber,
+                    leadingIconContainerColor = HubAmber.copy(alpha = 0.14f),
                     trailing = { ChevronRight() },
                     onClick = onOpenWallet,
                 )
@@ -352,7 +357,8 @@ fun ProfileRoute(
                     title = "Saved Messages",
                     subtitle = "Your private notes and bookmarks",
                     leadingIcon = Icons.Filled.Bookmark,
-                    leadingIconTint = GagaGreen,
+                    leadingIconTint = HubBlue,
+                    leadingIconContainerColor = HubBlue.copy(alpha = 0.14f),
                     trailing = { ChevronRight() },
                     onClick = onOpenSavedMessages,
                 )
@@ -361,7 +367,8 @@ fun ProfileRoute(
                     title = "Settings",
                     subtitle = "Privacy, security, notifications, data & more",
                     leadingIcon = Icons.Filled.Settings,
-                    leadingIconTint = GagaGreen,
+                    leadingIconTint = HubTeal,
+                    leadingIconContainerColor = HubTeal.copy(alpha = 0.14f),
                     trailing = { ChevronRight() },
                     onClick = onOpenSettings,
                 )
@@ -372,7 +379,8 @@ fun ProfileRoute(
                     title = "Help & Support",
                     subtitle = "FAQs, guides and contact",
                     leadingIcon = Icons.AutoMirrored.Filled.HelpOutline,
-                    leadingIconTint = GagaGreen,
+                    leadingIconTint = HubGreen,
+                    leadingIconContainerColor = HubGreen.copy(alpha = 0.14f),
                     trailing = { ChevronRight() },
                     onClick = onOpenHelp,
                 )
@@ -380,7 +388,8 @@ fun ProfileRoute(
                 GagaSettingsRow(
                     title = "About GaGa",
                     leadingIcon = Icons.Filled.Info,
-                    leadingIconTint = GagaGreen,
+                    leadingIconTint = HubPurple,
+                    leadingIconContainerColor = HubPurple.copy(alpha = 0.14f),
                     trailing = { ChevronRight() },
                     onClick = onOpenAbout,
                 )
@@ -405,7 +414,7 @@ fun ProfileRoute(
 
 /** Cover banner + overlapping avatar + name/handle + stats row. */
 @Composable
-private fun ProfileHeader(
+internal fun ProfileHeader(
     user: User?,
     isSelf: Boolean,
     isUploadingCover: Boolean,
@@ -499,7 +508,7 @@ private fun ProfileHeader(
                 Box(
                     modifier = Modifier
                         .align(Alignment.BottomEnd)
-                        .size(30.dp)
+                        .size(48.dp)
                         .clip(CircleShape)
                         .background(GagaGreen)
                         .border(width = 2.dp, color = MaterialTheme.colorScheme.surface, shape = CircleShape)
@@ -541,8 +550,15 @@ private fun ProfileHeader(
             .padding(horizontal = GagaDimens.space24),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
             Text(
+                modifier = Modifier.weight(1f, fill = false),
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
                 text = user?.displayLabel ?: "GaGa User",
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.Bold,
@@ -566,6 +582,9 @@ private fun ProfileHeader(
             Spacer(Modifier.height(GagaDimens.space2))
             Text(
                 text = "@$it",
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                textAlign = TextAlign.Center,
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -593,6 +612,9 @@ private fun ProfileHeader(
                 Spacer(Modifier.width(GagaDimens.space4))
                 Text(
                     text = site.removePrefix("https://").removePrefix("http://").trimEnd('/'),
+                    modifier = Modifier.weight(1f, fill = false),
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
                     style = MaterialTheme.typography.bodyMedium,
                     color = GagaGreen,
                     fontWeight = FontWeight.Medium,
@@ -623,22 +645,25 @@ private fun ProfileStatsCard(
         horizontalArrangement = Arrangement.SpaceEvenly,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        StatColumn(friendsCount, "Friends")
-        StatColumn(followersCount, "Followers")
-        StatColumn(followingCount, "Following")
+        StatColumn(friendsCount, "Friends", Modifier.weight(1f))
+        StatColumn(followersCount, "Followers", Modifier.weight(1f))
+        StatColumn(followingCount, "Following", Modifier.weight(1f))
     }
 }
 
 @Composable
-private fun StatColumn(value: Int, label: String) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+private fun StatColumn(value: Int, label: String, modifier: Modifier = Modifier) {
+    Column(modifier = modifier.padding(horizontal = 4.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         Text(
             text = value.toString(),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
             style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.Bold,
         )
         Text(
             text = label,
+            textAlign = TextAlign.Center,
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -647,7 +672,7 @@ private fun StatColumn(value: Int, label: String) {
 
 /** Compact pill action used in the profile's three-button row (reference 173846). */
 @Composable
-private fun ProfileActionButton(
+internal fun ProfileActionButton(
     icon: ImageVector,
     label: String,
     onClick: () -> Unit,
@@ -656,18 +681,18 @@ private fun ProfileActionButton(
 ) {
     val container = if (primary) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant
     val content = if (primary) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
-    Row(
+    Column(
         modifier = modifier
-            .heightIn(min = 48.dp)
+            .heightIn(min = 80.dp)
             .clip(RoundedCornerShape(14.dp))
             .background(container)
-            .clickable(onClick = onClick)
+            .clickable(role = Role.Button, onClick = onClick)
             .padding(horizontal = GagaDimens.space8, vertical = GagaDimens.space12),
-        horizontalArrangement = Arrangement.Center,
-        verticalAlignment = Alignment.CenterVertically,
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Icon(icon, contentDescription = null, tint = content, modifier = Modifier.size(18.dp))
-        Spacer(Modifier.width(GagaDimens.space6))
+        Icon(icon, contentDescription = null, tint = content, modifier = Modifier.size(22.dp))
+        Spacer(Modifier.height(GagaDimens.space6))
         Text(
             text = label,
             style = MaterialTheme.typography.labelMedium,
@@ -675,7 +700,7 @@ private fun ProfileActionButton(
             fontWeight = FontWeight.SemiBold,
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.weight(1f, fill = false),
+            textAlign = TextAlign.Center,
         )
     }
 }
@@ -685,11 +710,13 @@ private fun CoverChip(label: String, onClick: () -> Unit) {
     Box(
         modifier = Modifier
             .clip(RoundedCornerShape(50))
-            .background(Color.White)
-            .clickable(onClick = onClick)
+            .background(MaterialTheme.colorScheme.surface)
+            .heightIn(min = 48.dp)
+            .clickable(role = Role.Button, onClick = onClick)
             .padding(horizontal = GagaDimens.space12, vertical = GagaDimens.space4),
+        contentAlignment = Alignment.Center,
     ) {
-        Text(text = label, style = MaterialTheme.typography.labelMedium, color = GagaGreen)
+        Text(text = label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
     }
 }
 
@@ -1079,8 +1106,9 @@ private fun ProBadge() {
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun CompletenessCard(percent: Int, privacy: app.gagachat.core.model.AccountPrivacy, onPrivacy: () -> Unit) {
+internal fun CompletenessCard(percent: Int, privacy: app.gagachat.core.model.AccountPrivacy, onPrivacy: () -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -1111,7 +1139,7 @@ private fun CompletenessCard(percent: Int, privacy: app.gagachat.core.model.Acco
         )
         Spacer(Modifier.height(GagaDimens.space12))
         LinearProgressIndicator(
-            progress = { percent / 100f },
+            progress = { percent.coerceIn(0, 100) / 100f },
             modifier = Modifier
                 .fillMaxWidth()
                 .height(8.dp)
@@ -1120,19 +1148,25 @@ private fun CompletenessCard(percent: Int, privacy: app.gagachat.core.model.Acco
             trackColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
         )
         Spacer(Modifier.height(GagaDimens.space12))
-        Row(horizontalArrangement = Arrangement.spacedBy(GagaDimens.space8)) {
-            Box(Modifier.clickable(onClick = onPrivacy)) { StatusTag("Online visibility: " + (if (privacy.onlineStatus == app.gagachat.core.model.PrivacyAudience.SAME_AS_LAST_SEEN) privacy.lastSeen.label else privacy.onlineStatus.label)) }
-            Box(Modifier.clickable(onClick = onPrivacy)) { StatusTag("Friend list: " + privacy.friendList.label) }
+        FlowRow(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(GagaDimens.space8),
+            verticalArrangement = Arrangement.spacedBy(GagaDimens.space4),
+        ) {
+            StatusTag("Online visibility: " + (if (privacy.onlineStatus == app.gagachat.core.model.PrivacyAudience.SAME_AS_LAST_SEEN) privacy.lastSeen.label else privacy.onlineStatus.label), onPrivacy)
+            StatusTag("Friend list: " + privacy.friendList.label, onPrivacy)
         }
     }
 }
 
 @Composable
-private fun StatusTag(label: String) {
+private fun StatusTag(label: String, onClick: () -> Unit) {
     Row(
         modifier = Modifier
             .clip(RoundedCornerShape(50))
-            .background(GagaGreenContainer)
+            .background(MaterialTheme.colorScheme.primaryContainer)
+            .heightIn(min = 48.dp)
+            .clickable(role = Role.Button, onClick = onClick)
             .padding(horizontal = GagaDimens.space8, vertical = GagaDimens.space4),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -1146,7 +1180,8 @@ private fun StatusTag(label: String) {
         Text(
             text = label,
             style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurface,
+            color = MaterialTheme.colorScheme.onPrimaryContainer,
+            modifier = Modifier.weight(1f, fill = false),
         )
     }
 }
