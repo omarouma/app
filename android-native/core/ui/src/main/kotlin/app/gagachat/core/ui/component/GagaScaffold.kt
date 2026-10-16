@@ -34,13 +34,14 @@ fun GagaScaffold(
     actions: @Composable RowScope.() -> Unit = {},
     floatingActionButton: @Composable () -> Unit = {},
     bottomBar: @Composable () -> Unit = {},
+    showTopBar: Boolean = true,
     content: @Composable (PaddingValues) -> Unit,
 ) {
     Scaffold(
         modifier = modifier,
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
-            GagaTopAppBar(
+            if (showTopBar) GagaTopAppBar(
                 title = title,
                 subtitle = subtitle,
                 onBack = onBack,
