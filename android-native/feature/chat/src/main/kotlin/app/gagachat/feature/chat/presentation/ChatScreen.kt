@@ -688,11 +688,15 @@ fun ChatRoute(
             ForwardPickerSheet(
                 message = message,
                 onDismiss = { forwardingMessage = null },
-                onForwarded = { conversation ->
+                onForwarded = { count ->
                     forwardingMessage = null
                     scope.launch {
                         snackbarHostState.showSnackbar(
-                            "Forwarded to ${conversation.displayTitle(state.currentUserId)}",
+                            when {
+                                count <= 0 -> "Couldn't forward. Please retry."
+                                count == 1 -> "Forwarded to 1 chat"
+                                else -> "Forwarded to $count chats"
+                            },
                         )
                     }
                 },
