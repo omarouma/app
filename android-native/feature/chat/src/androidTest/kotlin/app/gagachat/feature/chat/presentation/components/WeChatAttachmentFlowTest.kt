@@ -4,6 +4,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.test.isDisplayed
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import org.junit.Assert.assertEquals
@@ -51,10 +53,14 @@ class WeChatAttachmentFlowTest {
         // Capture actual window pixels and semantics even when the visibility
         // assertion fails, so layout failures can be diagnosed from CI artifacts.
         try {
+            compose.onNodeWithContentDescription("Search for location").performClick().performTextInput("Dhaka")
+            assertNull("Typing a search must not send a location", sent)
             compose.waitUntil(timeoutMillis = 5_000) {
                 compose.onNodeWithText("Send location").isDisplayed()
             }
             compose.onNodeWithText("Send location").assertIsDisplayed()
+            compose.onNodeWithText("Cancel").assertIsDisplayed()
+            compose.onNodeWithText("Send").assertIsDisplayed()
         } finally {
             val instrumentation = androidx.test.platform.app.InstrumentationRegistry.getInstrumentation()
             val directory = java.io.File(instrumentation.targetContext.getExternalFilesDir("screenshots"), "location")
