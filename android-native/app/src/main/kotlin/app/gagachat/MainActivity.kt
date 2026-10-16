@@ -14,6 +14,7 @@ import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import app.gagachat.core.data.preferences.SettingsPreferences
+import app.gagachat.core.data.preferences.AppLanguage
 import app.gagachat.core.data.preferences.TextScale
 import app.gagachat.core.data.preferences.ThemeMode
 import app.gagachat.core.ui.theme.GagaTheme
@@ -76,6 +77,8 @@ class MainActivity : ComponentActivity() {
                 .collectAsStateWithLifecycle(initialValue = ThemeMode.SYSTEM)
             val textScale by settingsPreferences.textScale
                 .collectAsStateWithLifecycle(initialValue = TextScale.DEFAULT)
+            val language by settingsPreferences.language
+                .collectAsStateWithLifecycle(initialValue = AppLanguage.ENGLISH)
             val appLockEnabled by settingsPreferences.appLockEnabled
                 .collectAsStateWithLifecycle(initialValue = false)
             val session by appViewModel.session.collectAsStateWithLifecycle()
@@ -86,7 +89,7 @@ class MainActivity : ComponentActivity() {
                 ThemeMode.SYSTEM -> isSystemInDarkTheme()
             }
 
-            GagaTheme(darkTheme = darkTheme, textScale = textScale.factor()) {
+            GagaTheme(darkTheme = darkTheme, textScale = textScale.factor(), languageCode = language.code) {
                 ready = true
                 // Surface the previous run's crash (if any) so the exact stack
                 // trace can be copied/screenshotted even when we cannot attach a

@@ -67,6 +67,8 @@ import app.gagachat.core.ui.component.GagaDivider
 import app.gagachat.core.ui.component.GagaScaffold
 import app.gagachat.core.ui.component.GagaSectionHeader
 import app.gagachat.core.ui.component.GagaSettingsRow
+import app.gagachat.core.ui.i18n.GagaStrings
+import app.gagachat.core.ui.i18n.LocalGagaStrings
 import app.gagachat.core.ui.theme.GagaDimens
 import app.gagachat.feature.settings.navigation.SettingsRoutes
 
@@ -85,42 +87,42 @@ private data class SettingsEntry(
     val soon: Boolean = false,
 )
 
-private val settingsEntries: List<SettingsEntry> = listOf(
-    SettingsEntry("Privacy & Security", "Privacy", "Read receipts, last seen and blocked users", Icons.Filled.Lock, SettingsRoutes.PRIVACY),
-    SettingsEntry("Privacy & Security", "Security & devices", "App lock, sessions and account protection", Icons.Filled.Security, SettingsRoutes.SECURITY),
-    SettingsEntry("Privacy & Security", "Blocked users", "People you've blocked", Icons.Filled.Block, SettingsRoutes.BLOCKED),
-    SettingsEntry("Privacy & Security", "Anti-spam & trust", "Spam, scam warnings and reporting", Icons.Filled.Shield, SettingsRoutes.TRUST),
-    SettingsEntry("Privacy & Security", "GaGa Safe & location", "SOS, check-ins and location sharing", Icons.Filled.LocationOn, SettingsRoutes.SAFE),
+private fun settingsEntries(s: GagaStrings): List<SettingsEntry> = listOf(
+    SettingsEntry(s.sectionPrivacySecurity, s.privacyTitle, s.privacySubtitle, Icons.Filled.Lock, SettingsRoutes.PRIVACY),
+    SettingsEntry(s.sectionPrivacySecurity, s.securityTitle, s.securitySubtitle, Icons.Filled.Security, SettingsRoutes.SECURITY),
+    SettingsEntry(s.sectionPrivacySecurity, s.blockedUsersTitle, s.blockedUsersSubtitle, Icons.Filled.Block, SettingsRoutes.BLOCKED),
+    SettingsEntry(s.sectionPrivacySecurity, s.antiSpamTitle, s.antiSpamSubtitle, Icons.Filled.Shield, SettingsRoutes.TRUST),
+    SettingsEntry(s.sectionPrivacySecurity, s.safeTitle, s.safeSubtitle, Icons.Filled.LocationOn, SettingsRoutes.SAFE),
 
-    SettingsEntry("Chats & Notifications", "Notifications", "Messages, groups, calls, previews and sounds", Icons.Filled.Notifications, SettingsRoutes.NOTIFICATIONS),
-    SettingsEntry("Chats & Notifications", "Chats & messaging", "Sending, media and history defaults", Icons.AutoMirrored.Filled.Chat, SettingsRoutes.CHATS),
-    SettingsEntry("Chats & Notifications", "Calls", "Call handling, audio routing and diagnostics", Icons.Filled.Call, SettingsRoutes.CALLS),
-    SettingsEntry("Chats & Notifications", "Search & discovery", "Search scope, filters and history", Icons.Filled.Search, SettingsRoutes.SEARCH),
+    SettingsEntry(s.sectionChatsNotifications, s.notificationsTitle, s.notificationsSubtitle, Icons.Filled.Notifications, SettingsRoutes.NOTIFICATIONS),
+    SettingsEntry(s.sectionChatsNotifications, s.chatsTitle, s.chatsSubtitle, Icons.AutoMirrored.Filled.Chat, SettingsRoutes.CHATS),
+    SettingsEntry(s.sectionChatsNotifications, s.callsTitle, s.callsSubtitle, Icons.Filled.Call, SettingsRoutes.CALLS),
+    SettingsEntry(s.sectionChatsNotifications, s.searchDiscoveryTitle, s.searchDiscoverySubtitle, Icons.Filled.Search, SettingsRoutes.SEARCH),
 
-    SettingsEntry("GaGa Today & Daily Life", "Daily routines & habits", "Briefings, goals, focus and planning", Icons.Filled.Today, SettingsRoutes.ROUTINES),
-    SettingsEntry("GaGa Today & Daily Life", "GaGa AI Assistant", "Assistant, suggestions and personalization", Icons.Filled.SmartToy, SettingsRoutes.AI),
-    SettingsEntry("GaGa Today & Daily Life", "Dashboard & navigation", "Default tab, layout and formats", Icons.Filled.Dashboard, SettingsRoutes.DASHBOARD),
+    SettingsEntry(s.sectionTodayDailyLife, s.routinesTitle, s.routinesSubtitle, Icons.Filled.Today, SettingsRoutes.ROUTINES),
+    SettingsEntry(s.sectionTodayDailyLife, s.aiAssistantTitle, s.aiAssistantSubtitle, Icons.Filled.SmartToy, SettingsRoutes.AI),
+    SettingsEntry(s.sectionTodayDailyLife, s.dashboardTitle, s.dashboardSubtitle, Icons.Filled.Dashboard, SettingsRoutes.DASHBOARD),
 
-    SettingsEntry("People", "People & contacts", "Requests, findability and contact sync", Icons.Filled.People, SettingsRoutes.PEOPLE_CONTACTS),
+    SettingsEntry(s.sectionPeople, s.peopleContactsTitle, s.peopleContactsSubtitle, Icons.Filled.People, SettingsRoutes.PEOPLE_CONTACTS),
 
-    SettingsEntry("Device & Data", "Appearance", "Theme and chat background", Icons.Filled.DarkMode, SettingsRoutes.APPEARANCE),
-    SettingsEntry("Device & Data", "Data & storage", "Auto-download, quality and cache", Icons.Filled.Storage, SettingsRoutes.STORAGE),
-    SettingsEntry("Device & Data", "Network & performance", "Data saver, battery and quality", Icons.Filled.NetworkCheck, SettingsRoutes.NETWORK),
-    SettingsEntry("Device & Data", "Multi-device & sync", "Devices, sessions and synchronization", Icons.Filled.Devices, SettingsRoutes.DEVICES),
-    SettingsEntry("Device & Data", "Backup & restore", "Backups, restore and migration", Icons.Filled.Backup, SettingsRoutes.BACKUP),
-    SettingsEntry("Device & Data", "Widgets & shortcuts", "Home screen widgets and quick actions", Icons.Filled.Widgets, SettingsRoutes.WIDGETS),
-    SettingsEntry("Device & Data", "Language", "App display language", Icons.Filled.Language, SettingsRoutes.LANGUAGE),
-    SettingsEntry("Device & Data", "Accessibility", "Text size and display options", Icons.Filled.Accessibility, SettingsRoutes.ACCESSIBILITY),
-    SettingsEntry("Device & Data", "App permissions", "Camera, microphone, contacts, media and more", Icons.Filled.Apps, SettingsRoutes.PERMISSIONS),
+    SettingsEntry(s.sectionDeviceData, s.appearanceTitle, s.appearanceSubtitle, Icons.Filled.DarkMode, SettingsRoutes.APPEARANCE),
+    SettingsEntry(s.sectionDeviceData, s.dataStorageTitle, s.dataStorageSubtitle, Icons.Filled.Storage, SettingsRoutes.STORAGE),
+    SettingsEntry(s.sectionDeviceData, s.networkTitle, s.networkSubtitle, Icons.Filled.NetworkCheck, SettingsRoutes.NETWORK),
+    SettingsEntry(s.sectionDeviceData, s.multiDeviceTitle, s.multiDeviceSubtitle, Icons.Filled.Devices, SettingsRoutes.DEVICES),
+    SettingsEntry(s.sectionDeviceData, s.backupTitle, s.backupSubtitle, Icons.Filled.Backup, SettingsRoutes.BACKUP),
+    SettingsEntry(s.sectionDeviceData, s.widgetsTitle, s.widgetsSubtitle, Icons.Filled.Widgets, SettingsRoutes.WIDGETS),
+    SettingsEntry(s.sectionDeviceData, s.languageTitle, s.languageSubtitle, Icons.Filled.Language, SettingsRoutes.LANGUAGE),
+    SettingsEntry(s.sectionDeviceData, s.accessibilityTitle, s.accessibilitySubtitle, Icons.Filled.Accessibility, SettingsRoutes.ACCESSIBILITY),
+    SettingsEntry(s.sectionDeviceData, s.appPermissionsTitle, s.appPermissionsSubtitle, Icons.Filled.Apps, SettingsRoutes.PERMISSIONS),
 
-    SettingsEntry("Help & About", "Getting started", "Revisit GaGa's three advantages and quick tips", Icons.Filled.AutoAwesome, SettingsRoutes.GETTING_STARTED),
-    SettingsEntry("Help & About", "Help & support", "FAQs and contact support", Icons.AutoMirrored.Filled.HelpOutline, SettingsRoutes.HELP),
-    SettingsEntry("Help & About", "Troubleshooting", "Diagnostics and connection tests", Icons.Filled.Build, SettingsRoutes.TROUBLESHOOT),
-    SettingsEntry("Help & About", "About GaGa Chat", "Version and legal information", Icons.Filled.Info, SettingsRoutes.ABOUT),
+    SettingsEntry(s.sectionHelpAbout, s.gettingStartedTitle, s.gettingStartedSubtitle, Icons.Filled.AutoAwesome, SettingsRoutes.GETTING_STARTED),
+    SettingsEntry(s.sectionHelpAbout, s.helpSupportTitle, s.helpSupportSubtitle, Icons.AutoMirrored.Filled.HelpOutline, SettingsRoutes.HELP),
+    SettingsEntry(s.sectionHelpAbout, s.troubleshootingTitle, s.troubleshootingSubtitle, Icons.Filled.Build, SettingsRoutes.TROUBLESHOOT),
+    SettingsEntry(s.sectionHelpAbout, s.aboutTitle, s.aboutSubtitle, Icons.Filled.Info, SettingsRoutes.ABOUT),
 
-    SettingsEntry("Coming soon", "Business & team", "Workspaces, roles and shared tools", Icons.Filled.Business, SettingsRoutes.BUSINESS, soon = true),
-    SettingsEntry("Coming soon", "Premium & subscription", "Plans and billing", Icons.Filled.WorkspacePremium, SettingsRoutes.PREMIUM, soon = true),
-    SettingsEntry("Coming soon", "Delivery & services", "Local services and deliveries", Icons.Filled.LocalShipping, SettingsRoutes.DELIVERY, soon = true),
+    SettingsEntry(s.sectionComingSoon, s.businessTitle, s.businessSubtitle, Icons.Filled.Business, SettingsRoutes.BUSINESS, soon = true),
+    SettingsEntry(s.sectionComingSoon, s.premiumTitle, s.premiumSubtitle, Icons.Filled.WorkspacePremium, SettingsRoutes.PREMIUM, soon = true),
+    SettingsEntry(s.sectionComingSoon, s.deliveryTitle, s.deliverySubtitle, Icons.Filled.LocalShipping, SettingsRoutes.DELIVERY, soon = true),
 )
 
 /**
@@ -140,6 +142,7 @@ fun SettingsRoute(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
+    val strings = LocalGagaStrings.current
     val versionLabel = remember { appVersionLabel(context) }
     var query by remember { mutableStateOf("") }
     var showPlanned by remember { mutableStateOf(false) }
@@ -148,11 +151,12 @@ fun SettingsRoute(
         if (state.signedOut) onSignedOut()
     }
 
-    val results = remember(query) {
+    val entries = remember(strings) { settingsEntries(strings) }
+    val results = remember(query, entries) {
         if (query.isBlank()) {
-            settingsEntries
+            entries
         } else {
-            settingsEntries.filter {
+            entries.filter {
                 it.title.contains(query, ignoreCase = true) ||
                     it.subtitle?.contains(query, ignoreCase = true) == true ||
                     it.section.contains(query, ignoreCase = true)
@@ -160,7 +164,7 @@ fun SettingsRoute(
         }
     }
 
-    GagaScaffold(title = "Settings", onBack = onNavigateBack) { padding ->
+    GagaScaffold(title = strings.settingsTitle, onBack = onNavigateBack) { padding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -170,7 +174,7 @@ fun SettingsRoute(
             OutlinedTextField(
                 value = query,
                 onValueChange = { query = it },
-                placeholder = { Text("Search settings") },
+                placeholder = { Text(strings.settingsSearchPlaceholder) },
                 leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
                 singleLine = true,
                 shape = RoundedCornerShape(GagaDimens.space12),
@@ -180,9 +184,9 @@ fun SettingsRoute(
             )
 
             if (query.isBlank()) {
-                GagaSectionHeader(text = "ACCOUNT")
+                GagaSectionHeader(text = strings.sectionAccount)
                 GagaSettingsRow(
-                    title = state.displayName ?: "My profile",
+                    title = state.displayName ?: strings.accountMyProfile,
                     subtitle = state.email ?: state.phone,
                     leadingIcon = Icons.Filled.AccountCircle,
                     leadingIconTint = IconGreen,
@@ -190,53 +194,53 @@ fun SettingsRoute(
                 )
                 GagaDivider()
                 GagaSettingsRow(
-                    title = "Edit profile",
-                    subtitle = "Name, username, bio, photo",
+                    title = strings.accountEditProfile,
+                    subtitle = strings.accountEditProfileSubtitle,
                     leadingIcon = Icons.Filled.Edit,
                     leadingIconTint = IconGreen,
                     onClick = { onNavigate(SettingsRoutes.EDIT_PROFILE) },
                 )
                 GagaDivider()
 
-                results.filterNot { it.soon }.groupBy { it.section }.forEach { (section, entries) ->
+                results.filterNot { it.soon }.groupBy { it.section }.forEach { (section, sectionEntries) ->
                     GagaSectionHeader(text = section.uppercase())
-                    entries.forEach { entry -> SettingsEntryRow(entry, onNavigate) }
+                    sectionEntries.forEach { entry -> SettingsEntryRow(entry, strings, onNavigate) }
                 }
                 TextButton(
                     onClick = { showPlanned = !showPlanned },
                     modifier = Modifier.padding(horizontal = GagaDimens.space12),
                 ) {
-                    Text(if (showPlanned) "Hide planned features" else "View planned features")
+                    Text(if (showPlanned) strings.hidePlannedFeatures else strings.viewPlannedFeatures)
                 }
                 if (showPlanned) {
-                    GagaSectionHeader(text = "PLANNED FEATURES")
-                    results.filter { it.soon }.forEach { entry -> SettingsEntryRow(entry, onNavigate) }
+                    GagaSectionHeader(text = strings.sectionPlannedFeatures)
+                    results.filter { it.soon }.forEach { entry -> SettingsEntryRow(entry, strings, onNavigate) }
                 }
             } else {
                 if (results.isEmpty()) {
                     Text(
-                        text = "No settings match \"$query\"",
+                        text = strings.settingsNoMatch(query),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(GagaDimens.space16),
                     )
                 } else {
-                    GagaSectionHeader(text = "${results.size} RESULT${if (results.size == 1) "" else "S"}")
-                    results.forEach { entry -> SettingsEntryRow(entry, onNavigate) }
+                    GagaSectionHeader(text = strings.settingsResults(results.size))
+                    results.forEach { entry -> SettingsEntryRow(entry, strings, onNavigate) }
                 }
             }
 
             Spacer(Modifier.height(GagaDimens.space16))
             GagaSettingsRow(
-                title = "Sign out",
+                title = strings.signOut,
                 leadingIcon = Icons.AutoMirrored.Filled.Logout,
                 leadingIconTint = IconRed,
                 onClick = viewModel::signOut,
             )
             GagaDivider()
             GagaSettingsRow(
-                title = "Delete account",
-                subtitle = "Permanently remove your account and data",
+                title = strings.deleteAccount,
+                subtitle = strings.deleteAccountSubtitle,
                 leadingIcon = Icons.Filled.DeleteForever,
                 leadingIconTint = IconRed,
                 onClick = { onNavigate(SettingsRoutes.DELETE_ACCOUNT) },
@@ -253,7 +257,7 @@ fun SettingsRoute(
 }
 
 @Composable
-private fun SettingsEntryRow(entry: SettingsEntry, onNavigate: (String) -> Unit) {
+private fun SettingsEntryRow(entry: SettingsEntry, strings: GagaStrings, onNavigate: (String) -> Unit) {
     GagaSettingsRow(
         title = entry.title,
         subtitle = entry.subtitle,
@@ -267,7 +271,7 @@ private fun SettingsEntryRow(entry: SettingsEntry, onNavigate: (String) -> Unit)
                     shape = RoundedCornerShape(GagaDimens.space8),
                 ) {
                     Text(
-                        text = "Soon",
+                        text = strings.soonBadge,
                         style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.SemiBold,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,

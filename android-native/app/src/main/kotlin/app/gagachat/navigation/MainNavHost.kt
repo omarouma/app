@@ -38,6 +38,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.text.style.TextOverflow
 import app.gagachat.core.ui.theme.GagaDimens
+import app.gagachat.core.ui.i18n.GagaStrings
+import app.gagachat.core.ui.i18n.LocalGagaStrings
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavGraph.Companion.findStartDestination
@@ -83,21 +85,21 @@ import app.gagachat.push.PendingDeepLink
 private enum class TopLevelDestination(
     val route: String,
     val routePattern: String,
-    val label: String,
+    val label: (GagaStrings) -> String,
     val selectedIcon: ImageVector,
     val unselectedIcon: ImageVector,
 ) {
     CHAT(
         HomeRoutes.HOME,
         HomeRoutes.HOME,
-        "Chats",
+        { it.navChats },
         Icons.AutoMirrored.Filled.Chat,
         Icons.AutoMirrored.Outlined.Chat,
     ),
-    PEOPLE(PeopleRoutes.PEOPLE, PeopleRoutes.PEOPLE, "People", Icons.Filled.People, Icons.Outlined.People),
-    CALLS(CallRoutes.CALL_HISTORY, CallRoutes.CALL_HISTORY, "Calls", Icons.Filled.Call, Icons.Outlined.Call),
-    DAILY(DailyRoutes.HOME, DailyRoutes.HOME, "Today", Icons.Filled.Dashboard, Icons.Outlined.Dashboard),
-    PROFILE(ProfileRoutes.profile(), ProfileRoutes.PROFILE, "Me", Icons.Filled.Person, Icons.Outlined.Person),
+    PEOPLE(PeopleRoutes.PEOPLE, PeopleRoutes.PEOPLE, { it.navPeople }, Icons.Filled.People, Icons.Outlined.People),
+    CALLS(CallRoutes.CALL_HISTORY, CallRoutes.CALL_HISTORY, { it.navCalls }, Icons.Filled.Call, Icons.Outlined.Call),
+    DAILY(DailyRoutes.HOME, DailyRoutes.HOME, { it.navToday }, Icons.Filled.Dashboard, Icons.Outlined.Dashboard),
+    PROFILE(ProfileRoutes.profile(), ProfileRoutes.PROFILE, { it.navMe }, Icons.Filled.Person, Icons.Outlined.Person),
 }
 
 /** Five tabs stay available on small screens; larger text collapses only unselected labels. */
@@ -307,6 +309,7 @@ private fun GagaBottomBar(
         ) {
             TopLevelDestination.entries.forEach { destination ->
                 val selected = currentRoute == destination.routePattern
+                val label = destination.label(LocalGagaStrings.current)
                 NavigationBarItem(
                     selected = selected,
                     // Large-text and 320dp layouts retain five accessible targets.
@@ -342,15 +345,15 @@ private fun GagaBottomBar(
                                     }
                                 },
                             ) {
-                                Icon(icon, contentDescription = destination.label, modifier = Modifier.size(if (compactLabels) 22.dp else 24.dp))
+                                Icon(icon, contentDescription = label, modifier = Modifier.size(if (compactLabels) 22.dp else 24.dp))
                             }
                         } else {
-                            Icon(icon, contentDescription = destination.label, modifier = Modifier.size(if (compactLabels) 22.dp else 24.dp))
+                            Icon(icon, contentDescription = label, modifier = Modifier.size(if (compactLabels) 22.dp else 24.dp))
                         }
                     },
                     label = {
                         Text(
-                            text = destination.label,
+                            text = label,
                             style = if (compactLabels) MaterialTheme.typography.labelSmall else MaterialTheme.typography.labelMedium,
                             maxLines = 1,
                             softWrap = false,

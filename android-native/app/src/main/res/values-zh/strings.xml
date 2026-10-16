@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">GaGa</string>
+    <string name="default_notification_channel_id">gaga_messages</string>
+    <string name="app_lock_title">GaGa 已锁定</string>
+    <string name="app_lock_subtitle">使用你的设备 PIN、图案或生物识别解锁以继续。</string>
+    <string name="app_lock_unlock">解锁</string>
+</resources>

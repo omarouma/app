@@ -88,6 +88,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.gagachat.core.common.system.BatteryOptimization
 import app.gagachat.core.data.preferences.AppLanguage
+import app.gagachat.core.ui.i18n.LocalGagaStrings
 import app.gagachat.core.data.preferences.ChatBackground
 import app.gagachat.core.data.preferences.MediaDownloadPolicy
 import app.gagachat.core.data.preferences.TextScale
@@ -954,14 +955,15 @@ fun LanguageSettingsScreen(
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    GagaScaffold(title = "Language", onBack = onBack) { padding ->
+    val strings = LocalGagaStrings.current
+    GagaScaffold(title = strings.languageTitle, onBack = onBack) { padding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
                 .verticalScroll(rememberScrollState()),
         ) {
-            GagaSectionHeader("APP LANGUAGE")
+            GagaSectionHeader(strings.languageScreenSectionHeader)
             AppLanguage.entries.forEach { language ->
                 Row(
                     modifier = Modifier
@@ -983,7 +985,7 @@ fun LanguageSettingsScreen(
             }
             GagaDivider()
             Text(
-                text = "Your choice is saved on this device.",
+                text = strings.languageSavedNote,
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(GagaDimens.space16),

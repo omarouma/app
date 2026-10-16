@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">GaGa</string>
+    <string name="default_notification_channel_id">gaga_messages</string>
+    <string name="app_lock_title">গাগা লক করা আছে</string>
+    <string name="app_lock_subtitle">চালিয়ে যেতে আপনার ডিভাইসের পিন, প্যাটার্ন বা বায়োমেট্রিক দিয়ে আনলক করুন।</string>
+    <string name="app_lock_unlock">আনলক</string>
+</resources>
