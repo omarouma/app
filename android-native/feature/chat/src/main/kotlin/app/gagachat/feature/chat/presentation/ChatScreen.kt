@@ -1198,20 +1198,9 @@ private fun MessageSearchBar(
                 .padding(horizontal = GagaDimens.space8, vertical = GagaDimens.space4),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Icon(Icons.Filled.Search, contentDescription = null)
-            Spacer(Modifier.width(GagaDimens.space8))
-            TextField(
-                value = query,
-                onValueChange = onQueryChange,
-                modifier = Modifier.weight(1f),
-                placeholder = { Text("Search messages") },
-                singleLine = true,
-                colors = TextFieldDefaults.colors(
-                    focusedContainerColor = Color.Transparent,
-                    unfocusedContainerColor = Color.Transparent,
-                    focusedIndicatorColor = Color.Transparent,
-                    unfocusedIndicatorColor = Color.Transparent,
-                ),
+            app.gagachat.core.ui.component.GagaSearchBar(
+                query = query, onQueryChange = onQueryChange,
+                modifier = Modifier.weight(1f), placeholder = "Search messages",
             )
             IconButton(onClick = onClose) {
                 Icon(Icons.Filled.Close, contentDescription = "Close search")

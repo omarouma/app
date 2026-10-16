@@ -558,7 +558,7 @@ private fun RecordList(section: String, nav: NavController, onChat: (String) -> 
                     }
                 }
             }
-            item { OutlinedTextField(query,{query=it},label={Text("Search")},modifier=Modifier.fillMaxWidth(),singleLine=true) }
+            item { app.gagachat.core.ui.component.GagaSearchBar(query, { query = it }, placeholder = "Search") }
             item {
                 Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement=Arrangement.spacedBy(8.dp)) {
                     if(section=="shopping") Button(onClick={addList=true}) { Text("New list") }
@@ -920,7 +920,7 @@ private fun ShoppingScreen(id: String, nav: NavController, vm: DailyLifeViewMode
                     Text(member.displayLabel, Modifier.weight(1f))
                     if (member.id != list?.ownerId) TextButton(onClick = { vm.share(id, member, true) {} }, enabled = !ui.busy) { Text("Remove") }
                 } }
-                OutlinedTextField(query, { query = it }, label = { Text("Search GaGa name or ID") })
+                app.gagachat.core.ui.component.GagaSearchBar(query, { query = it }, placeholder = "Search GaGa name or ID")
                 searchError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
                 found.filter { it.id !in (list?.memberIds ?: emptyList()) && it.id != list?.ownerId }.forEach { member ->
                     TextButton(onClick = { selected = member }) { Text("${member.displayLabel} ${member.username?.let { "@$it" }.orEmpty()}") }

@@ -111,12 +111,15 @@ object GagaTheme {
         @Composable get() = LocalGagaExtraColors.current
 }
 
+val LocalGagaLayoutSize = androidx.compose.runtime.staticCompositionLocalOf { app.gagachat.core.model.LayoutSize.COMPACT }
+
 @Composable
 fun GagaTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     dynamicColor: Boolean = false,
     textScale: Float = 1f,
     languageCode: String = GagaLanguages.ENGLISH,
+    layoutSize: app.gagachat.core.model.LayoutSize = app.gagachat.core.model.LayoutSize.COMPACT,
     content: @Composable () -> Unit,
 ) {
     val context = LocalContext.current
@@ -141,6 +144,7 @@ fun GagaTheme(
     }
 
     CompositionLocalProvider(
+        LocalGagaLayoutSize provides layoutSize,
         LocalGagaExtraColors provides extraColors,
         LocalGagaStrings provides strings,
     ) {

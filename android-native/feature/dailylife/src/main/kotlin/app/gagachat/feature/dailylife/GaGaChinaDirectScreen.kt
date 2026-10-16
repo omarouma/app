@@ -380,7 +380,7 @@ fun GaGaChinaDirectScreen(onBack: () -> Unit = {}, viewModel: ChinaShopViewModel
                 TextButton(onClick = { showSupplierForm = true }) { Text("Become a China Supplier") }
                 TextButton(onClick = { showAdminReview = true; viewModel.refreshAdminQueue() }) { Text("Supplier admin review (restricted)") }
                 Spacer(Modifier.height(12.dp))
-                OutlinedTextField(search, { search = it }, label = { Text("Search products") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                app.gagachat.core.ui.component.GagaSearchBar(search, { search = it }, placeholder = "Search products")
                 Spacer(Modifier.height(8.dp))
                 androidx.compose.foundation.lazy.LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     items(categories.size) { i ->

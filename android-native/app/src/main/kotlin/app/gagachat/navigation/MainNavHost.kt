@@ -18,6 +18,12 @@ import androidx.compose.material.icons.outlined.Person
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.size
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.material3.NavigationBarDefaults
+import androidx.compose.material3.Surface
 import androidx.compose.foundation.layout.Column
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
@@ -306,10 +312,15 @@ private fun GagaBottomBar(
             thickness = GagaDimens.hairline,
             color = MaterialTheme.colorScheme.outlineVariant,
         )
-        NavigationBar(
-            modifier = Modifier.clip(RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)),
-            containerColor = MaterialTheme.colorScheme.surface,
-            tonalElevation = 0.dp,
+        val layoutSize = app.gagachat.core.ui.theme.LocalGagaLayoutSize.current
+        val labelHeight = with(LocalDensity.current) {
+            (if (compactLabels) MaterialTheme.typography.labelSmall else MaterialTheme.typography.labelMedium).lineHeight.toDp()
+        }
+        val barHeight = (labelHeight + 40.dp).coerceAtLeast(layoutSize.navigationDp.dp)
+        Surface(color = MaterialTheme.colorScheme.surface) {
+        Row(
+            modifier = Modifier.windowInsetsPadding(NavigationBarDefaults.windowInsets)
+                .height(barHeight).selectableGroup(),
         ) {
             TopLevelDestination.entries.forEach { destination ->
                 val selected = currentRoute == destination.routePattern
@@ -374,6 +385,7 @@ private fun GagaBottomBar(
                     ),
                 )
             }
+        }
         }
     }
     }

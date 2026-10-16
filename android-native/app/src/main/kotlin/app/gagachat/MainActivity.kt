@@ -75,6 +75,8 @@ class MainActivity : ComponentActivity() {
         setContent {
             val themeMode by settingsPreferences.themeMode
                 .collectAsStateWithLifecycle(initialValue = ThemeMode.SYSTEM)
+            val layoutSize by settingsPreferences.layoutSize
+                .collectAsStateWithLifecycle(initialValue = app.gagachat.core.model.LayoutSize.COMPACT)
             val textScale by settingsPreferences.textScale
                 .collectAsStateWithLifecycle(initialValue = TextScale.DEFAULT)
             val language by settingsPreferences.language
@@ -89,7 +91,7 @@ class MainActivity : ComponentActivity() {
                 ThemeMode.SYSTEM -> isSystemInDarkTheme()
             }
 
-            GagaTheme(darkTheme = darkTheme, textScale = textScale.factor(), languageCode = language.code) {
+            GagaTheme(darkTheme = darkTheme, textScale = textScale.factor(), languageCode = language.code, layoutSize = layoutSize) {
                 ready = true
                 // Surface the previous run's crash (if any) so the exact stack
                 // trace can be copied/screenshotted even when we cannot attach a

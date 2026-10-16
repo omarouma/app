@@ -133,6 +133,7 @@ class SettingsPreferences @Inject constructor(
     private val mediaPolicyKey = stringPreferencesKey("media_policy")
     private val autoDownloadKey = booleanPreferencesKey("auto_download_media")
     private val appLockKey = booleanPreferencesKey("app_lock_enabled")
+    private val layoutSizeKey = stringPreferencesKey("layout_size")
     private val textScaleKey = stringPreferencesKey("text_scale")
     private val languageKey = stringPreferencesKey("app_language")
     private val chatBackgroundKey = stringPreferencesKey("chat_background")
@@ -187,6 +188,16 @@ class SettingsPreferences @Inject constructor(
 
     val appLockEnabled: Flow<Boolean> =
         context.settingsDataStore.data.map { it[appLockKey] ?: false }
+
+    val layoutSize: Flow<app.gagachat.core.model.LayoutSize> =
+        context.settingsDataStore.data.map { prefs ->
+            app.gagachat.core.model.LayoutSize.entries.firstOrNull { it.name == prefs[layoutSizeKey] }
+                ?: app.gagachat.core.model.LayoutSize.COMPACT
+        }
+
+    suspend fun setLayoutSize(value: app.gagachat.core.model.LayoutSize) {
+        context.settingsDataStore.edit { it[layoutSizeKey] = value.name }
+    }
 
     val textScale: Flow<TextScale> =
         context.settingsDataStore.data.map { prefs ->

@@ -900,6 +900,25 @@ fun AccessibilitySettingsScreen(
                 .padding(padding)
                 .verticalScroll(rememberScrollState()),
         ) {
+            GagaSectionHeader("SCREEN LAYOUT SIZE")
+            Text(
+                "Change header, search and navigation sizes independently of font size. Large text can increase control height to stay readable.",
+                modifier = Modifier.padding(horizontal = GagaDimens.space16, vertical = GagaDimens.space8),
+                style = MaterialTheme.typography.bodySmall,
+            )
+            app.gagachat.core.model.LayoutSize.entries.forEach { size ->
+                Row(
+                    modifier = Modifier.fillMaxWidth()
+                        .selectable(selected = state.layoutSize == size, onClick = { viewModel.setLayoutSize(size) })
+                        .padding(horizontal = GagaDimens.space16, vertical = GagaDimens.space8),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    RadioButton(selected = state.layoutSize == size, onClick = null)
+                    Spacer(Modifier.width(GagaDimens.space8))
+                    Text(size.label, style = MaterialTheme.typography.bodyLarge)
+                }
+            }
+            GagaDivider()
             GagaSectionHeader("TEXT SIZE")
             TextScale.entries.forEach { scale ->
                 Row(

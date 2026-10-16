@@ -52,7 +52,11 @@ fun GagaSettingsRow(
             .padding(horizontal = 12.dp, vertical = 4.dp)
             .clip(MaterialTheme.shapes.large)
             .background(MaterialTheme.colorScheme.surface)
-            .heightIn(min = 68.dp)
+            .heightIn(min = when (app.gagachat.core.ui.theme.LocalGagaLayoutSize.current) {
+                app.gagachat.core.model.LayoutSize.COMPACT -> 56.dp
+                app.gagachat.core.model.LayoutSize.STANDARD -> 68.dp
+                app.gagachat.core.model.LayoutSize.ROOMY -> 80.dp
+            })
             .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
             .padding(horizontal = GagaDimens.space16, vertical = GagaDimens.space8),
         verticalAlignment = Alignment.CenterVertically,
@@ -115,7 +119,11 @@ fun GagaListRow(
             .padding(horizontal = 12.dp, vertical = 4.dp)
             .clip(MaterialTheme.shapes.large)
             .background(MaterialTheme.colorScheme.surface)
-            .heightIn(min = 68.dp)
+            .heightIn(min = when (app.gagachat.core.ui.theme.LocalGagaLayoutSize.current) {
+                app.gagachat.core.model.LayoutSize.COMPACT -> 56.dp
+                app.gagachat.core.model.LayoutSize.STANDARD -> 68.dp
+                app.gagachat.core.model.LayoutSize.ROOMY -> 80.dp
+            })
             .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
             .padding(horizontal = GagaDimens.space16, vertical = GagaDimens.space8),
         verticalAlignment = Alignment.CenterVertically,

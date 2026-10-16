@@ -64,6 +64,7 @@ fun GagaTopAppBar(
     showDivider: Boolean = true,
     actions: @Composable RowScope.() -> Unit = {},
 ) {
+    val layoutSize = app.gagachat.core.ui.theme.LocalGagaLayoutSize.current
     val density = LocalDensity.current
     val effectiveTextScale = maxOf(
         density.fontScale,
@@ -89,8 +90,7 @@ fun GagaTopAppBar(
             // still allowing a taller touch-safe title at accessibility scales.
             // Derive height from the active typography. A fixed upper cap clips
             // titles at system accessibility scales above 200%.
-            expandedHeight = (textHeight + if (subtitleText == null) 14.dp else 18.dp)
-                .coerceAtLeast(if (subtitleText == null) 56.dp else 64.dp),
+            expandedHeight = (textHeight + 10.dp).coerceAtLeast(layoutSize.headerDp.dp),
             title = {
                 val headerModifier = if (onTitleClick != null) {
                     Modifier
@@ -101,11 +101,12 @@ fun GagaTopAppBar(
                 }
                 BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
                 val smallTitleSpace = maxWidth < 185.dp || effectiveTextScale > 1.35f
+                val showBrandLogo = brandMark && !(maxWidth < 120.dp && effectiveTextScale > 1.35f)
                 Row(
                     modifier = headerModifier.fillMaxWidth().heightIn(min = 48.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    if (brandMark && !(maxWidth < 120.dp && effectiveTextScale > 1.35f)) {
+                    if (showBrandLogo) {
                         // Brand anchor: the GaGa mark sits to the left of the
                         // wordmark on primary screens (home) so the logo is
                         // always visible.
