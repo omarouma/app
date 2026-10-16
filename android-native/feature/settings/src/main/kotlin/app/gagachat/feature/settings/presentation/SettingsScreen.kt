@@ -184,6 +184,9 @@ fun SettingsRoute(
                     subtitle = state.email ?: state.phone,
                     leadingIcon = Icons.Filled.AccountCircle,
                     leadingIconTint = IconGreen,
+                    leadingContent = {
+                        app.gagachat.core.ui.component.GagaAvatar(imageUrl = state.avatar, name = state.displayName, size = 36.dp)
+                    },
                     onClick = onOpenProfile,
                 )
                 GagaDivider()

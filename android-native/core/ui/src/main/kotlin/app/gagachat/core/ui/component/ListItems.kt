@@ -44,6 +44,7 @@ fun GagaSettingsRow(
     leadingIconTint: Color = MaterialTheme.colorScheme.onSurfaceVariant,
     trailing: (@Composable () -> Unit)? = null,
     leadingIconContainerColor: Color = MaterialTheme.colorScheme.primaryContainer,
+    leadingContent: (@Composable () -> Unit)? = null,
     onClick: (() -> Unit)? = null,
 ) {
     Row(
@@ -61,7 +62,10 @@ fun GagaSettingsRow(
             .padding(horizontal = 12.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        if (leadingIcon != null) {
+        if (leadingContent != null) {
+            leadingContent()
+            Spacer(Modifier.width(12.dp))
+        } else if (leadingIcon != null) {
             Icon(
                 imageVector = leadingIcon,
                 contentDescription = null,

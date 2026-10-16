@@ -38,7 +38,7 @@ class ProfileLayoutTest {
                         onPickCoverPhoto = {}, onPickCoverVideo = {}, onOpenCover = { _, _ -> },
                         onOpenAvatar = {}, onEditPhoto = { edits++ },
                     )
-                    Row(Modifier.fillMaxWidth().padding(16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    ProfileActionGroup {
                         ProfileActionButton(Icons.Default.Edit, "Edit Profile", { edits++ }, Modifier.weight(1f), primary = true)
                         ProfileActionButton(Icons.Default.Lock, "Privacy", { privacyOpens++ }, Modifier.weight(1f))
                         ProfileActionButton(Icons.Default.Share, "Share", {}, Modifier.weight(1f))

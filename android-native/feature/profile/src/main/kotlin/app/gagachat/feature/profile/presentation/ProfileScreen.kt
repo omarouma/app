@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRowScope
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.layout.Arrangement
@@ -243,15 +244,7 @@ fun ProfileRoute(
             Spacer(Modifier.height(GagaDimens.space16))
 
             // Action buttons -------------------------------------------------
-            val largeActions = maxOf(LocalDensity.current.fontScale, MaterialTheme.typography.labelMedium.fontSize.value / 12f) > 1.4f
-            FlowRow(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = GagaDimens.space16),
-                horizontalArrangement = Arrangement.spacedBy(GagaDimens.space8),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-                maxItemsInEachRow = if (largeActions) 1 else 3,
-            ) {
+            ProfileActionGroup {
                 if (state.isSelf) {
                     ProfileActionButton(
                         icon = Icons.Filled.Edit,
@@ -674,6 +667,20 @@ private fun StatColumn(value: Int, label: String, modifier: Modifier = Modifier)
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
+}
+
+/** Shared by the actual profile and screenshot tests. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+internal fun ProfileActionGroup(content: @Composable FlowRowScope.() -> Unit) {
+    val large = maxOf(LocalDensity.current.fontScale, MaterialTheme.typography.labelMedium.fontSize.value / 12f) > 1.4f
+    FlowRow(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+        maxItemsInEachRow = if (large) 1 else 3,
+        content = content,
+    )
 }
 
 /** Compact pill action used in the profile's three-button row (reference 173846). */

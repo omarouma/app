@@ -255,7 +255,11 @@ internal fun CallHistoryRow(
         call.isOutgoing -> Icons.AutoMirrored.Filled.CallMade
         else -> Icons.AutoMirrored.Filled.CallReceived
     }
-    val directionColor = if (missed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
+    val directionColor = when (call.status) {
+        CallStatus.MISSED, CallStatus.FAILED -> MaterialTheme.colorScheme.error
+        CallStatus.REJECTED, CallStatus.BUSY -> MaterialTheme.colorScheme.tertiary
+        else -> MaterialTheme.colorScheme.primary
+    }
 
     Row(
         modifier = Modifier
