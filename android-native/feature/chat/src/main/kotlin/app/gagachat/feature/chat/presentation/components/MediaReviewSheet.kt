@@ -77,7 +77,7 @@ fun MediaReviewSheet(
             )
             Spacer(Modifier.size(GagaDimens.space4))
             Text(
-                text = "${ordered.size} selected · tap the pencil to edit, arrows to reorder",
+                text = "${ordered.size} of 10 selected · edit, reorder or remove before sending",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -117,6 +117,11 @@ fun MediaReviewSheet(
                 modifier = Modifier.fillMaxWidth(),
                 maxLines = 3,
             )
+            Text(
+                "Original photo quality is retained unless you edit an image. Edited copies are non-destructive.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
             Spacer(Modifier.size(GagaDimens.space12))
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -128,7 +133,7 @@ fun MediaReviewSheet(
                 Button(
                     onClick = { onSend(ordered, caption) },
                     enabled = ordered.isNotEmpty(),
-                ) { Text("Send") }
+                ) { Text("Send (${ordered.size})") }
             }
             Spacer(Modifier.size(GagaDimens.space12))
         }
