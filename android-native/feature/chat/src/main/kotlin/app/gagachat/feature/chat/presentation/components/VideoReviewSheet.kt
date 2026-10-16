@@ -19,6 +19,7 @@ import java.io.File
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -134,7 +135,7 @@ fun VideoReviewSheet(uri: Uri, onDismiss: () -> Unit, onSend: (Uri, String) -> U
                 Text("Mute video")
                 Switch(checked = edits.muted, onCheckedChange = { change(edits.copy(muted = it)) }, enabled = editable)
             }
-            OutlinedTextField(value = textDraft, onValueChange = { textDraft = it.take(80) },
+            OutlinedTextField(value = textDraft, onValueChange = { textDraft = it.take(80).lineSequence().take(4).joinToString("\n") },
                 label = { Text("Text on video") }, modifier = Modifier.fillMaxWidth(), maxLines = 4, enabled = editable)
             TextButton(onClick = { change(edits.copy(text = textDraft)) }, enabled = editable && pendingText) {
                 Text("Apply text")
@@ -176,6 +177,8 @@ fun VideoReviewSheet(uri: Uri, onDismiss: () -> Unit, onSend: (Uri, String) -> U
                             val file = exportVideo(context, uri, edits)
                             ownedFiles += file
                             exported = file
+                        } catch (_: TimeoutCancellationException) {
+                            error = "Export took too long. Try a shorter clip or restore the original."
                         } catch (cancelled: CancellationException) { throw cancelled }
                         catch (_: Exception) {
                             error = "Could not export these edits. Try again, or restore the original video."

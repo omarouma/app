@@ -119,7 +119,7 @@ internal suspend fun exportVideo(context: Context, source: Uri, edits: VideoEdit
                             if (Looper.myLooper() == Looper.getMainLooper()) cancel.run()
                             else Handler(Looper.getMainLooper()).post(cancel)
                         }
-                        exporter.start(edited, output.absolutePath)
+                        if (continuation.isActive) exporter.start(edited, output.absolutePath)
                     } catch (failure: Exception) {
                         transformer?.cancel()
                         releaseBitmaps()
