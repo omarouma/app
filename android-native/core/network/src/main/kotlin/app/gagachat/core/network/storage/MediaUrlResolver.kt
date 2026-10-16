@@ -1,8 +1,15 @@
 package app.gagachat.core.network.storage
 
+import app.gagachat.core.network.session.SessionStore
 import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import javax.inject.Singleton
+
+/**
+ * Signed storage links are bearer capabilities; never share a cached link
+ * between separate GaGa accounts, even when the raw object URL is identical.
+ */
+internal fun scopedMediaCacheKey(userId: String, url: String): String = "$userId::$url"
 
 /**
  * F18: resolves a stored media URL into something a client can actually fetch.
@@ -19,6 +26,7 @@ import javax.inject.Singleton
 @Singleton
 class MediaUrlResolver @Inject constructor(
     private val storageApi: SupabaseStorageApi,
+    private val sessionStore: SessionStore,
 ) {
 
     private data class Cached(val url: String, val expiresAtMillis: Long)
@@ -42,15 +50,21 @@ class MediaUrlResolver @Inject constructor(
         if (url.isNullOrBlank()) return url
         if (!isPrivateStorageUrl(url)) return url
 
-        val (bucket, objectPath) = parse(url) ?: return url
+        val (bucket, objectPath) = parse(url) ?: return null
+        // A signed URL is a bearer capability. Scope memoized capabilities to
+        // the authenticated account so switching profiles cannot reuse another
+        // account's previously authorized media link.
+        val userId = sessionStore.userId()?.takeIf { it.isNotBlank() } ?: return null
+        val cacheKey = scopedMediaCacheKey(userId, url)
         val now = System.currentTimeMillis()
-        cache[url]?.let { cached ->
+        cache[cacheKey]?.let { cached ->
             if (cached.expiresAtMillis - SIGNED_URL_REFRESH_SKEW_MS > now) return cached.url
         }
 
         return try {
             val signed = storageApi.createSignedUrl(bucket, objectPath)
-            cache[url] = Cached(
+            if (sessionStore.userId() != userId) return null
+            cache[cacheKey] = Cached(
                 url = signed,
                 expiresAtMillis = now + TTL_SECONDS * 1000L,
             )
