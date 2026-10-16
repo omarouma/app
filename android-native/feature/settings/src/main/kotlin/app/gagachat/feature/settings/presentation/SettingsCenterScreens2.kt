@@ -68,7 +68,11 @@ fun WidgetsShortcutsSettingsScreen(
 
 /** 25. Business, Work & Team Preferences (P3 — not yet available). */
 @Composable
-fun BusinessTeamSettingsScreen(onBack: () -> Unit) {
+fun BusinessTeamSettingsScreen(
+    onBack: () -> Unit,
+    vm: SettingsCenterViewModel = hiltViewModel(),
+) {
+    val s by vm.state.collectAsStateWithLifecycle()
     GagaScaffold(title = "Business & Team", onBack = onBack) { padding ->
         Column(
             Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState())
@@ -85,6 +89,11 @@ fun BusinessTeamSettingsScreen(onBack: () -> Unit) {
                 ComingSoonRow("Audit logs & retention", "Workspace records and retention")
                 ComingSoonRow("Ownership transfer", "Move workspace ownership")
             }
+            EarlyAccessToggle(
+                title = "Notify me about Business & Team",
+                checked = s.toggle("comingSoon.business.notify", false),
+                onCheckedChange = { vm.setToggle("comingSoon.business.notify", it) },
+            )
             SettingsNote("Administrators will manage business-owned records — never unrestricted private chats or personal tasks.")
         }
     }
@@ -129,7 +138,11 @@ fun AntiSpamTrustSettingsScreen(
 
 /** 27. GaGa Premium & Subscription Management (P3 — not yet available). */
 @Composable
-fun PremiumSettingsScreen(onBack: () -> Unit) {
+fun PremiumSettingsScreen(
+    onBack: () -> Unit,
+    vm: SettingsCenterViewModel = hiltViewModel(),
+) {
+    val s by vm.state.collectAsStateWithLifecycle()
     GagaScaffold(title = "Premium & Subscription", onBack = onBack) { padding ->
         Column(
             Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState())
@@ -144,13 +157,22 @@ fun PremiumSettingsScreen(onBack: () -> Unit) {
                 ComingSoonRow("Restore purchases", "Recover a previous purchase")
                 ComingSoonRow("Usage limits", "Remaining quotas")
             }
+            EarlyAccessToggle(
+                title = "Notify me about GaGa Premium",
+                checked = s.toggle("comingSoon.premium.notify", false),
+                onCheckedChange = { vm.setToggle("comingSoon.premium.notify", it) },
+            )
         }
     }
 }
 
 /** 28. Delivery, Service Requests & Local Services (P3 — not yet available). */
 @Composable
-fun DeliveryServicesSettingsScreen(onBack: () -> Unit) {
+fun DeliveryServicesSettingsScreen(
+    onBack: () -> Unit,
+    vm: SettingsCenterViewModel = hiltViewModel(),
+) {
+    val s by vm.state.collectAsStateWithLifecycle()
     GagaScaffold(title = "Delivery & Services", onBack = onBack) { padding ->
         Column(
             Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState())
@@ -165,6 +187,11 @@ fun DeliveryServicesSettingsScreen(onBack: () -> Unit) {
                 ComingSoonRow("Service history", "Past requests and orders")
                 ComingSoonRow("Support & refund cases", "Track resolutions")
             }
+            EarlyAccessToggle(
+                title = "Notify me about Delivery & Services",
+                checked = s.toggle("comingSoon.delivery.notify", false),
+                onCheckedChange = { vm.setToggle("comingSoon.delivery.notify", it) },
+            )
         }
     }
 }
