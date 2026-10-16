@@ -82,7 +82,7 @@ fun NavGraphBuilder.dailyLifeGraph(nav: NavController, onSaved: () -> Unit, onCh
         RecordEditor(entry.arguments?.getString("kind").orEmpty(), entry.arguments?.getString("id").orEmpty(), entry.arguments?.getString("text").orEmpty(), entry.arguments?.getString("chat").orEmpty(), entry.arguments?.getString("message").orEmpty(), nav)
     }
     composable(DailyRoutes.SHOP) { entry -> ShoppingScreen(entry.arguments?.getString("id").orEmpty(), nav) }
-    composable(DailyRoutes.CHINA_DIRECT) { GaGaChinaShopPreview(onBack = { nav.popBackStack() }) }
+    composable(DailyRoutes.CHINA_DIRECT) { GaGaChinaDirectScreen(onBack = { nav.popBackStack() }) }
     composable(DailyRoutes.SPLITS) { SplitBillsScreen(nav, onChat) }
     composable(DailyRoutes.SAFE) { SafeScreen(onBack = { nav.popBackStack() }) }
 }
