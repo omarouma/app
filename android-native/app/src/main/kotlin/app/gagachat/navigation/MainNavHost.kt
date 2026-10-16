@@ -119,7 +119,7 @@ private val bottomBarRoutes: Set<String> = TopLevelDestination.entries
 
 /** The keyboard must never compete for height with five main navigation tabs. */
 internal fun shouldShowBottomTabs(route: String?, keyboardVisible: Boolean, profileUserId: String? = null): Boolean =
-    route in bottomBarRoutes && !keyboardVisible &&
+    (route in bottomBarRoutes || route == PeopleRoutes.REQUESTS) && !keyboardVisible &&
         !(route == ProfileRoutes.PROFILE && !profileUserId.isNullOrBlank())
 
 /**
@@ -326,7 +326,8 @@ private fun GagaBottomBar(
                 .height(barHeight).selectableGroup(),
         ) {
             TopLevelDestination.entries.forEach { destination ->
-                val selected = currentRoute == destination.routePattern
+                val selected = currentRoute == destination.routePattern ||
+                    (currentRoute == PeopleRoutes.REQUESTS && destination == TopLevelDestination.PEOPLE)
                 val label = destination.label(LocalGagaStrings.current)
                 NavigationBarItem(
                     selected = selected,

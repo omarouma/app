@@ -31,4 +31,9 @@ class BottomNavigationSizingTest {
         assertFalse(shouldShowBottomTabs(app.gagachat.feature.home.navigation.HomeRoutes.HOME, true))
         assertFalse(shouldShowBottomTabs("chat/room/123", false))
     }
+    @org.junit.Test fun requestNotificationDestinationKeepsPeopleNavigationAvailable() {
+        assertTrue(shouldShowBottomTabs("people/requests", false))
+        assertFalse(shouldShowBottomTabs("people/requests", true))
+    }
+
 }
