@@ -306,7 +306,8 @@ private fun GagaBottomBar(
             LocalDensity.current.fontScale,
             MaterialTheme.typography.labelMedium.fontSize.value / 12f,
         )
-        val compactLabels = useCompactBottomLabels(maxWidth.value, effectiveTextScale)
+        val compactLabels = useCompactBottomLabels(maxWidth.value, effectiveTextScale) ||
+            app.gagachat.core.ui.theme.LocalGagaLayoutSize.current == app.gagachat.core.model.LayoutSize.COMPACT
     Column {
         HorizontalDivider(
             thickness = GagaDimens.hairline,
@@ -360,10 +361,10 @@ private fun GagaBottomBar(
                                     }
                                 },
                             ) {
-                                Icon(icon, contentDescription = label, modifier = Modifier.size(24.dp))
+                                Icon(icon, contentDescription = label, modifier = Modifier.size(if (compactLabels) 22.dp else 24.dp))
                             }
                         } else {
-                            Icon(icon, contentDescription = label, modifier = Modifier.size(24.dp))
+                            Icon(icon, contentDescription = label, modifier = Modifier.size(if (compactLabels) 22.dp else 24.dp))
                         }
                     },
                     label = {

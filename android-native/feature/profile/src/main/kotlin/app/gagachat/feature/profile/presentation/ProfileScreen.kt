@@ -995,12 +995,11 @@ private class CoverVideoHolder {
         val viewW = view.width.toFloat()
         val viewH = view.height.toFloat()
         if (viewW <= 0f || viewH <= 0f || vw <= 0 || vh <= 0) return
-        val scale = maxOf(viewW / vw, viewH / vh)
-        val dx = (viewW - vw * scale) / 2f
-        val dy = (viewH - vh * scale) / 2f
+        val (scaleX, scaleY) = coverCropScale(viewW, viewH, vw.toFloat(), vh.toFloat())
+        // TextureView already stretches the video to its view bounds. Correct
+        // that base transform, rather than applying a raw video-pixel scale.
         view.setTransform(Matrix().apply {
-            setScale(scale, scale)
-            postTranslate(dx, dy)
+            setScale(scaleX, scaleY, viewW / 2f, viewH / 2f)
         })
     }
 }
@@ -1205,4 +1204,10 @@ private fun ChevronRight() {
         tint = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.size(GagaDimens.iconMedium),
     )
+}
+
+internal fun coverCropScale(viewWidth: Float, viewHeight: Float, videoWidth: Float, videoHeight: Float): Pair<Float, Float> {
+    require(viewWidth > 0 && viewHeight > 0 && videoWidth > 0 && videoHeight > 0)
+    val fit = maxOf(viewWidth / videoWidth, viewHeight / videoHeight)
+    return (videoWidth * fit / viewWidth) to (videoHeight * fit / viewHeight)
 }
