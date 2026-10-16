@@ -140,6 +140,7 @@ private val HubRed = Color(0xFFEB5757)
 @Composable
 fun ProfileRoute(
     onNavigateBack: () -> Unit,
+    showBack: Boolean = false,
     onOpenConversation: (conversationId: String) -> Unit,
     onStartCall: (conversationId: String, isVideo: Boolean) -> Unit,
     onEditProfile: () -> Unit = {},
@@ -190,7 +191,7 @@ fun ProfileRoute(
     GagaScaffold(
         title = if (state.isSelf) "Me" else "Profile",
         // Me is a top-level tab; showing Back here misleads navigation.
-        onBack = if (state.isSelf) null else onNavigateBack,
+        onBack = if (state.isSelf && !showBack) null else onNavigateBack,
         snackbarHostState = snackbarHostState,
         actions = {
             // The Me tab IS the account hub now (the old "More" menu was removed),
