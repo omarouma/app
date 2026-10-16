@@ -80,7 +80,7 @@ class ChatConversationLayoutTest {
     }
     @Test fun locationCardIsCompactAndOpensAnInAppMap() {
         render()
-        val node = compose.onNodeWithTag("chat-location-card")
+        val node = compose.onNodeWithTag("chat-location-card", useUnmergedTree = true)
         node.performScrollTo().assertIsDisplayed()
         val density = InstrumentationRegistry.getInstrumentation().targetContext.resources.displayMetrics.density
         assertTrue(node.fetchSemanticsNode().boundsInRoot.height / density <= 220f)
