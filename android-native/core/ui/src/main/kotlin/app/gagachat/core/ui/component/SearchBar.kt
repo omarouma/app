@@ -28,6 +28,7 @@ fun GagaSearchBar(
     onQueryChange: (String) -> Unit,
     modifier: Modifier = Modifier,
     placeholder: String = "Search",
+    trailingAction: (@Composable () -> Unit)? = null,
 ) {
     val size = LocalGagaLayoutSize.current
     val inset = ((48 - size.searchDp).coerceAtLeast(0) / 2).dp
@@ -54,7 +55,8 @@ fun GagaSearchBar(
                             overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
                         input()
                     }
-                    if (query.isNotEmpty()) IconButton(onClick = { onQueryChange("") }, modifier = Modifier.size(48.dp)) {
+                    if (trailingAction != null) trailingAction()
+                    else if (query.isNotEmpty()) IconButton(onClick = { onQueryChange("") }, modifier = Modifier.size(48.dp)) {
                         Icon(Icons.Default.Close, "Clear", modifier = Modifier.size(20.dp))
                     }
                 }

@@ -134,15 +134,9 @@ private fun ForwardSelectContent(
             modifier = Modifier.padding(horizontal = GagaDimens.space20),
         )
         Spacer(Modifier.size(GagaDimens.space12))
-        OutlinedTextField(
-            value = query,
-            onValueChange = onQueryChange,
-            singleLine = true,
-            leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
-            placeholder = { Text("Search chats and contacts") },
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = GagaDimens.space20),
+        app.gagachat.core.ui.component.GagaSearchBar(
+            query = query, onQueryChange = onQueryChange,
+            placeholder = "Search chats and contacts",
         )
 
         if (selectedDestinations.isNotEmpty()) {

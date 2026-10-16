@@ -30,7 +30,10 @@ class CompactSearchBarTest {
         input.performTextInput("GaGa")
         input.assertTextContains("GaGa")
         compose.onNodeWithContentDescription("Clear").assertIsDisplayed().performClick()
-        input.assertTextEquals("")
+        input.assert(SemanticsMatcher.expectValue(
+            androidx.compose.ui.semantics.SemanticsProperties.EditableText,
+            androidx.compose.ui.text.AnnotatedString(""),
+        ))
         compose.onNodeWithText("Search people").assertIsDisplayed()
         val bounds = input.fetchSemanticsNode().boundsInRoot
         assertTrue("Search stays inside narrow phone", bounds.left >= 0 && bounds.right <= compose.onRoot().fetchSemanticsNode().boundsInRoot.right)

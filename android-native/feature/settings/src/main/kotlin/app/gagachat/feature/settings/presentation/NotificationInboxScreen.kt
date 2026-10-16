@@ -140,13 +140,9 @@ fun NotificationInboxScreen(
                 )
             }
         }
-        OutlinedTextField(
-            value = searchQuery,
-            onValueChange = { searchQuery = it.take(120) },
-            label = { Text("Search notifications") },
-            singleLine = true,
-            placeholder = { Text("Search titles and messages") },
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+        app.gagachat.core.ui.component.GagaSearchBar(
+            query = searchQuery, onQueryChange = { searchQuery = it.take(120) },
+            placeholder = "Search notifications",
         )
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
         GagaStateHost(

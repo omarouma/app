@@ -159,14 +159,12 @@ fun LocationPreviewDialog(
                             .padding(horizontal = 14.dp, vertical = 10.dp),
                         verticalArrangement = Arrangement.spacedBy(5.dp),
                     ) {
-                        OutlinedTextField(
-                            value = query,
+                        app.gagachat.core.ui.component.GagaSearchBar(
+                            query = query,
                             onValueChange = { query = it.take(160) },
                             modifier = Modifier.fillMaxWidth(),
-                            singleLine = true,
-                            leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
-                            placeholder = { Text("Search for location") },
-                            trailingIcon = {
+                            placeholder = "Search for location",
+                            trailingAction = {
                                 TextButton(
                                     enabled = query.isNotBlank() && !searchBusy,
                                     onClick = {

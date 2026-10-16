@@ -171,16 +171,9 @@ fun SettingsRoute(
                 .padding(padding)
                 .verticalScroll(rememberScrollState()),
         ) {
-            OutlinedTextField(
-                value = query,
-                onValueChange = { query = it },
-                placeholder = { Text(strings.settingsSearchPlaceholder) },
-                leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
-                singleLine = true,
-                shape = RoundedCornerShape(GagaDimens.space12),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = GagaDimens.space16, vertical = GagaDimens.space8),
+            app.gagachat.core.ui.component.GagaSearchBar(
+                query = query, onQueryChange = { query = it },
+                placeholder = strings.settingsSearchPlaceholder,
             )
 
             if (query.isBlank()) {
