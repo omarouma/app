@@ -17,6 +17,14 @@ class BottomNavigationSizingTest {
         assertTrue(useCompactBottomLabels(600f, 2f))
         assertFalse(useCompactBottomLabels(412f, 1.15f))
     }
+    @Test fun explicitProfilesAreDetailsRatherThanTheMeTab() {
+        val profile = app.gagachat.feature.profile.navigation.ProfileRoutes.PROFILE
+        assertTrue(shouldShowBottomTabs(profile, false))
+        assertTrue(shouldShowBottomTabs(profile, false, ""))
+        assertFalse(shouldShowBottomTabs(profile, false, "another-user"))
+        assertFalse(shouldShowBottomTabs(profile, false, "explicit-self-profile"))
+        assertFalse(shouldShowBottomTabs(null, false))
+    }
     @Test fun keyboardSuppressesOnlyPrimaryBottomTabs() {
         assertTrue(shouldShowBottomTabs(app.gagachat.feature.home.navigation.HomeRoutes.HOME, false))
         assertTrue(shouldShowBottomTabs(app.gagachat.feature.dailylife.DailyRoutes.HOME, false))
