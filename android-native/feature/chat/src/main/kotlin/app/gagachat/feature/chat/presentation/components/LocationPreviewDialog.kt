@@ -161,7 +161,7 @@ fun LocationPreviewDialog(
                     ) {
                         app.gagachat.core.ui.component.GagaSearchBar(
                             query = query,
-                            onValueChange = { query = it.take(160) },
+                            onQueryChange = { query = it.take(160) },
                             modifier = Modifier.fillMaxWidth(),
                             placeholder = "Search for location",
                             trailingAction = {
