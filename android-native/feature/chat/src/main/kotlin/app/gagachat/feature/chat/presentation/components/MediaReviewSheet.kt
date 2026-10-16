@@ -22,6 +22,7 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Restore
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -59,7 +60,10 @@ fun MediaReviewSheet(
     onDismiss: () -> Unit,
     onSend: (List<Uri>, String) -> Unit,
 ) {
-    var ordered by remember(uris) { mutableStateOf(uris) }
+    var ordered by remember(uris) { mutableStateOf(uris.distinct().take(10)) }
+    // Keep original picks local to this review session. Editing never mutates
+    // the source photo and the user can revert without re-opening the picker.
+    var originalByEdited by remember(uris) { mutableStateOf<Map<Uri, Uri>>(emptyMap()) }
     var caption by remember { mutableStateOf("") }
     var editingUri by remember { mutableStateOf<Uri?>(null) }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -77,7 +81,7 @@ fun MediaReviewSheet(
             )
             Spacer(Modifier.size(GagaDimens.space4))
             Text(
-                text = "${ordered.size} selected · tap the pencil to edit, arrows to reorder",
+                text = "${ordered.size}/10 selected · edit or restore originals · drag order with arrows",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -106,6 +110,12 @@ fun MediaReviewSheet(
                             ordered = ordered.toMutableList().apply { removeAt(index) }
                         },
                         onEdit = { editingUri = uri },
+                        canRestoreOriginal = originalByEdited.containsKey(uri),
+                        onRestoreOriginal = {
+                            val original = originalByEdited[uri] ?: uri
+                            ordered = ordered.map { if (it == uri) original else it }
+                            originalByEdited = originalByEdited - uri
+                        },
                     )
                 }
             }
@@ -128,7 +138,7 @@ fun MediaReviewSheet(
                 Button(
                     onClick = { onSend(ordered, caption) },
                     enabled = ordered.isNotEmpty(),
-                ) { Text("Send") }
+                ) { Text("Send (${ordered.size})") }
             }
             Spacer(Modifier.size(GagaDimens.space12))
         }
@@ -137,6 +147,8 @@ fun MediaReviewSheet(
         PhotoEditorDialog(
             uri = selected,
             onSave = { edited ->
+                val original = originalByEdited[selected] ?: selected
+                originalByEdited = (originalByEdited - selected) + (edited to original)
                 ordered = ordered.map { if (it == selected) edited else it }
                 editingUri = null
             },
@@ -155,6 +167,8 @@ private fun ReviewTile(
     onMoveLater: () -> Unit,
     onRemove: () -> Unit,
     onEdit: () -> Unit,
+    canRestoreOriginal: Boolean,
+    onRestoreOriginal: () -> Unit,
 ) {
     Box(
         modifier = Modifier
@@ -215,6 +229,22 @@ private fun ReviewTile(
                     Icon(Icons.Filled.Edit, contentDescription = "Edit photo $position",
                         tint = MaterialTheme.colorScheme.onPrimary,
                         modifier = Modifier.size(20.dp))
+                }
+            }
+        }
+        if (canRestoreOriginal) {
+            IconButton(
+                onClick = onRestoreOriginal,
+                modifier = Modifier.align(Alignment.CenterEnd).size(40.dp),
+            ) {
+                Surface(shape = CircleShape,
+                    color = MaterialTheme.colorScheme.scrim.copy(alpha = 0.65f)) {
+                    Box(Modifier.size(36.dp), contentAlignment = Alignment.Center) {
+                        Icon(Icons.Filled.Restore,
+                            contentDescription = "Restore original photo $position",
+                            tint = MaterialTheme.colorScheme.onPrimary,
+                            modifier = Modifier.size(20.dp))
+                    }
                 }
             }
         }
