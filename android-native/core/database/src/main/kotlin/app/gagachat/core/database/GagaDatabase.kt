@@ -6,6 +6,7 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import app.gagachat.core.database.dao.BlockDao
 import app.gagachat.core.database.dao.CallDao
+import app.gagachat.core.database.dao.ContactPhotoOverrideDao
 import app.gagachat.core.database.dao.ConversationDao
 import app.gagachat.core.database.dao.MessageDao
 import app.gagachat.core.database.dao.SavedPlaceDao
@@ -15,6 +16,7 @@ import app.gagachat.core.database.dao.UserDao
 import app.gagachat.core.database.entity.AttachmentEntity
 import app.gagachat.core.database.entity.BlockEntity
 import app.gagachat.core.database.entity.CallSessionEntity
+import app.gagachat.core.database.entity.ContactPhotoOverrideEntity
 import app.gagachat.core.database.entity.ConversationEntity
 import app.gagachat.core.database.entity.ConversationMemberEntity
 import app.gagachat.core.database.entity.MessageEntity
@@ -38,9 +40,10 @@ import app.gagachat.core.database.entity.UserEntity
         PendingUploadEntity::class,
         BlockEntity::class,
         SavedPlaceEntity::class,
+        ContactPhotoOverrideEntity::class,
         SyncStateEntity::class,
     ],
-    version = 8,
+    version = 9,
     exportSchema = true,
 )
 abstract class GagaDatabase : RoomDatabase() {
@@ -51,6 +54,7 @@ abstract class GagaDatabase : RoomDatabase() {
     abstract fun uploadDao(): UploadDao
     abstract fun blockDao(): BlockDao
     abstract fun savedPlaceDao(): SavedPlaceDao
+    abstract fun contactPhotoOverrideDao(): ContactPhotoOverrideDao
     abstract fun syncStateDao(): SyncStateDao
 
     companion object {
@@ -156,6 +160,29 @@ abstract class GagaDatabase : RoomDatabase() {
                 db.execSQL(
                     "CREATE INDEX IF NOT EXISTS `index_saved_places_ownerId` " +
                         "ON `saved_places` (`ownerId`)",
+                )
+            }
+        }
+
+        /**
+         * v8 \u2192 v9: add the owner-scoped `contact_photo_overrides` table backing
+         * private per-contact photo overrides. Additive only \u2014 no existing table
+         * is touched, so a device upgrading keeps every cached message, saved
+         * place and block.
+         */
+        val MIGRATION_8_9 = object : Migration(8, 9) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `contact_photo_overrides` (" +
+                        "`ownerId` TEXT NOT NULL, " +
+                        "`contactId` TEXT NOT NULL, " +
+                        "`localPath` TEXT NOT NULL, " +
+                        "`updatedAt` INTEGER NOT NULL, " +
+                        "PRIMARY KEY(`ownerId`, `contactId`))",
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_contact_photo_overrides_ownerId` " +
+                        "ON `contact_photo_overrides` (`ownerId`)",
                 )
             }
         }

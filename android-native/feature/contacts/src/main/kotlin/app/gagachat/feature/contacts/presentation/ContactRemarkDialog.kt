@@ -100,7 +100,8 @@ fun ContactRemarkDialog(
                     error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
                     Text(
                         "Private contact notes sync securely to your GaGa account. " +
-                        "Contact photos and per-contact photo overrides require a separate storage-permission step.",
+                        "Use the camera button on a contact to set a private photo that only " +
+                        "you can see \u2014 it stays on this device and never changes their public avatar.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )

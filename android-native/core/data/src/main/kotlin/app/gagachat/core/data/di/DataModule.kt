@@ -3,10 +3,12 @@ package app.gagachat.core.data.di
 import app.gagachat.core.data.repository.AuthRepository
 import app.gagachat.core.data.repository.BlockRepository
 import app.gagachat.core.data.repository.CallRepository
+import app.gagachat.core.data.repository.ContactPhotoOverridesRepository
 import app.gagachat.core.data.repository.ConversationRepository
 import app.gagachat.core.data.repository.DefaultAuthRepository
 import app.gagachat.core.data.repository.DefaultBlockRepository
 import app.gagachat.core.data.repository.DefaultCallRepository
+import app.gagachat.core.data.repository.DefaultContactPhotoOverridesRepository
 import app.gagachat.core.data.repository.DefaultConversationRepository
 import app.gagachat.core.data.repository.DefaultFriendsRepository
 import app.gagachat.core.data.repository.DefaultGroupRepository
@@ -102,6 +104,12 @@ abstract class DataModule {
     @Binds
     @Singleton
     abstract fun bindSavedPlacesRepository(impl: DefaultSavedPlacesRepository): SavedPlacesRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindContactPhotoOverridesRepository(
+        impl: DefaultContactPhotoOverridesRepository,
+    ): ContactPhotoOverridesRepository
 
     /**
      * Settings Center seams (Master Spec §8). The concrete stores are already
