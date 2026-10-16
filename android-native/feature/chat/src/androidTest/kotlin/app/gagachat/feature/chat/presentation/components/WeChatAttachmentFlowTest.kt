@@ -1,6 +1,8 @@
 package app.gagachat.feature.chat.presentation.components
 
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.ui.test.hasSetTextAction
+import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.isDisplayed
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
