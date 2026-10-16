@@ -19,6 +19,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -61,6 +63,9 @@ fun ForwardPickerSheet(
     val conversations by viewModel.conversations.collectAsStateWithLifecycle()
     val currentUserId = viewModel.currentUserId
     var query by remember { mutableStateOf("") }
+    var pending by remember(message.localId) { mutableStateOf<Conversation?>(null) }
+    var sending by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<String?>(null) }
 
     val filtered = remember(conversations, query, currentUserId) {
         if (query.isBlank()) {
@@ -70,6 +75,29 @@ fun ForwardPickerSheet(
         }
     }
 
+    pending?.let { destination ->
+        AlertDialog(onDismissRequest = { if (!sending) pending = null },
+            title = { Text("Forward message") },
+            text = {
+                Column {
+                    Text("Send to: ${destination.displayTitle(currentUserId)}")
+                    Text(if (message.type == app.gagachat.core.model.MessageType.CONTACT)
+                        "Contact card: ${message.contactName ?: "Contact"}" else "Selected message")
+                    error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+                }
+            },
+            confirmButton = {
+                TextButton(enabled = !sending, onClick = {
+                    if (!sending) {
+                        sending = true
+                        viewModel.forward(message, destination.id,
+                            onError = { error = it; sending = false },
+                            onDone = { pending = null; sending = false; onForwarded(destination) })
+                    }
+                }) { Text(if (sending) "Sending…" else "Send") }
+            },
+            dismissButton = { TextButton(onClick = { pending = null }, enabled = !sending) { Text("Cancel") } })
+    }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
         Column(modifier = Modifier.fillMaxWidth()) {
@@ -109,9 +137,7 @@ fun ForwardPickerSheet(
                             conversation = conversation,
                             currentUserId = currentUserId,
                             onClick = {
-                                viewModel.forward(message, conversation.id) {
-                                    onForwarded(conversation)
-                                }
+                                if (!sending) { pending = conversation; error = null }
                             },
                         )
                         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))

@@ -641,7 +641,7 @@ class ChatViewModel @Inject constructor(
      * Each photo is resolved and (if very large) compressed exactly like a single
      * image send, then queued together so the recipient sees one album bubble.
      */
-    fun sendImageAlbum(uris: List<Uri>, caption: String?) {
+    fun sendImageAlbum(uris: List<Uri>, caption: String?, originalQuality: Boolean = false, grouped: Boolean = true) {
         if (uris.isEmpty()) return
         if (!beginMediaSend()) return
         viewModelScope.launch {
@@ -664,7 +664,22 @@ class ChatViewModel @Inject constructor(
                 return@launch
             }
             val resolved = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                baseItems.filterNotNull().map { compressLargeImage(it) }
+                baseItems.filterNotNull().map { if (originalQuality) it else compressLargeImage(it) }
+            }
+            if (!grouped) {
+                for ((index, item) in resolved.withIndex()) {
+                    val queued = mediaRepository.enqueueUpload(
+                        conversationId = conversationId, senderId = currentUserId,
+                        senderName = session?.displayName, senderAvatar = null,
+                        localPath = item.first, mime = item.second, size = item.third,
+                        type = MessageType.IMAGE, caption = if (index == 0) caption else null,
+                    )
+                    if (queued is AppResult.Failure) {
+                        error.value = "Photo ${index + 1} could not be queued. Check the chat before retrying the remaining photos."
+                        return@launch
+                    }
+                }
+                return@launch
             }
             val items = resolved.map { AlbumUploadItem(it.first, it.second, it.third) }
             val result = mediaRepository.enqueueAlbumUpload(
@@ -887,11 +902,11 @@ class ChatViewModel @Inject constructor(
     }
 
     /** Shares a contact card (name + optional phone) into the conversation. */
-    fun shareContact(contactName: String, contactPhone: String?) {
+    fun shareContact(contactName: String, contactPhone: String?, note: String = "") {
         if (contactName.isBlank()) return
         viewModelScope.launch {
             val session = authRepository.sessionFlow.value
-            messageRepository.sendContact(
+            val result = messageRepository.sendContact(
                 conversationId = conversationId,
                 senderId = currentUserId,
                 senderName = session?.displayName,
@@ -899,6 +914,13 @@ class ChatViewModel @Inject constructor(
                 contactName = contactName,
                 contactPhone = contactPhone,
             )
+            if (result is AppResult.Failure) {
+                error.value = result.error.toUserMessage()
+            } else if (note.isNotBlank()) {
+                val noteResult = messageRepository.sendText(conversationId, currentUserId,
+                    session?.displayName, null, note.trim().take(1000))
+                if (noteResult is AppResult.Failure) error.value = noteResult.error.toUserMessage()
+            }
         }
     }
 
@@ -970,7 +992,7 @@ class ChatViewModel @Inject constructor(
     }
 
     /** F21: user confirmed the staged fix — send it as a LOCATION message. */
-    fun confirmShareLocation(latitude: Double, longitude: Double) {
+    fun confirmShareLocation(latitude: Double, longitude: Double, label: String? = null) {
         val preview = _pendingLocation.value ?: return
         if (!latitude.isFinite() || !longitude.isFinite() ||
             latitude !in -85.0511..85.0511 || longitude !in -180.0..180.0
@@ -988,6 +1010,7 @@ class ChatViewModel @Inject constructor(
                 senderAvatar = null,
                 latitude = latitude,
                 longitude = longitude,
+                label = label?.take(300),
             )
             if (result is AppResult.Failure) error.value = result.error.toUserMessage()
         }

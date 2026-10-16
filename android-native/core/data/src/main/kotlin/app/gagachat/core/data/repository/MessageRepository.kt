@@ -93,6 +93,7 @@ interface MessageRepository {
         senderAvatar: String?,
         latitude: Double,
         longitude: Double,
+        label: String? = null,
     ): AppResult<Message>
 
     /**
@@ -393,6 +394,7 @@ class DefaultMessageRepository @Inject constructor(
         senderAvatar: String?,
         latitude: Double,
         longitude: Double,
+        label: String?,
     ): AppResult<Message> = withContext(dispatchers.io) {
         val clientMessageId = idGenerator.newClientMessageId()
         val now = timeProvider.nowMillis()
@@ -402,7 +404,7 @@ class DefaultMessageRepository @Inject constructor(
             conversationId = conversationId,
             senderId = senderId,
             type = MessageType.LOCATION,
-            text = "Location",
+            text = label?.trim()?.take(300)?.takeIf { it.isNotBlank() } ?: "Location",
             latitude = latitude,
             longitude = longitude,
             createdAtClient = now,

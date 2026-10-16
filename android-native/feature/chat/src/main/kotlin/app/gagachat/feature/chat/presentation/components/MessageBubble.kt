@@ -1549,12 +1549,15 @@ private fun mapTileUrl(lat: Double, lng: Double, zoom: Int): String {
 private fun ContactContent(message: Message, contentColor: Color) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val phone = message.contactPhone
+    val clipboard = LocalClipboardManager.current
+    var showDetails by remember(message.localId) { mutableStateOf(false) }
+    var actionError by remember(message.localId) { mutableStateOf<String?>(null) }
     val dial = {
         if (!phone.isNullOrBlank()) {
             val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:${Uri.encode(phone)}")).apply {
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             }
-            runCatching { context.startActivity(intent) }
+            runCatching { context.startActivity(intent) }.onFailure { actionError = "No phone app is available." }
         }
         Unit
     }
@@ -1562,7 +1565,7 @@ private fun ContactContent(message: Message, contentColor: Color) {
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
             .clip(RoundedCornerShape(12.dp))
-            .clickable(enabled = !phone.isNullOrBlank(), onClick = dial)
+            .clickable { showDetails = true }
             .padding(vertical = GagaDimens.space2, horizontal = GagaDimens.space2),
     ) {
         Box(
@@ -1576,6 +1579,7 @@ private fun ContactContent(message: Message, contentColor: Color) {
         }
         Spacer(Modifier.width(GagaDimens.space8))
         Column {
+            Text("Contact card", style = MaterialTheme.typography.labelSmall, color = contentColor)
             Text(
                 text = message.contactName ?: "Contact",
                 style = MaterialTheme.typography.bodyMedium,
@@ -1591,6 +1595,36 @@ private fun ContactContent(message: Message, contentColor: Color) {
             }
         }
     }
+    if (showDetails) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { showDetails = false },
+            title = { Text(message.contactName ?: "Contact") },
+            text = {
+                Column {
+                    Text(phone ?: "No phone number shared")
+                    if (!phone.isNullOrBlank()) {
+                        TextButton(onClick = dial) { Text("Call") }
+                        TextButton(onClick = {
+                            clipboard.setText(AnnotatedString(phone))
+                        }) { Text("Copy number") }
+                        TextButton(onClick = {
+                            val intent = Intent(Intent.ACTION_INSERT_OR_EDIT).apply {
+                                type = android.provider.ContactsContract.Contacts.CONTENT_ITEM_TYPE
+                                putExtra(android.provider.ContactsContract.Intents.Insert.NAME, message.contactName)
+                                putExtra(android.provider.ContactsContract.Intents.Insert.PHONE, phone)
+                            }
+                            runCatching { context.startActivity(intent) }.onFailure {
+                                actionError = "No contacts app is available. You can copy the number instead."
+                            }
+                        }) { Text("Save contact") }
+                    }
+                    actionError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+                }
+            },
+            confirmButton = { TextButton(onClick = { showDetails = false }) { Text("Done") } },
+        )
+    }
+
 }
 
 @Composable

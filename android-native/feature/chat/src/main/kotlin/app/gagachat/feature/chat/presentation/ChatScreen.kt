@@ -127,6 +127,8 @@ import app.gagachat.feature.chat.presentation.components.TranslateDialog
 import app.gagachat.feature.chat.presentation.components.MessageComposer
 import app.gagachat.feature.chat.presentation.components.TypingIndicator
 import app.gagachat.feature.chat.presentation.components.rememberContactPicker
+import app.gagachat.feature.chat.presentation.components.ContactShareDialog
+import app.gagachat.feature.chat.presentation.components.PickedContact
 import app.gagachat.feature.chat.presentation.components.rememberDocumentOpener
 import app.gagachat.feature.chat.presentation.components.rememberDocumentSaver
 import app.gagachat.feature.chat.presentation.components.rememberMediaPicker
@@ -236,8 +238,10 @@ fun ChatRoute(
         onAudioPicked = { viewModel.sendMedia(it, "audio") },
         onCameraPhotoPicked = { reviewUris = listOf(it) },
     )
+    var pendingContact by remember { mutableStateOf<PickedContact?>(null) }
     val contactPicker = rememberContactPicker(
-        onContactPicked = { viewModel.shareContact(it.name, it.phone) },
+        onContactPicked = { pendingContact = it },
+        onError = { message -> scope.launch { snackbarHostState.showSnackbar(message) } },
     )
     val context = LocalContext.current
     val documentOpener = rememberDocumentOpener()
@@ -637,17 +641,26 @@ fun ChatRoute(
         pendingLocation?.let { preview ->
             LocationPreviewDialog(
                 preview = preview,
-                onConfirm = { lat, lon -> viewModel.confirmShareLocation(lat, lon) },
+                onConfirm = { lat, lon, label -> viewModel.confirmShareLocation(lat, lon, label) },
                 onDismiss = viewModel::dismissLocationPreview,
             )
+        }
+
+        pendingContact?.let { contact ->
+            ContactShareDialog(contact, state.title,
+                onDismiss = { pendingContact = null },
+                onSend = { note ->
+                    pendingContact = null
+                    viewModel.shareContact(contact.name, contact.phone, note)
+                })
         }
 
         reviewUris?.let { uris ->
             MediaReviewSheet(
                 uris = uris,
                 onDismiss = { reviewUris = null },
-                onSend = { ordered, caption ->
-                    viewModel.sendImageAlbum(ordered, caption)
+                onSend = { ordered, caption, originalQuality, grouped ->
+                    viewModel.sendImageAlbum(ordered, caption, originalQuality, grouped)
                     reviewUris = null
                 },
             )
