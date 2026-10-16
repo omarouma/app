@@ -41,7 +41,7 @@ fun GagaSettingsRow(
     modifier: Modifier = Modifier,
     subtitle: String? = null,
     leadingIcon: ImageVector? = null,
-    leadingIconTint: Color = MaterialTheme.colorScheme.onSurfaceVariant,
+    leadingIconTint: Color = MaterialTheme.colorScheme.onPrimaryContainer,
     trailing: (@Composable () -> Unit)? = null,
     onClick: (() -> Unit)? = null,
 ) {

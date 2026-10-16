@@ -36,14 +36,14 @@ private val LightColors = lightColorScheme(
     surfaceVariant = LightSurfaceVariant,
     onSurfaceVariant = LightOnSurfaceVariant,
     outline = LightOutline,
-    error = ErrorRed,
+    error = Color(0xFFB3261E),
     onError = Color.White,
 )
 
 private val DarkColors = darkColorScheme(
     primary = GagaGreenLight,
     onPrimary = Color(0xFF003300),
-    primaryContainer = GagaGreenDark,
+    primaryContainer = Color(0xFF075C2E),
     onPrimaryContainer = Color.White,
     secondary = GagaTeal,
     onSecondary = Color(0xFF04201D),
@@ -56,8 +56,8 @@ private val DarkColors = darkColorScheme(
     surfaceVariant = DarkSurfaceVariant,
     onSurfaceVariant = DarkOnSurfaceVariant,
     outline = DarkOutline,
-    error = ErrorRed,
-    onError = Color.White,
+    error = Color(0xFFFFB4AB),
+    onError = Color(0xFF690005),
 )
 
 /**
