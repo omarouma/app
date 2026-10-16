@@ -94,6 +94,8 @@ fun NavGraphBuilder.settingsScreen(
     onOpenChat: (String) -> Unit,
     onOpenPeople: () -> Unit,
     onOpenCalls: () -> Unit,
+    onOpenRequests: () -> Unit,
+    onOpenToday: () -> Unit,
 ) {
     composable(SettingsRoutes.SETTINGS) {
         SettingsRoute(
@@ -113,10 +115,13 @@ fun NavGraphBuilder.settingsScreen(
         NotificationsSettingsScreen(onBack = { navController.popBackStack() })
     }
     composable(SettingsRoutes.NOTIFICATIONS_INBOX) {
-        NotificationInboxScreen(onBack = { navController.popBackStack() }, onOpenNotification = { notification ->
+        NotificationInboxScreen(onBack = { navController.popBackStack() },
+            onOpenSettings = { navController.navigate(SettingsRoutes.NOTIFICATIONS) }, onOpenNotification = { notification ->
             when (val target = notification.target()) {
                 is NotificationTarget.Chat -> onOpenChat(target.id)
                 NotificationTarget.People -> onOpenPeople()
+                NotificationTarget.Requests -> onOpenRequests()
+                NotificationTarget.Today -> onOpenToday()
                 NotificationTarget.Calls -> onOpenCalls()
                 null -> Unit
             }

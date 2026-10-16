@@ -67,6 +67,7 @@ import app.gagachat.core.ui.theme.GagaDimens
  */
 @Composable
 fun PeopleScreen(
+    initialTab: Int = 0,
     onOpenProfile: (String) -> Unit,
     onOpenConversation: (String) -> Unit,
     onOpenDiscover: () -> Unit,
@@ -77,7 +78,7 @@ fun PeopleScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val query by viewModel.query.collectAsStateWithLifecycle()
-    var selectedTab by rememberSaveable { mutableIntStateOf(0) }
+    var selectedTab by rememberSaveable { mutableIntStateOf(initialTab) }
     val favoriteIds by viewModel.favoriteIds.collectAsStateWithLifecycle()
     val busy by viewModel.busy.collectAsStateWithLifecycle()
     val incomingCount by viewModel.incomingCount.collectAsStateWithLifecycle()

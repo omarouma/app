@@ -5,6 +5,8 @@ on:
       - 'android-native/core/ui/**'
       - 'android-native/feature/profile/**'
       - 'android-native/feature/settings/**'
+      - 'android-native/feature/qr/**'
+      - 'android-native/feature/people/**'
       - 'android-native/feature/calls/**'
       - 'android-native/feature/dailylife/**'
       - 'android-native/feature/chat/**'
@@ -58,5 +60,7 @@ jobs:
             android-native/feature/dailylife/build/reports/androidTests/
             android-native/feature/chat/build/reports/androidTests/
             android-native/feature/contacts/build/reports/androidTests/
+            android-native/feature/calls/build/reports/androidTests/
+            android-native/feature/qr/build/reports/androidTests/
             android-native/feature/profile/build/reports/androidTests/
           retention-days: 14

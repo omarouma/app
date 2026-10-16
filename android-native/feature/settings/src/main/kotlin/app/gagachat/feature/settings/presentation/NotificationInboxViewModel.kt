@@ -50,6 +50,14 @@ class NotificationInboxViewModel @Inject constructor(
     fun dismiss(ids: List<String>) = mutate { repository.dismiss(ids) }
     fun markRead(id: String) = mutate { repository.markRead(id) }
     fun markAllRead() = mutate { repository.markAllRead() }
+    fun markSelectedRead(ids: Set<String>) = mutate {
+        val unread = repository.notifications.value.filter { it.id in ids && !it.read }
+        for (item in unread) {
+            val result = repository.markRead(item.id)
+            if (result is AppResult.Failure) return@mutate result
+        }
+        AppResult.Success(Unit)
+    }
 
     private fun mutate(action: suspend () -> AppResult<Unit>) {
         if (busy.value) return

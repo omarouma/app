@@ -10,7 +10,8 @@ gradle -p android-native --no-daemon --max-workers=2 --continue \
   :feature:chat:connectedDebugAndroidTest \
   :feature:contacts:connectedDebugAndroidTest \
   :feature:profile:connectedDebugAndroidTest \
-  :feature:calls:connectedDebugAndroidTest || result=$?
+  :feature:calls:connectedDebugAndroidTest \
+  :feature:qr:connectedDebugAndroidTest || result=$?
 mkdir -p visual-checks
 for package in app.gagachat.core.ui app.gagachat.core.ui.test app.gagachat.feature.dailylife.test app.gagachat.feature.chat.test app.gagachat.feature.profile.test; do
   adb pull "/sdcard/Android/data/$package/files/screenshots" "visual-checks/$package" || true

@@ -9,6 +9,9 @@ import app.gagachat.core.model.User
 import app.gagachat.core.ui.state.ScreenState
 import app.gagachat.core.ui.util.toUserMessage
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -38,16 +41,22 @@ class MyQrViewModel @Inject constructor(
     val qrPayload: String
         get() = authRepository.sessionFlow.value?.userId?.let(QrPayload::encodeUser).orEmpty()
 
-    init { refresh() }
+    private var profileJob: Job? = null
+    init {
+        viewModelScope.launch {
+            authRepository.sessionFlow.map { it?.userId }.distinctUntilChanged().collect { refresh() }
+        }
+    }
 
     fun refresh() {
+        profileJob?.cancel()
         val me = authRepository.sessionFlow.value?.userId.orEmpty()
         if (me.isBlank()) {
             _state.value = ScreenState.SessionExpired
             return
         }
         _state.value = ScreenState.Content(MyQrUi(user = null, qrPayload = QrPayload.encodeUser(me)))
-        viewModelScope.launch {
+        profileJob = viewModelScope.launch {
             val result = try {
                 userRepository.getUser(me)
             } catch (error: CancellationException) {
@@ -56,7 +65,7 @@ class MyQrViewModel @Inject constructor(
                 null
             }
             val current = _state.value
-            if (current is ScreenState.Content && current.data.qrPayload == QrPayload.encodeUser(me)) {
+            if (authRepository.sessionFlow.value?.userId == me && current is ScreenState.Content && current.data.qrPayload == QrPayload.encodeUser(me)) {
                 _state.value = ScreenState.Content(
                     when (result) {
                         is AppResult.Success -> current.data.copy(user = result.data, profileError = null)

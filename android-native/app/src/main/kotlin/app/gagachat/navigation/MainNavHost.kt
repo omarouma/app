@@ -279,6 +279,8 @@ fun MainNavHost(pendingDeepLink: String?) {
                 onOpenChat = { navController.navigate(ChatRoutes.chat(it)) },
                 onOpenPeople = { navController.navigate(PeopleRoutes.PEOPLE) },
                 onOpenCalls = { navController.navigate(CallRoutes.CALL_HISTORY) },
+                onOpenRequests = { navController.navigate(PeopleRoutes.REQUESTS) },
+                onOpenToday = { navController.navigate(DailyRoutes.HOME) },
             )
             walletGraph(navController = navController)
             dailyLifeGraph(navController, onSaved = { navController.navigate(SettingsRoutes.SAVED_MESSAGES) }, onChat = { navController.navigate(ChatRoutes.chat(it)) })

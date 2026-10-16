@@ -1,6 +1,7 @@
 package app.gagachat.core.data.sync
 
 import app.gagachat.core.common.util.AppLogger
+import app.gagachat.core.data.repository.FriendsRepository
 import app.gagachat.core.data.repository.NotificationRepository
 import app.gagachat.core.data.repository.AuthRepository
 import kotlinx.coroutines.channels.Channel
@@ -37,12 +38,15 @@ class RealtimeCoordinator @Inject constructor(
     private val logger: AppLogger,
     private val notificationRepository: NotificationRepository,
     private val authRepository: AuthRepository,
+    private val friendsRepository: FriendsRepository,
 ) {
 
     private var scope: CoroutineScope? = null
     private var eventJob: Job? = null
     private var started = false
     private var notificationJob: Job? = null
+    private var friendsJob: Job? = null
+    private val friendRefreshes = Channel<Unit>(Channel.CONFLATED)
     private val notificationRefreshes = Channel<Unit>(Channel.CONFLATED)
 
     /** Connects the socket and begins applying delta events to the cache. */
@@ -58,6 +62,13 @@ class RealtimeCoordinator @Inject constructor(
                 catch (error: Exception) { logger.w(TAG, "Could not refresh notification inbox", error) }
             }
         }
+        friendsJob = appScope.launch {
+            for (ignored in friendRefreshes) {
+                try { friendsRepository.refresh() }
+                catch (cancelled: CancellationException) { throw cancelled }
+                catch (error: Exception) { logger.w(TAG, "Could not refresh friends", error) }
+            }
+        }
         eventJob = appScope.launch(start = CoroutineStart.UNDISPATCHED) {
             realtime.events.collect { event ->
                 try { handleEvent(event) }
@@ -70,6 +81,8 @@ class RealtimeCoordinator @Inject constructor(
         realtime.subscribe(TABLE_CHATS)
         realtime.subscribe(TABLE_TYPING)
         realtime.subscribe(TABLE_NOTIFICATIONS)
+        realtime.subscribe(TABLE_FRIEND_REQUESTS)
+        realtime.subscribe(TABLE_FRIENDSHIPS)
         logger.i(TAG, "Realtime coordinator started")
     }
 
@@ -91,11 +104,15 @@ class RealtimeCoordinator @Inject constructor(
         started = false
         eventJob?.cancel(); eventJob = null
         notificationJob?.cancel(); notificationJob = null
+        friendsJob?.cancel(); friendsJob = null
+        while (friendRefreshes.tryReceive().isSuccess) { /* discard prior-account signals */ }
         while (notificationRefreshes.tryReceive().isSuccess) { /* discard prior-account signals */ }
         realtime.unsubscribe(TABLE_MESSAGES)
         realtime.unsubscribe(TABLE_CHATS)
         realtime.unsubscribe(TABLE_TYPING)
         realtime.unsubscribe(TABLE_NOTIFICATIONS)
+        realtime.unsubscribe(TABLE_FRIEND_REQUESTS)
+        realtime.unsubscribe(TABLE_FRIENDSHIPS)
         realtime.disconnect()
         logger.i(TAG, "Realtime coordinator stopped")
     }
@@ -114,6 +131,17 @@ class RealtimeCoordinator @Inject constructor(
                         ChangeType.DELETE -> Unit
                     }
                     TABLE_CHATS -> conversationRepository.syncConversations()
+                    TABLE_FRIEND_REQUESTS, TABLE_FRIENDSHIPS -> {
+                        val owner = authRepository.sessionFlow.value?.userId
+                        val keys = if (event.table == TABLE_FRIEND_REQUESTS)
+                            listOf("from_user_id", "to_user_id") else listOf("user_id", "friend_id")
+                        val participants = keys.mapNotNull { event.record[it]?.jsonPrimitive?.contentOrNull }
+                        // DELETE events can contain only a primary key. Fetch under
+                        // the active account's RLS instead of applying raw payloads.
+                        if (!owner.isNullOrBlank() && (participants.isEmpty() || owner in participants)) {
+                            friendRefreshes.trySend(Unit)
+                        }
+                    }
                     TABLE_NOTIFICATIONS -> {
                         // Delete payloads may carry only a primary key. Refresh through
                         // RLS instead of displaying or trusting a foreign event payload.
@@ -127,6 +155,10 @@ class RealtimeCoordinator @Inject constructor(
                 }
             }
             is RealtimeEvent.Subscribed -> {
+                if (event.topic in listOf("realtime:public:friend_requests", "realtime:public:friendships") &&
+                    !authRepository.sessionFlow.value?.userId.isNullOrBlank()) {
+                    friendRefreshes.trySend(Unit)
+                }
                 if (event.topic == "realtime:public:notifications") {
                     // Reconcile changes missed during disconnect, without posting
                     // a second Android push notification.
@@ -151,5 +183,7 @@ class RealtimeCoordinator @Inject constructor(
         const val TABLE_CHATS = "chats"
         const val TABLE_TYPING = "typing"
         const val TABLE_NOTIFICATIONS = "notifications"
+        const val TABLE_FRIEND_REQUESTS = "friend_requests"
+        const val TABLE_FRIENDSHIPS = "friendships"
     }
 }

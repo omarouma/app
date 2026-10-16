@@ -4,6 +4,7 @@
   Only app-private cache subdirectories are exposed, never the whole filesystem.
 -->
 <paths>
+    <cache-path name="profile_qr" path="profile_qr/" />
     <!-- Full-resolution camera captures (F11). -->
     <cache-path
         name="chat_camera"

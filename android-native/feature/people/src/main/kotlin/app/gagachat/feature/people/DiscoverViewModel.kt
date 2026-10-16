@@ -17,6 +17,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -49,9 +51,12 @@ class DiscoverViewModel @Inject constructor(
     fun consumeNotice() { _state.update { it.copy(notice = null) } }
 
     init {
-        // Seed the current user's shareable profile link.
-        authRepository.sessionFlow.value?.userId?.let { me ->
-            _state.update { it.copy(profileLink = profileLink(me)) }
+        viewModelScope.launch {
+            authRepository.sessionFlow.map { it?.userId }.distinctUntilChanged().collect { owner ->
+                searchJob?.cancel()
+                _state.value = DiscoverUiState(profileLink = owner?.let(::profileLink).orEmpty())
+                if (owner != null) friendsRepository.refresh()
+            }
         }
         // Seed friend ids so we can render "Already friends" without a round-trip.
         viewModelScope.launch {
@@ -72,7 +77,7 @@ class DiscoverViewModel @Inject constructor(
             }
         }
         // Make sure the friend set is fresh even if People wasn't opened first.
-        viewModelScope.launch { runCatching { friendsRepository.refresh() } }
+
     }
 
     /** Public, shareable profile link used by the "Your Profile Link" card. */
@@ -111,17 +116,18 @@ class DiscoverViewModel @Inject constructor(
         val current = _state.value
         if (user.id in current.friendIds || user.id in current.sentIds ||
             user.id in current.processingIds) return
+        val owner = authRepository.sessionFlow.value?.userId ?: return
+        _state.update { it.copy(processingIds = it.processingIds + user.id) }
         viewModelScope.launch {
-            _state.update { it.copy(processingIds = it.processingIds + user.id) }
             try {
                 when (val result = friendsRepository.sendRequest(user.id)) {
-                    is AppResult.Success -> _state.update { it.copy(sentIds = it.sentIds + user.id) }
-                    is AppResult.Failure -> _state.update { it.copy(notice = result.error.toUserMessage()) }
+                    is AppResult.Success -> Unit
+                    is AppResult.Failure -> if (owner == authRepository.sessionFlow.value?.userId) _state.update { it.copy(notice = result.error.toUserMessage()) }
                     AppResult.Loading -> Unit
                 }
             } catch (error: CancellationException) { throw error }
-            catch (_: Exception) { _state.update { it.copy(notice = "Could not send friend request.") } }
-            finally { _state.update { it.copy(processingIds = it.processingIds - user.id) } }
+            catch (_: Exception) { if (owner == authRepository.sessionFlow.value?.userId) _state.update { it.copy(notice = "Could not send friend request.") } }
+            finally { if (owner == authRepository.sessionFlow.value?.userId) _state.update { it.copy(processingIds = it.processingIds - user.id) } }
         }
     }
 
@@ -138,17 +144,18 @@ class DiscoverViewModel @Inject constructor(
         operation: suspend () -> AppResult<Unit>,
     ) {
         if (request.id in _state.value.processingIds) return
+        val owner = authRepository.sessionFlow.value?.userId ?: return
+        _state.update { it.copy(processingIds = it.processingIds + request.id) }
         viewModelScope.launch {
-            _state.update { it.copy(processingIds = it.processingIds + request.id) }
             try {
                 when (val result = operation()) {
                     is AppResult.Success -> Unit
-                    is AppResult.Failure -> _state.update { it.copy(notice = result.error.toUserMessage()) }
+                    is AppResult.Failure -> if (owner == authRepository.sessionFlow.value?.userId) _state.update { it.copy(notice = result.error.toUserMessage()) }
                     AppResult.Loading -> Unit
                 }
             } catch (error: CancellationException) { throw error }
-            catch (_: Exception) { _state.update { it.copy(notice = "Couldn't update friend request. Retry.") } }
-            finally { _state.update { it.copy(processingIds = it.processingIds - request.id) } }
+            catch (_: Exception) { if (owner == authRepository.sessionFlow.value?.userId) _state.update { it.copy(notice = "Couldn't update friend request. Retry.") } }
+            finally { if (owner == authRepository.sessionFlow.value?.userId) _state.update { it.copy(processingIds = it.processingIds - request.id) } }
         }
     }
 }

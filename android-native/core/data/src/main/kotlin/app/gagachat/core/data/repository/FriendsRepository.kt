@@ -25,6 +25,8 @@ import app.gagachat.core.network.rest.SupabaseRestApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -60,6 +62,7 @@ class DefaultFriendsRepository @Inject constructor(
     @ApplicationScope scope: CoroutineScope,
 ) : FriendsRepository {
 
+    private val refreshMutex = Mutex()
     private val _friends = MutableStateFlow<List<Friend>>(emptyList())
     override val friends: StateFlow<List<Friend>> = _friends.asStateFlow()
 
@@ -84,7 +87,9 @@ class DefaultFriendsRepository @Inject constructor(
     private val currentUserId: String
         get() = authRepository.sessionFlow.value?.userId.orEmpty()
 
-    override suspend fun refresh(): AppResult<Unit> = withContext(dispatchers.io) {
+    override suspend fun refresh(): AppResult<Unit> = refreshMutex.withLock { refreshFriends() }
+
+    private suspend fun refreshFriends(): AppResult<Unit> = withContext(dispatchers.io) {
         val me = currentUserId
         if (me.isBlank()) return@withContext AppResult.Failure(AppError.Unauthorized("Not signed in"))
         try {

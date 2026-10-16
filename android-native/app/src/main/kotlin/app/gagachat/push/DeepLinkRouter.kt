@@ -118,7 +118,8 @@ object DeepLinkRouter {
                 "calls" -> "calls"
                 "today" -> "daily"
                 "app-update" -> "settings/app-update"
-                "requests", "friends" -> "people"
+                "requests" -> "people/requests"
+                "friends" -> "people"
                 "security" -> "settings/security"
                 "settings" -> segments.firstOrNull()?.let { "settings/$it" } ?: "settings"
                 "profile" -> segments.firstOrNull()?.let { "profile?userId=$it" } ?: "profile"
@@ -130,7 +131,7 @@ object DeepLinkRouter {
                     "call" -> incomingCallRoute(uri, segments.getOrNull(1))
                     "calls" -> "calls"
                     "app-update" -> "settings/app-update"
-                    "requests" -> "people"
+                    "requests" -> "people/requests"
                     "profile" -> segments.getOrNull(1)?.let { "profile?userId=$it" } ?: "profile"
                     else -> null
                 }

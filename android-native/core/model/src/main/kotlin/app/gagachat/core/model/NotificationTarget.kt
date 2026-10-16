@@ -7,12 +7,15 @@ import kotlinx.serialization.json.jsonPrimitive
 sealed interface NotificationTarget {
     data class Chat(val id: String) : NotificationTarget
     data object People : NotificationTarget
+    data object Requests : NotificationTarget
+    data object Today : NotificationTarget
     data object Calls : NotificationTarget
 }
 
 /** Route only known internal destinations; never execute a supplied URL or route. */
 fun AppNotification.target(): NotificationTarget? {
-    if (type == NotificationType.FRIEND_REQUEST || type == NotificationType.FRIEND_ACCEPTED) return NotificationTarget.People
+    if (type == NotificationType.FRIEND_REQUEST) return NotificationTarget.Requests
+    if (type == NotificationType.FRIEND_ACCEPTED) return NotificationTarget.People
     val objectData = runCatching { Json.parseToJsonElement(data.orEmpty().take(16_384)).jsonObject }.getOrNull()
     val id = listOf("chat_id", "conversation_id").firstNotNullOfOrNull { key ->
         runCatching { objectData?.get(key)?.jsonPrimitive?.content }.getOrNull()
@@ -22,6 +25,7 @@ fun AppNotification.target(): NotificationTarget? {
         id != null && type in listOf(NotificationType.MESSAGE, NotificationType.CALL, NotificationType.GROUP_INVITE) -> NotificationTarget.Chat(id)
         type == NotificationType.CALL -> NotificationTarget.Calls
         type == NotificationType.GROUP_INVITE -> NotificationTarget.People
+        NotificationCategory.TASKS.matches(this) -> NotificationTarget.Today
         else -> null
     }
 }
