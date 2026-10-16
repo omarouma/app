@@ -224,4 +224,4 @@ internal fun emailSupport(context: Context) {
 internal const val SUPPORT_EMAIL = "support@gagachat.app"
 
 // Single brand green for non-destructive leading icons (spec section 1).
-private val SupportGreen = Color(0xFF00C300)
+private val SupportGreen = Color(0xFF087F4B)
