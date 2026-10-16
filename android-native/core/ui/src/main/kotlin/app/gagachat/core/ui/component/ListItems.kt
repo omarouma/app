@@ -49,16 +49,16 @@ fun GagaSettingsRow(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 12.dp, vertical = 4.dp)
+            .padding(horizontal = 12.dp, vertical = 2.dp)
             .clip(MaterialTheme.shapes.large)
             .background(MaterialTheme.colorScheme.surface)
             .heightIn(min = when (app.gagachat.core.ui.theme.LocalGagaLayoutSize.current) {
-                app.gagachat.core.model.LayoutSize.COMPACT -> 56.dp
+                app.gagachat.core.model.LayoutSize.COMPACT -> 52.dp
                 app.gagachat.core.model.LayoutSize.STANDARD -> 68.dp
                 app.gagachat.core.model.LayoutSize.ROOMY -> 80.dp
             })
             .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
-            .padding(horizontal = GagaDimens.space16, vertical = GagaDimens.space8),
+            .padding(horizontal = 12.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (leadingIcon != null) {
@@ -68,17 +68,17 @@ fun GagaSettingsRow(
                 tint = leadingIconTint,
                 modifier = Modifier
                     .background(leadingIconContainerColor, MaterialTheme.shapes.medium)
-                    .padding(10.dp)
-                    .size(GagaDimens.iconMedium),
+                    .padding(8.dp)
+                    .size(20.dp),
             )
-            Spacer(Modifier.width(GagaDimens.space16))
+            Spacer(Modifier.width(12.dp))
         }
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = title,
-                style = MaterialTheme.typography.bodyLarge,
+                style = MaterialTheme.typography.bodyMedium,
                     fontWeight = androidx.compose.ui.text.font.FontWeight.Medium,
-                maxLines = 1,
+                maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
             if (subtitle != null) {

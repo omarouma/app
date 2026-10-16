@@ -30,6 +30,7 @@ class ProfileLayoutTest {
         var privacyOpens = 0
         compose.setContent {
             GagaTheme(darkTheme = dark, textScale = scale) {
+                androidx.compose.material3.Surface {
                 Column(Modifier.width(320.dp).verticalScroll(rememberScrollState())) {
                     ProfileHeader(
                         user = User(id = "layout-fixture", displayName = "A very long profile display name for layout validation", username = "long_profile_handle_for_layout", isVerified = true, isPremium = true),
@@ -43,6 +44,7 @@ class ProfileLayoutTest {
                         ProfileActionButton(Icons.Default.Share, "Share", {}, Modifier.weight(1f))
                     }
                     CompletenessCard(60, AccountPrivacy(), onPrivacy = { privacyOpens++ })
+                }
                 }
             }
         }
@@ -69,4 +71,27 @@ class ProfileLayoutTest {
     }
     @Test fun narrowLight() = render(false, 1f, "profile-light")
     @Test fun narrowLargeTextDark() = render(true, 2f, "profile-dark-large-text")
+    @Test fun realCoverImageStaysAboveProfileIdentity() {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val file = File(context.cacheDir, "profile-cover-layout.png")
+        val bitmap = Bitmap.createBitmap(320, 200, Bitmap.Config.ARGB_8888)
+        bitmap.eraseColor(android.graphics.Color.BLUE)
+        file.outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
+        bitmap.recycle()
+        compose.setContent {
+            GagaTheme {
+                androidx.compose.material3.Surface {
+                    Column(Modifier.width(320.dp)) {
+                        ProfileHeader(User("fixture", "Visible profile name", coverImage = android.net.Uri.fromFile(file).toString()),
+                            false, false, 0, {}, {}, { _, _ -> }, {}, {})
+                    }
+                }
+            }
+        }
+        val cover = compose.onNodeWithTag("profile-cover").assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+        val name = compose.onNodeWithText("Visible profile name").assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+        assertTrue("Identity must be below the cover", name.top >= cover.bottom)
+        save("profile-real-cover.png")
+    }
+
 }

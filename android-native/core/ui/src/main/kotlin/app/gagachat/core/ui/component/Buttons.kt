@@ -40,7 +40,7 @@ fun GagaPrimaryButton(
         onClick = onClick,
         modifier = modifier
             .fillMaxWidth()
-            .heightIn(min = 52.dp),
+            .heightIn(min = 48.dp),
         enabled = enabled && !loading,
         shape = MaterialTheme.shapes.medium,
     ) {
@@ -71,7 +71,7 @@ fun GagaSecondaryButton(
         onClick = onClick,
         modifier = modifier
             .fillMaxWidth()
-            .heightIn(min = 52.dp),
+            .heightIn(min = 48.dp),
         enabled = enabled,
         shape = MaterialTheme.shapes.medium,
     ) {

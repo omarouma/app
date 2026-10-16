@@ -4,6 +4,8 @@ on:
     paths:
       - 'android-native/core/ui/**'
       - 'android-native/feature/profile/**'
+      - 'android-native/feature/settings/**'
+      - 'android-native/feature/calls/**'
       - 'android-native/feature/dailylife/**'
       - 'android-native/feature/chat/**'
       - 'android-native/feature/contacts/**'

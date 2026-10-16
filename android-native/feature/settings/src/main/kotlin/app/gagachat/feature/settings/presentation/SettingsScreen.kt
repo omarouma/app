@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.Accessibility
@@ -251,11 +252,18 @@ fun SettingsRoute(
 
 @Composable
 private fun SettingsEntryRow(entry: SettingsEntry, strings: GagaStrings, onNavigate: (String) -> Unit) {
+    val tint = when (entry.route) {
+        SettingsRoutes.PRIVACY, SettingsRoutes.SECURITY -> Color(0xFF5268B5)
+        SettingsRoutes.NOTIFICATIONS_INBOX -> Color(0xFF9A6700)
+        SettingsRoutes.ACCESSIBILITY -> Color(0xFF8762AF)
+        else -> MaterialTheme.colorScheme.primary
+    }
     GagaSettingsRow(
         title = entry.title,
         subtitle = entry.subtitle,
         leadingIcon = entry.icon,
-        leadingIconTint = MaterialTheme.colorScheme.onSurfaceVariant,
+        leadingIconTint = tint,
+        leadingIconContainerColor = tint.copy(alpha = 0.12f),
         onClick = { onNavigate(entry.route) },
         trailing = if (entry.soon) {
             {
@@ -273,13 +281,12 @@ private fun SettingsEntryRow(entry: SettingsEntry, strings: GagaStrings, onNavig
                 }
             }
         } else {
-            null
+            { Icon(androidx.compose.material.icons.Icons.AutoMirrored.Filled.KeyboardArrowRight, "Open ${entry.title}", tint = MaterialTheme.colorScheme.onSurfaceVariant) }
         },
     )
-    GagaDivider()
 }
 
 // Single brand green for every non-destructive leading icon (spec §1: one GaGa
 // primary green). Red (IconRed) is reserved for destructive actions only.
-private val IconGreen = Color(0xFF00C300)
+private val IconGreen = Color(0xFF087F4B)
 private val IconRed = Color(0xFFEB5757)

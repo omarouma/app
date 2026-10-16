@@ -50,6 +50,8 @@ import androidx.compose.material.icons.filled.Verified
 import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material.icons.filled.WorkspacePremium
 import androidx.compose.material3.Icon
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -61,6 +63,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -137,6 +142,7 @@ private val HubBlue = Color(0xFF2F80ED)
 private val HubGreen = Color(0xFF00A651)
 private val HubRed = Color(0xFFEB5757)
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun ProfileRoute(
     onNavigateBack: () -> Unit,
@@ -237,11 +243,14 @@ fun ProfileRoute(
             Spacer(Modifier.height(GagaDimens.space16))
 
             // Action buttons -------------------------------------------------
-            Row(
+            val largeActions = maxOf(LocalDensity.current.fontScale, MaterialTheme.typography.labelMedium.fontSize.value / 12f) > 1.4f
+            FlowRow(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = GagaDimens.space16),
                 horizontalArrangement = Arrangement.spacedBy(GagaDimens.space8),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                maxItemsInEachRow = if (largeActions) 1 else 3,
             ) {
                 if (state.isSelf) {
                     ProfileActionButton(
@@ -426,13 +435,16 @@ internal fun ProfileHeader(
     onOpenAvatar: (String) -> Unit,
     onEditPhoto: () -> Unit,
 ) {
-    Box(modifier = Modifier.fillMaxWidth()) {
+    val hasCover = !user?.coverImage.isNullOrBlank() || !user?.coverVideo.isNullOrBlank()
+    val coverHeight = if (hasCover) 128.dp else 88.dp
+    Box(modifier = Modifier.fillMaxWidth().height(coverHeight)) {
         // Cover banner: renders the user's cover media (photo or video) when set,
         // otherwise the brand mint fallback.
         CoverBanner(
             coverImage = user?.coverImage,
             coverVideo = user?.coverVideo,
             onOpen = onOpenCover,
+            height = coverHeight,
         )
 
         if (isUploadingCover) {
@@ -440,7 +452,7 @@ internal fun ProfileHeader(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(150.dp)
+                    .height(coverHeight)
                     .background(Color.Black.copy(alpha = 0.45f)),
                 contentAlignment = Alignment.Center,
             ) {
@@ -460,15 +472,17 @@ internal fun ProfileHeader(
         }
 
         if (isSelf && !isUploadingCover) {
-            Row(
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(GagaDimens.space12),
-                horizontalArrangement = Arrangement.spacedBy(GagaDimens.space8),
-            ) {
-                // Reference 173846 shows two upload chips on the cover.
-                CoverChip("Photo", onClick = onPickCoverPhoto)
-                CoverChip("Video", onClick = onPickCoverVideo)
+            var coverMenu by remember { mutableStateOf(false) }
+            Box(Modifier.align(Alignment.TopEnd).padding(8.dp)) {
+                IconButton(onClick = { coverMenu = true }, modifier = Modifier.size(48.dp)) {
+                    Box(Modifier.size(32.dp).clip(CircleShape).background(Color.Black.copy(alpha = 0.5f)), contentAlignment = Alignment.Center) {
+                        Icon(Icons.Default.CameraAlt, "Change cover", tint = Color.White, modifier = Modifier.size(18.dp))
+                    }
+                }
+                DropdownMenu(expanded = coverMenu, onDismissRequest = { coverMenu = false }) {
+                    DropdownMenuItem(text = { Text("Cover photo") }, onClick = { coverMenu = false; onPickCoverPhoto() })
+                    DropdownMenuItem(text = { Text("Cover video") }, onClick = { coverMenu = false; onPickCoverVideo() })
+                }
             }
         }
 
@@ -476,7 +490,7 @@ internal fun ProfileHeader(
         Box(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                .offset(y = 48.dp),
+                .offset(y = 40.dp),
         ) {
             val avatarUrl = user?.avatar?.takeIf { it.isNotBlank() }
             Box(
@@ -500,28 +514,18 @@ internal fun ProfileHeader(
                 GagaAvatar(
                     imageUrl = user?.avatar,
                     name = user?.displayLabel,
-                    size = GagaDimens.avatarXLarge,
+                    size = 80.dp,
                     status = user?.status,
                     showStatus = false,
                 )
             }
             if (isSelf) {
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.BottomEnd)
-                        .size(48.dp)
-                        .clip(CircleShape)
-                        .background(GagaGreen)
-                        .border(width = 2.dp, color = MaterialTheme.colorScheme.surface, shape = CircleShape)
-                        .clickable(onClick = onEditPhoto),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(
-                        Icons.Filled.CameraAlt,
-                        contentDescription = "Change photo",
-                        tint = Color.White,
-                        modifier = Modifier.size(GagaDimens.iconSmall),
-                    )
+                IconButton(onClick = onEditPhoto, modifier = Modifier.align(Alignment.BottomEnd).size(48.dp)) {
+                    Box(Modifier.size(32.dp).clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.primary)
+                        .border(2.dp, MaterialTheme.colorScheme.surface, CircleShape), contentAlignment = Alignment.Center) {
+                        Icon(Icons.Filled.CameraAlt, "Change photo", tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(16.dp))
+                    }
                 }
             } else if (user?.isVerified == true) {
                 Box(
@@ -544,7 +548,7 @@ internal fun ProfileHeader(
         }
     }
 
-    Spacer(Modifier.height(56.dp))
+    Spacer(Modifier.height(48.dp))
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -561,7 +565,8 @@ internal fun ProfileHeader(
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
                 text = user?.displayLabel ?: "GaGa User",
-                style = MaterialTheme.typography.headlineSmall,
+                style = MaterialTheme.typography.titleLarge,
+                color = MaterialTheme.colorScheme.onSurface,
                 fontWeight = FontWeight.Bold,
                 textAlign = TextAlign.Center,
             )
@@ -684,16 +689,16 @@ internal fun ProfileActionButton(
     val content = if (primary) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
     Column(
         modifier = modifier
-            .heightIn(min = 80.dp)
+            .heightIn(min = 56.dp)
             .clip(RoundedCornerShape(14.dp))
             .background(container)
             .clickable(role = Role.Button, onClick = onClick)
-            .padding(horizontal = GagaDimens.space8, vertical = GagaDimens.space12),
+            .padding(horizontal = 6.dp, vertical = 6.dp),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Icon(icon, contentDescription = null, tint = content, modifier = Modifier.size(22.dp))
-        Spacer(Modifier.height(GagaDimens.space6))
+        Icon(icon, contentDescription = null, tint = content, modifier = Modifier.size(20.dp))
+        Spacer(Modifier.height(4.dp))
         Text(
             text = label,
             style = MaterialTheme.typography.labelMedium,
@@ -738,12 +743,15 @@ private fun CoverBanner(
     coverImage: String?,
     coverVideo: String?,
     onOpen: (url: String, isVideo: Boolean) -> Unit,
+    height: androidx.compose.ui.unit.Dp,
 ) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(150.dp)
-            .background(GagaGreenContainer),
+            .height(height)
+            .clipToBounds()
+            .testTag("profile-cover")
+            .background(MaterialTheme.colorScheme.primaryContainer),
     ) {
         // A dedicated cover *video* always wins; otherwise fall back to the photo.
         // We also tolerate legacy rows where a video URL was previously written
@@ -1121,7 +1129,8 @@ internal fun CompletenessCard(percent: Int, privacy: app.gagachat.core.model.Acc
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
                 text = "Profile completeness",
-                style = MaterialTheme.typography.titleMedium,
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.onSurface,
                 fontWeight = FontWeight.SemiBold,
                 modifier = Modifier.weight(1f),
             )

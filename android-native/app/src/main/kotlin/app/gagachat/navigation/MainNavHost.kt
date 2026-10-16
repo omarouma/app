@@ -316,7 +316,7 @@ private fun GagaBottomBar(
         val labelHeight = with(LocalDensity.current) {
             (if (compactLabels) MaterialTheme.typography.labelSmall else MaterialTheme.typography.labelMedium).lineHeight.toDp()
         }
-        val barHeight = (labelHeight + 40.dp).coerceAtLeast(layoutSize.navigationDp.dp)
+        val barHeight = (labelHeight + 34.dp).coerceAtLeast(layoutSize.navigationDp.dp)
         Surface(color = MaterialTheme.colorScheme.surface) {
         Row(
             modifier = Modifier.windowInsetsPadding(NavigationBarDefaults.windowInsets)

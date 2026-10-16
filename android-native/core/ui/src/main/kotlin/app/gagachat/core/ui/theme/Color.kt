@@ -5,15 +5,15 @@ import androidx.compose.ui.graphics.Color
 /**
  * GaGa Chat brand palette.
  *
- * Brand accent is GaGa Green (#00C300) on white with full dark-mode support.
+ * Brand accent is GaGa Green (#087F4B) on white with full dark-mode support.
  * The palette is intentionally small and semantic so every screen pulls from
  * the same tokens.
  */
 
 // Brand
-val GagaGreen = Color(0xFF00C300)
-val GagaGreenDark = Color(0xFF009A00)
-val GagaGreenLight = Color(0xFF5BE05B)
+val GagaGreen = Color(0xFF087F4B)
+val GagaGreenDark = Color(0xFF096B43)
+val GagaGreenLight = Color(0xFF78D7A5)
 val GagaGreenContainer = Color(0xFFDDF3E4)
 val GagaTeal = Color(0xFF00A884)
 val GagaTealDark = Color(0xFF008069)
@@ -47,4 +47,4 @@ val StatusBusy = Color(0xFFE74C3C)
 val StatusOffline = Color(0xFF9AA0A6)
 val ErrorRed = Color(0xFFE5484D)
 val WarningAmber = Color(0xFFF5A623)
-val SuccessGreen = Color(0xFF00C300)
+val SuccessGreen = Color(0xFF087F4B)

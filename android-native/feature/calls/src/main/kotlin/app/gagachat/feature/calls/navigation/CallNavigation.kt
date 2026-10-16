@@ -47,6 +47,7 @@ fun NavGraphBuilder.callHistoryScreen(
             onNavigateBack = null,
             onOpenConversation = onOpenConversation,
             onStartCall = onStartCall,
+            onNewCall = { navController.navigate("people") },
         )
     }
 }
