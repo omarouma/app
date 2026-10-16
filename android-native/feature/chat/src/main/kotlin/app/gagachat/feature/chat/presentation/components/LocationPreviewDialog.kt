@@ -101,7 +101,8 @@ fun LocationPreviewDialog(
             Column(
                 modifier = Modifier.fillMaxSize()
                     .windowInsetsPadding(WindowInsets.statusBars)
-                    .windowInsetsPadding(WindowInsets.navigationBars)\n                    .imePadding(),
+                    .windowInsetsPadding(WindowInsets.navigationBars)
+                    .imePadding(),
             ) {
                 Row(
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 6.dp),
