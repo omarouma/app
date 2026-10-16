@@ -32,7 +32,7 @@ val DarkSurface = Color(0xFF15251C)
 val DarkSurfaceVariant = Color(0xFF22352B)
 val DarkOutline = Color(0xFF2A3942)
 val DarkOnSurface = Color(0xFFE9EDEF)
-val DarkOnSurfaceVariant = Color(0xFF8696A0)
+val DarkOnSurfaceVariant = Color(0xFFB2C2B8)
 
 // Chat bubbles
 val OutgoingBubbleLight = Color(0xFFDCF5D9)
