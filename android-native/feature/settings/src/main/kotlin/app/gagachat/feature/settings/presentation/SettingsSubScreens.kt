@@ -1104,7 +1104,7 @@ private const val TERMS_URL = "https://gagachat.app/terms"
 private const val PRIVACY_URL = "https://gagachat.app/privacy"
 
 // Single brand green for non-destructive leading icons (spec §1).
-private val AboutGreen = Color(0xFF00C300)
+private val AboutGreen = Color(0xFF087F4B)
 
 /**
  * The principal open-source components that make up GaGa Chat. Full licence
