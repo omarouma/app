@@ -1,18 +1,12 @@
 package app.gagachat.feature.chat.presentation.components
 
-import android.content.Context
-import android.media.MediaCodec
-import android.media.MediaExtractor
-import android.media.MediaFormat
-import android.media.MediaMetadataRetriever
-import android.media.MediaMuxer
 import android.net.Uri
 import android.widget.MediaController
 import android.widget.VideoView
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -22,219 +16,190 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import java.io.File
-import java.nio.ByteBuffer
-import java.util.UUID
-import kotlin.math.max
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-/**
- * Review and non-destructively trim a video before upload.
- * Trimming remuxes MP4 keyframes; it does not transcode and is approximate to
- * the preceding keyframe. Unsupported sources can still be sent unedited.
- */
+/** Review an exported copy before sending; the picked source is never changed. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun VideoReviewSheet(
-    uri: Uri,
-    onDismiss: () -> Unit,
-    onSend: (Uri, String) -> Unit,
-) {
+fun VideoReviewSheet(uri: Uri, onDismiss: () -> Unit, onSend: (Uri, String) -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var caption by remember(uri) { mutableStateOf("") }
     var busy by remember(uri) { mutableStateOf(false) }
+    var sent by remember(uri) { mutableStateOf(false) }
     var error by remember(uri) { mutableStateOf<String?>(null) }
-    val durationMs by produceState(0L, uri) {
-        value = withContext(Dispatchers.IO) {
-            runCatching {
-                val retriever = MediaMetadataRetriever()
-                try {
-                    retriever.setDataSource(context, uri)
-                    retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)
-                        ?.toLongOrNull() ?: 0L
-                } finally { retriever.release() }
-            }.getOrDefault(0L)
-        }
-    }
-    val totalSeconds = max(1f, durationMs / 1000f)
-    var range by remember(uri, durationMs) { mutableStateOf(0f..totalSeconds) }
-    val canTrim = durationMs > 1000L && (context.contentResolver.getType(uri)
-        ?.contains("mp4", ignoreCase = true) == true || uri.toString().endsWith(".mp4", true))
-    val edited = canTrim && (range.start > 0.5f || range.endInclusive < totalSeconds - 0.5f)
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    var info by remember(uri) { mutableStateOf<VideoSourceInfo?>(null) }
+    var history by remember(uri) { mutableStateOf(VideoEditHistory(VideoEdits(endMs = 0))) }
+    var textDraft by remember(uri) { mutableStateOf("") }
+    var exported by remember(uri) { mutableStateOf<File?>(null) }
+    var exportJob by remember(uri) { mutableStateOf<Job?>(null) }
+    val ownedFiles = remember(uri) { mutableListOf<File>() }
+    val handedOff = remember(uri) { mutableSetOf<File>() }
     val videoView = remember(uri) {
         VideoView(context).apply {
-            setVideoURI(uri)
             setMediaController(MediaController(context).also { it.setAnchorView(this) })
         }
     }
-    DisposableEffect(videoView) {
-        onDispose { videoView.stopPlayback() }
+    LaunchedEffect(uri) {
+        try {
+            val metadata = withContext(Dispatchers.IO) { readVideoInfo(context, uri) }
+            info = metadata
+            history = VideoEditHistory(VideoEdits(endMs = metadata.durationMs))
+        } catch (cancelled: CancellationException) { throw cancelled }
+        catch (_: Exception) { error = "This video could not be opened. Please choose another video." }
     }
-
+    fun invalidateExport() {
+        exported?.let {
+            videoView.stopPlayback()
+            it.delete()
+            ownedFiles.remove(it)
+        }
+        exported = null
+        error = null
+    }
+    fun change(next: VideoEdits) {
+        if (history.current != next) {
+            invalidateExport()
+            history = history.change(next)
+        }
+    }
+    val edits = history.current
+    LaunchedEffect(edits.text) { textDraft = edits.text }
+    val previewUri = exported?.let(Uri::fromFile) ?: uri
+    LaunchedEffect(previewUri) {
+        videoView.stopPlayback()
+        videoView.setOnPreparedListener { videoView.seekTo(1) }
+        videoView.setOnErrorListener { _, _, _ ->
+            error = "Preview could not play this video. Try exporting again or choose another video."
+            true
+        }
+        videoView.setVideoURI(previewUri)
+    }
+    DisposableEffect(videoView) {
+        onDispose {
+            videoView.stopPlayback()
+            ownedFiles.filterNot { it in handedOff }.forEach { it.delete() }
+        }
+    }
+    val duration = info?.durationMs ?: 0L
+    val original = edits.isOriginal(duration)
+    var range by remember(edits.startMs, edits.endMs) {
+        mutableStateOf(edits.startMs / 1000f..edits.endMs / 1000f)
+    }
+    val pendingText = textDraft != edits.text
+    val pendingTrim = kotlin.math.abs(range.start * 1000 - edits.startMs) > 1f ||
+        kotlin.math.abs(range.endInclusive * 1000 - edits.endMs) > 1f
+    val editable = !busy && !sent && info != null
     ModalBottomSheet(
-        onDismissRequest = { if (!busy) onDismiss() },
-        sheetState = sheetState,
+        onDismissRequest = { if (!busy && !sent) onDismiss() },
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
     ) {
-        Column(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp)
-                .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            Text("Review video", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-            Text("Tap the preview to play or pause before sending.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant)
-            AndroidView(
-                factory = { videoView },
-                modifier = Modifier.fillMaxWidth().height(210.dp),
-            )
-            if (canTrim) {
-                Text("Trim clip (MP4)", style = MaterialTheme.typography.titleSmall)
-                RangeSlider(
-                    value = range,
-                    onValueChange = {
-                        if (it.endInclusive - it.start >= 1f) range = it
-                    },
-                    valueRange = 0f..totalSeconds,
-                    enabled = !busy,
-                )
-                Text("${range.start.toInt()}s – ${range.endInclusive.toInt()}s · " +
-                    "Cuts snap to video keyframes.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
-                TextButton(onClick = { range = 0f..totalSeconds }, enabled = !busy) {
-                    Text("Reset trim")
-                }
-            } else {
-                Text("Trimming is available for MP4. Other video formats can be sent without edits.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp)
+            .verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text("Edit video", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            Text(if (exported != null) "Edited preview · ready to review" else "Original preview · export to see your edits",
+                style = MaterialTheme.typography.bodySmall)
+            AndroidView(factory = { videoView }, modifier = Modifier.fillMaxWidth().height(210.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                TextButton(onClick = {
+                    invalidateExport(); history = history.undo()
+                }, enabled = editable && history.past.isNotEmpty()) { Text("Undo") }
+                TextButton(onClick = {
+                    invalidateExport(); history = history.redo()
+                }, enabled = editable && history.future.isNotEmpty()) { Text("Redo") }
+                TextButton(onClick = {
+                    change(VideoEdits(endMs = duration)); textDraft = ""
+                }, enabled = editable && (!original || pendingText)) { Text("Restore original") }
             }
-            OutlinedTextField(
-                value = caption,
-                onValueChange = { caption = it.take(1000) },
-                label = { Text("Add a caption") },
-                modifier = Modifier.fillMaxWidth(),
-                maxLines = 3,
-                enabled = !busy,
-            )
+            if (duration > 1000) {
+                Text("Trim clip", style = MaterialTheme.typography.titleSmall)
+                RangeSlider(value = range, onValueChange = {
+                    if (it.endInclusive - it.start >= 1f) {
+                        if (exported != null) invalidateExport()
+                        range = it
+                    }
+                }, onValueChangeFinished = {
+                    change(edits.copy(startMs = (range.start * 1000).toLong(),
+                        endMs = (range.endInclusive * 1000).toLong().coerceAtMost(duration)))
+                }, valueRange = 0f..(duration / 1000f), enabled = editable)
+                Text("${range.start.toInt()}s – ${range.endInclusive.toInt()}s",
+                    style = MaterialTheme.typography.bodySmall)
+            }
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween) {
+                Text("Mute video")
+                Switch(checked = edits.muted, onCheckedChange = { change(edits.copy(muted = it)) }, enabled = editable)
+            }
+            OutlinedTextField(value = textDraft, onValueChange = { textDraft = it.take(80) },
+                label = { Text("Text on video") }, modifier = Modifier.fillMaxWidth(), maxLines = 4, enabled = editable)
+            TextButton(onClick = { change(edits.copy(text = textDraft)) }, enabled = editable && pendingText) {
+                Text("Apply text")
+            }
+            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                VideoOverlayPosition.entries.forEach { position ->
+                    FilterChip(selected = edits.textPosition == position,
+                        onClick = { change(edits.copy(textPosition = position)) },
+                        label = { Text(position.label) }, enabled = editable)
+                }
+            }
+            Text("Sticker", style = MaterialTheme.typography.titleSmall)
+            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf("", "❤️", "⭐", "🎉", "😊", "👍").forEach { sticker ->
+                    FilterChip(selected = edits.sticker == sticker,
+                        onClick = { change(edits.copy(sticker = sticker)) },
+                        label = { Text(sticker.ifEmpty { "None" }) }, enabled = editable)
+                }
+            }
+            OutlinedTextField(value = caption, onValueChange = { caption = it.take(1000) },
+                label = { Text("Add a caption") }, modifier = Modifier.fillMaxWidth(), maxLines = 3, enabled = !busy && !sent)
             error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                TextButton(onClick = onDismiss, enabled = !busy) { Text("Cancel") }
-                Spacer(Modifier.width(8.dp))
-                Button(
-                    onClick = {
-                        if (!edited) {
-                            videoView.stopPlayback()
-                            onSend(uri, caption)
-                        } else {
-                            busy = true
-                            error = null
-                            scope.launch {
-                                videoView.stopPlayback()
-                                val result = withContext(Dispatchers.IO) {
-                                    runCatching {
-                                        trimMp4(context, uri,
-                                            (range.start * 1000).toLong(),
-                                            (range.endInclusive * 1000).toLong())
-                                    }
-                                }
-                                busy = false
-                                result.onSuccess { onSend(it, caption) }.onFailure {
-                                    error = "Could not trim this video. Reset the trim to send the original."
-                                }
-                            }
-                        }
-                    },
-                    enabled = !busy && (range.endInclusive - range.start >= 1f),
-                ) {
-                    if (busy) CircularProgressIndicator(Modifier.size(16.dp),
-                        strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onPrimary)
-                    else Text(if (edited) "Trim & send" else "Send video")
+            if (pendingText) Text("Apply your text before exporting.", style = MaterialTheme.typography.bodySmall)
+            if (busy) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
+                    Spacer(Modifier.width(12.dp))
+                    Text("Preparing edited preview…")
+                    TextButton(onClick = { exportJob?.cancel() }) { Text("Stop") }
+                }
+            }
+            if (!original && exported == null) {
+                Button(onClick = {
+                    busy = true
+                    error = null
+                    videoView.pause()
+                    exportJob = scope.launch {
+                        try {
+                            val file = exportVideo(context, uri, edits)
+                            ownedFiles += file
+                            exported = file
+                        } catch (cancelled: CancellationException) { throw cancelled }
+                        catch (_: Exception) {
+                            error = "Could not export these edits. Try again, or restore the original video."
+                        } finally { busy = false }
+                    }
+                }, enabled = editable && !pendingText && !pendingTrim && edits.isValid(duration), modifier = Modifier.fillMaxWidth()) {
+                    Text("Export & preview")
+                }
+            }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                TextButton(onClick = onDismiss, enabled = !busy && !sent) { Text("Cancel") }
+                Button(onClick = {
+                    // Latch immediately: fast repeated taps cannot enqueue two uploads.
+                    if (!sent && !busy) {
+                        sent = true
+                        videoView.stopPlayback()
+                        exported?.let { handedOff += it }
+                        onSend(exported?.let(Uri::fromFile) ?: uri, caption)
+                    }
+                }, enabled = editable && !pendingText && !pendingTrim && (original || exported != null)) {
+                    Text(if (original) "Send video" else "Send edited video")
                 }
             }
             Spacer(Modifier.height(16.dp))
         }
-    }
-}
-
-/**
- * Android platform-only MP4 remux, no re-encoding.
- * The requested start is moved backward to the previous sync sample.
- * Abort cleanly on unsupported codecs or malformed tracks.
- */
-internal fun trimMp4(context: Context, source: Uri, startMs: Long, endMs: Long): Uri {
-    require(startMs >= 0 && endMs - startMs >= 1000L)
-    val dir = File(context.cacheDir, "gaga_video_edits").apply { mkdirs() }
-    val output = File(dir, "clip_${UUID.randomUUID()}.mp4")
-    val extractor = MediaExtractor()
-    var muxer: MediaMuxer? = null
-    var started = false
-    try {
-        extractor.setDataSource(context, source, null)
-        val map = mutableMapOf<Int, Int>()
-        val mux = MediaMuxer(output.absolutePath, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4)
-        muxer = mux
-        for (index in 0 until extractor.trackCount) {
-            val format = extractor.getTrackFormat(index)
-            val mime = format.getString(MediaFormat.KEY_MIME).orEmpty()
-            if (mime.startsWith("video/") || mime.startsWith("audio/")) {
-                map[index] = mux.addTrack(format)
-                extractor.selectTrack(index)
-            }
-        }
-        require(map.isNotEmpty()) { "No compatible media tracks" }
-        val retriever = MediaMetadataRetriever()
-        try {
-            retriever.setDataSource(context, source)
-            retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_ROTATION)
-                ?.toIntOrNull()?.let { mux.setOrientationHint(it) }
-        } finally { retriever.release() }
-        mux.start()
-        started = true
-        extractor.seekTo(startMs * 1000, MediaExtractor.SEEK_TO_PREVIOUS_SYNC)
-        val buffer = ByteBuffer.allocateDirect(16 * 1024 * 1024)
-        val info = MediaCodec.BufferInfo()
-        var firstTimeUs = -1L
-        var written = 0
-        while (true) {
-            val track = extractor.sampleTrackIndex
-            if (track < 0) break
-            val timeUs = extractor.sampleTime
-            if (timeUs < 0 || timeUs >= endMs * 1000) break
-            val size = extractor.readSampleData(buffer, 0)
-            require(size >= 0) { "Invalid video sample" }
-            if (firstTimeUs < 0) firstTimeUs = timeUs
-            info.set(0, size, (timeUs - firstTimeUs).coerceAtLeast(0),
-                extractor.sampleFlags)
-            map[track]?.let { outputTrack ->
-                buffer.position(0)
-                buffer.limit(size)
-                mux.writeSampleData(outputTrack, buffer, info)
-                written++
-            }
-            extractor.advance()
-        }
-        require(written > 0) { "Empty trimmed clip" }
-        mux.stop()
-        started = false
-        mux.release()
-        muxer = null
-        check(output.length() > 0L) { "Empty video" }
-        return Uri.fromFile(output)
-    } catch (error: Throwable) {
-        output.delete()
-        throw error
-    } finally {
-        extractor.release()
-        if (started) runCatching { muxer?.stop() }
-        runCatching { muxer?.release() }
     }
 }
