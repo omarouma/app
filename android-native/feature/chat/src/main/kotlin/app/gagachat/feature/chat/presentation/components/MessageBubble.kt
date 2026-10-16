@@ -544,7 +544,7 @@ private class GatedMediaUrl(
 private fun rememberGatedRemoteUrl(key: String, raw: String?): GatedMediaUrl {
     // Local previews need neither signed URLs nor network-policy subscriptions.
     // Keep already-picked media available even when downloads are disabled.
-    if (raw.isNullOrBlank() || !raw.startsWith("http")) return GatedMediaUrl(raw, false) {}
+    if (raw.isNullOrBlank() || !raw.startsWith("http")) return GatedMediaUrl(raw?.takeIf { it.isNotBlank() }, false) {}
     val autoAllowed = rememberAutoDownloadAllowed()
     var manualLoad by rememberSaveable(key) { mutableStateOf(false) }
     val allowed = autoAllowed || manualLoad
