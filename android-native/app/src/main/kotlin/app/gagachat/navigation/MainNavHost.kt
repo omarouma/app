@@ -78,7 +78,7 @@ import app.gagachat.push.PendingDeepLink
 
 /**
  * The five top-level tabs, in the product order:
- * Chats / People / Calls / Profile. [route] is the concrete navigation target;
+ * Chats / People / Calls / Today / Me. [route] is the concrete navigation target;
  * [routePattern] is the registered pattern used to detect selection (the Profile
  * route carries an optional argument so its pattern differs from its target).
  */
@@ -112,11 +112,12 @@ private val bottomBarRoutes: Set<String> = TopLevelDestination.entries
     .toSet()
 
 /** The keyboard must never compete for height with five main navigation tabs. */
-internal fun shouldShowBottomTabs(route: String?, keyboardVisible: Boolean): Boolean =
-    route in bottomBarRoutes && !keyboardVisible
+internal fun shouldShowBottomTabs(route: String?, keyboardVisible: Boolean, profileUserId: String? = null): Boolean =
+    route in bottomBarRoutes && !keyboardVisible &&
+        !(route == ProfileRoutes.PROFILE && !profileUserId.isNullOrBlank())
 
 /**
- * Main graph (PDF §2.1). Hosts the four top-level destinations behind a bottom
+ * Main graph (PDF §2.1). Hosts the five top-level destinations behind a bottom
  * bar plus the detail surfaces (chat, profile, active call, More menu). Deep
  * links captured at cold start are consumed here once the graph is ready (§8).
  */
@@ -126,7 +127,10 @@ fun MainNavHost(pendingDeepLink: String?) {
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route
     val keyboardVisible = WindowInsets.ime.getBottom(LocalDensity.current) > 0
-    val showBottomBar = shouldShowBottomTabs(currentRoute, keyboardVisible)
+    val showBottomBar = shouldShowBottomTabs(
+        currentRoute, keyboardVisible,
+        backStackEntry?.arguments?.getString(ProfileRoutes.ARG_USER_ID),
+    )
     val viewModel: MainNavViewModel = hiltViewModel()
     val totalUnread by viewModel.totalUnread.collectAsStateWithLifecycle()
     val pendingRequests by viewModel.pendingRequests.collectAsStateWithLifecycle()
@@ -314,7 +318,7 @@ private fun GagaBottomBar(
                     selected = selected,
                     // Large-text and 320dp layouts retain five accessible targets.
                     // Hide unselected labels only when they would overlap.
-                    alwaysShowLabel = !compactLabels,
+                    alwaysShowLabel = effectiveTextScale <= 1.40f,
                     onClick = {
                         if (currentRoute != destination.routePattern) {
                             navController.navigate(destination.route) {
@@ -338,17 +342,17 @@ private fun GagaBottomBar(
                             BadgedBox(
                                 badge = {
                                     Badge(
-                                        containerColor = MaterialTheme.colorScheme.primary,
-                                        contentColor = MaterialTheme.colorScheme.onPrimary,
+                                        containerColor = MaterialTheme.colorScheme.error,
+                                        contentColor = MaterialTheme.colorScheme.onError,
                                     ) {
                                         Text(if (badgeCount > 99) "99+" else "$badgeCount")
                                     }
                                 },
                             ) {
-                                Icon(icon, contentDescription = label, modifier = Modifier.size(if (compactLabels) 22.dp else 24.dp))
+                                Icon(icon, contentDescription = label, modifier = Modifier.size(24.dp))
                             }
                         } else {
-                            Icon(icon, contentDescription = label, modifier = Modifier.size(if (compactLabels) 22.dp else 24.dp))
+                            Icon(icon, contentDescription = label, modifier = Modifier.size(24.dp))
                         }
                     },
                     label = {
