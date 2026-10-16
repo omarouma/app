@@ -90,8 +90,7 @@ fun GagaTopAppBar(
             // still allowing a taller touch-safe title at accessibility scales.
             // Derive height from the active typography. A fixed upper cap clips
             // titles at system accessibility scales above 200%.
-            expandedHeight = (textHeight + if (compactHeader) 6.dp else 10.dp).coerceAtLeast(
-                if (compactHeader && layoutSize != app.gagachat.core.model.LayoutSize.ROOMY) 48.dp else layoutSize.headerDp.dp),
+            expandedHeight = (textHeight + if (compactHeader) 6.dp else 10.dp).coerceAtLeast(layoutSize.headerDp.dp),
             title = {
                 val headerModifier = if (onTitleClick != null) {
                     Modifier

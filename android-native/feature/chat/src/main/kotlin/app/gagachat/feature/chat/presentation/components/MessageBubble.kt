@@ -1665,7 +1665,7 @@ private fun LiveLocationContent(
 
     Column(
         modifier = Modifier
-            .width(240.dp)
+            .width(224.dp)
             .clip(RoundedCornerShape(14.dp))
             .background(MaterialTheme.colorScheme.surfaceVariant)
             .semantics {
@@ -1679,7 +1679,7 @@ private fun LiveLocationContent(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(124.dp)
+                .height(96.dp)
                 .clickable(enabled = hasCoords, onClick = openMap)
                 .semantics {
                     contentDescription = if (hasCoords) {
