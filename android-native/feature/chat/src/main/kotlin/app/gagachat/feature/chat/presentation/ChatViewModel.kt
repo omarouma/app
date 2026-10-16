@@ -641,7 +641,7 @@ class ChatViewModel @Inject constructor(
      * Each photo is resolved and (if very large) compressed exactly like a single
      * image send, then queued together so the recipient sees one album bubble.
      */
-    fun sendImageAlbum(uris: List<Uri>, caption: String?) {
+    fun sendImageAlbum(uris: List<Uri>, caption: String?, originalQuality: Boolean = false) {
         if (uris.isEmpty()) return
         if (!beginMediaSend()) return
         viewModelScope.launch {
@@ -664,7 +664,7 @@ class ChatViewModel @Inject constructor(
                 return@launch
             }
             val resolved = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                baseItems.filterNotNull().map { compressLargeImage(it) }
+                baseItems.filterNotNull().map { if (originalQuality) it else compressLargeImage(it) }
             }
             val items = resolved.map { AlbumUploadItem(it.first, it.second, it.third) }
             val result = mediaRepository.enqueueAlbumUpload(

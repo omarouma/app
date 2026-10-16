@@ -24,6 +24,12 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Restore
 import androidx.compose.material3.Button
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.Switch
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -58,7 +64,7 @@ import coil.compose.AsyncImage
 fun MediaReviewSheet(
     uris: List<Uri>,
     onDismiss: () -> Unit,
-    onSend: (List<Uri>, String) -> Unit,
+    onSend: (List<Uri>, String, Boolean) -> Unit,
 ) {
     var ordered by remember(uris) { mutableStateOf(uris.distinct().take(10)) }
     // Keep original picks local to this review session. Editing never mutates
@@ -66,6 +72,8 @@ fun MediaReviewSheet(
     var originalByEdited by remember(uris) { mutableStateOf<Map<Uri, Uri>>(emptyMap()) }
     var caption by remember { mutableStateOf("") }
     var editingUri by remember { mutableStateOf<Uri?>(null) }
+    var previewUri by remember { mutableStateOf<Uri?>(null) }
+    var sendOriginal by remember { mutableStateOf(false) }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
@@ -110,6 +118,7 @@ fun MediaReviewSheet(
                             ordered = ordered.toMutableList().apply { removeAt(index) }
                         },
                         onEdit = { editingUri = uri },
+                        onPreview = { previewUri = uri },
                         canRestoreOriginal = originalByEdited.containsKey(uri),
                         onRestoreOriginal = {
                             val original = originalByEdited[uri] ?: uri
@@ -118,6 +127,18 @@ fun MediaReviewSheet(
                         },
                     )
                 }
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text("Original photo quality", style = MaterialTheme.typography.bodyLarge)
+                    Text("Keep full resolution when available. Large originals may be rejected by upload limits.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                Switch(checked = sendOriginal, onCheckedChange = { sendOriginal = it })
             }
             Spacer(Modifier.size(GagaDimens.space12))
             OutlinedTextField(
@@ -141,11 +162,40 @@ fun MediaReviewSheet(
                 TextButton(onClick = onDismiss) { Text("Cancel") }
                 Spacer(Modifier.size(GagaDimens.space8))
                 Button(
-                    onClick = { onSend(ordered, caption) },
+                    onClick = { onSend(ordered, caption, sendOriginal) },
                     enabled = ordered.isNotEmpty(),
                 ) { Text("Send (${ordered.size})") }
             }
             Spacer(Modifier.size(GagaDimens.space12))
+        }
+    }
+    previewUri?.let { selected ->
+        Dialog(
+            onDismissRequest = { previewUri = null },
+            properties = DialogProperties(usePlatformDefaultWidth = false),
+        ) {
+            Surface(Modifier.fillMaxSize(), color = androidx.compose.ui.graphics.Color.Black) {
+                Column(Modifier.fillMaxSize().padding(16.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        TextButton(onClick = { previewUri = null }) { Text("Back") }
+                        Spacer(Modifier.weight(1f))
+                        TextButton(onClick = {
+                            previewUri = null
+                            editingUri = selected
+                        }) { Text("Edit") }
+                    }
+                    AsyncImage(
+                        model = selected,
+                        contentDescription = "Full-screen photo preview",
+                        modifier = Modifier.fillMaxWidth().weight(1f),
+                        contentScale = ContentScale.Fit,
+                    )
+                    Text("Review before sending · original selection is preserved",
+                        modifier = Modifier.fillMaxWidth().padding(12.dp),
+                        color = androidx.compose.ui.graphics.Color.White,
+                        style = MaterialTheme.typography.bodySmall)
+                }
+            }
         }
     }
     editingUri?.let { selected ->
@@ -172,6 +222,7 @@ private fun ReviewTile(
     onMoveLater: () -> Unit,
     onRemove: () -> Unit,
     onEdit: () -> Unit,
+    onPreview: () -> Unit,
     canRestoreOriginal: Boolean,
     onRestoreOriginal: () -> Unit,
 ) {
@@ -185,7 +236,8 @@ private fun ReviewTile(
             model = uri,
             contentDescription = "Selected photo $position",
             contentScale = ContentScale.Crop,
-            modifier = Modifier.fillMaxWidth().aspectRatio(1f),
+            modifier = Modifier.fillMaxWidth().aspectRatio(1f)
+                .clickable(onClick = onPreview),
         )
         Surface(
             shape = CircleShape,

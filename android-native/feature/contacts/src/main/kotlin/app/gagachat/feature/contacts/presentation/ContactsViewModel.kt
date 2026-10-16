@@ -6,6 +6,13 @@ import app.gagachat.core.common.result.AppResult
 import app.gagachat.core.data.repository.AuthRepository
 import app.gagachat.core.data.repository.ConversationRepository
 import app.gagachat.core.data.repository.UserRepository
+import app.gagachat.core.network.rest.SupabaseRestApi
+import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonArray
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.collect
 import app.gagachat.core.model.User
 import app.gagachat.core.ui.util.toUserMessage
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -19,11 +26,21 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+data class PrivateContactRemark(
+    val alias: String = "",
+    val mobile: String = "",
+    val tags: List<String> = emptyList(),
+    val remark: String = "",
+)
+
 data class ContactsUiState(
     val query: String = "",
     val contacts: List<User> = emptyList(),
     val isLoading: Boolean = false,
     val error: String? = null,
+    val remarks: Map<String, PrivateContactRemark> = emptyMap(),
+    val savingRemark: Boolean = false,
+    val remarkError: String? = null,
 )
 
 /**
@@ -36,6 +53,7 @@ class ContactsViewModel @Inject constructor(
     private val userRepository: UserRepository,
     private val conversationRepository: ConversationRepository,
     private val authRepository: AuthRepository,
+    private val restApi: SupabaseRestApi,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(ContactsUiState())
@@ -44,6 +62,13 @@ class ContactsViewModel @Inject constructor(
     private var searchJob: Job? = null
 
     init {
+        // Drop private notes immediately on account changes, even before fetch.
+        viewModelScope.launch {
+            authRepository.sessionFlow.map { it?.userId }.distinctUntilChanged().collect { owner ->
+                _state.update { it.copy(remarks = emptyMap(), remarkError = null) }
+                if (!owner.isNullOrBlank()) loadRemarks(owner)
+            }
+        }
         // Show everything we already know about while the user types.
         viewModelScope.launch {
             runCatching {
@@ -52,6 +77,64 @@ class ContactsViewModel @Inject constructor(
                     _state.update { it.copy(contacts = merge(it.contacts, local)) }
                 }
             }
+        }
+    }
+
+    /** Remarks are fetched per logged-in account and discarded immediately on switch/logout. */
+    private suspend fun loadRemarks(owner: String) {
+        val result = runCatching { restApi.getContactRemarks(owner) }
+        if (owner != authRepository.sessionFlow.value?.userId) return
+        result.onSuccess { rows ->
+            val data = rows.mapNotNull { row ->
+                val id = row["contact_user_id"]?.jsonPrimitive?.contentOrNull ?: return@mapNotNull null
+                id to PrivateContactRemark(
+                    alias = row["alias"]?.jsonPrimitive?.contentOrNull.orEmpty(),
+                    mobile = row["mobile"]?.jsonPrimitive?.contentOrNull.orEmpty(),
+                    tags = runCatching {
+                        row["tags"]?.jsonArray?.mapNotNull { it.jsonPrimitive.contentOrNull }
+                    }.getOrNull().orEmpty(),
+                    remark = row["remark"]?.jsonPrimitive?.contentOrNull.orEmpty(),
+                )
+            }.toMap()
+            _state.update { it.copy(remarks = data, remarkError = null) }
+        }.onFailure {
+            _state.update { it.copy(remarkError = "Couldn't load private contact remarks.") }
+        }
+    }
+
+    fun clearRemarkError() { _state.update { it.copy(remarkError = null) } }
+
+    fun saveRemark(
+        contactId: String, alias: String, mobile: String, tags: List<String>,
+        remark: String, onSaved: () -> Unit,
+    ) {
+        val owner = authRepository.sessionFlow.value?.userId ?: return
+        if (owner == contactId) return
+        _state.update { it.copy(savingRemark = true, remarkError = null) }
+        viewModelScope.launch {
+            val saved = runCatching {
+                restApi.saveContactRemark(
+                    ownerId = owner,
+                    contactId = contactId,
+                    alias = alias.trim().take(64),
+                    mobile = mobile.trim().take(40),
+                    tags = tags.map { it.trim().take(32) }.filter { it.isNotBlank() }.distinct().take(16),
+                    remark = remark.trim().take(1200),
+                )
+            }
+            if (owner != authRepository.sessionFlow.value?.userId) return@launch
+            _state.update {
+                if (saved.isSuccess) it.copy(
+                    savingRemark = false,
+                    remarks = it.remarks + (contactId to PrivateContactRemark(
+                        alias = alias.trim().take(64),
+                        mobile = mobile.trim().take(40),
+                        tags = tags.map { v -> v.trim().take(32) }.filter { v -> v.isNotBlank() }.distinct().take(16),
+                        remark = remark.trim().take(1200),
+                    )),
+                ) else it.copy(savingRemark = false, remarkError = "Couldn't save remark. Please retry.")
+            }
+            if (saved.isSuccess) onSaved()
         }
     }
 
@@ -73,7 +156,13 @@ class ContactsViewModel @Inject constructor(
             // Instant local results first.
             runCatching {
                 val local = userRepository.searchUsers(trimmed).first()
-                _state.update { it.copy(contacts = local) }
+                // Search private aliases too, but only among users already
+                // available in this account's local contact cache.
+                val aliasMatches = userRepository.searchUsers("").first().filter { user ->
+                    _state.value.remarks[user.id]?.alias
+                        ?.contains(trimmed, ignoreCase = true) == true
+                }
+                _state.update { it.copy(contacts = merge(aliasMatches, local)) }
             }
             delay(300) // debounce before hitting the network
             _state.update { it.copy(isLoading = true) }

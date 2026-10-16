@@ -6,54 +6,50 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Rule
 import org.junit.Test
+import app.gagachat.feature.chat.presentation.LocationPreview
 
-class ContactShareReviewTest {
+/** Regression checks for explicit privacy and location-send confirmation. */
+class WeChatAttachmentFlowTest {
     @get:Rule val compose = createComposeRule()
 
-    @Test fun contactPhoneIsExcludedUnlessUserOptsIn() {
+    @Test fun contactPhoneIsPrivateUntilUserOptsIn() {
         var sentName: String? = null
         var sentPhone: String? = null
-        var count = 0
         compose.setContent {
             MaterialTheme {
-                ContactShareReviewDialog(
-                    contact = PickedContact("Sample Contact", "+880123456789"),
-                    onCancel = {},
+                ContactCardConfirmDialog(
+                    contact = PickedContact("Sample Contact", "+880123456"),
+                    onDismiss = {},
                     onConfirm = { name, phone ->
                         sentName = name
                         sentPhone = phone
-                        count++
                     },
                 )
             }
         }
-        compose.onNodeWithText("Sample Contact").assertIsDisplayed()
-        compose.onNodeWithText("Include phone number").assertIsDisplayed()
-        assertEquals(0, count)
+        compose.onNodeWithText("Contact name only").assertIsDisplayed()
         compose.onNodeWithText("Send card").performClick()
-        assertEquals(1, count)
         assertEquals("Sample Contact", sentName)
         assertNull(sentPhone)
     }
 
-    @Test fun cancelDoesNotShareContact() {
-        var sent = false
-        var cancelled = false
+    @Test fun locationPickerRequiresExplicitSend() {
+        var sent: Pair<Double, Double>? = null
         compose.setContent {
             MaterialTheme {
-                ContactShareReviewDialog(
-                    contact = PickedContact("Sample Contact", null),
-                    onCancel = { cancelled = true },
-                    onConfirm = { _, _ -> sent = true },
+                LocationPreviewDialog(
+                    preview = LocationPreview(23.8103, 90.4125, 20f, 300L, "gps"),
+                    onConfirm = { a,b -> sent = a to b },
+                    onDismiss = {},
                 )
             }
         }
-        compose.onNodeWithText("Cancel").performClick()
-        assertFalse(sent)
-        assertEquals(true, cancelled)
+        compose.onNodeWithText("Send location").assertIsDisplayed()
+        compose.onNodeWithText("Send").performClick()
+        assertEquals(23.8103, sent!!.first, 0.00001)
+        assertEquals(90.4125, sent!!.second, 0.00001)
     }
 }

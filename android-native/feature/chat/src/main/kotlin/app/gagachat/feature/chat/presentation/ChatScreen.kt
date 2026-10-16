@@ -127,7 +127,7 @@ import app.gagachat.feature.chat.presentation.components.TranslateDialog
 import app.gagachat.feature.chat.presentation.components.MessageComposer
 import app.gagachat.feature.chat.presentation.components.TypingIndicator
 import app.gagachat.feature.chat.presentation.components.PickedContact
-import app.gagachat.feature.chat.presentation.components.ContactShareReviewDialog
+import app.gagachat.feature.chat.presentation.components.ContactCardConfirmDialog
 import app.gagachat.feature.chat.presentation.components.rememberContactPicker
 import app.gagachat.feature.chat.presentation.components.rememberDocumentOpener
 import app.gagachat.feature.chat.presentation.components.rememberDocumentSaver
@@ -238,9 +238,9 @@ fun ChatRoute(
         onAudioPicked = { viewModel.sendMedia(it, "audio") },
         onCameraPhotoPicked = { reviewUris = listOf(it) },
     )
-    var contactToReview by remember { mutableStateOf<PickedContact?>(null) }
+    var pendingContactCard by remember { mutableStateOf<PickedContact?>(null) }
     val contactPicker = rememberContactPicker(
-        onContactPicked = { contactToReview = it },
+        onContactPicked = { pendingContactCard = it },
     )
     val context = LocalContext.current
     val documentOpener = rememberDocumentOpener()
@@ -645,25 +645,24 @@ fun ChatRoute(
             )
         }
 
-        contactToReview?.let { contact ->
-            ContactShareReviewDialog(
-                contact = contact,
-                onCancel = { contactToReview = null },
-                onConfirm = { name, phone ->
-                    // No phone-book data leaves this device before consent.
-                    viewModel.shareContact(name, phone)
-                    contactToReview = null
-                },
-            )
-        }
-
         reviewUris?.let { uris ->
             MediaReviewSheet(
                 uris = uris,
                 onDismiss = { reviewUris = null },
-                onSend = { ordered, caption ->
-                    viewModel.sendImageAlbum(ordered, caption)
+                onSend = { ordered, caption, original ->
+                    viewModel.sendImageAlbum(ordered, caption, original)
                     reviewUris = null
+                },
+            )
+        }
+
+        pendingContactCard?.let { card ->
+            ContactCardConfirmDialog(
+                contact = card,
+                onDismiss = { pendingContactCard = null },
+                onConfirm = { name, phone ->
+                    viewModel.shareContact(name, phone)
+                    pendingContactCard = null
                 },
             )
         }

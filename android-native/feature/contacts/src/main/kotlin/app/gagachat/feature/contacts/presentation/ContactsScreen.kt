@@ -8,6 +8,12 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PersonSearch
+import androidx.compose.material.icons.filled.EditNote
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
@@ -29,6 +35,7 @@ fun ContactsRoute(
     viewModel: ContactsViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    var remarkTarget by remember { mutableStateOf<app.gagachat.core.model.User?>(null) }
 
     GagaScaffold(title = "Contacts", onBack = onNavigateBack) { padding ->
         Column(
@@ -48,8 +55,18 @@ fun ContactsRoute(
                 ) {
                     items(items = state.contacts, key = { it.id }) { user ->
                         GagaListRow(
-                            title = user.displayLabel,
-                            subtitle = user.status.name.lowercase().replaceFirstChar { it.uppercase() },
+                            title = state.remarks[user.id]?.alias?.takeIf { it.isNotBlank() } ?: user.displayLabel,
+                            subtitle = user.displayLabel + " · " +
+                                user.status.name.lowercase().replaceFirstChar { it.uppercase() },
+                            trailing = {
+                                IconButton(onClick = {
+                                    viewModel.clearRemarkError()
+                                    remarkTarget = user
+                                }) {
+                                    Icon(Icons.Default.EditNote,
+                                        contentDescription = "Set private remark for ${user.displayLabel}")
+                                }
+                            },
                             avatar = {
                                 GagaAvatar(
                                     imageUrl = user.avatar,
@@ -88,5 +105,19 @@ fun ContactsRoute(
                 )
             }
         }
+    }
+    remarkTarget?.let { contact ->
+        ContactRemarkDialog(
+            contact = contact,
+            initial = state.remarks[contact.id] ?: PrivateContactRemark(),
+            saving = state.savingRemark,
+            error = state.remarkError,
+            onDismiss = { if (!state.savingRemark) remarkTarget = null },
+            onSave = { alias, mobile, tags, remark ->
+                viewModel.saveRemark(contact.id, alias, mobile, tags, remark) {
+                    remarkTarget = null
+                }
+            },
+        )
     }
 }
