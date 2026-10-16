@@ -47,36 +47,50 @@ fun rememberContactPicker(
 private fun resolveContact(context: Context, uri: Uri): PickedContact? = runCatching {
     var name: String? = null
     var phone: String? = null
+    var contactId: String? = null
+    var hasPhone = false
 
-    // Display name is available straight from the picked contact row.
+    // PickContact returns a content Uri for a contact, not necessarily a
+    // LOOKUP_KEY. Never infer that key from the last Uri path segment.
     context.contentResolver.query(
         uri,
-        arrayOf(ContactsContract.Contacts.DISPLAY_NAME),
+        arrayOf(
+            ContactsContract.Contacts._ID,
+            ContactsContract.Contacts.DISPLAY_NAME,
+            ContactsContract.Contacts.HAS_PHONE_NUMBER,
+        ),
         null,
         null,
         null,
     )?.use { cursor ->
         if (cursor.moveToFirst()) {
-            val idx = cursor.getColumnIndex(ContactsContract.Contacts.DISPLAY_NAME)
-            if (idx >= 0) name = cursor.getString(idx)
+            val idIndex = cursor.getColumnIndex(ContactsContract.Contacts._ID)
+            val nameIndex = cursor.getColumnIndex(ContactsContract.Contacts.DISPLAY_NAME)
+            val phoneIndex = cursor.getColumnIndex(ContactsContract.Contacts.HAS_PHONE_NUMBER)
+            if (idIndex >= 0) contactId = cursor.getString(idIndex)
+            if (nameIndex >= 0) name = cursor.getString(nameIndex)
+            if (phoneIndex >= 0) hasPhone = cursor.getInt(phoneIndex) > 0
         }
     }
 
-    // Phone numbers live in the data table keyed by the contact lookup id.
-    val lookupKey = uri.lastPathSegment
-    if (!lookupKey.isNullOrBlank()) {
-        context.contentResolver.query(
-            ContactsContract.CommonDataKinds.Phone.CONTENT_URI,
-            arrayOf(ContactsContract.CommonDataKinds.Phone.NUMBER),
-            ContactsContract.CommonDataKinds.Phone.LOOKUP_KEY + " = ?",
-            arrayOf(lookupKey),
-            null,
-        )?.use { cursor ->
-            if (cursor.moveToFirst()) {
-                val idx = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.NUMBER)
-                if (idx >= 0) phone = cursor.getString(idx)
+    // A temporary picker URI grant may not authorize querying the full
+    // Phone table on every Android provider. Fall back to name-only rather
+    // than requesting broad contacts permission without consent.
+    if (hasPhone && !contactId.isNullOrBlank()) {
+        phone = runCatching {
+            context.contentResolver.query(
+                ContactsContract.CommonDataKinds.Phone.CONTENT_URI,
+                arrayOf(ContactsContract.CommonDataKinds.Phone.NUMBER),
+                ContactsContract.CommonDataKinds.Phone.CONTACT_ID + " = ?",
+                arrayOf(contactId),
+                null,
+            )?.use { cursor ->
+                if (cursor.moveToFirst()) {
+                    val idx = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.NUMBER)
+                    if (idx >= 0) cursor.getString(idx) else null
+                } else null
             }
-        }
+        }.getOrNull()
     }
 
     val resolvedName = name?.takeIf { it.isNotBlank() } ?: phone ?: return null
