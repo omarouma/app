@@ -24,6 +24,8 @@ import app.gagachat.core.data.repository.MediaRepository
 import app.gagachat.core.data.repository.MessageRepository
 import app.gagachat.core.data.repository.NotificationRepository
 import app.gagachat.core.data.repository.SavedMessagesRepository
+import app.gagachat.core.data.repository.SavedPlacesRepository
+import app.gagachat.core.data.repository.DefaultSavedPlacesRepository
 import app.gagachat.core.data.repository.UserRepository
 import app.gagachat.core.data.repository.WalletRepository
 import app.gagachat.core.data.preferences.AccountPrivacyController
@@ -96,6 +98,10 @@ abstract class DataModule {
     @Binds
     @Singleton
     abstract fun bindLinkPreviewRepository(impl: DefaultLinkPreviewRepository): LinkPreviewRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindSavedPlacesRepository(impl: DefaultSavedPlacesRepository): SavedPlacesRepository
 
     /**
      * Settings Center seams (Master Spec §8). The concrete stores are already

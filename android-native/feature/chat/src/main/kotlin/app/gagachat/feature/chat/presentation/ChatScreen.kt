@@ -219,6 +219,7 @@ fun ChatRoute(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val pendingLocation by viewModel.pendingLocation.collectAsStateWithLifecycle()
+    val savedPlaces by viewModel.savedPlaces.collectAsStateWithLifecycle()
     val linkPreviews by viewModel.linkPreviews.collectAsStateWithLifecycle()
     val enterToSend by viewModel.enterToSend.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -640,7 +641,12 @@ fun ChatRoute(
         pendingLocation?.let { preview ->
             LocationPreviewDialog(
                 preview = preview,
+                savedPlaces = savedPlaces,
                 onConfirm = { lat, lon -> viewModel.confirmShareLocation(lat, lon) },
+                onSaveFavourite = { label, detail, lat, lon ->
+                    viewModel.saveLocationFavourite(label, detail, lat, lon)
+                },
+                onDeleteFavourite = viewModel::deleteLocationFavourite,
                 onDismiss = viewModel::dismissLocationPreview,
             )
         }

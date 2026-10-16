@@ -9,10 +9,13 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.BookmarkAdd
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -23,6 +26,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import app.gagachat.core.model.SavedPlace
 import app.gagachat.feature.chat.presentation.LocationPreview
 import java.util.Locale
 import kotlinx.coroutines.Dispatchers
@@ -52,7 +56,10 @@ private fun Address.toCandidate(): AddressCandidate? {
 @Composable
 fun LocationPreviewDialog(
     preview: LocationPreview,
+    savedPlaces: List<SavedPlace> = emptyList(),
     onConfirm: (Double, Double) -> Unit,
+    onSaveFavourite: (label: String, detail: String, latitude: Double, longitude: Double) -> Unit = { _, _, _, _ -> },
+    onDeleteFavourite: (String) -> Unit = {},
     onDismiss: () -> Unit,
 ) {
     var latitude by remember(preview) { mutableDoubleStateOf(preview.latitude) }
@@ -64,6 +71,7 @@ fun LocationPreviewDialog(
     var candidates by remember { mutableStateOf<List<AddressCandidate>>(emptyList()) }
     var lookupError by remember { mutableStateOf<String?>(null) }
     var pinLabel by remember { mutableStateOf("Selected map pin") }
+    var pinDetail by remember { mutableStateOf("") }
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
@@ -102,6 +110,12 @@ fun LocationPreviewDialog(
                     TextButton(onClick = onDismiss) { Text("Cancel") }
                     Text("Send location", style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                    IconButton(
+                        onClick = { onSaveFavourite(pinLabel, pinDetail, latitude, longitude) },
+                        enabled = !searchBusy && latitude.isFinite() && longitude.isFinite(),
+                    ) {
+                        Icon(Icons.Default.BookmarkAdd, contentDescription = "Save this place")
+                    }
                     Button(
                         onClick = { onConfirm(latitude, longitude) },
                         enabled = !searchBusy && latitude.isFinite() && longitude.isFinite(),
@@ -116,6 +130,7 @@ fun LocationPreviewDialog(
                             longitude = lng
                             showingSearchResults = false
                             pinLabel = "Selected map pin"
+                            pinDetail = ""
                             lookupError = null
                         },
                         modifier = Modifier.fillMaxSize(),
@@ -132,6 +147,7 @@ fun LocationPreviewDialog(
                             longitude = preview.longitude
                             showingSearchResults = false
                             pinLabel = "Current location"
+                            pinDetail = ""
                         }) {
                             Icon(Icons.Default.MyLocation, contentDescription = "My location")
                         }
@@ -175,6 +191,7 @@ fun LocationPreviewDialog(
                                                 latitude = candidates.first().lat
                                                 longitude = candidates.first().lon
                                                 pinLabel = candidates.first().label
+                                                pinDetail = candidates.first().detail
                                                 // Reverse results may update automatically on map changes.
                                             }
                                         }
@@ -187,13 +204,47 @@ fun LocationPreviewDialog(
                             Text(it, color = MaterialTheme.colorScheme.error,
                                 style = MaterialTheme.typography.bodySmall)
                         }
-                        Text("Select a place or send the map pin",
-                            fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.titleSmall)
+                        if (savedPlaces.isNotEmpty()) {
+                            Text("Your saved places",
+                                fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.titleSmall)
+                        }
                         LazyColumn(modifier = Modifier.fillMaxWidth().heightIn(max = 205.dp)) {
+                            items(savedPlaces, key = { "fav:${it.id}" }) { place ->
+                                Row(
+                                    modifier = Modifier.fillMaxWidth().clickable {
+                                        latitude = place.latitude
+                                        longitude = place.longitude
+                                        showingSearchResults = true
+                                        pinLabel = place.label
+                                        pinDetail = place.detail
+                                        lookupError = null
+                                    }.padding(vertical = 8.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Icon(Icons.Default.Star, contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(20.dp))
+                                    Spacer(Modifier.width(12.dp))
+                                    Column(Modifier.weight(1f)) {
+                                        Text(place.label, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                        Text(
+                                            place.detail.ifBlank { place.coordinateLabel },
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            maxLines = 1, overflow = TextOverflow.Ellipsis,
+                                        )
+                                    }
+                                    IconButton(onClick = { onDeleteFavourite(place.id) }) {
+                                        Icon(Icons.Default.Delete, contentDescription = "Delete saved place",
+                                            modifier = Modifier.size(18.dp))
+                                    }
+                                }
+                            }
                             item {
                                 Row(
                                     modifier = Modifier.fillMaxWidth().clickable {
                                         pinLabel = "Selected map pin"
+                                        pinDetail = ""
                                     }.padding(vertical = 10.dp),
                                     verticalAlignment = Alignment.CenterVertically,
                                 ) {
@@ -215,6 +266,7 @@ fun LocationPreviewDialog(
                                         longitude = place.lon
                                         showingSearchResults = true
                                         pinLabel = place.label
+                                        pinDetail = place.detail
                                         lookupError = null
                                     }.padding(vertical = 10.dp),
                                     verticalAlignment = Alignment.CenterVertically,
