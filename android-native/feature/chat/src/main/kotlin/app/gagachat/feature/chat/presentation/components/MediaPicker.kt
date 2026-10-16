@@ -3,6 +3,7 @@ package app.gagachat.feature.chat.presentation.components
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.result.PickVisualMediaRequest
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -36,11 +37,11 @@ fun rememberMediaPicker(
     val context = LocalContext.current
 
     val imagesLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetMultipleContents(),
+        contract = ActivityResultContracts.PickMultipleVisualMedia(maxItems = 10),
     ) { uris -> if (uris.isNotEmpty()) onImagesPicked(uris.take(10)) }
 
     val videoLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent(),
+        contract = ActivityResultContracts.PickVisualMedia(),
     ) { uri -> uri?.let(onVideoPicked) }
 
     val fileLauncher = rememberLauncherForActivityResult(
@@ -65,8 +66,8 @@ fun rememberMediaPicker(
 
     return remember(imagesLauncher, videoLauncher, fileLauncher, audioLauncher, cameraLauncher) {
         MediaPickerLaunchers(
-            pickImages = { imagesLauncher.launch("image/*") },
-            pickVideo = { videoLauncher.launch("video/*") },
+            pickImages = { imagesLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
+            pickVideo = { videoLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.VideoOnly)) },
             pickFile = { fileLauncher.launch(arrayOf(
                 "application/pdf", "text/*", "application/msword",
                 "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
