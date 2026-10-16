@@ -1,6 +1,8 @@
 package app.gagachat.feature.chat.presentation.components
 
 import android.graphics.Canvas as AndroidCanvas
+import android.graphics.Bitmap
+import android.graphics.Rect
 import android.graphics.Paint
 import android.graphics.Path
 
@@ -21,6 +23,7 @@ internal data class DoodleStroke(
     val points: List<NormPoint>,
     val colorArgb: Int,
     val widthFraction: Float,
+    val mosaic: Boolean = false,
 ) {
     val isDrawable: Boolean get() = points.size >= 2
 }
@@ -103,6 +106,7 @@ internal fun renderAnnotations(
     imageWidth: Int,
     imageHeight: Int,
     annotations: PhotoAnnotations,
+    bitmap: Bitmap? = null,
 ) {
     if (annotations.isEmpty || imageWidth <= 0 || imageHeight <= 0) return
     annotations.strokes.forEach { stroke ->
@@ -120,7 +124,22 @@ internal fun renderAnnotations(
             val py = point.y * imageHeight
             if (index == 0) path.moveTo(px, py) else path.lineTo(px, py)
         }
-        canvas.drawPath(path, paint)
+        if (stroke.mosaic && bitmap != null) {
+            val small = Bitmap.createScaledBitmap(bitmap, maxOf(1, imageWidth / 24), maxOf(1, imageHeight / 24), false)
+            val clip = Path()
+            paint.getFillPath(path, clip)
+            val save = canvas.save()
+            try {
+                canvas.clipPath(clip)
+                canvas.drawBitmap(small, null, Rect(0, 0, imageWidth, imageHeight), Paint().apply { isFilterBitmap = false })
+            } finally {
+                canvas.restoreToCount(save)
+                if (small !== bitmap) small.recycle()
+            }
+        } else {
+            if (stroke.mosaic) paint.color = android.graphics.Color.GRAY
+            canvas.drawPath(path, paint)
+        }
     }
     annotations.stickers.forEach { sticker ->
         if (sticker.emoji.isBlank()) return@forEach

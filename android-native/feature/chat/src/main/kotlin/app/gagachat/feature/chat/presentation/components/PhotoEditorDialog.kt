@@ -8,6 +8,10 @@ import android.graphics.Matrix
 import android.graphics.Paint
 import android.graphics.Rect
 import android.net.Uri
+import androidx.compose.foundation.Image
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.foundation.horizontalScroll
+import kotlinx.coroutines.CancellationException
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -52,7 +56,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /** Editor tool selected in the annotation toolbar. */
-internal enum class EditorTool { NONE, DOODLE, STICKER }
+internal enum class EditorTool { NONE, DOODLE, MOSAIC, STICKER }
 
 private const val DOODLE_WIDTH_FRACTION = 0.012f
 private const val STICKER_SCALE_FRACTION = 0.20f
@@ -80,18 +84,21 @@ fun PhotoEditorDialog(
     var history by remember(uri) { mutableStateOf(AnnotationHistory()) }
     var tool by remember(uri) { mutableStateOf(EditorTool.NONE) }
     var doodleColor by remember(uri) { mutableIntStateOf(PhotoDoodlePalette.first()) }
-    var imageAspect by remember(uri) { mutableFloatStateOf(1f) }
     var activeStroke by remember(uri) { mutableStateOf<DoodleStroke?>(null) }
-
-    LaunchedEffect(uri) {
-        imageAspect = withContext(Dispatchers.IO) { readImageAspect(context, uri) }
-    }
-
+    var preview by remember(uri) { mutableStateOf<Bitmap?>(null) }
+    var rendering by remember { mutableStateOf(true) }
     val annotations = history.current
-    val previewAnnotations = activeStroke?.let { annotations.withStroke(it) } ?: annotations
-    // Rotating 90/270 swaps the displayed aspect so the annotation layer keeps
-    // the same normalized coordinates as the exported bitmap.
-    val effectiveAspect = if (rotation % 180 == 90) 1f / imageAspect else imageAspect
+    LaunchedEffect(uri, rotation, flipped, crop, overlayText, annotations) {
+        rendering = true
+        error = null
+        try {
+            preview = withContext(Dispatchers.IO) {
+                renderEditedPhoto(context, uri, rotation, flipped, crop, overlayText, annotations)
+            }
+        } catch (cancelled: CancellationException) { throw cancelled }
+        catch (_: Exception) { error = "Could not preview these edits. Undo or try another photo." }
+        finally { rendering = false }
+    }
 
     Dialog(onDismissRequest = { if (!busy) onDismiss() }) {
         Surface(
@@ -106,83 +113,43 @@ fun PhotoEditorDialog(
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 Text("Edit photo", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                Box(
-                    Modifier.fillMaxWidth().heightIn(min = 170.dp, max = 260.dp),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Box(
-                        Modifier
-                            .fillMaxWidth()
-                            .aspectRatio(effectiveAspect.coerceIn(0.2f, 5f))
-                            .clip(RoundedCornerShape(14.dp))
-                            .background(MaterialTheme.colorScheme.surfaceVariant)
-                            .pointerInput(tool, doodleColor) {
-                                if (tool != EditorTool.DOODLE) return@pointerInput
-                                detectDragGestures(
-                                    onDragStart = { offset ->
-                                        activeStroke = DoodleStroke(
-                                            points = listOf(
-                                                normalizePointer(offset.x, offset.y, size.width, size.height),
-                                            ),
-                                            colorArgb = doodleColor,
-                                            widthFraction = DOODLE_WIDTH_FRACTION,
-                                        )
-                                    },
-                                    onDrag = { change, _ ->
-                                        change.consume()
-                                        activeStroke = activeStroke?.let { stroke ->
-                                            stroke.copy(
-                                                points = stroke.points +
-                                                    normalizePointer(
-                                                        change.position.x,
-                                                        change.position.y,
-                                                        size.width,
-                                                        size.height,
-                                                    ),
-                                            )
-                                        }
-                                    },
-                                    onDragEnd = {
-                                        activeStroke?.takeIf { it.isDrawable }?.let { stroke ->
-                                            history = history.change(history.current.withStroke(stroke))
-                                        }
-                                        activeStroke = null
-                                    },
-                                    onDragCancel = { activeStroke = null },
-                                )
-                            },
-                    ) {
-                        AsyncImage(
-                            model = uri,
-                            contentDescription = "Photo being edited",
-                            contentScale = if (crop == PhotoCrop.ORIGINAL) ContentScale.Fit else ContentScale.Crop,
-                            modifier = Modifier.fillMaxSize()
-                                .graphicsLayer(rotationZ = rotation.toFloat(), scaleX = if (flipped) -1f else 1f),
-                        )
-                        Canvas(Modifier.fillMaxSize()) {
-                            drawIntoCanvas { canvas ->
-                                renderAnnotations(
-                                    canvas.nativeCanvas,
-                                    size.width.toInt(),
-                                    size.height.toInt(),
-                                    previewAnnotations,
-                                )
-                            }
-                        }
-                        if (overlayText.isNotBlank()) {
-                            Text(
-                                overlayText.take(80),
-                                color = Color.White,
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                modifier = Modifier.align(Alignment.BottomCenter)
-                                    .padding(8.dp)
-                                    .background(Color.Black.copy(alpha = 0.6f))
-                                    .padding(6.dp),
+                preview?.let { bitmap ->
+                    Box(Modifier.align(Alignment.CenterHorizontally)
+                        .widthIn(max = 280.dp * (bitmap.width.toFloat() / bitmap.height))
+                        .fillMaxWidth().aspectRatio(bitmap.width.toFloat() / bitmap.height)
+                        .clip(RoundedCornerShape(14.dp)).background(Color.Black)) {
+                        Image(bitmap.asImageBitmap(), "Edited photo preview", modifier = Modifier.fillMaxSize())
+                        Canvas(Modifier.fillMaxSize().pointerInput(tool, doodleColor, bitmap, busy, rendering) {
+                            if ((tool != EditorTool.DOODLE && tool != EditorTool.MOSAIC) || busy || rendering) return@pointerInput
+                            detectDragGestures(
+                                onDragStart = { offset ->
+                                    activeStroke = DoodleStroke(listOf(normalizePointer(offset.x, offset.y,
+                                        size.width, size.height)), doodleColor,
+                                        if (tool == EditorTool.MOSAIC) 0.09f else DOODLE_WIDTH_FRACTION, tool == EditorTool.MOSAIC)
+                                },
+                                onDrag = { change, _ ->
+                                    change.consume()
+                                    activeStroke = activeStroke?.let { stroke ->
+                                        if (stroke.points.size >= 2000) stroke else stroke.copy(points = stroke.points +
+                                            normalizePointer(change.position.x, change.position.y, size.width, size.height))
+                                    }
+                                },
+                                onDragEnd = {
+                                    activeStroke?.takeIf { it.isDrawable && annotations.strokes.size < 100 }?.let {
+                                        history = history.change(history.current.withStroke(it))
+                                    }
+                                    activeStroke = null
+                                }, onDragCancel = { activeStroke = null },
                             )
+                        }) {
+                            activeStroke?.let { stroke ->
+                                drawIntoCanvas { canvas -> renderAnnotations(canvas.nativeCanvas,
+                                    size.width.toInt(), size.height.toInt(), PhotoAnnotations(strokes = listOf(stroke))) }
+                            }
                         }
                     }
                 }
+                if (rendering) LinearProgressIndicator(Modifier.fillMaxWidth())
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedButton(onClick = { rotation = (rotation + 90) % 360 }, enabled = !busy,
                         modifier = Modifier.weight(1f)) {
@@ -210,7 +177,7 @@ fun PhotoEditorDialog(
                 }
 
                 // Doodle / sticker layer controls.
-                Row(verticalAlignment = Alignment.CenterVertically,
+                Row(Modifier.horizontalScroll(rememberScrollState()), verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("Draw", style = MaterialTheme.typography.labelLarge, modifier = Modifier.weight(1f))
                     FilterChip(
@@ -220,6 +187,9 @@ fun PhotoEditorDialog(
                         leadingIcon = { Icon(Icons.Filled.Brush, null, modifier = Modifier.size(16.dp)) },
                         label = { Text("Doodle") },
                     )
+                    FilterChip(selected = tool == EditorTool.MOSAIC, enabled = !busy,
+                        onClick = { tool = if (tool == EditorTool.MOSAIC) EditorTool.NONE else EditorTool.MOSAIC },
+                        label = { Text("Mosaic") })
                     FilterChip(
                         selected = tool == EditorTool.STICKER,
                         enabled = !busy,
@@ -248,7 +218,7 @@ fun PhotoEditorDialog(
                     }
                 }
                 if (tool == EditorTool.STICKER) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         PhotoStickerPalette.forEach { emoji ->
                             Surface(
                                 shape = RoundedCornerShape(10.dp),
@@ -320,7 +290,7 @@ fun PhotoEditorDialog(
                                 error = "Couldn't edit this image. Try another photo or send the original."
                             }
                         }
-                    }, enabled = !busy) {
+                    }, enabled = !busy && !rendering && preview != null && error == null) {
                         if (busy) CircularProgressIndicator(Modifier.size(16.dp),
                             strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onPrimary)
                         else Text("Apply edits")
@@ -369,7 +339,7 @@ internal fun centeredCrop(width: Int, height: Int, aspect: Float?): Rect {
     return Rect(left, top, left + w, top + h)
 }
 
-internal fun writeEditedPhoto(
+internal fun renderEditedPhoto(
     context: Context,
     uri: Uri,
     rotation: Int,
@@ -377,7 +347,7 @@ internal fun writeEditedPhoto(
     crop: PhotoCrop,
     annotation: String,
     annotations: PhotoAnnotations = PhotoAnnotations(),
-): Uri {
+): Bitmap {
     val resolver = context.contentResolver
     val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
     resolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, bounds) }
@@ -437,7 +407,7 @@ internal fun writeEditedPhoto(
             if (writable !== bitmap) bitmap.recycle()
             bitmap = writable
             val canvas = AndroidCanvas(bitmap)
-            renderAnnotations(canvas, bitmap.width, bitmap.height, annotations)
+            renderAnnotations(canvas, bitmap.width, bitmap.height, annotations, bitmap)
             if (annotation.isNotBlank()) {
                 val size = (bitmap.width / 19f).coerceIn(22f, 70f)
                 val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -453,14 +423,24 @@ internal fun writeEditedPhoto(
                 canvas.drawText(rendered, 15f, bitmap.height - 22f, paint)
             }
         }
-        val dir = File(context.cacheDir, "gaga_photo_edits").apply { mkdirs() }
-        val output = File(dir, "edited_${UUID.randomUUID()}.jpg")
-        output.outputStream().use { stream ->
-            check(bitmap.compress(Bitmap.CompressFormat.JPEG, 88, stream)) { "Could not write image" }
-        }
-        check(output.length() > 0L) { "Empty edited image" }
-        return Uri.fromFile(output)
-    } finally {
+        return bitmap
+    } catch (error: Throwable) {
         if (!bitmap.isRecycled) bitmap.recycle()
+        throw error
     }
+}
+
+internal fun writeEditedPhoto(context: Context, uri: Uri, rotation: Int, flipped: Boolean,
+    crop: PhotoCrop, annotation: String, annotations: PhotoAnnotations = PhotoAnnotations()): Uri {
+    val bitmap = renderEditedPhoto(context, uri, rotation, flipped, crop, annotation, annotations)
+    val dir = File(context.cacheDir, "gaga_photo_edits").apply { mkdirs() }
+    val output = File(dir, "edited_${UUID.randomUUID()}.jpg")
+    try {
+        output.outputStream().use { check(bitmap.compress(Bitmap.CompressFormat.JPEG, 88, it)) }
+        check(output.length() > 0L)
+        return Uri.fromFile(output)
+    } catch (error: Throwable) {
+        output.delete()
+        throw error
+    } finally { bitmap.recycle() }
 }

@@ -38,6 +38,7 @@ import kotlinx.coroutines.withContext
 private data class AddressCandidate(val label: String, val detail: String, val lat: Double, val lon: Double)
 
 private fun Address.toCandidate(): AddressCandidate? {
+    if (!hasLatitude() || !hasLongitude()) return null
     if (latitude !in -85.0511..85.0511 || longitude !in -180.0..180.0) return null
     val headline = featureName?.takeIf { it.isNotBlank() }
         ?: thoroughfare?.takeIf { it.isNotBlank() }
@@ -66,6 +67,7 @@ fun LocationPreviewDialog(
     var longitude by remember(preview) { mutableDoubleStateOf(preview.longitude) }
     var zoom by remember(preview) { mutableIntStateOf(16) }
     var query by remember { mutableStateOf("") }
+    var sent by remember { mutableStateOf(false) }
     var searchBusy by remember { mutableStateOf(false) }
     var showingSearchResults by remember { mutableStateOf(false) }
     var candidates by remember { mutableStateOf<List<AddressCandidate>>(emptyList()) }
@@ -112,13 +114,13 @@ fun LocationPreviewDialog(
                         fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
                     IconButton(
                         onClick = { onSaveFavourite(pinLabel, pinDetail, latitude, longitude) },
-                        enabled = !searchBusy && latitude.isFinite() && longitude.isFinite(),
+                        enabled = !sent && !searchBusy && latitude.isFinite() && longitude.isFinite(),
                     ) {
                         Icon(Icons.Default.BookmarkAdd, contentDescription = "Save this place")
                     }
                     Button(
-                        onClick = { onConfirm(latitude, longitude) },
-                        enabled = !searchBusy && latitude.isFinite() && longitude.isFinite(),
+                        onClick = { if (!sent) { sent = true; onConfirm(latitude, longitude) } },
+                        enabled = !sent && !searchBusy && latitude.isFinite() && longitude.isFinite(),
                         contentPadding = PaddingValues(horizontal = 18.dp, vertical = 8.dp),
                     ) { Text("Send") }
                 }
@@ -188,10 +190,6 @@ fun LocationPreviewDialog(
                                             } else {
                                                 candidates = matches.distinctBy { it.label to it.detail }
                                                 showingSearchResults = true
-                                                latitude = candidates.first().lat
-                                                longitude = candidates.first().lon
-                                                pinLabel = candidates.first().label
-                                                pinDetail = candidates.first().detail
                                                 // Reverse results may update automatically on map changes.
                                             }
                                         }
