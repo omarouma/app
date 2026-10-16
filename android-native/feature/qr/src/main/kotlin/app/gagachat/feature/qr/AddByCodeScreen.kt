@@ -164,9 +164,8 @@ fun AddByCodeScreen(
                         Spacer(Modifier.height(GagaDimens.space16))
                         if (state.isFriend) {
                             GagaSecondaryButton(
-                                text = "Open Chat",
+                                text = if (state.isSending) "Opening chat..." else "Open Chat",
                                 enabled = !state.isSending,
-                                loading = state.isSending,
                                 onClick = { viewModel.openChat(onOpenChat) },
                                 modifier = Modifier.fillMaxWidth(),
                                 leadingIcon = Icons.AutoMirrored.Filled.Chat,
@@ -197,8 +196,8 @@ fun AddByCodeScreen(
                                 )
                             }
                             Spacer(Modifier.height(8.dp))
-                            GagaSecondaryButton(text = "Cancel request", onClick = viewModel::cancelOutgoing,
-                                enabled = !state.isSending, loading = state.isSending,
+                            GagaSecondaryButton(text = if (state.isSending) "Updating request..." else "Cancel request", onClick = viewModel::cancelOutgoing,
+                                enabled = !state.isSending,
                                 modifier = Modifier.fillMaxWidth())
                         } else {
                             GagaPrimaryButton(
