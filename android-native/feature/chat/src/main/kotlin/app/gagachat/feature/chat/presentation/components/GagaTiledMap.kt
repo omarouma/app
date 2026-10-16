@@ -19,6 +19,7 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImagePainter
 import coil.compose.AsyncImage
 import kotlin.math.*
@@ -126,7 +127,9 @@ fun GagaTiledMap(
                 .padding(horizontal = 6.dp, vertical = 2.dp))
         Text(
             "© Esri · World Street Map",
-            style = MaterialTheme.typography.labelSmall,
+            // Cartographic attribution stays compact when app body text grows;
+            // Android's system font scaling still applies to these sp values.
+            style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp, lineHeight = 14.sp),
             color = androidx.compose.ui.graphics.Color.White,
             modifier = Modifier.align(Alignment.BottomEnd)
                 .background(androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.65f))

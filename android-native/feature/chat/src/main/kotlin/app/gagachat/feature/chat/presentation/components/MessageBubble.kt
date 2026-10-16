@@ -1351,20 +1351,6 @@ private fun LocationContent(message: Message) {
     if (showMapDetails && hasCoords) LocationMapViewerDialog(placeLabel, lat!!, lng!!) { showMapDetails = false }
 }
 
-/** Small translucent label chip used over the map thumbnail. */
-@Composable
-private fun MapChip(text: String, modifier: Modifier = Modifier) {
-    Text(
-        text = text,
-        color = Color.White,
-        style = MaterialTheme.typography.labelSmall,
-        modifier = modifier
-            .clip(RoundedCornerShape(4.dp))
-            .background(Color.Black.copy(alpha = 0.45f))
-            .padding(horizontal = 6.dp, vertical = 2.dp),
-    )
-}
-
 /** Contact-card bubble: avatar glyph, name and tappable phone number. */
 @Composable
 private fun ContactContent(message: Message, contentColor: Color) {
@@ -1694,12 +1680,7 @@ private fun LiveLocationContent(
         ) {
             if (hasCoords) GagaTiledMap(lat!!, lng!!, 16, null, Modifier.fillMaxSize())
             else Text("Location unavailable", Modifier.padding(12.dp))
-            MapChip(
-                text = if (active) "LIVE" else "Ended",
-                modifier = Modifier
-                    .align(Alignment.TopStart)
-                    .padding(GagaDimens.space6),
-            )
+
         }
         Row(
             modifier = Modifier

@@ -7,6 +7,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -43,6 +44,14 @@ class ChatConversationLayoutTest {
     private fun render(dark: Boolean = false, scale: Float = 1f) {
         compose.setContent {
             GagaTheme(darkTheme = dark, textScale = scale) {
+                val context = LocalContext.current
+                DisposableEffect(context) {
+                    val activity = generateSequence(context) { (it as? android.content.ContextWrapper)?.baseContext }
+                        .filterIsInstance<android.app.Activity>().firstOrNull()
+                    val originalMode = activity?.window?.attributes?.softInputMode
+                    activity?.window?.setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
+                    onDispose { if (originalMode != null) activity.window.setSoftInputMode(originalMode) }
+                }
                 Surface {
                     Column(Modifier.width(320.dp).fillMaxHeight()) {
                         GagaTopAppBar("Sample Contact", subtitle = "last seen recently", compactHeader = true,
@@ -72,11 +81,13 @@ class ChatConversationLayoutTest {
         assertTrue("Composer controls should fit within 60dp", row.height / density <= 60f)
         compose.onNodeWithTag("chat-call-card").performClick()
         assertEquals(true, videoCall)
+        save("compact-light")
         compose.onNodeWithTag("chat-message-input").performTextInput("Hello")
         compose.onNodeWithContentDescription("Send message").assertIsDisplayed().performClick()
         assertEquals(1, sent)
         compose.onNodeWithContentDescription("Record voice message").assertIsDisplayed()
-        save("compact-light")
+        compose.onNodeWithText("Sample Contact").assertIsDisplayed()
+        save("keyboard-input")
     }
     @Test fun locationCardIsCompactAndOpensAnInAppMap() {
         render()
