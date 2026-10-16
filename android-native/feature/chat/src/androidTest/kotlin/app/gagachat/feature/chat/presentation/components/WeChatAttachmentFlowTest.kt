@@ -1,6 +1,8 @@
 package app.gagachat.feature.chat.presentation.components
 
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.ui.test.isDisplayed
+import androidx.compose.ui.test.onAllNodes
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
@@ -47,7 +49,28 @@ class WeChatAttachmentFlowTest {
                 )
             }
         }
-        compose.onNodeWithText("Send location").assertIsDisplayed()
+        // Capture actual window pixels and semantics even when the visibility
+        // assertion fails, so layout failures can be diagnosed from CI artifacts.
+        try {
+            compose.waitUntil(timeoutMillis = 5_000) {
+                compose.onNodeWithText("Send location").isDisplayed()
+            }
+            compose.onNodeWithText("Send location").assertIsDisplayed()
+        } finally {
+            val instrumentation = androidx.test.platform.app.InstrumentationRegistry.getInstrumentation()
+            val directory = java.io.File(instrumentation.targetContext.getExternalFilesDir("screenshots"), "location")
+            directory.mkdirs()
+            instrumentation.uiAutomation.takeScreenshot()?.let { bitmap ->
+                java.io.File(directory, "location-window.png").outputStream().use {
+                    bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it)
+                }
+                bitmap.recycle()
+            }
+            java.io.File(directory, "location-semantics.txt").writeText(
+                compose.onAllNodes(androidx.compose.ui.test.isRoot()).fetchSemanticsNodes()
+                    .joinToString("\n") { it.toString() },
+            )
+        }
         compose.onNodeWithText("Send").performClick()
         assertEquals(23.8103, sent!!.first, 0.00001)
         assertEquals(90.4125, sent!!.second, 0.00001)
