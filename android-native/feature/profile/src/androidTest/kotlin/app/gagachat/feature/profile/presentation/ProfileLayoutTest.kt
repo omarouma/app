@@ -22,6 +22,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 class ProfileLayoutTest {
     @get:Rule val compose = createComposeRule()
 
