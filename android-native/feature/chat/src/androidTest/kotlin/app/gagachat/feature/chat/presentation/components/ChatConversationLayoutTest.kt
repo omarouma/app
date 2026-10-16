@@ -108,8 +108,10 @@ class ChatConversationLayoutTest {
                 Bubble(message("photo", MessageType.IMAGE).copy(localMediaPath = file.absolutePath))
             } } }
             compose.waitUntil(5_000) {
-                val bounds = compose.onNodeWithContentDescription("Photo").fetchSemanticsNode().boundsInRoot
-                kotlin.math.abs(bounds.width / bounds.height - 1.5f) < 0.05f
+                runCatching {
+                    val bounds = compose.onNodeWithContentDescription("Photo").fetchSemanticsNode().boundsInRoot
+                    kotlin.math.abs(bounds.width / bounds.height - 1.5f) < 0.05f
+                }.getOrDefault(false)
             }
             compose.onNodeWithContentDescription("Photo").performClick()
             assertEquals(1, mediaOpens)

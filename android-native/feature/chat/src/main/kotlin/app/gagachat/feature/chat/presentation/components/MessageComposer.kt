@@ -233,7 +233,13 @@ fun MessageComposer(
                                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     innerTextField()
                                 }
-                                if (!compactComposer) IconButton(onClick = { showEmojiPanel = !showEmojiPanel }) {
+                                if (!compactComposer) IconButton(onClick = {
+                                    showEmojiPanel = !showEmojiPanel
+                                    if (showEmojiPanel) {
+                                        keyboardController?.hide()
+                                        focusManager.clearFocus()
+                                    }
+                                }) {
                                     Icon(Icons.Filled.EmojiEmotions,
                                         if (showEmojiPanel) "Close emoji picker" else "Open emoji picker",
                                         modifier = Modifier.size(22.dp),

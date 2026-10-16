@@ -1307,8 +1307,8 @@ private fun LocationContent(message: Message) {
     val hasCoords = validChatCoordinates(lat, lng)
     val coordsText = if (hasCoords) String.format(Locale.US, "%.5f, %.5f", lat, lng) else "Coordinates unavailable"
     val placeLabel = message.text?.takeIf { it.isNotBlank() } ?: "Shared location"
-    val openMap = { if (hasCoords) showMapDetails = true }
-    val directions = {
+    val openMap: () -> Unit = { if (hasCoords) showMapDetails = true }
+    val directions: () -> Unit = {
         if (hasCoords) {
             val intent = Intent(Intent.ACTION_VIEW, Uri.parse("google.navigation:q=$lat,$lng"))
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
