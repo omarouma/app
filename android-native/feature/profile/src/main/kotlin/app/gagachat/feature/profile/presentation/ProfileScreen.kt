@@ -526,14 +526,14 @@ internal fun ProfileHeader(
                         .align(Alignment.BottomEnd)
                         .size(28.dp)
                         .clip(CircleShape)
-                        .background(GagaGreen)
+                        .background(MaterialTheme.colorScheme.primary)
                         .border(width = 2.dp, color = MaterialTheme.colorScheme.surface, shape = CircleShape),
                     contentAlignment = Alignment.Center,
                 ) {
                     Icon(
                         Icons.Filled.Check,
                         contentDescription = "Verified",
-                        tint = Color.White,
+                        tint = MaterialTheme.colorScheme.onPrimary,
                         modifier = Modifier.size(16.dp),
                     )
                 }
@@ -568,7 +568,7 @@ internal fun ProfileHeader(
                 Icon(
                     Icons.Filled.Verified,
                     contentDescription = "Verified",
-                    tint = GagaGreen,
+                    tint = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.size(GagaDimens.iconMedium),
                 )
             }
@@ -605,7 +605,7 @@ internal fun ProfileHeader(
                 Icon(
                     Icons.Filled.Link,
                     contentDescription = null,
-                    tint = GagaGreen,
+                    tint = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.size(GagaDimens.iconSmall),
                 )
                 Spacer(Modifier.width(GagaDimens.space4))
@@ -615,7 +615,7 @@ internal fun ProfileHeader(
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                     style = MaterialTheme.typography.bodyMedium,
-                    color = GagaGreen,
+                    color = MaterialTheme.colorScheme.primary,
                     fontWeight = FontWeight.Medium,
                 )
             }
@@ -1108,14 +1108,14 @@ private fun ProBadge() {
         Icon(
             Icons.Filled.WorkspacePremium,
             contentDescription = null,
-            tint = Color.White,
+            tint = Color(0xFF4A2B00),
             modifier = Modifier.size(14.dp),
         )
         Spacer(Modifier.width(2.dp))
         Text(
             text = "PRO",
             style = MaterialTheme.typography.labelSmall,
-            color = Color.White,
+            color = Color(0xFF4A2B00),
             fontWeight = FontWeight.Bold,
         )
     }
@@ -1144,7 +1144,7 @@ internal fun CompletenessCard(percent: Int, privacy: app.gagachat.core.model.Acc
                 text = "$percent%",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
-                color = GagaGreen,
+                color = MaterialTheme.colorScheme.primary,
             )
         }
         Spacer(Modifier.height(GagaDimens.space4))
@@ -1160,7 +1160,7 @@ internal fun CompletenessCard(percent: Int, privacy: app.gagachat.core.model.Acc
                 .fillMaxWidth()
                 .height(8.dp)
                 .clip(RoundedCornerShape(50)),
-            color = GagaGreen,
+            color = MaterialTheme.colorScheme.primary,
             trackColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
         )
         Spacer(Modifier.height(GagaDimens.space12))
@@ -1189,7 +1189,7 @@ private fun StatusTag(label: String, onClick: () -> Unit) {
         Icon(
             Icons.Filled.CheckCircle,
             contentDescription = null,
-            tint = GagaGreen,
+            tint = MaterialTheme.colorScheme.primary,
             modifier = Modifier.size(14.dp),
         )
         Spacer(Modifier.width(GagaDimens.space4))

@@ -183,7 +183,8 @@ fun SettingsRoute(
                     title = state.displayName ?: strings.accountMyProfile,
                     subtitle = state.email ?: state.phone,
                     leadingIcon = Icons.Filled.AccountCircle,
-                    leadingIconTint = IconGreen,
+                    leadingIconTint = MaterialTheme.colorScheme.primary,
+                    leadingIconContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
                     leadingContent = {
                         app.gagachat.core.ui.component.GagaAvatar(imageUrl = state.avatar, name = state.displayName, size = 36.dp)
                     },
@@ -194,7 +195,8 @@ fun SettingsRoute(
                     title = strings.accountEditProfile,
                     subtitle = strings.accountEditProfileSubtitle,
                     leadingIcon = Icons.Filled.Edit,
-                    leadingIconTint = IconGreen,
+                    leadingIconTint = MaterialTheme.colorScheme.primary,
+                    leadingIconContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
                     onClick = { onNavigate(SettingsRoutes.EDIT_PROFILE) },
                 )
                 GagaDivider()

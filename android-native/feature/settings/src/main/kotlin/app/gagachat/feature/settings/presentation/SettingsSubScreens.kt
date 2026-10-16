@@ -472,7 +472,8 @@ fun AboutSettingsScreen(onBack: () -> Unit, onOpenUpdate: () -> Unit = {}) {
                 title = "App update",
                 subtitle = "Check for and install the latest version",
                 leadingIcon = Icons.Filled.SystemUpdate,
-                leadingIconTint = AboutGreen,
+                leadingIconTint = MaterialTheme.colorScheme.primary,
+                    leadingIconContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
                 onClick = onOpenUpdate,
             )
             GagaDivider()
@@ -480,7 +481,8 @@ fun AboutSettingsScreen(onBack: () -> Unit, onOpenUpdate: () -> Unit = {}) {
                 title = "Rate GaGa Chat",
                 subtitle = "Leave a review on Google Play",
                 leadingIcon = Icons.Filled.Star,
-                leadingIconTint = AboutGreen,
+                leadingIconTint = MaterialTheme.colorScheme.primary,
+                    leadingIconContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
                 onClick = { openPlayStore(context) },
             )
             GagaDivider()
@@ -488,7 +490,8 @@ fun AboutSettingsScreen(onBack: () -> Unit, onOpenUpdate: () -> Unit = {}) {
                 title = "Contact support",
                 subtitle = SUPPORT_EMAIL,
                 leadingIcon = Icons.Filled.Email,
-                leadingIconTint = AboutGreen,
+                leadingIconTint = MaterialTheme.colorScheme.primary,
+                    leadingIconContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
                 onClick = { emailSupport(context) },
             )
             GagaDivider()
@@ -496,21 +499,24 @@ fun AboutSettingsScreen(onBack: () -> Unit, onOpenUpdate: () -> Unit = {}) {
                 title = "Open-source licences",
                 subtitle = "Libraries used in this app",
                 leadingIcon = Icons.Filled.Description,
-                leadingIconTint = AboutGreen,
+                leadingIconTint = MaterialTheme.colorScheme.primary,
+                    leadingIconContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
                 onClick = { showLicenses = true },
             )
             GagaDivider()
             GagaSettingsRow(
                 title = "Terms of service",
                 leadingIcon = Icons.Filled.Check,
-                leadingIconTint = AboutGreen,
+                leadingIconTint = MaterialTheme.colorScheme.primary,
+                    leadingIconContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
                 onClick = { runCatching { uriHandler.openUri(TERMS_URL) } },
             )
             GagaDivider()
             GagaSettingsRow(
                 title = "Privacy policy",
                 leadingIcon = Icons.Filled.Lock,
-                leadingIconTint = AboutGreen,
+                leadingIconTint = MaterialTheme.colorScheme.primary,
+                    leadingIconContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
                 onClick = { runCatching { uriHandler.openUri(PRIVACY_URL) } },
             )
             GagaDivider()
@@ -518,7 +524,8 @@ fun AboutSettingsScreen(onBack: () -> Unit, onOpenUpdate: () -> Unit = {}) {
                 title = "Copy version info",
                 subtitle = "Version $versionLabel",
                 leadingIcon = Icons.Filled.ContentCopy,
-                leadingIconTint = AboutGreen,
+                leadingIconTint = MaterialTheme.colorScheme.primary,
+                    leadingIconContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
                 onClick = {
                     copyToClipboard(context, "GaGa Chat version", versionLabel)
                     scope.launch { snackbar.showSnackbar("Version copied") }
