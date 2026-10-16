@@ -80,6 +80,7 @@ fun LoginRoute(
 
     GagaScaffold(
         title = "",
+        showTopBar = false,
         snackbarHostState = snackbarHostState,
     ) { padding ->
         Column(
