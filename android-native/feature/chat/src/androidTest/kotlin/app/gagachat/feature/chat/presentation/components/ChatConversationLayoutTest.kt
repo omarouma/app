@@ -50,7 +50,7 @@ class ChatConversationLayoutTest {
                         .filterIsInstance<android.app.Activity>().firstOrNull()
                     val originalMode = activity?.window?.attributes?.softInputMode
                     activity?.window?.setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
-                    onDispose { if (originalMode != null) activity.window.setSoftInputMode(originalMode) }
+                    onDispose { if (originalMode != null) activity?.window?.setSoftInputMode(originalMode) }
                 }
                 Surface {
                     Column(Modifier.width(320.dp).fillMaxHeight()) {
