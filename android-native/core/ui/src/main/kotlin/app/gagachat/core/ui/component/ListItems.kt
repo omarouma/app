@@ -43,6 +43,7 @@ fun GagaSettingsRow(
     leadingIcon: ImageVector? = null,
     leadingIconTint: Color = MaterialTheme.colorScheme.onSurfaceVariant,
     trailing: (@Composable () -> Unit)? = null,
+    leadingIconContainerColor: Color = MaterialTheme.colorScheme.primaryContainer,
     onClick: (() -> Unit)? = null,
 ) {
     Row(
@@ -62,7 +63,7 @@ fun GagaSettingsRow(
                 contentDescription = null,
                 tint = leadingIconTint,
                 modifier = Modifier
-                    .background(MaterialTheme.colorScheme.primaryContainer, MaterialTheme.shapes.medium)
+                    .background(leadingIconContainerColor, MaterialTheme.shapes.medium)
                     .padding(10.dp)
                     .size(GagaDimens.iconMedium),
             )
