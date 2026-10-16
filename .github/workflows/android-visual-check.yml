@@ -45,11 +45,7 @@ jobs:
           script: |
             adb shell wm size 360x800
             adb shell wm density 160
-            gradle -p android-native --no-daemon --max-workers=2 -Pandroid.injected.androidTest.leaveApksInstalledAfterRun=true :core:ui:connectedDebugAndroidTest :feature:dailylife:connectedDebugAndroidTest :feature:chat:connectedDebugAndroidTest :feature:contacts:connectedDebugAndroidTest :feature:profile:connectedDebugAndroidTest
-            mkdir -p visual-checks
-            adb pull /sdcard/Android/data/app.gagachat.core.ui/files/screenshots visual-checks/ || adb pull /sdcard/Android/data/app.gagachat.core.ui.test/files/screenshots visual-checks/
-            adb pull /sdcard/Android/data/app.gagachat.feature.dailylife.test/files/screenshots visual-checks/today/
-            adb pull /sdcard/Android/data/app.gagachat.feature.profile.test/files/screenshots visual-checks/profile/
+            bash android-native/ci/run_visual_checks.sh
       - uses: actions/upload-artifact@v4
         if: always()
         with:
