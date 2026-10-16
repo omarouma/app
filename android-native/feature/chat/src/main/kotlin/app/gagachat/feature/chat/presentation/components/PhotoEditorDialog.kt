@@ -75,7 +75,9 @@ fun PhotoEditorDialog(uri: Uri, onSave: (Uri) -> Unit, onDismiss: () -> Unit) {
                     TextButton(onClick = { change(PhotoEdits()); textDraft = "" }, enabled = !busy) { Text("Reset") }
                 }
                 preview?.let { bitmap ->
-                    Box(Modifier.fillMaxWidth().aspectRatio(bitmap.width.toFloat() / bitmap.height)
+                    Box(Modifier.align(Alignment.CenterHorizontally)
+                        .widthIn(max = 320.dp * (bitmap.width.toFloat() / bitmap.height))
+                        .fillMaxWidth().aspectRatio(bitmap.width.toFloat() / bitmap.height)
                         .background(Color.Black)) {
                         Image(bitmap.asImageBitmap(), "Edited photo preview", modifier = Modifier.fillMaxSize())
                         Canvas(Modifier.fillMaxSize().pointerInput(tool, penColor, bitmap, busy, rendering) {
