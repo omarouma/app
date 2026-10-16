@@ -387,6 +387,7 @@ fun ChatRoute(
         val videoInHeader = maxWidth >= 500.dp && fontScale <= 1.10f
         GagaScaffold(
             title = if (selectionMode) "${selectedIds.size} selected" else state.title,
+            compactHeader = true,
             subtitle = when {
                 state.isOtherTyping -> "typing\u2026"
                 // Groups/channels show the participant count; direct chats show

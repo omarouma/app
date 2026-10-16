@@ -4,11 +4,15 @@ import app.gagachat.feature.chat.presentation.opensMediaViewer
 
 import android.content.Intent
 import android.net.Uri
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.testTag
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -97,11 +101,6 @@ import app.gagachat.core.ui.util.TimeFormat
 import coil.compose.AsyncImage
 import coil.compose.AsyncImagePainter
 import java.util.Locale
-import kotlin.math.PI
-import kotlin.math.cos
-import kotlin.math.ln
-import kotlin.math.pow
-import kotlin.math.tan
 
 /**
  * A single chat bubble. Renders every message type, an optional quoted reply, a
@@ -140,6 +139,7 @@ fun MessageBubble(
     } else {
         GagaTheme.extraColors.onIncomingBubble
     }
+    val richCard = !message.isDeleted && message.type in setOf(MessageType.IMAGE, MessageType.VIDEO, MessageType.LOCATION)
     val shape = if (isOutgoing) OutgoingBubbleShape else IncomingBubbleShape
 
     BoxWithConstraints(modifier.fillMaxWidth()) {
@@ -176,7 +176,7 @@ fun MessageBubble(
                                 if (selectionMode) onToggleSelect(message) else onLongPress(message)
                             },
                         )
-                        .padding(horizontal = GagaDimens.space12, vertical = GagaDimens.space8),
+                        .padding(horizontal = if (richCard) 4.dp else 10.dp, vertical = if (richCard) 4.dp else 6.dp),
                 ) {
                     if (message.forwardedFrom != null && !message.isDeleted) {
                         ForwardedLabel(contentColor = contentColor)
@@ -733,6 +733,10 @@ private fun MediaPlaceholder(
     }
 }
 
+internal fun chatPhotoAspectRatio(width: Float, height: Float): Float =
+    if (width.isFinite() && height.isFinite() && width > 0f && height > 0f)
+        (width / height).coerceIn(0.85f, 1.8f) else 4f / 3f
+
 @Composable
 private fun MediaImage(
     message: Message,
@@ -742,11 +746,12 @@ private fun MediaImage(
 ) {
     val gate = rememberGatedRemoteUrl(message.localId, message.mediaUrl)
     val model = rememberExistingLocalMedia(message.localMediaPath) ?: gate.url
+    var aspect by remember(model) { mutableFloatStateOf(4f / 3f) }
     val hasPreview = model != null
     val status = mediaStatus(message, hasPreview = hasPreview, gated = gate.needsPrompt)
     Box(
         modifier = Modifier
-            .size(width = 220.dp, height = 160.dp)
+            .width(220.dp).aspectRatio(aspect)
             .clip(RoundedCornerShape(12.dp))
             .background(MaterialTheme.colorScheme.surfaceVariant)
             .clickable(enabled = hasPreview || gate.needsPrompt) {
@@ -758,7 +763,13 @@ private fun MediaImage(
             AsyncImage(
                 model = model,
                 contentDescription = "Photo",
-                contentScale = ContentScale.Crop,
+                contentScale = ContentScale.Fit,
+                onState = { state ->
+                    if (state is AsyncImagePainter.State.Success) {
+                        val size = state.painter.intrinsicSize
+                        aspect = chatPhotoAspectRatio(size.width, size.height)
+                    }
+                },
                 modifier = Modifier.fillMaxSize(),
             )
             // Drawn only over a real preview, so the upload lifecycle can never
@@ -1173,7 +1184,7 @@ private fun FileContent(message: Message, contentColor: Color, onRetry: () -> Un
  * signalling states (e.g. a busy line reads as "missed") into one user-facing
  * result (P0).
  */
-private enum class CallOutcome(val label: String) {
+internal enum class CallOutcome(val label: String) {
     MISSED("Missed"),
     BUSY("Busy"),
     DECLINED("Declined"),
@@ -1182,7 +1193,7 @@ private enum class CallOutcome(val label: String) {
     ANSWERED("Answered"),
 }
 
-private data class ParsedCallEvent(
+internal data class ParsedCallEvent(
     val outcome: CallOutcome,
     val isVideo: Boolean,
     val durationText: String?,
@@ -1194,7 +1205,7 @@ private data class ParsedCallEvent(
  * only ever present for answered calls, so it doubles as the "was connected"
  * signal.
  */
-private fun parseCallEvent(text: String?): ParsedCallEvent {
+internal fun parseCallEvent(text: String?): ParsedCallEvent {
     val raw = text.orEmpty()
     val lower = raw.lowercase(Locale.US)
     val isVideo = lower.contains("video")
@@ -1236,17 +1247,17 @@ private fun CallEventContent(
     val unanswered = parsed.outcome != CallOutcome.ANSWERED
     val accent = if (unanswered) MaterialTheme.colorScheme.error else contentColor
     // Answered calls carry a duration; unanswered ones carry the outcome label.
-    val subtitle = parsed.durationText ?: parsed.outcome.label
+    val subtitle = parsed.durationText ?: if (isOutgoing && parsed.outcome == CallOutcome.MISSED) "No answer" else parsed.outcome.label
     Row(
         verticalAlignment = Alignment.CenterVertically,
         // Tapping the call-log entry redials the same kind of call (P0). The
         // inner clickable consumes the tap so the bubble's media handler does not
         // also fire for a call event.
-        modifier = Modifier.clickable { onCallBack(parsed.isVideo) },
+        modifier = Modifier.heightIn(min = 48.dp).testTag("chat-call-card").clickable { onCallBack(parsed.isVideo) },
     ) {
         Box(
             modifier = Modifier
-                .size(36.dp)
+                .size(30.dp)
                 .clip(CircleShape)
                 .background(accent.copy(alpha = 0.14f)),
             contentAlignment = Alignment.Center,
@@ -1274,13 +1285,17 @@ private fun CallEventContent(
         }
         Spacer(Modifier.width(GagaDimens.space12))
         Icon(
-            imageVector = Icons.Filled.Call,
-            contentDescription = "Call back",
+            imageVector = if (parsed.isVideo) Icons.Filled.Videocam else Icons.Filled.Call,
+            contentDescription = if (parsed.isVideo) "Video call back" else "Voice call back",
             tint = contentColor.copy(alpha = 0.7f),
             modifier = Modifier.size(18.dp),
         )
     }
 }
+
+internal fun validChatCoordinates(latitude: Double?, longitude: Double?): Boolean =
+    latitude != null && longitude != null && latitude.isFinite() && longitude.isFinite() &&
+        latitude in -90.0..90.0 && longitude in -180.0..180.0
 
 @Composable
 private fun LocationContent(message: Message) {
@@ -1289,184 +1304,48 @@ private fun LocationContent(message: Message) {
     var showMapDetails by remember(message.localId) { mutableStateOf(false) }
     val lat = message.latitude
     val lng = message.longitude
-    val hasCoords = lat != null && lng != null
-    val coordsText = if (hasCoords) {
-        String.format(Locale.US, "%.5f, %.5f", lat, lng)
-    } else {
-        "Location"
-    }
-    // A place label may be supplied as the message text (e.g. a picked address);
-    // fall back to a neutral title so the card is never blank.
+    val hasCoords = validChatCoordinates(lat, lng)
+    val coordsText = if (hasCoords) String.format(Locale.US, "%.5f, %.5f", lat, lng) else "Coordinates unavailable"
     val placeLabel = message.text?.takeIf { it.isNotBlank() } ?: "Shared location"
-
-    val openMap = {
-        if (hasCoords) showMapDetails = true
-        Unit
-    }
+    val openMap = { if (hasCoords) showMapDetails = true }
     val directions = {
         if (hasCoords) {
-            val uri = Uri.parse("google.navigation:q=$lat,$lng")
-            val intent = Intent(Intent.ACTION_VIEW, uri).apply {
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            }
-            // Some devices have no navigation handler; fall back to the geo: view.
-            if (runCatching { context.startActivity(intent) }.isFailure) openMap()
-        }
-        Unit
-    }
-    val copyCoords = {
-        if (hasCoords) clipboard.setText(AnnotatedString(coordsText))
-        Unit
-    }
-
-    // The basemap tile is fetched live; if it cannot be loaded we keep the
-    // locally-drawn stylised map and label it, so a location message never shows
-    // a broken or blocked tile image.
-    var tileLoaded by remember(message.localId) { mutableStateOf(false) }
-    var tileFailed by remember(message.localId) { mutableStateOf(false) }
-
-    // Screen-reader friendly description for the whole card.
-    val a11yLabel = if (hasCoords) "$placeLabel at $coordsText" else placeLabel
-
-    Column(
-        modifier = Modifier
-            .width(240.dp)
-            .clip(RoundedCornerShape(14.dp))
-            .background(MaterialTheme.colorScheme.surfaceVariant)
-            .semantics { contentDescription = a11yLabel },
-    ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(124.dp)
-                .clickable(enabled = hasCoords, onClick = openMap)
-                .semantics {
-                    contentDescription = if (hasCoords) {
-                        "Map preview. $placeLabel. Double tap to open in maps"
-                    } else {
-                        "Map preview unavailable"
-                    }
-                },
-        ) {
-            // Stylised map base so the card always reads as a map, even offline.
-            StylisedMap(modifier = Modifier.fillMaxSize())
-            if (hasCoords) {
-                AsyncImage(
-                    model = mapTileUrl(lat!!, lng!!, 16),
-                    contentDescription = "Map preview",
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize(),
-                    onState = { state ->
-                        when (state) {
-                            is AsyncImagePainter.State.Success -> {
-                                tileLoaded = true
-                                tileFailed = false
-                            }
-                            is AsyncImagePainter.State.Error -> {
-                                tileLoaded = false
-                                tileFailed = true
-                            }
-                            else -> Unit
-                        }
-                    },
-                )
-            }
-            // Red pin centred on the shared point.
-            Icon(
-                Icons.Filled.LocationOn,
-                contentDescription = null,
-                tint = Color(0xFFE53935),
-                modifier = Modifier
-                    .align(Alignment.Center)
-                    .size(34.dp),
-            )
-            when {
-                hasCoords && tileFailed -> MapChip(
-                    text = "Map preview unavailable",
-                    modifier = Modifier
-                        .align(Alignment.BottomStart)
-                        .padding(GagaDimens.space6),
-                )
-                hasCoords && !tileLoaded -> MapChip(
-                    text = "Loading map…",
-                    modifier = Modifier
-                        .align(Alignment.BottomStart)
-                        .padding(GagaDimens.space6),
-                )
-                else -> MapChip(
-                    text = "© Esri",
-                    modifier = Modifier
-                        .align(Alignment.BottomEnd)
-                        .padding(GagaDimens.space6),
-                )
-            }
-        }
-        // Compact info row: place label + coordinates + copy affordance.
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = GagaDimens.space12, vertical = GagaDimens.space8),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Icon(
-                Icons.Filled.LocationOn,
-                contentDescription = null,
-                tint = GagaGreen,
-                modifier = Modifier.size(GagaDimens.iconSmall),
-            )
-            Spacer(Modifier.width(GagaDimens.space8))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = placeLabel,
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                Text(
-                    text = coordsText,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
-            IconButton(onClick = copyCoords, modifier = Modifier.size(32.dp)) {
-                Icon(
-                    Icons.Filled.ContentCopy,
-                    contentDescription = "Copy coordinates",
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(16.dp),
-                )
-            }
-        }
-        // Action row: open in a maps app, or start turn-by-turn directions.
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(
-                    start = GagaDimens.space4,
-                    end = GagaDimens.space4,
-                    bottom = GagaDimens.space4,
-                ),
-        ) {
-            TextButton(onClick = openMap, enabled = hasCoords, modifier = Modifier.weight(1f)) {
-                Text("View in GaGa")
-            }
-            TextButton(onClick = directions, enabled = hasCoords, modifier = Modifier.weight(1f)) {
-                Text("Directions")
-            }
+            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("google.navigation:q=$lat,$lng"))
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            if (runCatching { context.startActivity(intent) }.isFailure) showMapDetails = true
         }
     }
-    if (showMapDetails && lat != null && lng != null) {
-        LocationMapViewerDialog(
-            title = placeLabel,
-            latitude = lat,
-            longitude = lng,
-            onDismiss = { showMapDetails = false },
-        )
+    val largeText = maxOf(LocalDensity.current.fontScale,
+        MaterialTheme.typography.bodyMedium.fontSize.value / 14f) > 1.4f
+    Column(Modifier.width(224.dp).clip(RoundedCornerShape(12.dp))
+        .background(MaterialTheme.colorScheme.surface).testTag("chat-location-card")) {
+        Box(Modifier.fillMaxWidth().height(96.dp).clickable(enabled = hasCoords, onClick = openMap)) {
+            if (hasCoords) GagaTiledMap(lat!!, lng!!, 16, null, Modifier.fillMaxSize())
+            else Text("Location unavailable", Modifier.padding(12.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        Row(Modifier.fillMaxWidth().padding(start = 10.dp, end = 2.dp, top = 2.dp),
+            verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text(placeLabel, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold,
+                    maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Text(coordsText, style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+            IconButton(onClick = { clipboard.setText(AnnotatedString(coordsText)) }, enabled = hasCoords) {
+                Icon(Icons.Filled.ContentCopy, "Copy coordinates", modifier = Modifier.size(18.dp))
+            }
+        }
+        if (largeText) {
+            Column(Modifier.fillMaxWidth()) {
+                TextButton(onClick = openMap, enabled = hasCoords, modifier = Modifier.fillMaxWidth()) { Text("Open map") }
+                TextButton(onClick = directions, enabled = hasCoords, modifier = Modifier.fillMaxWidth()) { Text("Directions") }
+            }
+        } else Row(Modifier.fillMaxWidth()) {
+            TextButton(onClick = openMap, enabled = hasCoords, modifier = Modifier.weight(1f)) { Text("Open map") }
+            TextButton(onClick = directions, enabled = hasCoords, modifier = Modifier.weight(1f)) { Text("Directions") }
+        }
     }
-
+    if (showMapDetails && hasCoords) LocationMapViewerDialog(placeLabel, lat!!, lng!!) { showMapDetails = false }
 }
 
 /** Small translucent label chip used over the map thumbnail. */
@@ -1481,67 +1360,6 @@ private fun MapChip(text: String, modifier: Modifier = Modifier) {
             .background(Color.Black.copy(alpha = 0.45f))
             .padding(horizontal = 6.dp, vertical = 2.dp),
     )
-}
-
-/**
- * A lightweight, dependency-free map sketch (water, blocks and streets) drawn
- * with a Canvas. It sits beneath the live tile so the location card is never
- * blank when the tile service is unreachable.
- */
-@Composable
-private fun StylisedMap(modifier: Modifier = Modifier) {
-    Canvas(modifier = modifier) {
-        val w = size.width
-        val h = size.height
-        drawRect(color = Color(0xFFEDE7DC))
-        // Waterway across the top-left corner.
-        drawRect(
-            color = Color(0xFFA9CCE3),
-            topLeft = Offset(0f, h * 0.10f),
-            size = androidx.compose.ui.geometry.Size(w * 0.55f, h * 0.12f),
-        )
-        // Green park block.
-        drawRect(
-            color = Color(0xFFCDE6C5),
-            topLeft = Offset(w * 0.62f, h * 0.08f),
-            size = androidx.compose.ui.geometry.Size(w * 0.34f, h * 0.22f),
-        )
-        // Street grid.
-        val street = Color.White
-        for (i in 1..4) {
-            val y = h * i / 5f
-            drawRect(color = street, topLeft = Offset(0f, y), size = androidx.compose.ui.geometry.Size(w, 4f))
-        }
-        for (i in 1..5) {
-            val x = w * i / 6f
-            drawRect(color = street, topLeft = Offset(x, 0f), size = androidx.compose.ui.geometry.Size(4f, h))
-        }
-    }
-}
-
-/**
- * Builds a raster basemap tile URL for the given coordinates.
- *
- * We deliberately do NOT use OpenStreetMap's `tile.openstreetmap.org` volunteer
- * servers: their tile usage policy forbids app traffic and they return a
- * "403 Access blocked" placeholder tile for in-app requests, which is exactly
- * the broken image that was appearing inside location messages. Instead we use
- * the Esri ArcGIS "World Street Map" basemap, which is available without an API
- * key and is intended for application use (attribution shown on the card).
- *
- * Note the Esri path order is `{z}/{y}/{x}` (y before x), unlike OSM's
- * `{z}/{x}/{y}`.
- */
-private fun mapTileUrl(lat: Double, lng: Double, zoom: Int): String {
-    val n = 2.0.pow(zoom)
-    val maxIndex = n.toInt() - 1
-    val x = ((lng + 180.0) / 360.0 * n).toInt().coerceIn(0, maxIndex)
-    val latRad = Math.toRadians(lat)
-    val y = ((1.0 - ln(tan(latRad) + 1.0 / cos(latRad)) / PI) / 2.0 * n)
-        .toInt()
-        .coerceIn(0, maxIndex)
-    return "https://server.arcgisonline.com/ArcGIS/rest/services/" +
-        "World_Street_Map/MapServer/tile/$zoom/$y/$x"
 }
 
 /** Contact-card bubble: avatar glyph, name and tappable phone number. */
@@ -1822,7 +1640,7 @@ private fun LiveLocationContent(
     val context = LocalContext.current
     val lat = message.latitude
     val lng = message.longitude
-    val hasCoords = lat != null && lng != null
+    val hasCoords = validChatCoordinates(lat, lng)
     val expiresAt = message.liveExpiresAt ?: 0L
 
     val now by produceState(initialValue = System.currentTimeMillis(), key1 = message.localId) {
@@ -1871,23 +1689,8 @@ private fun LiveLocationContent(
                     }
                 },
         ) {
-            StylisedMap(modifier = Modifier.fillMaxSize())
-            if (hasCoords) {
-                AsyncImage(
-                    model = mapTileUrl(lat!!, lng!!, 16),
-                    contentDescription = "Live location",
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize(),
-                )
-            }
-            Icon(
-                Icons.Filled.LocationOn,
-                contentDescription = null,
-                tint = if (active) GagaGreen else Color(0xFFE53935),
-                modifier = Modifier
-                    .align(Alignment.Center)
-                    .size(34.dp),
-            )
+            if (hasCoords) GagaTiledMap(lat!!, lng!!, 16, null, Modifier.fillMaxSize())
+            else Text("Location unavailable", Modifier.padding(12.dp))
             MapChip(
                 text = if (active) "LIVE" else "Ended",
                 modifier = Modifier

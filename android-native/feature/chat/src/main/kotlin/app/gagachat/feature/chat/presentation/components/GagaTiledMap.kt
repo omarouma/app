@@ -19,6 +19,7 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
+import coil.compose.AsyncImagePainter
 import coil.compose.AsyncImage
 import kotlin.math.*
 import java.util.Locale
@@ -58,6 +59,7 @@ fun GagaTiledMap(
             .clip(RoundedCornerShape(16.dp))
             .background(androidx.compose.ui.graphics.Color(0xFFE4EBE6)),
     ) {
+        var centerState by remember(latitude, longitude, zoom) { mutableStateOf("Loading map…") }
         val (centerX, centerY) = mapWorld(latitude, longitude, zoom)
         val left = floor(centerX).toInt()
         val top = floor(centerY).toInt()
@@ -80,6 +82,13 @@ fun GagaTiledMap(
                 AsyncImage(
                     model = url,
                     contentDescription = null,
+                    onState = { state ->
+                        if (dx == 0 && dy == 0) centerState = when (state) {
+                            is AsyncImagePainter.State.Success -> ""
+                            is AsyncImagePainter.State.Error -> "Map preview unavailable"
+                            else -> "Loading map…"
+                        }
+                    },
                     contentScale = ContentScale.FillBounds,
                     modifier = Modifier
                         .offset(
@@ -107,8 +116,14 @@ fun GagaTiledMap(
             Icons.Filled.LocationOn,
             contentDescription = "Selected location pin",
             tint = androidx.compose.ui.graphics.Color(0xFFE53935),
-            modifier = Modifier.align(Alignment.Center).size(34.dp),
+            modifier = Modifier.align(Alignment.Center).offset(y = (-17).dp).size(34.dp),
         )
+        if (centerState.isNotEmpty()) Text(centerState,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.align(Alignment.TopStart)
+                .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.95f))
+                .padding(horizontal = 6.dp, vertical = 2.dp))
         Text(
             "© Esri · World Street Map",
             style = MaterialTheme.typography.labelSmall,

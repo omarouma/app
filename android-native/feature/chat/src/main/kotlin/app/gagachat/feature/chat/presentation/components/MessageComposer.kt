@@ -27,6 +27,9 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.platform.testTag
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -185,90 +188,74 @@ fun MessageComposer(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = if (compactComposer) 8.dp else GagaDimens.space12,
-                            vertical = GagaDimens.space8),
+                            vertical = 4.dp)
+                        .testTag("chat-composer-controls"),
                     verticalAlignment = Alignment.Bottom,
                 ) {
-                    // Round "+" affordance that opens the attachment sheet.
-                    Box(
-                        modifier = Modifier
-                            .size(48.dp)
-                            .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.primary)
-                            .clickable {
-                                // Dismiss the keyboard first so the sheet is not
-                                // pushed off-screen; the draft is preserved in
-                                // the hoisted state.
-                                focusManager.clearFocus()
-                                keyboardController?.hide()
-                                showEmojiPanel = false
-                                showAttachSheet = true
-                            },
-                        contentAlignment = Alignment.Center,
+                    IconButton(
+                        onClick = {
+                            focusManager.clearFocus()
+                            keyboardController?.hide()
+                            showEmojiPanel = false
+                            showAttachSheet = true
+                        },
+                        modifier = Modifier.size(48.dp),
                     ) {
-                        Icon(
-                            Icons.Filled.Add,
-                            contentDescription = "Attach",
-                            tint = MaterialTheme.colorScheme.onPrimary,
-                        )
+                        Box(Modifier.size(36.dp).clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.surfaceVariant), contentAlignment = Alignment.Center) {
+                            Icon(Icons.Filled.Add, "Attach", tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(22.dp))
+                        }
                     }
                     Spacer(Modifier.width(GagaDimens.space8))
-                    TextField(
+                    BasicTextField(
                         value = draft,
                         onValueChange = onDraftChange,
-                        modifier = Modifier.weight(1f).heightIn(min = 48.dp),
-                        placeholder = { Text(if (editingMessage != null) "Edit message" else "Message…") },
+                        textStyle = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onSurface),
+                        cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                        modifier = Modifier.weight(1f).heightIn(min = 48.dp)
+                            .clip(RoundedCornerShape(22.dp))
+                            .background(MaterialTheme.colorScheme.surfaceVariant)
+                            .testTag("chat-message-input"),
                         maxLines = 6,
-                        shape = RoundedCornerShape(24.dp),
-                        colors = TextFieldDefaults.colors(
-                            focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
-                            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
-                            focusedIndicatorColor = Color.Transparent,
-                            unfocusedIndicatorColor = Color.Transparent,
-                        ),
                         keyboardOptions = KeyboardOptions(
                             imeAction = if (enterToSend) ImeAction.Send else ImeAction.Default,
                         ),
                         keyboardActions = KeyboardActions(
                             onSend = { if (enterToSend && draft.isNotBlank()) onSend() },
                         ),
-                        // Native keyboard emoji remains available on narrow
-                        // screens; don't reserve a 48dp slot that hides text.
-                        trailingIcon = if (compactComposer) null else ({
-                            IconButton(onClick = { showEmojiPanel = !showEmojiPanel }) {
-                                Icon(
-                                    Icons.Filled.EmojiEmotions,
-                                    contentDescription = if (showEmojiPanel) "Close emoji picker" else "Open emoji picker",
-                                    tint = if (showEmojiPanel) MaterialTheme.colorScheme.primary
-                                        else MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
+                        decorationBox = { innerTextField ->
+                            Row(Modifier.padding(start = 12.dp, end = if (compactComposer) 12.dp else 0.dp),
+                                verticalAlignment = Alignment.CenterVertically) {
+                                Box(Modifier.weight(1f).padding(vertical = 10.dp)) {
+                                    if (draft.isEmpty()) Text(if (editingMessage != null) "Edit message" else "Message…",
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    innerTextField()
+                                }
+                                if (!compactComposer) IconButton(onClick = { showEmojiPanel = !showEmojiPanel }) {
+                                    Icon(Icons.Filled.EmojiEmotions,
+                                        if (showEmojiPanel) "Close emoji picker" else "Open emoji picker",
+                                        modifier = Modifier.size(22.dp),
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
                             }
-                        }),
+                        },
                     )
                     Spacer(Modifier.width(GagaDimens.space4))
                     if (draft.isBlank() && editingMessage == null) {
-                        FilledIconButton(
-                            onClick = onStartRecording,
-                            shape = CircleShape,
-                            modifier = Modifier.size(48.dp),
-                        ) {
-                            Icon(Icons.Filled.Mic, contentDescription = "Record voice message")
-                        }
+                        ComposerPrimaryAction(onClick = onStartRecording,
+                            icon = Icons.Filled.Mic, label = "Record voice message")
                     } else {
-                        FilledIconButton(
+                        ComposerPrimaryAction(
                             onClick = {
                                 haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                                 onSend()
                             },
                             enabled = draft.isNotBlank(),
-                            shape = CircleShape,
-                            modifier = Modifier.size(48.dp),
-                        ) {
-                            if (editingMessage != null) {
-                                Icon(Icons.Filled.Edit, contentDescription = "Save edit")
-                            } else {
-                                Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Send message")
-                            }
-                        }
+                            icon = if (editingMessage != null) Icons.Filled.Edit else Icons.AutoMirrored.Filled.Send,
+                            label = if (editingMessage != null) "Save edit" else "Send message",
+                        )
                     }
                 }
             }
@@ -297,6 +284,18 @@ fun MessageComposer(
                 onSplitBill = { showAttachSheet = false; onSplitBill() },
                 onOpenPaymentHistory = { showAttachSheet = false; onOpenPaymentHistory() },
             )
+        }
+    }
+}
+
+@Composable
+private fun ComposerPrimaryAction(onClick: () -> Unit, icon: ImageVector, label: String, enabled: Boolean = true) {
+    IconButton(onClick = onClick, enabled = enabled, modifier = Modifier.size(48.dp)) {
+        Box(Modifier.size(40.dp).clip(CircleShape)
+            .background(if (enabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant),
+            contentAlignment = Alignment.Center) {
+            Icon(icon, label, modifier = Modifier.size(22.dp),
+                tint = if (enabled) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
