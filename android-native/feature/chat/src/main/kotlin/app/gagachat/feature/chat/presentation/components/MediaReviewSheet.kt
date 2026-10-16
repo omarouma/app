@@ -23,6 +23,9 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Restore
+import androidx.compose.material3.Checkbox
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -58,13 +61,16 @@ import coil.compose.AsyncImage
 fun MediaReviewSheet(
     uris: List<Uri>,
     onDismiss: () -> Unit,
-    onSend: (List<Uri>, String) -> Unit,
+    onSend: (List<Uri>, String, Boolean, Boolean) -> Unit,
 ) {
     var ordered by remember(uris) { mutableStateOf(uris.distinct().take(10)) }
     // Keep original picks local to this review session. Editing never mutates
     // the source photo and the user can revert without re-opening the picker.
     var originalByEdited by remember(uris) { mutableStateOf<Map<Uri, Uri>>(emptyMap()) }
-    var caption by remember { mutableStateOf("") }
+    var caption by remember(uris) { mutableStateOf("") }
+    var originalQuality by remember(uris) { mutableStateOf(false) }
+    var grouped by remember(uris) { mutableStateOf(true) }
+    var sent by remember(uris) { mutableStateOf(false) }
     var editingUri by remember { mutableStateOf<Uri?>(null) }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
@@ -72,7 +78,8 @@ fun MediaReviewSheet(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = GagaDimens.space20),
+                .padding(horizontal = GagaDimens.space20)
+                .verticalScroll(rememberScrollState()),
         ) {
             Text(
                 text = "Review photos",
@@ -81,7 +88,7 @@ fun MediaReviewSheet(
             )
             Spacer(Modifier.size(GagaDimens.space4))
             Text(
-                text = "${ordered.size}/10 selected · edit or restore originals · drag order with arrows",
+                text = "${ordered.size}/10 selected · edit or restore originals · use arrows to reorder",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -120,9 +127,19 @@ fun MediaReviewSheet(
                 }
             }
             Spacer(Modifier.size(GagaDimens.space12))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Checkbox(checked = originalQuality, onCheckedChange = { originalQuality = it }, enabled = !sent)
+                Text("Original quality")
+            }
+            Text(if (originalQuality) "No additional compression. Edited photos use the saved edited copy."
+                else "Optimized to use less data.", style = MaterialTheme.typography.bodySmall)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Checkbox(checked = grouped, onCheckedChange = { grouped = it }, enabled = !sent)
+                Text("Group photos in one album")
+            }
             OutlinedTextField(
                 value = caption,
-                onValueChange = { caption = it },
+                onValueChange = { caption = it.take(1000) },
                 placeholder = { Text("Add a caption\u2026") },
                 modifier = Modifier.fillMaxWidth(),
                 maxLines = 3,
@@ -136,8 +153,8 @@ fun MediaReviewSheet(
                 TextButton(onClick = onDismiss) { Text("Cancel") }
                 Spacer(Modifier.size(GagaDimens.space8))
                 Button(
-                    onClick = { onSend(ordered, caption) },
-                    enabled = ordered.isNotEmpty(),
+                    onClick = { if (!sent) { sent = true; onSend(ordered, caption, originalQuality, grouped) } },
+                    enabled = ordered.isNotEmpty() && !sent,
                 ) { Text("Send (${ordered.size})") }
             }
             Spacer(Modifier.size(GagaDimens.space12))

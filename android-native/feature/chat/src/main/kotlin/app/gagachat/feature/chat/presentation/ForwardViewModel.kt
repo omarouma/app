@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import app.gagachat.core.data.repository.AuthRepository
 import app.gagachat.core.data.repository.ConversationRepository
 import app.gagachat.core.data.repository.MessageRepository
+import app.gagachat.core.common.result.AppResult
 import app.gagachat.core.model.Conversation
 import app.gagachat.core.model.Message
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -35,17 +36,18 @@ class ForwardViewModel @Inject constructor(
     val currentUserId: String
         get() = authRepository.sessionFlow.value?.userId.orEmpty()
 
-    fun forward(message: Message, conversationId: String, onDone: () -> Unit) {
+    fun forward(message: Message, conversationId: String, onError: (String) -> Unit = {}, onDone: () -> Unit) {
         viewModelScope.launch {
             val session = authRepository.sessionFlow.value
-            messageRepository.forwardMessage(
+            val result = messageRepository.forwardMessage(
                 source = message,
                 conversationId = conversationId,
                 senderId = session?.userId.orEmpty(),
                 senderName = session?.displayName,
                 senderAvatar = null,
             )
-            onDone()
+            if (result is AppResult.Failure) onError("Could not forward this message. Check the destination chat before retrying.")
+            else onDone()
         }
     }
 }
