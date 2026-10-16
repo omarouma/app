@@ -109,13 +109,8 @@ fun LocationPreviewDialog(
                 ) {
                     TextButton(onClick = onDismiss) { Text("Cancel") }
                     Text("Send location", style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                    IconButton(
-                        onClick = { onSaveFavourite(pinLabel, pinDetail, latitude, longitude) },
-                        enabled = !searchBusy && latitude.isFinite() && longitude.isFinite(),
-                    ) {
-                        Icon(Icons.Default.BookmarkAdd, contentDescription = "Save this place")
-                    }
+                        fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f),
+                        maxLines = 2, overflow = TextOverflow.Ellipsis)
                     Button(
                         onClick = { onConfirm(latitude, longitude) },
                         enabled = !searchBusy && latitude.isFinite() && longitude.isFinite(),
@@ -159,6 +154,16 @@ fun LocationPreviewDialog(
                             .padding(horizontal = 14.dp, vertical = 10.dp),
                         verticalArrangement = Arrangement.spacedBy(5.dp),
                     ) {
+                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                            Text(pinLabel, modifier = Modifier.weight(1f), maxLines = 2,
+                                overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyMedium)
+                    IconButton(
+                        onClick = { onSaveFavourite(pinLabel, pinDetail, latitude, longitude) },
+                        enabled = !searchBusy && latitude.isFinite() && longitude.isFinite(),
+                    ) {
+                        Icon(Icons.Default.BookmarkAdd, contentDescription = "Save this place")
+                    }
+                        }
                         app.gagachat.core.ui.component.GagaSearchBar(
                             query = query,
                             onQueryChange = { query = it.take(160) },
