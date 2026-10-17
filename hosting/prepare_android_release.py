@@ -11,7 +11,7 @@ from datetime import datetime, timezone
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 
 
-def prepare(artifacts: pathlib.Path, apksigner: pathlib.Path):
+def prepare(artifacts: pathlib.Path, apksigner: pathlib.Path, include_bundle=False):
     gradle = (ROOT / 'android-native/app/build.gradle.kts').read_text()
     version = re.search(r'versionName\s*=\s*"([0-9.]+)"', gradle).group(1)
     code = int(re.search(r'versionCode\s*=\s*(\d+)', gradle).group(1))
@@ -40,8 +40,19 @@ def prepare(artifacts: pathlib.Path, apksigner: pathlib.Path):
                     releaseNotes=f'GaGa {version}: private view-once photos, cross-chat file search, reviewed official and service directories, media actions, offline text recognition and photo editing. Signed with the existing release certificate. Update installation requires your confirmation.')
     manifest['channels']['apk'] = dict(versionCode=code, url=public_base + apk.name,
                                        sha256=hashes[apk.name], sizeBytes=apk.stat().st_size)
+    manifest.pop('artifacts', None)
+    if include_bundle:
+        manifest['artifacts'] = {'aab': dict(url=public_base + aab.name,
+            sha256=hashes[aab.name], sizeBytes=aab.stat().st_size)}
     (ROOT / 'hosting/public/app-updates/android.json').write_text(json.dumps(manifest, indent=2) + '\n')
     firebase = json.loads((ROOT / 'firebase.json').read_text())
+    for source in ['/downloads/gaga-latest*', '/downloads/SHA256SUMS.txt', '/download', '/download.html']:
+        row = next((item for item in firebase['hosting']['headers'] if item['source'] == source), None)
+        if row is None:
+            row = dict(source=source, headers=[])
+            firebase['hosting']['headers'].append(row)
+        row['headers'] = [item for item in row['headers'] if item['key'].lower() != 'cache-control']
+        row['headers'].append(dict(key='Cache-Control', value='no-store, max-age=0'))
     targets = {'/downloads/gaga-latest.apk': apk.name, '/downloads/gaga-latest.aab': aab.name,
                '/downloads/SHA256SUMS.txt': 'SHA256SUMS.txt', '/downloads/gaga-latest-consolidated.apk': apk.name}
     for redirect in firebase['hosting']['redirects']:
@@ -66,5 +77,6 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--artifacts', required=True, type=pathlib.Path)
     parser.add_argument('--apksigner', required=True, type=pathlib.Path)
+    parser.add_argument('--include-bundle', action='store_true', help='Phase two: mirror the already staged signed AAB')
     args = parser.parse_args()
-    prepare(args.artifacts, args.apksigner)
+    prepare(args.artifacts, args.apksigner, args.include_bundle)
