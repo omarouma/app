@@ -1,17 +1,17 @@
 {
   "schemaVersion": 1,
   "packageName": "gagachat.app",
-  "latestVersionCode": 58,
-  "latestVersionName": "2.8.3",
+  "latestVersionCode": 67,
+  "latestVersionName": "2.8.12",
   "minimumSupportedVersionCode": 0,
-  "publishedAt": "2026-10-15T13:23:39.412350+00:00",
-  "releaseNotes": "GaGa 2.8.3: adaptive chat headers, compact call and selection menus, scalable buttons, scrollable verification screens and reliable update notifications. Uses the approved signing key. Update installation requires your confirmation.",
+  "publishedAt": "2026-10-17T16:18:52.970040+00:00",
+  "releaseNotes": "GaGa 2.8.12: private view-once photos, cross-chat file search, reviewed official and service directories, media actions, offline text recognition and photo editing. Signed with the existing release certificate. Update installation requires your confirmation.",
   "channels": {
     "apk": {
-      "versionCode": 58,
-      "url": "https://fcjgbbmfqdkucfpqjxae.supabase.co/storage/v1/object/public/gaga-app-releases/2.8.3/GaGa-2.8.3-release.apk",
-      "sha256": "39d45e0c949ec6a1dd40b6ac421a3c80a35cdddb0e92a708c3c572efa5c6c432",
-      "sizeBytes": 47861608
+      "versionCode": 67,
+      "url": "https://github.com/omarouma/app/releases/download/android-2.8.12/GaGa-2.8.12-release.apk",
+      "sha256": "eada12919b0c6409eca9f1b86340d1220d97d9abf1fa06aac33f54b70686e20d",
+      "sizeBytes": 49109991
     },
     "play": {
       "versionCode": 0,

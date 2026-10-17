@@ -6,6 +6,9 @@ on:
       - 'hosting/public/app-updates/android.json'
       - '.github/workflows/publish-signed-android.yml'
   workflow_dispatch:
+concurrency:
+  group: signed-android-release
+  cancel-in-progress: false
 permissions:
   contents: write
 jobs:
@@ -17,54 +20,75 @@ jobs:
       - uses: android-actions/setup-android@v3
         with:
           packages: 'platform-tools build-tools;35.0.0'
-      - name: Download release and validate hashes, app version and signing identity
+      - name: Verify public staged assets and approved signing identity
         shell: bash
         run: |
           python3 - <<'PY'
-          import json, hashlib, urllib.request, pathlib, os, re, subprocess
+          import json, hashlib, urllib.request, urllib.error, pathlib, os, re, subprocess
           manifest = json.loads(pathlib.Path('hosting/public/app-updates/android.json').read_text())
-          version = manifest['latestVersionName']
-          code = manifest['latestVersionCode']
+          version, code = manifest['latestVersionName'], manifest['latestVersionCode']
           assert re.fullmatch(r'[0-9]+\.[0-9]+\.[0-9]+', version)
           assert isinstance(code, int) and code > 0
-          expected = json.loads(pathlib.Path('android-native/ci/release-signing-public.json').read_text())['sha256']
-          base = 'https://fcjgbbmfqdkucfpqjxae.supabase.co/storage/v1/object/public/gaga-app-releases/' + version + '/'
+          pin = json.loads(pathlib.Path('android-native/ci/release-signing-public.json').read_text())['sha256']
+          stage = 'https://fcjgbbmfqdkucfpqjxae.supabase.co/storage/v1/object/public/gaga-app-releases/' + version + '/'
+          release = 'https://github.com/omarouma/app/releases/download/android-' + version + '/'
           out = pathlib.Path('signed-release'); out.mkdir()
-          names = [f'GaGa-{version}-release.apk', f'GaGa-{version}-release.aab', 'SHA256SUMS.txt']
-          for name in names:
-              with urllib.request.urlopen(base + name, timeout=120) as response:
-                  (out / name).write_bytes(response.read())
-          hashes = dict((line.split()[1], line.split()[0]) for line in (out / 'SHA256SUMS.txt').read_text().splitlines())
-          for name in names[:2]:
-              assert hashlib.sha256((out / name).read_bytes()).hexdigest() == hashes[name]
-          apk = out / names[0]
-          assert hashes[names[0]] == manifest['channels']['apk']['sha256']
+          def download(name):
+              for base in (stage, release):
+                  try:
+                      with urllib.request.urlopen(base + name, timeout=120) as response:
+                          (out / name).write_bytes(response.read())
+                      return out / name
+                  except urllib.error.HTTPError as error:
+                      if error.code != 404: raise
+              raise RuntimeError('Verified public asset unavailable: ' + name)
+          sums = download('SHA256SUMS.txt')
+          hashes = dict((line.split()[1], line.split()[0]) for line in sums.read_text().splitlines())
+          apk_name, bundle_name = f'GaGa-{version}-release.apk', f'GaGa-{version}-release.aab'
+          apk = download(apk_name)
+          assert hashlib.sha256(apk.read_bytes()).hexdigest() == hashes[apk_name] == manifest['channels']['apk']['sha256']
           assert apk.stat().st_size == manifest['channels']['apk']['sizeBytes']
           tools = pathlib.Path(os.environ['ANDROID_HOME']) / 'build-tools' / '35.0.0'
           report = subprocess.check_output([str(tools / 'apksigner'), 'verify', '--verbose', '--print-certs', str(apk)], text=True)
-          actual = re.search(r'Signer #1 certificate SHA-256 digest: ([0-9a-f]+)', report).group(1)
-          assert actual == expected
+          assert re.search(r'Signer #1 certificate SHA-256 digest: ([0-9a-f]+)', report).group(1) == pin
           (out / 'signature-verification.txt').write_text(report)
-          bundle = out / names[1]
-          bundle_report = subprocess.check_output(['jarsigner', '-verify', str(bundle)], text=True)
-          assert 'jar verified.' in bundle_report
-          bundle_cert = subprocess.check_output(['keytool', '-printcert', '-jarfile', str(bundle)], text=True)
-          bundle_sha = re.search(r'SHA256: ([0-9A-F:]+)', bundle_cert).group(1).replace(':', '').lower()
-          assert bundle_sha == expected
           badging = subprocess.check_output([str(tools / 'aapt'), 'dump', 'badging', str(apk)], text=True)
           assert "name='gagachat.app'" in badging and f"versionCode='{code}'" in badging and f"versionName='{version}'" in badging
+          bundle_config = manifest.get('artifacts', {}).get('aab')
+          if bundle_config:
+              assert bundle_config['url'] == release + bundle_name
+              bundle = download(bundle_name)
+              assert hashlib.sha256(bundle.read_bytes()).hexdigest() == hashes[bundle_name] == bundle_config['sha256']
+              assert bundle.stat().st_size == bundle_config['sizeBytes']
+              assert 'jar verified.' in subprocess.check_output(['jarsigner', '-verify', str(bundle)], text=True)
+              cert = subprocess.check_output(['keytool', '-printcert', '-jarfile', str(bundle)], text=True)
+              assert re.search(r'SHA256: ([0-9A-F:]+)', cert).group(1).replace(':', '').lower() == pin
           with open(os.environ['GITHUB_ENV'], 'a') as env:
               env.write('RELEASE_VERSION=' + version + '\n')
           PY
-      - name: Publish signed release assets
+      - name: Mirror immutable verified release assets
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
-          tag="android-${RELEASE_VERSION}"
-          if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            echo 'Release already exists; refusing to overwrite immutable signed assets.'
-            exit 1
-          fi
-          git archive --format=zip --output="signed-release/GaGa-${RELEASE_VERSION}-complete-source.zip" HEAD
-          gh release create "$tag" signed-release/* --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "GaGa ${RELEASE_VERSION}" --notes 'Signed APK/AAB with the approved new certificate. Older signing identities require one reinstall. Automated tests passed for the compiled source; real-device and Google Play account validation remain required.'
+          python3 - <<'PY'
+          import hashlib, json, os, pathlib, subprocess, urllib.request
+          version = os.environ['RELEASE_VERSION']; tag = 'android-' + version
+          repository = os.environ['GITHUB_REPOSITORY']
+          existing = subprocess.run(['gh','release','view',tag,'--repo',repository,'--json','assets'],capture_output=True,text=True)
+          out = pathlib.Path('signed-release')
+          if existing.returncode == 0:
+              names = {item['name'] for item in json.loads(existing.stdout)['assets']}
+              for path in sorted(out.iterdir()):
+                  if path.name in names:
+                      with urllib.request.urlopen('https://github.com/' + repository + '/releases/download/' + tag + '/' + path.name,timeout=120) as response:
+                          expected = hashlib.sha256(response.read()).hexdigest()
+                      assert hashlib.sha256(path.read_bytes()).hexdigest() == expected, 'Refusing to overwrite an existing different asset: ' + path.name
+                  else:
+                      subprocess.run(['gh','release','upload',tag,str(path),'--repo',repository],check=True)
+          else:
+              source = out / ('GaGa-' + version + '-complete-source.zip')
+              subprocess.run(['git','archive','--format=zip','--output='+str(source),'HEAD'],check=True)
+              notes = 'Signed GaGa Android release with the existing approved certificate. Includes the tested native source and verified public APK. Update installation requires user confirmation. Physical-device and Google Play internal-track qualification remain separate.'
+              subprocess.run(['gh','release','create',tag,*[str(p) for p in sorted(out.iterdir())],'--repo',repository,'--target',os.environ['GITHUB_SHA'],'--title','GaGa '+version,'--notes',notes],check=True)
+          PY
