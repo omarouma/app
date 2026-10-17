@@ -2,6 +2,8 @@ package app.gagachat.feature.chat.presentation.components
 
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
@@ -61,7 +63,7 @@ internal fun SecureViewOncePhotoDialog(message: Message, owner: String?, onDismi
     DisposableEffect(bitmap) { val image = bitmap; onDispose { image?.recycle() } }
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false, securePolicy = SecureFlagPolicy.SecureOn)) {
         Surface(Modifier.fillMaxWidth().padding(16.dp)) {
-            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Column(Modifier.verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text("View-once photo", style = MaterialTheme.typography.titleLarge)
                 bitmap?.let { Image(it.asImageBitmap(), "View-once photo", Modifier.fillMaxWidth().heightIn(max = 480.dp)) }
                 if (loading) CircularProgressIndicator()
