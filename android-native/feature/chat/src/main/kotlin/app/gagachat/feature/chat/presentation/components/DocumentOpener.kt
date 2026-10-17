@@ -90,11 +90,13 @@ internal suspend fun resolveDocumentFile(
     context: Context,
     resolver: MediaUrlResolver,
     message: Message,
+    expectedOwner: String? = null,
 ): File {
     val sessions = EntryPointAccessors.fromApplication(context.applicationContext,
         MediaResolverEntryPoint::class.java).sessionStore()
     val owner = sessions.userId()?.takeIf { it.isNotBlank() }
         ?: throw IllegalStateException("Sign in to access this attachment")
+    check(expectedOwner == null || expectedOwner == owner) { "Account changed" }
     val key = app.gagachat.feature.chat.presentation.attachmentCacheKey(owner, message)
     val dir = File(context.cacheDir, "documents/$key").apply { mkdirs() }
     val target = File(dir, documentSafeName(message.text).take(120))

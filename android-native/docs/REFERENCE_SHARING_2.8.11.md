@@ -36,6 +36,7 @@ No personal names, photos, document details or screenshot bytes are committed.
 
 Added unit tests for account/file cache separation, album selected-image identity,
 Unicode contact grouping/search and excluding hidden/deleted/unavailable attachments.
+Added an account-switch regression for saving while the system destination picker is open.
 Added native tests for explicit media action confirmation and actual filtered bitmap export
 without annotations, including preservation of the original file. Existing contact-phone
 opt-in tests remain active. CI results must be read before labeling the build validated.

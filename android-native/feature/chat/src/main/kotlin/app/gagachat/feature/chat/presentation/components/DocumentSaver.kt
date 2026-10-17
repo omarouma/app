@@ -43,6 +43,7 @@ class DocumentSaver internal constructor(
     private val context: Context,
     private val resolver: MediaUrlResolver,
     private val scope: CoroutineScope,
+    private val sessions: app.gagachat.core.network.session.SessionStore,
 ) {
     var state by mutableStateOf<DocumentSaveState>(DocumentSaveState.Idle)
         private set
@@ -51,27 +52,40 @@ class DocumentSaver internal constructor(
     internal var launchCreate: ((suggestedName: String) -> Unit)? = null
 
     private var pending: Message? = null
+    private var pendingOwner: String? = null
 
     /** Begins a save by asking the user where to put the document. */
     fun save(message: Message) {
+        val owner = sessions.userId()?.takeIf { it.isNotBlank() }
+        if (owner == null) {
+            state = DocumentSaveState.Error("Sign in to save this attachment.")
+            return
+        }
         val launcher = launchCreate
         if (launcher == null) {
             state = DocumentSaveState.Error("Saving isn't available right now.")
             return
         }
         pending = message
+        pendingOwner = owner
         launcher(documentSafeName(message.text))
     }
 
     /** Called with the user's chosen destination, or null if they cancelled. */
     internal fun onTargetChosen(uri: Uri?) {
         val message = pending ?: return
+        val owner = pendingOwner
         pending = null
+        pendingOwner = null
         if (uri == null) return
+        if (owner == null || owner != sessions.userId()) {
+            state = DocumentSaveState.Error("Account changed. Open the attachment again.")
+            return
+        }
         scope.launch {
             state = DocumentSaveState.Saving
             try {
-                val file = resolveDocumentFile(context, resolver, message)
+                val file = resolveDocumentFile(context, resolver, message, expectedOwner = owner)
                 withContext(Dispatchers.IO) {
                     val out = context.contentResolver.openOutputStream(uri)
                         ?: throw IllegalStateException("Couldn't open the chosen location")
@@ -100,7 +114,10 @@ fun rememberDocumentSaver(): DocumentSaver {
             MediaResolverEntryPoint::class.java,
         ).mediaUrlResolver()
     }
-    val saver = remember(context, resolver, scope) { DocumentSaver(context, resolver, scope) }
+    val sessions = remember(context) {
+        EntryPointAccessors.fromApplication(context.applicationContext, MediaResolverEntryPoint::class.java).sessionStore()
+    }
+    val saver = remember(context, resolver, scope, sessions) { DocumentSaver(context, resolver, scope, sessions) }
     val launcher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("*/*"),
     ) { uri -> saver.onTargetChosen(uri) }

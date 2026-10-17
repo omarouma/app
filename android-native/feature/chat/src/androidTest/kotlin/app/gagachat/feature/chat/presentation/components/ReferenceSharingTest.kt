@@ -28,11 +28,17 @@ class ReferenceSharingTest {
     @Test fun mediaActionsDoNothingUntilChosenAndCancelNeverShares() {
         var sends = 0
         var cancels = 0
-        compose.setContent { MaterialTheme {
+        compose.setContent { app.gagachat.core.ui.theme.GagaTheme {
             MediaActionsSheet(true, onDismiss = { cancels++ }, onSave = {}, onShare = {}, onOpen = {}, onExtract = {},
                 onForward = { sends++ }, onFavorite = {}, onEdit = {}, onLocate = {}, onAllMedia = {})
         } }
         compose.waitForIdle()
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        val directory = File(instrumentation.targetContext.getExternalFilesDir("screenshots"), "reference-sharing").apply { mkdirs() }
+        instrumentation.uiAutomation.takeScreenshot()?.let { capture ->
+            File(directory, "media-actions.png").outputStream().use { capture.compress(Bitmap.CompressFormat.PNG, 100, it) }
+            capture.recycle()
+        }
         assertEquals(0, sends)
         compose.onNodeWithText("Send to chat").performClick()
         assertEquals(1, sends)
@@ -45,7 +51,7 @@ class ReferenceSharingTest {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val file = File(context.cacheDir, "reference-review.txt").apply { writeText("attachment") }
         var sends = 0
-        compose.setContent { MaterialTheme {
+        compose.setContent { app.gagachat.core.ui.theme.GagaTheme {
             FileReviewDialog(Uri.fromFile(file), "file", "Sample chat", onDismiss = {}, onSend = { sends++ })
         } }
         compose.waitUntil(5_000) { runCatching { compose.onNodeWithText("Send").assertIsEnabled(); true }.getOrDefault(false) }
@@ -78,7 +84,7 @@ class ReferenceSharingTest {
         input.outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
         bitmap.recycle()
         var sentCaption: String? = null
-        compose.setContent { MaterialTheme {
+        compose.setContent { app.gagachat.core.ui.theme.GagaTheme {
             MediaReviewSheet(listOf(Uri.fromFile(input)), onDismiss = {},
                 onSend = { _, caption, _ -> sentCaption = caption }, recipientName = "Sample chat")
         } }
