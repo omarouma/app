@@ -39,7 +39,7 @@ Deno.serve(async request=>{
   const hash=await sha(bytes);
   if(hash!==expected.sha256)return json({error:'HASH_MISMATCH'},400);
   const response=await fetch(url+'/storage/v1/object/gaga-app-releases/'+version+'/'+encodeURIComponent(name),{
-    method:'POST',headers:{apikey:service,Authorization:'Bearer '+service,'Content-Type':expected.mime,'x-upsert':'false','Cache-Control':'31536000'},body:bytes});
+    method:'POST',headers:{apikey:service,Authorization:'Bearer '+service,'Content-Type':expected.mime,'x-upsert':'false','Cache-Control':'max-age=31536000'},body:bytes});
   if(!response.ok)return json({error:'UPLOAD_FAILED',status:response.status},502);
   return json({name,bytes:bytes.length,sha256:hash});
 });

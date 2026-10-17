@@ -4,7 +4,7 @@
   "latestVersionCode": 67,
   "latestVersionName": "2.8.12",
   "minimumSupportedVersionCode": 0,
-  "publishedAt": "2026-10-17T16:18:52.970040+00:00",
+  "publishedAt": "2026-10-17T16:30:16.896089+00:00",
   "releaseNotes": "GaGa 2.8.12: private view-once photos, cross-chat file search, reviewed official and service directories, media actions, offline text recognition and photo editing. Signed with the existing release certificate. Update installation requires your confirmation.",
   "channels": {
     "apk": {
@@ -16,6 +16,13 @@
     "play": {
       "versionCode": 0,
       "url": "https://play.google.com/store/apps/details?id=gagachat.app"
+    }
+  },
+  "artifacts": {
+    "aab": {
+      "url": "https://github.com/omarouma/app/releases/download/android-2.8.12/GaGa-2.8.12-release.aab",
+      "sha256": "0c740c509ec3c651da6c4cd2913a553f64f69fb26f2c1319c0bbc4b84e91831a",
+      "sizeBytes": 47964275
     }
   }
 }
