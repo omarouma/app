@@ -1,4 +1,7 @@
 name: GaGa Android repair validation
+concurrency:
+  group: android-repair-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 on:
   push:
@@ -43,6 +46,8 @@ jobs:
         run: node --test supabase/functions/send-fcm-push/tests/push.test.mjs
       - name: Test authenticated link-preview egress protection
         run: node --test supabase/functions/link-preview/tests/security.test.mjs
+      - name: Test private view-once media input limits
+        run: node --test supabase/functions/view-once-photo/tests/security.test.mjs
       - name: Read app version
         run: |
           python3 - <<'PYVERSION'
@@ -173,12 +178,19 @@ jobs:
             android-native/docs/PEOPLE_SYNC_NOTIFICATIONS_2.7.3.md
       - name: Compile release and test messaging and call contracts
         working-directory: android-native
-        run: gradle --no-daemon --no-build-cache --max-workers=2 -Pksp.incremental=false :feature:dailylife:compileReleaseKotlin :feature:dailylife:testReleaseUnitTest :feature:profile:testReleaseUnitTest :feature:settings:compileReleaseKotlin :app:assembleRelease :app:bundleRelease :app:testReleaseUnitTest :core:model:test :core:data:testReleaseUnitTest :core:network:testReleaseUnitTest :feature:chat:testReleaseUnitTest :feature:qr:testReleaseUnitTest :feature:calls:testReleaseUnitTest
+        run: gradle --no-daemon --no-build-cache --max-workers=2 '-Dorg.gradle.jvmargs=-Xmx3072m -XX:MaxMetaspaceSize=2048m -Dfile.encoding=UTF-8' -Pksp.incremental=false :feature:dailylife:compileReleaseKotlin :feature:dailylife:testReleaseUnitTest :feature:profile:testReleaseUnitTest :feature:settings:compileReleaseKotlin :app:assembleRelease :app:bundleRelease :app:testReleaseUnitTest :core:model:test :core:data:testReleaseUnitTest :core:network:testReleaseUnitTest :feature:chat:testReleaseUnitTest :feature:qr:testReleaseUnitTest :feature:calls:testReleaseUnitTest
       - name: Package release artifacts
         run: |
           mkdir -p deliverables
           cp android-native/app/build/outputs/apk/release/app-release-unsigned.apk deliverables/GaGa-${GAGA_VERSION}-release-unsigned.apk
           cp android-native/app/build/outputs/bundle/release/app-release.aab deliverables/GaGa-${GAGA_VERSION}-release-unsigned.aab
+      - name: Build and validate size-limited direct-download APK
+        run: |
+          cd android-native
+          gradle --no-daemon --no-build-cache --max-workers=2 '-Dorg.gradle.jvmargs=-Xmx3072m -XX:MaxMetaspaceSize=2048m -Dfile.encoding=UTF-8' -Pksp.incremental=false -PgagaCompactApk=true :app:assembleRelease
+          cd ..
+          cp android-native/app/build/outputs/apk/release/app-release-unsigned.apk deliverables/GaGa-${GAGA_VERSION}-compact-unsigned.apk
+          python3 android-native/ci/verify_compact_apk.py --normal deliverables/GaGa-${GAGA_VERSION}-release-unsigned.apk --compact deliverables/GaGa-${GAGA_VERSION}-compact-unsigned.apk --aapt "$ANDROID_HOME/build-tools/35.0.0/aapt"
       - name: Sign only with the matching release key
         env:
           KEYSTORE_BASE64: ${{ secrets.GAGA_RELEASE_KEYSTORE_BASE64 }}

@@ -1,6 +1,8 @@
 package app.gagachat.feature.chat.presentation.components
 
 import android.net.Uri
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.platform.testTag
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -78,6 +80,7 @@ fun MediaReviewSheet(
     onDismiss: () -> Unit,
     onSend: (List<Uri>, String, Boolean) -> Unit,
     recipientName: String? = null,
+    onSendViewOnce: ((Uri) -> Unit)? = null,
 ) {
     var ordered by remember(uris) { mutableStateOf(uris.distinct().take(10)) }
     // Keep original picks local to this review session. Editing never mutates
@@ -87,6 +90,12 @@ fun MediaReviewSheet(
     var editingUri by remember { mutableStateOf<Uri?>(null) }
     var previewUri by remember { mutableStateOf<Uri?>(null) }
     var sendOriginal by remember { mutableStateOf(false) }
+    var viewOnce by remember { mutableStateOf(false) }
+    androidx.compose.runtime.LaunchedEffect(ordered.size) { if (ordered.size != 1) viewOnce = false }
+    val sendSelection = {
+        if (viewOnce && ordered.size == 1 && onSendViewOnce != null) onSendViewOnce(ordered.first())
+        else onSend(ordered, caption, sendOriginal)
+    }
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var pendingSave by remember { mutableStateOf<Uri?>(null) }
@@ -114,6 +123,8 @@ fun MediaReviewSheet(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .imePadding()
+                .verticalScroll(rememberScrollState())
                 .padding(horizontal = GagaDimens.space20),
         ) {
             Text(
@@ -182,7 +193,11 @@ fun MediaReviewSheet(
                 placeholder = { Text("Add a caption\u2026") },
                 modifier = Modifier.fillMaxWidth(),
                 maxLines = 3,
+                enabled = !viewOnce,
             )
+            if (onSendViewOnce != null) FilterChip(selected = viewOnce, enabled = ordered.size == 1,
+                onClick = { viewOnce = !viewOnce }, label = { Text("View once · one photo, no caption") })
+            if (viewOnce) Text("JPEG, PNG or WebP up to 10 MB. The recipient can open it once within 7 days. Opening consumes it even if the download is interrupted.", style = MaterialTheme.typography.bodySmall)
             Text(
                 "Original photo quality is retained unless you edit an image. Edited copies are non-destructive.",
                 style = MaterialTheme.typography.bodySmall,
@@ -197,7 +212,7 @@ fun MediaReviewSheet(
                 TextButton(onClick = onDismiss) { Text("Cancel") }
                 Spacer(Modifier.size(GagaDimens.space8))
                 Button(
-                    onClick = { onSend(ordered, caption, sendOriginal) },
+                    onClick = { sendSelection() },
                     enabled = ordered.isNotEmpty(),
                 ) { Text("Send (${ordered.size})") }
             }
@@ -232,6 +247,7 @@ fun MediaReviewSheet(
                         contentScale = ContentScale.Fit,
                     )
                     OutlinedTextField(value = caption, onValueChange = { caption = it },
+                        enabled = !viewOnce,
                         placeholder = { Text("Add a caption…") }, modifier = Modifier.fillMaxWidth().testTag("photo-fullscreen-caption"), maxLines = 2,
                         colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
                             focusedTextColor = androidx.compose.ui.graphics.Color.White,
@@ -244,8 +260,10 @@ fun MediaReviewSheet(
                         FilterChip(selected = sendOriginal, onClick = { sendOriginal = !sendOriginal }, label = { Text("Original / HD") },
                             colors = androidx.compose.material3.FilterChipDefaults.filterChipColors(labelColor = androidx.compose.ui.graphics.Color.White))
                         Spacer(Modifier.weight(1f))
-                        Button(modifier = Modifier.testTag("photo-fullscreen-send"), onClick = { previewUri = null; onSend(ordered, caption, sendOriginal) }) { Text("Send (${ordered.size})") }
+                        Button(modifier = Modifier.testTag("photo-fullscreen-send"), onClick = { previewUri = null; sendSelection() }) { Text("Send (${ordered.size})") }
                     }
+                    if (onSendViewOnce != null) FilterChip(selected = viewOnce, enabled = ordered.size == 1,
+                        onClick = { viewOnce = !viewOnce }, label = { Text("View once · one photo, no caption") })
                     Text(recipientName?.let { "To: $it" } ?: "Review before sending",
                         modifier = Modifier.fillMaxWidth().padding(8.dp),
                         color = androidx.compose.ui.graphics.Color.White,

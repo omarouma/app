@@ -761,6 +761,7 @@ class DefaultMessageRepository @Inject constructor(
         clientMessageId: String?,
     ): AppResult<Message> = withContext(dispatchers.io) {
         // A caller-supplied id is the idempotency key for fan-out/retry; a
+        if (source.isViewOnce) return@withContext AppResult.Failure(AppError.Unauthorized("View-once photos cannot be forwarded"))
         // fresh one is generated for a single-shot forward.
         val effectiveClientId = clientMessageId ?: idGenerator.newClientMessageId()
         val now = timeProvider.nowMillis()

@@ -92,6 +92,7 @@ internal suspend fun resolveDocumentFile(
     message: Message,
     expectedOwner: String? = null,
 ): File {
+    check(!message.isViewOnce) { "View-once photos cannot be saved or opened externally" }
     val sessions = EntryPointAccessors.fromApplication(context.applicationContext,
         MediaResolverEntryPoint::class.java).sessionStore()
     val owner = sessions.userId()?.takeIf { it.isNotBlank() }

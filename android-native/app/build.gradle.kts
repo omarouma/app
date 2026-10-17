@@ -43,8 +43,8 @@ android {
 
     defaultConfig {
         applicationId = "gagachat.app"
-        versionCode = 66
-        versionName = "2.8.11"
+        versionCode = 67
+        versionName = "2.8.12"
 
         // LiveKit ships its WebRTC native libraries for the two ABIs every real
         // Android phone uses (64-bit and 32-bit ARM). Restricting the set keeps
@@ -115,6 +115,10 @@ android {
     }
 
     packaging {
+        // Opt-in direct-download APK; CI builds the Play bundle normally first.
+        // AGP sets extractNativeLibs consistently. Native ELF alignment is still
+        // required; installed size grows because Android extracts the libraries.
+        jniLibs.useLegacyPackaging = providers.gradleProperty("gagaCompactApk").orNull == "true"
         resources.excludes += setOf(
             "/META-INF/{AL2.0,LGPL2.1}",
             "META-INF/DEPENDENCIES",

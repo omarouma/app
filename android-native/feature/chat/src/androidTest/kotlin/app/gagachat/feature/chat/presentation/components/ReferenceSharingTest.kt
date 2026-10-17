@@ -25,6 +25,31 @@ import java.io.File
 class ReferenceSharingTest {
     @get:Rule val compose = createComposeRule()
 
+    @Test fun viewOnceRequiresExplicitOpeningAndCannotBeOpenedTwiceAfterFailure() {
+        var opens = 0
+        val message = app.gagachat.core.model.Message("once", "once", serverMessageId = "once", conversationId = "chat",
+            senderId = "sender", type = app.gagachat.core.model.MessageType.IMAGE, mediaUrl = "gaga-view-once:once")
+        compose.setContent { MaterialTheme {
+            SecureViewOncePhotoDialog(message, "recipient", onDismiss = {}) { opens++; error("Already consumed") }
+        } }
+        compose.waitForIdle()
+        assertEquals(0, opens)
+        compose.onNodeWithText("Open once").performClick()
+        compose.waitForIdle()
+        assertEquals(1, opens)
+        compose.onNodeWithText("This photo has already been opened, expired or is unavailable.").assertIsDisplayed()
+        compose.onNodeWithText("Open once").assertDoesNotExist()
+    }
+
+    @Test fun senderCannotOpenTheirViewOncePhoto() {
+        val message = app.gagachat.core.model.Message("once", "once", conversationId = "chat", senderId = "sender", mediaUrl = "gaga-view-once:once")
+        compose.setContent { MaterialTheme {
+            SecureViewOncePhotoDialog(message, "sender", onDismiss = {}) { error("Sender must not open") }
+        } }
+        compose.onNodeWithText("Only the recipient can open this photo.").assertIsDisplayed()
+        compose.onNodeWithText("Open once").assertDoesNotExist()
+    }
+
     @Test fun mediaActionsDoNothingUntilChosenAndCancelNeverShares() {
         var sends = 0
         var cancels = 0
