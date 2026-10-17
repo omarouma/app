@@ -65,6 +65,7 @@ fun MediaReviewSheet(
     uris: List<Uri>,
     onDismiss: () -> Unit,
     onSend: (List<Uri>, String, Boolean) -> Unit,
+    recipientName: String? = null,
 ) {
     var ordered by remember(uris) { mutableStateOf(uris.distinct().take(10)) }
     // Keep original picks local to this review session. Editing never mutates
@@ -87,6 +88,7 @@ fun MediaReviewSheet(
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold,
             )
+            recipientName?.let { Text("To: $it", style = MaterialTheme.typography.bodyMedium) }
             Spacer(Modifier.size(GagaDimens.space4))
             Text(
                 text = "${ordered.size}/10 selected · edit, reorder, restore originals or remove before sending",

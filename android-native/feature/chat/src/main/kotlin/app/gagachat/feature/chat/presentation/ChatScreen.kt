@@ -118,6 +118,9 @@ import app.gagachat.feature.chat.presentation.components.LocationPreviewDialog
 import app.gagachat.feature.chat.presentation.components.LiveLocationDurationDialog
 import app.gagachat.feature.chat.presentation.components.MediaReviewSheet
 import app.gagachat.feature.chat.presentation.components.MediaViewerOverlay
+import app.gagachat.feature.chat.presentation.components.AttachmentBrowserSheet
+import app.gagachat.feature.chat.presentation.components.GaGaContactPickerSheet
+import app.gagachat.feature.chat.presentation.components.FileReviewDialog
 import app.gagachat.feature.chat.presentation.components.VideoReviewSheet
 import app.gagachat.feature.chat.presentation.components.MessageBubble
 import app.gagachat.feature.chat.presentation.components.PollComposerDialog
@@ -230,13 +233,16 @@ fun ChatRoute(
     var reviewUris by remember { mutableStateOf<List<Uri>?>(null) }
     // A picked video is staged for a preview/caption step before upload.
     var videoReviewUri by remember { mutableStateOf<Uri?>(null) }
+    var pendingFileReview by remember { mutableStateOf<Pair<Uri, String>?>(null) }
+    var showFileBrowser by remember { mutableStateOf(false) }
+    var showGaGaContacts by remember { mutableStateOf(false) }
     val mediaPicker = rememberMediaPicker(
         onImagesPicked = { uris ->
             if (uris.isNotEmpty()) reviewUris = uris
         },
         onVideoPicked = { videoReviewUri = it },
-        onFilePicked = { viewModel.sendMedia(it, "file") },
-        onAudioPicked = { viewModel.sendMedia(it, "audio") },
+        onFilePicked = { pendingFileReview = it to "file" },
+        onAudioPicked = { pendingFileReview = it to "audio" },
         onCameraPhotoPicked = { reviewUris = listOf(it) },
     )
     var pendingContactCard by remember { mutableStateOf<PickedContact?>(null) }
@@ -573,7 +579,7 @@ fun ChatRoute(
                     onCancelReply = { viewModel.setReplyTo(null) },
                     editingMessage = state.editingMessage,
                     onCancelEdit = viewModel::cancelEdit,
-                    onAttach = mediaPicker.pickFile,
+                    onAttach = { showFileBrowser = true },
                     onPickImage = mediaPicker.pickImages,
                     onTakePhoto = {
                         val granted = ContextCompat.checkSelfPermission(
@@ -593,7 +599,7 @@ fun ChatRoute(
                             Manifest.permission.ACCESS_COARSE_LOCATION,
                         ))
                     },
-                    onPickContact = contactPicker,
+                    onPickContact = { showGaGaContacts = true },
                     onShareLiveLocation = {
                         val fine = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
                         val coarse = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
@@ -632,7 +638,35 @@ fun ChatRoute(
         }
 
         viewerMessage?.let { message ->
-            MediaViewerOverlay(message = message, onDismiss = { viewerMessage = null })
+            MediaViewerOverlay(message = message, onDismiss = { viewerMessage = null },
+                onForward = { source -> viewerMessage = null; forwardingMessage = source },
+                onFavorite = { source -> viewModel.saveMessage(source) },
+                onEditCopy = { uri -> viewerMessage = null; reviewUris = listOf(uri) },
+                onLocate = {
+                    viewerMessage = null
+                    // Message rows occupy one lazy item each; typing adds a prefix.
+                    val index = state.visibleMessages.asReversed().indexOfFirst { it.localId == message.localId }
+                    if (index >= 0) scope.launch { listState.animateScrollToItem(index + if (state.isOtherTyping && !state.isSearching) 1 else 0) }
+                },
+                onAllMedia = { viewerMessage = null; onOpenChatInfo(state.conversationId) })
+        }
+
+        if (showFileBrowser) AttachmentBrowserSheet(
+            messages = state.messages,
+            onDismiss = { showFileBrowser = false },
+            onPhoneFile = { showFileBrowser = false; mediaPicker.pickFile() },
+            onGallery = { showFileBrowser = false; mediaPicker.pickImages() },
+            onSend = { source -> showFileBrowser = false; viewModel.forwardMessage(source) })
+        if (showGaGaContacts) GaGaContactPickerSheet(
+            onDismiss = { showGaGaContacts = false },
+            onPhoneContact = { showGaGaContacts = false; contactPicker() },
+            onPick = { card -> showGaGaContacts = false; pendingContactCard = card })
+        pendingFileReview?.let { (uri, kind) -> FileReviewDialog(uri, kind, state.title,
+            onDismiss = { pendingFileReview = null },
+            onSend = { pendingFileReview = null; viewModel.sendMedia(uri, kind) }) }
+        LaunchedEffect(state.currentUserId) {
+            reviewUris = null; videoReviewUri = null; pendingFileReview = null; pendingContactCard = null
+            viewerMessage = null; forwardingMessage = null; showFileBrowser = false; showGaGaContacts = false
         }
 
         DocumentOpenOverlay(state = documentOpener.state, onDismiss = documentOpener::dismiss)
@@ -655,6 +689,7 @@ fun ChatRoute(
         reviewUris?.let { uris ->
             MediaReviewSheet(
                 uris = uris,
+                recipientName = state.title,
                 onDismiss = { reviewUris = null },
                 onSend = { ordered, caption, original ->
                     viewModel.sendImageAlbum(ordered, caption, original)

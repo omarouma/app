@@ -56,6 +56,8 @@ supabase/.env.keys
 Thumbs.db
 *.orig
 *.rej
+__pycache__/
+*.pyc
 
 # ---- Generated preview bundle (relative-path copy for S3 preview) ----
 hosting-preview/

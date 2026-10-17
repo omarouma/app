@@ -886,14 +886,15 @@ class ChatViewModel @Inject constructor(
     fun forwardMessage(message: Message) {
         selected.value = null
         viewModelScope.launch {
-            val session = authRepository.sessionFlow.value
-            messageRepository.forwardMessage(
-                source = message,
-                conversationId = conversationId,
-                senderId = currentUserId,
-                senderName = session?.displayName,
-                senderAvatar = null,
+            val session = authRepository.sessionFlow.value ?: return@launch
+            val result = messageRepository.forwardMessage(
+                source = message, conversationId = conversationId, senderId = session.userId,
+                senderName = session.displayName, senderAvatar = null,
             )
+            if (session.userId == currentUserId) notice.value = when (result) {
+                is AppResult.Success -> "Attachment added to the send queue"
+                else -> "Couldn't send this attachment. Check your connection and try again."
+            }
         }
     }
 
