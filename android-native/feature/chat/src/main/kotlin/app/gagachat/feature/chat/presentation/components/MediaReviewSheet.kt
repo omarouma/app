@@ -1,6 +1,7 @@
 package app.gagachat.feature.chat.presentation.components
 
 import android.net.Uri
+import androidx.compose.ui.platform.testTag
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.ui.platform.LocalContext
@@ -231,11 +232,19 @@ fun MediaReviewSheet(
                         contentScale = ContentScale.Fit,
                     )
                     OutlinedTextField(value = caption, onValueChange = { caption = it },
-                        placeholder = { Text("Add a caption…") }, modifier = Modifier.fillMaxWidth(), maxLines = 2)
+                        placeholder = { Text("Add a caption…") }, modifier = Modifier.fillMaxWidth().testTag("photo-fullscreen-caption"), maxLines = 2,
+                        colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = androidx.compose.ui.graphics.Color.White,
+                            unfocusedTextColor = androidx.compose.ui.graphics.Color.White,
+                            focusedContainerColor = androidx.compose.ui.graphics.Color(0xFF151B1E),
+                            unfocusedContainerColor = androidx.compose.ui.graphics.Color(0xFF151B1E),
+                            focusedPlaceholderColor = androidx.compose.ui.graphics.Color.LightGray,
+                            unfocusedPlaceholderColor = androidx.compose.ui.graphics.Color.LightGray))
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                        FilterChip(selected = sendOriginal, onClick = { sendOriginal = !sendOriginal }, label = { Text("Original / HD") })
+                        FilterChip(selected = sendOriginal, onClick = { sendOriginal = !sendOriginal }, label = { Text("Original / HD") },
+                            colors = androidx.compose.material3.FilterChipDefaults.filterChipColors(labelColor = androidx.compose.ui.graphics.Color.White))
                         Spacer(Modifier.weight(1f))
-                        Button(onClick = { previewUri = null; onSend(ordered, caption, sendOriginal) }) { Text("Send (${ordered.size})") }
+                        Button(modifier = Modifier.testTag("photo-fullscreen-send"), onClick = { previewUri = null; onSend(ordered, caption, sendOriginal) }) { Text("Send (${ordered.size})") }
                     }
                     Text(recipientName?.let { "To: $it" } ?: "Review before sending",
                         modifier = Modifier.fillMaxWidth().padding(8.dp),

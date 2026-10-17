@@ -140,21 +140,6 @@ private fun ForwardSelectContent(
             placeholder = "Search chats and contacts",
         )
 
-        if (query.isBlank()) {
-            Text("Recent chats", modifier = Modifier.padding(horizontal = GagaDimens.space20), style = MaterialTheme.typography.labelLarge)
-            LazyRow(Modifier.fillMaxWidth(), contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = GagaDimens.space16)) {
-                items(destinations.filter { it.conversationId != null }.take(6), key = { "recent-${it.key}" }) { destination ->
-                    Surface(onClick = { onToggle(destination.key) },
-                        color = if (destination.key in selectedKeys) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surface,
-                        modifier = Modifier.width(88.dp).padding(4.dp)) {
-                        Column(Modifier.padding(8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                            GagaAvatar(imageUrl = destination.avatarUrl, name = destination.title, size = 44.dp)
-                            Text(destination.title, maxLines = 2, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.labelSmall)
-                        }
-                    }
-                }
-            }
-        }
 
         if (selectedDestinations.isNotEmpty()) {
             Spacer(Modifier.size(GagaDimens.space8))
@@ -165,7 +150,7 @@ private fun ForwardSelectContent(
                 horizontalArrangement = Arrangement.spacedBy(GagaDimens.space8),
                 verticalArrangement = Arrangement.spacedBy(GagaDimens.space4),
             ) {
-                selectedDestinations.forEach { destination ->
+                selectedDestinations.take(3).forEach { destination ->
                     InputChip(
                         selected = true,
                         onClick = { onToggle(destination.key) },
@@ -181,6 +166,7 @@ private fun ForwardSelectContent(
             }
         }
 
+        if (selectedDestinations.size > 3) Text("+${selectedDestinations.size - 3} more selected", modifier = Modifier.padding(horizontal = GagaDimens.space20))
         Spacer(Modifier.size(GagaDimens.space8))
         if (destinations.isEmpty()) {
             Text(
@@ -195,6 +181,9 @@ private fun ForwardSelectContent(
                     .fillMaxWidth()
                     .heightIn(max = 420.dp),
             ) {
+                if (query.isBlank()) item(key = "recent-shortcuts") {
+                    RecentForwardShortcuts(destinations, selectedKeys, onToggle)
+                }
                 items(destinations, key = { it.key }) { destination ->
                     ForwardRow(
                         destination = destination,
@@ -220,6 +209,23 @@ private fun ForwardSelectContent(
             )
         }
         Spacer(Modifier.size(GagaDimens.space16))
+    }
+}
+
+@Composable
+private fun RecentForwardShortcuts(destinations: List<ForwardDestination>, selectedKeys: Set<String>, onToggle: (String) -> Unit) {
+    Text("Recent chats", modifier = Modifier.padding(horizontal = GagaDimens.space20), style = MaterialTheme.typography.labelLarge)
+    LazyRow(Modifier.fillMaxWidth(), contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = GagaDimens.space16)) {
+        items(destinations.filter { it.conversationId != null }.take(6), key = { "recent-${it.key}" }) { destination ->
+            Surface(onClick = { onToggle(destination.key) },
+                color = if (destination.key in selectedKeys) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surface,
+                modifier = Modifier.width(88.dp).padding(4.dp)) {
+                Column(Modifier.padding(8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                    GagaAvatar(imageUrl = destination.avatarUrl, name = destination.title, size = 44.dp)
+                    Text(destination.title, maxLines = 2, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.labelSmall)
+                }
+            }
+        }
     }
 }
 

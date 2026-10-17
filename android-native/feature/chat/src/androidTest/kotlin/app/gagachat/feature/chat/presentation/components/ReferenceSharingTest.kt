@@ -10,6 +10,12 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.performSemanticsAction
+import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Assert.*
 import org.junit.Rule
@@ -62,5 +68,30 @@ class ReferenceSharingTest {
         assertTrue(kotlin.math.abs(Color.green(pixel) - Color.blue(pixel)) <= 3)
         assertArrayEquals(original, input.readBytes())
         result.recycle()
+    }
+
+    @Test fun fullscreenPhotoCaptionAndSendRemainExplicit() {
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        val context = instrumentation.targetContext
+        val input = File(context.cacheDir, "reference-preview.png")
+        val bitmap = Bitmap.createBitmap(160, 120, Bitmap.Config.ARGB_8888).apply { eraseColor(Color.rgb(30, 130, 90)) }
+        input.outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
+        bitmap.recycle()
+        var sentCaption: String? = null
+        compose.setContent { MaterialTheme {
+            MediaReviewSheet(listOf(Uri.fromFile(input)), onDismiss = {},
+                onSend = { _, caption, _ -> sentCaption = caption }, recipientName = "Sample chat")
+        } }
+        compose.onNodeWithContentDescription("Selected photo 1").performSemanticsAction(SemanticsActions.OnClick) { it() }
+        compose.onNodeWithTag("photo-fullscreen-caption").performTextInput("Lunch plan")
+        assertNull(sentCaption)
+        compose.onNodeWithTag("photo-fullscreen-send").assertIsDisplayed()
+        val directory = File(context.getExternalFilesDir("screenshots"), "reference-sharing").apply { mkdirs() }
+        instrumentation.uiAutomation.takeScreenshot()?.let { capture ->
+            File(directory, "photo-review-keyboard.png").outputStream().use { capture.compress(Bitmap.CompressFormat.PNG, 100, it) }
+            capture.recycle()
+        }
+        compose.onNodeWithTag("photo-fullscreen-send").performClick()
+        assertEquals("Lunch plan", sentCaption)
     }
 }
