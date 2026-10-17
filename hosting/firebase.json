@@ -43,22 +43,22 @@
     "redirects": [
       {
         "source": "/downloads/gaga-latest.apk",
-        "destination": "https://github.com/omarouma/app/releases/download/android-2.8.3/GaGa-2.8.3-release.apk",
+        "destination": "https://fcjgbbmfqdkucfpqjxae.supabase.co/storage/v1/object/public/gaga-app-releases/2.8.10/GaGa-2.8.10-release.apk",
         "type": 302
       },
       {
         "source": "/downloads/gaga-latest.aab",
-        "destination": "https://github.com/omarouma/app/releases/download/android-2.8.3/GaGa-2.8.3-release.aab",
+        "destination": "https://fcjgbbmfqdkucfpqjxae.supabase.co/storage/v1/object/public/gaga-app-releases/2.8.10/GaGa-2.8.10-release.aab",
         "type": 302
       },
       {
         "source": "/downloads/SHA256SUMS.txt",
-        "destination": "https://github.com/omarouma/app/releases/download/android-2.8.3/SHA256SUMS.txt",
+        "destination": "https://fcjgbbmfqdkucfpqjxae.supabase.co/storage/v1/object/public/gaga-app-releases/2.8.10/SHA256SUMS.txt",
         "type": 302
       },
       {
         "source": "/downloads/gaga-latest-consolidated.apk",
-        "destination": "https://github.com/omarouma/app/releases/download/android-2.8.3/GaGa-2.8.3-release.apk",
+        "destination": "https://fcjgbbmfqdkucfpqjxae.supabase.co/storage/v1/object/public/gaga-app-releases/2.8.10/GaGa-2.8.10-release.apk",
         "type": 302
       }
     ],

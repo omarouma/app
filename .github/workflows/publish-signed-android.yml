@@ -28,7 +28,13 @@ jobs:
           assert re.fullmatch(r'[0-9]+\.[0-9]+\.[0-9]+', version)
           assert isinstance(code, int) and code > 0
           expected = json.loads(pathlib.Path('android-native/ci/release-signing-public.json').read_text())['sha256']
-          base = 'https://fcjgbbmfqdkucfpqjxae.supabase.co/storage/v1/object/public/gaga-app-releases/' + version + '/'
+          from urllib.parse import urlsplit
+          apk_url = manifest['channels']['apk']['url']
+          parsed = urlsplit(apk_url)
+          assert parsed.scheme == 'https' and parsed.hostname in ('gagachat.app', 'oumagachat.web.app', 'fcjgbbmfqdkucfpqjxae.supabase.co')
+          assert not parsed.username and not parsed.password and not parsed.query and not parsed.fragment
+          assert parsed.path.endswith('/' + version + '/GaGa-' + version + '-release.apk')
+          base = apk_url.rsplit('/', 1)[0] + '/'
           out = pathlib.Path('signed-release'); out.mkdir()
           names = [f'GaGa-{version}-release.apk', f'GaGa-{version}-release.aab', 'SHA256SUMS.txt']
           for name in names:

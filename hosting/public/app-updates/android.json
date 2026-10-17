@@ -1,17 +1,17 @@
 {
   "schemaVersion": 1,
   "packageName": "gagachat.app",
-  "latestVersionCode": 58,
-  "latestVersionName": "2.8.3",
+  "latestVersionCode": 65,
+  "latestVersionName": "2.8.10",
   "minimumSupportedVersionCode": 0,
-  "publishedAt": "2026-10-15T13:23:39.412350+00:00",
-  "releaseNotes": "GaGa 2.8.3: adaptive chat headers, compact call and selection menus, scalable buttons, scrollable verification screens and reliable update notifications. Uses the approved signing key. Update installation requires your confirmation.",
+  "publishedAt": "2026-10-17T09:36:02.656695+00:00",
+  "releaseNotes": "GaGa 2.8.10: compact layouts and font settings, improved profile and calls, QR sharing, live friend requests and notification updates, photo previews and accurate location cards. Signed with the existing release certificate. Installation requires your confirmation.",
   "channels": {
     "apk": {
-      "versionCode": 58,
-      "url": "https://fcjgbbmfqdkucfpqjxae.supabase.co/storage/v1/object/public/gaga-app-releases/2.8.3/GaGa-2.8.3-release.apk",
-      "sha256": "39d45e0c949ec6a1dd40b6ac421a3c80a35cdddb0e92a708c3c572efa5c6c432",
-      "sizeBytes": 47861608
+      "versionCode": 65,
+      "url": "https://fcjgbbmfqdkucfpqjxae.supabase.co/storage/v1/object/public/gaga-app-releases/2.8.10/GaGa-2.8.10-release.apk",
+      "sha256": "480626809b09017455ad148e57c2e6acaae805b4943fd10e2649b63043eeed1c",
+      "sizeBytes": 49591934
     },
     "play": {
       "versionCode": 0,
