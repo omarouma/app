@@ -16,6 +16,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
+import app.gagachat.core.ui.i18n.GagaLanguages
+import app.gagachat.core.ui.i18n.LocalGagaStrings
+import app.gagachat.core.ui.i18n.gagaStringsFor
 
 private val LightColors = lightColorScheme(
     primary = Color(0xFF087F3E),
@@ -108,11 +111,15 @@ object GagaTheme {
         @Composable get() = LocalGagaExtraColors.current
 }
 
+val LocalGagaLayoutSize = androidx.compose.runtime.staticCompositionLocalOf { app.gagachat.core.model.LayoutSize.COMPACT }
+
 @Composable
 fun GagaTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     dynamicColor: Boolean = false,
     textScale: Float = 1f,
+    languageCode: String = GagaLanguages.ENGLISH,
+    layoutSize: app.gagachat.core.model.LayoutSize = app.gagachat.core.model.LayoutSize.COMPACT,
     content: @Composable () -> Unit,
 ) {
     val context = LocalContext.current
@@ -124,6 +131,9 @@ fun GagaTheme(
         else -> LightColors
     }
     val extraColors = if (darkTheme) DarkExtraColors else LightExtraColors
+    // Resolved from the persisted language so switching it re-renders every
+    // surface that reads LocalGagaStrings without a resource re-resolve.
+    val strings = gagaStringsFor(languageCode)
 
     val view = LocalView.current
     if (!view.isInEditMode) {
@@ -133,7 +143,11 @@ fun GagaTheme(
         }
     }
 
-    CompositionLocalProvider(LocalGagaExtraColors provides extraColors) {
+    CompositionLocalProvider(
+        LocalGagaLayoutSize provides layoutSize,
+        LocalGagaExtraColors provides extraColors,
+        LocalGagaStrings provides strings,
+    ) {
         MaterialTheme(
             colorScheme = colorScheme,
             typography = scaledTypography(textScale),

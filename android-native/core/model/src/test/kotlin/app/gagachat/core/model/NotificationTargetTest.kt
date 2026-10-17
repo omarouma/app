@@ -15,7 +15,7 @@ class NotificationTargetTest {
         }
     }
     @Test fun friendAndCallNotificationsHaveSafeFallbacks() {
-        assertEquals(NotificationTarget.People, AppNotification("n", "u", NotificationType.FRIEND_REQUEST).target())
+        assertEquals(NotificationTarget.Requests, AppNotification("n", "u", NotificationType.FRIEND_REQUEST).target())
         assertEquals(NotificationTarget.Calls, AppNotification("n", "u", NotificationType.CALL).target())
         assertNull(AppNotification("n", "u", NotificationType.SYSTEM).target())
     }

@@ -18,7 +18,7 @@ fun DateSeparator(epochMillis: Long, modifier: Modifier = Modifier) {
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .padding(vertical = GagaDimens.space8),
+            .padding(vertical = GagaDimens.space4),
         contentAlignment = Alignment.Center,
     ) {
         Text(
@@ -27,7 +27,7 @@ fun DateSeparator(epochMillis: Long, modifier: Modifier = Modifier) {
             fontWeight = FontWeight.Medium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier
-                .padding(horizontal = GagaDimens.space12, vertical = GagaDimens.space4),
+                .padding(horizontal = GagaDimens.space12, vertical = GagaDimens.space2),
         )
     }
 }

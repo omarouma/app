@@ -88,7 +88,8 @@ fun HelpSupportScreen(
                 title = "Contact support",
                 subtitle = "Email $SUPPORT_EMAIL \u2014 we usually reply within a day",
                 leadingIcon = Icons.Filled.Email,
-                leadingIconTint = SupportGreen,
+                leadingIconTint = MaterialTheme.colorScheme.primary,
+                    leadingIconContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
                 onClick = { emailSupport(context) },
             )
             GagaDivider()
@@ -96,7 +97,8 @@ fun HelpSupportScreen(
                 title = "App permissions",
                 subtitle = "Camera, microphone, notifications and more",
                 leadingIcon = Icons.Filled.Apps,
-                leadingIconTint = SupportGreen,
+                leadingIconTint = MaterialTheme.colorScheme.primary,
+                    leadingIconContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
                 onClick = onOpenPermissions,
             )
             GagaDivider()
@@ -104,7 +106,8 @@ fun HelpSupportScreen(
                 title = "About GaGa Chat",
                 subtitle = "Version, legal and open-source licences",
                 leadingIcon = Icons.Filled.Info,
-                leadingIconTint = SupportGreen,
+                leadingIconTint = MaterialTheme.colorScheme.primary,
+                    leadingIconContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
                 onClick = onOpenAbout,
             )
             GagaDivider()
@@ -224,4 +227,4 @@ internal fun emailSupport(context: Context) {
 internal const val SUPPORT_EMAIL = "support@gagachat.app"
 
 // Single brand green for non-destructive leading icons (spec section 1).
-private val SupportGreen = Color(0xFF00C300)
+private val SupportGreen = Color(0xFF087F4B)

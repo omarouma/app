@@ -23,6 +23,7 @@ import app.gagachat.core.data.repository.FriendsRepository
 import app.gagachat.core.data.repository.LinkPreviewRepository
 import app.gagachat.core.data.repository.MediaRepository
 import app.gagachat.core.data.repository.MessageRepository
+import app.gagachat.core.data.repository.SavedPlacesRepository
 import app.gagachat.core.data.repository.UserRepository
 import app.gagachat.core.data.repository.mediaKindLabel
 import app.gagachat.core.data.repository.mediaUploadLimit
@@ -38,6 +39,7 @@ import app.gagachat.core.model.LinkPreview
 import app.gagachat.core.model.Message
 import app.gagachat.core.model.MessageStatus
 import app.gagachat.core.model.MessageType
+import app.gagachat.core.model.SavedPlace
 import app.gagachat.core.model.SplitBillMath
 import app.gagachat.core.model.User
 import app.gagachat.core.model.UserStatus
@@ -196,6 +198,7 @@ class ChatViewModel @Inject constructor(
     private val authRepository: AuthRepository,
     private val blockRepository: BlockRepository,
     private val friendsRepository: FriendsRepository,
+    private val savedPlacesRepository: SavedPlacesRepository,
     private val networkMonitor: NetworkMonitor,
     private val settingsPreferences: app.gagachat.core.data.preferences.SettingsPreferences,
     private val settingsCenter: SettingsCenterPreferences,
@@ -283,6 +286,14 @@ class ChatViewModel @Inject constructor(
     // F21: a fix captured by [shareLocation] that is awaiting user confirmation.
     private val _pendingLocation = MutableStateFlow<LocationPreview?>(null)
     val pendingLocation: StateFlow<LocationPreview?> = _pendingLocation.asStateFlow()
+
+    /**
+     * Private, owner-scoped location favourites shown in the location picker.
+     * Backed by the on-device database and filtered by the signed-in account, so
+     * switching users yields an empty list rather than the previous user's pins.
+     */
+    val savedPlaces: StateFlow<List<SavedPlace>> = savedPlacesRepository.observeSavedPlaces()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     /**
      * Rich link previews keyed by URL (spec area 13). Kept out of [ChatUiState]
@@ -641,7 +652,7 @@ class ChatViewModel @Inject constructor(
      * Each photo is resolved and (if very large) compressed exactly like a single
      * image send, then queued together so the recipient sees one album bubble.
      */
-    fun sendImageAlbum(uris: List<Uri>, caption: String?) {
+    fun sendImageAlbum(uris: List<Uri>, caption: String?, originalQuality: Boolean = false) {
         if (uris.isEmpty()) return
         if (!beginMediaSend()) return
         viewModelScope.launch {
@@ -664,7 +675,7 @@ class ChatViewModel @Inject constructor(
                 return@launch
             }
             val resolved = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                baseItems.filterNotNull().map { compressLargeImage(it) }
+                baseItems.filterNotNull().map { if (originalQuality) it else compressLargeImage(it) }
             }
             val items = resolved.map { AlbumUploadItem(it.first, it.second, it.third) }
             val result = mediaRepository.enqueueAlbumUpload(
@@ -996,6 +1007,31 @@ class ChatViewModel @Inject constructor(
     /** F21: user dismissed the confirmation sheet without sharing. */
     fun dismissLocationPreview() {
         _pendingLocation.value = null
+    }
+
+    /**
+     * Saves a pin to the current account's private favourites. Favourites are
+     * local-only: nothing is uploaded and no background tracking is started.
+     */
+    fun saveLocationFavourite(label: String, detail: String, latitude: Double, longitude: Double) {
+        if (!latitude.isFinite() || !longitude.isFinite() ||
+            latitude !in -85.0511..85.0511 || longitude !in -180.0..180.0
+        ) {
+            error.value = "Invalid map location."
+            return
+        }
+        viewModelScope.launch {
+            val saved = savedPlacesRepository.save(label, detail, latitude, longitude)
+            notice.value = if (saved != null) "Saved to your places." else "Sign in to save places."
+        }
+    }
+
+    /** Removes a favourite by id; scoped to the current account. */
+    fun deleteLocationFavourite(id: String) {
+        viewModelScope.launch {
+            savedPlacesRepository.delete(id)
+            notice.value = "Removed from your places."
+        }
     }
 
     /**

@@ -3,7 +3,6 @@ package app.gagachat.core.network.realtime
 import app.gagachat.core.common.util.AppLogger
 import app.gagachat.core.network.auth.AuthTokenRefresher
 import app.gagachat.core.network.config.SupabaseConfig
-import app.gagachat.core.network.session.SessionStore
 import io.ktor.client.HttpClient
 import io.ktor.client.request.post
 import io.ktor.client.request.header
@@ -45,6 +44,23 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
+ * Syntax gate for the compact three-part JWT expected by Supabase Realtime.
+ * This is NOT an authentication or signature check: the backend still validates
+ * the token. It prevents accidental empty/opaque/publishable keys being sent as
+ * the user access_token when a session has expired or changed accounts.
+ */
+internal fun isCompactJwt(token: String?): Boolean {
+    if (token.isNullOrBlank() || token.length > 8192) return false
+    val parts = token.split('.')
+    return parts.size == 3 && parts.all { part ->
+        part.length >= 8 && part.all { c ->
+            c in 'a'..'z' || c in 'A'..'Z' || c in '0'..'9' ||
+                c == '_' || c == '-' || c == '='
+        }
+    }
+}
+
+/**
  * Minimal Supabase Realtime (Phoenix channels) client over WebSocket.
  *
  * Design goals (PDF §4, §7, §9.1):
@@ -57,7 +73,6 @@ import javax.inject.Singleton
 class SupabaseRealtimeClient @Inject constructor(
     private val client: HttpClient,
     private val config: SupabaseConfig,
-    private val sessionStore: SessionStore,
     private val logger: AppLogger,
     private val tokenRefresher: AuthTokenRefresher,
 ) {
@@ -109,7 +124,18 @@ class SupabaseRealtimeClient @Inject constructor(
         val session = activeSession
         if (session != null) {
             currentScope.launch {
-                runCatching { session.send(Frame.Text(if (topic in broadcastTopics) joinBroadcastMessage(topic) else joinMessage(topic))) }
+                // A newly joined topic must use a refreshed, syntactically valid
+                // user JWT. The old code sent cached/empty access_token values,
+                // producing repeated MalformedJWT errors on the Realtime socket.
+                val token = runCatching { authenticatedAccessToken() }.getOrNull()
+                if (isCompactJwt(token)) {
+                    runCatching {
+                        session.send(Frame.Text(if (topic in broadcastTopics)
+                            joinBroadcastMessage(topic, token!!) else joinMessage(topic, token!!)))
+                    }
+                } else {
+                    logger.w(TAG, "Skipping Realtime join until authentication is available")
+                }
             }
         }
     }
@@ -140,7 +166,12 @@ class SupabaseRealtimeClient @Inject constructor(
         val session = activeSession
         if (session != null) {
             currentScope.launch {
-                runCatching { session.send(Frame.Text(joinBroadcastMessage(topic))) }
+                val token = runCatching { tokenRefresher.ensureFresh() }.getOrNull()
+                if (isCompactJwt(token)) {
+                    runCatching { session.send(Frame.Text(joinBroadcastMessage(topic, token!!))) }
+                } else {
+                    logger.w(TAG, "Skipping call-signaling join without a valid access token")
+                }
             }
         }
     }
@@ -163,7 +194,8 @@ class SupabaseRealtimeClient @Inject constructor(
         currentScope.launch {
             try {
                 withTimeout(5_000L) {
-                    val token = tokenRefresher.ensureFresh() ?: return@withTimeout
+                    val token = authenticatedAccessToken()
+                        ?: return@withTimeout
                     val response = client.post("${config.url}/realtime/v1/api/broadcast") {
                         header("apikey", config.anonKey)
                         header("Authorization", "Bearer $token")
@@ -188,6 +220,17 @@ class SupabaseRealtimeClient @Inject constructor(
                 logger.w(TAG, "Call signal delivery failed", error)
             }
         }
+    }
+
+    /**
+     * An apparently unexpired token may still be a corrupted or opaque string.
+     * One forced refresh repairs that state instead of retrying the same bad JWT
+     * every 30 seconds until its recorded expiry.
+     */
+    private suspend fun authenticatedAccessToken(): String? {
+        val cached = tokenRefresher.ensureFresh()
+        if (isCompactJwt(cached)) return cached
+        return tokenRefresher.ensureFresh(force = true)?.takeIf(::isCompactJwt)
     }
 
     private fun wireTopic(topic: String): String =
@@ -229,6 +272,25 @@ class SupabaseRealtimeClient @Inject constructor(
                 // sure it is fresh before (re)connecting -- otherwise the socket
                 // connects but every channel join is rejected and live message
                 // delivery silently stops until the app is restarted.
+                val initialToken = try {
+                    authenticatedAccessToken()
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (error: Exception) {
+                    logger.w(TAG, "Realtime authentication refresh unavailable", error)
+                    null
+                }
+                if (!isCompactJwt(initialToken)) {
+                    // Do not open sockets with absent/invalid user credentials.
+                    // Reconnect is also triggered on login by RealtimeCoordinator.
+                    _events.tryEmit(RealtimeEvent.ConnectionError("Realtime authentication unavailable"))
+                    delay(backoff)
+                    backoff = (backoff * 2).coerceAtMost(30_000L)
+                    continue
+                }
+                // Multi-URL + 401-refresh handshake. REST may work under the
+                // modern publishable key while a legacy socket handshake is
+                // rejected; never downgrade user authorization.
                 val session = openAuthenticatedSocket()
                 try {
                     logger.i(TAG, "Realtime connected")
@@ -236,7 +298,8 @@ class SupabaseRealtimeClient @Inject constructor(
                     activeSession = session
                     // Join all currently active topics.
                     activeTopics.toList().forEach { topic ->
-                        session.send(Frame.Text(if (topic in broadcastTopics) joinBroadcastMessage(topic) else joinMessage(topic)))
+                        session.send(Frame.Text(if (topic in broadcastTopics)
+                            joinBroadcastMessage(topic, initialToken!!) else joinMessage(topic, initialToken!!)))
                     }
                     // Heartbeat loop. `session` is a CoroutineScope, so the
                     // heartbeat is scoped to the lifetime of the connection.
@@ -244,13 +307,13 @@ class SupabaseRealtimeClient @Inject constructor(
                         while (isActive) {
                             delay(25_000)
                             session.send(Frame.Text(heartbeatMessage()))
-                            tokenRefresher.ensureFresh()
-                            val token = sessionStore.accessToken()
+                            val token = authenticatedAccessToken()
+                            check(isCompactJwt(token)) { "Realtime access token unavailable" }
                             activeTopics.toList().forEach { topic ->
                                 session.send(Frame.Text(buildJsonObject {
                                     put("topic", wireTopic(topic))
                                     put("event", "access_token")
-                                    putJsonObject("payload") { token?.let { put("access_token", it) } }
+                                    putJsonObject("payload") { put("access_token", token!!) }
                                     put("ref", refCounter.incrementAndGet().toString())
                                 }.toString()))
                             }
@@ -316,7 +379,7 @@ class SupabaseRealtimeClient @Inject constructor(
         _events.tryEmit(RealtimeEvent.PostgresChange(table, changeType, record, oldRecord))
     }
 
-    private fun joinMessage(topic: String): String {
+    private fun joinMessage(topic: String, token: String): String {
         val table = topic.substringAfterLast("public:").substringBefore(":")
         val filter = topic.substringAfter("$table:", "").takeIf { it.isNotBlank() }
         val payload = buildJsonObject {
@@ -334,7 +397,7 @@ class SupabaseRealtimeClient @Inject constructor(
                     )
                 }
             }
-            sessionStore.accessToken()?.let { put("access_token", it) }
+            put("access_token", token)
         }
         return buildJsonObject {
             put("topic", wireTopic(topic))
@@ -344,13 +407,13 @@ class SupabaseRealtimeClient @Inject constructor(
         }.toString()
     }
 
-    private fun joinBroadcastMessage(topic: String): String {
+    private fun joinBroadcastMessage(topic: String, token: String): String {
         val payload = buildJsonObject {
             putJsonObject("config") {
                 putJsonObject("broadcast") { put("self", false) }
                 putJsonObject("presence") { put("key", "") }
             }
-            sessionStore.accessToken()?.let { put("access_token", it) }
+            put("access_token", token)
         }
         return buildJsonObject {
             put("topic", wireTopic(topic))

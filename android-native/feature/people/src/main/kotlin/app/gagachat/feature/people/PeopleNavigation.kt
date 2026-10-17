@@ -7,6 +7,7 @@ import androidx.navigation.compose.composable
 /** Routes for the People / Friends feature (Master Spec §C). */
 object PeopleRoutes {
     const val PEOPLE = "people"
+    const val REQUESTS = "people/requests"
     const val DISCOVER = "people/discover"
 }
 
@@ -23,8 +24,10 @@ fun NavGraphBuilder.peopleGraph(
     onOpenMyQr: () -> Unit = {},
     onOpenAddByCode: () -> Unit = {},
 ) {
-    composable(PeopleRoutes.PEOPLE) {
+    listOf(PeopleRoutes.PEOPLE, PeopleRoutes.REQUESTS).forEach { route ->
+    composable(route) {
         PeopleScreen(
+            initialTab = if (route == PeopleRoutes.REQUESTS) 2 else 0,
             onOpenProfile = onOpenProfile,
             onOpenConversation = onOpenConversation,
             onOpenDiscover = { navController.navigate(PeopleRoutes.DISCOVER) },
@@ -32,6 +35,7 @@ fun NavGraphBuilder.peopleGraph(
             onOpenMyQr = onOpenMyQr,
             onOpenAddByCode = onOpenAddByCode,
         )
+    }
     }
     composable(PeopleRoutes.DISCOVER) {
         DiscoverScreen(

@@ -88,6 +88,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.gagachat.core.common.system.BatteryOptimization
 import app.gagachat.core.data.preferences.AppLanguage
+import app.gagachat.core.ui.i18n.LocalGagaStrings
 import app.gagachat.core.data.preferences.ChatBackground
 import app.gagachat.core.data.preferences.MediaDownloadPolicy
 import app.gagachat.core.data.preferences.TextScale
@@ -471,7 +472,8 @@ fun AboutSettingsScreen(onBack: () -> Unit, onOpenUpdate: () -> Unit = {}) {
                 title = "App update",
                 subtitle = "Check for and install the latest version",
                 leadingIcon = Icons.Filled.SystemUpdate,
-                leadingIconTint = AboutGreen,
+                leadingIconTint = MaterialTheme.colorScheme.primary,
+                    leadingIconContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
                 onClick = onOpenUpdate,
             )
             GagaDivider()
@@ -479,7 +481,8 @@ fun AboutSettingsScreen(onBack: () -> Unit, onOpenUpdate: () -> Unit = {}) {
                 title = "Rate GaGa Chat",
                 subtitle = "Leave a review on Google Play",
                 leadingIcon = Icons.Filled.Star,
-                leadingIconTint = AboutGreen,
+                leadingIconTint = MaterialTheme.colorScheme.primary,
+                    leadingIconContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
                 onClick = { openPlayStore(context) },
             )
             GagaDivider()
@@ -487,7 +490,8 @@ fun AboutSettingsScreen(onBack: () -> Unit, onOpenUpdate: () -> Unit = {}) {
                 title = "Contact support",
                 subtitle = SUPPORT_EMAIL,
                 leadingIcon = Icons.Filled.Email,
-                leadingIconTint = AboutGreen,
+                leadingIconTint = MaterialTheme.colorScheme.primary,
+                    leadingIconContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
                 onClick = { emailSupport(context) },
             )
             GagaDivider()
@@ -495,21 +499,24 @@ fun AboutSettingsScreen(onBack: () -> Unit, onOpenUpdate: () -> Unit = {}) {
                 title = "Open-source licences",
                 subtitle = "Libraries used in this app",
                 leadingIcon = Icons.Filled.Description,
-                leadingIconTint = AboutGreen,
+                leadingIconTint = MaterialTheme.colorScheme.primary,
+                    leadingIconContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
                 onClick = { showLicenses = true },
             )
             GagaDivider()
             GagaSettingsRow(
                 title = "Terms of service",
                 leadingIcon = Icons.Filled.Check,
-                leadingIconTint = AboutGreen,
+                leadingIconTint = MaterialTheme.colorScheme.primary,
+                    leadingIconContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
                 onClick = { runCatching { uriHandler.openUri(TERMS_URL) } },
             )
             GagaDivider()
             GagaSettingsRow(
                 title = "Privacy policy",
                 leadingIcon = Icons.Filled.Lock,
-                leadingIconTint = AboutGreen,
+                leadingIconTint = MaterialTheme.colorScheme.primary,
+                    leadingIconContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
                 onClick = { runCatching { uriHandler.openUri(PRIVACY_URL) } },
             )
             GagaDivider()
@@ -517,7 +524,8 @@ fun AboutSettingsScreen(onBack: () -> Unit, onOpenUpdate: () -> Unit = {}) {
                 title = "Copy version info",
                 subtitle = "Version $versionLabel",
                 leadingIcon = Icons.Filled.ContentCopy,
-                leadingIconTint = AboutGreen,
+                leadingIconTint = MaterialTheme.colorScheme.primary,
+                    leadingIconContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
                 onClick = {
                     copyToClipboard(context, "GaGa Chat version", versionLabel)
                     scope.launch { snackbar.showSnackbar("Version copied") }
@@ -899,6 +907,25 @@ fun AccessibilitySettingsScreen(
                 .padding(padding)
                 .verticalScroll(rememberScrollState()),
         ) {
+            GagaSectionHeader("SCREEN LAYOUT SIZE")
+            Text(
+                "Change header, search and navigation sizes independently of font size. Large text can increase control height to stay readable.",
+                modifier = Modifier.padding(horizontal = GagaDimens.space16, vertical = GagaDimens.space8),
+                style = MaterialTheme.typography.bodySmall,
+            )
+            app.gagachat.core.model.LayoutSize.entries.forEach { size ->
+                Row(
+                    modifier = Modifier.fillMaxWidth()
+                        .selectable(selected = state.layoutSize == size, onClick = { viewModel.setLayoutSize(size) })
+                        .padding(horizontal = GagaDimens.space16, vertical = GagaDimens.space8),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    RadioButton(selected = state.layoutSize == size, onClick = null)
+                    Spacer(Modifier.width(GagaDimens.space8))
+                    Text(size.label, style = MaterialTheme.typography.bodyLarge)
+                }
+            }
+            GagaDivider()
             GagaSectionHeader("TEXT SIZE")
             TextScale.entries.forEach { scale ->
                 Row(
@@ -954,14 +981,15 @@ fun LanguageSettingsScreen(
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    GagaScaffold(title = "Language", onBack = onBack) { padding ->
+    val strings = LocalGagaStrings.current
+    GagaScaffold(title = strings.languageTitle, onBack = onBack) { padding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
                 .verticalScroll(rememberScrollState()),
         ) {
-            GagaSectionHeader("APP LANGUAGE")
+            GagaSectionHeader(strings.languageScreenSectionHeader)
             AppLanguage.entries.forEach { language ->
                 Row(
                     modifier = Modifier
@@ -983,7 +1011,7 @@ fun LanguageSettingsScreen(
             }
             GagaDivider()
             Text(
-                text = "Your choice is saved on this device.",
+                text = strings.languageSavedNote,
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(GagaDimens.space16),
@@ -1083,7 +1111,7 @@ private const val TERMS_URL = "https://gagachat.app/terms"
 private const val PRIVACY_URL = "https://gagachat.app/privacy"
 
 // Single brand green for non-destructive leading icons (spec §1).
-private val AboutGreen = Color(0xFF00C300)
+private val AboutGreen = Color(0xFF087F4B)
 
 /**
  * The principal open-source components that make up GaGa Chat. Full licence

@@ -64,6 +64,7 @@ fun GagaTopAppBar(
     showDivider: Boolean = true,
     actions: @Composable RowScope.() -> Unit = {},
 ) {
+    val layoutSize = app.gagachat.core.ui.theme.LocalGagaLayoutSize.current
     val density = LocalDensity.current
     val effectiveTextScale = maxOf(
         density.fontScale,
@@ -87,11 +88,9 @@ fun GagaTopAppBar(
         TopAppBar(
             // A stable baseline prevents oversized empty header bands, while
             // still allowing a taller touch-safe title at accessibility scales.
-            expandedHeight = if (compactHeader && subtitleText == null) {
-                // Keep the primary Chats/Today headers to one comfortable row,
-                // without reducing icon targets below Android's 48dp minimum.
-                (textHeight + 14.dp).coerceIn(56.dp, 76.dp)
-            } else (textHeight + 18.dp).coerceIn(64.dp, 88.dp),
+            // Derive height from the active typography. A fixed upper cap clips
+            // titles at system accessibility scales above 200%.
+            expandedHeight = (textHeight + if (compactHeader) 6.dp else 10.dp).coerceAtLeast(layoutSize.headerDp.dp),
             title = {
                 val headerModifier = if (onTitleClick != null) {
                     Modifier
@@ -102,15 +101,16 @@ fun GagaTopAppBar(
                 }
                 BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
                 val smallTitleSpace = maxWidth < 185.dp || effectiveTextScale > 1.35f
+                val showBrandLogo = brandMark && !(maxWidth < 120.dp && effectiveTextScale > 1.35f)
                 Row(
                     modifier = headerModifier.fillMaxWidth().heightIn(min = 48.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    if (brandMark) {
+                    if (showBrandLogo) {
                         // Brand anchor: the GaGa mark sits to the left of the
                         // wordmark on primary screens (home) so the logo is
                         // always visible.
-                        GagaLogo(size = 32.dp, elevation = 0.dp)
+                        GagaLogo(size = if (smallTitleSpace) 24.dp else 32.dp, elevation = 0.dp)
                         Spacer(Modifier.width(8.dp))
                     } else if (avatarUrl != null || avatarStatus != null || onTitleClick != null) {
                         // Chat header identity: real avatar (or initials fallback)
@@ -118,7 +118,7 @@ fun GagaTopAppBar(
                         GagaAvatar(
                             imageUrl = avatarUrl,
                             name = title,
-                            size = if (smallTitleSpace) 30.dp else GagaDimens.avatarSmall,
+                            size = if (compactHeader || smallTitleSpace) 30.dp else GagaDimens.avatarSmall,
                             status = avatarStatus,
                             showStatus = avatarStatus != null,
                         )

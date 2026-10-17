@@ -1,11 +1,14 @@
 package app.gagachat.push
 
+import android.Manifest
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
+import androidx.core.content.ContextCompat
 import app.gagachat.MainActivity
 import app.gagachat.R
 
@@ -217,6 +220,12 @@ object NotificationHelper {
         if (!manager.areNotificationsEnabled()) return false
         if (android.os.Build.VERSION.SDK_INT >= 26 &&
             manager.getNotificationChannel(notification.channelId)?.importance == android.app.NotificationManager.IMPORTANCE_NONE) return false
+        // Explicit runtime-permission gate (Android 13+). Checking here — rather
+        // than relying only on catching the exception below — keeps the intent
+        // clear and satisfies the platform's permission contract.
+        if (android.os.Build.VERSION.SDK_INT >= 33 &&
+            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) !=
+            PackageManager.PERMISSION_GRANTED) return false
         return runCatching { manager.notify(id, notification); true }.getOrDefault(false)
     }
 

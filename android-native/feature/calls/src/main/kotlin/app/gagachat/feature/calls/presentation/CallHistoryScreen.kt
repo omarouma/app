@@ -10,6 +10,10 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material3.FilterChip
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -44,6 +48,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -72,12 +77,15 @@ fun CallHistoryRoute(
     onNavigateBack: (() -> Unit)? = null,
     onOpenConversation: (String) -> Unit,
     onStartCall: (conversationId: String, isVideo: Boolean) -> Unit,
+    onNewCall: () -> Unit,
     viewModel: CallViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }
     var query by rememberSaveable { mutableStateOf("") }
     var confirmClear by remember { mutableStateOf(false) }
+    var pendingDetails by remember { mutableStateOf<CallSession?>(null) }
+    var historyMenu by remember { mutableStateOf(false) }
     var pendingDelete by remember { mutableStateOf<String?>(null) }
     val snackbar = remember { SnackbarHostState() }
     LaunchedEffect(state.error) { state.error?.let { snackbar.showSnackbar(it) } }
@@ -92,7 +100,7 @@ fun CallHistoryRoute(
 
     val visibleCalls = remember(allCalls, selectedTab, query) {
         allCalls
-            .filter { selectedTab == 0 || it.isMissedCall() }
+            .filter { matchesCallFilter(it, CallHistoryFilter.entries.getOrElse(selectedTab) { CallHistoryFilter.ALL }) }
             .filter {
                 query.isBlank() ||
                     (it.peerName ?: "").contains(query, ignoreCase = true)
@@ -113,13 +121,12 @@ fun CallHistoryRoute(
         // Calls is a primary bottom tab; avoid a misleading Back button.
         onBack = onNavigateBack,
         actions = {
-            IconButton(onClick = viewModel::refreshHistory) { Icon(Icons.Filled.Refresh, "Refresh call history") }
-            if (allCalls.isNotEmpty()) {
-                IconButton(onClick = { confirmClear = true }) {
-                    Icon(
-                        imageVector = Icons.Filled.DeleteSweep,
-                        contentDescription = "Clear call history",
-                    )
+            IconButton(onClick = onNewCall) { Icon(Icons.Filled.Add, "New call") }
+            Box {
+                IconButton(onClick = { historyMenu = true }) { Icon(Icons.Filled.MoreVert, "Call history options") }
+                DropdownMenu(expanded = historyMenu, onDismissRequest = { historyMenu = false }) {
+                    DropdownMenuItem(text = { Text("Refresh") }, onClick = { historyMenu = false; viewModel.refreshHistory() })
+                    if (allCalls.isNotEmpty()) DropdownMenuItem(text = { Text("Clear history") }, onClick = { historyMenu = false; confirmClear = true })
                 }
             }
         },
@@ -134,17 +141,16 @@ fun CallHistoryRoute(
                 onQueryChange = { query = it },
                 placeholder = "Search by name...",
             )
-            TabRow(selectedTabIndex = selectedTab) {
-                Tab(
-                    selected = selectedTab == 0,
-                    onClick = { selectedTab = 0 },
-                    text = { Text("All") },
-                )
-                Tab(
-                    selected = selectedTab == 1,
-                    onClick = { selectedTab = 1 },
-                    text = { Text("Missed") },
-                )
+            LazyRow(
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                items(CallHistoryFilter.entries) { filter ->
+                    val count = allCalls.count { matchesCallFilter(it, filter) }
+                    FilterChip(selected = selectedTab == filter.ordinal,
+                        onClick = { selectedTab = filter.ordinal },
+                        label = { Text("${filter.label} ($count)") })
+                }
             }
             when {
                 state.isLoading && allCalls.isEmpty() -> {
@@ -162,12 +168,12 @@ fun CallHistoryRoute(
                         icon = Icons.Filled.Call,
                         title = when {
                             query.isNotBlank() -> "No matching calls"
-                            selectedTab == 1 -> "No missed calls"
+                            selectedTab > 0 -> "No ${CallHistoryFilter.entries[selectedTab].label.lowercase()} calls"
                             else -> "No calls yet"
                         },
                         description = when {
                             query.isNotBlank() -> "Try a different name."
-                            selectedTab == 1 -> "You're all caught up."
+                            selectedTab > 0 -> "Try another filter to see your other calls."
                             else -> "Your voice and video call history will appear here."
                         },
                     )
@@ -185,6 +191,7 @@ fun CallHistoryRoute(
                                     onCall = { onStartCall(call.conversationId, false) },
                                     onVideoCall = { onStartCall(call.conversationId, true) },
                                     onDelete = { pendingDelete = call.id },
+                                    onDetails = { pendingDetails = call },
                                 )
                                 GagaDivider()
                             }
@@ -193,6 +200,18 @@ fun CallHistoryRoute(
                 }
             }
         }
+    }
+    pendingDetails?.let { call ->
+        AlertDialog(onDismissRequest = { pendingDetails = null },
+            title = { Text(call.peerName?.takeIf { it.isNotBlank() } ?: "Call details") },
+            text = { Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(callSubtitle(call))
+                Text("Started: " + java.text.DateFormat.getDateTimeInstance().format(java.util.Date(call.startedAt)))
+                call.endedAt?.let { Text("Ended: " + java.text.DateFormat.getDateTimeInstance().format(java.util.Date(it))) }
+                Text("Status: " + call.status.name.lowercase().replace('_', ' '))
+            } },
+            confirmButton = { TextButton(onClick = { pendingDetails = null; onOpenConversation(call.conversationId) }) { Text("Message") } },
+            dismissButton = { TextButton(onClick = { pendingDetails = null }) { Text("Close") } })
     }
     pendingDelete?.let { id ->
         AlertDialog(onDismissRequest = { pendingDelete = null }, title = { Text("Remove call record?") },
@@ -222,12 +241,13 @@ fun CallHistoryRoute(
 }
 
 @Composable
-private fun CallHistoryRow(
+internal fun CallHistoryRow(
     call: CallSession,
     onClick: () -> Unit,
     onCall: () -> Unit,
     onVideoCall: () -> Unit,
     onDelete: () -> Unit,
+    onDetails: () -> Unit,
 ) {
     var menu by remember { mutableStateOf(false) }
     val missed = call.isMissedCall()
@@ -236,19 +256,23 @@ private fun CallHistoryRow(
         call.isOutgoing -> Icons.AutoMirrored.Filled.CallMade
         else -> Icons.AutoMirrored.Filled.CallReceived
     }
-    val directionColor = if (missed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
+    val directionColor = when (call.status) {
+        CallStatus.MISSED, CallStatus.FAILED -> MaterialTheme.colorScheme.error
+        CallStatus.REJECTED, CallStatus.BUSY -> MaterialTheme.colorScheme.tertiary
+        else -> MaterialTheme.colorScheme.primary
+    }
 
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .padding(start = GagaDimens.space16, end = GagaDimens.space4, top = GagaDimens.space12, bottom = GagaDimens.space12),
+            .padding(start = GagaDimens.space16, end = GagaDimens.space4, top = 8.dp, bottom = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         GagaAvatar(
             imageUrl = call.peerAvatar,
             name = call.peerName?.takeIf { it.isNotBlank() } ?: "GaGa User",
-            size = GagaDimens.avatarMedium,
+            size = 40.dp,
         )
         Spacer(Modifier.width(GagaDimens.space12))
         Column(modifier = Modifier.weight(1f)) {
@@ -276,16 +300,19 @@ private fun CallHistoryRow(
                 )
             }
         }
-        IconButton(onClick = onCall) {
+        IconButton(onClick = if (call.type == CallType.VIDEO) onVideoCall else onCall) {
             Icon(
-                imageVector = Icons.Filled.Call,
-                contentDescription = "Voice call",
+                imageVector = if (call.type == CallType.VIDEO) Icons.Filled.Videocam else Icons.Filled.Call,
+                contentDescription = if (call.type == CallType.VIDEO) "Video call" else "Voice call",
                 tint = MaterialTheme.colorScheme.primary,
             )
         }
         Box {
             IconButton(onClick = { menu = true }) { Icon(Icons.Filled.MoreVert, "Call options") }
             DropdownMenu(menu, { menu = false }) {
+                DropdownMenuItem(text = { Text("Voice call") }, onClick = { menu = false; onCall() })
+                DropdownMenuItem(text = { Text("Message") }, onClick = { menu = false; onClick() })
+                DropdownMenuItem(text = { Text("Call details") }, onClick = { menu = false; onDetails() })
                 DropdownMenuItem(text = { Text("Video call") }, onClick = { menu = false; onVideoCall() })
                 DropdownMenuItem(text = { Text("Remove record") }, onClick = { menu = false; onDelete() })
             }
@@ -313,4 +340,17 @@ private fun callSubtitle(call: CallSession): String {
         ?.let { TimeFormat.callDuration(it) }
         ?: TimeFormat.callRelativeTime(call.startedAt)
     return "$direction \u2022 $kind \u2022 $tail"
+}
+
+internal enum class CallHistoryFilter(val label: String) {
+    ALL("All"), MISSED("Missed"), INCOMING("Incoming"), OUTGOING("Outgoing"), VOICE("Voice"), VIDEO("Video")
+}
+
+internal fun matchesCallFilter(call: CallSession, filter: CallHistoryFilter): Boolean = when (filter) {
+    CallHistoryFilter.ALL -> true
+    CallHistoryFilter.MISSED -> call.isMissedCall()
+    CallHistoryFilter.INCOMING -> !call.isOutgoing
+    CallHistoryFilter.OUTGOING -> call.isOutgoing
+    CallHistoryFilter.VOICE -> call.type == CallType.AUDIO
+    CallHistoryFilter.VIDEO -> call.type == CallType.VIDEO
 }

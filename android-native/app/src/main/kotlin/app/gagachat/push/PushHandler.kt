@@ -125,10 +125,10 @@ class PushHandler @Inject constructor(
             "friend_request", "friend_accepted", "friend" -> {
                 NotificationHelper.showGeneral(
                     context = context,
-                    id = (conversationId ?: title).hashCode(),
+                    id = (data["notification_id"] ?: data["request_id"] ?: conversationId ?: title).hashCode(),
                     title = title,
                     body = body,
-                    route = "requests",
+                    route = if (type == "friend_accepted") "friends" else "requests",
                     friendEvent = true,
                     soundEnabled = soundsEnabled,
                     notificationsEnabled = notificationsEnabled,

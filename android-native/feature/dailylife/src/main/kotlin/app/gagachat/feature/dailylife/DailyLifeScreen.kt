@@ -82,7 +82,7 @@ fun NavGraphBuilder.dailyLifeGraph(nav: NavController, onSaved: () -> Unit, onCh
         RecordEditor(entry.arguments?.getString("kind").orEmpty(), entry.arguments?.getString("id").orEmpty(), entry.arguments?.getString("text").orEmpty(), entry.arguments?.getString("chat").orEmpty(), entry.arguments?.getString("message").orEmpty(), nav)
     }
     composable(DailyRoutes.SHOP) { entry -> ShoppingScreen(entry.arguments?.getString("id").orEmpty(), nav) }
-    composable(DailyRoutes.CHINA_DIRECT) { GaGaChinaShopPreview(onBack = { nav.popBackStack() }) }
+    composable(DailyRoutes.CHINA_DIRECT) { GaGaChinaDirectScreen(onBack = { nav.popBackStack() }) }
     composable(DailyRoutes.SPLITS) { SplitBillsScreen(nav, onChat) }
     composable(DailyRoutes.SAFE) { SafeScreen(onBack = { nav.popBackStack() }) }
 }
@@ -558,7 +558,7 @@ private fun RecordList(section: String, nav: NavController, onChat: (String) -> 
                     }
                 }
             }
-            item { OutlinedTextField(query,{query=it},label={Text("Search")},modifier=Modifier.fillMaxWidth(),singleLine=true) }
+            item { app.gagachat.core.ui.component.GagaSearchBar(query, { query = it }, placeholder = "Search") }
             item {
                 Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement=Arrangement.spacedBy(8.dp)) {
                     if(section=="shopping") Button(onClick={addList=true}) { Text("New list") }
@@ -920,7 +920,7 @@ private fun ShoppingScreen(id: String, nav: NavController, vm: DailyLifeViewMode
                     Text(member.displayLabel, Modifier.weight(1f))
                     if (member.id != list?.ownerId) TextButton(onClick = { vm.share(id, member, true) {} }, enabled = !ui.busy) { Text("Remove") }
                 } }
-                OutlinedTextField(query, { query = it }, label = { Text("Search GaGa name or ID") })
+                app.gagachat.core.ui.component.GagaSearchBar(query, { query = it }, placeholder = "Search GaGa name or ID")
                 searchError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
                 found.filter { it.id !in (list?.memberIds ?: emptyList()) && it.id != list?.ownerId }.forEach { member ->
                     TextButton(onClick = { selected = member }) { Text("${member.displayLabel} ${member.username?.let { "@$it" }.orEmpty()}") }

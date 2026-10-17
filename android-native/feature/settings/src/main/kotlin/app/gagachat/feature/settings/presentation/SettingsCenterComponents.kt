@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
@@ -171,15 +172,41 @@ fun ActionRow(
 /**
  * A row for a feature that is not implemented yet. It is deliberately NOT a
  * working toggle — the spec forbids controls that look functional but do
- * nothing. The "Soon" chip makes the unavailability explicit.
+ * nothing. The "Soon" chip makes the unavailability explicit, and tapping the
+ * row opens an honest explanation of what the feature will do once it ships, so
+ * the row is informative rather than a silent dead end.
  */
 @Composable
 fun ComingSoonRow(title: String, subtitle: String? = null) {
+    var open by remember { mutableStateOf(false) }
+    if (open) {
+        AlertDialog(
+            onDismissRequest = { open = false },
+            title = { Text(title) },
+            text = {
+                Text(
+                    buildString {
+                        if (!subtitle.isNullOrBlank()) {
+                            append(subtitle)
+                            append("\n\n")
+                        }
+                        append("This is a planned feature. It is not active yet, and nothing on ")
+                        append("this screen changes any real setting. It will appear here once it ")
+                        append("has been implemented.")
+                    },
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = { open = false }) { Text("Got it") }
+            },
+        )
+    }
     GagaSettingsRow(
         title = title,
         subtitle = subtitle,
         leadingIcon = Icons.Filled.Schedule,
         leadingIconTint = MaterialTheme.colorScheme.onSurfaceVariant,
+        onClick = { open = true },
         trailing = {
             Surface(
                 color = MaterialTheme.colorScheme.surfaceVariant,
@@ -196,6 +223,34 @@ fun ComingSoonRow(title: String, subtitle: String? = null) {
         },
     )
     GagaDivider()
+}
+
+/**
+ * A genuinely functional control for a not-yet-available area. Unlike the
+ * [ComingSoonRow]s above it, this control *does* something real: it records the
+ * user's interest on this device (through [SettingsCenterViewModel]) so the
+ * screen can reflect it. The copy is deliberately honest about scope — it is a
+ * local note of interest, not a promise of marketing messages.
+ */
+@Composable
+fun EarlyAccessToggle(
+    title: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+) {
+    SettingsGroup("EARLY ACCESS") {
+        ToggleRow(
+            title = title,
+            subtitle = if (checked) {
+                "Saved on this device. This screen will show an update when it launches."
+            } else {
+                "Save your interest on this device."
+            },
+            checked = checked,
+            onCheckedChange = onCheckedChange,
+            icon = Icons.Filled.NotificationsActive,
+        )
+    }
 }
 
 /** A short explanatory note shown above a group of controls. */

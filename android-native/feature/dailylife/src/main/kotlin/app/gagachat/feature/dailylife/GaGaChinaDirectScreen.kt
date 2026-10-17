@@ -26,7 +26,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 
-/** Preview-only China Direct shopping surface. No checkout or live supplier connection. */
+/**
+ * Live China Direct shopping surface. Products, cart, quote requests, landed-cost
+ * quotations and supplier applications are all backed by [ChinaShopApi]
+ * (Supabase PostgREST/RPC). Payment and checkout remain intentionally disabled
+ * until supplier and landed-cost verification are complete.
+ */
 private val Emerald = Color(0xFF008D76)
 private val Dark = Color(0xFF09141B)
 data class ShopProduct(
@@ -204,7 +209,7 @@ class ChinaShopViewModel @Inject constructor(private val api: ChinaShopApi) : Vi
 }
 
 @Composable
-fun GaGaChinaShopPreview(onBack: () -> Unit = {}, viewModel: ChinaShopViewModel = hiltViewModel()) {
+fun GaGaChinaDirectScreen(onBack: () -> Unit = {}, viewModel: ChinaShopViewModel = hiltViewModel()) {
     var category by remember { mutableStateOf("All") }
     var search by remember { mutableStateOf("") }
     var selected by remember { mutableStateOf<ShopProduct?>(null) }
@@ -375,7 +380,7 @@ fun GaGaChinaShopPreview(onBack: () -> Unit = {}, viewModel: ChinaShopViewModel 
                 TextButton(onClick = { showSupplierForm = true }) { Text("Become a China Supplier") }
                 TextButton(onClick = { showAdminReview = true; viewModel.refreshAdminQueue() }) { Text("Supplier admin review (restricted)") }
                 Spacer(Modifier.height(12.dp))
-                OutlinedTextField(search, { search = it }, label = { Text("Search products") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                app.gagachat.core.ui.component.GagaSearchBar(search, { search = it }, placeholder = "Search products")
                 Spacer(Modifier.height(8.dp))
                 androidx.compose.foundation.lazy.LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     items(categories.size) { i ->

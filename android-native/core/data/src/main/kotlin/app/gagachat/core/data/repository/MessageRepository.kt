@@ -189,13 +189,21 @@ interface MessageRepository {
         contactPhone: String?,
     ): AppResult<Message>
 
-    /** Forwards [source] into [conversationId] as a brand-new message. */
+    /**
+     * Forwards [source] into [conversationId] as a brand-new message.
+     *
+     * [clientMessageId] is the idempotency key. Callers fanning out to several
+     * destinations should pass a deterministic id per (source, destination) so a
+     * retry or double-tap replaces the same row instead of creating a duplicate.
+     * When null a fresh id is generated (single-shot forward).
+     */
     suspend fun forwardMessage(
         source: Message,
         conversationId: String,
         senderId: String,
         senderName: String?,
         senderAvatar: String?,
+        clientMessageId: String? = null,
     ): AppResult<Message>
 
     suspend fun markDelivered(conversationId: String, userId: String)
@@ -750,13 +758,16 @@ class DefaultMessageRepository @Inject constructor(
         senderId: String,
         senderName: String?,
         senderAvatar: String?,
+        clientMessageId: String?,
     ): AppResult<Message> = withContext(dispatchers.io) {
-        val clientMessageId = idGenerator.newClientMessageId()
+        // A caller-supplied id is the idempotency key for fan-out/retry; a
+        // fresh one is generated for a single-shot forward.
+        val effectiveClientId = clientMessageId ?: idGenerator.newClientMessageId()
         val now = timeProvider.nowMillis()
         val originalAuthor = source.forwardedFrom ?: source.senderId
         val pending = Message(
-            localId = clientMessageId,
-            clientMessageId = clientMessageId,
+            localId = effectiveClientId,
+            clientMessageId = effectiveClientId,
             conversationId = conversationId,
             senderId = senderId,
             type = source.type,
@@ -779,8 +790,8 @@ class DefaultMessageRepository @Inject constructor(
         )
         messageDao.upsert(pending.toEntity())
         val preview = source.text ?: "\uD83D\uDCE4 Forwarded"
-        updateConversationPreview(conversationId, clientMessageId, preview, now)
-        outboxScheduler.enqueueMessageSend(clientMessageId)
+        updateConversationPreview(conversationId, effectiveClientId, preview, now)
+        outboxScheduler.enqueueMessageSend(effectiveClientId)
         dispatchOrQueue(pending)
     }
 

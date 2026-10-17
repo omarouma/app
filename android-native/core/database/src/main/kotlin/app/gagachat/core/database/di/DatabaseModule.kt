@@ -6,8 +6,10 @@ import androidx.room.RoomDatabase
 import app.gagachat.core.database.GagaDatabase
 import app.gagachat.core.database.dao.BlockDao
 import app.gagachat.core.database.dao.CallDao
+import app.gagachat.core.database.dao.ContactPhotoOverrideDao
 import app.gagachat.core.database.dao.ConversationDao
 import app.gagachat.core.database.dao.MessageDao
+import app.gagachat.core.database.dao.SavedPlaceDao
 import app.gagachat.core.database.dao.SyncStateDao
 import app.gagachat.core.database.dao.UploadDao
 import app.gagachat.core.database.dao.UserDao
@@ -35,6 +37,8 @@ object DatabaseModule {
                 GagaDatabase.MIGRATION_4_5,
                 GagaDatabase.MIGRATION_5_6,
                 GagaDatabase.MIGRATION_6_7,
+                GagaDatabase.MIGRATION_7_8,
+                GagaDatabase.MIGRATION_8_9,
             )
             .fallbackToDestructiveMigrationOnDowngrade()
             .build()
@@ -56,6 +60,13 @@ object DatabaseModule {
 
     @Provides
     fun provideBlockDao(db: GagaDatabase): BlockDao = db.blockDao()
+
+    @Provides
+    fun provideSavedPlaceDao(db: GagaDatabase): SavedPlaceDao = db.savedPlaceDao()
+
+    @Provides
+    fun provideContactPhotoOverrideDao(db: GagaDatabase): ContactPhotoOverrideDao =
+        db.contactPhotoOverrideDao()
 
     @Provides
     fun provideSyncStateDao(db: GagaDatabase): SyncStateDao = db.syncStateDao()

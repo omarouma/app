@@ -108,4 +108,22 @@ class NotificationRegressionTest {
         assertTrue(request.await() is AppResult.Failure)
         assertTrue(repository.notifications.value.isEmpty())
     }
+    @Test fun liveRefreshKeepsPreviouslyLoadedHistory() = runTest {
+        val api = mockk<SupabaseRestApi>()
+        val auth = mockk<AuthRepository>()
+        every { auth.sessionFlow } returns MutableStateFlow<AuthSession?>(session("a"))
+        val first = (0 until 50).map { NotificationRow("n$it", "a") }
+        val older = (50 until 100).map { NotificationRow("n$it", "a") }
+        coEvery { api.getNotifications("a", 50) } returns first
+        coEvery { api.getNotificationsPage("a", 50) } returns older
+        coEvery { api.getNotifications("a", 100) } returns (listOf(NotificationRow("new", "a")) + first + older).take(100)
+        coEvery { api.getUnreadNotificationCount("a") } returns 101
+        val repo = DefaultNotificationRepository(api, auth, dispatchers(StandardTestDispatcher(testScheduler)), backgroundScope)
+        runCurrent(); repo.refresh(); repo.loadMore(); repo.refresh()
+        assertEquals(100, repo.notifications.value.size)
+        assertEquals("new", repo.notifications.value.first().id)
+        assertTrue(repo.notifications.value.any { it.id == "n98" })
+        assertEquals(101, repo.unreadCount.value)
+    }
+
 }

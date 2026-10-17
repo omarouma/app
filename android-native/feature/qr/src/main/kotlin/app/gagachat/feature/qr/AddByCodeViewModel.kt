@@ -17,6 +17,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -28,6 +31,7 @@ data class AddByCodeUiState(
     val result: User? = null,
     val isFriend: Boolean = false,
     val requestSent: Boolean = false,
+    val outgoingRequest: FriendRequest? = null,
     val incomingRequest: FriendRequest? = null,
     val isSending: Boolean = false,
     val error: String? = null,
@@ -45,17 +49,48 @@ class AddByCodeViewModel @Inject constructor(
     val state: StateFlow<AddByCodeUiState> = _state.asStateFlow()
     private val myId get() = authRepository.sessionFlow.value?.userId.orEmpty()
     private var lookupJob: Job? = null
+    private var actionJob: Job? = null
+
+    init {
+        viewModelScope.launch {
+            authRepository.sessionFlow.map { it?.userId }.distinctUntilChanged().collect {
+                lookupJob?.cancel()
+                actionJob?.cancel()
+                _state.value = AddByCodeUiState()
+            }
+        }
+        viewModelScope.launch {
+            combine(friendsRepository.friends, friendsRepository.incomingRequests,
+                friendsRepository.outgoingRequests) { friends, incoming, outgoing ->
+                Triple(friends, incoming, outgoing)
+            }.collect { (friends, incoming, outgoing) ->
+                _state.update { current ->
+                    val target = current.result?.id
+                    val sent = outgoing.firstOrNull { it.fromUserId == myId && it.toUserId == target }
+                    current.copy(
+                        isFriend = friends.any { it.user.id == target },
+                        incomingRequest = incoming.firstOrNull { it.toUserId == myId && it.fromUserId == target },
+                        outgoingRequest = sent, requestSent = sent != null,
+                    )
+                }
+            }
+        }
+    }
 
     fun onInputChange(value: String) {
+        if (_state.value.isSending) return
         lookupJob?.cancel()
         _state.update {
             it.copy(input = value.take(2048), status = AddByCodeStatus.IDLE,
                 result = null, error = null, isFriend = false,
-                requestSent = false, incomingRequest = null)
+                requestSent = false, incomingRequest = null, outgoingRequest = null)
         }
     }
 
     fun lookup() {
+        val owner = myId
+        if (owner.isBlank()) { showError("Sign in to find friends."); return }
+        if (_state.value.isSending) return
         val raw = _state.value.input.trim()
         val userId = QrPayload.decodeUserId(raw)
         val handle = QrPayload.decodeUsername(raw)
@@ -93,6 +128,7 @@ class AddByCodeViewModel @Inject constructor(
                         AppResult.Loading -> null
                     }
                 }
+                if (owner != myId) return@launch
                 if (found == null || found.id == myId) {
                     _state.update {
                         it.copy(status = AddByCodeStatus.NOT_FOUND,
@@ -109,11 +145,12 @@ class AddByCodeViewModel @Inject constructor(
                     else -> Unit
                 }
                 val isFriend = friendsRepository.friends.value.any { it.user.id == found.id }
-                val alreadySent = friendsRepository.outgoingRequests.value.any { it.toUserId == found.id }
+                val outgoing = friendsRepository.outgoingRequests.value.firstOrNull { it.toUserId == found.id }
+                val alreadySent = outgoing != null
                 val incoming = friendsRepository.incomingRequests.value.firstOrNull { it.fromUserId == found.id }
                 _state.update {
                     it.copy(status = AddByCodeStatus.FOUND, result = found,
-                        isFriend = isFriend, requestSent = alreadySent, incomingRequest = incoming)
+                        isFriend = isFriend, requestSent = alreadySent, incomingRequest = incoming, outgoingRequest = outgoing)
                 }
             } catch (error: CancellationException) {
                 throw error
@@ -130,37 +167,41 @@ class AddByCodeViewModel @Inject constructor(
     fun sendRequest() {
         val snapshot = _state.value
         val target = snapshot.result ?: return
-        if (snapshot.isSending || snapshot.isFriend || snapshot.requestSent || snapshot.incomingRequest != null) return
-        viewModelScope.launch {
-            _state.update { it.copy(isSending = true, error = null) }
-            try {
-                when (val result = friendsRepository.sendRequest(target.id)) {
-                    is AppResult.Success -> _state.update { it.copy(isSending = false, requestSent = true) }
-                    is AppResult.Failure -> _state.update {
-                        it.copy(isSending = false, error = result.error.toUserMessage())
-                    }
-                    AppResult.Loading -> _state.update { it.copy(isSending = false) }
-                }
-            } catch (error: CancellationException) { throw error }
-            catch (_: Exception) { _state.update { it.copy(isSending = false, error = "Could not send request. Retry.") } }
-        }
+        if (snapshot.isFriend || snapshot.requestSent || snapshot.incomingRequest != null) return
+        changeFriendship { friendsRepository.sendRequest(target.id) }
     }
 
     fun acceptIncoming() {
-        val snapshot = _state.value
-        val request = snapshot.incomingRequest ?: return
-        if (snapshot.isSending) return
-        viewModelScope.launch {
-            _state.update { it.copy(isSending = true, error = null) }
-            val result = friendsRepository.acceptRequest(request.id, request.fromUserId)
-            when (result) {
-                is AppResult.Success -> _state.update {
-                    it.copy(isSending = false, isFriend = true, incomingRequest = null, requestSent = false)
+        val request = _state.value.incomingRequest ?: return
+        changeFriendship { friendsRepository.acceptRequest(request.id, request.fromUserId) }
+    }
+
+    fun declineIncoming() {
+        val request = _state.value.incomingRequest ?: return
+        changeFriendship { friendsRepository.declineRequest(request.id) }
+    }
+
+    fun cancelOutgoing() {
+        val request = _state.value.outgoingRequest ?: return
+        changeFriendship { friendsRepository.cancelRequest(request.id) }
+    }
+
+    private fun changeFriendship(operation: suspend () -> AppResult<Unit>) {
+        val owner = myId
+        val target = _state.value.result?.id ?: return
+        if (owner.isBlank() || _state.value.isSending) return
+        _state.update { it.copy(isSending = true, error = null) }
+        actionJob = viewModelScope.launch {
+            try {
+                val result = operation()
+                if (owner == myId && _state.value.result?.id == target && result is AppResult.Failure) {
+                    _state.update { it.copy(error = result.error.toUserMessage()) }
                 }
-                is AppResult.Failure -> _state.update {
-                    it.copy(isSending = false, error = result.error.toUserMessage())
-                }
-                AppResult.Loading -> _state.update { it.copy(isSending = false) }
+            } catch (error: CancellationException) { throw error }
+            catch (_: Exception) {
+                if (owner == myId) _state.update { it.copy(error = "Could not update friend request. Retry.") }
+            } finally {
+                if (owner == myId) _state.update { it.copy(isSending = false) }
             }
         }
     }
@@ -169,12 +210,20 @@ class AddByCodeViewModel @Inject constructor(
     fun openChat(onReady: (String) -> Unit) {
         val target = _state.value.result ?: return
         val me = myId
-        if (me.isBlank()) return
-        viewModelScope.launch {
-            when (val result = conversationRepository.openDirectConversation(me, target.id)) {
-                is AppResult.Success -> onReady(result.data)
-                is AppResult.Failure -> _state.update { it.copy(error = result.error.toUserMessage()) }
-                AppResult.Loading -> Unit
+        if (me.isBlank() || !_state.value.isFriend || _state.value.isSending) return
+        _state.update { it.copy(isSending = true, error = null) }
+        actionJob = viewModelScope.launch {
+            try {
+                when (val result = conversationRepository.openDirectConversation(me, target.id)) {
+                    is AppResult.Success -> if (myId == me) onReady(result.data)
+                    is AppResult.Failure -> if (myId == me) _state.update { it.copy(error = result.error.toUserMessage()) }
+                    AppResult.Loading -> Unit
+                }
+            } catch (error: CancellationException) { throw error }
+            catch (_: Exception) {
+                if (myId == me) _state.update { it.copy(error = "Could not open chat. Retry.") }
+            } finally {
+                if (myId == me) _state.update { it.copy(isSending = false) }
             }
         }
     }

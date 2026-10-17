@@ -37,9 +37,9 @@ fun GagaQrCode(
         runCatching {
             val hints = mapOf(
                 EncodeHintType.ERROR_CORRECTION to ErrorCorrectionLevel.M,
-                EncodeHintType.MARGIN to 1,
+                EncodeHintType.MARGIN to 4,
             )
-            QRCodeWriter().encode(content, BarcodeFormat.QR_CODE, 512, 512, hints)
+            QRCodeWriter().encode(content, BarcodeFormat.QR_CODE, 0, 0, hints)
         }.getOrNull()
     }
 
@@ -61,14 +61,14 @@ fun GagaQrCode(
         }
         Canvas(modifier = Modifier.size(size - 24.dp)) {
             val modules = matrix.width
-            val cell = this.size.width / modules
+            val cell = minOf(this.size.width, this.size.height) / modules
             for (x in 0 until modules) {
                 for (y in 0 until modules) {
                     if (matrix.get(x, y)) {
                         drawRect(
                             color = Color.Black,
                             topLeft = Offset(x * cell, y * cell),
-                            size = Size(cell + 0.5f, cell + 0.5f),
+                            size = Size(cell, cell),
                         )
                     }
                 }

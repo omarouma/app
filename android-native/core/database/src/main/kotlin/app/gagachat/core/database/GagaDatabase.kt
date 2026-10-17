@@ -6,18 +6,22 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import app.gagachat.core.database.dao.BlockDao
 import app.gagachat.core.database.dao.CallDao
+import app.gagachat.core.database.dao.ContactPhotoOverrideDao
 import app.gagachat.core.database.dao.ConversationDao
 import app.gagachat.core.database.dao.MessageDao
+import app.gagachat.core.database.dao.SavedPlaceDao
 import app.gagachat.core.database.dao.SyncStateDao
 import app.gagachat.core.database.dao.UploadDao
 import app.gagachat.core.database.dao.UserDao
 import app.gagachat.core.database.entity.AttachmentEntity
 import app.gagachat.core.database.entity.BlockEntity
 import app.gagachat.core.database.entity.CallSessionEntity
+import app.gagachat.core.database.entity.ContactPhotoOverrideEntity
 import app.gagachat.core.database.entity.ConversationEntity
 import app.gagachat.core.database.entity.ConversationMemberEntity
 import app.gagachat.core.database.entity.MessageEntity
 import app.gagachat.core.database.entity.PendingUploadEntity
+import app.gagachat.core.database.entity.SavedPlaceEntity
 import app.gagachat.core.database.entity.SyncStateEntity
 import app.gagachat.core.database.entity.UserEntity
 
@@ -35,9 +39,11 @@ import app.gagachat.core.database.entity.UserEntity
         CallSessionEntity::class,
         PendingUploadEntity::class,
         BlockEntity::class,
+        SavedPlaceEntity::class,
+        ContactPhotoOverrideEntity::class,
         SyncStateEntity::class,
     ],
-    version = 7,
+    version = 9,
     exportSchema = true,
 )
 abstract class GagaDatabase : RoomDatabase() {
@@ -47,6 +53,8 @@ abstract class GagaDatabase : RoomDatabase() {
     abstract fun callDao(): CallDao
     abstract fun uploadDao(): UploadDao
     abstract fun blockDao(): BlockDao
+    abstract fun savedPlaceDao(): SavedPlaceDao
+    abstract fun contactPhotoOverrideDao(): ContactPhotoOverrideDao
     abstract fun syncStateDao(): SyncStateDao
 
     companion object {
@@ -128,6 +136,54 @@ abstract class GagaDatabase : RoomDatabase() {
         val MIGRATION_6_7 = object : Migration(6, 7) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE messages ADD COLUMN scheduledAt INTEGER")
+            }
+        }
+
+        /**
+         * v7 → v8: add the owner-scoped `saved_places` table backing location
+         * favourites. Additive only — no existing table is touched, so a device
+         * upgrading keeps every cached message, conversation and block.
+         */
+        val MIGRATION_7_8 = object : Migration(7, 8) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `saved_places` (" +
+                        "`ownerId` TEXT NOT NULL, " +
+                        "`id` TEXT NOT NULL, " +
+                        "`label` TEXT NOT NULL, " +
+                        "`detail` TEXT NOT NULL, " +
+                        "`latitude` REAL NOT NULL, " +
+                        "`longitude` REAL NOT NULL, " +
+                        "`createdAt` INTEGER NOT NULL, " +
+                        "PRIMARY KEY(`ownerId`, `id`))",
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_saved_places_ownerId` " +
+                        "ON `saved_places` (`ownerId`)",
+                )
+            }
+        }
+
+        /**
+         * v8 \u2192 v9: add the owner-scoped `contact_photo_overrides` table backing
+         * private per-contact photo overrides. Additive only \u2014 no existing table
+         * is touched, so a device upgrading keeps every cached message, saved
+         * place and block.
+         */
+        val MIGRATION_8_9 = object : Migration(8, 9) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `contact_photo_overrides` (" +
+                        "`ownerId` TEXT NOT NULL, " +
+                        "`contactId` TEXT NOT NULL, " +
+                        "`localPath` TEXT NOT NULL, " +
+                        "`updatedAt` INTEGER NOT NULL, " +
+                        "PRIMARY KEY(`ownerId`, `contactId`))",
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_contact_photo_overrides_ownerId` " +
+                        "ON `contact_photo_overrides` (`ownerId`)",
+                )
             }
         }
     }

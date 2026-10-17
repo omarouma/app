@@ -154,6 +154,39 @@ class SupabaseRestApi @Inject constructor(
     }.body()
 
 
+    // ---- Private contact remarks ----
+    // Client never queries other owners: all reads and writes additionally
+    // require RLS owner_id=auth.uid() and an active Supabase session.
+    suspend fun getContactRemarks(ownerId: String): List<JsonObject> =
+        client.get("${config.restUrl}/gaga_contact_remarks") {
+            auth()
+            parameter("select", "contact_user_id,alias,mobile,tags,remark")
+            parameter("owner_id", "eq.$ownerId")
+            parameter("limit", 500)
+        }.body()
+
+    suspend fun saveContactRemark(
+        ownerId: String, contactId: String, alias: String, mobile: String,
+        tags: List<String>, remark: String,
+    ) {
+        client.post("${config.restUrl}/gaga_contact_remarks") {
+            auth()
+            parameter("on_conflict", "owner_id,contact_user_id")
+            header("Prefer", "resolution=merge-duplicates,return=minimal")
+            contentType(ContentType.Application.Json)
+            setBody(buildJsonObject {
+                put("owner_id", ownerId)
+                put("contact_user_id", contactId)
+                put("alias", alias.take(64))
+                put("mobile", mobile.take(40))
+                put("tags", kotlinx.serialization.json.JsonArray(tags.take(16).map {
+                    kotlinx.serialization.json.JsonPrimitive(it.take(32))
+                }))
+                put("remark", remark.take(1200))
+            })
+        }
+    }
+
     // ---- Chats (conversations) ----
 
     suspend fun getConversations(limit: Int, offset: Int): List<ConversationRow> =

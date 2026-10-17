@@ -62,6 +62,7 @@ data class SettingsUiState(
     val autoDownloadEnabled: Boolean = true,
     val liteModeEnabled: Boolean = false,
     val appLockEnabled: Boolean = false,
+    val layoutSize: app.gagachat.core.model.LayoutSize = app.gagachat.core.model.LayoutSize.COMPACT,
     val textScale: TextScale = TextScale.DEFAULT,
     val language: AppLanguage = AppLanguage.ENGLISH,
     /** Human-readable size of the on-device media cache (spec area 16). */
@@ -198,6 +199,9 @@ class SettingsViewModel @Inject constructor(
             }
         }
         viewModelScope.launch {
+            settingsPreferences.layoutSize.collect { v -> _state.update { it.copy(layoutSize = v) } }
+        }
+        viewModelScope.launch {
             settingsPreferences.textScale.collect { v -> _state.update { it.copy(textScale = v) } }
         }
         viewModelScope.launch {
@@ -297,6 +301,9 @@ class SettingsViewModel @Inject constructor(
 
     fun setAppLockEnabled(enabled: Boolean) =
         viewModelScope.launch { settingsPreferences.setAppLockEnabled(enabled) }
+
+    fun setLayoutSize(size: app.gagachat.core.model.LayoutSize) =
+        viewModelScope.launch { settingsPreferences.setLayoutSize(size) }
 
     fun setTextScale(scale: TextScale) =
         viewModelScope.launch { settingsPreferences.setTextScale(scale) }

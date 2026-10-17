@@ -18,6 +18,8 @@ import app.gagachat.core.network.rest.SupabaseRestApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -54,6 +56,7 @@ class DefaultNotificationRepository @Inject constructor(
 
     private val _hasMore = MutableStateFlow(false)
     override val hasMore = _hasMore.asStateFlow()
+    private val inboxMutex = Mutex()
     private var nextOffset = 0
     private var generation = 0
 
@@ -76,16 +79,19 @@ class DefaultNotificationRepository @Inject constructor(
     private val currentUserId: String
         get() = authRepository.sessionFlow.value?.userId.orEmpty()
 
-    override suspend fun refresh(): AppResult<Unit> = withContext(dispatchers.io) {
+    override suspend fun refresh(): AppResult<Unit> = inboxMutex.withLock { refreshInbox() }
+
+    private suspend fun refreshInbox(): AppResult<Unit> = withContext(dispatchers.io) {
         val me = currentUserId
         if (me.isBlank()) return@withContext AppResult.Failure(AppError.Unauthorized("Not signed in"))
         try {
-            val rows = restApi.getNotifications(me)
+            val limit = maxOf(50, nextOffset)
+            val rows = restApi.getNotifications(me, limit)
             val unread = restApi.getUnreadNotificationCount(me)
             if (me != currentUserId) return@withContext AppResult.Failure(AppError.Unauthorized("Account changed"))
             _notifications.value = rows.map { it.toDomain() }
             nextOffset = rows.size
-            _hasMore.value = rows.size == 50
+            _hasMore.value = rows.size == limit
             generation++
             _unreadCount.value = unread
             AppResult.Success(Unit)
@@ -95,7 +101,7 @@ class DefaultNotificationRepository @Inject constructor(
         }
     }
 
-    override suspend fun markRead(id: String): AppResult<Unit> = withContext(dispatchers.io) {
+    override suspend fun markRead(id: String): AppResult<Unit> = withContext(dispatchers.io) { inboxMutex.withLock {
         val me = currentUserId
         if (me.isBlank()) return@withContext AppResult.Failure(AppError.Unauthorized())
         try {
@@ -109,20 +115,21 @@ class DefaultNotificationRepository @Inject constructor(
             if (t is CancellationException) throw t
             AppResult.Failure(ErrorMapper.map(t))
         }
-    }
+    } }
 
-    override suspend fun markAllRead(): AppResult<Unit> = withContext(dispatchers.io) {
+    override suspend fun markAllRead(): AppResult<Unit> = withContext(dispatchers.io) { inboxMutex.withLock {
         val me = currentUserId
         if (me.isBlank()) return@withContext AppResult.Failure(AppError.Unauthorized())
         try {
             restApi.markAllNotificationsRead(me)
             // A new notification may arrive after the PATCH; do not force badge zero.
-            val rows = restApi.getNotifications(me)
+            val limit = maxOf(50, nextOffset)
+            val rows = restApi.getNotifications(me, limit)
             val unread = restApi.getUnreadNotificationCount(me)
             if (me != currentUserId) return@withContext AppResult.Failure(AppError.Unauthorized("Account changed"))
             _notifications.value = rows.map { it.toDomain() }
             nextOffset = rows.size
-            _hasMore.value = rows.size == 50
+            _hasMore.value = rows.size == limit
             generation++
             _unreadCount.value = unread
             AppResult.Success(Unit)
@@ -130,8 +137,8 @@ class DefaultNotificationRepository @Inject constructor(
             if (t is CancellationException) throw t
             AppResult.Failure(ErrorMapper.map(t))
         }
-    }
-    override suspend fun loadMore(): AppResult<Unit> = withContext(dispatchers.io) {
+    } }
+    override suspend fun loadMore(): AppResult<Unit> = withContext(dispatchers.io) { inboxMutex.withLock {
         val me = currentUserId
         if (me.isBlank()) return@withContext AppResult.Failure(AppError.Unauthorized())
         if (!_hasMore.value) return@withContext AppResult.Success(Unit)
@@ -149,9 +156,9 @@ class DefaultNotificationRepository @Inject constructor(
             if (t is CancellationException) throw t
             AppResult.Failure(ErrorMapper.map(t))
         }
-    }
+    } }
 
-    override suspend fun dismiss(ids: List<String>): AppResult<Unit> = withContext(dispatchers.io) {
+    override suspend fun dismiss(ids: List<String>): AppResult<Unit> = withContext(dispatchers.io) { inboxMutex.withLock {
         val me = currentUserId
         if (me.isBlank()) return@withContext AppResult.Failure(AppError.Unauthorized())
         try {
@@ -161,12 +168,12 @@ class DefaultNotificationRepository @Inject constructor(
             if (me != currentUserId) return@withContext AppResult.Failure(AppError.Unauthorized("Account changed"))
             _notifications.value = _notifications.value.filterNot { it.id in ids }
             generation++
-            refresh()
+            refreshInbox()
         } catch (t: Throwable) {
             if (t is CancellationException) throw t
             AppResult.Failure(ErrorMapper.map(t))
         }
-    }
+    } }
 
 }
 

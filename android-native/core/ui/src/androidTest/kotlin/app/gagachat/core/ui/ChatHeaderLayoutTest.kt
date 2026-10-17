@@ -42,6 +42,7 @@ class ChatHeaderLayoutTest {
     }
     @Test fun narrowPhone() = verify(1f, 320)
     @Test fun narrowPhoneWithLargeText() = verify(2f, 320)
+    @Test fun narrowPhoneWithMaximumText() = verify(3f, 320)
     @Test fun standardPhone() = verify(1f, 360)
     @Test fun compactTabletOrLandscape() = verify(1.15f, 412)
 

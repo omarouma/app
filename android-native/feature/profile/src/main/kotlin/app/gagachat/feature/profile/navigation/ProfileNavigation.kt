@@ -41,9 +41,10 @@ fun NavGraphBuilder.profileScreen(
                 defaultValue = null
             },
         ),
-    ) {
+    ) { entry ->
         ProfileRoute(
             onNavigateBack = { navController.popBackStack() },
+            showBack = !entry.arguments?.getString(ProfileRoutes.ARG_USER_ID).isNullOrBlank(),
             onOpenConversation = onOpenConversation,
             onStartCall = onStartCall,
             onEditProfile = onEditProfile,

@@ -4,6 +4,17 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material3.IconButton
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.CancellationException
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -64,6 +75,22 @@ fun MyQrScreen(
     val context = LocalContext.current
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
+    var exporting by remember { mutableStateOf(false) }
+    val saveQr = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("image/png")) { uri ->
+        if (uri != null) scope.launch {
+            exporting = true
+            try {
+                val payload = viewModel.qrPayload
+                require(payload.isNotBlank())
+                withContext(Dispatchers.IO) {
+                    checkNotNull(context.contentResolver.openOutputStream(uri)).use { ProfileQrImage.write(payload, it) }
+                }
+                snackbar.showSnackbar("QR image saved")
+            } catch (cancelled: CancellationException) { throw cancelled }
+            catch (_: Exception) { snackbar.showSnackbar("Couldn't save QR image. Try again.") }
+            finally { exporting = false }
+        }
+    }
 
     fun notify(text: String) { scope.launch { snackbar.showSnackbar(text) } }
 
@@ -84,7 +111,8 @@ fun MyQrScreen(
         onShare(link)
     }
 
-    GagaScaffold(title = "My QR Code", onBack = onBack, snackbarHostState = snackbar) { padding ->
+    GagaScaffold(title = "My QR Code", onBack = onBack, snackbarHostState = snackbar,
+        actions = { IconButton(onClick = viewModel::refresh) { Icon(Icons.Filled.Refresh, "Refresh profile") } }) { padding ->
         GagaStateHost(
             state = state,
             modifier = Modifier.fillMaxSize().padding(padding),
@@ -126,7 +154,9 @@ fun MyQrScreen(
                                 style = MaterialTheme.typography.bodySmall)
                         }
                         // Keep a high contrast quiet zone around the QR for cameras.
-                        GagaQrCode(content = ui.qrPayload, size = 240.dp)
+                        BoxWithConstraints(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                            GagaQrCode(content = ui.qrPayload, size = minOf(240.dp, maxWidth))
+                        }
                         Text(
                             "Scan to view profile and request friendship",
                             style = MaterialTheme.typography.labelMedium,
@@ -135,20 +165,50 @@ fun MyQrScreen(
                         )
                     }
                 }
-                Row(horizontalArrangement = Arrangement.spacedBy(GagaDimens.space12)) {
+                Column(verticalArrangement = Arrangement.spacedBy(GagaDimens.space8)) {
                     GagaPrimaryButton(
                         text = "Share Profile",
                         onClick = { shareLink(ui.qrPayload, name) },
                         leadingIcon = Icons.Filled.Share,
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier.fillMaxWidth(),
                     )
                     GagaSecondaryButton(
                         text = "Copy Link",
                         onClick = { copyLink(ui.qrPayload) },
                         leadingIcon = Icons.Filled.ContentCopy,
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier.fillMaxWidth(),
                     )
                 }
+                GagaSecondaryButton(
+                    text = if (exporting) "Preparing QR image..." else "Share QR Image",
+                    enabled = !exporting,
+                    leadingIcon = Icons.Filled.Share,
+                    modifier = Modifier.fillMaxWidth(),
+                    onClick = {
+                        exporting = true
+                        scope.launch {
+                            try {
+                                val payload = ui.qrPayload
+                                val uri = ProfileQrImage.shareUri(context, payload)
+                                if (viewModel.qrPayload == payload) {
+                                    val intent = Intent(Intent.ACTION_SEND).apply {
+                                        type = "image/png"
+                                        putExtra(Intent.EXTRA_STREAM, uri)
+                                        putExtra(Intent.EXTRA_TEXT, payload)
+                                        clipData = ClipData.newRawUri("GaGa profile QR", uri)
+                                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                    }
+                                    context.startActivity(Intent.createChooser(intent, "Share QR image"))
+                                }
+                            } catch (cancelled: CancellationException) { throw cancelled }
+                            catch (_: Exception) { snackbar.showSnackbar("Couldn't share QR image. Try again.") }
+                            finally { exporting = false }
+                        }
+                    },
+                )
+                GagaSecondaryButton(text = "Save QR Image", enabled = !exporting,
+                    leadingIcon = Icons.Filled.Download, modifier = Modifier.fillMaxWidth(),
+                    onClick = { saveQr.launch("GaGa-profile-QR.png") })
                 GagaSecondaryButton(
                     text = "Scan Friend's QR",
                     onClick = onScan,

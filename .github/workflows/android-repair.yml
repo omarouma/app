@@ -173,7 +173,7 @@ jobs:
             android-native/docs/PEOPLE_SYNC_NOTIFICATIONS_2.7.3.md
       - name: Compile release and test messaging and call contracts
         working-directory: android-native
-        run: gradle --no-daemon --no-build-cache --max-workers=2 -Pksp.incremental=false :feature:dailylife:compileReleaseKotlin :feature:dailylife:testReleaseUnitTest :feature:settings:compileReleaseKotlin :app:assembleRelease :app:bundleRelease :core:model:test :core:data:testReleaseUnitTest :core:network:testReleaseUnitTest :feature:chat:testReleaseUnitTest :feature:qr:testReleaseUnitTest :feature:calls:testReleaseUnitTest
+        run: gradle --no-daemon --no-build-cache --max-workers=2 -Pksp.incremental=false :feature:dailylife:compileReleaseKotlin :feature:dailylife:testReleaseUnitTest :feature:profile:testReleaseUnitTest :feature:settings:compileReleaseKotlin :app:assembleRelease :app:bundleRelease :app:testReleaseUnitTest :core:model:test :core:data:testReleaseUnitTest :core:network:testReleaseUnitTest :feature:chat:testReleaseUnitTest :feature:qr:testReleaseUnitTest :feature:calls:testReleaseUnitTest
       - name: Package release artifacts
         run: |
           mkdir -p deliverables

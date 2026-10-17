@@ -59,6 +59,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import app.gagachat.core.model.NotificationCategory
 import app.gagachat.core.model.AppNotification
 import app.gagachat.core.model.NotificationType
 import app.gagachat.core.ui.component.GagaListRow
@@ -79,6 +80,7 @@ import app.gagachat.core.ui.util.TimeFormat
 fun NotificationInboxScreen(
     onBack: () -> Unit,
     onOpenNotification: (AppNotification) -> Unit,
+    onOpenSettings: () -> Unit = {},
     viewModel: NotificationInboxViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -101,7 +103,7 @@ fun NotificationInboxScreen(
     )
     var activeFilter by rememberSaveable { mutableStateOf("All") }
     var searchQuery by rememberSaveable { mutableStateOf("") }
-    val filters = listOf("All", "Unread", "Mentions", "Calls", "Tasks", "People", "Shopping")
+    val filters = NotificationCategory.entries
     val snackbar = remember { SnackbarHostState() }
     LaunchedEffect(notice) { notice?.let { snackbar.showSnackbar(it); viewModel.consumeNotice() } }
 
@@ -117,13 +119,15 @@ fun NotificationInboxScreen(
         Column(Modifier.fillMaxSize().padding(padding)) {
         if (busy) LinearProgressIndicator()
         Card(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)) {
-            Column(Modifier.padding(18.dp)) {
-                Text(if (unread == 0) "You're all caught up" else "$unread unread updates", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                Text("Messages, people and plans. Long-press to select.", style = MaterialTheme.typography.bodyMedium)
+            Column(Modifier.padding(12.dp)) {
+                Text(if (unread == 0) "You're all caught up" else "$unread unread updates", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Text("Messages, people and plans. Long-press to select.", style = MaterialTheme.typography.bodySmall)
+                TextButton(onClick = onOpenSettings) { Text("Notification settings") }
             }
         }
         if (selected.isNotEmpty()) Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp), horizontalArrangement = Arrangement.SpaceBetween) {
             TextButton(onClick = { selected = emptySet() }) { Text("Clear (${selected.size})") }
+            TextButton(onClick = { viewModel.markSelectedRead(selected) }, enabled = !busy) { Text("Mark selected read") }
             TextButton(onClick = { confirmDismiss = true }, enabled = !busy) { Text("Dismiss selected") }
         }
         Row(
@@ -134,19 +138,15 @@ fun NotificationInboxScreen(
         ) {
             filters.forEach { filter ->
                 FilterChip(
-                    selected = activeFilter == filter,
-                    onClick = { activeFilter = filter },
-                    label = { Text(if (filter == "Unread") "Unread ($unread)" else filter) },
+                    selected = activeFilter == filter.label,
+                    onClick = { activeFilter = filter.label },
+                    label = { Text(if (filter == NotificationCategory.UNREAD) "Unread ($unread)" else filter.label) },
                 )
             }
         }
-        OutlinedTextField(
-            value = searchQuery,
-            onValueChange = { searchQuery = it.take(120) },
-            label = { Text("Search notifications") },
-            singleLine = true,
-            placeholder = { Text("Search titles and messages") },
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+        app.gagachat.core.ui.component.GagaSearchBar(
+            query = searchQuery, onQueryChange = { searchQuery = it.take(120) },
+            placeholder = "Search notifications",
         )
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
         GagaStateHost(
@@ -161,20 +161,7 @@ fun NotificationInboxScreen(
                 val matchesSearch = searchQuery.isBlank() ||
                     (notification.title?.takeIf { it.isNotBlank() } ?: defaultTitle(notification.type)).contains(searchQuery.trim(), ignoreCase = true) ||
                     notification.body.orEmpty().contains(searchQuery.trim(), ignoreCase = true)
-                matchesSearch && when (activeFilter) {
-                    "Unread" -> !notification.read
-                    "Calls" -> notification.type == NotificationType.CALL
-                    "People" -> notification.type == NotificationType.FRIEND_REQUEST ||
-                        notification.type == NotificationType.FRIEND_ACCEPTED ||
-                        notification.type == NotificationType.GROUP_INVITE
-                    "Mentions" -> notification.data.orEmpty().contains("mention", ignoreCase = true)
-                    "Tasks" -> notification.data.orEmpty().contains("task", ignoreCase = true) ||
-                        notification.data.orEmpty().contains("reminder", ignoreCase = true)
-                    "Shopping" -> notification.data.orEmpty().contains("china_shop", ignoreCase = true) ||
-                        notification.data.orEmpty().contains("quotation", ignoreCase = true) ||
-                        notification.data.orEmpty().contains("supplier_application", ignoreCase = true)
-                    else -> true
-                }
+                matchesSearch && (filters.firstOrNull { it.label == activeFilter } ?: NotificationCategory.ALL).matches(notification)
             }
             LazyColumn(modifier = Modifier.fillMaxSize()) {
                 if (visible.isEmpty()) item {
@@ -237,13 +224,13 @@ private fun NotificationRowItem(notification: AppNotification, onClick: (() -> U
                 modifier = Modifier
                     .size(GagaDimens.avatarMedium)
                     .clip(CircleShape)
-                    .background(GagaGreenContainer),
+                    .background(MaterialTheme.colorScheme.primaryContainer),
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
                     imageVector = iconFor(notification.type),
                     contentDescription = null,
-                    tint = GagaGreen,
+                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
                     modifier = Modifier.size(GagaDimens.iconMedium),
                 )
             }
@@ -254,7 +241,7 @@ private fun NotificationRowItem(notification: AppNotification, onClick: (() -> U
                     modifier = Modifier
                         .size(10.dp)
                         .clip(CircleShape)
-                        .background(GagaGreen),
+                        .background(MaterialTheme.colorScheme.primary),
                 )
             }
         },

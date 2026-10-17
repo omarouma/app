@@ -1,8 +1,10 @@
 package app.gagachat.feature.chat.presentation.components
 
 import android.net.Uri
+import android.content.Intent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.result.PickVisualMediaRequest
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -35,13 +37,31 @@ fun rememberMediaPicker(
 ): MediaPickerLaunchers {
     val context = LocalContext.current
 
+    fun retainReadAccess(uri: Uri) {
+        // When the platform picker supports persistable grants, retain them
+        // for offline background upload retries across process death.
+        // Other providers are gracefully handled by the existing immediate
+        // staging/upload path without requiring broad storage permission.
+        runCatching {
+            context.contentResolver.takePersistableUriPermission(
+                uri, Intent.FLAG_GRANT_READ_URI_PERMISSION,
+            )
+        }
+    }
+
     val imagesLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetMultipleContents(),
-    ) { uris -> if (uris.isNotEmpty()) onImagesPicked(uris.take(10)) }
+        contract = ActivityResultContracts.PickMultipleVisualMedia(maxItems = 10),
+    ) { uris ->
+        if (uris.isNotEmpty()) {
+            val selected = uris.take(10)
+            selected.forEach(::retainReadAccess)
+            onImagesPicked(selected)
+        }
+    }
 
     val videoLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent(),
-    ) { uri -> uri?.let(onVideoPicked) }
+        contract = ActivityResultContracts.PickVisualMedia(),
+    ) { uri -> uri?.let { retainReadAccess(it); onVideoPicked(it) } }
 
     val fileLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument(),
@@ -65,8 +85,8 @@ fun rememberMediaPicker(
 
     return remember(imagesLauncher, videoLauncher, fileLauncher, audioLauncher, cameraLauncher) {
         MediaPickerLaunchers(
-            pickImages = { imagesLauncher.launch("image/*") },
-            pickVideo = { videoLauncher.launch("video/*") },
+            pickImages = { imagesLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
+            pickVideo = { videoLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.VideoOnly)) },
             pickFile = { fileLauncher.launch(arrayOf(
                 "application/pdf", "text/*", "application/msword",
                 "application/vnd.openxmlformats-officedocument.wordprocessingml.document",

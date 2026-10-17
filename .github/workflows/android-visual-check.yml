@@ -3,8 +3,14 @@ on:
   pull_request:
     paths:
       - 'android-native/core/ui/**'
+      - 'android-native/feature/profile/**'
+      - 'android-native/feature/settings/**'
+      - 'android-native/feature/qr/**'
+      - 'android-native/feature/people/**'
+      - 'android-native/feature/calls/**'
       - 'android-native/feature/dailylife/**'
       - 'android-native/feature/chat/**'
+      - 'android-native/feature/contacts/**'
       - 'android-native/core/data/**'
       - 'android-native/sync/workers/**'
       - '.github/workflows/android-visual-check.yml'
@@ -43,10 +49,7 @@ jobs:
           script: |
             adb shell wm size 360x800
             adb shell wm density 160
-            gradle -p android-native --no-daemon --max-workers=2 -Pandroid.injected.androidTest.leaveApksInstalledAfterRun=true :core:ui:connectedDebugAndroidTest :feature:dailylife:connectedDebugAndroidTest :feature:chat:connectedDebugAndroidTest
-            mkdir -p visual-checks
-            adb pull /sdcard/Android/data/app.gagachat.core.ui/files/screenshots visual-checks/ || adb pull /sdcard/Android/data/app.gagachat.core.ui.test/files/screenshots visual-checks/
-            adb pull /sdcard/Android/data/app.gagachat.feature.dailylife.test/files/screenshots visual-checks/today/
+            bash android-native/ci/run_visual_checks.sh
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -56,4 +59,8 @@ jobs:
             android-native/core/ui/build/reports/androidTests/
             android-native/feature/dailylife/build/reports/androidTests/
             android-native/feature/chat/build/reports/androidTests/
+            android-native/feature/contacts/build/reports/androidTests/
+            android-native/feature/calls/build/reports/androidTests/
+            android-native/feature/qr/build/reports/androidTests/
+            android-native/feature/profile/build/reports/androidTests/
           retention-days: 14

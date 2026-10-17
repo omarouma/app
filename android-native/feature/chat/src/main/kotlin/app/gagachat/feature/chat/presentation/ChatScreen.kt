@@ -126,6 +126,8 @@ import app.gagachat.feature.chat.presentation.components.SplitBillDialog
 import app.gagachat.feature.chat.presentation.components.TranslateDialog
 import app.gagachat.feature.chat.presentation.components.MessageComposer
 import app.gagachat.feature.chat.presentation.components.TypingIndicator
+import app.gagachat.feature.chat.presentation.components.PickedContact
+import app.gagachat.feature.chat.presentation.components.ContactCardConfirmDialog
 import app.gagachat.feature.chat.presentation.components.rememberContactPicker
 import app.gagachat.feature.chat.presentation.components.rememberDocumentOpener
 import app.gagachat.feature.chat.presentation.components.rememberDocumentSaver
@@ -217,6 +219,7 @@ fun ChatRoute(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val pendingLocation by viewModel.pendingLocation.collectAsStateWithLifecycle()
+    val savedPlaces by viewModel.savedPlaces.collectAsStateWithLifecycle()
     val linkPreviews by viewModel.linkPreviews.collectAsStateWithLifecycle()
     val enterToSend by viewModel.enterToSend.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -236,8 +239,9 @@ fun ChatRoute(
         onAudioPicked = { viewModel.sendMedia(it, "audio") },
         onCameraPhotoPicked = { reviewUris = listOf(it) },
     )
+    var pendingContactCard by remember { mutableStateOf<PickedContact?>(null) }
     val contactPicker = rememberContactPicker(
-        onContactPicked = { viewModel.shareContact(it.name, it.phone) },
+        onContactPicked = { pendingContactCard = it },
     )
     val context = LocalContext.current
     val documentOpener = rememberDocumentOpener()
@@ -383,6 +387,7 @@ fun ChatRoute(
         val videoInHeader = maxWidth >= 500.dp && fontScale <= 1.10f
         GagaScaffold(
             title = if (selectionMode) "${selectedIds.size} selected" else state.title,
+            compactHeader = true,
             subtitle = when {
                 state.isOtherTyping -> "typing\u2026"
                 // Groups/channels show the participant count; direct chats show
@@ -637,7 +642,12 @@ fun ChatRoute(
         pendingLocation?.let { preview ->
             LocationPreviewDialog(
                 preview = preview,
+                savedPlaces = savedPlaces,
                 onConfirm = { lat, lon -> viewModel.confirmShareLocation(lat, lon) },
+                onSaveFavourite = { label, detail, lat, lon ->
+                    viewModel.saveLocationFavourite(label, detail, lat, lon)
+                },
+                onDeleteFavourite = viewModel::deleteLocationFavourite,
                 onDismiss = viewModel::dismissLocationPreview,
             )
         }
@@ -646,9 +656,20 @@ fun ChatRoute(
             MediaReviewSheet(
                 uris = uris,
                 onDismiss = { reviewUris = null },
-                onSend = { ordered, caption ->
-                    viewModel.sendImageAlbum(ordered, caption)
+                onSend = { ordered, caption, original ->
+                    viewModel.sendImageAlbum(ordered, caption, original)
                     reviewUris = null
+                },
+            )
+        }
+
+        pendingContactCard?.let { card ->
+            ContactCardConfirmDialog(
+                contact = card,
+                onDismiss = { pendingContactCard = null },
+                onConfirm = { name, phone ->
+                    viewModel.shareContact(name, phone)
+                    pendingContactCard = null
                 },
             )
         }
@@ -668,11 +689,15 @@ fun ChatRoute(
             ForwardPickerSheet(
                 message = message,
                 onDismiss = { forwardingMessage = null },
-                onForwarded = { conversation ->
+                onForwarded = { count ->
                     forwardingMessage = null
                     scope.launch {
                         snackbarHostState.showSnackbar(
-                            "Forwarded to ${conversation.displayTitle(state.currentUserId)}",
+                            when {
+                                count <= 0 -> "Couldn't forward. Please retry."
+                                count == 1 -> "Forwarded to 1 chat"
+                                else -> "Forwarded to $count chats"
+                            },
                         )
                     }
                 },
@@ -1174,20 +1199,9 @@ private fun MessageSearchBar(
                 .padding(horizontal = GagaDimens.space8, vertical = GagaDimens.space4),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Icon(Icons.Filled.Search, contentDescription = null)
-            Spacer(Modifier.width(GagaDimens.space8))
-            TextField(
-                value = query,
-                onValueChange = onQueryChange,
-                modifier = Modifier.weight(1f),
-                placeholder = { Text("Search messages") },
-                singleLine = true,
-                colors = TextFieldDefaults.colors(
-                    focusedContainerColor = Color.Transparent,
-                    unfocusedContainerColor = Color.Transparent,
-                    focusedIndicatorColor = Color.Transparent,
-                    unfocusedIndicatorColor = Color.Transparent,
-                ),
+            app.gagachat.core.ui.component.GagaSearchBar(
+                query = query, onQueryChange = onQueryChange,
+                modifier = Modifier.weight(1f), placeholder = "Search messages",
             )
             IconButton(onClick = onClose) {
                 Icon(Icons.Filled.Close, contentDescription = "Close search")

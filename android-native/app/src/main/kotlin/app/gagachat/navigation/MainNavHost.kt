@@ -18,6 +18,12 @@ import androidx.compose.material.icons.outlined.Person
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.size
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.material3.NavigationBarDefaults
+import androidx.compose.material3.Surface
 import androidx.compose.foundation.layout.Column
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
@@ -38,6 +44,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.text.style.TextOverflow
 import app.gagachat.core.ui.theme.GagaDimens
+import app.gagachat.core.ui.i18n.GagaStrings
+import app.gagachat.core.ui.i18n.LocalGagaStrings
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavGraph.Companion.findStartDestination
@@ -76,28 +84,28 @@ import app.gagachat.push.PendingDeepLink
 
 /**
  * The five top-level tabs, in the product order:
- * Chats / People / Calls / Profile. [route] is the concrete navigation target;
+ * Chats / People / Calls / Today / Me. [route] is the concrete navigation target;
  * [routePattern] is the registered pattern used to detect selection (the Profile
  * route carries an optional argument so its pattern differs from its target).
  */
 private enum class TopLevelDestination(
     val route: String,
     val routePattern: String,
-    val label: String,
+    val label: (GagaStrings) -> String,
     val selectedIcon: ImageVector,
     val unselectedIcon: ImageVector,
 ) {
     CHAT(
         HomeRoutes.HOME,
         HomeRoutes.HOME,
-        "Chats",
+        { it.navChats },
         Icons.AutoMirrored.Filled.Chat,
         Icons.AutoMirrored.Outlined.Chat,
     ),
-    PEOPLE(PeopleRoutes.PEOPLE, PeopleRoutes.PEOPLE, "People", Icons.Filled.People, Icons.Outlined.People),
-    CALLS(CallRoutes.CALL_HISTORY, CallRoutes.CALL_HISTORY, "Calls", Icons.Filled.Call, Icons.Outlined.Call),
-    DAILY(DailyRoutes.HOME, DailyRoutes.HOME, "Today", Icons.Filled.Dashboard, Icons.Outlined.Dashboard),
-    PROFILE(ProfileRoutes.profile(), ProfileRoutes.PROFILE, "Me", Icons.Filled.Person, Icons.Outlined.Person),
+    PEOPLE(PeopleRoutes.PEOPLE, PeopleRoutes.PEOPLE, { it.navPeople }, Icons.Filled.People, Icons.Outlined.People),
+    CALLS(CallRoutes.CALL_HISTORY, CallRoutes.CALL_HISTORY, { it.navCalls }, Icons.Filled.Call, Icons.Outlined.Call),
+    DAILY(DailyRoutes.HOME, DailyRoutes.HOME, { it.navToday }, Icons.Filled.Dashboard, Icons.Outlined.Dashboard),
+    PROFILE(ProfileRoutes.profile(), ProfileRoutes.PROFILE, { it.navMe }, Icons.Filled.Person, Icons.Outlined.Person),
 }
 
 /** Five tabs stay available on small screens; larger text collapses only unselected labels. */
@@ -110,11 +118,12 @@ private val bottomBarRoutes: Set<String> = TopLevelDestination.entries
     .toSet()
 
 /** The keyboard must never compete for height with five main navigation tabs. */
-internal fun shouldShowBottomTabs(route: String?, keyboardVisible: Boolean): Boolean =
-    route in bottomBarRoutes && !keyboardVisible
+internal fun shouldShowBottomTabs(route: String?, keyboardVisible: Boolean, profileUserId: String? = null): Boolean =
+    (route in bottomBarRoutes || route == PeopleRoutes.REQUESTS) && !keyboardVisible &&
+        !(route == ProfileRoutes.PROFILE && !profileUserId.isNullOrBlank())
 
 /**
- * Main graph (PDF §2.1). Hosts the four top-level destinations behind a bottom
+ * Main graph (PDF §2.1). Hosts the five top-level destinations behind a bottom
  * bar plus the detail surfaces (chat, profile, active call, More menu). Deep
  * links captured at cold start are consumed here once the graph is ready (§8).
  */
@@ -124,7 +133,10 @@ fun MainNavHost(pendingDeepLink: String?) {
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route
     val keyboardVisible = WindowInsets.ime.getBottom(LocalDensity.current) > 0
-    val showBottomBar = shouldShowBottomTabs(currentRoute, keyboardVisible)
+    val showBottomBar = shouldShowBottomTabs(
+        currentRoute, keyboardVisible,
+        backStackEntry?.arguments?.getString(ProfileRoutes.ARG_USER_ID),
+    )
     val viewModel: MainNavViewModel = hiltViewModel()
     val totalUnread by viewModel.totalUnread.collectAsStateWithLifecycle()
     val pendingRequests by viewModel.pendingRequests.collectAsStateWithLifecycle()
@@ -267,6 +279,8 @@ fun MainNavHost(pendingDeepLink: String?) {
                 onOpenChat = { navController.navigate(ChatRoutes.chat(it)) },
                 onOpenPeople = { navController.navigate(PeopleRoutes.PEOPLE) },
                 onOpenCalls = { navController.navigate(CallRoutes.CALL_HISTORY) },
+                onOpenRequests = { navController.navigate(PeopleRoutes.REQUESTS) },
+                onOpenToday = { navController.navigate(DailyRoutes.HOME) },
             )
             walletGraph(navController = navController)
             dailyLifeGraph(navController, onSaved = { navController.navigate(SettingsRoutes.SAVED_MESSAGES) }, onChat = { navController.navigate(ChatRoutes.chat(it)) })
@@ -294,24 +308,32 @@ private fun GagaBottomBar(
             LocalDensity.current.fontScale,
             MaterialTheme.typography.labelMedium.fontSize.value / 12f,
         )
-        val compactLabels = useCompactBottomLabels(maxWidth.value, effectiveTextScale)
+        val compactLabels = useCompactBottomLabels(maxWidth.value, effectiveTextScale) ||
+            app.gagachat.core.ui.theme.LocalGagaLayoutSize.current == app.gagachat.core.model.LayoutSize.COMPACT
     Column {
         HorizontalDivider(
             thickness = GagaDimens.hairline,
             color = MaterialTheme.colorScheme.outlineVariant,
         )
-        NavigationBar(
-            modifier = Modifier.clip(RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)),
-            containerColor = MaterialTheme.colorScheme.surface,
-            tonalElevation = 0.dp,
+        val layoutSize = app.gagachat.core.ui.theme.LocalGagaLayoutSize.current
+        val labelHeight = with(LocalDensity.current) {
+            (if (compactLabels) MaterialTheme.typography.labelSmall else MaterialTheme.typography.labelMedium).lineHeight.toDp()
+        }
+        val barHeight = (labelHeight + 34.dp).coerceAtLeast(layoutSize.navigationDp.dp)
+        Surface(color = MaterialTheme.colorScheme.surface) {
+        Row(
+            modifier = Modifier.windowInsetsPadding(NavigationBarDefaults.windowInsets)
+                .height(barHeight).selectableGroup(),
         ) {
             TopLevelDestination.entries.forEach { destination ->
-                val selected = currentRoute == destination.routePattern
+                val selected = currentRoute == destination.routePattern ||
+                    (currentRoute == PeopleRoutes.REQUESTS && destination == TopLevelDestination.PEOPLE)
+                val label = destination.label(LocalGagaStrings.current)
                 NavigationBarItem(
                     selected = selected,
                     // Large-text and 320dp layouts retain five accessible targets.
                     // Hide unselected labels only when they would overlap.
-                    alwaysShowLabel = !compactLabels,
+                    alwaysShowLabel = effectiveTextScale <= 1.40f,
                     onClick = {
                         if (currentRoute != destination.routePattern) {
                             navController.navigate(destination.route) {
@@ -335,22 +357,22 @@ private fun GagaBottomBar(
                             BadgedBox(
                                 badge = {
                                     Badge(
-                                        containerColor = MaterialTheme.colorScheme.primary,
-                                        contentColor = MaterialTheme.colorScheme.onPrimary,
+                                        containerColor = MaterialTheme.colorScheme.error,
+                                        contentColor = MaterialTheme.colorScheme.onError,
                                     ) {
                                         Text(if (badgeCount > 99) "99+" else "$badgeCount")
                                     }
                                 },
                             ) {
-                                Icon(icon, contentDescription = destination.label, modifier = Modifier.size(if (compactLabels) 22.dp else 24.dp))
+                                Icon(icon, contentDescription = label, modifier = Modifier.size(if (compactLabels) 22.dp else 24.dp))
                             }
                         } else {
-                            Icon(icon, contentDescription = destination.label, modifier = Modifier.size(if (compactLabels) 22.dp else 24.dp))
+                            Icon(icon, contentDescription = label, modifier = Modifier.size(if (compactLabels) 22.dp else 24.dp))
                         }
                     },
                     label = {
                         Text(
-                            text = destination.label,
+                            text = label,
                             style = if (compactLabels) MaterialTheme.typography.labelSmall else MaterialTheme.typography.labelMedium,
                             maxLines = 1,
                             softWrap = false,
@@ -367,6 +389,7 @@ private fun GagaBottomBar(
                     ),
                 )
             }
+        }
         }
     }
     }
