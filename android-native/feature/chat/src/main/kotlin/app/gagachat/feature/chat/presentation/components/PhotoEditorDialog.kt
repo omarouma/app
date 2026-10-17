@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Redo
@@ -68,6 +69,7 @@ fun PhotoEditorDialog(
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    var filter by remember(uri) { mutableStateOf(PhotoFilter.ORIGINAL) }
     var rotation by remember(uri) { mutableIntStateOf(0) }
     var flipped by remember(uri) { mutableStateOf(false) }
     var crop by remember(uri) { mutableStateOf(PhotoCrop.ORIGINAL) }
@@ -93,11 +95,11 @@ fun PhotoEditorDialog(
     // the same normalized coordinates as the exported bitmap.
     val effectiveAspect = if (rotation % 180 == 90) 1f / imageAspect else imageAspect
 
-    Dialog(onDismissRequest = { if (!busy) onDismiss() }) {
+    Dialog(onDismissRequest = { if (!busy) onDismiss() }, properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
         Surface(
             shape = RoundedCornerShape(24.dp),
             color = MaterialTheme.colorScheme.surface,
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxSize().systemBarsPadding(),
         ) {
             Column(
                 Modifier
@@ -106,8 +108,14 @@ fun PhotoEditorDialog(
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 Text("Edit photo", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    PhotoFilter.entries.forEach { option ->
+                        FilterChip(selected = filter == option, enabled = !busy,
+                            onClick = { filter = option }, label = { Text(option.label) })
+                    }
+                }
                 Box(
-                    Modifier.fillMaxWidth().heightIn(min = 170.dp, max = 260.dp),
+                    Modifier.fillMaxWidth().heightIn(min = 220.dp, max = 400.dp),
                     contentAlignment = Alignment.Center,
                 ) {
                     Box(
@@ -155,6 +163,7 @@ fun PhotoEditorDialog(
                         AsyncImage(
                             model = uri,
                             contentDescription = "Photo being edited",
+                            colorFilter = androidx.compose.ui.graphics.ColorFilter.colorMatrix(androidx.compose.ui.graphics.ColorMatrix(filter.matrix())),
                             contentScale = if (crop == PhotoCrop.ORIGINAL) ContentScale.Fit else ContentScale.Crop,
                             modifier = Modifier.fillMaxSize()
                                 .graphicsLayer(rotationZ = rotation.toFloat(), scaleX = if (flipped) -1f else 1f),
@@ -312,7 +321,7 @@ fun PhotoEditorDialog(
                         scope.launch {
                             val result = withContext(Dispatchers.IO) {
                                 runCatching {
-                                    writeEditedPhoto(context, uri, rotation, flipped, crop, overlayText, annotations)
+                                    writeEditedPhoto(context, uri, rotation, flipped, crop, overlayText, annotations, filter)
                                 }
                             }
                             busy = false
@@ -377,6 +386,7 @@ internal fun writeEditedPhoto(
     crop: PhotoCrop,
     annotation: String,
     annotations: PhotoAnnotations = PhotoAnnotations(),
+    filter: PhotoFilter = PhotoFilter.ORIGINAL,
 ): Uri {
     val resolver = context.contentResolver
     val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
@@ -429,6 +439,14 @@ internal fun writeEditedPhoto(
             val cropped = Bitmap.createBitmap(bitmap, rect.left, rect.top, rect.width(), rect.height())
             if (cropped !== bitmap) bitmap.recycle()
             bitmap = cropped
+        }
+        if (filter != PhotoFilter.ORIGINAL) {
+            val filtered = Bitmap.createBitmap(bitmap.width, bitmap.height, Bitmap.Config.ARGB_8888)
+            AndroidCanvas(filtered).drawBitmap(bitmap, 0f, 0f, Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                colorFilter = android.graphics.ColorMatrixColorFilter(filter.matrix())
+            })
+            bitmap.recycle()
+            bitmap = filtered
         }
         // Composite doodles, stickers and the caption onto a writable copy so
         // the sent image matches the reviewed preview at full resolution.

@@ -1,6 +1,19 @@
 package app.gagachat.feature.chat.presentation.components
 
 import android.net.Uri
+import android.content.Intent
+import android.content.ClipData
+import androidx.core.content.FileProvider
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.material3.*
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.ChevronLeft
+import androidx.compose.material.icons.filled.ChevronRight
+import kotlinx.coroutines.launch
+import app.gagachat.feature.chat.presentation.mediaActionMessage
+import dagger.hilt.android.EntryPointAccessors
 import android.widget.MediaController
 import android.widget.VideoView
 import androidx.compose.foundation.background
@@ -53,7 +66,37 @@ import coil.compose.SubcomposeAsyncImage
 fun MediaViewerOverlay(
     message: Message,
     onDismiss: () -> Unit,
+    onForward: ((Message) -> Unit)? = null,
+    onFavorite: ((Message) -> Unit)? = null,
+    onEditCopy: ((Uri) -> Unit)? = null,
+    onLocate: (() -> Unit)? = null,
+    onAllMedia: (() -> Unit)? = null,
 ) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val saver = rememberDocumentSaver()
+    val opener = rememberDocumentOpener()
+    val resolver = remember(context) { EntryPointAccessors.fromApplication(context.applicationContext, MediaResolverEntryPoint::class.java).mediaUrlResolver() }
+    var page by remember(message.localId) { androidx.compose.runtime.mutableIntStateOf(0) }
+    val urls = message.allMediaUrls
+    val url = urls.getOrNull(page) ?: message.mediaUrl
+    val active = app.gagachat.feature.chat.presentation.selectedMediaMessage(message, url)
+    val fileMessage = mediaActionMessage(message, url)
+    var actions by remember { mutableStateOf(false) }
+    var busy by remember { mutableStateOf(false) }
+    var failure by remember { mutableStateOf<String?>(null) }
+    var editing by remember { mutableStateOf<Uri?>(null) }
+    var extracting by remember { mutableStateOf<Uri?>(null) }
+    fun withFile(action: (java.io.File) -> Unit) {
+        if (busy) return
+        busy = true
+        scope.launch {
+            try { action(resolveDocumentFile(context, resolver, fileMessage)) }
+            catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled }
+            catch (error: Exception) { failure = "Couldn't open this media. Check your connection and try again." }
+            finally { busy = false }
+        }
+    }
     Dialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false),
@@ -64,8 +107,8 @@ fun MediaViewerOverlay(
                 .background(Color.Black),
         ) {
             when (message.type) {
-                MessageType.VIDEO -> VideoPane(message = message)
-                else -> ImagePane(message = message)
+                MessageType.VIDEO -> VideoPane(message = active)
+                else -> androidx.compose.runtime.key(url) { ImagePane(message = active) }
             }
 
             Row(
@@ -75,6 +118,10 @@ fun MediaViewerOverlay(
                     .padding(8.dp),
                 horizontalArrangement = Arrangement.End,
             ) {
+                if (busy) CircularProgressIndicator(modifier = Modifier.size(32.dp), color = Color.White)
+                IconButton(onClick = { actions = true }, enabled = !busy) {
+                    Icon(Icons.Default.MoreVert, contentDescription = "Media actions", tint = Color.White)
+                }
                 IconButton(onClick = onDismiss) {
                     Icon(
                         Icons.Filled.Close,
@@ -83,8 +130,38 @@ fun MediaViewerOverlay(
                     )
                 }
             }
+            if (urls.size > 1) Row(Modifier.align(Alignment.BottomCenter).systemBarsPadding().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                IconButton(enabled = page > 0, onClick = { page-- }) { Icon(Icons.Default.ChevronLeft, "Previous image", tint = Color.White) }
+                Text("${page + 1}/${urls.size}", color = Color.White)
+                IconButton(enabled = page < urls.lastIndex, onClick = { page++ }) { Icon(Icons.Default.ChevronRight, "Next image", tint = Color.White) }
+            }
         }
     }
+    if (actions) MediaActionsSheet(isImage = message.type == MessageType.IMAGE,
+        onDismiss = { actions = false },
+        onSave = { actions = false; saver.save(fileMessage) },
+        onOpen = { actions = false; opener.open(fileMessage) },
+        onShare = { actions = false; withFile { file ->
+            val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+            val intent = Intent(Intent.ACTION_SEND).apply {
+                type = documentMime(fileMessage, file.name)
+                putExtra(Intent.EXTRA_STREAM, uri)
+                clipData = ClipData.newRawUri("GaGa media", uri)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+            context.startActivity(Intent.createChooser(intent, "Share media"))
+        } },
+        onExtract = { actions = false; withFile { file -> extracting = Uri.fromFile(file) } },
+        onForward = onForward?.let { callback -> { actions = false; callback(active) } },
+        onFavorite = onFavorite?.let { callback -> { actions = false; callback(active) } },
+        onEdit = onEditCopy?.let { { actions = false; withFile { file -> editing = Uri.fromFile(file) } } },
+        onLocate = onLocate?.let { callback -> { actions = false; callback() } },
+        onAllMedia = onAllMedia?.let { callback -> { actions = false; callback() } })
+    editing?.let { uri -> PhotoEditorDialog(uri, onSave = { edited -> editing = null; onEditCopy?.invoke(edited) }, onDismiss = { editing = null }) }
+    extracting?.let { uri -> ImageTextDialog(uri, onDismiss = { extracting = null }) }
+    DocumentSaveOverlay(state = saver.state, onDismiss = saver::dismiss)
+    DocumentOpenOverlay(state = opener.state, onDismiss = opener::dismiss)
+    failure?.let { text -> AlertDialog(onDismissRequest = { failure = null }, text = { Text(text) }, confirmButton = { TextButton(onClick = { failure = null }) { Text("OK") } }) }
 }
 
 @Composable

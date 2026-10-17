@@ -90,30 +90,64 @@ internal suspend fun resolveDocumentFile(
     context: Context,
     resolver: MediaUrlResolver,
     message: Message,
+    expectedOwner: String? = null,
 ): File {
-    // A locally captured/selected copy is already usable.
-    val local = message.localMediaPath
-    if (!local.isNullOrBlank()) {
-        val f = File(local)
-        if (f.exists() && f.length() > 0) return f
+    val sessions = EntryPointAccessors.fromApplication(context.applicationContext,
+        MediaResolverEntryPoint::class.java).sessionStore()
+    val owner = sessions.userId()?.takeIf { it.isNotBlank() }
+        ?: throw IllegalStateException("Sign in to access this attachment")
+    check(expectedOwner == null || expectedOwner == owner) { "Account changed" }
+    val key = app.gagachat.feature.chat.presentation.attachmentCacheKey(owner, message)
+    val dir = File(context.cacheDir, "documents/$key").apply { mkdirs() }
+    val target = File(dir, documentSafeName(message.text).take(120))
+    val local = message.localMediaPath?.let { path ->
+        if (path.startsWith("content://")) path else File(if (path.startsWith("file://")) android.net.Uri.parse(path).path.orEmpty() else path).takeIf { it.isFile && it.length() > 0 }?.path
     }
-    val remote = resolver.resolve(message.mediaUrl)
-        ?: throw IllegalStateException("This document isn't available yet")
-    val dir = File(context.cacheDir, "documents").apply { mkdirs() }
-    val target = File(dir, documentSafeName(message.text))
-    if (target.exists() && target.length() > 0) return target
+    // Re-authorize remote private storage even if bytes are already cached.
+    val source = local ?: resolver.resolve(message.mediaUrl)
+        ?: throw IllegalStateException("This attachment isn't available")
+    if (owner != sessions.userId()) throw IllegalStateException("Account changed")
     withContext(Dispatchers.IO) {
-        val conn = (URL(remote).openConnection() as HttpURLConnection).apply {
-            connectTimeout = 20_000
-            readTimeout = 60_000
-            instanceFollowRedirects = true
-        }
+        if (target.isFile && target.length() > 0) return@withContext
+        val temp = File.createTempFile("attachment-", ".part", dir)
         try {
-            conn.inputStream.use { input -> target.outputStream().use { input.copyTo(it) } }
-        } finally {
-            conn.disconnect()
-        }
+            val input = when {
+                source.startsWith("content://") -> context.contentResolver.openInputStream(android.net.Uri.parse(source))
+                    ?: throw IllegalStateException("Couldn't read the selected file")
+                !source.startsWith("https://") -> {
+                    require(!source.contains("://")) { "Only secure media links are supported" }
+                    File(source).inputStream()
+                }
+                else -> {
+                    val connection = (URL(source).openConnection() as HttpURLConnection).apply {
+                        connectTimeout = 20_000; readTimeout = 60_000; instanceFollowRedirects = false
+                    }
+                    if (connection.responseCode !in 200..299) {
+                        connection.disconnect()
+                        throw IllegalStateException("Attachment download failed")
+                    }
+                    object : java.io.FilterInputStream(connection.inputStream) {
+                        override fun close() { try { super.close() } finally { connection.disconnect() } }
+                    }
+                }
+            }
+            input.use { stream -> temp.outputStream().use { output ->
+                val buffer = ByteArray(64 * 1024)
+                var total = 0L
+                while (true) {
+                    val read = stream.read(buffer)
+                    if (read < 0) break
+                    total += read
+                    check(total <= 100L * 1024 * 1024) { "Attachment exceeds the download limit" }
+                    output.write(buffer, 0, read)
+                }
+                check(total > 0) { "Attachment is empty" }
+            } }
+            check(owner == sessions.userId()) { "Account changed" }
+            check(temp.renameTo(target)) { "Couldn't stage attachment" }
+        } finally { temp.delete() }
     }
+    check(owner == sessions.userId()) { "Account changed" }
     return target
 }
 
@@ -125,7 +159,7 @@ internal fun documentSafeName(raw: String?): String {
         ?.trim()
         ?.takeIf { it.isNotEmpty() }
         ?: "attachment"
-    return base.replace(Regex("[^A-Za-z0-9._-]"), "_")
+    return base.replace(Regex("[^A-Za-z0-9._-]"), "_").take(120).takeUnless { it == "." || it == ".." } ?: "attachment"
 }
 
 /** The MIME type to hand to the viewer/saver, preferring the stored value. */

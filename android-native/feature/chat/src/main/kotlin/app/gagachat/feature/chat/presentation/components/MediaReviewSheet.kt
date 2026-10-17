@@ -1,6 +1,18 @@
 package app.gagachat.feature.chat.presentation.components
 
 import android.net.Uri
+import androidx.compose.ui.platform.testTag
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.systemBarsPadding
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.AlertDialog
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.Dispatchers
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -65,6 +77,7 @@ fun MediaReviewSheet(
     uris: List<Uri>,
     onDismiss: () -> Unit,
     onSend: (List<Uri>, String, Boolean) -> Unit,
+    recipientName: String? = null,
 ) {
     var ordered by remember(uris) { mutableStateOf(uris.distinct().take(10)) }
     // Keep original picks local to this review session. Editing never mutates
@@ -74,6 +87,27 @@ fun MediaReviewSheet(
     var editingUri by remember { mutableStateOf<Uri?>(null) }
     var previewUri by remember { mutableStateOf<Uri?>(null) }
     var sendOriginal by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var pendingSave by remember { mutableStateOf<Uri?>(null) }
+    var saveStatus by remember { mutableStateOf<String?>(null) }
+    val saveCopy = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("*/*")) { destination ->
+        val source = pendingSave
+        pendingSave = null
+        if (destination != null && source != null) scope.launch {
+            try {
+                withContext(Dispatchers.IO) {
+                    val input = context.contentResolver.openInputStream(source) ?: error("Source unavailable")
+                    input.use { stream ->
+                        val output = context.contentResolver.openOutputStream(destination) ?: error("Destination unavailable")
+                        output.use { stream.copyTo(it) }
+                    }
+                }
+                saveStatus = "Photo copy saved"
+            } catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled }
+            catch (error: Exception) { saveStatus = "Couldn't save the photo. Choose another location and try again." }
+        }
+    }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
@@ -87,6 +121,7 @@ fun MediaReviewSheet(
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold,
             )
+            recipientName?.let { Text("To: $it", style = MaterialTheme.typography.bodyMedium) }
             Spacer(Modifier.size(GagaDimens.space4))
             Text(
                 text = "${ordered.size}/10 selected · edit, reorder, restore originals or remove before sending",
@@ -172,13 +207,19 @@ fun MediaReviewSheet(
     previewUri?.let { selected ->
         Dialog(
             onDismissRequest = { previewUri = null },
-            properties = DialogProperties(usePlatformDefaultWidth = false),
+            properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false),
         ) {
             Surface(Modifier.fillMaxSize(), color = androidx.compose.ui.graphics.Color.Black) {
-                Column(Modifier.fillMaxSize().padding(16.dp)) {
+                Column(Modifier.fillMaxSize().systemBarsPadding().imePadding().padding(16.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         TextButton(onClick = { previewUri = null }) { Text("Back") }
                         Spacer(Modifier.weight(1f))
+                        TextButton(onClick = {
+                            pendingSave = selected
+                            val mime = runCatching { context.contentResolver.getType(selected) }.getOrNull()
+                            val extension = when (mime) { "image/png" -> "png"; "image/webp" -> "webp"; "image/heic" -> "heic"; else -> selected.path?.substringAfterLast('.', "")?.takeIf { it in listOf("jpg", "jpeg", "png", "webp", "heic") } ?: "jpg" }
+                            saveCopy.launch("GaGa-photo.$extension")
+                        }) { Text("Save copy") }
                         TextButton(onClick = {
                             previewUri = null
                             editingUri = selected
@@ -190,14 +231,31 @@ fun MediaReviewSheet(
                         modifier = Modifier.fillMaxWidth().weight(1f),
                         contentScale = ContentScale.Fit,
                     )
-                    Text("Review before sending · original selection is preserved",
-                        modifier = Modifier.fillMaxWidth().padding(12.dp),
+                    OutlinedTextField(value = caption, onValueChange = { caption = it },
+                        placeholder = { Text("Add a caption…") }, modifier = Modifier.fillMaxWidth().testTag("photo-fullscreen-caption"), maxLines = 2,
+                        colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = androidx.compose.ui.graphics.Color.White,
+                            unfocusedTextColor = androidx.compose.ui.graphics.Color.White,
+                            focusedContainerColor = androidx.compose.ui.graphics.Color(0xFF151B1E),
+                            unfocusedContainerColor = androidx.compose.ui.graphics.Color(0xFF151B1E),
+                            focusedPlaceholderColor = androidx.compose.ui.graphics.Color.LightGray,
+                            unfocusedPlaceholderColor = androidx.compose.ui.graphics.Color.LightGray))
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        FilterChip(selected = sendOriginal, onClick = { sendOriginal = !sendOriginal }, label = { Text("Original / HD") },
+                            colors = androidx.compose.material3.FilterChipDefaults.filterChipColors(labelColor = androidx.compose.ui.graphics.Color.White))
+                        Spacer(Modifier.weight(1f))
+                        Button(modifier = Modifier.testTag("photo-fullscreen-send"), onClick = { previewUri = null; onSend(ordered, caption, sendOriginal) }) { Text("Send (${ordered.size})") }
+                    }
+                    Text(recipientName?.let { "To: $it" } ?: "Review before sending",
+                        modifier = Modifier.fillMaxWidth().padding(8.dp),
                         color = androidx.compose.ui.graphics.Color.White,
                         style = MaterialTheme.typography.bodySmall)
                 }
             }
         }
     }
+    saveStatus?.let { status -> AlertDialog(onDismissRequest = { saveStatus = null },
+        text = { Text(status) }, confirmButton = { TextButton(onClick = { saveStatus = null }) { Text("OK") } }) }
     editingUri?.let { selected ->
         PhotoEditorDialog(
             uri = selected,

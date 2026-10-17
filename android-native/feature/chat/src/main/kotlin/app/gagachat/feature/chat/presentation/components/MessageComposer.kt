@@ -66,6 +66,10 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -342,15 +346,17 @@ private fun AttachmentSheet(
     onOpenPaymentHistory: () -> Unit,
 ) {
     var moneyExpanded by remember { mutableStateOf(false) }
+    val attachmentPager = rememberPagerState(pageCount = { 2 })
+    val attachmentScope = rememberCoroutineScope()
     val mediaOptions = listOf(
         AttachItem(Icons.Filled.Image, "Photos", onPickImage),
         AttachItem(Icons.Filled.CameraAlt, "Camera", onTakePhoto),
         AttachItem(Icons.Filled.Videocam, "Video", onPickVideo),
-        AttachItem(Icons.Filled.Description, "Document", onPickFile),
+        AttachItem(Icons.Filled.Description, "Files", onPickFile),
         AttachItem(Icons.Filled.LocationOn, "Location", onShareLocation),
         AttachItem(Icons.Filled.NearMe, "Live location", onShareLiveLocation),
-        AttachItem(Icons.Filled.Person, "Contact", onPickContact),
-        AttachItem(Icons.Filled.Audiotrack, "Audio file", onPickAudio),
+        AttachItem(Icons.Filled.Person, "Contact card", onPickContact),
+        AttachItem(Icons.Filled.Audiotrack, "Music / audio", onPickAudio),
     )
     val actionOptions = listOf(
         AttachItem(Icons.Filled.Poll, "Poll", onSendPoll),
@@ -389,7 +395,14 @@ private fun AttachmentSheet(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(horizontal = GagaDimens.space16),
             )
-            AttachGrid(options = mediaOptions, columns = columns)
+            HorizontalPager(state = attachmentPager, modifier = Modifier.fillMaxWidth()) { page ->
+                AttachGrid(options = mediaOptions.chunked(4)[page], columns = columns)
+            }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+                TextButton(enabled = attachmentPager.currentPage > 0, onClick = { attachmentScope.launch { attachmentPager.animateScrollToPage(0) } }) { Text("Previous") }
+                Text("${attachmentPager.currentPage + 1} / 2", style = MaterialTheme.typography.labelMedium)
+                TextButton(enabled = attachmentPager.currentPage < 1, onClick = { attachmentScope.launch { attachmentPager.animateScrollToPage(1) } }) { Text("More attachments") }
+            }
             Text(
                 text = "Plan & organize",
                 style = MaterialTheme.typography.titleSmall,

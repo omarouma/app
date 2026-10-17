@@ -21,6 +21,7 @@ import dagger.hilt.components.SingletonComponent
 @EntryPoint
 @InstallIn(SingletonComponent::class)
 interface MediaResolverEntryPoint {
+    fun sessionStore(): app.gagachat.core.network.session.SessionStore
     fun mediaUrlResolver(): MediaUrlResolver
     fun settingsPreferences(): SettingsPreferences
     fun networkMonitor(): NetworkMonitor

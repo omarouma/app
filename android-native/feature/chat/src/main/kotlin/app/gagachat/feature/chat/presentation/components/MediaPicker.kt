@@ -65,11 +65,11 @@ fun rememberMediaPicker(
 
     val fileLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument(),
-    ) { uri -> uri?.let(onFilePicked) }
+    ) { uri -> uri?.let { retainReadAccess(it); onFilePicked(it) } }
 
     val audioLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument(),
-    ) { uri -> uri?.let(onAudioPicked) }
+    ) { uri -> uri?.let { retainReadAccess(it); onAudioPicked(it) } }
 
     // F11: capture at the camera's full resolution via TakePicture + a
     // FileProvider content:// URI. TakePicturePreview only returned a low-res
