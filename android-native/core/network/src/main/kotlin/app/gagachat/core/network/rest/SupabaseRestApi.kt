@@ -23,7 +23,6 @@ import app.gagachat.core.network.dto.NotificationRow
 import app.gagachat.core.network.dto.SavedMessageInsert
 import app.gagachat.core.network.dto.SavedMessageRow
 import app.gagachat.core.network.dto.UserRow
-import app.gagachat.core.network.dto.WalletInsert
 import app.gagachat.core.network.dto.WalletRow
 import app.gagachat.core.network.dto.WalletTransactionRow
 import app.gagachat.core.network.dto.LiveKitTokenResponse
@@ -866,14 +865,13 @@ class SupabaseRestApi @Inject constructor(
             parameter("limit", 1)
         }.body<List<WalletRow>>().firstOrNull()
 
-    suspend fun upsertWallet(row: WalletInsert): WalletRow =
-        client.post("${config.restUrl}/wallets") {
+    /** Creates only the signed-in user's wallet without client balance writes. */
+    suspend fun ensureWallet(): WalletRow =
+        client.post("${config.restUrl}/rpc/ensure_wallet") {
             auth()
-            parameter("on_conflict", "user_id")
-            header("Prefer", "resolution=merge-duplicates,return=representation")
             contentType(ContentType.Application.Json)
-            setBody(row)
-        }.body<List<WalletRow>>().first()
+            setBody(buildJsonObject {})
+        }.body()
 
     /**
      * Reads the append-only `wallet_transactions` ledger for [userId], newest

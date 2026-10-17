@@ -6,7 +6,6 @@ import app.gagachat.core.common.result.AppResult
 import app.gagachat.core.model.CoinActivity
 import app.gagachat.core.model.CoinActivityType
 import app.gagachat.core.model.Wallet
-import app.gagachat.core.network.dto.WalletInsert
 import app.gagachat.core.network.dto.WalletRow
 import app.gagachat.core.network.dto.WalletTransactionRow
 import app.gagachat.core.network.error.ErrorMapper
@@ -93,7 +92,7 @@ class DefaultWalletRepository @Inject constructor(
             val existing = restApi.getWallet(me)
             if (existing == null) {
                 // Create the row, then reload so balance + ledger are consistent.
-                restApi.upsertWallet(WalletInsert(userId = me, coins = 0L))
+                restApi.ensureWallet()
             }
             AppResult.Success(loadInto(me))
         } catch (t: Throwable) {
@@ -137,8 +136,9 @@ class DefaultWalletRepository @Inject constructor(
         try {
             // Atomic, server-validated transfer. The RPC does the debit + credit in
             // one transaction and returns false when the balance is insufficient.
-            // A fresh idempotency key makes a retry (network timeout / double-tap)
-            // a no-op on the server instead of moving the same coins twice.
+            // This key deduplicates transport retries of this invocation only.
+            // A later invocation currently receives a new key; durable operation
+            // identity is required before enabling real-money transfers.
             val moved = restApi.transferCoins(
                 toUserId = toUserId,
                 amount = amount,
