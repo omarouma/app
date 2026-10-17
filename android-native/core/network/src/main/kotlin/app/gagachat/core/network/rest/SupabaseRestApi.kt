@@ -855,6 +855,31 @@ class SupabaseRestApi @Inject constructor(
             setBody(buildJsonObject { put("p_request_id", requestId) })
         }.body()
 
+    private fun HttpRequestBuilder.walletAuth(userId: String) {
+        if (sessionStore.userId() != userId) throw kotlinx.coroutines.CancellationException("Wallet account changed")
+        val token = sessionStore.accessToken() ?: throw kotlinx.coroutines.CancellationException("Signed out")
+        if (sessionStore.userId() != userId) throw kotlinx.coroutines.CancellationException("Wallet account changed")
+        header("apikey", config.anonKey); header("Authorization", "Bearer $token")
+    }
+
+    suspend fun externalWallets(userId: String): List<app.gagachat.core.model.ExternalWallet> =
+        client.get("${config.restUrl}/gaga_external_wallets") {
+            walletAuth(userId); parameter("user_id", "eq.$userId"); parameter("order", "created_at.desc"); parameter("limit", 10)
+        }.body()
+
+    suspend fun addExternalWallet(network: String, address: String, label: String, userId: String): app.gagachat.core.model.ExternalWallet =
+        client.post("${config.restUrl}/rpc/gaga_add_external_wallet") {
+            walletAuth(userId); contentType(ContentType.Application.Json)
+            setBody(buildJsonObject { put("p_network", network); put("p_address", address); put("p_label", label) })
+        }.body()
+
+    suspend fun removeExternalWallet(id: String, userId: String) {
+        client.delete("${config.restUrl}/gaga_external_wallets") { walletAuth(userId); parameter("id", "eq.$id"); parameter("user_id", "eq.$userId") }
+    }
+
+    suspend fun chainSnapshot(id: String, userId: String): app.gagachat.core.model.ChainSnapshot =
+        client.post("${config.functionsUrl}/chain-wallet") { walletAuth(userId); parameter("id", id) }.body()
+
     // ---- Wallet ----
 
     suspend fun getWallet(userId: String): WalletRow? =

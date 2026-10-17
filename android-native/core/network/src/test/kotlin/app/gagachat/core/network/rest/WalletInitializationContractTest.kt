@@ -56,4 +56,22 @@ class WalletInitializationContractTest {
             assertTrue(SupabaseRestApi(client, SupabaseConfig("https://example.test", "key", "media"), store).getWalletTransactions("owner").isEmpty())
         } finally { client.close() }
     }
+
+    @Test fun externalAddressCreationIsOwnerAuthenticatedWithoutUserIdOverride() = runBlocking {
+        val engine = MockEngine { request ->
+            assertTrue(request.url.encodedPath.endsWith("/rpc/gaga_add_external_wallet"))
+            assertEquals("Bearer test-session", request.headers["Authorization"])
+            val body = String((request.body as OutgoingContent.ByteArrayContent).bytes())
+            assertFalse(body.contains("user_id"))
+            respond("""{"id":"one","user_id":"owner","network":"bsc","address":"0x1111111111111111111111111111111111111111","label":"My wallet"}""",
+                HttpStatusCode.OK, headersOf(HttpHeaders.ContentType, "application/json"))
+        }
+        val client = HttpClient(engine) { install(ContentNegotiation) { json() } }
+        try {
+            val api = SupabaseRestApi(client, SupabaseConfig("https://example.test", "key", "media"), store)
+            assertEquals("owner", api.addExternalWallet("bsc", "0x1111111111111111111111111111111111111111", "My wallet", "owner").userId)
+            val mismatch = runCatching { api.chainSnapshot("one", "another-owner") }
+            assertTrue(mismatch.exceptionOrNull() is kotlinx.coroutines.CancellationException)
+        } finally { client.close() }
+    }
 }

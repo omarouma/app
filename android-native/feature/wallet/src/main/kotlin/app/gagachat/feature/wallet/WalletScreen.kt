@@ -36,6 +36,7 @@ import java.util.Date
 fun WalletScreen(
     onSendCoins: () -> Unit,
     onBack: () -> Unit,
+    onExternalWallets: () -> Unit = {},
     viewModel: WalletViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -65,6 +66,7 @@ fun WalletScreen(
             }
             LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 item { BalanceCard(ui.wallet) }
+                item { OutlinedButton(onClick = onExternalWallets, modifier = Modifier.fillMaxWidth()) { Text("Connect / track my crypto wallet") } }
                 item {
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         FilledTonalButton(onClick = onSendCoins, modifier = Modifier.weight(1f)) {
