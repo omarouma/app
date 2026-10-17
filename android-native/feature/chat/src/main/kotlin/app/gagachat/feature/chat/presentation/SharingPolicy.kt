@@ -46,6 +46,6 @@ internal fun contactSections(people: List<User>, query: String): Map<String, Lis
     .groupBy { it.displayLabel.firstOrNull()?.uppercaseChar()?.takeIf { c -> c in 'A'..'Z' }?.toString() ?: "#" }
 
 internal fun reusableAttachments(messages: List<Message>): List<Message> = messages
-    .filter { it.type in setOf(MessageType.FILE, MessageType.AUDIO) && !it.isDeleted && !it.hiddenForMe && !it.mediaUrl.isNullOrBlank() }
+    .filter { it.type in setOf(MessageType.FILE, MessageType.AUDIO) && !it.isViewOnce && !it.isDeleted && !it.hiddenForMe && !it.mediaUrl.isNullOrBlank() }
     .distinctBy { it.serverMessageId ?: it.localId }
     .sortedByDescending { it.sortTimestamp }

@@ -325,6 +325,42 @@ class SupabaseRestApi @Inject constructor(
 
     // ---- Messages ----
 
+    suspend fun getAccountDirectory(kind: String, query: String, offset: Int = 0): List<UserRow> =
+        client.post("${config.restUrl}/rpc/gaga_account_directory") {
+            auth()
+            contentType(ContentType.Application.Json)
+            setBody(buildJsonObject {
+                put("p_kind", kind); put("p_query", query.take(120))
+                put("p_offset", offset.coerceAtLeast(0)); put("p_limit", 40)
+            })
+        }.body()
+
+    suspend fun requestAccountVerification(kind: String, organization: String, website: String) {
+        client.post("${config.restUrl}/rpc/gaga_request_account_verification") {
+            auth()
+            contentType(ContentType.Application.Json)
+            setBody(buildJsonObject {
+                put("p_kind", kind); put("p_organization", organization.trim()); put("p_website", website.trim())
+            })
+        }
+    }
+
+    /** Cross-chat attachment search; existing message RLS enforces membership and session validity. */
+    suspend fun searchAttachments(query: String, offset: Int = 0, limit: Int = 40): List<MessageRow> {
+        val safe = query.take(120).map { if (it in "*,()%_\\\"" || it.isISOControl()) ' ' else it }.joinToString("").trim()
+        return client.get("${config.restUrl}/messages") {
+            auth()
+            parameter("select", "*")
+            parameter("type", "in.(file,audio)")
+            parameter("or", "(destroyed.is.null,destroyed.eq.false)")
+            parameter("media_url", "not.is.null")
+            if (safe.isNotEmpty()) parameter("content", "ilike.*$safe*")
+            parameter("order", "created_at.desc,id.desc")
+            parameter("offset", offset.coerceAtLeast(0))
+            parameter("limit", limit.coerceIn(1, 100))
+        }.body()
+    }
+
     suspend fun getMessages(
         conversationId: String,
         limit: Int,

@@ -119,6 +119,7 @@ import app.gagachat.feature.chat.presentation.components.LiveLocationDurationDia
 import app.gagachat.feature.chat.presentation.components.MediaReviewSheet
 import app.gagachat.feature.chat.presentation.components.MediaViewerOverlay
 import app.gagachat.feature.chat.presentation.components.AttachmentBrowserSheet
+import app.gagachat.feature.chat.presentation.components.ViewOncePhotoDialog
 import app.gagachat.feature.chat.presentation.components.GaGaContactPickerSheet
 import app.gagachat.feature.chat.presentation.components.FileReviewDialog
 import app.gagachat.feature.chat.presentation.components.VideoReviewSheet
@@ -253,6 +254,7 @@ fun ChatRoute(
     val documentOpener = rememberDocumentOpener()
     val documentSaver = rememberDocumentSaver()
     var viewerMessage by remember { mutableStateOf<Message?>(null) }
+    var viewOnceMessage by remember { mutableStateOf<Message?>(null) }
     var forwardingMessage by remember { mutableStateOf<Message?>(null) }
     var showBackgroundPicker by remember { mutableStateOf(false) }
     var showPollComposer by remember { mutableStateOf(false) }
@@ -511,7 +513,9 @@ fun ChatRoute(
                             onMediaClick = { msg ->
                                 // F12: documents open in an external viewer; only
                                 // photos/videos use the in-app full-screen viewer.
-                                if (msg.type == MessageType.FILE) {
+                                if (msg.isViewOnce) {
+                                    viewOnceMessage = msg
+                                } else if (msg.type == MessageType.FILE) {
                                     documentOpener.open(msg)
                                 } else {
                                     viewerMessage = msg
@@ -637,6 +641,7 @@ fun ChatRoute(
             }
         }
 
+        viewOnceMessage?.let { message -> ViewOncePhotoDialog(message, onDismiss = { viewOnceMessage = null }) }
         viewerMessage?.let { message ->
             MediaViewerOverlay(message = message, onDismiss = { viewerMessage = null },
                 onForward = { source -> viewerMessage = null; forwardingMessage = source },
@@ -667,6 +672,7 @@ fun ChatRoute(
         LaunchedEffect(state.currentUserId) {
             reviewUris = null; videoReviewUri = null; pendingFileReview = null; pendingContactCard = null
             viewerMessage = null; forwardingMessage = null; showFileBrowser = false; showGaGaContacts = false
+            viewOnceMessage = null
         }
 
         DocumentOpenOverlay(state = documentOpener.state, onDismiss = documentOpener::dismiss)
@@ -690,6 +696,7 @@ fun ChatRoute(
             MediaReviewSheet(
                 uris = uris,
                 recipientName = state.title,
+                onSendViewOnce = if (state.isGroup) null else { uri -> viewModel.sendViewOnce(uri); reviewUris = null },
                 onDismiss = { reviewUris = null },
                 onSend = { ordered, caption, original ->
                     viewModel.sendImageAlbum(ordered, caption, original)
@@ -1124,10 +1131,10 @@ private fun MessageActionSheet(
             HorizontalDivider()
             ActionRow(Icons.AutoMirrored.Filled.Reply, "Reply", onReply)
             if (canEdit) ActionRow(Icons.Filled.Edit, "Edit", onEdit)
-            ActionRow(Icons.AutoMirrored.Filled.Forward, "Forward", onForward)
+            if (!message.isViewOnce) ActionRow(Icons.AutoMirrored.Filled.Forward, "Forward", onForward)
             if (canCopy) ActionRow(Icons.Filled.ContentCopy, "Copy", onCopy)
             if (!message.isDeleted) {
-                ActionRow(Icons.Filled.Bookmark, "Save privately", onSave)
+                if (!message.isViewOnce) ActionRow(Icons.Filled.Bookmark, "Save privately", onSave)
                 // V3.0 Sprint B (row #6): documents can be saved to a
                 // user-chosen location, not just opened (guide's "Open/save").
                 if (message.type == MessageType.FILE) {

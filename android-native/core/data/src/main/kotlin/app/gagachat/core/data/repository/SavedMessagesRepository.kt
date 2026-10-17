@@ -76,6 +76,8 @@ class DefaultSavedMessagesRepository @Inject constructor(
     }
 
     override suspend fun save(message: SavedMessage): AppResult<Unit> = withContext(dispatchers.io) {
+        if (message.mediaUrl?.startsWith("gaga-view-once:") == true)
+            return@withContext AppResult.Failure(AppError.Unauthorized("View-once photos cannot be saved"))
         val me = currentUserId
         if (me.isBlank()) return@withContext AppResult.Failure(AppError.Unauthorized("Not signed in"))
         try {

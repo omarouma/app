@@ -66,6 +66,8 @@ data class Message(
     /** True while this message is waiting to be delivered at [scheduledAt]. */
     val isScheduled: Boolean get() = status == MessageStatus.SCHEDULED
     val isDeleted: Boolean get() = deletedAt != null
+    /** Opaque marker only: private view-once bytes never have a normal media URL. */
+    val isViewOnce: Boolean get() = mediaUrl?.startsWith("gaga-view-once:") == true
     val hasReactions: Boolean get() = reactions.isNotEmpty()
 
     /** True when this message carries more than one image. */

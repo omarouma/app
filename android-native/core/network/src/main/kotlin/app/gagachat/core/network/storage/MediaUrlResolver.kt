@@ -47,6 +47,7 @@ class MediaUrlResolver @Inject constructor(
      * HTTP 400s and make renderers retry an address that can never be authorized.
      */
     suspend fun resolve(url: String?): String? {
+        if (url?.startsWith("gaga-view-once:") == true) return null
         if (url.isNullOrBlank()) return url
         if (!isPrivateStorageUrl(url)) return url
 

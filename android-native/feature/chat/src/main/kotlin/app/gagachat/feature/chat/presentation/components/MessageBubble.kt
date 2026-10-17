@@ -387,7 +387,10 @@ private fun MessageContent(
             linkPreview = linkPreview,
             onRequestLinkPreview = onRequestLinkPreview,
         )
-        MessageType.IMAGE -> if (message.isMultiImage) {
+        MessageType.IMAGE -> if (message.isViewOnce) {
+            Text(message.text ?: "View-once photo", color = contentColor,
+                modifier = Modifier.padding(24.dp).clickable { onMediaClick(message) })
+        } else if (message.isMultiImage) {
             MultiImageGrid(message = message, onRetry = onRetry, onClick = { onMediaClick(message) })
         } else {
             MediaImage(

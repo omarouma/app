@@ -186,6 +186,7 @@ private data class ChatFlags(
 
 @HiltViewModel
 class ChatViewModel @Inject constructor(
+    private val viewOnceApi: app.gagachat.core.network.rest.ViewOncePhotoApi,
     private val savedMessagesRepository: app.gagachat.core.data.repository.SavedMessagesRepository,
     private val privacyApi: app.gagachat.core.network.rest.SupabaseRestApi,
     private val splitBillApi: app.gagachat.core.network.rest.SplitBillApi,
@@ -644,6 +645,38 @@ class ChatViewModel @Inject constructor(
                 caption = caption,
             )
             if (result is AppResult.Failure) error.value = result.error.toUserMessage()
+        }
+    }
+
+    private var sendingViewOnce = false
+    private var pendingViewOnce: Pair<String, String>? = null
+
+    fun sendViewOnce(uri: Uri) {
+        if (sendingViewOnce || !beginMediaSend()) return
+        val owner = authRepository.sessionFlow.value?.userId ?: return
+        sendingViewOnce = true
+        val key = "$owner:$conversationId:$uri"
+        val id = pendingViewOnce?.takeIf { it.first == key }?.second ?: java.util.UUID.randomUUID().toString()
+        pendingViewOnce = key to id
+        notice.value = "Sending view-once photo…"
+        viewModelScope.launch {
+            var bytes: ByteArray? = null
+            try {
+                val mime = context.contentResolver.getType(uri).orEmpty().lowercase()
+                require(mime in setOf("image/jpeg", "image/png", "image/webp")) { "Choose a JPEG, PNG or WebP photo" }
+                bytes = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                    context.contentResolver.openInputStream(uri)?.use { app.gagachat.core.network.rest.ViewOncePhotoApi.readPhotoBytes(it) }
+                } ?: error("Photo unavailable")
+                viewOnceApi.send(owner, conversationId, id, mime, bytes!!)
+                if (owner == currentUserId) {
+                    pendingViewOnce = null
+                    notice.value = "View-once photo sent"
+                    messageRepository.syncNewMessages(conversationId)
+                }
+            } catch (t: Exception) {
+                if (t is kotlinx.coroutines.CancellationException) throw t
+                if (owner == currentUserId) error.value = "Couldn't send view-once photo. Use one JPEG, PNG or WebP under 10 MB in a direct chat, then retry."
+            } finally { bytes?.fill(0); sendingViewOnce = false }
         }
     }
 
