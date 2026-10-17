@@ -25,7 +25,8 @@ Deno.serve(async request=>{
   if(version!=='2.8.12')return json({error:'VERSION_NOT_ALLOWED'},403);
   if(new URL(request.url).searchParams.get('action')==='remove-staged-copy'){
     if(!name.endsWith('.apk')&&!name.endsWith('.aab'))return json({error:'ONLY_NEW_BINARY_COPIES'},403);
-    const mirror=await fetch('https://github.com/omarouma/app/releases/download/android-'+version+'/'+encodeURIComponent(name));
+    const mirrorTag=(name.endsWith('.aab')?'bundle-':'android-')+version;
+    const mirror=await fetch('https://github.com/omarouma/app/releases/download/'+mirrorTag+'/'+encodeURIComponent(name));
     if(!mirror.ok)return json({error:'VERIFIED_MIRROR_REQUIRED'},409);
     let bytes:Uint8Array;
     try{bytes=await exactBytes(mirror.body,expected.size);}catch{return json({error:'MIRROR_SIZE_MISMATCH'},409);}

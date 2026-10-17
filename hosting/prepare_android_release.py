@@ -28,11 +28,12 @@ def prepare(artifacts: pathlib.Path, apksigner: pathlib.Path, include_bundle=Fal
     directory = ROOT / 'hosting/public/downloads/releases' / version
     directory.mkdir(parents=True, exist_ok=True)
     # Spark Hosting disallows APK executables. Binaries live in the existing
-    # public Supabase release bucket; Hosting serves the site and metadata.
+    # temporary Supabase staging bucket before verified GitHub mirroring.
     sums = ''.join(f'{digest}  {name}\n' for name, digest in hashes.items())
     (directory / 'SHA256SUMS.txt').write_text(sums)
     (directory / 'signature-verification.txt').write_text(report)
     public_base = f'https://github.com/omarouma/app/releases/download/android-{version}/'
+    bundle_base = f'https://github.com/omarouma/app/releases/download/bundle-{version}/'
     manifest = json.loads((ROOT / 'hosting/public/app-updates/android.json').read_text())
     assert code >= manifest['latestVersionCode'], 'Refusing version rollback'
     manifest.update(latestVersionName=version, latestVersionCode=code,
@@ -42,7 +43,7 @@ def prepare(artifacts: pathlib.Path, apksigner: pathlib.Path, include_bundle=Fal
                                        sha256=hashes[apk.name], sizeBytes=apk.stat().st_size)
     manifest.pop('artifacts', None)
     if include_bundle:
-        manifest['artifacts'] = {'aab': dict(url=public_base + aab.name,
+        manifest['artifacts'] = {'aab': dict(url=bundle_base + aab.name,
             sha256=hashes[aab.name], sizeBytes=aab.stat().st_size)}
     (ROOT / 'hosting/public/app-updates/android.json').write_text(json.dumps(manifest, indent=2) + '\n')
     firebase = json.loads((ROOT / 'firebase.json').read_text())
@@ -57,7 +58,7 @@ def prepare(artifacts: pathlib.Path, apksigner: pathlib.Path, include_bundle=Fal
                '/downloads/SHA256SUMS.txt': 'SHA256SUMS.txt', '/downloads/gaga-latest-consolidated.apk': apk.name}
     for redirect in firebase['hosting']['redirects']:
         if redirect['source'] in targets:
-            redirect['destination'] = public_base + targets[redirect['source']]
+            redirect['destination'] = (bundle_base if redirect['source'].endswith('.aab') else public_base) + targets[redirect['source']]
     (ROOT / 'firebase.json').write_text(json.dumps(firebase, indent=2) + '\n')
     local = dict(firebase['hosting'], public='public')
     (ROOT / 'hosting/firebase.json').write_text(json.dumps({'hosting': local}, indent=2) + '\n')
