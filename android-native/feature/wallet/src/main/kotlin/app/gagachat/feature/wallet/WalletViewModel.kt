@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Job
 import javax.inject.Inject
 
 data class WalletUi(
@@ -35,10 +36,15 @@ class WalletViewModel @Inject constructor(
     private val _topUpMessage = MutableStateFlow<String?>(null)
     val topUpMessage: StateFlow<String?> = _topUpMessage.asStateFlow()
 
+    private var loadJob: Job? = null
+
     init {
         viewModelScope.launch {
             walletRepository.wallet.collect { wallet ->
-                if (wallet != null) {
+                if (wallet == null) {
+                    _state.value = ScreenState.Initial
+                    _topUpMessage.value = null
+                } else {
                     _state.value = ScreenState.Content(
                         WalletUi(wallet = wallet, activity = walletRepository.activity.value),
                     )
@@ -55,14 +61,20 @@ class WalletViewModel @Inject constructor(
     }
 
     private fun load() {
-        viewModelScope.launch {
+        loadJob?.cancel()
+        loadJob = viewModelScope.launch {
+            _topUpMessage.value = null
             if (_state.value !is ScreenState.Content) _state.value = ScreenState.Loading
             when (val r = walletRepository.ensureWallet()) {
                 is AppResult.Success -> _state.value = ScreenState.Content(
                     WalletUi(r.data, walletRepository.activity.value),
                 )
-                is AppResult.Failure -> if (_state.value !is ScreenState.Content) {
-                    _state.value = r.error.toScreenStateError(networkMonitor.isCurrentlyOnline())
+                is AppResult.Failure -> {
+                    if (_state.value !is ScreenState.Content) {
+                        _state.value = r.error.toScreenStateError(networkMonitor.isCurrentlyOnline())
+                    } else {
+                        _topUpMessage.value = "Refresh failed. Showing previously loaded data; tap refresh to try again."
+                    }
                 }
                 AppResult.Loading -> Unit
             }

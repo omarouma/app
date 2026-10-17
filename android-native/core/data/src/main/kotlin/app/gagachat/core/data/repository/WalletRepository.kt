@@ -1,17 +1,23 @@
 package app.gagachat.core.data.repository
 
+import app.gagachat.core.common.di.ApplicationScope
 import app.gagachat.core.common.di.DispatcherProvider
 import app.gagachat.core.common.result.AppError
 import app.gagachat.core.common.result.AppResult
 import app.gagachat.core.model.CoinActivity
 import app.gagachat.core.model.CoinActivityType
 import app.gagachat.core.model.Wallet
-import app.gagachat.core.network.dto.WalletInsert
 import app.gagachat.core.network.dto.WalletRow
 import app.gagachat.core.network.dto.WalletTransactionRow
 import app.gagachat.core.network.error.ErrorMapper
 import app.gagachat.core.network.rest.SupabaseRestApi
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -63,6 +69,7 @@ class DefaultWalletRepository @Inject constructor(
     private val restApi: SupabaseRestApi,
     private val authRepository: AuthRepository,
     private val dispatchers: DispatcherProvider,
+    @ApplicationScope private val applicationScope: CoroutineScope,
 ) : WalletRepository {
 
     private val _wallet = MutableStateFlow<Wallet?>(null)
@@ -70,6 +77,18 @@ class DefaultWalletRepository @Inject constructor(
 
     private val _activity = MutableStateFlow<List<CoinActivity>>(emptyList())
     override val activity: StateFlow<List<CoinActivity>> = _activity.asStateFlow()
+
+    @Volatile private var accountEpoch = 0L
+
+    init {
+        applicationScope.launch(start = CoroutineStart.UNDISPATCHED) {
+            authRepository.sessionFlow.map { it?.userId }.distinctUntilChanged().collect {
+                accountEpoch += 1
+                _activity.value = emptyList()
+                _wallet.value = null
+            }
+        }
+    }
 
     private val currentUserId: String
         get() = authRepository.sessionFlow.value?.userId.orEmpty()
@@ -93,7 +112,7 @@ class DefaultWalletRepository @Inject constructor(
             val existing = restApi.getWallet(me)
             if (existing == null) {
                 // Create the row, then reload so balance + ledger are consistent.
-                restApi.upsertWallet(WalletInsert(userId = me, coins = 0L))
+                restApi.ensureWallet()
             }
             AppResult.Success(loadInto(me))
         } catch (t: Throwable) {
@@ -137,8 +156,9 @@ class DefaultWalletRepository @Inject constructor(
         try {
             // Atomic, server-validated transfer. The RPC does the debit + credit in
             // one transaction and returns false when the balance is insufficient.
-            // A fresh idempotency key makes a retry (network timeout / double-tap)
-            // a no-op on the server instead of moving the same coins twice.
+            // This key deduplicates transport retries of this invocation only.
+            // A later invocation currently receives a new key; durable operation
+            // identity is required before enabling real-money transfers.
             val moved = restApi.transferCoins(
                 toUserId = toUserId,
                 amount = amount,
@@ -159,19 +179,21 @@ class DefaultWalletRepository @Inject constructor(
 
     /**
      * Loads the authoritative balance and ledger for [me] into the exposed flows
-     * and returns the wallet. History comes from `wallet_transactions`; if that
-     * read fails (e.g. a client that ships before the ledger migration is live)
-     * it falls back to the legacy jsonb column so the screen is never empty.
+     * and returns the wallet. Ledger failures propagate instead of presenting
+     * legacy JSON as current financial history.
      */
     private suspend fun loadInto(me: String): Wallet {
-        val row = restApi.getWallet(me)
-        val wallet = row?.toDomain() ?: Wallet(id = me, userId = me, coins = 0L)
+        val epoch = accountEpoch
+        val row = restApi.getWallet(me) ?: error("Wallet unavailable. Please refresh.")
+        val history = restApi.getWalletTransactions(me).map { it.toActivity() }
+            .sortedByDescending { it.createdAt }
+        if (currentUserId != me || epoch != accountEpoch) throw CancellationException("Wallet account changed")
+        check(row.userId == me) { "Wallet owner mismatch" }
+        val wallet = row.toDomain()
+        // Publish only after both authoritative reads succeed. Never substitute
+        // stale legacy JSON when the ledger cannot be loaded.
+        _activity.value = history
         _wallet.value = wallet
-        _activity.value = runCatching {
-            restApi.getWalletTransactions(me).map { it.toActivity() }
-        }.getOrElse {
-            row?.transactions.orEmpty()
-        }.sortedByDescending { it.createdAt }
         return wallet
     }
 }
@@ -182,6 +204,7 @@ private fun WalletRow.toDomain(): Wallet = Wallet(
     coins = coins ?: 0L,
     createdAt = createdAt ?: 0L,
     updatedAt = updatedAt ?: 0L,
+    usdBalance = usdBalance?.jsonPrimitive?.content?.toBigDecimalOrNull()?.toPlainString(),
 )
 
 /**
