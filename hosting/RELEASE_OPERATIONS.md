@@ -23,8 +23,9 @@ Google Play publishing is a separate account operation.
    permitting deletion of its pinned new-version binary. Older releases and user media
    are outside its allowlist. This keeps staging below the current storage allowance.
 6. Stage the AAB, add its verified GitHub URL/hash/size under registry `artifacts.aab`,
-   and run the publication workflow again by merging the registry update. Existing
-   assets must match exactly; the workflow adds missing assets without overwriting.
+   and run the publication workflow again by merging the registry update. GitHub
+   releases are immutable: existing APK assets must match exactly, and the AAB is
+   published as a separate `bundle-VERSION` companion release with `--latest=false`.
    Verify the GitHub AAB and remove only its newly staged duplicate. Retire the temporary
    operation endpoint immediately with JWT enforcement retained.
 7. `deploy_verified_release.py` refuses partial rollout metadata: both GitHub APK and

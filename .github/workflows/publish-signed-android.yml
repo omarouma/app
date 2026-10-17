@@ -32,9 +32,10 @@ jobs:
           pin = json.loads(pathlib.Path('android-native/ci/release-signing-public.json').read_text())['sha256']
           stage = 'https://fcjgbbmfqdkucfpqjxae.supabase.co/storage/v1/object/public/gaga-app-releases/' + version + '/'
           release = 'https://github.com/omarouma/app/releases/download/android-' + version + '/'
+          bundle_release = 'https://github.com/omarouma/app/releases/download/bundle-' + version + '/'
           out = pathlib.Path('signed-release'); out.mkdir()
           def download(name):
-              for base in (stage, release):
+              for base in (stage, bundle_release if name.endswith('.aab') else release):
                   try:
                       with urllib.request.urlopen(base + name, timeout=120) as response:
                           (out / name).write_bytes(response.read())
@@ -56,7 +57,7 @@ jobs:
           assert "name='gagachat.app'" in badging and f"versionCode='{code}'" in badging and f"versionName='{version}'" in badging
           bundle_config = manifest.get('artifacts', {}).get('aab')
           if bundle_config:
-              assert bundle_config['url'] == release + bundle_name
+              assert bundle_config['url'] == bundle_release + bundle_name
               bundle = download(bundle_name)
               assert hashlib.sha256(bundle.read_bytes()).hexdigest() == hashes[bundle_name] == bundle_config['sha256']
               assert bundle.stat().st_size == bundle_config['sizeBytes']
@@ -80,6 +81,7 @@ jobs:
           if existing.returncode == 0:
               names = {item['name'] for item in json.loads(existing.stdout)['assets']}
               for path in sorted(out.iterdir()):
+                  if path.suffix == '.aab': continue
                   if path.name in names:
                       with urllib.request.urlopen('https://github.com/' + repository + '/releases/download/' + tag + '/' + path.name,timeout=120) as response:
                           expected = hashlib.sha256(response.read()).hexdigest()
@@ -90,5 +92,20 @@ jobs:
               source = out / ('GaGa-' + version + '-complete-source.zip')
               subprocess.run(['git','archive','--format=zip','--output='+str(source),'HEAD'],check=True)
               notes = 'Signed GaGa Android release with the existing approved certificate. Includes the tested native source and verified public APK. Update installation requires user confirmation. Physical-device and Google Play internal-track qualification remain separate.'
-              subprocess.run(['gh','release','create',tag,*[str(p) for p in sorted(out.iterdir())],'--repo',repository,'--target',os.environ['GITHUB_SHA'],'--title','GaGa '+version,'--notes',notes],check=True)
+              subprocess.run(['gh','release','create',tag,*[str(p) for p in sorted(out.iterdir()) if p.suffix != '.aab'],'--repo',repository,'--target',os.environ['GITHUB_SHA'],'--title','GaGa '+version,'--notes',notes],check=True)
+          bundle = out / ('GaGa-' + version + '-release.aab')
+          if bundle.is_file():
+              bundle_tag = 'bundle-' + version
+              previous = subprocess.run(['gh','release','view',bundle_tag,'--repo',repository,'--json','assets'],capture_output=True,text=True)
+              if previous.returncode == 0:
+                  names = {item['name'] for item in json.loads(previous.stdout)['assets']}
+                  for path in (bundle, out / 'SHA256SUMS.txt'):
+                      assert path.name in names, 'Existing companion release is incomplete'
+                      with urllib.request.urlopen('https://github.com/' + repository + '/releases/download/' + bundle_tag + '/' + path.name,timeout=120) as response:
+                          digest = hashlib.sha256(response.read()).hexdigest()
+                      assert digest == hashlib.sha256(path.read_bytes()).hexdigest(), 'Companion asset mismatch'
+              else:
+                  notes = 'Signed GaGa ' + version + ' Android App Bundle companion. Matches the approved native release identity. APK and native source: https://github.com/' + repository + '/releases/tag/' + tag + '. Google Play upload and internal-track qualification remain separate.'
+                  subprocess.run(['gh','release','create',bundle_tag,str(bundle),str(out / 'SHA256SUMS.txt'),'--repo',repository,'--target',os.environ['GITHUB_SHA'],'--title','GaGa '+version+' App Bundle','--latest=false','--notes',notes],check=True)
+
           PY

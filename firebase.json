@@ -94,7 +94,7 @@
       },
       {
         "source": "/downloads/gaga-latest.aab",
-        "destination": "https://github.com/omarouma/app/releases/download/android-2.8.12/GaGa-2.8.12-release.aab",
+        "destination": "https://github.com/omarouma/app/releases/download/bundle-2.8.12/GaGa-2.8.12-release.aab",
         "type": 302
       },
       {

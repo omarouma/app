@@ -33,7 +33,7 @@ def deploy(publish=False, receipt=None):
     assert size == channel['sizeBytes'] and digest.hexdigest() == channel['sha256']
     # A partial mirror phase must never expose a broken public App Bundle link.
     bundle = manifest['artifacts']['aab']
-    assert bundle['url'] == f'https://github.com/omarouma/app/releases/download/android-{version_name}/GaGa-{version_name}-release.aab'
+    assert bundle['url'] == f'https://github.com/omarouma/app/releases/download/bundle-{version_name}/GaGa-{version_name}-release.aab'
     with urllib.request.urlopen(bundle['url'], timeout=120) as response:
         digest, size = hashlib.sha256(), 0
         while chunk := response.read(1024 * 1024):
