@@ -40,7 +40,7 @@ jobs:
                           (out / name).write_bytes(response.read())
                       return out / name
                   except urllib.error.HTTPError as error:
-                      if error.code != 404: raise
+                      if error.code not in (400, 404): raise
               raise RuntimeError('Verified public asset unavailable: ' + name)
           sums = download('SHA256SUMS.txt')
           hashes = dict((line.split()[1], line.split()[0]) for line in sums.read_text().splitlines())
