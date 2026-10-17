@@ -22,6 +22,6 @@ class ExternalWalletLayoutTest {
   compose.setContent { GagaTheme(darkTheme=true,textScale=2f) { TransferRequestDialog("ethereum",{}) } }
   compose.onNodeWithText("Review").performClick()
   compose.onNodeWithText("Open external wallet").assertDoesNotExist()
-  compose.onNodeWithText("Enter an exact positive amount").assertIsDisplayed()
+  compose.onNodeWithText("Enter an exact positive amount").performScrollTo().assertIsDisplayed()
  }
 }

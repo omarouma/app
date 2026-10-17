@@ -50,6 +50,7 @@ fun ExternalWalletScreen(onBack:()->Unit, viewModel:ExternalWalletViewModel=hilt
       Text(row.address,style=MaterialTheme.typography.bodySmall)
       if(data==null) Text("Balance not checked",style=MaterialTheme.typography.bodySmall)
       data?.let { snapshot->
+       if(row.network=="bitcoin") Text("Confirmed on-chain balance",style=MaterialTheme.typography.labelSmall)
        snapshot.assets.forEach { asset->
         Text("${asset.amount} ${asset.symbol}",style=MaterialTheme.typography.titleMedium)
         if(asset.contract!=null) Text(asset.name,style=MaterialTheme.typography.bodySmall)
