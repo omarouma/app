@@ -48,7 +48,7 @@ fun AttachmentBrowserSheet(
         val hidden = messages.filter { it.hiddenForMe || it.isDeleted }.map { it.serverMessageId ?: it.localId }.toSet()
         files.filter { (it.serverMessageId ?: it.localId) !in hidden }
     }
-    val saved = remember(favorites) { favorites.filter { it.type in listOf("file", "document", "audio", "image", "photo", "video") && !it.mediaUrl.isNullOrBlank() && !it.mediaUrl.startsWith("gaga-view-once:") }.map {
+    val saved = remember(favorites) { favorites.filter { it.type in listOf("file", "document", "audio", "image", "photo", "video") && !it.mediaUrl.isNullOrBlank() && it.mediaUrl?.startsWith("gaga-view-once:") != true }.map {
         Message(localId = "saved-${it.id}", clientMessageId = it.messageId, serverMessageId = it.messageId,
             conversationId = it.chatId, senderId = it.senderId.orEmpty(), text = it.content,
             mediaUrl = it.mediaUrl, type = when (it.type) { "audio" -> MessageType.AUDIO; "image", "photo" -> MessageType.IMAGE; "video" -> MessageType.VIDEO; else -> MessageType.FILE })

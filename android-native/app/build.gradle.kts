@@ -115,6 +115,10 @@ android {
     }
 
     packaging {
+        // Opt-in direct-download APK; CI builds the Play bundle normally first.
+        // AGP sets extractNativeLibs consistently. Native ELF alignment is still
+        // required; installed size grows because Android extracts the libraries.
+        jniLibs.useLegacyPackaging = providers.gradleProperty("gagaCompactApk").orNull == "true"
         resources.excludes += setOf(
             "/META-INF/{AL2.0,LGPL2.1}",
             "META-INF/DEPENDENCIES",

@@ -39,13 +39,20 @@ class ViewOncePhotoViewModel @Inject constructor(private val api: ViewOncePhotoA
 fun ViewOncePhotoDialog(message: Message, onDismiss: () -> Unit, viewModel: ViewOncePhotoViewModel = hiltViewModel()) {
     val session by viewModel.sessions.collectAsStateWithLifecycle()
     val owner = remember(message.localId) { session?.userId }
-    var bitmap by remember(message.localId) { mutableStateOf<Bitmap?>(null) }
-    var attempted by remember(message.localId) { mutableStateOf(false) }
-    var loading by remember(message.localId) { mutableStateOf(false) }
-    var error by remember(message.localId) { mutableStateOf<String?>(null) }
+    LaunchedEffect(session?.userId) { if (owner == null || owner != session?.userId) onDismiss() }
+    if (session?.userId == owner) SecureViewOncePhotoDialog(message, owner, onDismiss) {
+        viewModel.open(owner ?: error("Sign in again"), message)
+    }
+}
+
+@Composable
+internal fun SecureViewOncePhotoDialog(message: Message, owner: String?, onDismiss: () -> Unit, openPhoto: suspend () -> ByteArray) {
+    var bitmap by remember(message.localId, owner) { mutableStateOf<Bitmap?>(null) }
+    var attempted by remember(message.localId, owner) { mutableStateOf(false) }
+    var loading by remember(message.localId, owner) { mutableStateOf(false) }
+    var error by remember(message.localId, owner) { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
     val lifecycle = LocalLifecycleOwner.current.lifecycle
-    LaunchedEffect(session?.userId) { if (owner == null || owner != session?.userId) onDismiss() }
     DisposableEffect(lifecycle) {
         val observer = LifecycleEventObserver { _, event -> if (event == Lifecycle.Event.ON_PAUSE) onDismiss() }
         lifecycle.addObserver(observer)
@@ -65,7 +72,7 @@ fun ViewOncePhotoDialog(message: Message, onDismiss: () -> Unit, viewModel: View
                     scope.launch {
                         var bytes: ByteArray? = null
                         try {
-                            bytes = viewModel.open(owner ?: error("Sign in again"), message)
+                            bytes = openPhoto()
                             val decoded = withContext(Dispatchers.Default) {
                                 val data = bytes!!
                                 val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
@@ -75,7 +82,7 @@ fun ViewOncePhotoDialog(message: Message, onDismiss: () -> Unit, viewModel: View
                                 while (options.outWidth / sample > 2048 || options.outHeight / sample > 2048) sample *= 2
                                 BitmapFactory.decodeByteArray(data, 0, data.size, BitmapFactory.Options().apply { inSampleSize = sample })
                             } ?: error("Photo unavailable")
-                            if (viewModel.sessions.value?.userId == owner) bitmap = decoded else decoded.recycle()
+                            bitmap = decoded
                         } catch (t: Exception) {
                             if (t is CancellationException) throw t
                             error = "This photo has already been opened, expired or is unavailable."

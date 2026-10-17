@@ -3,7 +3,8 @@
 # emulator shutdown. Preserve Gradle's exit code so failed tests stay failed.
 set -uo pipefail
 result=0
-gradle -p android-native --no-daemon --max-workers=2 --continue \
+gradle -p android-native --no-daemon --max-workers=1 --continue \
+  '-Dorg.gradle.jvmargs=-Xmx3072m -XX:MaxMetaspaceSize=1024m -Dfile.encoding=UTF-8' \
   -Pandroid.injected.androidTest.leaveApksInstalledAfterRun=true \
   :core:ui:connectedDebugAndroidTest \
   :feature:dailylife:connectedDebugAndroidTest \
