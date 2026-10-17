@@ -884,6 +884,8 @@ class SupabaseRestApi @Inject constructor(
             auth()
             parameter("select", "*")
             parameter("user_id", "eq.$userId")
+            // CoinActivity uses integer units; never mix fractional fiat/crypto rows.
+            parameter("currency", "eq.coins")
             parameter("order", "created_at.desc")
             parameter("limit", limit)
         }.body()

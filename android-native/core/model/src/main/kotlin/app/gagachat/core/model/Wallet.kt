@@ -13,6 +13,8 @@ data class Wallet(
     val coins: Long = 0L,
     @SerialName("created_at") val createdAt: Long = 0L,
     @SerialName("updated_at") val updatedAt: Long = 0L,
+    /** Exact server USD record, not proof of provider custody or withdrawability. */
+    val usdBalance: String? = null,
 ) {
     /** Coins are stored as integers; formatted for display. */
     val formatted: String get() = "%,d".format(coins)

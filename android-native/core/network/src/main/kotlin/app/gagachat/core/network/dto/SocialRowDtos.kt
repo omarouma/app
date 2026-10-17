@@ -66,6 +66,7 @@ data class WalletRow(
     val id: String,
     @SerialName("user_id") val userId: String,
     val coins: Long? = null,
+    @SerialName("usd_balance") val usdBalance: JsonElement? = null,
     /** Server-side ledger, persisted in the `transactions` jsonb column. */
     @SerialName("transactions")
     @Serializable(with = LenientCoinActivityListSerializer::class)

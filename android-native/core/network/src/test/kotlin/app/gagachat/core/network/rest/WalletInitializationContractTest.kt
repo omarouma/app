@@ -43,4 +43,17 @@ class WalletInitializationContractTest {
             assertEquals(45L, wallet.coins)
         } finally { client.close() }
     }
+
+    @Test fun integerCoinHistoryExcludesFractionalCurrencyRows() = runBlocking {
+        val engine = MockEngine { request ->
+            assertEquals("eq.coins", request.url.parameters["currency"])
+            assertEquals("eq.owner", request.url.parameters["user_id"])
+            assertEquals("Bearer test-session", request.headers["Authorization"])
+            respond("[]", HttpStatusCode.OK, headersOf(HttpHeaders.ContentType, "application/json"))
+        }
+        val client = HttpClient(engine) { install(ContentNegotiation) { json() } }
+        try {
+            assertTrue(SupabaseRestApi(client, SupabaseConfig("https://example.test", "key", "media"), store).getWalletTransactions("owner").isEmpty())
+        } finally { client.close() }
+    }
 }
