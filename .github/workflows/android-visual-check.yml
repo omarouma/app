@@ -1,4 +1,7 @@
 name: GaGa native redesign visual checks
+concurrency:
+  group: android-visual-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 on:
   pull_request:
     paths:

@@ -1,4 +1,7 @@
 name: GaGa Android repair validation
+concurrency:
+  group: android-repair-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 on:
   push:
