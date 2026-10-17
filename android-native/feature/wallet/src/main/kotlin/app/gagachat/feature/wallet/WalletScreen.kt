@@ -151,7 +151,7 @@ fun WalletScreen(
 private fun usdAmount(value: String?): String = value?.toBigDecimalOrNull()?.let { "$" + it.toPlainString() } ?: "Unavailable"
 
 @Composable
-private fun BalanceCard(wallet: Wallet) {
+internal fun BalanceCard(wallet: Wallet) {
     Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp))
         .background(Brush.linearGradient(listOf(GagaGreen, Color(0xFF07594B))))
         .padding(24.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -167,7 +167,7 @@ private fun BalanceCard(wallet: Wallet) {
 }
 
 @Composable
-private fun AssetRow(symbol: String, title: String, subtitle: String, balance: String, status: String, onClick: () -> Unit) {
+internal fun AssetRow(symbol: String, title: String, subtitle: String, balance: String, status: String, onClick: () -> Unit) {
     Surface(onClick = onClick, shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surfaceContainerLow) {
         Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             Box(Modifier.size(40.dp).clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.secondaryContainer), contentAlignment = Alignment.Center) {
@@ -197,7 +197,7 @@ private fun activityTitle(entry: CoinActivity): String = when (entry.type) {
 }
 
 @Composable
-private fun TransactionRow(entry: CoinActivity, onClick: () -> Unit) {
+internal fun TransactionRow(entry: CoinActivity, onClick: () -> Unit) {
     val outgoing = entry.type in listOf(CoinActivityType.SENT, CoinActivityType.SPEND)
     val incoming = entry.type in listOf(CoinActivityType.RECEIVED, CoinActivityType.TOPUP, CoinActivityType.REWARD, CoinActivityType.REFUND)
     Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable(onClick = onClick).padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {

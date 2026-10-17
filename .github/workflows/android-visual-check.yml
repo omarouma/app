@@ -7,6 +7,7 @@ on:
     paths:
       - 'android-native/core/ui/**'
       - 'android-native/feature/profile/**'
+      - 'android-native/feature/wallet/**'
       - 'android-native/feature/settings/**'
       - 'android-native/feature/qr/**'
       - 'android-native/feature/people/**'
@@ -59,6 +60,7 @@ jobs:
           name: GaGa-native-redesign-visual-checks
           path: |
             visual-checks/
+            android-native/feature/wallet/build/reports/androidTests/
             android-native/core/ui/build/reports/androidTests/
             android-native/feature/dailylife/build/reports/androidTests/
             android-native/feature/chat/build/reports/androidTests/

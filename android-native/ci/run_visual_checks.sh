@@ -12,9 +12,10 @@ gradle -p android-native --no-daemon --max-workers=1 --continue \
   :feature:contacts:connectedDebugAndroidTest \
   :feature:profile:connectedDebugAndroidTest \
   :feature:calls:connectedDebugAndroidTest \
+  :feature:wallet:connectedDebugAndroidTest \
   :feature:qr:connectedDebugAndroidTest || result=$?
 mkdir -p visual-checks
-for package in app.gagachat.core.ui app.gagachat.core.ui.test app.gagachat.feature.dailylife.test app.gagachat.feature.chat.test app.gagachat.feature.profile.test; do
+for package in app.gagachat.core.ui app.gagachat.core.ui.test app.gagachat.feature.dailylife.test app.gagachat.feature.chat.test app.gagachat.feature.profile.test app.gagachat.feature.wallet.test; do
   adb pull "/sdcard/Android/data/$package/files/screenshots" "visual-checks/$package" || true
 done
 exit "$result"
