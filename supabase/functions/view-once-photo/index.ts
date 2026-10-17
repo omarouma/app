@@ -55,6 +55,15 @@ Deno.serve(async (request: Request) => {
         // A retried id may already be uploaded. Publishing checks its existence and ownership.
         const data = await upload.json().catch(() => ({}));
         if (upload.status !== 409 && data.statusCode !== '409' && data.error !== 'Duplicate') throw new Error('UPLOAD_FAILED');
+        // A retry may reuse its id only for identical bytes. A changed source
+        // must never silently publish the previous upload under the same id.
+        const previous = await fetch(`${url}/storage/v1/object/authenticated/${bucket}/${objectName}`, {
+          headers: { apikey: service, Authorization: `Bearer ${service}` }, signal: AbortSignal.timeout(15000) });
+        if (!previous.ok) throw new Error('PHOTO_UNAVAILABLE');
+        const priorBytes = await readBounded(previous.body);
+        const fingerprints = await Promise.all([bytes, priorBytes].map(async value =>
+          Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', value)), n => n.toString(16).padStart(2, '0')).join('')));
+        if (fingerprints[0] !== fingerprints[1]) throw new Error('PHOTO_IDENTITY_CHANGED');
       }
       await rpc('gaga_publish_view_once', { p_id: id }, authorization);
       return json({ id });
