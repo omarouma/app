@@ -640,7 +640,7 @@ fun ChatRoute(
         viewerMessage?.let { message ->
             MediaViewerOverlay(message = message, onDismiss = { viewerMessage = null },
                 onForward = { source -> viewerMessage = null; forwardingMessage = source },
-                onFavorite = { source -> viewModel.saveMessage(source) },
+                onFavorite = { source -> viewerMessage = null; viewModel.saveMessage(source) },
                 onEditCopy = { uri -> viewerMessage = null; reviewUris = listOf(uri) },
                 onLocate = {
                     viewerMessage = null

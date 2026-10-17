@@ -18,7 +18,7 @@ No personal names, photos, document details or screenshot bytes are committed.
 | Phone file / Music selection | Retains URI grants when supported, shows filename/size and destination, and requires Send before queueing. |
 | Contact search / sections / alphabet index | Uses actual accepted GaGa friends, searchable name/username and scrollable section buttons with 48dp targets. Phone contacts use the platform picker. |
 | Verified accounts | Filters real is_verified values; does not invent official/service-account categories. |
-| Photo crop / rotate / sticker / drawing / text / HD / caption | Existing tools retained. Editor expanded to full screen; Original/Mono/Warm/Cool filters use one shared matrix for preview and exported bytes. Recipient shown in review. |
+| Photo crop / rotate / sticker / drawing / text / HD / caption | Existing tools retained. Editor expanded to full screen; Original/Mono/Warm/Cool filters use one shared matrix for preview and exported bytes. Full-screen review includes save-copy, caption, original-quality toggle, recipient and explicit Send. |
 | Album media actions | Actions refer to the selected image, not the primary image's local file. Per-image forwarding identities avoid one album member replacing another. |
 
 ## Deliberately remaining backend/product work

@@ -8,6 +8,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.performScrollTo
 import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Assert.*
 import org.junit.Rule
@@ -28,9 +30,22 @@ class ReferenceSharingTest {
         assertEquals(0, sends)
         compose.onNodeWithText("Send to chat").performClick()
         assertEquals(1, sends)
-        compose.onNodeWithText("Cancel").performClick()
+        compose.onNodeWithText("Cancel").performScrollTo().performClick()
         assertEquals(1, sends)
         assertEquals(1, cancels)
+    }
+
+    @Test fun fileSelectionRequiresASeparateSendConfirmation() {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val file = File(context.cacheDir, "reference-review.txt").apply { writeText("attachment") }
+        var sends = 0
+        compose.setContent { MaterialTheme {
+            FileReviewDialog(Uri.fromFile(file), "file", "Sample chat", onDismiss = {}, onSend = { sends++ })
+        } }
+        compose.waitUntil(5_000) { runCatching { compose.onNodeWithText("Send").assertIsEnabled(); true }.getOrDefault(false) }
+        assertEquals(0, sends)
+        compose.onNodeWithText("Send").performClick()
+        assertEquals(1, sends)
     }
 
     @Test fun monoFilterIsExportedWithoutTextOrAnnotationsAndPreservesOriginal() {

@@ -95,7 +95,7 @@ fun PhotoEditorDialog(
     // the same normalized coordinates as the exported bitmap.
     val effectiveAspect = if (rotation % 180 == 90) 1f / imageAspect else imageAspect
 
-    Dialog(onDismissRequest = { if (!busy) onDismiss() }, properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)) {
+    Dialog(onDismissRequest = { if (!busy) onDismiss() }, properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
         Surface(
             shape = RoundedCornerShape(24.dp),
             color = MaterialTheme.colorScheme.surface,

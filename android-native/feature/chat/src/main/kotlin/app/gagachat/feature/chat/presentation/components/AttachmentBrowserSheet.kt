@@ -2,6 +2,8 @@ package app.gagachat.feature.chat.presentation.components
 
 import android.net.Uri
 import android.provider.OpenableColumns
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -138,6 +140,8 @@ fun FileReviewDialog(uri: Uri, kind: String, recipient: String, onDismiss: () ->
     var label by remember(uri) { mutableStateOf("Selected attachment") }
     var size by remember(uri) { mutableStateOf<Long?>(null) }
     var readable by remember(uri) { mutableStateOf(false) }
+    var checking by remember(uri) { mutableStateOf(true) }
+    val limit = app.gagachat.core.data.repository.mediaUploadLimit(if (kind == "audio") MessageType.AUDIO else MessageType.FILE)
     LaunchedEffect(uri) {
         kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
             runCatching { context.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME, OpenableColumns.SIZE), null, null, null)?.use { cursor ->
@@ -148,11 +152,15 @@ fun FileReviewDialog(uri: Uri, kind: String, recipient: String, onDismiss: () ->
             } }
             runCatching { context.contentResolver.openInputStream(uri)?.use { readable = true } }
         }
+        checking = false
     }
     AlertDialog(onDismissRequest = onDismiss, title = { Text(if (kind == "audio") "Review music / audio" else "Review file") },
-        text = { Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        text = { Column(Modifier.heightIn(max = 360.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(label); size?.let { Text("${it / 1024} KB") }; Text("Send to $recipient")
-            if (!readable) Text("Checking file access. If this doesn't finish, choose the file again.")
-        } }, confirmButton = { Button(onClick = onSend, enabled = readable) { Text("Send") } },
+            Text("Maximum ${limit / (1024 * 1024)} MB")
+            if (checking) Text("Checking file access…")
+            else if (!readable) Text("This file is unavailable. Cancel and select it again.")
+            if (size != null && size!! > limit) Text("This file exceeds the upload limit.", color = MaterialTheme.colorScheme.error)
+        } }, confirmButton = { Button(onClick = onSend, enabled = readable && !checking && (size == null || size!! <= limit)) { Text("Send") } },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } })
 }
