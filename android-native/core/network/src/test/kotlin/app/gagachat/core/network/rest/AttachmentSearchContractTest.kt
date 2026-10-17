@@ -44,7 +44,7 @@ class AttachmentSearchContractTest {
         }
     }
 
-    @Test fun filterSyntaxAndWildcardsCannotExpandTheSearch() = runBlocking {
+    @Test fun filterSyntaxAndWildcardsCannotExpandTheSearch(): Unit = runBlocking {
         val engine = MockEngine { request ->
             assertEquals("ilike.*file  destroyed.eq.false*", request.url.parameters["content"])
             assertEquals("0", request.url.parameters["offset"])
