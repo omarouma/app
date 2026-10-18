@@ -978,7 +978,7 @@ class SupabaseRestApi @Inject constructor(
     suspend fun getGroupsForUser(userId: String): List<GroupRow> {
         val memberships = client.get("${config.restUrl}/group_members") {
             auth()
-            parameter("select", "group_id")
+            parameter("select", "id,group_id,user_id,role,joined_at")
             parameter("user_id", "eq.$userId")
         }.body<List<GroupMemberRow>>()
         val ids = memberships.map { it.groupId }.distinct()

@@ -74,4 +74,34 @@ class WalletInitializationContractTest {
             assertTrue(mismatch.exceptionOrNull() is kotlinx.coroutines.CancellationException)
         } finally { client.close() }
     }
+    @Test fun decimalEncodedCoinLedgerDecodesExactly() = runBlocking {
+        val json = Json { ignoreUnknownKeys = true }
+        val row = json.decodeFromString<app.gagachat.core.network.dto.WalletTransactionRow>(
+            """{"id":"entry","user_id":"owner","type":"transfer_in","amount":1.00,"balance_after":9007199254740993.00}""")
+        assertEquals(1L, row.amount)
+        assertEquals(9007199254740993L, row.balanceAfter)
+        for (amount in listOf("1.5", "9223372036854775808", "null")) {
+            assertTrue(runCatching { json.decodeFromString<app.gagachat.core.network.dto.WalletTransactionRow>(
+                """{"id":"entry","user_id":"owner","type":"transfer_in","amount":$amount}""") }.isFailure)
+        }
+    }
+
+    @Test fun groupMembershipProjectionContainsRequiredFields() = runBlocking {
+        val engine = MockEngine { request ->
+            val body = when {
+                request.url.encodedPath.endsWith("/group_members") -> {
+                    assertEquals("id,group_id,user_id,role,joined_at", request.url.parameters["select"])
+                    """[{"id":"membership","group_id":"group","user_id":"owner","role":"owner","joined_at":"2026-10-18T00:00:00Z"}]"""
+                }
+                else -> """[{"id":"group","name":"My group","created_by":"owner"}]"""
+            }
+            respond(body, HttpStatusCode.OK, headersOf(HttpHeaders.ContentType, "application/json"))
+        }
+        val client = HttpClient(engine) { install(ContentNegotiation) { json(Json { ignoreUnknownKeys = true }) } }
+        try {
+            val groups = SupabaseRestApi(client, SupabaseConfig("https://example.test", "key", "media"), store).getGroupsForUser("owner")
+            assertEquals("My group", groups.single().name)
+        } finally { client.close() }
+    }
+
 }
