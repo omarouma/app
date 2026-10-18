@@ -48,6 +48,8 @@ jobs:
         run: node --test supabase/functions/link-preview/tests/security.test.mjs
       - name: Test private view-once media input limits
         run: node --test supabase/functions/view-once-photo/tests/security.test.mjs
+      - name: Test read-only chain providers
+        run: node --test supabase/functions/chain-wallet/tests/chain.test.mjs
       - name: Read app version
         run: |
           python3 - <<'PYVERSION'

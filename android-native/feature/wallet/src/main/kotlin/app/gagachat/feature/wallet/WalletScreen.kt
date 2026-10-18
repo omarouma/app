@@ -36,6 +36,7 @@ import java.util.Date
 fun WalletScreen(
     onSendCoins: () -> Unit,
     onBack: () -> Unit,
+    onExternalWallets: () -> Unit = {},
     viewModel: WalletViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -65,6 +66,7 @@ fun WalletScreen(
             }
             LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 item { BalanceCard(ui.wallet) }
+                item { OutlinedButton(onClick = onExternalWallets, modifier = Modifier.fillMaxWidth()) { Text("Connect / track my crypto wallet") } }
                 item {
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         FilledTonalButton(onClick = onSendCoins, modifier = Modifier.weight(1f)) {
@@ -85,8 +87,8 @@ fun WalletScreen(
                         Text("Assets", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                         AssetRow("G", "GaGa Coins", "In-app coins", ui.wallet.formatted, "Available", onClick = { dialog = "GaGa Coins" })
                         AssetRow("$", "US Dollar", "USD · Server balance", usdAmount(ui.wallet.usdBalance), "Read only", onClick = { dialog = "US Dollar" })
-                        AssetRow("₮", "Tether", "USDT", "Not connected", "Setup needed", onClick = { dialog = "Tether" })
-                        AssetRow("$", "USD Coin", "USDC", "Not connected", "Setup needed", onClick = { dialog = "USD Coin" })
+                        AssetRow("₮", "Tether", "USDT · External wallet", "View wallets", "Watch-only", onClick = onExternalWallets)
+                        AssetRow("$", "USD Coin", "USDC · External wallet", "View wallets", "Watch-only", onClick = onExternalWallets)
                     }
                 }
                 item {

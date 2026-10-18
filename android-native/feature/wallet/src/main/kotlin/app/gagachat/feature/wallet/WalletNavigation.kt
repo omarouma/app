@@ -7,6 +7,7 @@ import androidx.navigation.compose.composable
 /** Routes for the Wallet feature (Master Spec §C). */
 object WalletRoutes {
     const val WALLET = "wallet"
+    const val EXTERNAL = "wallet/external"
     const val SEND = "wallet/send"
 }
 
@@ -18,10 +19,12 @@ object WalletRoutes {
 fun NavGraphBuilder.walletGraph(navController: NavController) {
     composable(WalletRoutes.WALLET) {
         WalletScreen(
+            onExternalWallets = { navController.navigate(WalletRoutes.EXTERNAL) },
             onSendCoins = { navController.navigate(WalletRoutes.SEND) },
             onBack = { navController.popBackStack() },
         )
     }
+    composable(WalletRoutes.EXTERNAL) { ExternalWalletScreen(onBack = { navController.popBackStack() }) }
     composable(WalletRoutes.SEND) {
         SendCoinsScreen(
             onSent = { navController.popBackStack() },
