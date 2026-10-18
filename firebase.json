@@ -89,22 +89,22 @@
     "redirects": [
       {
         "source": "/downloads/gaga-latest.apk",
-        "destination": "https://github.com/omarouma/app/releases/download/android-2.8.12/GaGa-2.8.12-release.apk",
+        "destination": "https://github.com/omarouma/app/releases/download/android-2.8.13/GaGa-2.8.13-release.apk",
         "type": 302
       },
       {
         "source": "/downloads/gaga-latest.aab",
-        "destination": "https://github.com/omarouma/app/releases/download/bundle-2.8.12/GaGa-2.8.12-release.aab",
+        "destination": "https://github.com/omarouma/app/releases/download/bundle-2.8.13/GaGa-2.8.13-release.aab",
         "type": 302
       },
       {
         "source": "/downloads/SHA256SUMS.txt",
-        "destination": "https://github.com/omarouma/app/releases/download/android-2.8.12/SHA256SUMS.txt",
+        "destination": "https://github.com/omarouma/app/releases/download/android-2.8.13/SHA256SUMS.txt",
         "type": 302
       },
       {
         "source": "/downloads/gaga-latest-consolidated.apk",
-        "destination": "https://github.com/omarouma/app/releases/download/android-2.8.12/GaGa-2.8.12-release.apk",
+        "destination": "https://github.com/omarouma/app/releases/download/android-2.8.13/GaGa-2.8.13-release.apk",
         "type": 302
       }
     ],
