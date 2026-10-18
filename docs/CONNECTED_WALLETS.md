@@ -13,7 +13,7 @@ The authenticated chain-wallet function selects the stored address through that 
 - BNB Smart Chain: native BNB plus an explicit allowlist of Binance-Peg USDT, Binance-Peg USDC and Binance-Peg Bitcoin (BTCB), all with chain-specific contracts and 18 decimals. These are labeled bridged/pegged assets rather than native issuer USD or native Bitcoin.
 - Ethereum: native ETH balance.
 - Bitcoin: address validation, confirmed balance and up to 25 recent transaction references/statuses from mempool.space. Pending balance is not presented as confirmed. This is address history, not a complete wallet/xpub portfolio.
-- TON: address saving, QR and explorer only; its balance/history provider is not connected.
+- TON: exact native Toncoin balance from TON Center mainnet, with friendly-address checksum and mainnet/basechain validation. Jettons (including any token named GRAM) are not inferred from wallet labels; history remains an explorer link. The keyless public provider has shared rate limits; failed/throttled reads surface as unavailable, never zero. Production scale requires provider capacity configuration.
 - EVM full transaction history: explorer link only; no claim that an empty local list means no transactions.
 - No USD valuation feed, exchange account balance, token discovery, trading, buy/sell or custodial deposits.
 
@@ -35,3 +35,5 @@ Sources checked 18 October 2026:
 - https://mempool.space/docs/api/rest
 - https://eips.ethereum.org/EIPS/eip-681
 - https://bips.dev/321/
+- https://docs.ton.org/foundations/addresses/formats
+- https://toncenter.com/api/v2/

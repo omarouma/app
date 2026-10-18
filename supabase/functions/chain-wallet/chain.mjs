@@ -3,7 +3,17 @@ export function validAddress(network, address) {
   if (typeof address !== 'string') return false;
   if (network === 'ethereum' || network === 'bsc') return /^0x[0-9a-fA-F]{40}$/.test(address) && !/^0x0{40}$/.test(address);
   if (network === 'bitcoin') return /^bc1[qp][023456789acdefghjklmnpqrstuvwxyz]{11,87}$/.test(address);
-  if (network === 'ton') return /^[EU]Q[A-Za-z0-9_-]{46}$/.test(address);
+  if (network === 'ton') {
+    if (!/^[EU]Q[A-Za-z0-9_-]{46}$/.test(address)) return false;
+    const bytes = Uint8Array.from(atob(address.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0));
+    if (bytes.length !== 36 || ![0x11,0x51].includes(bytes[0]) || bytes[1] !== 0) return false;
+    let crc = 0;
+    for (const byte of bytes.slice(0,34)) {
+      crc ^= byte << 8;
+      for (let bit=0;bit<8;bit++) crc = ((crc << 1) ^ ((crc & 0x8000) ? 0x1021 : 0)) & 0xffff;
+    }
+    return bytes[34] === (crc >> 8) && bytes[35] === (crc & 255);
+  }
   return false;
 }
 export function units(value, decimals) {
@@ -38,7 +48,11 @@ export async function snapshot(network, address, fetcher = fetch) {
     for(const chunk of chunks) { bytes.set(chunk,offset);offset+=chunk.length; }
     return JSON.parse(new TextDecoder().decode(bytes));
   }
-  if (network === 'ton') return {assets:[], history:[], history_status:'provider_not_connected', status:'provider_not_connected'};
+  if (network === 'ton') {
+    const body = await get(`https://toncenter.com/api/v2/getAddressBalance?address=${encodeURIComponent(address)}`);
+    if (body.ok !== true || typeof body.result !== 'string' || !/^[0-9]{1,40}$/.test(body.result)) throw Error('INVALID_PROVIDER_RESPONSE');
+    return {status:'ok', assets:[{symbol:'TON',name:'Toncoin',amount:units(body.result,9),contract:null}],history:[],history_status:'explorer_required'};
+  }
   if (network === 'bitcoin') {
     const origin = 'https://mempool.space/api';
     const validation = await get(`${origin}/v1/validate-address/${address}`);
