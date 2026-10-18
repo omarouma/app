@@ -43,6 +43,7 @@ class LoginViewModel @Inject constructor(
 
     fun submit() {
         val current = _state.value
+        if (current.isSubmitting || current.isAuthenticated) return
         val identifierError = validateIdentifier(current.identifier)
         val passwordError = if (current.password.isBlank()) "Password is required" else null
         if (identifierError != null || passwordError != null) {

@@ -286,6 +286,7 @@ class DefaultAuthRepository @Inject constructor(
         _sessionFlow.value = session
         AppResult.Success(session)
     } catch (t: Throwable) {
+        if (t is kotlinx.coroutines.CancellationException) throw t
         AppResult.Failure(ErrorMapper.map(t))
     }
 

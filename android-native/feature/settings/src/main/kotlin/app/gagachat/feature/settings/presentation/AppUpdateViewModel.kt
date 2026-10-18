@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Job
 
 /** Play-compliant update checking. The system browser or Play Store owns installation. */
 enum class UpdatePhase { CHECKING, AVAILABLE, UP_TO_DATE, ERROR }
@@ -47,10 +48,13 @@ class AppUpdateViewModel @Inject constructor(
         refresh(force = true)
     }
 
+    private var refreshJob: Job? = null
+
     /** An update is shown only when the signed-release registry offers this channel. */
     fun refresh(force: Boolean = true) {
-        viewModelScope.launch {
-            _state.update { it.copy(phase = UpdatePhase.CHECKING, message = null) }
+        if (refreshJob?.isActive == true) return
+        refreshJob = viewModelScope.launch {
+            _state.update { it.copy(phase = UpdatePhase.CHECKING, available = null, message = null) }
             when (val result = updates.checkForUpdate(force)) {
                 is UpdateCheckResult.Available -> _state.update {
                     it.copy(phase = UpdatePhase.AVAILABLE, available = result.update)
@@ -59,7 +63,7 @@ class AppUpdateViewModel @Inject constructor(
                     it.copy(phase = UpdatePhase.UP_TO_DATE, available = null)
                 }
                 is UpdateCheckResult.Failed -> _state.update {
-                    it.copy(phase = UpdatePhase.ERROR, message = result.reason)
+                    it.copy(phase = UpdatePhase.ERROR, available = null, message = result.reason)
                 }
             }
         }

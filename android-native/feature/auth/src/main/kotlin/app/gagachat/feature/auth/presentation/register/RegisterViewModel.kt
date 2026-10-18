@@ -43,6 +43,7 @@ class RegisterViewModel @Inject constructor(
 
     fun submit() {
         val current = _state.value
+        if (current.isSubmitting || current.isAuthenticated) return
         val displayNameError = if (current.displayName.trim().length < 2) "Enter your name" else null
         val identifierError = validateIdentifier(current.identifier)
         val passwordError = if (current.password.length < 6) "Password must be at least 6 characters" else null
