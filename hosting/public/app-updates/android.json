@@ -17,5 +17,12 @@
       "versionCode": 0,
       "url": "https://play.google.com/store/apps/details?id=gagachat.app"
     }
+  },
+  "artifacts": {
+    "aab": {
+      "url": "https://github.com/omarouma/app/releases/download/bundle-2.8.14/GaGa-2.8.14-release.aab",
+      "sha256": "e4c5a924ad90ab5d3f326e97c79838c850fd595c698e2ee0ed6d9abd33f6a2cc",
+      "sizeBytes": 48023596
+    }
   }
 }
