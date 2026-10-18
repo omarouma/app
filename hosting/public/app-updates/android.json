@@ -1,28 +1,21 @@
 {
   "schemaVersion": 1,
   "packageName": "gagachat.app",
-  "latestVersionCode": 67,
-  "latestVersionName": "2.8.12",
+  "latestVersionCode": 68,
+  "latestVersionName": "2.8.13",
   "minimumSupportedVersionCode": 0,
-  "publishedAt": "2026-10-17T16:42:17.054528+00:00",
-  "releaseNotes": "GaGa 2.8.12: private view-once photos, cross-chat file search, reviewed official and service directories, media actions, offline text recognition and photo editing. Signed with the existing release certificate. Update installation requires your confirmation.",
+  "publishedAt": "2026-10-18T04:39:42.505103+00:00",
+  "releaseNotes": "GaGa 2.8.13: fixes Groups membership loading and exact whole-coin wallet ledger decoding. Includes private connected-wallet tracking. Signed with the existing GaGa certificate. Android confirmation is required to install.",
   "channels": {
     "apk": {
-      "versionCode": 67,
-      "url": "https://github.com/omarouma/app/releases/download/android-2.8.12/GaGa-2.8.12-release.apk",
-      "sha256": "eada12919b0c6409eca9f1b86340d1220d97d9abf1fa06aac33f54b70686e20d",
-      "sizeBytes": 49109991
+      "versionCode": 68,
+      "url": "https://github.com/omarouma/app/releases/download/android-2.8.13/GaGa-2.8.13-release.apk",
+      "sha256": "ee18b1efe20131daf3b987de4c8483848669c31e9cc787acccbb980a47e8a5e0",
+      "sizeBytes": 49167335
     },
     "play": {
       "versionCode": 0,
       "url": "https://play.google.com/store/apps/details?id=gagachat.app"
-    }
-  },
-  "artifacts": {
-    "aab": {
-      "url": "https://github.com/omarouma/app/releases/download/bundle-2.8.12/GaGa-2.8.12-release.aab",
-      "sha256": "0c740c509ec3c651da6c4cd2913a553f64f69fb26f2c1319c0bbc4b84e91831a",
-      "sizeBytes": 47964275
     }
   }
 }

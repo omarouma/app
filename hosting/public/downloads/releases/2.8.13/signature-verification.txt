@@ -1,0 +1,17 @@
+Verifies
+Verified using v1 scheme (JAR signing): false
+Verified using v2 scheme (APK Signature Scheme v2): true
+Verified using v3 scheme (APK Signature Scheme v3): true
+Verified using v3.1 scheme (APK Signature Scheme v3.1): false
+Verified using v4 scheme (APK Signature Scheme v4): false
+Verified for SourceStamp: false
+Number of signers: 1
+Signer #1 certificate DN: CN=GaGa Chat, OU=Mobile, O=GaGa, L=Dhaka, ST=Dhaka, C=BD
+Signer #1 certificate SHA-256 digest: dd6b6f166100e0db29a3f58af7439f5065c0148632d78ca5cd1d1a585a19af13
+Signer #1 certificate SHA-1 digest: cd2f9de5f1932c836d79573726e1033de44bedf9
+Signer #1 certificate MD5 digest: fe41072568861c7db0374b8aaaa6c6db
+Signer #1 key algorithm: RSA
+Signer #1 key size (bits): 3072
+Signer #1 public key SHA-256 digest: 76f214deae1cb02d5cd88d4d8dd3aa6cac7025ede056952424ed2a97d066d51a
+Signer #1 public key SHA-1 digest: af12eec5699f770c9dfad17c5305bb094ce44b98
+Signer #1 public key MD5 digest: 5819223387e0cf44af5bc6d06b4001ad
