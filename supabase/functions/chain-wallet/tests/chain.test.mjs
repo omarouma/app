@@ -39,3 +39,25 @@ test('BTC checks network validity and bounds history while preserving exact sato
  )));
  assert.equal(result.assets[0].amount,'1');assert.equal(result.history.length,1);
 });
+
+const tonAddress='UQDKbjIcfM6ezt8KjKJJLshZJJSqX7XOA4ff-W72r5gqPuwA';
+test('TON mainnet checksum rejects transcription errors and testnet before fetching',async()=>{
+ assert.equal(validAddress('ton',tonAddress),true);
+ for(const bad of [tonAddress.slice(0,-1)+'B','kQDKbjIcfM6ezt8KjKJJLshZJJSqX7XOA4ff-W72r5gqPgpP']) {
+  assert.equal(validAddress('ton',bad),false);
+  await assert.rejects(()=>snapshot('ton',bad,()=>{throw Error('MUST_NOT_FETCH');}),/INVALID_ADDRESS/);
+ }
+});
+test('TON reads exact nanoton from fixed mainnet provider without inventing history',async()=>{
+ const result=await snapshot('ton',tonAddress,async(url,init)=>{
+  assert.equal(url,'https://toncenter.com/api/v2/getAddressBalance?address='+tonAddress);
+  assert.equal(init.redirect,'error');
+  return new Response(JSON.stringify({ok:true,result:'1234567890123456789'}));
+ });
+ assert.equal(result.assets[0].symbol,'TON');
+ assert.equal(result.assets[0].amount,'1234567890.123456789');
+ assert.equal(result.history_status,'explorer_required');
+ for(const body of [{ok:false,result:'0'},{ok:true,result:1},{ok:true,result:'-1'},{ok:true,result:'1e9'}])
+  await assert.rejects(()=>snapshot('ton',tonAddress,async()=>new Response(JSON.stringify(body))),/INVALID_PROVIDER_RESPONSE/);
+ await assert.rejects(()=>snapshot('ton',tonAddress,async()=>new Response('',{status:429})),/PROVIDER_UNAVAILABLE/);
+});
