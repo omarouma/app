@@ -96,10 +96,10 @@ data class WalletTransactionRow(
     @SerialName("user_id") val userId: String,
     @SerialName("related_user_id") val relatedUserId: String? = null,
     val type: String,
-    val amount: Long,
+    @Serializable(with = ExactCoinAmountSerializer::class) val amount: Long,
     val currency: String = "coins",
     val description: String? = null,
-    @SerialName("balance_after") val balanceAfter: Long? = null,
+    @SerialName("balance_after") @Serializable(with = ExactCoinAmountSerializer::class) val balanceAfter: Long? = null,
     @SerialName("created_at") @Serializable(with = EpochMillisSerializer::class) val createdAt: Long? = null,
 )
 
