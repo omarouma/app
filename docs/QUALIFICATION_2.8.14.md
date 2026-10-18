@@ -1,0 +1,11 @@
+# GaGa 2.8.14 qualification results
+
+The Android release build, unit checks, 53 emulator tests, light/dark visual inspection, approved-certificate signature, package/version and APK alignment passed before publication. Live email/password signup, login, session refresh and logout passed in the preceding audit.
+
+A publisher-authenticated backend preflight used isolated generated accounts and a genuine Supabase admin-generated recovery proof. Proof verification, password update, old-password rejection, new-password login and recovery-proof replay rejection all passed. No recovery email was sent; mailbox delivery is not included in this result.
+
+Private view-once photo send, identical retry, changed-byte rejection, sender denial, exact recipient bytes, no-store responses, second-session denial and consumed-storage removal passed. All temporary fixtures were removed.
+
+Two backend checks remain blocked: send-fcm-push configuration dry run returned HTTP 503, and Firebase rejected exchange of the custom sign-in token. Generating a custom token itself returned success, which does not prove Firebase accepts its signing identity. Inspect/rotate the matching FCM_PRIVATE_KEY and FIREBASE_PRIVATE_KEY project secrets using a valid service-account credential; keep project IDs and client emails aligned. The connected Supabase tools do not expose a project-secret update operation. Private keys must never enter repository files, public artifacts or app code.
+
+No connected physical Android device or local emulator is available in this workspace. Actual incoming-call audio, OEM background push delivery, real-mailbox receipt and preservation of local/account data during a hardware update remain unverified. An accepted dry run or matching APK certificate cannot substitute for those observations. Google Play publication remains separate.
