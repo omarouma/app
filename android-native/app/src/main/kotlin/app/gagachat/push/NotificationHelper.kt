@@ -54,7 +54,7 @@ object NotificationHelper {
         val builder = NotificationCompat.Builder(context, channel)
             .setSmallIcon(R.drawable.ic_notification)
             .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
-            .setPublicVersion(NotificationCompat.Builder(context, channel).setSmallIcon(R.drawable.ic_notification).setContentTitle("GaGa Chat").setContentText("Open GaGa to view").build())
+            .setPublicVersion(privatePreview(context, channel))
             .setContentTitle(title)
             .setContentText(body)
             .setStyle(NotificationCompat.BigTextStyle().bigText(body))
@@ -69,7 +69,7 @@ object NotificationHelper {
     }
 
     /**
-     * Incoming call — always uses the ringing channel and bypasses DND.
+     * Incoming call — respects sound/vibration preferences and system DND.
      *
      * [callId] is the server-side call row id. It is what lets a tap land on the
      * *incoming* call surface with enough information to actually accept the
@@ -106,6 +106,7 @@ object NotificationHelper {
             .setContentTitle(callerName)
             .setContentText("Incoming $kind")
             .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
+            .setPublicVersion(privatePreview(context, channel))
             .setCategory(NotificationCompat.CATEGORY_CALL)
             .setPriority(NotificationCompat.PRIORITY_MAX)
             .setOngoing(true)
@@ -161,6 +162,7 @@ object NotificationHelper {
             .setContentText(callerName)
             .setAutoCancel(true)
             .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
+            .setPublicVersion(privatePreview(context, NotificationChannels.MISSED_CALLS))
             .setCategory(NotificationCompat.CATEGORY_MISSED_CALL)
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .setContentIntent(pending)
@@ -204,6 +206,7 @@ object NotificationHelper {
         val builder = NotificationCompat.Builder(context, channel)
             .setSmallIcon(R.drawable.ic_notification)
             .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
+            .setPublicVersion(privatePreview(context, channel))
             .setContentTitle(title)
             .setContentText(body)
             .setStyle(NotificationCompat.BigTextStyle().bigText(body))
@@ -214,6 +217,14 @@ object NotificationHelper {
 
         post(context, id, builder.build())
     }
+
+    private fun privatePreview(context: Context, channel: String) =
+        NotificationCompat.Builder(context, channel)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setContentTitle("GaGa Chat")
+            .setContentText("Open GaGa to view")
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .build()
 
     private fun post(context: Context, id: Int, notification: android.app.Notification): Boolean {
         val manager = NotificationManagerCompat.from(context)
@@ -249,7 +260,7 @@ object NotificationHelper {
             context, id, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
         val title = if (required) "GaGa update required" else "GaGa update available"
-        val message = "Version $versionName is ready. Tap to update inside the app."
+        val message = "Version $versionName is ready. Tap to review the update."
         val notification = NotificationCompat.Builder(context, NotificationChannels.UPDATES)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(title)

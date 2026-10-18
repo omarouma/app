@@ -125,7 +125,7 @@ fun AppUpdateScreen(
                         Text(
                             text = if (update.channel == GaGaUpdate.CHANNEL_PLAY)
                                 "Google Play securely manages installation and updates."
-                            else "For direct APK installations, the official website opens in your browser. Android asks you to approve installation.",
+                            else "Download from the official website, then open the completed download and confirm Update in Android. Keep GaGa installed to preserve your local data. If Android blocks installation, allow this browser to install apps when prompted.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(horizontal = GagaDimens.space16),

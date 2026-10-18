@@ -19,8 +19,8 @@ import android.media.RingtoneManager
  *   ├── Missed Calls
  *   └── Important / Security
  *
- * Incoming calls use a high-importance channel that bypasses Do-Not-Disturb (like
- * a real phone call) and carries the system ringtone. The channel ids are stable
+ * Incoming calls use a high-importance channel with the system ringtone and
+ * respect the device Do-Not-Disturb settings. The channel ids are stable
  * — changing them would orphan a user's existing notification preferences.
  */
 object NotificationChannels {

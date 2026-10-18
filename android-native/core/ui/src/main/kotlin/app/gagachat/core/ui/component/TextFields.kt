@@ -2,6 +2,10 @@ package app.gagachat.core.ui.component
 
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
@@ -35,7 +39,10 @@ fun GagaTextField(
     keyboardType: KeyboardType = KeyboardType.Text,
     imeAction: ImeAction = ImeAction.Next,
     enabled: Boolean = true,
+    onDone: (() -> Unit)? = null,
 ) {
+    val focus = LocalFocusManager.current
+    val keyboard = LocalSoftwareKeyboardController.current
     OutlinedTextField(
         value = value,
         onValueChange = onValueChange,
@@ -48,6 +55,7 @@ fun GagaTextField(
         enabled = enabled,
         shape = MaterialTheme.shapes.medium,
         keyboardOptions = KeyboardOptions(keyboardType = keyboardType, imeAction = imeAction),
+        keyboardActions = KeyboardActions(onNext = { focus.moveFocus(FocusDirection.Next) }, onDone = { keyboard?.hide(); onDone?.invoke() }),
     )
 }
 
@@ -62,7 +70,10 @@ fun GagaPasswordField(
     errorText: String? = null,
     imeAction: ImeAction = ImeAction.Done,
     enabled: Boolean = true,
+    onDone: (() -> Unit)? = null,
 ) {
+    val focus = LocalFocusManager.current
+    val keyboard = LocalSoftwareKeyboardController.current
     var visible by remember { mutableStateOf(false) }
     OutlinedTextField(
         value = value,
@@ -71,7 +82,7 @@ fun GagaPasswordField(
         label = { Text(label) },
         leadingIcon = leadingIcon?.let { { Icon(it, contentDescription = null) } },
         trailingIcon = {
-            IconButton(onClick = { visible = !visible }) {
+            IconButton(onClick = { visible = !visible }, enabled = enabled) {
                 Icon(
                     imageVector = if (visible) Icons.Filled.VisibilityOff else Icons.Filled.Visibility,
                     contentDescription = if (visible) "Hide password" else "Show password",
@@ -85,5 +96,6 @@ fun GagaPasswordField(
         shape = MaterialTheme.shapes.medium,
         visualTransformation = if (visible) VisualTransformation.None else PasswordVisualTransformation(),
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = imeAction),
+        keyboardActions = KeyboardActions(onNext = { focus.moveFocus(FocusDirection.Next) }, onDone = { keyboard?.hide(); onDone?.invoke() }),
     )
 }

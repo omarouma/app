@@ -20,8 +20,8 @@ import app.gagachat.core.ui.i18n.GagaLanguages
 import app.gagachat.core.ui.i18n.LocalGagaStrings
 import app.gagachat.core.ui.i18n.gagaStringsFor
 
-private val LightColors = lightColorScheme(
-    primary = Color(0xFF087F3E),
+internal val LightColors = lightColorScheme(
+    primary = GagaGreen,
     onPrimary = Color.White,
     primaryContainer = GagaGreenContainer,
     onPrimaryContainer = Color(0xFF075C2E),
@@ -35,12 +35,21 @@ private val LightColors = lightColorScheme(
     onSurface = LightOnSurface,
     surfaceVariant = LightSurfaceVariant,
     onSurfaceVariant = LightOnSurfaceVariant,
-    outline = LightOutline,
+    outline = Color(0xFF718078),
+    outlineVariant = LightOutline,
+    surfaceTint = GagaGreen,
+    surfaceContainerLowest = Color.White,
+    surfaceContainerLow = Color(0xFFF0F5F1),
+    surfaceContainer = Color(0xFFEBF1EC),
+    surfaceContainerHigh = Color(0xFFE5ECE7),
+    surfaceContainerHighest = Color(0xFFDFE7E1),
+    errorContainer = Color(0xFFFFDAD6),
+    onErrorContainer = Color(0xFF410002),
     error = ErrorRed,
     onError = Color.White,
 )
 
-private val DarkColors = darkColorScheme(
+internal val DarkColors = darkColorScheme(
     primary = GagaGreenLight,
     onPrimary = Color(0xFF003300),
     primaryContainer = GagaGreenDark,
@@ -55,9 +64,18 @@ private val DarkColors = darkColorScheme(
     onSurface = DarkOnSurface,
     surfaceVariant = DarkSurfaceVariant,
     onSurfaceVariant = DarkOnSurfaceVariant,
-    outline = DarkOutline,
-    error = ErrorRed,
-    onError = Color.White,
+    outline = Color(0xFF899C8F),
+    outlineVariant = DarkOutline,
+    surfaceTint = GagaGreenLight,
+    surfaceContainerLowest = Color(0xFF0B140F),
+    surfaceContainerLow = Color(0xFF15251C),
+    surfaceContainer = Color(0xFF1B2B22),
+    surfaceContainerHigh = Color(0xFF24352B),
+    surfaceContainerHighest = Color(0xFF2E4035),
+    errorContainer = Color(0xFF93000A),
+    onErrorContainer = Color(0xFFFFDAD6),
+    error = Color(0xFFFFB4AB),
+    onError = Color(0xFF690005),
 )
 
 /**
@@ -100,8 +118,8 @@ private val DarkExtraColors = GagaExtraColors(
     statusAway = StatusAway,
     statusBusy = StatusBusy,
     statusOffline = StatusOffline,
-    success = SuccessGreen,
-    warning = WarningAmber,
+    success = GagaGreenLight,
+    warning = Color(0xFFFFCE84),
 )
 
 val LocalGagaExtraColors = staticCompositionLocalOf { LightExtraColors }

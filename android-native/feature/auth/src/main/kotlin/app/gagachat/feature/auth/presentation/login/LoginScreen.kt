@@ -121,6 +121,7 @@ fun LoginRoute(
                 errorText = state.identifierError,
                 keyboardType = KeyboardType.Email,
                 imeAction = ImeAction.Next,
+                enabled = !state.isSubmitting,
             )
             Spacer(Modifier.height(GagaDimens.space16))
             GagaPasswordField(
@@ -131,6 +132,8 @@ fun LoginRoute(
                 isError = state.passwordError != null,
                 errorText = state.passwordError,
                 imeAction = ImeAction.Done,
+                enabled = !state.isSubmitting,
+                onDone = viewModel::submit,
             )
             Spacer(Modifier.height(GagaDimens.space24))
             GagaPrimaryButton(
