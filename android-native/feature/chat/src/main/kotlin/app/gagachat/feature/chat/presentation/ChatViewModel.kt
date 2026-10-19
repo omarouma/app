@@ -442,7 +442,16 @@ class ChatViewModel @Inject constructor(
                     val isFirstLoad = lastIncomingId == null
                     lastIncomingId = id
                     if (!isFirstLoad) {
-                        soundPlayer.playMessageSound()
+                        // Foreground tones must respect this chat's current mute
+                        // and type, not just the global device message setting.
+                        // Read the local Room snapshot once per new message.
+                        val chat = conversationRepository.observeConversation(conversationId).first()
+                        if (chat != null) {
+                            soundPlayer.playMessageSound(
+                                isGroup = chat.type != ConversationType.DIRECT,
+                                isMuted = chat.isMuted,
+                            )
+                        }
                         messageRepository.markDelivered(conversationId, currentUserId)
                         if (settingsPreferences.readReceiptsEnabled.first()) {
                             messageRepository.markRead(conversationId, currentUserId)
