@@ -62,8 +62,9 @@ class CallSoundPlayer @Inject constructor(
     /** Starts the looping incoming ringtone (no-op if already ringing). */
     fun startIncoming(conversationId: String? = null) {
         notificationId = conversationId?.hashCode()?.plus(1)
-        // The screen now owns ringing; cancel the notification's one-shot tone.
-        notificationId?.let { context.getSystemService(android.app.NotificationManager::class.java)?.cancel(it) }
+        // Keep the incoming-call notification visible while GaGa is ringing:
+        // cancelling it here removed the user's lock-screen/reopen affordance.
+        // stop() clears the notification when the invite ends.
         start(CallTone.INCOMING)
     }
 
@@ -124,8 +125,12 @@ class CallSoundPlayer @Inject constructor(
         val audible = tone == CallTone.OUTGOING || (!silent && !vibrateOnly && !dnd)
         if (soundsEnabled && audible) {
             // LiveKit already owns communication focus after outgoing connect.
-            if (tone == CallTone.INCOMING) requestAudioFocus()
-            startMediaPlayer(tone)
+            // Do not play over an alarm or another call if Android denies
+            // ringtone audio focus. Outgoing ringback uses the call's own
+            // communication audio focus, already held by LiveKit.
+            if (tone != CallTone.INCOMING || requestAudioFocus()) {
+                startMediaPlayer(tone)
+            }
         }
         if (tone == CallTone.INCOMING && vibrationEnabled && !silent && !dnd) {
             startVibration()
@@ -161,9 +166,9 @@ class CallSoundPlayer @Inject constructor(
         }
     }
 
-    private fun requestAudioFocus() {
-        val am = audioManager ?: return
-        runCatching {
+    private fun requestAudioFocus(): Boolean {
+        val am = audioManager ?: return false
+        return runCatching {
             val attrs = AudioAttributes.Builder()
                 .setUsage(AudioAttributes.USAGE_NOTIFICATION_RINGTONE)
                 .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
@@ -180,9 +185,14 @@ class CallSoundPlayer @Inject constructor(
                     }
                 }
                 .build()
-            am.requestAudioFocus(request)
-            focusRequest = request
-        }
+            val result = am.requestAudioFocus(request)
+            if (result == AudioManager.AUDIOFOCUS_REQUEST_GRANTED) {
+                focusRequest = request
+                true
+            } else {
+                false
+            }
+        }.getOrDefault(false)
     }
 
     private fun startVibration() {
