@@ -86,6 +86,7 @@ class SettingsViewModel @Inject constructor(
     private val authRepository: AuthRepository,
     private val userRepository: UserRepository,
     private val settingsPreferences: SettingsPreferences,
+    private val soundPlayer: app.gagachat.core.data.media.GagaSoundPlayer,
     private val api: app.gagachat.core.network.rest.SupabaseRestApi,
     private val updates: AppUpdateRepository,
 ) : ViewModel() {
@@ -254,6 +255,7 @@ class SettingsViewModel @Inject constructor(
     }
 
     fun setPreview(value: app.gagachat.core.data.preferences.NotificationPreview) = viewModelScope.launch { settingsPreferences.setNotificationPreview(value) }
+    fun previewMessageSound() = soundPlayer.previewMessageSound()
     fun loadRequests() = viewModelScope.launch {
         try { _state.update { it.copy(requests = api.getMessageRequests(), requestError = null) } }
         catch (e: Exception) { if (e is CancellationException) throw e; _state.update { it.copy(requestError = "Could not load message requests. Retry when connected.") } }
