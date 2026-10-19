@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
@@ -146,7 +147,7 @@ fun ConversationRow(
                             )
                         }
                     }
-                    Spacer(Modifier.width(GagaDimens.space2))
+                    Spacer(Modifier.height(GagaDimens.space2))
                     Text(
                         text = conversation.lastMessagePreview?.takeIf { it.isNotBlank() } ?: "No messages yet",
                         style = MaterialTheme.typography.bodyMedium,

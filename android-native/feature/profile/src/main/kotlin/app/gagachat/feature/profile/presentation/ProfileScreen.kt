@@ -416,6 +416,7 @@ fun ProfileRoute(
 }
 
 /** Cover banner + overlapping avatar + name/handle + stats row. */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun ProfileHeader(
     user: User?,
@@ -548,13 +549,15 @@ internal fun ProfileHeader(
             .padding(horizontal = GagaDimens.space24),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Row(
+        // Name + trust badges. A FlowRow lets a long display name claim the full
+        // width (wrapping to two lines) and pushes the verified/premium badges to
+        // their own centred line, instead of squeezing and truncating the identity.
+        FlowRow(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.Center,
-            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(GagaDimens.space6, Alignment.CenterHorizontally),
+            verticalArrangement = Arrangement.spacedBy(GagaDimens.space4, Alignment.CenterVertically),
         ) {
             Text(
-                modifier = Modifier.weight(1f, fill = false),
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
                 text = user?.displayLabel ?: "GaGa User",
@@ -564,7 +567,6 @@ internal fun ProfileHeader(
                 textAlign = TextAlign.Center,
             )
             if (user?.isVerified == true) {
-                Spacer(Modifier.width(GagaDimens.space4))
                 Icon(
                     Icons.Filled.Verified,
                     contentDescription = "Verified",
@@ -573,7 +575,6 @@ internal fun ProfileHeader(
                 )
             }
             if (user?.isPremium == true) {
-                Spacer(Modifier.width(GagaDimens.space6))
                 ProBadge()
             }
         }
