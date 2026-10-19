@@ -165,7 +165,7 @@ fun NotificationsSettingsScreen(
             GagaDivider()
             GagaSettingsRow(
                 title = "Direct message sounds",
-                subtitle = "Play a sound for new private messages",
+                subtitle = "Off posts a silent alert; manage sound and vibration separately in Android settings",
                 trailing = {
                     Switch(
                         checked = state.messageSoundsEnabled,
@@ -176,7 +176,7 @@ fun NotificationsSettingsScreen(
             GagaDivider()
             GagaSettingsRow(
                 title = "Group message sounds",
-                subtitle = "Play a sound for new group messages • this device",
+                subtitle = "Off posts a silent alert; Android controls the channel's vibration independently",
                 trailing = {
                     Switch(
                         checked = state.groupMessageSoundsEnabled,
@@ -226,7 +226,9 @@ fun NotificationsSettingsScreen(
             listOf(
                 Triple("Direct message tone", "gaga_messages", "Select the sound and vibration for private messages"),
                 Triple("Group message tone", "gaga_group_messages", "Set a different group chat alert sound"),
-                Triple("Incoming call ringtone", "gaga_calls", "Adjust the Android incoming-call channel"),
+                Triple("Incoming call alert", "gaga_calls", "Android background ringtone; in-app GaGa ringtone is separate"),
+                Triple("Call alert: sound only", "gaga_calls_sound_only", "System sound used when call vibration is disabled"),
+                Triple("Call alert: vibration only", "gaga_calls_vibration_only", "System vibration used when call sounds are disabled"),
                 Triple("Missed call sound", "gaga_missed_calls", "Alert tone for missed calls"),
                 Triple("Friend request tone", "gaga_friend_requests", "Alert tone for new friend requests"),
                 Triple("Security alert sound", "gaga_security", "Account and device security alerts"),
