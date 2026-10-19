@@ -161,6 +161,7 @@ class PushHandler @Inject constructor(
                         title = title,
                         body = body,
                         isGroup = app.gagachat.core.model.PushMessagePolicy.isGroup(cached?.type, data),
+                        retainHistory = !locked && preview == app.gagachat.core.data.preferences.NotificationPreview.FULL,
                         soundEnabled = soundsEnabled,
                         notificationsEnabled = notificationsEnabled,
                     )
