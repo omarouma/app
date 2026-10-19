@@ -161,6 +161,9 @@ class PushHandler @Inject constructor(
                         title = title,
                         body = body,
                         isGroup = app.gagachat.core.model.PushMessagePolicy.isGroup(cached?.type, data),
+                        // Include the owner so a pending system notification from
+                        // a previous signed-in account cannot supply chat history.
+                        notificationId = "$currentUser:$conversationId".hashCode(),
                         retainHistory = !locked && preview == app.gagachat.core.data.preferences.NotificationPreview.FULL,
                         soundEnabled = soundsEnabled,
                         notificationsEnabled = notificationsEnabled,
