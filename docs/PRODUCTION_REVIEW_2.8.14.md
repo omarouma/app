@@ -69,7 +69,11 @@ device** (see §7).
 Cover image, avatar, name, verification and PRO badges, action group (edit /
 privacy / share), profile-completeness card, privacy summary and more. Issue #133
 flags a "competing hero" at large text; the render confirms the hierarchy is tall
-at 2× text. This is a **cosmetic** refinement, not a defect — see §8.
+at 2× text. **Fixed:** the display name was squeezed against the verified/PRO
+badges and truncated to an ellipsis; it now uses a `FlowRow` so a long name
+claims the full width and the badges wrap to their own centred line, preserving
+the identity. The hero is still tall at 2× text — a further cosmetic refinement
+remains (§8).
 
 ### 2.6 Settings — `SettingsScreen` + `SettingsSubScreens`
 Data-driven hub of 30 categories in five groups, with search, an account block,
@@ -80,7 +84,12 @@ toggles. The privacy/consumer toggles are wired through to the server-side polic
 (2.7.1+), so the "honest settings" requirement in #133 is largely satisfied.
 
 ### 2.7 Other surfaces
-Today (`DailyLifeScreen`, workspace/search/empty/error/loading states), People /
+Today (`DailyLifeScreen`) has a greeting/date hero, a "Today's focus" summary
+card, a needs-reply card, a quick-action strip, an agenda, and workspace / search
+/ empty / error / loading states. **Fixed:** the quick-action strip used a
+horizontally scrolling `Row` that clipped the fifth action ("Shared lists") at
+360 dp; it is now a responsive `FlowRow`, so every action stays fully visible and
+tappable at 320 dp and at large text scales. People /
 Contacts / Discover, QR, Groups, Wallet (with explicit live / read-only /
 watch-only labels), China Direct, and Authentication/Onboarding are all present
 and themed. `GagaStrings` provides a typed, completeness-tested i18n table for
@@ -146,7 +155,11 @@ checklist and `screenshots/README.md` for the capture procedure.
    `play/screenshots/README.md`.
 6. **Doc drift** — corrected the version (2.7.2/47 → 2.8.14/69) and target SDK
    (35 → 36) in the root and module READMEs; added a 2.8.x CHANGELOG entry.
-7. **Firebase/FCM credentials** (previous pass, PR #132) — the six Edge Function
+7. **GaGa Today quick actions** — the horizontally scrolling strip that clipped
+   the fifth action at 360 dp is now a responsive `FlowRow` (`DailyLifeScreen`).
+8. **Profile header name** — a long display name no longer truncates against the
+   verified/PRO badges; the badges wrap to their own line (`ProfileScreen`).
+9. **Firebase/FCM credentials** (previous pass, PR #132) — the six Edge Function
    secrets were rotated and both previously blocked backend checks now pass.
 
 ## 7. Residual blockers (outside a code-only review)
@@ -177,5 +190,6 @@ rollout:
    low-end and one modern device.
 3. Reconcile the migration history (#93 / #95).
 4. Rotate the exposed service-account key and enable password-breach protection.
-5. Optional polish from issue #133: tighten the profile hero at large text and
-   make the Today quick-action strip fully responsive at 360 dp.
+5. Optional polish from issue #133: tighten the profile hero height at large
+   text (the name/badge wrapping is already fixed) and review the remaining P0/P1
+   items (shared-shell insets, notifications taxonomy, chatroom large-text pass).
