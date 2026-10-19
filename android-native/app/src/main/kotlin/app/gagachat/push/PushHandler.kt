@@ -39,6 +39,7 @@ class PushHandler @Inject constructor(
     private val settingsPreferences: SettingsPreferences,
     private val sessionStore: app.gagachat.core.network.session.SessionStore,
     private val privacyApi: app.gagachat.core.network.rest.SupabaseRestApi,
+    private val conversationDao: app.gagachat.core.database.dao.ConversationDao,
     private val updates: AppUpdateRepository,
 ) {
 
@@ -75,7 +76,6 @@ class PushHandler @Inject constructor(
         val isVideo = data["callType"] == "video"
             || data["call_type"] == "video"
             || data["is_video"].equals("true", ignoreCase = true)
-        val isGroup = data["isGroup"] == "true" || type == "group" || type == "group_message"
 
         when (type) {
             "app_update" -> {
@@ -148,19 +148,26 @@ class PushHandler @Inject constructor(
                 )
             }
 
-            else -> {
+            "message", "group", "group_message", null -> {
                 if (conversationId != null) {
+                    // The FCM receiver runs even when no chat screen is open.
+                    // Respect a muted conversation in the locally synced Room
+                    // snapshot instead of relying only on the chat UI toggle.
+                    val cached = runCatching { conversationDao.getById(conversationId) }.getOrNull()
+                    if (!app.gagachat.core.model.PushMessagePolicy.shouldDisplay(cached?.isMuted)) return
                     NotificationHelper.showMessage(
                         context = context,
                         conversationId = conversationId,
                         title = title,
                         body = body,
-                        isGroup = isGroup,
+                        isGroup = app.gagachat.core.model.PushMessagePolicy.isGroup(cached?.type, data),
                         soundEnabled = soundsEnabled,
                         notificationsEnabled = notificationsEnabled,
                     )
                 }
             }
+            // Unknown push kinds must not masquerade as direct messages.
+            else -> Unit
         }
     }
 }
