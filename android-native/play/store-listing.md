@@ -13,7 +13,7 @@ available here.
 GaGa Chat: Messages & Calls
 ```
 
-_(28 characters)_
+_(27 characters)_
 
 ## Short description (max 80 characters)
 
@@ -42,7 +42,6 @@ MESSAGING
 
 HD VOICE & VIDEO CALLS
 • Crystal-clear voice and video calls over Wi-Fi or mobile data.
-• Group calling — talk with several people at once, from anywhere.
 • A clean, focused call screen with mute, speaker, camera and flip controls.
 • Reconnects automatically when your connection drops.
 
@@ -69,8 +68,8 @@ PRIVACY & SAFETY
 • Blocked-users list, anti-spam protections and an app lock.
 • Hidden chats and active-session management.
 
-AVAILABLE IN 40+ LANGUAGES
-Chat in the language you are most comfortable with, and switch any time.
+MADE FOR YOUR LANGUAGE
+Use the app in English, বাংলা or 中文, and translate individual messages in 15+ languages.
 
 COMING SOON
 • GaGa Wallet (coins) — a wallet experience is being prepared; no live custody, transfers or withdrawals are offered yet.
