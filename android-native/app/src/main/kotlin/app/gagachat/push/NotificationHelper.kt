@@ -67,7 +67,7 @@ object NotificationHelper {
                     ?.let(NotificationCompat.MessagingStyle::extractMessagingStyleFromNotification)
                     ?.messages
                     ?.takeLast(5)
-                    ?.forEach(style::addMessage)
+                    ?.forEach { style.addMessage(it) }
             }
         }
         style.addMessage(
