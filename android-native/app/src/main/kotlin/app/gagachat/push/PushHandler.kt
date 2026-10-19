@@ -103,7 +103,7 @@ class PushHandler @Inject constructor(
                         vibrationEnabled = settingsPreferences.callVibrationEnabled.first(),
                         callerName = title,
                         isVideo = isVideo,
-                        notificationsEnabled = notificationsEnabled,
+                        notificationsEnabled = notificationsEnabled && settingsPreferences.callNotificationsEnabled.first(),
                     )
                 }
             }
@@ -118,7 +118,7 @@ class PushHandler @Inject constructor(
                     conversationId = conversationId ?: title,
                     callerName = title,
                     isVideo = isVideo,
-                    notificationsEnabled = notificationsEnabled,
+                    notificationsEnabled = notificationsEnabled && settingsPreferences.callNotificationsEnabled.first(),
                 )
             }
 
@@ -155,18 +155,23 @@ class PushHandler @Inject constructor(
                     // snapshot instead of relying only on the chat UI toggle.
                     val cached = runCatching { conversationDao.getById(conversationId) }.getOrNull()
                     if (!app.gagachat.core.model.PushMessagePolicy.shouldDisplay(cached?.isMuted)) return
+                    val groupMessage = app.gagachat.core.model.PushMessagePolicy.isGroup(cached?.type, data)
+                    val categoryEnabled = if (groupMessage) settingsPreferences.groupNotificationsEnabled.first()
+                        else settingsPreferences.directNotificationsEnabled.first()
+                    val categorySound = if (groupMessage) settingsPreferences.groupMessageSoundsEnabled.first()
+                        else soundsEnabled
                     NotificationHelper.showMessage(
                         context = context,
                         conversationId = conversationId,
                         title = title,
                         body = body,
-                        isGroup = app.gagachat.core.model.PushMessagePolicy.isGroup(cached?.type, data),
+                        isGroup = groupMessage,
                         // Include the owner so a pending system notification from
                         // a previous signed-in account cannot supply chat history.
                         notificationId = "$currentUser:$conversationId".hashCode(),
                         retainHistory = !locked && preview == app.gagachat.core.data.preferences.NotificationPreview.FULL,
-                        soundEnabled = soundsEnabled,
-                        notificationsEnabled = notificationsEnabled,
+                        soundEnabled = categorySound,
+                        notificationsEnabled = notificationsEnabled && categoryEnabled,
                     )
                 }
             }
