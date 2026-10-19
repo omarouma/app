@@ -118,8 +118,8 @@ fun NotificationsSettingsScreen(
             GagaSettingsRow(title = "Notification previews", subtitle = state.preview.label + " • this device", onClick = { selectingPreview = true })
             GagaDivider()
             GagaSettingsRow(
-                title = "Message notifications",
-                subtitle = "Alerts for new messages",
+                title = "All notifications",
+                subtitle = "Master alert switch • this device",
                 leadingIcon = Icons.Filled.Notifications,
                 trailing = {
                     Switch(
@@ -130,12 +130,57 @@ fun NotificationsSettingsScreen(
             )
             GagaDivider()
             GagaSettingsRow(
-                title = "Message sounds",
-                subtitle = "Play a sound for new messages",
+                title = "Direct messages",
+                subtitle = "New private chat alerts • this device",
+                trailing = {
+                    Switch(
+                        checked = state.directNotificationsEnabled,
+                        onCheckedChange = viewModel::setDirectNotificationsEnabled,
+                    )
+                },
+            )
+            GagaDivider()
+            GagaSettingsRow(
+                title = "Group messages",
+                subtitle = "New group and channel alerts • this device",
+                trailing = {
+                    Switch(
+                        checked = state.groupNotificationsEnabled,
+                        onCheckedChange = viewModel::setGroupNotificationsEnabled,
+                    )
+                },
+            )
+            GagaDivider()
+            GagaSettingsRow(
+                title = "Call notifications",
+                subtitle = "Incoming and missed calls • this device",
+                leadingIcon = Icons.Filled.Call,
+                trailing = {
+                    Switch(
+                        checked = state.callNotificationsEnabled,
+                        onCheckedChange = viewModel::setCallNotificationsEnabled,
+                    )
+                },
+            )
+            GagaDivider()
+            GagaSettingsRow(
+                title = "Direct message sounds",
+                subtitle = "Play a sound for new private messages",
                 trailing = {
                     Switch(
                         checked = state.messageSoundsEnabled,
                         onCheckedChange = viewModel::setMessageSoundsEnabled,
+                    )
+                },
+            )
+            GagaDivider()
+            GagaSettingsRow(
+                title = "Group message sounds",
+                subtitle = "Play a sound for new group messages • this device",
+                trailing = {
+                    Switch(
+                        checked = state.groupMessageSoundsEnabled,
+                        onCheckedChange = viewModel::setGroupMessageSoundsEnabled,
                     )
                 },
             )
