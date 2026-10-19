@@ -51,6 +51,10 @@ data class SettingsUiState(
     val username: String? = null,
     val avatar: String? = null,
     val notificationsEnabled: Boolean = true,
+    val directNotificationsEnabled: Boolean = true,
+    val groupNotificationsEnabled: Boolean = true,
+    val callNotificationsEnabled: Boolean = true,
+    val groupMessageSoundsEnabled: Boolean = true,
     val messageSoundsEnabled: Boolean = true,
     val callSoundsEnabled: Boolean = true,
     val callVibrationEnabled: Boolean = true,
@@ -145,6 +149,26 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             settingsPreferences.notificationsEnabled.collect { v ->
                 _state.update { it.copy(notificationsEnabled = v) }
+            }
+        }
+        viewModelScope.launch {
+            settingsPreferences.directNotificationsEnabled.collect { v ->
+                _state.update { it.copy(directNotificationsEnabled = v) }
+            }
+        }
+        viewModelScope.launch {
+            settingsPreferences.groupNotificationsEnabled.collect { v ->
+                _state.update { it.copy(groupNotificationsEnabled = v) }
+            }
+        }
+        viewModelScope.launch {
+            settingsPreferences.callNotificationsEnabled.collect { v ->
+                _state.update { it.copy(callNotificationsEnabled = v) }
+            }
+        }
+        viewModelScope.launch {
+            settingsPreferences.groupMessageSoundsEnabled.collect { v ->
+                _state.update { it.copy(groupMessageSoundsEnabled = v) }
             }
         }
         viewModelScope.launch {
@@ -264,6 +288,18 @@ class SettingsViewModel @Inject constructor(
 
     fun setMessageSoundsEnabled(enabled: Boolean) =
         viewModelScope.launch { settingsPreferences.setMessageSoundsEnabled(enabled) }
+
+    fun setDirectNotificationsEnabled(enabled: Boolean) =
+        viewModelScope.launch { settingsPreferences.setDirectNotificationsEnabled(enabled) }
+
+    fun setGroupNotificationsEnabled(enabled: Boolean) =
+        viewModelScope.launch { settingsPreferences.setGroupNotificationsEnabled(enabled) }
+
+    fun setCallNotificationsEnabled(enabled: Boolean) =
+        viewModelScope.launch { settingsPreferences.setCallNotificationsEnabled(enabled) }
+
+    fun setGroupMessageSoundsEnabled(enabled: Boolean) =
+        viewModelScope.launch { settingsPreferences.setGroupMessageSoundsEnabled(enabled) }
 
     fun setCallSoundsEnabled(enabled: Boolean) =
         viewModelScope.launch { settingsPreferences.setCallSoundsEnabled(enabled) }
