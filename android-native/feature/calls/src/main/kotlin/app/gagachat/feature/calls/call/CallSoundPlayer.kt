@@ -111,9 +111,19 @@ class CallSoundPlayer @Inject constructor(
             .getOrDefault(true)
         val vibrationEnabled = runCatching { settingsPreferences.callVibrationEnabled.first() }
             .getOrDefault(true)
+        // Disabling incoming-call notifications must also silence the in-app
+        // ringtone/vibration. Outgoing ringback is intentional call feedback,
+        // not an unsolicited notification, so it remains independently managed.
+        val incomingAlertsEnabled = if (tone == CallTone.INCOMING) {
+            runCatching {
+                settingsPreferences.notificationsEnabled.first() &&
+                    settingsPreferences.callNotificationsEnabled.first()
+            }.getOrDefault(false)
+        } else true
 
         // Preferences suspend: an answer or cancellation may have arrived meanwhile.
         if (active != tone || generation.get() != request) return
+        if (!incomingAlertsEnabled) return
 
         val ringerMode = audioManager?.ringerMode ?: AudioManager.RINGER_MODE_NORMAL
         val silent = ringerMode == AudioManager.RINGER_MODE_SILENT
