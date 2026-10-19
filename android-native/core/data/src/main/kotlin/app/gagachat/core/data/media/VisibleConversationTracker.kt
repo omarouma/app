@@ -23,9 +23,9 @@ class VisibleConversationTracker @Inject constructor() {
     }
 
     fun hide(userId: String, conversationId: String) {
-        if (visible == userId to conversationId) visible = null
+        if (visible == (userId to conversationId)) visible = null
     }
 
     fun isVisible(userId: String, conversationId: String): Boolean =
-        visible == userId to conversationId
+        visible == (userId to conversationId)
 }
