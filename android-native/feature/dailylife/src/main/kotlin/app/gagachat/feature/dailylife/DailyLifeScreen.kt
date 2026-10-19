@@ -134,6 +134,7 @@ fun DailyHome(nav: NavController, onSaved: () -> Unit, onChat: (String) -> Unit,
 }
 
 /** The production Today surface, separated from lifecycle/navigation for native visual checks. */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun TodayDashboard(
     ui: DailyUi,
@@ -279,8 +280,9 @@ fun TodayDashboard(
                             TextButton(onClick = { moreActions = true }) { Text("More") }
                             TextButton(onClick = { onNavigate(DailyRoutes.WORKSPACE) }) { Text("All tools") }
                         }
-                        // Horizontal scrolling preserves readable labels and 48dp targets at large text sizes.
-                        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        // Responsive wrap keeps every action (including Shared lists) fully visible and
+                        // tappable at 320dp and at large text scales, instead of clipping the last item.
+                        FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                             listOf("task" to Icons.Default.TaskAlt, "reminder" to Icons.Default.NotificationsActive,
                                 "event" to Icons.Default.Event, "note" to Icons.AutoMirrored.Filled.Note,
                                 "shopping" to Icons.Default.ShoppingCart).forEach { (kind, icon) ->

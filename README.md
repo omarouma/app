@@ -9,8 +9,8 @@ removed; the Android app is the single app publish target.
 | | |
 | --- | --- |
 | **App id** | `gagachat.app` |
-| **Version** | 2.7.2 (versionCode 47) |
-| **Min / target SDK** | 26 / 35 |
+| **Version** | 2.8.14 (versionCode 69) |
+| **Min / target SDK** | 26 / 36 |
 | **Language / UI** | Kotlin 2.0, Jetpack Compose (Material 3) |
 | **Backend** | Supabase (`fcjgbbmfqdkucfpqjxae`) + Firebase (Messaging / Analytics / Crashlytics) |
 | **Calling** | LiveKit (WebRTC SFU); signalling over Supabase Realtime; server-issued tokens |

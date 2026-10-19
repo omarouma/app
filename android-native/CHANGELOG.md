@@ -4,6 +4,39 @@ All notable changes to the GaGa Chat native Android app are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 the project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.8.14] — versionCode 69
+
+**Release-readiness line (2.8.0 → 2.8.14).** Rebuilt the native client to the 2.8
+redesign and hardened it for release. Full verification records live in
+`docs/QUALIFICATION_2.8.14.md`, `android-native/docs/RELEASE_2.8.14_AUDIT.md`,
+`docs/PRODUCTION_REVIEW_2.8.4_20261015.md` and `docs/GAGA-2.8-REDESIGN.md`.
+
+### Changed
+- **2.8 redesign (2.8.0).** Green light/dark palette, clearer typography, rounded
+  cards, filled search, icon tiles and consistent headers/navigation across the
+  shared native UI.
+- **GaGa Today (2.8.1).** Greeting/date hero with a clear dashboard hierarchy.
+- **Notifications.** Unread hero, long-press selection, confirmed server
+  dismissal and older-page loading.
+- **Location confirmation.** Pin summary with accuracy/age and an explicit map
+  preview before sending; separate Send action.
+- **Chats home.** Conversation list with All / Unread / Pinned / Groups filters.
+
+### Fixed
+- **Firebase/FCM credentials (2.8.14).** Rotated the six matching Edge Function
+  secrets to a valid `oumagachat` service-account credential; the `send-fcm-push`
+  configuration dry run and the `firebase-token` custom-token exchange now pass.
+- **Settings wiring (2.7.1+).** Privacy and consumer toggles write through to the
+  server-side policy instead of only persisting locally.
+- **Chats list row.** Removed a no-op spacer that left the title and message
+  preview touching.
+- **GaGa Today quick actions.** The quick-action strip now wraps responsively so
+  "Shared lists" and every other action stay fully visible and tappable at 320dp
+  and large text, instead of clipping the last item off the edge.
+- **Profile header.** A long display name now claims the full width and the
+  verified/premium badges wrap to their own centred line, so the identity is no
+  longer truncated against the badges.
+
 ## [2.7.2] — versionCode 47
 
 **Final polish & hardening release.** A full-app audit (code, manifest,

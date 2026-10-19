@@ -40,6 +40,10 @@ class TodayDesignTest {
         render(DailyUi(records = records, loading = false))
         compose.onNodeWithText("Make today count").assertIsDisplayed()
         compose.onNodeWithText("GaGa China Direct", substring = true).assertDoesNotExist()
+        // Regression guard: the quick-action strip must never clip "Shared lists"
+        // (the fifth action) off the edge at phone widths.
+        compose.onNodeWithTag("today_content").performScrollToNode(hasContentDescription("Open Shared lists"))
+        compose.onNodeWithContentDescription("Open Shared lists").assertIsDisplayed()
         capture("today-light.png")
         compose.onNodeWithTag("today_content").performScrollToNode(hasText("Needs your attention"))
         compose.onNodeWithText("Last month meeting").assertDoesNotExist()
