@@ -205,6 +205,7 @@ class ChatViewModel @Inject constructor(
     private val settingsCenter: SettingsCenterPreferences,
     private val draftStore: DraftStore,
     private val soundPlayer: app.gagachat.core.data.media.GagaSoundPlayer,
+    private val visibleChats: app.gagachat.core.data.media.VisibleConversationTracker,
     @ApplicationContext private val context: Context,
 ) : ViewModel() {
 
@@ -328,6 +329,10 @@ class ChatViewModel @Inject constructor(
 
     private val currentUserId: String
         get() = authRepository.sessionFlow.value?.userId.orEmpty()
+
+    /** Called only while the chat screen is actually in Compose composition. */
+    fun onChatVisible() = visibleChats.show(currentUserId, conversationId)
+    fun onChatHidden() = visibleChats.hide(currentUserId, conversationId)
 
     /** Whether the other participant is currently typing (from the realtime cache). */
     @OptIn(ExperimentalCoroutinesApi::class)
