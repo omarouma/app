@@ -32,11 +32,28 @@ Suggested set (pick 4–6):
 | `05-settings.png` | Settings | The searchable settings hub |
 | `06-today.png` | Today | The daily dashboard with tasks and reminders |
 
+## Framing (optional)
+
+Raw captures are often not exactly 9:16. To guarantee Play-compliant dimensions
+and add an accurate caption band, run the framing helper over the captures:
+
+```bash
+python3 android-native/play/frame_screenshots.py \
+    android-native/play/screenshots/raw \
+    android-native/play/screenshots \
+    android-native/play/screenshots/captions.json
+```
+
+It composites each capture onto a 1080×1920 (9:16) branded canvas and writes
+24-bit RGB PNGs (Play rejects alpha). `captions.json` maps a file stem to a
+`{"title", "subtitle"}` pair. Only Pillow is required.
+
 ## Rules
 
 - Use a **test account** with non-sensitive sample data. Do not capture real
   users' names, numbers, photos or locations.
 - Use the **release build** and the real theme (light or dark) — do not
-  recolour or retouch the UI.
+  recolour or retouch the UI itself.
 - Keep the status bar clean (full battery, no notifications) for a tidy grid.
-- Do not add marketing frames, arrows or captions that misrepresent the UI.
+- A caption band is fine, but it must **describe the real screen** — never imply
+  a feature, result or award the app does not actually have.

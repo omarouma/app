@@ -45,6 +45,10 @@ crops the edges on some surfaces.
 See [`screenshots/README.md`](screenshots/README.md). Screenshots must be real
 captures of the release build — never mock-ups or placeholder art.
 
+Capture helper: `../ci/capture_store_screenshots.sh`.
+Framing helper (guarantees 1080×1920 / 9:16, adds an accurate caption band):
+`frame_screenshots.py`.
+
 ## Play Console fields not stored here
 
 These are entered directly in the console and are not files:
