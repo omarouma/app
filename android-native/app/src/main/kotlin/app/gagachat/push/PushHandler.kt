@@ -40,6 +40,7 @@ class PushHandler @Inject constructor(
     private val sessionStore: app.gagachat.core.network.session.SessionStore,
     private val privacyApi: app.gagachat.core.network.rest.SupabaseRestApi,
     private val conversationDao: app.gagachat.core.database.dao.ConversationDao,
+    private val visibleChats: app.gagachat.core.data.media.VisibleConversationTracker,
     private val updates: AppUpdateRepository,
 ) {
 
@@ -155,6 +156,12 @@ class PushHandler @Inject constructor(
                     // snapshot instead of relying only on the chat UI toggle.
                     val cached = runCatching { conversationDao.getById(conversationId) }.getOrNull()
                     if (!app.gagachat.core.model.PushMessagePolicy.shouldDisplay(cached?.isMuted)) return
+                    // ChatRoute already renders a visible chat and plays one
+                    // allowed in-app tone. Posting FCM here would ring twice.
+                    // Never suppress the system alert while backgrounded.
+                    val foreground = androidx.lifecycle.ProcessLifecycleOwner.get()
+                        .lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.STARTED)
+                    if (foreground && visibleChats.isVisible(currentUser, conversationId)) return
                     val groupMessage = app.gagachat.core.model.PushMessagePolicy.isGroup(cached?.type, data)
                     val categoryEnabled = if (groupMessage) settingsPreferences.groupNotificationsEnabled.first()
                         else settingsPreferences.directNotificationsEnabled.first()
