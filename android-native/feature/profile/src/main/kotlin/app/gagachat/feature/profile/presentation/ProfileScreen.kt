@@ -558,7 +558,7 @@ internal fun ProfileHeader(
             verticalArrangement = Arrangement.spacedBy(GagaDimens.space4, Alignment.CenterVertically),
         ) {
             Text(
-                maxLines = 2,
+                maxLines = 3,
                 overflow = TextOverflow.Ellipsis,
                 text = user?.displayLabel ?: "GaGa User",
                 style = MaterialTheme.typography.titleLarge,
