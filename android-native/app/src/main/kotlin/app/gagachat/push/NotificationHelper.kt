@@ -86,7 +86,7 @@ object NotificationHelper {
             .setCategory(if (isGroup) NotificationCompat.CATEGORY_SOCIAL else NotificationCompat.CATEGORY_MESSAGE)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setContentIntent(pending)
-            .setGroup("gaga_chat_$conversationId")
+            .setGroup("gaga_chat_$notificationId")
         if (!soundEnabled) builder.setSilent(true)
 
         post(context, notificationId, builder.build())
