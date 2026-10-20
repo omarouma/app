@@ -96,14 +96,29 @@ export function makeReconciler({ loadChat, readMirror, writeMirror, clock = () =
       const currentHasRevokedMember = source && current?.participants?.some(
         uid => !source.participants.includes(uid)
       );
-      if (source && !currentHasRevokedMember && current?.sourceUpdatedAt &&
-          stampNano(current.sourceUpdatedAt) > stampNano(source.sourceUpdatedAt)) {
+      const mirrorIsNewer = source && current?.sourceUpdatedAt &&
+        stampNano(current.sourceUpdatedAt) > stampNano(source.sourceUpdatedAt);
+      if (mirrorIsNewer && !currentHasRevokedMember) {
         return { status: 'newer_mirror_kept', attempts: attempt + 1 };
       }
-      const desired = source ?? {
-        id: chatId, participants: [], type: 'deleted',
-        sourceUpdatedAt: clock(), mirrorDeleted: true,
-      };
+      // An older Supabase snapshot may *revoke* a Firebase entitlement, but
+      // must never grant another stale entitlement or roll back newer chat
+      // metadata. Apply only the intersection, retaining the newer stamp.
+      const desired = source
+        ? (mirrorIsNewer && currentHasRevokedMember
+          ? {
+            ...source,
+            participants: current.participants.filter(
+              uid => source.participants.includes(uid)
+            ),
+            type: ['direct', 'group'].includes(current.type) ? current.type : source.type,
+            sourceUpdatedAt: current.sourceUpdatedAt,
+          }
+          : source)
+        : {
+          id: chatId, participants: [], type: 'deleted',
+          sourceUpdatedAt: clock(), mirrorDeleted: true,
+        };
       const result = await writeMirror(chatId, desired, current?.updateTime ?? null);
       if (result === 'conflict') continue;
       if (result !== 'ok') throw new ProjectionError('MIRROR_WRITE_FAILED');
