@@ -78,21 +78,45 @@ application. It preserves the primary Supabase messaging and FCM flows.
 
 ### Staging only — enabling and controlled backfill
 
-The migration defaults to disabled. An authorized operator may enable it
-**only in staging** after all review steps:
+**HARD STOP: Do not run a historical backfill from the current GaGa
+production data.** The read-only preflight on 2026-10-20 found seven chats
+containing participants absent from **both** `auth.users` and `public.users`
+(six direct and one group). It also found one duplicate-member chat and two
+one-participant direct chats. These are security-relevant anomalies, not
+automatic instructions to delete users, messages or chats.
 
-```sql
-update gaga_private.firebase_mirror_settings
-set enabled=true, updated_at=now()
-where singleton=true;
--- After auditing existing chat memberships, backfill with a reviewed
--- server-only enqueue operation; do not bulk-seed production blindly.
-insert into gaga_private.firebase_chat_sync_outbox as q (chat_id)
-select id from public.chats
-on conflict (chat_id) do update
-set revision=q.revision+1, next_attempt_at=now(),
-    leased_until=null, lease_token=null;
-```
+A terminated Supabase account can still have an independently valid Firebase
+identity if cross-provider deletion was not completed. Mirroring its stale
+participant ID may restore unintended Firebase access. The current server
+reads `public.chats.participants` without cross-checking each entry against
+`auth.users`; even a successfully executed projection therefore does **not**
+prove Firebase entitlement is current. Track account deletion in issue #148.
+
+Before enabling *any* isolated staging mirror or enqueuing historical chats:
+
+1. Run all three aggregate-only queries in
+   `supabase/tests/firestore_chat_mirror_preflight.sql` with authorized SQL
+   Editor permissions. The third query reads `auth.users` and must **never**
+   be exposed to a client API or logged with member IDs.
+2. Confirm **zero** unsupported chat types, invalid IDs, duplicate members,
+   missing Firebase-authoritative timestamps, orphan Auth users and group
+   membership/roster divergences. Investigate atypical direct-chat sizes
+   separately (they may be intentionally one-sided but cannot be assumed).
+3. Audit legacy Firestore `chats/{chatId}` participants against Supabase and
+   **Firebase Auth account existence** using a trusted, credential-rotated
+   administrator. Deny access immediately for any invalid historical entry.
+4. Verify the cross-provider deletion path; add reliable scheduled
+   reconciliation for deletions and membership revocation, not only inserts.
+5. After a clean *isolated staging* preflight and human review, explicitly
+   enable the outbox setting there and perform a reviewed, limited backfill.
+   Do not enable or backfill production as a convenience.
+6. Measure the time from membership removal to Firebase Rules-denied access.
+   Until the maximum tolerated revocation delay can be guaranteed (including
+   Firebase outages), leave Android hybrid mirroring disabled.
+
+The old unguarded bulk `insert ... select id from public.chats` example was
+removed so the guide cannot be mistaken for a production-ready backfill
+command. No production migration or data mutation occurred in this step.
 
 Disabling the outbox `enabled=false` immediately stops new triggers and
 claims. It does **not** roll back previously mirrored Firebase data or
@@ -145,9 +169,11 @@ A disabled trigger does not automatically drain or revoke old mirrored chats.
   migrations; generating staging compute may incur additional charges.
 - Current live `public.chats` has an `updated_at` BEFORE UPDATE trigger;
   all 90 chats have supported types and non-null timestamps. The read-only
-  preflight also identified **one duplicate-member chat** and **two direct
-  chats with nonstandard member counts**. Investigate without changing user
-  data; strict duplicate validation intentionally blocks unsafe projection.
+  preflight also identified **one duplicate-member chat**, **two
+  single-member direct chats** and **seven chats referencing deleted or absent
+  Supabase Auth accounts** (six direct, one group). Investigate without
+  changing user data; the existing provisioner rejects duplicate memberships
+  but does **not** currently filter orphan Auth identities.
   The seven group rows have consistent chat/group/roster memberships.
 - Before **any** backfill, run the read-only
   `supabase/tests/firestore_chat_mirror_preflight.sql` on the target source
