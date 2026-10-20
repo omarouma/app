@@ -81,9 +81,9 @@ export function makeReconciler({ loadChat, readMirror, writeMirror, clock = () =
         // Reusing a tombstoned chat ID must not resurrect access.
         throw new ProjectionError('CHAT_ID_TOMBSTONED', 409);
       }
-      if (!source && !current) {
-        return { status: 'absent', attempts: attempt + 1 };
-      }
+      // A verified deletion must create a tombstone EVEN if no Firebase doc
+      // exists yet. Otherwise a concurrent old sync can create the chat after
+      // the delete worker has returned "absent", resurrecting access.
       if (source && isCurrent(current, source)) {
         return { status: 'unchanged', attempts: attempt + 1 };
       }
