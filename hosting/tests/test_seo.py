@@ -23,6 +23,7 @@ PUBLIC_PAGES = {
     "download.html": "/download",
     "privacy.html": "/privacy",
     "terms.html": "/terms",
+    "delete-account.html": "/delete-account",
 }
 VERIFICATION = "nmyW__zH-LC191JoeiIxM8EQbOOrcTYUL8A0nuay7l0"
 
