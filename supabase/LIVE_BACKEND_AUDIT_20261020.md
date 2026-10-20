@@ -158,6 +158,38 @@ equivalence, a full disaster-recovery backup or permission QA.
    supported by the account plan; this is **not** a SQL-only setting.
    See: https://supabase.com/docs/guides/auth/password-security
 
+## Cross-provider Firebase Auth/FCM configuration review
+
+The live `firebase-token` Edge Function version previously defaulted
+`FIREBASE_PROJECT_ID` to `oumagachat` whenever the runtime variable was
+missing. That concealed a missing production secret and could return a
+project binding that had never been explicitly configured. The revised
+**source** now requires an explicit, syntactically valid project ID, along
+with the Firebase client email/private key and the Supabase backend URL/anon
+key. Misconfiguration returns `503` rather than silently minting a token
+using a default project.
+
+The companion Android RC PR #139 checks that the returned Firebase
+custom-token user ID equals the signed-in Supabase user and that its project
+ID matches the installed `FirebaseApp` project. The `firebase-token`
+function still validates the Supabase bearer token with `/auth/v1/user`
+before minting a Firebase custom token; the new source does not bypass auth.
+
+**Important:** This Edge Function source change is **not deployed**. First
+verify that the Supabase Edge Function runtime has the explicit
+`FIREBASE_PROJECT_ID=oumagachat` setting and a **rotated, authorized**
+Firebase service account credential. Also verify the separate FCM sender's
+`FCM_PROJECT_ID` and private key project identity. Do not paste or commit
+private credentials. Test custom-token sign-in and FCM dry-run on consenting
+test accounts/devices before authorized deployment. This review cannot
+read Google Cloud IAM keys or Firebase Console rules; there is no
+connected Firebase admin console in this session.
+
+Five cross-provider source regression tests are in
+`supabase/tests/test_firebase_supabase_identity.py` and included in the
+existing Android CI Python gate. They do not replace a live Firebase
+auth/FCM device test.
+
 ## Remaining deployment gates
 
 - Run two-account test matrix: signup/login/logout, direct and group messages,
