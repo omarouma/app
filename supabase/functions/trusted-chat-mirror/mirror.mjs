@@ -31,11 +31,12 @@ function stampNano(value) {
 export function normalizeAuthoritativeChat(chatId, record) {
   if (!record || record.id !== chatId) throw new ProjectionError('SOURCE_ID_MISMATCH');
   if (!['direct', 'group'].includes(record.type)) throw new ProjectionError('UNKNOWN_SOURCE_CHAT_TYPE');
-  if (!Array.isArray(record.participants) || !record.participants.length ||
+  if (!Array.isArray(record.participants) ||
       record.participants.length > MAX_MEMBERS ||
       record.participants.some(uid => typeof uid !== 'string' || !UID_PATTERN.test(uid))) {
     throw new ProjectionError('INVALID_SOURCE_PARTICIPANTS');
   }
+  // An empty authoritative participant list must remove all Firebase access.
   // Reject duplicate membership IDs. No caller may choose which members exist.
   const participants = [...new Set(record.participants.map(uid => uid.toLowerCase()))].sort();
   if (participants.length !== record.participants.length) {
