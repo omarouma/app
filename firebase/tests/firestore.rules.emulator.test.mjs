@@ -58,7 +58,7 @@ async function trustedSeed(collectionPath, data) {
 test('unauthenticated users cannot create profile or conversation', async () => {
   await assertFails(setDoc(doc(anonymous(), 'users/alice'), { name: 'Alice' }));
   await assertFails(setDoc(doc(anonymous(), 'chats/chat-1'), {
-    participants: ['alice', 'bob'], type: 'dm',
+    participants: ['alice', 'bob'], type: 'direct',
   }));
 });
 
@@ -80,16 +80,16 @@ test('users cannot assert privileged flags on profile creation or later edit', a
 
 test('signed-in clients cannot forge a Firebase chat membership document', async () => {
   await assertFails(setDoc(doc(client('alice'), 'chats/invented'), {
-    participants: ['alice', 'bob'], type: 'dm',
+    participants: ['alice', 'bob'], type: 'direct',
   }));
   await assertFails(setDoc(doc(client('alice'), 'chats/invented'), {
-    participants: ['alice'], type: 'dm',
+    participants: ['alice'], type: 'direct',
   }));
 });
 
 test('server-provisioned chat is accessible only to its true participants', async () => {
   await trustedSeed('chats/verified', {
-    participants: ['alice', 'bob'], type: 'dm', updatedAt: 1,
+    participants: ['alice', 'bob'], type: 'direct', updatedAt: 1,
   });
   const allowed = await assertSucceeds(getDoc(doc(client('alice'), 'chats/verified')));
   assert.equal(allowed.data().type, 'dm');
@@ -99,7 +99,7 @@ test('server-provisioned chat is accessible only to its true participants', asyn
 
 test('message send requires verified chat membership and matching sender', async () => {
   await trustedSeed('chats/verified', {
-    participants: ['alice', 'bob'], type: 'dm', updatedAt: 1,
+    participants: ['alice', 'bob'], type: 'direct', updatedAt: 1,
   });
   await assertSucceeds(setDoc(doc(client('alice'), 'chats/verified/messages/msg-1'), {
     senderId: 'alice', type: 'text', text: 'Hello', createdAt: 1,
@@ -116,7 +116,7 @@ test('message send requires verified chat membership and matching sender', async
 
 test('chat member may change preview metadata, never participants or type', async () => {
   await trustedSeed('chats/verified', {
-    participants: ['alice', 'bob'], type: 'dm', updatedAt: 1,
+    participants: ['alice', 'bob'], type: 'direct', updatedAt: 1,
   });
   await assertSucceeds(updateDoc(doc(client('alice'), 'chats/verified'), {
     updatedAt: 2,
@@ -131,6 +131,45 @@ test('chat member may change preview metadata, never participants or type', asyn
     updatedAt: 3,
   }));
   await assertFails(deleteDoc(doc(client('alice'), 'chats/verified')));
+});
+
+test('trusted membership removal denies a removed user without affecting remaining members', async () => {
+  await trustedSeed('chats/verified', {
+    participants: ['alice', 'bob'], type: 'direct', updatedAt: 1,
+  });
+  await trustedSeed('chats/verified/messages/older', {
+    senderId: 'alice', type: 'text', text: 'Earlier message', createdAt: 1,
+  });
+  await assertSucceeds(getDoc(doc(client('bob'), 'chats/verified/messages/older')));
+  await env.withSecurityRulesDisabled(async trusted => {
+    await updateDoc(doc(trusted.firestore(), 'chats/verified'), {
+      participants: ['alice'], updatedAt: 2,
+    });
+  });
+  await assertFails(getDoc(doc(client('bob'), 'chats/verified')));
+  await assertFails(getDoc(doc(client('bob'), 'chats/verified/messages/older')));
+  await assertFails(setDoc(doc(client('bob'), 'chats/verified/messages/unauthorized'), {
+    senderId: 'bob', type: 'text', text: 'Not authorized', createdAt: 3,
+  }));
+  await assertSucceeds(getDoc(doc(client('alice'), 'chats/verified/messages/older')));
+});
+
+test('trusted tombstone revokes access to chat and nested messages for every prior member', async () => {
+  await trustedSeed('chats/verified', {
+    participants: ['alice', 'bob'], type: 'direct', updatedAt: 1,
+  });
+  await trustedSeed('chats/verified/messages/older', {
+    senderId: 'alice', type: 'text', text: 'Earlier message', createdAt: 1,
+  });
+  await env.withSecurityRulesDisabled(async trusted => {
+    await updateDoc(doc(trusted.firestore(), 'chats/verified'), {
+      participants: [], type: 'deleted', mirrorDeleted: true, updatedAt: 2,
+    });
+  });
+  for (const uid of ['alice', 'bob']) {
+    await assertFails(getDoc(doc(client(uid), 'chats/verified')));
+    await assertFails(getDoc(doc(client(uid), 'chats/verified/messages/older')));
+  }
 });
 
 test('client cannot forge trusted call or wallet records', async () => {
