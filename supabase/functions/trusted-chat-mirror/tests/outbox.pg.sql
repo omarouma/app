@@ -70,7 +70,27 @@ begin
 exception when insufficient_privilege then null;
 end
 $$;
+-- Modern PostgREST supplies a single JSON setting; legacy scalar claim
+-- must not override an explicit unprivileged JSON role.
 select set_config('request.jwt.claim.role','service_role',false);
+select set_config('request.jwt.claims','{"role":"authenticated","sub":"11111111-1111-4111-8111-111111111111"}',false);
+do $
+begin
+  perform public.gaga_claim_chat_mirror_sync(1);
+  raise exception 'Modern unprivileged JWT claim bypassed the service gate';
+exception when insufficient_privilege then null;
+end
+$;
+do $
+begin
+  perform public.gaga_finish_chat_mirror_sync(
+    'chat_on',1,'11111111-1111-4111-8111-111111111111',true
+  );
+  raise exception 'Modern unprivileged JWT claim bypassed finish RPC gate';
+exception when insufficient_privilege then null;
+end
+$;
+select set_config('request.jwt.claims','{"role":"service_role"}',false);
 
 do $$
 declare j record;
