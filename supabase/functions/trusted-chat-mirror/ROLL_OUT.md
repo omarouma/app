@@ -180,11 +180,23 @@ A disabled trigger does not automatically drain or revoke old mirrored chats.
   Supabase Auth accounts** (six direct, one group). Investigate without
   changing user data; the existing provisioner rejects duplicate memberships
   but does **not** currently filter orphan Auth identities.
-  The seven group rows have consistent chat/group/roster memberships.
+  The seven group rows have consistent chat/group/roster memberships,
+  but **two additional group-type chats have no matching public.groups row**;
+  these require legacy-data review, not an automatic deletion.
 - Before **any** backfill, run the read-only
   `supabase/tests/firestore_chat_mirror_preflight.sql` on the target source
   and record the results. It reports aggregate findings only, no user IDs.
 - This source PR intentionally has no production deployment action.
+
+- A newer Firebase document must not retain access for a Supabase Auth
+  identity that no longer exists. The reconciler applies a revocation-only
+  membership intersection when the Firestore projection timestamp is newer
+  than the Supabase chat timestamp; it will not grant stale members or roll
+  back newer chat metadata. This is covered by dedicated unit tests.
+- The new Auth-only projection RPC also rejects calls when
+  `firebase_mirror_settings.enabled=false`, even from a service-role caller.
+  Both migration files and both functions must qualify together in staging,
+  and these changes are **not** proof of timely deletion or Firebase cleanup.
 
 ## Empty chat membership
 A valid Supabase chat may temporarily or permanently have `participants=[]`.
