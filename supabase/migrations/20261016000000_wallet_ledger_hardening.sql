@@ -79,7 +79,14 @@ end $$;
 alter table public.wallet_transactions drop constraint if exists wallet_transactions_type_check;
 alter table public.wallet_transactions
   add constraint wallet_transactions_type_check
-  check (type in ('earn','spend','transfer_in','transfer_out','topup','refund','adjust','challenge','convert'));
+  -- Preserve all transaction kinds already permitted by the LIVE ledger.
+  -- Narrowing this constraint would reject existing transfer/reward entries and
+  -- break deployed daily interest / withdraw RPCs on a restored database.
+  check (type in (
+    'earn','spend','transfer','transfer_in','transfer_out','receive',
+    'reward','refund','topup','withdraw','convert','tip','split',
+    'challenge','adjust','interest','checkin'
+  ));
 
 -- Idempotency: one entry per (user, key). NULL keys are allowed to repeat.
 create unique index if not exists wallet_transactions_idem_idx
