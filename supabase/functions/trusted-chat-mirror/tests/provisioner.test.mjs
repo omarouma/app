@@ -155,6 +155,28 @@ test('stale events do not overwrite newer authoritative source microseconds', as
   assert.equal(store.writes.length, 0);
 });
 
+test('Auth member revocation overrides a newer Firestore chat timestamp', async () => {
+  // Removing a deleted Auth identity can change eligible membership without
+  // updating public.chats.updated_at. Never keep an unauthorized Firebase UID.
+  const store = fakeStore(row({ participants: [A], updated_at: OLD }), {
+    participants: [A, B], type: 'direct', updateTime: 'f1',
+    sourceUpdatedAt: NEW, mirrorDeleted: false,
+  });
+  assert.equal((await store.reconcile(CHAT)).status, 'updated');
+  assert.deepEqual(store.mirror.participants, [A]);
+  assert.equal(store.writes.length, 1);
+});
+
+test('older source cannot re-grant members absent from a newer Firestore mirror', async () => {
+  const store = fakeStore(row({ participants: [A, B], updated_at: OLD }), {
+    participants: [A], type: 'direct', updateTime: 'f1',
+    sourceUpdatedAt: NEW, mirrorDeleted: false,
+  });
+  assert.equal((await store.reconcile(CHAT)).status, 'newer_mirror_kept');
+  assert.deepEqual(store.mirror.participants, [A]);
+  assert.equal(store.writes.length, 0);
+});
+
 test('a Firestore precondition race retries both database and mirror reads', async () => {
   let loads = 0, reads = 0, writes = 0;
   let mirror = { participants: [A, B], type: 'direct', sourceUpdatedAt: OLD,
