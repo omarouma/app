@@ -5,6 +5,51 @@
 catalogue queries, security advisor, and Edge Function source. No user records,
 private keys, passwords, live migrations or data were modified.
 
+## Live preflight checks — 2026-10-20
+
+Executed `supabase/tests/live_backend_contracts.sql` through the Supabase
+read-only SQL interface against `fcjgbbmfqdkucfpqjxae`. **10/10 passed**:
+
+1. Core RLS tables exist and have RLS enabled.
+2. Core RLS tables have policy coverage.
+3. Required chat, notification, call and friends tables are in the realtime publication.
+4. Four internal RPC-only tables deny direct anon/authenticated CRUD.
+5. Six critical RPC families deny anonymous EXECUTE.
+6. Three server-only RPC families deny authenticated/anonymous EXECUTE.
+7. `real_money_p2p` feature flag is disabled.
+8. Live wallet transaction type check is valid and permits interest,
+   withdraw and reward transaction kinds.
+9. `gaga_private.session_active` exists as a security-definer guard.
+10. Critical message, admin and transfer RPC definitions call the session guard.
+
+These are SQL catalogue/configuration checks, not simulation of authenticated
+API requests. They do not demonstrate device push delivery, user isolation
+under a genuine JWT, the absence of all vulnerabilities, or transaction
+correctness under concurrent load.
+
+### Confirmed wallet schema reconstruction defect fixed in source
+
+The existing `20261016000000_wallet_ledger_hardening.sql` migration
+previously replaced `wallet_transactions_type_check` with a 9-kind
+whitelist. The *live* validated check allows **17** transaction kinds,
+including historical `transfer`/`reward` and active RPC types
+`interest`/`withdraw`. Replaying the narrower migration against
+historical data could fail, or reject subsequent legitimate transactions.
+
+**Fix in this pull request:** Align the repository's ledger constraint
+whitelist to the 17 distinct live-accepted kinds, and add
+`supabase/tests/test_wallet_ledger_contract.py` for a source regression
+check. No constraint or data change was applied to live production.
+The historical file was adjusted because its recorded version was not
+applied through the live migration table; treat this as reconciliation,
+**not** permission to replay all legacy SQL against production. Review
+migration provenance and fresh-database reconstruction before deployment.
+
+Run the SQL checks in a privileged, trusted Supabase SQL Editor session,
+not from client credentials. Fail the release review if any returned
+`passed` value is false; investigate rather than automatically
+granting table access or changing permission policies.
+
 ## Confirmed working platform contracts
 
 - Project state: `ACTIVE_HEALTHY` (not an end-to-end Android test).
