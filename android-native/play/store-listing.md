@@ -28,7 +28,7 @@ _(27 characters)_
 Messages, voice and video calls, location sharing and daily plans.
 ```
 
-_(65 characters; recheck in Play Console.)_
+_(66 characters; recheck in Play Console.)_
 
 ## Full description (max 4000 characters)
 
