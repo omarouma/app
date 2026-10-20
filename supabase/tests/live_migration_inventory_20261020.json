@@ -1,0 +1,476 @@
+{
+  "project_ref": "fcjgbbmfqdkucfpqjxae",
+  "observed_date": "2026-10-20",
+  "source": "Supabase list_migrations (read-only)",
+  "note": "Migration history metadata only; not SQL definitions or evidence of schema equivalence.",
+  "migrations": [
+    {
+      "version": "20240101000000",
+      "name": "baseline_snake_case"
+    },
+    {
+      "version": "20250101",
+      "name": "add_push_subscription"
+    },
+    {
+      "version": "20250115000000",
+      "name": "live_security_alignment"
+    },
+    {
+      "version": "20250115000001",
+      "name": "realtime_production_hardening"
+    },
+    {
+      "version": "20250115000002",
+      "name": "wallet_transactions"
+    },
+    {
+      "version": "20250115000003",
+      "name": "chat_membership_rpcs"
+    },
+    {
+      "version": "20250116000000",
+      "name": "backend_fixes"
+    },
+    {
+      "version": "20250117000000",
+      "name": "schema_fixes"
+    },
+    {
+      "version": "20250903000000",
+      "name": "fix_rls_and_errors"
+    },
+    {
+      "version": "20260814",
+      "name": "add_video_support"
+    },
+    {
+      "version": "20260819",
+      "name": "auth_profile_rpc"
+    },
+    {
+      "version": "20260820000100",
+      "name": "security_hardening"
+    },
+    {
+      "version": "20260820000200",
+      "name": "signaling_access_fix"
+    },
+    {
+      "version": "20260820000300",
+      "name": "storage_and_call_columns"
+    },
+    {
+      "version": "20260820000400",
+      "name": "wallet_security_fix"
+    },
+    {
+      "version": "20260820000500",
+      "name": "final_production_hardening"
+    },
+    {
+      "version": "20260903000001",
+      "name": "backend_security_hardening"
+    },
+    {
+      "version": "20260903000002",
+      "name": "friend_request_flow"
+    },
+    {
+      "version": "20260903000003",
+      "name": "resolve_rls_conflicts"
+    },
+    {
+      "version": "20260903000004",
+      "name": "realtime_security_alignment"
+    },
+    {
+      "version": "20260903000005",
+      "name": "notification_rpc"
+    },
+    {
+      "version": "20260903000006",
+      "name": "frontend_backend_contracts"
+    },
+    {
+      "version": "20260904000001",
+      "name": "analytics_client_insert"
+    },
+    {
+      "version": "20260904000002",
+      "name": "send_message_rpc"
+    },
+    {
+      "version": "20260904000003",
+      "name": "message_send_idempotency"
+    },
+    {
+      "version": "20260904000004",
+      "name": "production_contract_hardening"
+    },
+    {
+      "version": "20260904000005",
+      "name": "backend_runtime_fixes"
+    },
+    {
+      "version": "20260904000006",
+      "name": "backend_policy_cleanup"
+    },
+    {
+      "version": "20260904000007",
+      "name": "chat_draft_columns"
+    },
+    {
+      "version": "20260904000008",
+      "name": "send_message_cast_hardening"
+    },
+    {
+      "version": "20260904000009",
+      "name": "ensure_messages_table"
+    },
+    {
+      "version": "20260904000010",
+      "name": "normalize_message_chat_id"
+    },
+    {
+      "version": "20260904000011",
+      "name": "cleanup_message_rls"
+    },
+    {
+      "version": "20260904000012",
+      "name": "complete_message_contract"
+    },
+    {
+      "version": "20260904000013",
+      "name": "force_send_message_contract"
+    },
+    {
+      "version": "20260904000014",
+      "name": "fix_message_insert_triggers"
+    },
+    {
+      "version": "20260904000015",
+      "name": "profile_settings_contract"
+    },
+    {
+      "version": "20260904000016",
+      "name": "separate_app_notification_settings"
+    },
+    {
+      "version": "20260904000017",
+      "name": "wallet_schema_compatibility"
+    },
+    {
+      "version": "20260904001800",
+      "name": "create_media_storage_buckets"
+    },
+    {
+      "version": "20260919000200",
+      "name": "wallet_and_challenge_security"
+    },
+    {
+      "version": "20260919000300",
+      "name": "unread_count_trigger"
+    },
+    {
+      "version": "20260919000400",
+      "name": "protect_user_privilege_columns"
+    },
+    {
+      "version": "20260919000500",
+      "name": "daily_challenge_server_authoritative"
+    },
+    {
+      "version": "20260919000600",
+      "name": "premium_server_authoritative"
+    },
+    {
+      "version": "20260919000700",
+      "name": "referral_server_authoritative"
+    },
+    {
+      "version": "20260919000800",
+      "name": "contact_matching_and_view_hardening"
+    },
+    {
+      "version": "20260919000900",
+      "name": "follow_server_authoritative"
+    },
+    {
+      "version": "20260919001000",
+      "name": "admin_user_management"
+    },
+    {
+      "version": "20260919001100",
+      "name": "post_engagement_server_authoritative"
+    },
+    {
+      "version": "20260919001200",
+      "name": "signup_creates_user_row"
+    },
+    {
+      "version": "20260919001300",
+      "name": "harden_push_functions"
+    },
+    {
+      "version": "20260925000100",
+      "name": "backend_completion"
+    },
+    {
+      "version": "20261001000100",
+      "name": "remove_web_only_backend"
+    },
+    {
+      "version": "20261003131552",
+      "name": "gaga_atomic_call_lifecycle"
+    },
+    {
+      "version": "20261003190448",
+      "name": "gaga_atomic_push_device_registration"
+    },
+    {
+      "version": "20261005132605",
+      "name": "account_privacy_enforcement"
+    },
+    {
+      "version": "20261005155626",
+      "name": "account_privacy_enforcement"
+    },
+    {
+      "version": "20261006124853",
+      "name": "daily_life"
+    },
+    {
+      "version": "20261006125740",
+      "name": "daily_life_mvp"
+    },
+    {
+      "version": "20261007102147",
+      "name": "revoke_trigger_rpc_execute"
+    },
+    {
+      "version": "20261007102332",
+      "name": "fix_function_search_paths"
+    },
+    {
+      "version": "20261007102508",
+      "name": "remove_duplicate_indexes"
+    },
+    {
+      "version": "20261007103107",
+      "name": "enforce_private_chat_media_membership"
+    },
+    {
+      "version": "20261007103341",
+      "name": "revoke_client_notification_rpc"
+    },
+    {
+      "version": "20261007104548",
+      "name": "revoke_obsolete_privileged_rpcs"
+    },
+    {
+      "version": "20261007104555",
+      "name": "add_missing_foreign_key_indexes"
+    },
+    {
+      "version": "20261007105509",
+      "name": "harden_notification_inserts"
+    },
+    {
+      "version": "20261007105641",
+      "name": "per_user_chat_deletion"
+    },
+    {
+      "version": "20261007105723",
+      "name": "chat_hidden_sync"
+    },
+    {
+      "version": "20261007110022",
+      "name": "cleanup_chat_rls_policies"
+    },
+    {
+      "version": "20261007110357",
+      "name": "per_user_chat_settings"
+    },
+    {
+      "version": "20261007111120",
+      "name": "trusted_chat_acl_rpc_guard"
+    },
+    {
+      "version": "20261007111135",
+      "name": "group_create_update_rpcs"
+    },
+    {
+      "version": "20261007111149",
+      "name": "group_membership_rpcs"
+    },
+    {
+      "version": "20261007111158",
+      "name": "repair_group_chat_mirrors"
+    },
+    {
+      "version": "20261007111549",
+      "name": "consolidate_chat_realtime_policies"
+    },
+    {
+      "version": "20261007142419",
+      "name": "block_unverified_premium_currency"
+    },
+    {
+      "version": "20261007142634",
+      "name": "revoke_unused_privileged_rpcs"
+    },
+    {
+      "version": "20261007212726",
+      "name": "gaga_today_tasks"
+    },
+    {
+      "version": "20261008082614",
+      "name": "gaga_today_events"
+    },
+    {
+      "version": "20261008093000",
+      "name": null
+    },
+    {
+      "version": "20261008120000",
+      "name": "mark_chat_read"
+    },
+    {
+      "version": "20261008120100",
+      "name": "gaga_circles"
+    },
+    {
+      "version": "20261008130000",
+      "name": "gaga_safe"
+    },
+    {
+      "version": "20261008140000",
+      "name": null
+    },
+    {
+      "version": "20261012065356",
+      "name": "china_shop_catalog"
+    },
+    {
+      "version": "20261012070141",
+      "name": "china_shop_product_media_and_inventory"
+    },
+    {
+      "version": "20261012071447",
+      "name": "china_shop_landed_cost_quotes"
+    },
+    {
+      "version": "20261012071943",
+      "name": "china_shop_quote_requests"
+    },
+    {
+      "version": "20261012072050",
+      "name": "china_shop_quote_request_linkage"
+    },
+    {
+      "version": "20261012072208",
+      "name": "china_shop_authorized_quote_issuance"
+    },
+    {
+      "version": "20261012072927",
+      "name": "china_shop_quote_price_validation"
+    },
+    {
+      "version": "20261012073015",
+      "name": "china_shop_supplier_onboarding_applications"
+    },
+    {
+      "version": "20261012073808",
+      "name": "china_shop_supplier_review_workflow"
+    },
+    {
+      "version": "20261012080419",
+      "name": "china_shop_supplier_review_audit"
+    },
+    {
+      "version": "20261012080428",
+      "name": "china_shop_supplier_review_audit_pending_reviewer"
+    },
+    {
+      "version": "20261012080541",
+      "name": "china_shop_admin_supplier_review_access"
+    },
+    {
+      "version": "20261012080551",
+      "name": "china_shop_admin_review_direct_authorization"
+    },
+    {
+      "version": "20261012080751",
+      "name": "china_shop_admin_review_queue"
+    },
+    {
+      "version": "20261012081059",
+      "name": "china_shop_admin_product_publish_guard"
+    },
+    {
+      "version": "20261012081155",
+      "name": "china_shop_admin_draft_product_creation"
+    },
+    {
+      "version": "20261012081321",
+      "name": "china_shop_admin_product_evidence_verification"
+    },
+    {
+      "version": "20261014000000",
+      "name": "friend_request_lifecycle_rpcs"
+    },
+    {
+      "version": "20261015000000",
+      "name": "favorite_friends_and_friend_events"
+    },
+    {
+      "version": "20261015191730",
+      "name": "gaga_messaging_rls_auth_cache"
+    },
+    {
+      "version": "20261015234506",
+      "name": "gaga_contact_remarks"
+    },
+    {
+      "version": "20261016135213",
+      "name": "device_registration_session_revocation_guard"
+    },
+    {
+      "version": "20261017122311",
+      "name": "verified_account_directory"
+    },
+    {
+      "version": "20261017122949",
+      "name": "view_once_photos"
+    },
+    {
+      "version": "20261017123110",
+      "name": "view_once_message_privacy"
+    },
+    {
+      "version": "20261017171246",
+      "name": "backend_policy_performance"
+    },
+    {
+      "version": "20261017171618",
+      "name": "legacy_rpc_session_safety"
+    },
+    {
+      "version": "20261017172128",
+      "name": "consolidate_legacy_access_policies"
+    },
+    {
+      "version": "20261017172253",
+      "name": "enforce_call_privacy_admission"
+    },
+    {
+      "version": "20261017174212",
+      "name": "isolate_trigram_extension"
+    },
+    {
+      "version": "20261017233821",
+      "name": "external_wallet_watch_addresses"
+    }
+  ]
+}
