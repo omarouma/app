@@ -34,8 +34,11 @@ def main() -> None:
     source = re.sub(r"--[^\n]*", "", PREFLIGHT.read_text(encoding="utf-8"))
     if re.search(r"\b(insert|update|delete|alter|drop|truncate|grant|revoke|create|call|perform)\b", source, re.I):
         raise RuntimeError("Preflight must remain a read-only SELECT-only audit")
-    if len(re.findall(r"(?m)^\s*(?:select|with)\s", source, re.I)) != 3:
-        raise RuntimeError("Preflight must contain exactly three top-level queries")
+    statements = [part.strip() for part in source.split(";") if part.strip()]
+    if len(statements) != 3 or any(
+        not re.match(r"^(select|with)\\b", stmt, re.I) for stmt in statements
+    ):
+        raise RuntimeError("Preflight must contain exactly three SELECT/CTE queries")
     psql("-f", str(FIXTURE))
     out = psql("-t", "-A", "-F", ",", "-f", str(PREFLIGHT))
     numeric = [row for row in csv.reader(out.splitlines())
