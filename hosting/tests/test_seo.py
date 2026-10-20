@@ -123,6 +123,27 @@ class SeoSourceChecks(unittest.TestCase):
         self.assertIn("sign up or sign in with your email", text)
         self.assertNotIn("verify your phone number", text)
 
+    def test_account_deletion_page_is_public_and_discoverable(self) -> None:
+        html = (PUBLIC / "delete-account.html").read_text(encoding="utf-8")
+        self.assertIn("<h1>Delete your GaGa Chat account</h1>", html)
+        self.assertIn("gagachat.app", html)
+        self.assertIn('href="/privacy"', html)
+        self.assertIn("without reinstalling the app", html)
+        self.assertIn("Option 1", html)
+        self.assertIn("Option 2", html)
+        self.assertIn("privacy@gagachat.app", html)
+        self.assertIn("mailto:privacy@gagachat.app", html)
+        self.assertIn("not</strong> delete the account automatically", html)
+        self.assertIn("We will need to verify", html)
+        self.assertIn("Do not send a password", html)
+
+    def test_account_deletion_link_from_home_and_privacy(self) -> None:
+        for name in ("index.html", "privacy.html"):
+            with self.subTest(page=name):
+                html = (PUBLIC / name).read_text(encoding="utf-8")
+                self.assertIn('href="/delete-account"', html)
+        self.assertNotIn("/delete-account", (PUBLIC / "robots.txt").read_text())
+
     def test_app_deep_link_fallback_is_not_indexed(self) -> None:
         head = read_head("open.html")
         self.assertTrue(any(m.get("name") == "robots"
