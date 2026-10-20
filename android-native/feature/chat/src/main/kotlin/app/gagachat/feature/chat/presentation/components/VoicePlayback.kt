@@ -1,9 +1,14 @@
 package app.gagachat.feature.chat.presentation.components
 
+import android.content.Context
 import android.media.AudioAttributes
+import android.media.AudioFocusRequest
+import android.media.AudioManager
 import android.media.MediaPlayer
+import android.os.Build
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -29,8 +34,16 @@ import kotlinx.coroutines.launch
  * voice note had no scrubber, no elapsed/total time and no way to recover from a
  * decode error \u2014 the transport below fixes that (P0).
  */
-class VoicePlayerState internal constructor() {
+class VoicePlayerState internal constructor(private val context: Context) {
     private var player: MediaPlayer? = null
+    private val audioManager: AudioManager? = context.getSystemService(AudioManager::class.java)
+    private var focusRequest: AudioFocusRequest? = null
+    private val focusListener = AudioManager.OnAudioFocusChangeListener { change ->
+        // Voice playback must not compete with incoming calls or alarms.
+        if (change == AudioManager.AUDIOFOCUS_LOSS ||
+            change == AudioManager.AUDIOFOCUS_LOSS_TRANSIENT
+        ) pause()
+    }
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var pollJob: Job? = null
 
@@ -98,15 +111,16 @@ class VoicePlayerState internal constructor() {
                 if (player !== it) return@setOnPreparedListener
                 isPreparing = false
                 durationMs = runCatching { it.duration.toLong() }.getOrDefault(0L).coerceAtLeast(0L)
-                runCatching { it.start() }
-                isPlaying = true
-                startPolling()
+                if (!startWithAudioFocus(it)) {
+                    fail()
+                }
             }
             mp.setOnCompletionListener {
                 if (player === it) {
                     isPlaying = false
                     positionMs = durationMs
                     stopPolling()
+                    abandonAudioFocus()
                 }
             }
             mp.setOnErrorListener { _, _, _ ->
@@ -125,16 +139,64 @@ class VoicePlayerState internal constructor() {
 
     private fun resume() {
         val mp = player ?: return
-        runCatching { mp.start() }
+        if (!startWithAudioFocus(mp)) fail()
+    }
+
+    private fun startWithAudioFocus(mp: MediaPlayer): Boolean {
+        if (!requestAudioFocus()) return false
+        if (runCatching { mp.start() }.isFailure) {
+            abandonAudioFocus()
+            return false
+        }
         isPlaying = true
         error = false
         startPolling()
+        return true
+    }
+
+    private fun requestAudioFocus(): Boolean {
+        val audio = audioManager ?: return false
+        return runCatching {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                val request = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT)
+                    .setAudioAttributes(
+                        AudioAttributes.Builder()
+                            .setUsage(AudioAttributes.USAGE_MEDIA)
+                            .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+                            .build(),
+                    )
+                    .setOnAudioFocusChangeListener(focusListener)
+                    .build()
+                val granted = audio.requestAudioFocus(request) == AudioManager.AUDIOFOCUS_REQUEST_GRANTED
+                if (granted) focusRequest = request
+                granted
+            } else {
+                @Suppress("DEPRECATION")
+                audio.requestAudioFocus(
+                    focusListener, AudioManager.STREAM_MUSIC,
+                    AudioManager.AUDIOFOCUS_GAIN_TRANSIENT,
+                ) == AudioManager.AUDIOFOCUS_REQUEST_GRANTED
+            }
+        }.getOrDefault(false)
+    }
+
+    private fun abandonAudioFocus() {
+        runCatching {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                focusRequest?.let { audioManager?.abandonAudioFocusRequest(it) }
+                focusRequest = null
+            } else {
+                @Suppress("DEPRECATION")
+                audioManager?.abandonAudioFocus(focusListener)
+            }
+        }
     }
 
     private fun pause() {
         player?.let { runCatching { it.pause() } }
         isPlaying = false
         stopPolling()
+        abandonAudioFocus()
     }
 
     /** Seeks the active clip to [ms] (clamped to the known duration). */
@@ -165,6 +227,7 @@ class VoicePlayerState internal constructor() {
     /** Marks the active clip as failed but keeps [activeSource] so the UI can retry. */
     private fun fail() {
         stopPolling()
+        abandonAudioFocus()
         player?.let { runCatching { it.release() } }
         player = null
         isPlaying = false
@@ -176,6 +239,7 @@ class VoicePlayerState internal constructor() {
 
     private fun releasePlayer() {
         stopPolling()
+        abandonAudioFocus()
         player?.let { runCatching { it.stop() }; runCatching { it.release() } }
         player = null
         isPlaying = false
@@ -191,7 +255,8 @@ class VoicePlayerState internal constructor() {
 
 @Composable
 fun rememberVoicePlayer(): VoicePlayerState {
-    val state = remember { VoicePlayerState() }
+    val context = LocalContext.current
+    val state = remember { VoicePlayerState(context.applicationContext) }
     DisposableEffect(Unit) {
         onDispose { state.release() }
     }
