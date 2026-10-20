@@ -99,6 +99,54 @@ claims. It does **not** roll back previously mirrored Firebase data or
 restore permissions to users removed from Firestore; these require explicit
 privacy-safe recovery planning.
 
+## Staging operations and revocation monitoring
+
+This queue is **eventually consistent**, not synchronous authorization.
+A user removed in Supabase may temporarily retain Firestore access until the
+trusted worker successfully updates Firebase. With outages or an unconfigured
+scheduler that interval can grow indefinitely. Do **not** treat the mirror as
+safe for sensitive chat content without an explicit revocation-latency policy,
+fail-closed access strategy and validated operational alerting. Keep hybrid
+transport disabled meanwhile.
+
+On the **staging** project only, check the following after provisioning the
+queue and enabling the staging setting. The query is read-only and does not
+include message content or user identifiers:
+
+```sql
+select enabled, updated_at
+from gaga_private.firebase_mirror_settings
+where singleton = true;
+
+select
+  count(*) as pending,
+  count(*) filter (where attempts >= 5) as repeated_failures,
+  count(*) filter (
+    where enqueued_at < now() - interval '10 minutes'
+  ) as older_than_ten_minutes,
+  count(*) filter (
+    where leased_until is not null and leased_until < now()
+  ) as expired_leases
+from gaga_private.firebase_chat_sync_outbox;
+```
+
+Alert for stale/repeatedly failing work, missed worker invocations and Firebase
+permission-denied errors. Record the interval between Supabase membership
+change and **confirmed Firestore denial** under load and Firebase outages;
+review a maximum allowed interval before approving any public client access.
+A disabled trigger does not automatically drain or revoke old mirrored chats.
+
+### Project and migration checks
+
+- Live Supabase `fcjgbbmfqdkucfpqjxae` currently contains real users and chats.
+  The new outbox table was confirmed **absent** on 2026-10-20.
+- Do not confuse the live `main` Supabase branch with an isolated staging DB.
+  Inspect its migration status and divergence before any branch creation or
+  migrations; generating staging compute may incur additional charges.
+- Current live `public.chats` has an `updated_at` BEFORE UPDATE trigger;
+  all 90 chat records inspected for type/null timestamp compatibility passed.
+- This source PR intentionally has no production deployment action.
+
 ## Tests and current limitations
 
 ```sh
@@ -110,9 +158,14 @@ CI workflow: `.github/workflows/trusted-chat-mirror-tests.yml`.
 
 - Pure contract/unit tests use fake Supabase/Firebase endpoints; these tests
   never mutate production data or test Google OAuth credentials.
-- PostgreSQL outbox DDL/trigger behavior still requires local/staging SQL
-  integration testing; the CI unit suite is **not proof of database migration
-  execution**.
+- The **ephemeral PostgreSQL 17 CI** suite exercises the migration's SQL,
+  triggers, ACLs, leases, revision fencing, retry and deletion behavior.
+  This does **not** validate migration compatibility with the production
+  schema or a real Supabase staging environment.
+- Privileged RPC authorization reads the verified PostgREST
+  `request.jwt.claims` JSON role, with a legacy claim fallback. The SQL
+  regression suite rejects a modern `authenticated` claim even if an
+  obsolete scalar claim says `service_role`.
 - Firestore project must be configured and IAM-scoped correctly. Neither
   Firebase Admin credential rotation nor the actual staging/prod deployment
   is performed in this PR.
