@@ -19,6 +19,14 @@ begin
   ) is distinct from 'service_role' then
     raise exception 'service_role_required' using errcode='42501';
   end if;
+  -- Defense in depth: a misconfigured trusted caller must not provision
+  -- membership before the staging operator explicitly enables the mirror.
+  if not exists (
+    select 1 from gaga_private.firebase_mirror_settings
+    where singleton=true and enabled=true
+  ) then
+    raise exception 'firebase_mirror_disabled' using errcode='42501';
+  end if;
 
   return query
   select
