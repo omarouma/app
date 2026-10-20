@@ -24,13 +24,13 @@ const json = (body: unknown, status = 200) =>
 
 export function normalizeChat(row: ChatRow): ChatRow | null {
   if (!row || typeof row.id !== "string" || !chatIdentifier.test(row.id) ||
-      !["dm", "group"].includes(row.type) || !Array.isArray(row.participants)) return null;
+      !["direct", "dm", "group"].includes(row.type) || !Array.isArray(row.participants)) return null;
   // A server-owned participant list must be unique and consist solely of valid UIDs.
   if (row.participants.length < 1 || row.participants.length > 500 ||
       row.participants.some((id) => typeof id !== "string" || !uuid.test(id))) return null;
   const unique = [...new Set(row.participants)];
   if (unique.length !== row.participants.length) return null;
-  return { id: row.id, type: row.type, participants: [...unique].sort() };
+  return { id: row.id, type: row.type === "direct" ? "dm" : row.type, participants: [...unique].sort() };
 }
 
 export function createHandler(deps: MirrorDependencies) {
