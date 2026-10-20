@@ -10,8 +10,9 @@ account owner can perform (Play Console login, keystore custody).
 
 > **Key fact that shapes this runbook:** `gagachat.app` currently returns HTTP 404
 > on Google Play, i.e. the app is **not yet published**. That means there is **no
-> existing Play App Signing identity to conflict with**, so a fresh upload key is
-> viable and Play will mint a brand-new app-signing key on first upload. (If the
+> existing Play App Signing identity to conflict with**. A dedicated upload key
+> was already adopted in October 2026; do not generate another. Play will use
+> its own app-signing certificate on first Play enrollment. (If the
 > app were already on Play, an upload-key reset / Play App Signing enrolment
 > would be required instead — see §8.)
 
@@ -58,11 +59,11 @@ account owner can perform (Play Console login, keystore custody).
 
 ## 1. Produce the signed artifacts
 
-Two equivalent routes — use whichever the release process prefers.
+Two signing routes are available. Route A is preferred because it validates the approved certificate and both artifact signatures.
 
 **Route A — GitHub Actions (recommended, reproducible).**
 Once the four signing secrets are installed (§2), run
-**Actions → Build approved signed GaGa candidate → Run workflow** on `main`
+**Actions → Build approved signed GaGa candidate → Run workflow** using branch `release/gaga-2.8.15-rc1`
 (`.github/workflows/build-signed-candidate.yml`). It verifies the certificate
 against `android-native/ci/release-signing-public.json` **before** compiling,
 then uploads a 7-day artifact containing the signed APK and AAB.
