@@ -93,6 +93,20 @@ test('group type, membership removal and idempotent repeat are handled', async (
   assert.equal(store.writes.length, 2);
 });
 
+test('removing every member from an existing chat revokes all Firebase access', async () => {
+  const store = fakeStore(row({ type: 'group', participants: [A, B] }));
+  assert.equal((await store.reconcile(CHAT)).status, 'created');
+  store.source = row({ type: 'group', participants: [], updated_at: NEW });
+  assert.equal((await store.reconcile(CHAT)).status, 'updated');
+  assert.deepEqual(store.mirror.participants, []);
+  assert.equal(store.mirror.type, 'group');
+  assert.equal(store.mirror.mirrorDeleted, false);
+  assert.equal((await store.reconcile(CHAT)).status, 'unchanged');
+  store.source = row({ type: 'group', participants: [A], updated_at: '2026-10-20T10:00:00.123458+00:00' });
+  assert.equal((await store.reconcile(CHAT)).status, 'updated');
+  assert.deepEqual(store.mirror.participants, [A]);
+});
+
 test('deletion revokes Firebase access via a tombstone, not a new membership list', async () => {
   const store = fakeStore();
   await store.reconcile(CHAT);
@@ -181,7 +195,7 @@ test('persistent CAS collisions fail closed and require durable retry', async ()
 test('bad source type, UUID, duplicate membership and timestamp are rejected', async () => {
   for (const bad of [
     row({ type: 'dm' }), row({ participants: [A, 'not-a-uuid'] }),
-    row({ participants: [A, A] }), row({ participants: [] }),
+    row({ participants: [A, A] }),
     row({ updated_at: 'not-a-timestamp' }),
   ]) {
     assert.throws(() => normalizeAuthoritativeChat(CHAT, bad), ProjectionError);
