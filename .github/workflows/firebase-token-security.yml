@@ -1,0 +1,26 @@
+name: Firebase token session security
+on:
+  pull_request:
+    paths:
+      - 'supabase/functions/firebase-token/**'
+      - 'supabase/functions/delete-account-secure/**'
+      - '.github/workflows/firebase-token-security.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'supabase/functions/firebase-token/**'
+      - 'supabase/functions/delete-account-secure/**'
+      - '.github/workflows/firebase-token-security.yml'
+permissions:
+  contents: read
+jobs:
+  security:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Verify session revocation and account cleanup boundaries
+        run: node --test supabase/functions/firebase-token/tests/session.test.mjs supabase/functions/delete-account-secure/tests/deletion.test.mjs
