@@ -1,6 +1,6 @@
 # GaGa Chat — Google Play publish runbook
 
-Package: `gagachat.app` · Version 2.8.14 (versionCode 69)
+Package: `gagachat.app` · Version 2.8.15 (versionCode 70), candidate pending sign-off
 Audience: the account owner (Play Console + keystore holder).
 
 This is the end-to-end, console-by-console procedure to take the signed GaGa Chat
@@ -17,12 +17,36 @@ account owner can perform (Play Console login, keystore custody).
 
 ---
 
+## GaGa 2.8.15 RC1: release gates (2026-10-20)
+
+- Source candidate: PR #139; Android and Compose emulator checks passed on
+  commit `9268cf91b6e06c17076663a3c9f1add744144531` before
+  signing-guide integration. Re-run CI against the latest commit.
+- The ordinary Android repair workflow produced **unsigned APK/AAB artifacts**.
+  Development CI success alone does not mean a signed release is available.
+- To produce a **signed** build, choose **Actions → Build approved signed
+  GaGa candidate → Run workflow**, selecting branch
+  `release/gaga-2.8.15-rc1`, *after* installing the approved signing
+  secrets in repository Actions settings. The workflow pins the current Play
+  upload key fingerprint SHA-256
+  `749d2475e3f7999566910df947f43ab91461caad48149d359831465fcfaf03b2`.
+- APKs installed from the historical direct-distribution signer cannot
+  upgrade in place to an APK signed with the new upload key. **Do not modify
+  the live direct-APK update registry or uninstall an existing install before
+  exporting unsynced local-only data.** Keep the old-key APK update channel
+  separate from the new Play upload AAB.
+- After Play enrollment, use the *actual* Play App Signing certificate from
+  **Play Console → App integrity** for production Verified Links. The upload
+  certificate is not automatically the Play App Signing certificate.
+- Never commit a keystore, password or server service-account credential;
+  update private GitHub Actions secrets through authorized settings only.
+
 ## 0. Prerequisites
 
 | Need | Where it comes from |
 | --- | --- |
-| Signed AAB (`GaGa-2.8.14-release.aab`) | Built by this repo (see §1) |
-| Signed APK (`GaGa-2.8.14-release.apk`) | Built by this repo (see §1) |
+| Signed AAB (`GaGa-2.8.15-release.aab`) | Built by this repo (see §1) |
+| Signed APK (`GaGa-2.8.15-release.apk`) | Built by this repo (see §1) |
 | Upload keystore (`gaga-upload.jks`) + passwords | Generated once, held privately (see §2) |
 | Play Console account with "GaGa Chat" app | Owner |
 | Store listing copy + graphics | `android-native/play/` |
@@ -45,13 +69,16 @@ then uploads a 7-day artifact containing the signed APK and AAB.
 
 **Route B — local build.**
 ```bash
+# Run on a trusted workstation. Do not put signing secrets in the command
+# line, shell history, Gradle source, CI logs, or a repository file.
+export GAGA_RELEASE_STORE_FILE=/abs/path/gaga-upload.jks
+export GAGA_RELEASE_KEY_ALIAS=gaga
+# Supply GAGA_RELEASE_STORE_PASSWORD and GAGA_RELEASE_KEY_PASSWORD
+# via your private secret manager without printing their values.
 cd android-native
-./gradlew :app:assembleRelease :app:bundleRelease \
-  -PGAGA_RELEASE_STORE_FILE=/abs/path/gaga-upload.jks \
-  -PGAGA_RELEASE_STORE_PASSWORD=… \
-  -PGAGA_RELEASE_KEY_ALIAS=gaga \
-  -PGAGA_RELEASE_KEY_PASSWORD=…
+./gradlew :app:assembleRelease :app:bundleRelease
 ```
+
 Outputs land in `app/build/outputs/apk/release/` and
 `app/build/outputs/bundle/release/`.
 
@@ -90,10 +117,10 @@ Then record the certificate in `android-native/ci/release-signing-public.json`
 so CI rejects any other key. Register the SHA-1/SHA-256 with Firebase
 (`oumagachat`) so Google sign-in and FCM keep working.
 
-> If you prefer to keep using the existing pinned `gaga` key
-> (`dd6b6f…af13`) as the **upload** key, that is fine too — just install it as the
-> upload key. Play App Signing will still generate its own separate app-signing
-> key on first upload.
+> The authorized upload key for GaGa 2.8.14+ is pinned to
+> `749d2475…faf03b2`. **Do not generate another upload key or substitute**
+> the historical direct-APK signer (`dd6b6f…19af13`): that would be a
+> different certificate and would fail the pinned release check.
 
 ---
 
@@ -149,7 +176,7 @@ Contact: support@gagachat.app · https://gagachat.app.
 ## 6. Internal testing (first upload)
 
 1. Play Console → **Testing → Internal testing → Create new release**.
-2. Upload `GaGa-2.8.14-release.aab`.
+2. Upload `GaGa-2.8.15-release.aab`.
 3. Accept **Play App Signing** (Play generates the app-signing key; keep the
    upload key safe).
 4. Add release notes (from `store-listing.md`, "What's new").
@@ -190,7 +217,7 @@ the new key's certificate. This runbook's fresh-key path applies **only** becaus
 
 - Update `hosting/public/app-updates/android.json` so the `channels.play`
   `versionCode` matches the live Play release (it is `0` until then).
-- Keep the GitHub Releases mirror (`android-2.8.14` / `bundle-2.8.14`) in sync.
+- Keep the GitHub Releases mirror (`android-2.8.15` / `bundle-2.8.15`) in sync.
 - Rotate the exposed `oumagachat` service-account key (see
   `android-native/docs/FIREBASE_PUBLIC_CONFIG_AND_ADMIN_ROTATION.md`).
 
