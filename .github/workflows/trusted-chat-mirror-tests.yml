@@ -39,7 +39,7 @@ jobs:
         with:
           node-version: '24'
       - name: Run trusted projection security, membership, deletion and CAS tests
-        run: node --test supabase/functions/trusted-chat-mirror/tests/provisioner.test.mjs supabase/functions/trusted-chat-mirror-worker/tests/worker.test.mjs
+        run: node --test supabase/functions/trusted-chat-mirror/tests/provisioner.test.mjs supabase/functions/trusted-chat-mirror/tests/http-adapter.test.mjs supabase/functions/trusted-chat-mirror-worker/tests/worker.test.mjs
       - uses: denoland/setup-deno@v2
         with:
           deno-version: v2.x
