@@ -83,7 +83,7 @@ service cloud.firestore {
 
     // ─────────────────── chats (1:1 and groups) ───────────────────
     // Both direct and group conversations live in `chats`; `type` distinguishes
-    // them ("dm" | "group") and `participants` is the authoritative member list.
+    // them ("direct" | "group") and `participants` mirrors Supabase membership.
     match /chats/{chatId} {
       allow read:   if isAuth() && uid() in resource.data.participants;
       // CRITICAL: Supabase is the source of truth for membership.
