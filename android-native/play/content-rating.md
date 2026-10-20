@@ -1,12 +1,13 @@
 # GaGa Chat — Google Play content rating questionnaire (answers)
 
-Package: `gagachat.app` · Version 2.8.14
+Package: `gagachat.app` · Release candidate 2.8.15 (versionCode 70)
 Category: **Communication** · Application type: **Application**
 
-In the Play Console open **App content → Content rating**, choose **All other app
-types** (the questionnaire for apps that are not games), then answer exactly as
-below. The expected outcome is **Everyone / PEGI 3 / IARC 3+** with no
-interactive-element warnings beyond user-generated content.
+In Play Console, complete **App content → Content rating** for the actual
+signed release and answer all displayed questions truthfully. The draft below
+identifies GaGa's currently documented capabilities, not guaranteed questionnaire
+answers or a guaranteed rating. Google Play/IARC determine the classification;
+do not change a truthful answer to obtain a lower age rating.
 
 ---
 
@@ -36,7 +37,7 @@ interactive-element warnings beyond user-generated content.
 
 ## Interactive elements (the checkboxes Play derives from your answers)
 
-Play will ask you to confirm these interactive-element flags. Tick exactly:
+If these interactive-element questions appear, review the actual release and declare relevant capabilities:
 
 - [x] **Users interact** — messaging, calling, and media sharing between users.
 - [x] **Shares location** — the user can send their location.
@@ -58,16 +59,15 @@ Play will ask you to confirm these interactive-element flags. Tick exactly:
 
 ---
 
-## Expected result
+## Final rating gate
 
-| Rating board | Expected rating |
-| --- | --- |
-| IARC generic | 3+ |
-| ESRB | Everyone |
-| PEGI | 3 |
-| USK | 0 |
-| ACB | G |
+- [ ] App owner submits the actual questionnaire in Play Console and records
+  the resulting regional age ratings and any interactive elements.
+- [ ] Check the moderation/report/block user journeys on a real Android device.
+- [ ] Review any content classification questions that depend on features not
+  in the signed APK, including potential shopping, payments, public feeds
+  or unrestricted web content.
+- [ ] If Play assigns a different rating, investigate any inaccurate
+  declarations, **do not** change truthful answers merely to lower it.
 
-If Play returns anything higher, re-check answers #2/#8 (user interaction is the
-only reason a messenger can be rated above 3+), and confirm that "digital
-purchases" and "advertising" are both **No**.
+This document cannot predict or certify the rating awarded by Google Play/IARC.
