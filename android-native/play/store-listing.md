@@ -25,10 +25,10 @@ _(27 characters)_
 ## Short description (max 80 characters)
 
 ```
-Messages, voice and video calls, location sharing and daily planning for Android.
+Messages, voice and video calls, location sharing and daily plans.
 ```
 
-_(Check final length in Play Console; must be 80 characters or fewer.)_
+_(65 characters; recheck in Play Console.)_
 
 ## Full description (max 4000 characters)
 
