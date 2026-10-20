@@ -1,0 +1,28 @@
+name: Supabase migration inventory guard
+on:
+  pull_request:
+    paths:
+      - 'supabase/migrations/**'
+      - 'supabase/tests/**'
+      - '.github/workflows/supabase-migration-audit.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'supabase/migrations/**'
+      - 'supabase/tests/**'
+      - '.github/workflows/supabase-migration-audit.yml'
+permissions:
+  contents: read
+jobs:
+  inventory:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Compare source migrations against the audited metadata baseline
+        run: python3 supabase/tests/verify_live_migration_inventory.py
+      - name: Verify drift guard fail-closed behavior
+        run: python3 -m unittest discover -s supabase/tests -p 'test_verify_live_migration_inventory.py' -v

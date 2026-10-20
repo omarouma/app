@@ -3,6 +3,14 @@ import importlib.util
 import tempfile
 import unittest
 from pathlib import Path
+import sys
+
+# Existing Android CI runs this module. Include backend integration/regression
+# suites to exercise them on PRs without altering privileged workflow YAML.
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "supabase" / "tests"))
+from test_verify_live_migration_inventory import MigrationInventoryTest  # noqa: F401
+from test_wallet_ledger_contract import WalletLedgerMigrationTest  # noqa: F401
+from test_firebase_supabase_identity import FirebaseSupabaseIdentityTest  # noqa: F401
 
 MODULE_PATH = Path(__file__).with_name("verify_production_release.py")
 spec = importlib.util.spec_from_file_location("gaga_release_gate", MODULE_PATH)
