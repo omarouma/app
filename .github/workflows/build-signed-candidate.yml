@@ -24,6 +24,9 @@ jobs:
         with:
           gradle-version: '8.11.1'
 
+      - name: Test AAB signature rejection cases
+        run: python3 -m unittest discover -s android-native/ci -p 'test_verify_aab_signature.py' -v
+
       - name: Restore approved keystore and verify certificate before building
         env:
           GAGA_RELEASE_KEYSTORE_BASE64: ${{ secrets.GAGA_RELEASE_KEYSTORE_BASE64 }}
@@ -86,7 +89,7 @@ jobs:
           cert=subprocess.check_output(["keytool","-printcert","-jarfile",str(aab)],text=True)
           match=re.search(r"SHA256: ([0-9A-F:]+)",cert)
           assert match and match.group(1).replace(":","").lower()==expected, "AAB certificate mismatch"
-          subprocess.run(["jarsigner","-verify",str(aab)],check=True,stdout=subprocess.DEVNULL)
+          subprocess.run(["python3",str(root/"ci/verify_aab_signature.py"),str(aab)],check=True)
           info=subprocess.check_output([str(tools/"aapt"),"dump","badging",str(apk)],text=True)
           assert "name='gagachat.app'" in info and f"versionCode='{code}'" in info and f"versionName='{version}'" in info, "App identity mismatch"
           outputs=[]
