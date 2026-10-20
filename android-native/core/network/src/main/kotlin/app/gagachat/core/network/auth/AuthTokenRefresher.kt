@@ -127,6 +127,20 @@ class AuthTokenRefresher @Inject constructor(
 internal fun isRealtimeUpgradePath(path: String): Boolean =
     path == "/realtime/v1/websocket"
 
+/**
+ * The gateway's WebSocket Upgrade uses the public API-key query parameter;
+ * authenticated Phoenix joins carry the user JWT separately after upgrade.
+ * Even if another caller put an Authorization header on the request, strip it
+ * at this exact transport boundary. Preserve the header on all other routes,
+ * including authenticated Realtime REST broadcast and chat APIs.
+ */
+internal fun stripRealtimeUpgradeAuthorization(request: Request): Request =
+    if (isRealtimeUpgradePath(request.url.encodedPath)) {
+        request.newBuilder().removeHeader("Authorization").build()
+    } else {
+        request
+    }
+
 class AuthTokenInterceptor(
     private val refresher: AuthTokenRefresher,
     private val config: SupabaseConfig,
@@ -138,7 +152,7 @@ class AuthTokenInterceptor(
         // WebSocket upgrade carries only the validated public apikey query
         // parameter. Authenticated row access remains JWT-gated via phx_join.
         if (isRealtimeUpgradePath(request.url.encodedPath)) {
-            return chain.proceed(request)
+            return chain.proceed(stripRealtimeUpgradeAuthorization(request))
         }
         if (config.url.isBlank() || !url.startsWith(config.url) || url.contains("/auth/v1/")) {
             return chain.proceed(request)
