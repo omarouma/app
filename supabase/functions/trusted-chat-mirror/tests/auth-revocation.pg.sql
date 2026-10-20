@@ -15,6 +15,15 @@ end
 $auth_denied$;
 
 select set_config('request.jwt.claims','{"role":"service_role"}',false);
+do $mirror_off$
+begin
+  perform public.gaga_mirror_authorized_chat('preflight-clean');
+  raise exception 'Disabled mirror still exposed eligible participants';
+exception when insufficient_privilege then null;
+end
+$mirror_off$;
+update gaga_private.firebase_mirror_settings
+set enabled=true, updated_at=now() where singleton=true;
 do $auth_before$
 declare r record;
 begin
@@ -35,8 +44,6 @@ end
 $auth_before$;
 
 -- Trigger-driven revocation, with old chat rows deliberately retained.
-update gaga_private.firebase_mirror_settings
-set enabled=true, updated_at=now() where singleton=true;
 update auth.users set deleted_at=now()
 where id='22222222-2222-4222-8222-222222222222';
 do $auth_soft_deleted$
@@ -77,7 +84,7 @@ $auth_deleted$;
 update gaga_private.firebase_mirror_settings
 set enabled=false, updated_at=now() where singleton=true;
 truncate table gaga_private.firebase_chat_sync_outbox;
-delete from auth.users where id='33333333-3333-4333-8333-333333333333';
+delete from auth.users where id='22222222-2222-4222-8222-222222222222';
 do $auth_off$
 begin
   if exists (select 1 from gaga_private.firebase_chat_sync_outbox) then
