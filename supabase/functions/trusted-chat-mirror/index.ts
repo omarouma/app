@@ -77,12 +77,17 @@ async function googleAccessToken() {
 }
 
 async function loadChat(chatId: string) {
-  const endpoint = new URL(`${url}/rest/v1/chats`);
-  endpoint.searchParams.set('select', 'id,type,participants,updated_at');
-  endpoint.searchParams.set('id', `eq.${chatId}`);
-  endpoint.searchParams.set('limit', '2');
-  const response = await fetch(endpoint.toString(), {
-    headers: { apikey: service, Authorization: `Bearer ${service}` },
+  // Only the security-definer, service_role-only RPC may read eligible members.
+  // It joins Supabase Auth accounts and filters hard/soft-deleted identities.
+  // Plain SELECT from public.chats could re-authorize an orphan Firebase UID.
+  const response = await fetch(`${url}/rest/v1/rpc/gaga_mirror_authorized_chat`, {
+    method: 'POST',
+    headers: {
+      apikey: service,
+      Authorization: `Bearer ${service}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ p_chat_id: chatId }),
     signal: AbortSignal.timeout(9000),
   });
   if (!response.ok) throw new ProjectionError('SUPABASE_CHAT_QUERY_FAILED');
