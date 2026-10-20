@@ -88,9 +88,15 @@ export function makeReconciler({ loadChat, readMirror, writeMirror, clock = () =
       if (source && isCurrent(current, source)) {
         return { status: 'unchanged', attempts: attempt + 1 };
       }
-      // When an older event executes after a newer committed projection,
-      // keep the newer doc. This compares PostgreSQL sub-millisecond stamps.
-      if (source && current?.sourceUpdatedAt &&
+      // A stale source version must not *grant* old access over a newer
+      // projection. But if the new authorized source has removed a member,
+      // revocation must still proceed even when Firestore's chat timestamp
+      // is newer (e.g. Supabase Auth deletion does not update chat.updated_at).
+      // Otherwise a residual Firebase Auth identity could retain chat access.
+      const currentHasRevokedMember = source && current?.participants?.some(
+        uid => !source.participants.includes(uid)
+      );
+      if (source && !currentHasRevokedMember && current?.sourceUpdatedAt &&
           stampNano(current.sourceUpdatedAt) > stampNano(source.sourceUpdatedAt)) {
         return { status: 'newer_mirror_kept', attempts: attempt + 1 };
       }
