@@ -1,0 +1,23 @@
+name: GaGa Trusted Firebase Provisioner Tests
+
+on:
+  pull_request:
+    paths:
+      - 'supabase/functions/mirror-chat-authoritative/**'
+      - '.github/workflows/firebase-chat-provisioner.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  provisioner-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Run isolated membership and identity tests
+        run: node --experimental-strip-types --test supabase/functions/mirror-chat-authoritative/tests/handler.test.mjs
