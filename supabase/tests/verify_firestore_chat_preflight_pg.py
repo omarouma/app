@@ -36,7 +36,7 @@ def main() -> None:
         raise RuntimeError("Preflight must remain a read-only SELECT-only audit")
     statements = [part.strip() for part in source.split(";") if part.strip()]
     if len(statements) != 3 or any(
-        not re.match(r"^(select|with)\\b", stmt, re.I) for stmt in statements
+        not re.match(r"^(select|with)\b", stmt, re.I) for stmt in statements
     ):
         raise RuntimeError("Preflight must contain exactly three SELECT/CTE queries")
     psql("-f", str(FIXTURE))
