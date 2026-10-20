@@ -154,6 +154,28 @@ test('trusted membership removal denies a removed user without affecting remaini
   await assertSucceeds(getDoc(doc(client('alice'), 'chats/verified/messages/older')));
 });
 
+test('trusted zero-member update denies chat and older messages, including former members', async () => {
+  await trustedSeed('chats/verified', {
+    participants: ['alice', 'bob'], type: 'group', updatedAt: 1,
+  });
+  await trustedSeed('chats/verified/messages/older', {
+    senderId: 'alice', type: 'text', text: 'Earlier message', createdAt: 1,
+  });
+  await assertSucceeds(getDoc(doc(client('alice'), 'chats/verified/messages/older')));
+  await env.withSecurityRulesDisabled(async trusted => {
+    await updateDoc(doc(trusted.firestore(), 'chats/verified'), {
+      participants: [], sourceUpdatedAt: '2026-10-20T13:30:00Z', updatedAt: 2,
+    });
+  });
+  for (const uid of ['alice', 'bob']) {
+    await assertFails(getDoc(doc(client(uid), 'chats/verified')));
+    await assertFails(getDoc(doc(client(uid), 'chats/verified/messages/older')));
+    await assertFails(setDoc(doc(client(uid), 'chats/verified/messages/intrusion'), {
+      senderId: uid, type: 'text', text: 'Not authorized', createdAt: 3,
+    }));
+  }
+});
+
 test('trusted tombstone revokes access to chat and nested messages for every prior member', async () => {
   await trustedSeed('chats/verified', {
     participants: ['alice', 'bob'], type: 'direct', updatedAt: 1,
