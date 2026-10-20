@@ -5,7 +5,7 @@
  *   npm install --prefix firebase --no-audit --no-fund
  *   firebase/node_modules/.bin/firebase emulators:exec \
  *     --project demo-gaga-security-tests --only firestore \
- *     --config firebase/emulator.json \
+ *     --config firebase.json \
  *     "node --test firebase/tests/firestore.rules.emulator.test.mjs"
  *
  * Test contexts cannot access live Firebase or Supabase resources.
