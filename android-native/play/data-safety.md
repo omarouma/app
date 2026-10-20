@@ -1,13 +1,22 @@
 # GaGa Chat — Google Play Data safety form (answers)
 
-Package: `gagachat.app` · Version: 2.8.14 (versionCode 69)
+Package: `gagachat.app` · Release candidate: 2.8.15 (versionCode 70)
 Grounded in: `hosting/public/privacy.html` (updated 17 Oct 2026), the app's
 `AndroidManifest.xml` permissions, and the actual data flows in
 `core/network`, `core/data`, and the Supabase backend.
 
-Fill the Play Console **App content → Data safety** section exactly as below.
-Every answer must stay truthful; if a data type is not actually collected, do
-**not** declare it, and if it is collected, it must be declared.
+**Draft for operator review, not a certified final declaration.** Complete
+Play Console **App content → Data safety** only after testing the precise signed
+2.8.15 package and verifying actual Firebase/Supabase/analytics data flows.
+If a data type is not collected, do not declare it; if it is, declare it.
+Do not silently reuse older 2.8.14 answers without checking for changes.
+
+Before submitting, recheck especially: whether phone number is *required* for
+the actual signup path, whether app diagnostics and analytics are collected,
+any sharing with third-party processors, encryption in transit, account/data
+deletion URL `https://gagachat.app/delete-account` (only after hosting deployment
+and mailbox validation), and the retention/disclosure period. The table below
+documents previous assumptions; it is not evidence of live reviewer approval.
 
 ---
 
