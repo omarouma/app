@@ -60,7 +60,23 @@ backend and never inferred from user-controlled Firestore documents.
 ## Safe rollout sequence
 
 1. Run `python3 -m unittest discover -s firebase/tests -p 'test_*.py'`.
-2. Run Firebase Emulator Suite allow/deny tests on the candidate rules.
+2. Run the **real Firestore Rules emulator** allow/deny suite in the
+   independently isolated project `demo-gaga-security-tests`:
+
+   ```bash
+   npm install --prefix firebase --no-audit --no-fund
+   firebase/node_modules/.bin/firebase emulators:exec \
+     --project demo-gaga-security-tests --only firestore \
+     --config firebase/emulator.json \
+     "node --test firebase/tests/firestore.rules.emulator.test.mjs"
+   ```
+
+   The test suite is defined in `firebase/tests/firestore.rules.emulator.test.mjs`,
+   and the CI workflow at `.github/workflows/firebase-security-rules.yml` runs
+   it automatically on matching PR updates. The tests use mocked Firebase
+   identities and bypass rules **only to seed server-authored test records**.
+   They do not access production projects, credentials or user data.
+
 3. Verify the Firebase project's certificate registrations, IAM key rotation,
    and FCM dry-run send before deploying any new Firebase Auth bridge code.
 4. Deploy **Firestore rules only** through an authorized Firebase console or
