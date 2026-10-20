@@ -17,7 +17,7 @@
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? '';
 const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
-const FIREBASE_PROJECT_ID = Deno.env.get('FIREBASE_PROJECT_ID') ?? 'oumagachat';
+const FIREBASE_PROJECT_ID = (Deno.env.get('FIREBASE_PROJECT_ID') ?? '').trim();
 const FIREBASE_CLIENT_EMAIL = Deno.env.get('FIREBASE_CLIENT_EMAIL') ?? '';
 // Secret env vars store the PEM with literal "\n"; normalise to real newlines.
 const FIREBASE_PRIVATE_KEY = (Deno.env.get('FIREBASE_PRIVATE_KEY') ?? '').replace(/\\n/g, '\n');
@@ -127,13 +127,20 @@ Deno.serve(async (req: Request) => {
     return json(req, { error: 'METHOD_NOT_ALLOWED' }, 405);
   }
 
+  // Do not silently mint a token using a hardcoded Firebase project.
+  // The selected project must be provided by the authorized runtime and match
+  // the Firebase project shipped in the Android google-services.json.
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+    return json(req, { error: 'SUPABASE_NOT_CONFIGURED' }, 503);
+  }
+  if (!/^[a-z][a-z0-9-]{4,29}$/.test(FIREBASE_PROJECT_ID) ||
+      !FIREBASE_CLIENT_EMAIL || !FIREBASE_PRIVATE_KEY) {
+    return json(req, { error: 'FIREBASE_NOT_CONFIGURED' }, 503);
+  }
+
   const callerId = await authenticate(req);
   if (!callerId) {
     return json(req, { error: 'UNAUTHORIZED', message: 'A valid Supabase session is required.' }, 401);
-  }
-
-  if (!FIREBASE_CLIENT_EMAIL || !FIREBASE_PRIVATE_KEY) {
-    return json(req, { error: 'FIREBASE_NOT_CONFIGURED' }, 500);
   }
 
   // The Firebase uid MUST equal the Supabase uid so the security rules line up.
