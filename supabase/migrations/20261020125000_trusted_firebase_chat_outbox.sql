@@ -45,11 +45,11 @@ begin
     if tg_op = 'DELETE' then return old; end if;
     return new;
   end if;
-  insert into gaga_private.firebase_chat_sync_outbox
+  insert into gaga_private.firebase_chat_sync_outbox as q
     (chat_id, revision, attempts, enqueued_at, next_attempt_at)
   values (v_chat_id, 1, 0, now(), now())
   on conflict (chat_id) do update
-    set revision = gaga_private.firebase_chat_sync_outbox.revision + 1,
+    set revision = q.revision + 1,
         attempts = 0,
         enqueued_at = now(),
         next_attempt_at = now(),
