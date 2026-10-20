@@ -6,7 +6,7 @@ on:
       - 'firestore.rules'
       - 'firebase/tests/**'
       - 'firebase/package.json'
-      - 'firebase/emulator.json'
+      - 'firebase.json'
       - '.github/workflows/firebase-security-rules.yml'
   workflow_dispatch:
 
@@ -41,5 +41,5 @@ jobs:
           firebase/node_modules/.bin/firebase emulators:exec \
             --project demo-gaga-security-tests \
             --only firestore \
-            --config firebase/emulator.json \
+            --config firebase.json \
             "node --test firebase/tests/firestore.rules.emulator.test.mjs"
