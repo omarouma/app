@@ -44,9 +44,11 @@ globalThis.fetch = async (uri, init = {}) => {
     return Response.json({ access_token: 'local-oauth-mock', expires_in: 3600 });
   }
   if (url.hostname === 'fcjgbbmfqdkucfpqjxae.supabase.co' &&
-      url.pathname === '/rest/v1/chats') {
+      url.pathname === '/rest/v1/rpc/gaga_mirror_authorized_chat') {
+    assert.equal(init.method, 'POST');
     assert.equal(init.headers.Authorization, `Bearer ${SERVICE}`);
-    assert.equal(url.searchParams.get('id'), `eq.${CHAT}`);
+    assert.deepEqual(JSON.parse(init.body), { p_chat_id: CHAT });
+    // Represents only Auth-active membership returned by service_role RPC.
     return Response.json(source ? [source] : []);
   }
   if (url.hostname === 'firestore.googleapis.com' &&
@@ -104,6 +106,18 @@ test('second sync is idempotent and uses no additional Firestore PATCH', async (
   const result = await send();
   assert.equal((await result.json()).status, 'unchanged');
   assert.equal(observed.filter(item => item.path.endsWith('/chats/' + CHAT) && item.method === 'PATCH').length, before);
+});
+
+test('service RPC projection removes a formerly active Auth member before Firebase write', async () => {
+  source = {
+    ...source, participants: [A],
+    updated_at: '2026-10-20T12:30:00.111112+00:00',
+  };
+  const result = await send();
+  assert.equal((await result.json()).status, 'updated');
+  assert.deepEqual(firestore.fields.participants.arrayValue.values.map(v => v.stringValue), [A]);
+  assert.equal(observed.some(item => item.path === '/rest/v1/chats'), false);
+  assert.equal(observed.some(item => item.path === '/rest/v1/rpc/gaga_mirror_authorized_chat'), true);
 });
 
 test('authorized server-only sync removes revoked group members with CAS precondition', async () => {
