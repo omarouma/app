@@ -107,10 +107,15 @@ test('deletion revokes Firebase access via a tombstone, not a new membership lis
     e instanceof ProjectionError && e.code === 'CHAT_ID_TOMBSTONED' && e.status === 409);
 });
 
-test('missing chat and missing Firebase doc is no-op; failed source query never revokes', async () => {
+test('verified missing chat creates a tombstone even before mirror exists', async () => {
   const store = fakeStore(null);
-  assert.equal((await store.reconcile(CHAT)).status, 'absent');
-  assert.equal(store.writes.length, 0);
+  assert.equal((await store.reconcile(CHAT)).status, 'revoked');
+  assert.equal(store.writes.length, 1);
+  assert.equal(store.mirror.mirrorDeleted, true);
+  assert.deepEqual(store.mirror.participants, []);
+});
+
+test('failed Supabase source query never revokes Firebase users', async () => {
   const errors = makeReconciler({
     loadChat: async () => { throw new Error('network failure'); },
     readMirror: async () => ({ participants: [A, B], type: 'direct' }),
