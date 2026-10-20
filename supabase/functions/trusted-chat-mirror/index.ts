@@ -3,7 +3,8 @@
 //
 // Deploy ONLY after Firebase IAM credential rotation, negative authorization
 // tests, and reviewed source-of-truth sync triggers or a durable retry queue.
-//   supabase functions deploy trusted-chat-mirror --no-verify-jwt
+// Do not disable the Supabase gateway JWT check. A trusted service caller
+// must additionally pass the function's exact service-role bearer check.
 //
 // The function rejects all requests except POST with exact bearer service
 // role authorization. Do not call it from the Android application.
