@@ -6,6 +6,7 @@ on:
       - 'supabase/functions/trusted-chat-mirror/**'
       - 'supabase/functions/trusted-chat-mirror-worker/**'
       - 'supabase/migrations/*trusted_firebase_chat_outbox.sql'
+      - 'supabase/migrations/*mirror_active_auth_membership.sql'
       - 'supabase/tests/firestore_chat_mirror_preflight.sql'
       - 'supabase/tests/verify_firestore_chat_preflight_pg.py'
       - '.github/workflows/trusted-chat-mirror-tests.yml'
@@ -62,3 +63,8 @@ jobs:
           PGDATABASE: mirror_contracts
           PGPASSWORD: gaga-ci-ephemeral-only
         run: python3 supabase/tests/verify_firestore_chat_preflight_pg.py
+      - name: Validate active-Auth-only projection and account deletion outbox
+        env:
+          PGPASSWORD: gaga-ci-ephemeral-only
+        run: |
+          psql -h 127.0.0.1 -U postgres -d mirror_contracts -v ON_ERROR_STOP=1 -f supabase/functions/trusted-chat-mirror/tests/auth-revocation.pg.sql
