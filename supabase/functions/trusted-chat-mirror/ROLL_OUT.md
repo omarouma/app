@@ -13,8 +13,11 @@ application. It preserves the primary Supabase messaging and FCM flows.
 - `trusted-chat-mirror` accepts **only POST** `{"chat_id":"..."}`
   authenticated with the exact server Supabase service-role bearer. It
   **rejects** body-supplied participant lists, chat types, and Firebase paths.
-- After authorization, the server reads the latest `id,type,participants,
-  updated_at` from Supabase. The production chat types are **`direct` and
+- After authorization, the server reads the latest
+  `id,type,participants,updated_at` through the service-role-only
+  `gaga_mirror_authorized_chat` RPC. This joins Supabase Auth and **excludes
+  soft/hard-deleted Auth identities** before writing Firebase. No client
+  may override membership. The production types are **`direct` and
   `group`**, not `dm` and `group`.
 - A *separate, newly rotated* Google service account requests an OAuth token
   with the `datastore` scope. Firestore REST writes use document-update-time
@@ -26,7 +29,9 @@ application. It preserves the primary Supabase messaging and FCM flows.
   on Firestore until an independent, privacy-reviewed retention cleanup, but
   the rules prohibit reading them once parent membership is removed.
 - The private outbox migration installs insert, authoritative membership/type
-  update, and delete triggers. All are gated by
+  update, and chat-delete triggers. The additional
+  `20261020142000_mirror_active_auth_membership.sql` migration provides an
+  active-Auth-only source RPC plus hard/soft Auth-delete requeue triggers. All are gated by
   `gaga_private.firebase_mirror_settings.enabled=false` by default.
   Server-only claim/finish RPCs use short leases, row locks, revision checks,
   exponential retries and exact `service_role` checks.
@@ -87,10 +92,11 @@ automatic instructions to delete users, messages or chats.
 
 A terminated Supabase account can still have an independently valid Firebase
 identity if cross-provider deletion was not completed. Mirroring its stale
-participant ID may restore unintended Firebase access. The current server
-reads `public.chats.participants` without cross-checking each entry against
-`auth.users`; even a successfully executed projection therefore does **not**
-prove Firebase entitlement is current. Track account deletion in issue #148.
+participant ID may restore unintended Firebase access. The new source-only patch filters deleted Supabase Auth identities using
+the service-only RPC, and enqueues a reconciliation on Supabase Auth deletion.
+**Neither migration nor the two Edge Functions is deployed**, and eventual
+queue processing does not synchronously revoke Firebase reads. Historical
+Firebase identities and cross-provider deletion remain unresolved in #148.
 
 Before enabling *any* isolated staging mirror or enqueuing historical chats:
 
@@ -200,8 +206,9 @@ CI workflow: `.github/workflows/trusted-chat-mirror-tests.yml`.
 
 - Pure contract/unit tests use fake Supabase/Firebase endpoints; these tests
   never mutate production data or test Google OAuth credentials.
-- The **ephemeral PostgreSQL 17 CI** suite exercises the migration's SQL,
-  triggers, ACLs, leases, revision fencing, retry and deletion behavior.
+- The **ephemeral PostgreSQL 17 CI** suite exercises both migrations' SQL,
+  active-Auth filtering, hard/soft-deletion triggers, ACLs, leases, revision
+  fencing, retry and chat-deletion behavior.
   This does **not** validate migration compatibility with the production
   schema or a real Supabase staging environment.
 - Privileged RPC authorization reads the verified PostgREST
