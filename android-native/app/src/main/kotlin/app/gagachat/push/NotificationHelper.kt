@@ -36,6 +36,7 @@ object NotificationHelper {
         isGroup: Boolean = false,
         soundEnabled: Boolean = true,
         notificationsEnabled: Boolean = true,
+        retainHistory: Boolean = false,
         notificationId: Int = conversationId.hashCode(),
     ) {
         if (!notificationsEnabled) return
@@ -51,18 +52,41 @@ object NotificationHelper {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
 
+        val style = NotificationCompat.MessagingStyle(
+            androidx.core.app.Person.Builder().setName("You").build(),
+        ).setGroupConversation(isGroup)
+        // Keep a bounded stack of prior messages from this exact chat.
+        // Never restore old full-text previews when the current device is
+        // locked or previews have been changed to sender-only/hidden.
+        if (retainHistory && android.os.Build.VERSION.SDK_INT >= 23) {
+            runCatching {
+                context.getSystemService(NotificationManager::class.java)
+                    ?.activeNotifications
+                    ?.firstOrNull { it.id == notificationId }
+                    ?.notification
+                    ?.let(NotificationCompat.MessagingStyle::extractMessagingStyleFromNotification)
+                    ?.messages
+                    ?.takeLast(5)
+                    ?.forEach { style.addMessage(it) }
+            }
+        }
+        style.addMessage(
+            body,
+            System.currentTimeMillis(),
+            androidx.core.app.Person.Builder().setName(title).build(),
+        )
         val builder = NotificationCompat.Builder(context, channel)
             .setSmallIcon(R.drawable.ic_notification)
             .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
             .setPublicVersion(privatePreview(context, channel))
             .setContentTitle(title)
             .setContentText(body)
-            .setStyle(NotificationCompat.BigTextStyle().bigText(body))
+            .setStyle(style)
             .setAutoCancel(true)
             .setCategory(if (isGroup) NotificationCompat.CATEGORY_SOCIAL else NotificationCompat.CATEGORY_MESSAGE)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setContentIntent(pending)
-            .setGroup(GROUP_KEY_MESSAGES)
+            .setGroup("gaga_chat_$notificationId")
         if (!soundEnabled) builder.setSilent(true)
 
         post(context, notificationId, builder.build())
@@ -289,5 +313,4 @@ object NotificationHelper {
     private fun systemManager(context: Context): NotificationManager? =
         context.getSystemService(NotificationManager::class.java)
 
-    private const val GROUP_KEY_MESSAGES = "gaga_messages_group"
 }

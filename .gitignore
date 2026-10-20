@@ -27,6 +27,11 @@ google-services.json
 firebase-admin.json
 GoogleService-Info.plist
 *.jks
+*.p12
+*.pfx
+*.pkcs12
+GAGA_RELEASE_KEYSTORE_BASE64.txt
+GAGA_RELEASE_KEYSTORE_BASE64*.txt
 *.keystore
 keystore.properties
 .env

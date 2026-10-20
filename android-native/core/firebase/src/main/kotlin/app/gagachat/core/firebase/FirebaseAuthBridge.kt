@@ -8,6 +8,27 @@ import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
 /**
+ * Cross-check a short-lived Firebase custom token response against both
+ * authorities: the signed-in Supabase user and the Firebase project actually
+ * installed in this APK. Fail closed on missing project information, rather
+ * than signing an unsuspecting user into a different Firebase project.
+ * This checks response metadata, not the token's cryptographic signature:
+ * Firebase Auth validates that signature when exchanging the custom token.
+ */
+internal fun isExpectedFirebaseIdentity(
+    expectedUid: String,
+    installedProjectId: String?,
+    mintedUid: String,
+    mintedProjectId: String?,
+    customToken: String,
+): Boolean =
+    expectedUid.isNotBlank() &&
+    mintedUid == expectedUid &&
+    !installedProjectId.isNullOrBlank() &&
+    mintedProjectId == installedProjectId &&
+    customToken.isNotBlank()
+
+/**
  * Bridges the Supabase session into a Firebase Auth session so that
  * `FirebaseAuth.currentUser.uid == Supabase userId`.
  *
@@ -33,7 +54,14 @@ class FirebaseAuthBridge @Inject constructor(
         if (current != null) runCatching { auth.signOut() }
 
         val minted = tokenClient.mint().getOrNull() ?: return false
-        if (minted.uid != expectedUid) return false
+        if (!isExpectedFirebaseIdentity(
+                expectedUid = expectedUid,
+                installedProjectId = environment.projectId,
+                mintedUid = minted.uid,
+                mintedProjectId = minted.projectId,
+                customToken = minted.customToken,
+            )
+        ) return false
 
         return runCatching {
             val result = auth.signInWithCustomToken(minted.customToken).awaitResult()

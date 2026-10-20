@@ -31,32 +31,31 @@ class FirestoreChatMirror @Inject constructor(
     )
 
     /**
-     * Creates the Firebase chat mirror once, then refreshes only its derived
-     * timestamp. Membership/type remain authoritative in Supabase and therefore
-     * are never expanded by a client-side mirror write after creation.
+     * Only refresh metadata on an EXISTING trusted Firestore chat mirror.
+     * The old client-created chats/{id} document with client-supplied
+     * participants could be forged: Supabase alone knows authorized members.
+     * New mirrored chats must instead be provisioned by a trusted backend
+     * after checking membership in Supabase (not implemented yet).
+     * Until that server provisioner exists, hybrid transport remains OFF
+     * by default. Ordinary Supabase messaging remains unaffected.
      */
     suspend fun ensureChat(conversationId: String, participants: List<String>, type: String) {
-        if (!enabled) return
+        if (!enabled || conversationId.isBlank()) return
         val db = environment.firestore ?: return
         runCatching {
             val ref = db.collection("chats").document(conversationId)
             val snapshot = ref.get().awaitResult()
-            if (!snapshot.exists()) {
-                val cleaned = participants.filter { it.isNotBlank() }.distinct()
-                if (cleaned.isEmpty()) return@runCatching
-                ref.set(
-                    mapOf(
-                        "type" to type,
-                        "participants" to cleaned,
-                        "updatedAt" to FieldValue.serverTimestamp(),
-                    ),
-                ).awaitResult()
-            } else {
-                ref.set(
-                    mapOf("updatedAt" to FieldValue.serverTimestamp()),
-                    SetOptions.merge(),
-                ).awaitResult()
+            if (!snapshot.exists()) return@runCatching
+            val existingMembers = (snapshot.get("participants") as? List<*>)
+                ?.filterIsInstance<String>()?.toSet() ?: return@runCatching
+            val expectedMembers = participants.filter { it.isNotBlank() }.toSet()
+            if (existingMembers != expectedMembers || snapshot.getString("type") != type) {
+                return@runCatching
             }
+            ref.set(
+                mapOf("updatedAt" to FieldValue.serverTimestamp()),
+                SetOptions.merge(),
+            ).awaitResult()
         }
     }
 

@@ -62,8 +62,9 @@ class CallSoundPlayer @Inject constructor(
     /** Starts the looping incoming ringtone (no-op if already ringing). */
     fun startIncoming(conversationId: String? = null) {
         notificationId = conversationId?.hashCode()?.plus(1)
-        // The screen now owns ringing; cancel the notification's one-shot tone.
-        notificationId?.let { context.getSystemService(android.app.NotificationManager::class.java)?.cancel(it) }
+        // Keep the incoming-call notification visible while GaGa is ringing:
+        // cancelling it here removed the user's lock-screen/reopen affordance.
+        // stop() clears the notification when the invite ends.
         start(CallTone.INCOMING)
     }
 
@@ -110,9 +111,19 @@ class CallSoundPlayer @Inject constructor(
             .getOrDefault(true)
         val vibrationEnabled = runCatching { settingsPreferences.callVibrationEnabled.first() }
             .getOrDefault(true)
+        // Disabling incoming-call notifications must also silence the in-app
+        // ringtone/vibration. Outgoing ringback is intentional call feedback,
+        // not an unsolicited notification, so it remains independently managed.
+        val incomingAlertsEnabled = if (tone == CallTone.INCOMING) {
+            runCatching {
+                settingsPreferences.notificationsEnabled.first() &&
+                    settingsPreferences.callNotificationsEnabled.first()
+            }.getOrDefault(false)
+        } else true
 
         // Preferences suspend: an answer or cancellation may have arrived meanwhile.
         if (active != tone || generation.get() != request) return
+        if (!incomingAlertsEnabled) return
 
         val ringerMode = audioManager?.ringerMode ?: AudioManager.RINGER_MODE_NORMAL
         val silent = ringerMode == AudioManager.RINGER_MODE_SILENT
@@ -124,8 +135,12 @@ class CallSoundPlayer @Inject constructor(
         val audible = tone == CallTone.OUTGOING || (!silent && !vibrateOnly && !dnd)
         if (soundsEnabled && audible) {
             // LiveKit already owns communication focus after outgoing connect.
-            if (tone == CallTone.INCOMING) requestAudioFocus()
-            startMediaPlayer(tone)
+            // Do not play over an alarm or another call if Android denies
+            // ringtone audio focus. Outgoing ringback uses the call's own
+            // communication audio focus, already held by LiveKit.
+            if (tone != CallTone.INCOMING || requestAudioFocus()) {
+                startMediaPlayer(tone)
+            }
         }
         if (tone == CallTone.INCOMING && vibrationEnabled && !silent && !dnd) {
             startVibration()
@@ -161,9 +176,9 @@ class CallSoundPlayer @Inject constructor(
         }
     }
 
-    private fun requestAudioFocus() {
-        val am = audioManager ?: return
-        runCatching {
+    private fun requestAudioFocus(): Boolean {
+        val am = audioManager ?: return false
+        return runCatching {
             val attrs = AudioAttributes.Builder()
                 .setUsage(AudioAttributes.USAGE_NOTIFICATION_RINGTONE)
                 .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
@@ -180,9 +195,14 @@ class CallSoundPlayer @Inject constructor(
                     }
                 }
                 .build()
-            am.requestAudioFocus(request)
-            focusRequest = request
-        }
+            val result = am.requestAudioFocus(request)
+            if (result == AudioManager.AUDIOFOCUS_REQUEST_GRANTED) {
+                focusRequest = request
+                true
+            } else {
+                false
+            }
+        }.getOrDefault(false)
     }
 
     private fun startVibration() {
