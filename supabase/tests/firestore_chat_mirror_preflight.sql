@@ -69,7 +69,13 @@ select
       select array_agg(distinct x order by x)
       from unnest(group_membership) as x
     )
-  ) as roster_group_divergence
+  ) as roster_group_divergence,
+  (
+    select count(*)
+    from public.chats cg
+    left join public.groups gg on gg.id::text = cg.id
+    where cg.type = 'group' and gg.id is null
+  ) as group_chats_without_group_record
 from joined;
 
 -- Permission-sensitive security check: run only using the authorized
