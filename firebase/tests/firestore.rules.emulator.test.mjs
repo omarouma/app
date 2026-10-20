@@ -92,7 +92,7 @@ test('server-provisioned chat is accessible only to its true participants', asyn
     participants: ['alice', 'bob'], type: 'direct', updatedAt: 1,
   });
   const allowed = await assertSucceeds(getDoc(doc(client('alice'), 'chats/verified')));
-  assert.equal(allowed.data().type, 'dm');
+  assert.equal(allowed.data().type, 'direct');
   await assertSucceeds(getDoc(doc(client('bob'), 'chats/verified')));
   await assertFails(getDoc(doc(client('charlie'), 'chats/verified')));
 });
