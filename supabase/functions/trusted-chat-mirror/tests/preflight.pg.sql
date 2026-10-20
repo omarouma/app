@@ -5,7 +5,7 @@ update gaga_private.firebase_mirror_settings set enabled=false where singleton=t
 truncate table public.chats;
 
 create schema if not exists auth;
-create table auth.users (id uuid primary key);
+create table auth.users (id uuid primary key, deleted_at timestamptz);
 create table public.users (id uuid primary key);
 create table public.groups (id uuid primary key, participants text[] not null);
 create table public.group_members (group_id uuid not null, user_id uuid not null);
