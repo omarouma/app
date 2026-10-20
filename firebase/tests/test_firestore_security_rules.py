@@ -17,7 +17,7 @@ def block_after(match: str, source: str = RULES) -> str:
     """Return balanced-brace rule match body, ignoring comment-only braces."""
     lines = "\n".join(line.split("//", 1)[0] for line in source.splitlines())
     start = lines.index(match)
-    opening = lines.index("{", start)
+    opening = lines.index("{", start + len(match))  # skip {uid} in match paths
     depth = 1
     for i in range(opening + 1, len(lines)):
         if lines[i] == "{":
