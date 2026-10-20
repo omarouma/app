@@ -1,0 +1,70 @@
+name: GaGa Trusted Chat Mirror Contract
+
+on:
+  pull_request:
+    paths:
+      - 'supabase/functions/trusted-chat-mirror/**'
+      - 'supabase/functions/trusted-chat-mirror-worker/**'
+      - 'supabase/migrations/*trusted_firebase_chat_outbox.sql'
+      - 'supabase/migrations/*mirror_active_auth_membership.sql'
+      - 'supabase/tests/firestore_chat_mirror_preflight.sql'
+      - 'supabase/tests/verify_firestore_chat_preflight_pg.py'
+      - '.github/workflows/trusted-chat-mirror-tests.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gaga-trusted-mirror-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  provisioner-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_PASSWORD: gaga-ci-ephemeral-only
+          POSTGRES_DB: mirror_contracts
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Run trusted projection security, membership, deletion and CAS tests
+        run: node --test supabase/functions/trusted-chat-mirror/tests/provisioner.test.mjs supabase/functions/trusted-chat-mirror/tests/http-adapter.test.mjs supabase/functions/trusted-chat-mirror-worker/tests/worker.test.mjs
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Parse both Deno Edge Functions (no secrets or network)
+        run: |
+          deno check supabase/functions/trusted-chat-mirror/index.ts
+          deno check supabase/functions/trusted-chat-mirror-worker/index.ts
+      - name: Validate outbox triggers, ACL and retry logic in temporary PostgreSQL 17
+        env:
+          PGPASSWORD: gaga-ci-ephemeral-only
+        run: |
+          psql -h 127.0.0.1 -U postgres -d mirror_contracts -v ON_ERROR_STOP=1 -f supabase/functions/trusted-chat-mirror/tests/outbox.pg.sql
+      - name: Prove read-only membership preflight catches orphaned Auth identities
+        env:
+          PGHOST: 127.0.0.1
+          PGPORT: '5432'
+          PGUSER: postgres
+          PGDATABASE: mirror_contracts
+          PGPASSWORD: gaga-ci-ephemeral-only
+        run: python3 supabase/tests/verify_firestore_chat_preflight_pg.py
+      - name: Validate active-Auth-only projection and account deletion outbox
+        env:
+          PGPASSWORD: gaga-ci-ephemeral-only
+        run: |
+          psql -h 127.0.0.1 -U postgres -d mirror_contracts -v ON_ERROR_STOP=1 -f supabase/functions/trusted-chat-mirror/tests/auth-revocation.pg.sql
