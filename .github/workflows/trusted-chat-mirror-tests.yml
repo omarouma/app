@@ -19,7 +19,20 @@ concurrency:
 jobs:
   provisioner-contract:
     runs-on: ubuntu-latest
-    timeout-minutes: 8
+    timeout-minutes: 12
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_PASSWORD: gaga-ci-ephemeral-only
+          POSTGRES_DB: mirror_contracts
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -27,3 +40,15 @@ jobs:
           node-version: '24'
       - name: Run trusted projection security, membership, deletion and CAS tests
         run: node --test supabase/functions/trusted-chat-mirror/tests/provisioner.test.mjs supabase/functions/trusted-chat-mirror-worker/tests/worker.test.mjs
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Parse both Deno Edge Functions (no secrets or network)
+        run: |
+          deno check supabase/functions/trusted-chat-mirror/index.ts
+          deno check supabase/functions/trusted-chat-mirror-worker/index.ts
+      - name: Validate outbox triggers, ACL and retry logic in temporary PostgreSQL 17
+        env:
+          PGPASSWORD: gaga-ci-ephemeral-only
+        run: |
+          psql -h 127.0.0.1 -U postgres -d mirror_contracts -v ON_ERROR_STOP=1 -f supabase/functions/trusted-chat-mirror/tests/outbox.pg.sql
