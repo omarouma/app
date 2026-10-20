@@ -4,6 +4,8 @@ on:
   pull_request:
     paths:
       - 'supabase/functions/trusted-chat-mirror/**'
+      - 'supabase/functions/trusted-chat-mirror-worker/**'
+      - 'supabase/migrations/*trusted_firebase_chat_outbox.sql'
       - '.github/workflows/trusted-chat-mirror-tests.yml'
   workflow_dispatch:
 
@@ -24,4 +26,4 @@ jobs:
         with:
           node-version: '24'
       - name: Run trusted projection security, membership, deletion and CAS tests
-        run: node --test supabase/functions/trusted-chat-mirror/tests/provisioner.test.mjs
+        run: node --test supabase/functions/trusted-chat-mirror/tests/provisioner.test.mjs supabase/functions/trusted-chat-mirror-worker/tests/worker.test.mjs
