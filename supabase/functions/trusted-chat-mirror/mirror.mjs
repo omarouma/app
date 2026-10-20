@@ -125,7 +125,8 @@ export function createHandler({ serviceKey, reconcile }) {
     // Strict one-field contract: never accept client-chosen memberships or
     // caller-defined Firebase project paths, and no body data goes in logs.
     if (!body || typeof body !== 'object' || Array.isArray(body) ||
-        Object.keys(body).length !== 1 || !ID_PATTERN.test(body.chat_id ?? '')) {
+        Object.keys(body).length !== 1 || typeof body.chat_id !== 'string' ||
+        !ID_PATTERN.test(body.chat_id)) {
       return reply({ error: 'INVALID_REQUEST' }, 400);
     }
     try {
