@@ -46,7 +46,8 @@ export function normalizeAuthoritativeChat(chatId, record) {
 }
 
 function isCurrent(current, source) {
-  if (!current || current.mirrorDeleted) return false;
+  if (!current || current.mirrorDeleted || !current.sourceUpdatedAt ||
+      !Array.isArray(current.participants)) return false;
   if (current.type !== source.type || current.participants.length !== source.participants.length) return false;
   return current.participants.every((v, i) => v === source.participants[i]) &&
     stampNano(current.sourceUpdatedAt) >= stampNano(source.sourceUpdatedAt);
