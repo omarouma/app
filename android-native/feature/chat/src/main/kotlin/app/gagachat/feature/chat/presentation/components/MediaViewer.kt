@@ -17,6 +17,7 @@ import dagger.hilt.android.EntryPointAccessors
 import android.widget.MediaController
 import android.widget.VideoView
 import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -119,15 +120,20 @@ fun MediaViewerOverlay(
                 horizontalArrangement = Arrangement.End,
             ) {
                 if (busy) CircularProgressIndicator(modifier = Modifier.size(32.dp), color = Color.White)
-                IconButton(onClick = { actions = true }, enabled = !busy) {
+                IconButton(
+                    onClick = { actions = true },
+                    enabled = !busy,
+                    modifier = Modifier.size(48.dp).padding(2.dp)
+                        .background(Color.Black.copy(alpha = 0.48f), CircleShape),
+                ) {
                     Icon(Icons.Default.MoreVert, contentDescription = "Media actions", tint = Color.White)
                 }
-                IconButton(onClick = onDismiss) {
-                    Icon(
-                        Icons.Filled.Close,
-                        contentDescription = "Close",
-                        tint = Color.White,
-                    )
+                IconButton(
+                    onClick = onDismiss,
+                    modifier = Modifier.size(48.dp).padding(2.dp)
+                        .background(Color.Black.copy(alpha = 0.48f), CircleShape),
+                ) {
+                    Icon(Icons.Filled.Close, contentDescription = "Close", tint = Color.White)
                 }
             }
             if (urls.size > 1) Row(Modifier.align(Alignment.BottomCenter).systemBarsPadding().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -226,7 +232,7 @@ private fun VideoPane(message: Message) {
                 }
                 setOnPreparedListener { it.isLooping = false }
                 setOnErrorListener { _, _, _ -> true }
-                setOnCompletionListener { start() }
+                // Keep video playback stopped at the end; do not restart without consent.
                 start()
             }
         },

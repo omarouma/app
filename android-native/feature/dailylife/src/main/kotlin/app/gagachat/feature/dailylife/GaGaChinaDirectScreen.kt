@@ -22,7 +22,6 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 
@@ -32,8 +31,6 @@ import androidx.compose.ui.unit.dp
  * (Supabase PostgREST/RPC). Payment and checkout remain intentionally disabled
  * until supplier and landed-cost verification are complete.
  */
-private val Emerald = Color(0xFF008D76)
-private val Dark = Color(0xFF09141B)
 data class ShopProduct(
     val id: String,
     val name: String,
@@ -238,8 +235,8 @@ fun GaGaChinaDirectScreen(onBack: () -> Unit = {}, viewModel: ChinaShopViewModel
     val cart = viewModel.cart
     val catalog = viewModel.products
     val categories = listOf("All", "Electronics", "Fashion", "Home", "Computers", "Sports", "Toys")
-    MaterialTheme(colorScheme = lightColorScheme(primary = Emerald)) {
-        Column(Modifier.fillMaxSize().background(Color(0xFFF5F7F8)).then(if (showAdminReview || showSupplierForm) Modifier.verticalScroll(rememberScrollState()) else Modifier).padding(16.dp)) {
+    Surface(color = MaterialTheme.colorScheme.background) {
+        Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).then(if (showAdminReview || showSupplierForm) Modifier.verticalScroll(rememberScrollState()) else Modifier).padding(16.dp)) {
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 TextButton(onClick = { if (showAdminReview) showAdminReview = false else if (showSupplierForm) showSupplierForm = false else if (showCart) showCart = false else if (selected != null) selected = null else onBack() }) { Text("‹ Back") }
                 Text("GaGa · China Direct", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
@@ -350,16 +347,16 @@ fun GaGaChinaDirectScreen(onBack: () -> Unit = {}, viewModel: ChinaShopViewModel
                 }
                 Text("China source subtotal: ¥${catalog.sumOf { it.sourcePriceCny * (cart[it.id] ?: 0) }}")
                 Text("Shipping, customs, tax, exchange rate and Bangladesh delivery are not included.")
-                Text("Checkout is unavailable until supplier and landed-cost verification.", color = Emerald)
+                Text("Checkout is unavailable until supplier and landed-cost verification.", color = MaterialTheme.colorScheme.primary)
             } else if (selected != null) {
                 val p = selected!!
-                Card(colors = CardDefaults.cardColors(containerColor = Color.White)) {
+                Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
                     Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         p.imageUrls.firstOrNull()?.takeIf { it.startsWith("https://") }?.let { url ->
                             AsyncImage(model = url, contentDescription = p.name, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxWidth().height(190.dp))
                         }
                         Text(p.name, style = MaterialTheme.typography.headlineSmall)
-                        Text("China source price · ¥${p.sourcePriceCny}", color = Emerald)
+                        Text("China source price · ¥${p.sourcePriceCny}", color = MaterialTheme.colorScheme.primary)
                         Text(stockLabel(p))
                         p.originCity?.let { Text("Origin: $it, China") }
                         Text("China source price only. Bangladesh landed cost requires verified freight, customs and FX quote.")
@@ -370,11 +367,11 @@ fun GaGaChinaDirectScreen(onBack: () -> Unit = {}, viewModel: ChinaShopViewModel
                     }
                 }
             } else {
-                Card(colors = CardDefaults.cardColors(containerColor = Dark)) {
+                Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primary)) {
                     Column(Modifier.fillMaxWidth().padding(20.dp)) {
-                        Text("Shop in China", color = Color.White, style = MaterialTheme.typography.headlineMedium)
-                        Text("Delivered to Bangladesh", color = Color(0xFF65E188))
-                        Text("Supplier verification required · Landed-cost quotes on request", color = Color.White)
+                        Text("Shop in China", color = MaterialTheme.colorScheme.onPrimary, style = MaterialTheme.typography.headlineMedium)
+                        Text("Delivered to Bangladesh", color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.85f))
+                        Text("Supplier verification required · Landed-cost quotes on request", color = MaterialTheme.colorScheme.onPrimary)
                     }
                 }
                 TextButton(onClick = { showSupplierForm = true }) { Text("Become a China Supplier") }
@@ -403,16 +400,16 @@ fun GaGaChinaDirectScreen(onBack: () -> Unit = {}, viewModel: ChinaShopViewModel
                 val filtered = catalog.filter { (category == "All" || it.category == category) && it.name.contains(search, ignoreCase = true) }
                 LazyVerticalGrid(columns = GridCells.Fixed(2), horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     items(filtered, key = { it.id }) { p ->
-                        Card(onClick = { selected = p }, colors = CardDefaults.cardColors(containerColor = Color.White), shape = RoundedCornerShape(16.dp)) {
+                        Card(onClick = { selected = p }, colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), shape = RoundedCornerShape(16.dp)) {
                             Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                 val imageUrl = p.imageUrls.firstOrNull()?.takeIf { it.startsWith("https://") }
                                 if (imageUrl != null) {
                                     AsyncImage(model = imageUrl, contentDescription = p.name, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxWidth().height(96.dp))
                                 } else {
-                                    Box(Modifier.fillMaxWidth().height(96.dp).background(Color(0xFFE6F5EF), RoundedCornerShape(12.dp)))
+                                    Box(Modifier.fillMaxWidth().height(96.dp).background(MaterialTheme.colorScheme.primaryContainer, RoundedCornerShape(12.dp)))
                                 }
                                 Text(p.name, fontWeight = FontWeight.SemiBold)
-                                Text("¥${p.sourcePriceCny} · China source", color = Emerald)
+                                Text("¥${p.sourcePriceCny} · China source", color = MaterialTheme.colorScheme.primary)
                                 OutlinedButton(onClick = { viewModel.add(p.id) }, enabled = p.availableQuantity != 0 && p.inventoryCheckedAt != null && p.availableQuantity != null) { Text("Add +") }
                             }
                         }
