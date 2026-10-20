@@ -62,7 +62,7 @@ class ConfigureSigningSecretsTests(unittest.TestCase):
                     signing.set_actions_secrets("secret-base64", "secret-store", "gaga", "secret-key")
                 self.assertEqual(run.call_count, 4)
                 self.assertEqual(
-                    [c.args[0][3] for c in run.call_args_list], ["--repo"] * 4
+                    [c.args[0][4] for c in run.call_args_list], ["--repo"] * 4
                 )
                 for call in run.call_args_list:
                     self.assertTrue(call.kwargs["capture_output"])
