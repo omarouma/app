@@ -144,8 +144,24 @@ A disabled trigger does not automatically drain or revoke old mirrored chats.
   Inspect its migration status and divergence before any branch creation or
   migrations; generating staging compute may incur additional charges.
 - Current live `public.chats` has an `updated_at` BEFORE UPDATE trigger;
-  all 90 chat records inspected for type/null timestamp compatibility passed.
+  all 90 chats have supported types and non-null timestamps. The read-only
+  preflight also identified **one duplicate-member chat** and **two direct
+  chats with nonstandard member counts**. Investigate without changing user
+  data; strict duplicate validation intentionally blocks unsafe projection.
+  The seven group rows have consistent chat/group/roster memberships.
+- Before **any** backfill, run the read-only
+  `supabase/tests/firestore_chat_mirror_preflight.sql` on the target source
+  and record the results. It reports aggregate findings only, no user IDs.
 - This source PR intentionally has no production deployment action.
+
+## Empty chat membership
+A valid Supabase chat may temporarily or permanently have `participants=[]`.
+The provisioner now mirrors that empty list, removing every Firebase read/write
+permission while retaining the authoritative chat's original type and allowing
+legitimate future server-authorized re-adding. This is different from a
+Supabase-deleted chat: deletion uses a non-resurrectable tombstone. The
+authorization behavior is covered by the companion Firestore Rules Emulator
+test in PR #146 and the provisioner unit test in PR #149.
 
 ## Tests and current limitations
 
