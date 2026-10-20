@@ -71,3 +71,43 @@ select
     )
   ) as roster_group_divergence
 from joined;
+
+-- Permission-sensitive security check: run only using the authorized
+-- Supabase SQL Editor or read-only administrative SQL credentials. auth.users
+-- is not exposed to Android clients or PostgREST. Do NOT publish identities.
+-- The Firestore mirroring service must NOT blindly project deleted identities:
+-- an old Firebase login might otherwise retain membership after a Supabase
+-- account was deleted. A nonzero result BLOCKS historical backfill.
+with memberships as (
+  select
+    c.id as chat_id,
+    c.type,
+    count(*) filter (where pu.id is null) as missing_profile_members,
+    count(*) filter (where au.id is null) as missing_auth_members,
+    count(*) filter (where pu.id is null and au.id is not null)
+      as missing_profile_only_members,
+    count(*) filter (where pu.id is not null and au.id is null)
+      as missing_auth_only_members
+  from public.chats c
+  cross join lateral unnest(c.participants) as member(user_id)
+  left join public.users pu on pu.id::text = lower(member.user_id)
+  left join auth.users au on au.id::text = lower(member.user_id)
+  group by c.id, c.type
+)
+select
+  count(*) filter (where missing_auth_members > 0)
+    as chats_with_missing_auth_users,
+  count(*) filter (where missing_profile_members > 0)
+    as chats_with_missing_public_users,
+  count(*) filter (where missing_auth_members > 0 and type = 'direct')
+    as direct_chats_with_missing_auth_users,
+  count(*) filter (where missing_auth_members > 0 and type = 'group')
+    as group_chats_with_missing_auth_users,
+  coalesce(sum(missing_auth_members), 0) as orphan_auth_membership_entries,
+  coalesce(sum(missing_profile_members), 0)
+    as orphan_public_membership_entries,
+  coalesce(sum(missing_profile_only_members), 0)
+    as auth_user_without_public_profile_entries,
+  coalesce(sum(missing_auth_only_members), 0)
+    as public_profile_without_auth_user_entries
+from memberships;
