@@ -167,6 +167,18 @@ test('Auth member revocation overrides a newer Firestore chat timestamp', async 
   assert.equal(store.writes.length, 1);
 });
 
+test('older membership snapshot only revokes, never grants another stale participant', async () => {
+  const store = fakeStore(row({ type: 'direct', participants: [A, C], updated_at: OLD }), {
+    participants: [A, B], type: 'group', updateTime: 'f1',
+    sourceUpdatedAt: NEW, mirrorDeleted: false,
+  });
+  assert.equal((await store.reconcile(CHAT)).status, 'updated');
+  assert.deepEqual(store.mirror.participants, [A]);
+  assert.equal(store.mirror.type, 'group');
+  assert.equal(store.mirror.sourceUpdatedAt, NEW);
+  assert.equal(store.writes.length, 1);
+});
+
 test('older source cannot re-grant members absent from a newer Firestore mirror', async () => {
   const store = fakeStore(row({ participants: [A, B], updated_at: OLD }), {
     participants: [A], type: 'direct', updateTime: 'f1',
