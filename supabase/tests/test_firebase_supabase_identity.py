@@ -38,8 +38,7 @@ class FirebaseSupabaseIdentityTest(unittest.TestCase):
     def test_custom_token_needs_authenticated_supabase_user(self):
         self.assertIn("await authenticate(req)", TOKEN_SOURCE)
         self.assertIn("await fetch(`${SUPABASE_URL}/auth/v1/user`", TOKEN_SOURCE)
-        self.assertIn("uid: callerId", TOKEN_SOURCE.replace("const uid = callerId", "uid: callerId") 
-                      if "uid: callerId" in TOKEN_SOURCE else "const uid = callerId")
+        self.assertIn("const uid = callerId;", TOKEN_SOURCE)
         self.assertIn("'Cache-Control': 'private, no-store", TOKEN_SOURCE)
         self.assertNotIn("SUPABASE_SERVICE_ROLE_KEY", TOKEN_SOURCE)
 
