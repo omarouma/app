@@ -24,6 +24,13 @@ class FirebaseEnvironment @Inject constructor(
     val isConfigured: Boolean =
         runCatching { FirebaseApp.getApps(context).isNotEmpty() }.getOrDefault(false)
 
+    /** The actual installed FirebaseApp project, not a project ID claimed by
+     * Supabase Edge Function response. Required for cross-provider identity checks. */
+    val projectId: String?
+        get() = if (isConfigured) runCatching {
+            FirebaseApp.getInstance().options.projectId
+        }.getOrNull() else null
+
     val auth: FirebaseAuth?
         get() = if (isConfigured) runCatching { FirebaseAuth.getInstance() }.getOrNull() else null
 

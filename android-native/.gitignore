@@ -21,4 +21,9 @@ captures/
 # Secrets
 google-services.json
 *.jks
+*.p12
+*.pfx
+*.pkcs12
+GAGA_RELEASE_KEYSTORE_BASE64.txt
+GAGA_RELEASE_KEYSTORE_BASE64*.txt
 *.keystore
