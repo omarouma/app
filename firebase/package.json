@@ -1,0 +1,14 @@
+{
+  "name": "gaga-firebase-security-emulator-tests",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "test:rules": "node --test firebase/tests/firestore.rules.emulator.test.mjs"
+  },
+  "devDependencies": {
+    "@firebase/rules-unit-testing": "6.0.0",
+    "firebase": "13.0.0",
+    "firebase-tools": "15.30.1"
+  }
+}
