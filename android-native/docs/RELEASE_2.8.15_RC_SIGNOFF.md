@@ -24,8 +24,12 @@ Package: `gagachat.app` · version `2.8.15` · versionCode `70`.
 
 ## 2. Signing compatibility, secrets and publication
 
-- [ ] Authorized owner installs **existing** new Play upload key to repository
-  encrypted Actions secrets (not in chat or source). Do not generate a new key.
+- [ ] Authorized owner runs the offline `configure_signing_secrets.py` with
+  `--base64-file /secure/path/GAGA_RELEASE_KEYSTORE_BASE64.txt --verify-only`
+  to confirm approved upload key SHA-256; private store password stays local.
+- [ ] Only on successful verification, run the same tool with `--configure`
+  using locally authenticated GitHub CLI to set four encrypted repository
+  Actions secrets. No Base64 or password may be committed or logged.
 - [ ] Keep historical old-key direct-download APK registry untouched.
   A new-key APK **cannot** upgrade an old-key sideload install in place.
 - [ ] Take a tested backup/export of any unsynced locally stored messages and
