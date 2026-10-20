@@ -48,7 +48,7 @@ def main() -> None:
     counts = [[int(x) for x in row] for row in numeric]
     if counts[0] != [5, 4, 1, 0, 0, 0, 0, 0, 1, 0, 1]:
         raise AssertionError(f"Chat anomaly metrics changed unexpectedly: {counts[0]}")
-    if counts[1] != [1, 0, 0, 0]:
+    if counts[1] != [1, 0, 0, 0, 0]:
         raise AssertionError(f"Group roster check regressed: {counts[1]}")
     if counts[2] != [1, 1, 1, 0, 1, 1, 0, 0]:
         raise AssertionError(f"Deleted-account membership check regressed: {counts[2]}")
