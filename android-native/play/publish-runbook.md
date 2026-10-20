@@ -92,36 +92,37 @@ Confirm the SHA-256 matches the pinned certificate in
 
 ---
 
-## 2. Upload key (one-time)
+## 2. Use the existing, approved upload key
 
-Because the app is not yet on Play, generate a fresh **upload** key (this is the
-key that signs the AAB you upload; Play re-signs with its own app-signing key):
+GaGa **already adopted a dedicated Play upload key on 2026-10-19**. Retrieve
+the existing `gaga-upload.jks` from its authorized private signing backup.
+**Do not generate a new upload key.** Replacing it would introduce a new
+certificate and break the release pin.
 
-```bash
-keytool -genkeypair -v \
-  -keystore gaga-upload.jks -alias gaga \
-  -keyalg RSA -keysize 3072 -validity 10000
-```
+On a trusted workstation, verify that the private keystore's certificate
+matches the expected SHA-256 in
+`android-native/ci/release-signing-public.json`. The approved digest begins
+`749d2475` and ends `faf03b2`. Never paste the keystore or its password
+into a chat, GitHub issue or committed source file.
 
-Store `gaga-upload.jks` and its passwords in the private signing backup — never
-in git. Install the four GitHub secrets so CI can sign:
+Install these four GitHub Actions encrypted secrets via the authorized
+repository owner's **Settings → Secrets and variables → Actions**:
 
-```
-GAGA_RELEASE_KEYSTORE_BASE64   # base64 -w0 gaga-upload.jks
-GAGA_RELEASE_STORE_PASSWORD
-GAGA_RELEASE_KEY_ALIAS         # gaga
-GAGA_RELEASE_KEY_PASSWORD
-```
+- `GAGA_RELEASE_KEYSTORE_BASE64`: base64 encoding of the **existing**
+  approved `gaga-upload.jks` (stored as a secret)
+- `GAGA_RELEASE_STORE_PASSWORD`: existing store password
+- `GAGA_RELEASE_KEY_ALIAS`: `gaga`
+- `GAGA_RELEASE_KEY_PASSWORD`: existing private-key password
 
-Then record the certificate in `android-native/ci/release-signing-public.json`
-so CI rejects any other key. Register the SHA-1/SHA-256 with Firebase
-(`oumagachat`) so Google sign-in and FCM keep working.
+Once configured, launch **Build approved signed GaGa candidate** selecting
+the `release/gaga-2.8.15-rc1` ref. That workflow checks the certificate
+against the pinned public SHA-256 before building, then independently verifies
+both signed APK and AAB. Retrieve only the `GaGa-verified-signed-candidate`
+artifact from a successful run.
 
-> The authorized upload key for GaGa 2.8.14+ is pinned to
-> `749d2475…faf03b2`. **Do not generate another upload key or substitute**
-> the historical direct-APK signer (`dd6b6f…19af13`): that would be a
-> different certificate and would fail the pinned release check.
-
+The old direct-download signer (`dd6b6f…19af13`) is different. Do not
+replace the public APK update registry with a new-key build unless the
+migration and preservation plan has been tested on existing devices.
 ---
 
 ## 3. Create the app in Play Console
