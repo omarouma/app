@@ -79,6 +79,8 @@ create trigger trg_gaga_fire_chat_delete
   after delete on public.chats
   for each row execute function gaga_private.enqueue_firebase_chat_sync();
 
+-- Auth role is read from current PostgREST `request.jwt.claims` JSON, with
+-- legacy `request.jwt.claim.role` fallback; no session-controlled metadata.
 -- RPCs live in the exposed public schema solely so the Supabase Edge worker
 -- can invoke them via PostgREST; service_role is the ONLY eligible principal.
 create or replace function public.gaga_claim_chat_mirror_sync(p_limit integer default 8)
@@ -86,7 +88,10 @@ returns table (chat_id text, revision bigint, lease_token uuid)
 language plpgsql security definer set search_path = ''
 as $$
 begin
-  if coalesce(current_setting('request.jwt.claim.role', true),'') <> 'service_role' then
+  if coalesce(
+    nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'role',
+    nullif(current_setting('request.jwt.claim.role', true), '')
+  ) is distinct from 'service_role' then
     raise exception 'service_role_required' using errcode='42501';
   end if;
   if not exists (
@@ -122,7 +127,10 @@ returns boolean
 language plpgsql security definer set search_path = ''
 as $$
 begin
-  if coalesce(current_setting('request.jwt.claim.role',true),'') <> 'service_role' then
+  if coalesce(
+    nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'role',
+    nullif(current_setting('request.jwt.claim.role', true), '')
+  ) is distinct from 'service_role' then
     raise exception 'service_role_required' using errcode='42501';
   end if;
   if p_success is true then
