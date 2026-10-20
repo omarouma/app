@@ -100,6 +100,30 @@ the existing `gaga-upload.jks` from its authorized private signing backup.
 **Do not generate a new upload key.** Replacing it would introduce a new
 certificate and break the release pin.
 
+On a trusted workstation, run the **offline verify-only helper** against
+the existing Base64 keystore file (it will ask for the store password privately,
+without printing it):
+
+```bash
+python3 android-native/ci/configure_signing_secrets.py \\
+  --base64-file /secure/path/GAGA_RELEASE_KEYSTORE_BASE64.txt --verify-only
+```
+
+The helper exports only the **public certificate** and checks its SHA-256
+against the checked-in pin before it performs any GitHub secret configuration.
+Only after verification succeeds, the account owner can configure the encrypted
+secrets with the authenticated GitHub CLI (requires `gh auth login` locally):
+
+```bash
+python3 android-native/ci/configure_signing_secrets.py \\
+  --base64-file /secure/path/GAGA_RELEASE_KEYSTORE_BASE64.txt --configure
+```
+
+Do not paste the password, Base64 text, or private key into this chat, an issue,
+a PR, a README or a shell command. This tool never invokes a production
+deployment or releases a build; it only verifies a local keystore and (when
+explicitly requested) sets four GitHub Actions encrypted secrets.
+
 On a trusted workstation, verify that the private keystore's certificate
 matches the expected SHA-256 in
 `android-native/ci/release-signing-public.json`. The approved digest begins
