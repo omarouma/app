@@ -59,7 +59,13 @@ service cloud.firestore {
     match /users/{userId} {
       // Public profile is readable by any signed-in user (contacts, search).
       allow read: if isAuth();
-      allow create: if isSelf(userId);
+      // A client may create its own public profile, but it must never
+      // self-assign admin/moderation authority at initial creation.
+      // Updates already enforce the same restriction below.
+      allow create: if isSelf(userId)
+        && !request.resource.data.keys().hasAny([
+          'role', 'admin', 'isAdmin', 'isModerator'
+        ]);
       allow update: if isSelf(userId)
         && !("role" in request.resource.data.diff(resource.data).affectedKeys())
         && !("admin" in request.resource.data.diff(resource.data).affectedKeys())
@@ -77,12 +83,16 @@ service cloud.firestore {
 
     // ─────────────────── chats (1:1 and groups) ───────────────────
     // Both direct and group conversations live in `chats`; `type` distinguishes
-    // them ("dm" | "group") and `participants` is the authoritative member list.
+    // them ("direct" | "group") and `participants` mirrors Supabase membership.
     match /chats/{chatId} {
       allow read:   if isAuth() && uid() in resource.data.participants;
-      allow create: if isAuth()
-        && uid() in request.resource.data.participants
-        && request.resource.data.participants.size() >= 1;
+      // CRITICAL: Supabase is the source of truth for membership.
+      // Previously any Firebase-signed-in account could forge a new chat with
+      // arbitrary participants, bypassing Supabase membership and letting the
+      // attacker write chat data into that fabricated Firebase conversation.
+      // Only the trusted backend/Admin SDK may provision mirrored chats.
+      // Firebase Admin SDK bypasses client rules; app-side creation is denied.
+      allow create: if false;
       // Firebase is a mirror; participants/type are authoritative in Supabase.
       // A member may refresh only derived list-preview fields, never membership.
       allow update: if isAuth()

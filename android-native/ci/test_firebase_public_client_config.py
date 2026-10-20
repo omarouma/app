@@ -6,6 +6,10 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "ci"))
+# Run the separate Firebase Firestore rules regression suite as part of
+# the already-enabled Android CI public-Firebase-config test gate.
+sys.path.insert(0, str(ROOT.parent / "firebase" / "tests"))
+from test_firestore_security_rules import FirebaseRulesHardeningTests  # noqa: F401
 
 class FirebaseClientConfigTest(unittest.TestCase):
     def test_android_oauth_certificate_matches_public_manifest(self):
