@@ -49,13 +49,18 @@ Capture helper: `../ci/capture_store_screenshots.sh`.
 Framing helper (guarantees 1080×1920 / 9:16, adds an accurate caption band):
 `frame_screenshots.py`.
 
-## Play Console fields not stored here
+## Play Console forms and runbook
 
-These are entered directly in the console and are not files:
+The console answers and the end-to-end procedure are now stored here so the
+listing is reproducible:
 
-- App category: **Communication**
-- Contact email / website / privacy policy (see `store-listing.md`)
-- Content rating questionnaire
-- Data safety form (declare: messages, photos/videos, files, location, contacts,
-  device identifiers — see the app's privacy policy)
-- Target audience and ads declaration (the app shows no ads)
+| Document | Covers |
+| --- | --- |
+| [`data-safety.md`](data-safety.md) | Data safety form — every data type, purpose and security answer |
+| [`content-rating.md`](content-rating.md) | Content rating questionnaire + interactive-element flags |
+| [`publish-runbook.md`](publish-runbook.md) | Full Console runbook: upload key → internal test → production |
+| [`store-listing.md`](store-listing.md) | App name, short/full description, release notes, categorisation |
+
+Still entered directly in the console (not files): app category **Communication**,
+contact email/website/privacy policy (see `store-listing.md`), target audience
+(**13+**) and the ads declaration (**no ads**).

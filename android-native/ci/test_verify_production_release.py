@@ -4,6 +4,12 @@ import tempfile
 import unittest
 from pathlib import Path
 
+# This CI workflow discovers only this filename. Import the additional
+# signing-secrets safety tests so they execute as part of the existing gate,
+# without changing privileged GitHub Actions workflow configuration.
+from test_configure_signing_secrets import ConfigureSigningSecretsTests  # noqa: F401
+from test_verify_aab_signature import AabSignatureTests, RealJdkAabSignatureTests  # noqa: F401
+
 MODULE_PATH = Path(__file__).with_name("verify_production_release.py")
 spec = importlib.util.spec_from_file_location("gaga_release_gate", MODULE_PATH)
 gate = importlib.util.module_from_spec(spec)

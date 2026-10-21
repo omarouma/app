@@ -55,9 +55,10 @@ service firebase.storage {
     // ── Avatars: world-readable, owner-writable ──
     match /avatars/{userId}/{fileName} {
       allow read:  if true;
-      allow write: if isAuth() && uid() == userId
+      allow create, update: if isAuth() && uid() == userId
         && request.resource.size < 10 * 1024 * 1024
         && isImage();
+      allow delete: if isAuth() && uid() == userId;
     }
 
     // ── Group icons: world-readable, member-writable ──
@@ -71,9 +72,10 @@ service firebase.storage {
     // ── Status / story media: owner-writable, authenticated read ──
     match /status/{userId}/{fileName} {
       allow read:  if isAuth();
-      allow write: if isAuth() && uid() == userId
+      allow create, update: if isAuth() && uid() == userId
         && request.resource.size < 50 * 1024 * 1024
         && isMedia();
+      allow delete: if isAuth() && uid() == userId;
     }
 
     // ── deny everything else ──

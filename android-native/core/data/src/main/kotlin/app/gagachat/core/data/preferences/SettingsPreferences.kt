@@ -127,6 +127,10 @@ class SettingsPreferences @Inject constructor(
 
     private val notificationsKey = booleanPreferencesKey("notifications_enabled")
     private val messageSoundsKey = booleanPreferencesKey("message_sounds")
+    private val directNotificationsKey = booleanPreferencesKey("direct_notifications_enabled")
+    private val groupNotificationsKey = booleanPreferencesKey("group_notifications_enabled")
+    private val callNotificationsKey = booleanPreferencesKey("call_notifications_enabled")
+    private val groupMessageSoundsKey = booleanPreferencesKey("group_message_sounds")
     private val readReceiptsKey = booleanPreferencesKey("read_receipts")
     private val lastSeenKey = booleanPreferencesKey("share_last_seen")
     private val themeKey = stringPreferencesKey("theme_mode")
@@ -145,6 +149,15 @@ class SettingsPreferences @Inject constructor(
         context.settingsDataStore.data.map { it[notificationsKey] ?: true }
     val messageSoundsEnabled: Flow<Boolean> =
         context.settingsDataStore.data.map { it[messageSoundsKey] ?: true }
+    /** Device-only category switches; the master switch still controls all alerts. */
+    val directNotificationsEnabled: Flow<Boolean> =
+        context.settingsDataStore.data.map { it[directNotificationsKey] ?: true }
+    val groupNotificationsEnabled: Flow<Boolean> =
+        context.settingsDataStore.data.map { it[groupNotificationsKey] ?: true }
+    val callNotificationsEnabled: Flow<Boolean> =
+        context.settingsDataStore.data.map { it[callNotificationsKey] ?: true }
+    val groupMessageSoundsEnabled: Flow<Boolean> =
+        context.settingsDataStore.data.map { it[groupMessageSoundsKey] ?: true }
     /**
      * Whether an incoming/outgoing call plays its ringtone/ringback. Kept separate
      * from [messageSoundsEnabled] so a user can silence chat tones but still hear
@@ -222,6 +235,18 @@ class SettingsPreferences @Inject constructor(
 
     suspend fun setMessageSoundsEnabled(value: Boolean) =
         context.settingsDataStore.edit { it[messageSoundsKey] = value }
+
+    suspend fun setDirectNotificationsEnabled(value: Boolean) =
+        context.settingsDataStore.edit { it[directNotificationsKey] = value }
+
+    suspend fun setGroupNotificationsEnabled(value: Boolean) =
+        context.settingsDataStore.edit { it[groupNotificationsKey] = value }
+
+    suspend fun setCallNotificationsEnabled(value: Boolean) =
+        context.settingsDataStore.edit { it[callNotificationsKey] = value }
+
+    suspend fun setGroupMessageSoundsEnabled(value: Boolean) =
+        context.settingsDataStore.edit { it[groupMessageSoundsKey] = value }
 
     suspend fun setCallSoundsEnabled(value: Boolean) =
         context.settingsDataStore.edit { it[callSoundsKey] = value }

@@ -118,8 +118,8 @@ fun NotificationsSettingsScreen(
             GagaSettingsRow(title = "Notification previews", subtitle = state.preview.label + " • this device", onClick = { selectingPreview = true })
             GagaDivider()
             GagaSettingsRow(
-                title = "Message notifications",
-                subtitle = "Alerts for new messages",
+                title = "All notifications",
+                subtitle = "Master alert switch • this device",
                 leadingIcon = Icons.Filled.Notifications,
                 trailing = {
                     Switch(
@@ -130,12 +130,57 @@ fun NotificationsSettingsScreen(
             )
             GagaDivider()
             GagaSettingsRow(
-                title = "Message sounds",
-                subtitle = "Play a sound for new messages",
+                title = "Direct messages",
+                subtitle = "New private chat alerts • this device",
+                trailing = {
+                    Switch(
+                        checked = state.directNotificationsEnabled,
+                        onCheckedChange = viewModel::setDirectNotificationsEnabled,
+                    )
+                },
+            )
+            GagaDivider()
+            GagaSettingsRow(
+                title = "Group messages",
+                subtitle = "New group and channel alerts • this device",
+                trailing = {
+                    Switch(
+                        checked = state.groupNotificationsEnabled,
+                        onCheckedChange = viewModel::setGroupNotificationsEnabled,
+                    )
+                },
+            )
+            GagaDivider()
+            GagaSettingsRow(
+                title = "Call notifications",
+                subtitle = "Incoming and missed calls • this device",
+                leadingIcon = Icons.Filled.Call,
+                trailing = {
+                    Switch(
+                        checked = state.callNotificationsEnabled,
+                        onCheckedChange = viewModel::setCallNotificationsEnabled,
+                    )
+                },
+            )
+            GagaDivider()
+            GagaSettingsRow(
+                title = "Direct message sounds",
+                subtitle = "Off posts a silent alert; manage sound and vibration separately in Android settings",
                 trailing = {
                     Switch(
                         checked = state.messageSoundsEnabled,
                         onCheckedChange = viewModel::setMessageSoundsEnabled,
+                    )
+                },
+            )
+            GagaDivider()
+            GagaSettingsRow(
+                title = "Group message sounds",
+                subtitle = "Off posts a silent alert; Android controls the channel's vibration independently",
+                trailing = {
+                    Switch(
+                        checked = state.groupMessageSoundsEnabled,
+                        onCheckedChange = viewModel::setGroupMessageSoundsEnabled,
                     )
                 },
             )
@@ -164,6 +209,47 @@ fun NotificationsSettingsScreen(
                 },
             )
             GagaDivider()
+            GagaSettingsRow(
+                title = "Preview default notification sound",
+                subtitle = "Play your phone's default alert tone while respecting silent mode and DND",
+                onClick = viewModel::previewMessageSound,
+            )
+            GagaDivider()
+            Text(
+                "Custom notification tones and vibration patterns are managed by Android. " +
+                    "GaGa cannot override a channel after you have configured it in system settings.",
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.padding(16.dp),
+            )
+            // These stable IDs match app/push/NotificationChannels.kt. The
+            // system alone controls tones for channels already created.
+            listOf(
+                Triple("Direct message tone", "gaga_messages", "Select the sound and vibration for private messages"),
+                Triple("Group message tone", "gaga_group_messages", "Set a different group chat alert sound"),
+                Triple("Incoming call alert", "gaga_calls", "Android background ringtone; in-app GaGa ringtone is separate"),
+                Triple("Call alert: sound only", "gaga_calls_sound_only", "System sound used when call vibration is disabled"),
+                Triple("Call alert: vibration only", "gaga_calls_vibration_only", "System vibration used when call sounds are disabled"),
+                Triple("Missed call sound", "gaga_missed_calls", "Alert tone for missed calls"),
+                Triple("Friend request tone", "gaga_friend_requests", "Alert tone for new friend requests"),
+                Triple("Security alert sound", "gaga_security", "Account and device security alerts"),
+            ).forEach { (label, channelId, description) ->
+                GagaSettingsRow(
+                    title = label,
+                    subtitle = description,
+                    onClick = {
+                        val destination = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                            Intent(Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS)
+                                .putExtra(Settings.EXTRA_APP_PACKAGE, contextForNotifications.packageName)
+                                .putExtra(Settings.EXTRA_CHANNEL_ID, channelId)
+                        } else {
+                            Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                                .putExtra(Settings.EXTRA_APP_PACKAGE, contextForNotifications.packageName)
+                        }
+                        runCatching { contextForNotifications.startActivity(destination) }
+                    },
+                )
+                GagaDivider()
+            }
         }
     }
 }
