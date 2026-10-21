@@ -5,6 +5,7 @@ on:
     paths:
       - 'firestore.rules'
       - 'database.rules.json'
+      - 'storage.rules'
       - 'firebase/tests/**'
       - 'firebase/package.json'
       - 'firebase.json'
@@ -20,7 +21,7 @@ concurrency:
 
 jobs:
   firestore-rules:
-    name: Firestore and Realtime Database authorization tests
+    name: Firestore, Realtime Database and Storage authorization tests
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -41,6 +42,6 @@ jobs:
         run: |
           firebase/node_modules/.bin/firebase emulators:exec \
             --project demo-gaga-security-tests \
-            --only firestore,database \
+            --only firestore,database,storage \
             --config firebase.json \
             "node --test firebase/tests/*.emulator.test.mjs"
