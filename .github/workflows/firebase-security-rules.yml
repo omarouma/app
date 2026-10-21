@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - 'firestore.rules'
+      - 'database.rules.json'
       - 'firebase/tests/**'
       - 'firebase/package.json'
       - 'firebase.json'
@@ -19,7 +20,7 @@ concurrency:
 
 jobs:
   firestore-rules:
-    name: Firestore authorization allow/deny tests
+    name: Firestore and Realtime Database authorization tests
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -33,13 +34,13 @@ jobs:
           node-version: '24'
       - name: Install isolated test dependencies
         run: npm install --prefix firebase --ignore-scripts --no-audit --no-fund
-      - name: Run Firestore Rules Emulator (demo project only)
+      - name: Run database rules emulators (demo project only)
         env:
           CI: 'true'
           FIREBASE_CLI_DISABLE_TELEMETRY: 'true'
         run: |
           firebase/node_modules/.bin/firebase emulators:exec \
             --project demo-gaga-security-tests \
-            --only firestore \
+            --only firestore,database \
             --config firebase.json \
-            "node --test firebase/tests/firestore.rules.emulator.test.mjs"
+            "node --test firebase/tests/*.emulator.test.mjs"
