@@ -4,7 +4,16 @@ All notable changes to the GaGa Chat native Android app are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 the project adheres to [Semantic Versioning](https://semver.org/).
 
-## [Unreleased] — Global publishing audit (2.8.14)
+## [2.8.15] — versionCode 70
+
+**Final release build.** Version bump so the audited fixes ship as a new,
+Play-acceptable upload (Play rejects a re-used `versionCode`). No behavioural
+changes beyond the 2.8.14 audit fixes listed below.
+
+### Changed
+- `versionCode` 69 → 70, `versionName` "2.8.14" → "2.8.15".
+
+## [2.8.14] — Global publishing audit
 
 **Play/Firebase/website readiness.** Verified the signed 2.8.14 artifacts and the
 live Firebase project, then fixed the repository drifts that would have broken a
