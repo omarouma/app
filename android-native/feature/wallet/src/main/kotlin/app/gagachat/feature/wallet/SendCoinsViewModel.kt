@@ -68,13 +68,15 @@ class SendCoinsViewModel @Inject constructor(
 
     fun send(onSent: () -> Unit) {
         val snapshot = _state.value
+        if (snapshot.isSending || !snapshot.showConfirm) return
         val target = snapshot.selected ?: return
         if (snapshot.amount <= 0) {
             _state.update { it.copy(showConfirm = false, error = "Enter an amount greater than zero") }
             return
         }
+        // Claim the confirmed request before scheduling: queued taps must not launch another transfer.
+        _state.update { it.copy(isSending = true, showConfirm = false, error = null) }
         viewModelScope.launch {
-            _state.update { it.copy(isSending = true, showConfirm = false, error = null) }
             when (val r = walletRepository.sendCoins(
                 toUserId = target.user.id,
                 toName = target.user.displayName,
