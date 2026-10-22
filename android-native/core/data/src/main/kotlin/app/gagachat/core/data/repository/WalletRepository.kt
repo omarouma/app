@@ -173,7 +173,9 @@ class DefaultWalletRepository @Inject constructor(
             // A failed refresh keeps the key, so retrying reconciles the same
             // transfer instead of submitting a second debit.
             val wallet = loadInto(me)
-            transferRequests.complete(operationKey)
+            // The transfer and authoritative reads succeeded. A cleanup failure
+            // must not tell the user that the committed transfer failed.
+            runCatching { transferRequests.complete(operationKey) }
             AppResult.Success(wallet)
         } catch (t: Throwable) {
             if (t is CancellationException) throw t
