@@ -61,6 +61,15 @@ first time.
 be applied (`supabase db push`) for the size limits and the privacy fix to take
 effect. The client-side fixes ship with the APK.
 
+### Release signing
+`android-native/ci/release-signing-public.json` was pinned to
+`dd6b6f16…`, a certificate that no build has ever carried: all four
+`GAGA_RELEASE_*` Actions secrets are empty, so CI has never produced a signed
+artifact. The pin now records the certificate that actually signs the shipped
+APK/AAB since 2.8.15 — `a51b9841…` (alias `gaga`, RSA 3072, valid to 2054) —
+so the signature gate in `hosting/prepare_android_release.py` and the signed
+candidate workflows verify against reality instead of a phantom identity.
+
 ## [2.8.16] — versionCode 71
 
 Chatroom frontend pass: calling is now reachable on every phone, and the

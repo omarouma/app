@@ -17,6 +17,14 @@ with the existing approved GaGa key (NOT a newly generated or arbitrary key):
 
 The workflow checks the SHA-256 certificate against
 `android-native/ci/release-signing-public.json` **before compiling**.
+
+> **Pin history.** The file was originally pinned to `dd6b6f16…`, a certificate
+> that was never present in CI (all four `GAGA_RELEASE_*` secrets are empty, so
+> no CI-signed artifact has ever existed). Since 2.8.15 the shipped APK/AAB is
+> signed with `a51b9841…` (alias `gaga`, RSA 3072, valid to 2054), and the pin
+> now matches it. Rotating this file is a release-identity decision: change it
+> only together with a real keystore rotation, and never to make a failing
+> verification pass.
 If it is missing or mismatched, signing stops. If it succeeds, both APK and AAB
 certificates, package id (`gagachat.app`), embedded version, and checksums are
 checked before a private 7-day GitHub Actions artifact is uploaded.
