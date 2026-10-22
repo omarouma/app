@@ -38,11 +38,8 @@ internal fun continuesRun(
  * True when [current] is the newest message of its run, i.e. the row that
  * should carry the sender avatar. [next] is the message drawn *below* it.
  */
-internal fun endsRun(next: Message?, current: Message): Boolean {
-    if (next == null) return true
-    if (next.senderId != current.senderId) return true
-    return !isSameCalendarDay(next.sortTimestamp, current.sortTimestamp)
-}
+internal fun endsRun(next: Message?, current: Message, windowMs: Long): Boolean =
+    next == null || !continuesRun(current, next, windowMs)
 
 /** Local-day comparison used for grouping; avoids a java.time dependency. */
 internal fun isSameCalendarDay(a: Long, b: Long): Boolean {
