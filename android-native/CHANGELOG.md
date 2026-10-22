@@ -4,6 +4,33 @@ All notable changes to the GaGa Chat native Android app are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 the project adheres to [Semantic Versioning](https://semver.org/).
 
+## [Unreleased] — Global publishing audit (2.8.14)
+
+**Play/Firebase/website readiness.** Verified the signed 2.8.14 artifacts and the
+live Firebase project, then fixed the repository drifts that would have broken a
+clean production deploy. Full report: `docs/GLOBAL_PUBLISH_AUDIT_2.8.14.md`.
+
+### Fixed
+- **App Links drift.** `hosting/public/.well-known/assetlinks.json` was missing
+  the new upload-key SHA-256 (`74:9D:24:75:…:03:B2`); the repo now matches the
+  live 12-fingerprint set.
+- **Google Sign-In config drift.** `ci/backend-public.json` was missing the
+  fourth certificate-specific Android OAuth client
+  (`545448312835-o7his2evlshkhvv00pqsj1e9ml5i5aa8…`); `verify_firebase_release_config.py`
+  now expects four clients.
+- **Unused advertising ID.** Removed `firebase-analytics-ktx`, which no code
+  used but which auto-merged `com.google.android.gms.permission.AD_ID` and
+  started background analytics collection. Crashlytics is unaffected.
+- **Missing Play account-deletion page.** `/delete-account` now exists
+  (via PR #143) so the app meets Google Play's account-deletion requirement.
+
+### Verified
+- APK `988b9591…6d17` and AAB `daa5e764…4295` match the release report; APK is
+  v2+v3 signed, AAB re-hashed across all 723 manifest entries with zero
+  mismatches; both use the same RSA-3072 upload certificate.
+- Firebase Android app holds eight certificates (four SHA-1 / four SHA-256),
+  including the new upload key.
+
 ## [2.8.14] — versionCode 69
 
 **Release-readiness line (2.8.0 → 2.8.14).** Rebuilt the native client to the 2.8

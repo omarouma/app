@@ -204,7 +204,11 @@ dependencies {
     // Firebase push (PDF §8). Requires google-services.json to initialize.
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.messaging)
-    implementation(libs.firebase.analytics)
+    // Firebase Analytics is intentionally NOT included: no code calls
+    // FirebaseAnalytics, and the SDK auto-merges com.google.android.gms.permission.AD_ID
+    // and starts background event collection. GaGa shows no ads, so dropping it keeps
+    // the Play Data Safety declaration accurate and avoids an unnecessary advertising-ID
+    // permission. Crashlytics does not depend on Analytics.
     implementation(libs.firebase.crashlytics)
 
     // Serialization for deep-link payloads
