@@ -1,5 +1,6 @@
 package app.gagachat.feature.chat.presentation
 
+import app.gagachat.core.model.Message
 import app.gagachat.core.model.MessageType
 
 /**
@@ -14,3 +15,43 @@ internal fun MessageType.opensMediaViewer(): Boolean = when (this) {
 
 /** The existing forward-picker supports exactly one message at a time. */
 internal fun canForwardSelection(count: Int): Boolean = count == 1
+
+/**
+ * Messages from the same sender within [windowMs] are rendered as one visual
+ * run: the avatar appears once, on the newest row, and the rows sit tighter
+ * together. A day boundary always breaks the run so a date separator never
+ * lands inside a grouped block.
+ */
+internal fun continuesRun(
+    previous: Message?,
+    current: Message,
+    windowMs: Long,
+): Boolean {
+    if (previous == null) return false
+    if (previous.senderId != current.senderId) return false
+    if (!isSameCalendarDay(previous.sortTimestamp, current.sortTimestamp)) return false
+    val delta = current.sortTimestamp - previous.sortTimestamp
+    return delta in 0..windowMs
+}
+
+/**
+ * True when [current] is the newest message of its run, i.e. the row that
+ * should carry the sender avatar. [next] is the message drawn *below* it.
+ */
+internal fun endsRun(next: Message?, current: Message): Boolean {
+    if (next == null) return true
+    if (next.senderId != current.senderId) return true
+    return !isSameCalendarDay(next.sortTimestamp, current.sortTimestamp)
+}
+
+/** Local-day comparison used for grouping; avoids a java.time dependency. */
+internal fun isSameCalendarDay(a: Long, b: Long): Boolean {
+    val zone = java.util.TimeZone.getDefault()
+    fun dayOf(millis: Long): Int {
+        val cal = java.util.Calendar.getInstance(zone)
+        cal.timeInMillis = millis
+        return cal.get(java.util.Calendar.YEAR) * 1000 +
+            cal.get(java.util.Calendar.DAY_OF_YEAR)
+    }
+    return dayOf(a) == dayOf(b)
+}

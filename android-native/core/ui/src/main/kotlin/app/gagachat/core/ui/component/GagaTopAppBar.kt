@@ -32,6 +32,7 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import app.gagachat.core.model.UserStatus
 import app.gagachat.core.ui.theme.GagaDimens
@@ -59,6 +60,10 @@ fun GagaTopAppBar(
     titleHighlight: String? = null,
     avatarUrl: String? = null,
     avatarStatus: UserStatus? = null,
+    /** Explicit identity-avatar size; chat uses 38dp so the peer is recognisable. */
+    avatarSize: Dp? = null,
+    /** Floor for the bar height; chat pins 56dp so the toolbar never collapses. */
+    minHeaderHeight: Dp? = null,
     onTitleClick: (() -> Unit)? = null,
     containerColor: Color = MaterialTheme.colorScheme.surface,
     showDivider: Boolean = true,
@@ -90,7 +95,8 @@ fun GagaTopAppBar(
             // still allowing a taller touch-safe title at accessibility scales.
             // Derive height from the active typography. A fixed upper cap clips
             // titles at system accessibility scales above 200%.
-            expandedHeight = (textHeight + if (compactHeader) 6.dp else 10.dp).coerceAtLeast(layoutSize.headerDp.dp),
+            expandedHeight = (textHeight + if (compactHeader) 6.dp else 10.dp)
+                .coerceAtLeast(minHeaderHeight ?: layoutSize.headerDp.dp),
             title = {
                 val headerModifier = if (onTitleClick != null) {
                     Modifier
@@ -118,7 +124,8 @@ fun GagaTopAppBar(
                         GagaAvatar(
                             imageUrl = avatarUrl,
                             name = title,
-                            size = if (compactHeader || smallTitleSpace) 30.dp else GagaDimens.avatarSmall,
+                            size = avatarSize
+                                ?: if (compactHeader || smallTitleSpace) 30.dp else GagaDimens.avatarSmall,
                             status = avatarStatus,
                             showStatus = avatarStatus != null,
                         )

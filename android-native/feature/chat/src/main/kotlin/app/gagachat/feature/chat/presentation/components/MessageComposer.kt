@@ -203,12 +203,14 @@ fun MessageComposer(
                             showEmojiPanel = false
                             showAttachSheet = true
                         },
-                        modifier = Modifier.size(48.dp),
+                        // 44dp visual size; Compose still enforces the 48dp
+                        // minimum touch target, so this only tightens the look.
+                        modifier = Modifier.size(44.dp),
                     ) {
-                        Box(Modifier.size(36.dp).clip(CircleShape)
+                        Box(Modifier.size(34.dp).clip(CircleShape)
                             .background(MaterialTheme.colorScheme.surfaceVariant), contentAlignment = Alignment.Center) {
                             Icon(Icons.Filled.Add, "Attach", tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.size(22.dp))
+                                modifier = Modifier.size(20.dp))
                         }
                     }
                     Spacer(Modifier.width(GagaDimens.space8))
@@ -217,8 +219,8 @@ fun MessageComposer(
                         onValueChange = onDraftChange,
                         textStyle = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onSurface),
                         cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
-                        modifier = Modifier.weight(1f).heightIn(min = 48.dp)
-                            .clip(RoundedCornerShape(22.dp))
+                        modifier = Modifier.weight(1f).heightIn(min = 44.dp)
+                            .clip(RoundedCornerShape(20.dp))
                             .background(MaterialTheme.colorScheme.surfaceVariant)
                             .testTag("chat-message-input"),
                         maxLines = 6,
@@ -231,7 +233,7 @@ fun MessageComposer(
                         decorationBox = { innerTextField ->
                             Row(Modifier.padding(start = 12.dp, end = if (compactComposer) 12.dp else 0.dp),
                                 verticalAlignment = Alignment.CenterVertically) {
-                                Box(Modifier.weight(1f).padding(vertical = 10.dp)) {
+                                Box(Modifier.weight(1f).padding(vertical = 8.dp)) {
                                     if (draft.isEmpty()) Text(if (editingMessage != null) "Edit message" else "Message…",
                                         style = MaterialTheme.typography.bodyLarge,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -300,11 +302,11 @@ fun MessageComposer(
 
 @Composable
 private fun ComposerPrimaryAction(onClick: () -> Unit, icon: ImageVector, label: String, enabled: Boolean = true) {
-    IconButton(onClick = onClick, enabled = enabled, modifier = Modifier.size(48.dp)) {
-        Box(Modifier.size(40.dp).clip(CircleShape)
+    IconButton(onClick = onClick, enabled = enabled, modifier = Modifier.size(44.dp)) {
+        Box(Modifier.size(38.dp).clip(CircleShape)
             .background(if (enabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant),
             contentAlignment = Alignment.Center) {
-            Icon(icon, label, modifier = Modifier.size(22.dp),
+            Icon(icon, label, modifier = Modifier.size(20.dp),
                 tint = if (enabled) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
