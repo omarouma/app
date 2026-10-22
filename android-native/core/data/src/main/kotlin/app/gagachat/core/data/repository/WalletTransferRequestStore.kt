@@ -20,8 +20,9 @@ class WalletTransferRequestStore @Inject constructor(@ApplicationContext context
             .joinToString("") { "${it.length}:$it" }
         val digest = MessageDigest.getInstance("SHA-256").digest(input.toByteArray(Charsets.UTF_8))
             .joinToString("") { "%02x".format(it.toInt() and 0xff) }
-        preferences.getString(digest, null)?.let { return it }
-        val key = UUID.randomUUID().toString()
+        // SharedPreferences may retain an in-memory edit even if a prior disk
+        // commit failed. Recommit existing keys too before allowing any request.
+        val key = preferences.getString(digest, null) ?: UUID.randomUUID().toString()
         check(preferences.edit().putString(digest, key).commit()) { "Unable to save transfer request. Try again." }
         return key
     }
