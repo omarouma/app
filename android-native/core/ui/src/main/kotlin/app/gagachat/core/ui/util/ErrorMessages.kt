@@ -19,6 +19,12 @@ fun AppError.toUserMessage(): String = when (this) {
         403 -> friendlyCallMessage(message) ?: friendlyAuthMessage(message) ?: "You don't have permission to do that."
         404 -> friendlyCallMessage(message) ?: "We couldn't find what you were looking for."
         409 -> friendlyCallMessage(message) ?: friendlyConflictMessage(message) ?: "That action conflicts with existing data."
+        // Storage rejections. Without these the user saw the generic
+        // "Something was wrong with the request" after a multi-minute upload.
+        413 -> friendlyMediaMessage(message)
+            ?: "That file is too large to send. Try a shorter video or a smaller file."
+        415 -> friendlyMediaMessage(message)
+            ?: "That file type can't be sent yet. Try a photo, video or document."
         422 -> friendlyAuthMessage(message) ?: "Please check the information you entered."
         429 -> "Too many attempts. Please wait a moment and try again."
         in 500..599 -> "The server is having trouble. Please try again shortly."
@@ -90,6 +96,47 @@ internal fun friendlyCallMessage(raw: String?): String? {
         lower.contains("token") &&
             (lower.contains("expired") || lower.contains("invalid") || lower.contains("denied")) ->
             "This call has expired. Please start it again."
+
+        else -> null
+    }
+}
+
+/**
+ * Translates Supabase Storage rejections into actionable copy.
+ *
+ * Storage answers with terse bodies such as `Payload too large`,
+ * `The object exceeded the maximum allowed size`, or
+ * `mime type text/x-python is not supported`. Those reached the user verbatim
+ * (or were swallowed by the generic 400 branch) after the whole file had
+ * already been uploaded, which is the worst possible moment to be vague.
+ *
+ * Returns null when the message is not a recognised storage error.
+ */
+internal fun friendlyMediaMessage(raw: String?): String? {
+    val message = raw?.trim().orEmpty()
+    if (message.isEmpty()) return null
+    val lower = message.lowercase()
+
+    return when {
+        lower.contains("payload too large") ||
+            lower.contains("maximum allowed size") ||
+            lower.contains("exceeded the maximum") ||
+            lower.contains("entity too large") ||
+            lower.contains("file size") && lower.contains("limit") ->
+            "That file is too large to send. Try a shorter video or a smaller file."
+
+        lower.contains("mime type") && lower.contains("not supported") ||
+            lower.contains("invalid mime") ||
+            lower.contains("unsupported media type") ->
+            "That file type can't be sent yet. Try a photo, video or document."
+
+        lower.contains("bucket not found") ->
+            "Attachments aren't set up on the server yet. Please try again later."
+
+        lower.contains("new row violates row-level security") ||
+            lower.contains("row-level security") ||
+            lower.contains("permission denied") ->
+            "You don't have permission to upload to this chat."
 
         else -> null
     }
