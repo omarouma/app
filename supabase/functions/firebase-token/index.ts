@@ -39,7 +39,7 @@ function corsHeaders(req: Request): Record<string, string> {
   return {
     'Access-Control-Allow-Origin': allowedOrigins.has(origin) ? origin : 'null',
     'Access-Control-Allow-Headers': 'authorization, content-type, apikey',
-    'Access-Control-Allow-Methods': 'GET, OPTIONS',
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
     'Cache-Control': 'private, no-store, no-cache, must-revalidate',
     'Vary': 'Origin',
   };
@@ -58,10 +58,23 @@ async function authenticate(req: Request): Promise<string | null> {
   try {
     const response = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
       headers: { Authorization: authorization, apikey: SUPABASE_ANON_KEY },
+      signal: AbortSignal.timeout(8000),
     });
     if (!response.ok) return null;
     const user = await response.json() as { id?: string };
-    return user.id ?? null;
+    if (typeof user.id !== 'string' || !user.id) return null;
+    // A signed access token can outlive logout/remote session revocation.
+    // Check the session_id against auth.sessions using the caller's token,
+    // never a service-role token or a caller-supplied user/session identifier.
+    const session = await fetch(`${SUPABASE_URL}/rest/v1/rpc/gaga_session_active`, {
+      method: 'POST',
+      headers: { Authorization: authorization, apikey: SUPABASE_ANON_KEY,
+        'Content-Type': 'application/json' },
+      body: '{}',
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!session.ok || await session.json() !== true) return null;
+    return user.id;
   } catch {
     return null;
   }
