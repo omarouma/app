@@ -104,6 +104,7 @@ import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.gagachat.core.data.preferences.ChatBackground
+import app.gagachat.core.model.ConversationMember
 import app.gagachat.core.model.LinkPreview
 import app.gagachat.core.model.Message
 import app.gagachat.core.model.MessageStatus
@@ -521,6 +522,10 @@ fun ChatRoute(
                             isOtherTyping = state.isOtherTyping && !isFiltering,
                             typingAvatarUrl = state.otherUserAvatar ?: state.avatarUrl,
                             typingName = state.otherUserName.ifBlank { state.title },
+                            members = state.members,
+                            peerAvatarUrl = state.otherUserAvatar,
+                            peerName = state.otherUserName,
+                            isGroup = state.isGroup,
                             listState = listState,
                             selectionMode = selectionMode,
                             selectedIds = selectedIds,
@@ -1330,6 +1335,14 @@ private fun MessageList(
     isOtherTyping: Boolean,
     typingAvatarUrl: String?,
     typingName: String?,
+    /** Group member rows, used to resolve a sender's avatar/name. */
+    members: List<ConversationMember>,
+    /** 1:1 peer avatar, the last-resort fallback for an incoming sender. */
+    peerAvatarUrl: String?,
+    /** 1:1 peer name, the last-resort fallback for an incoming sender. */
+    peerName: String?,
+    /** True for group chats, where the peer fallback must not be used. */
+    isGroup: Boolean,
     listState: androidx.compose.foundation.lazy.LazyListState,
     selectionMode: Boolean,
     selectedIds: Set<String>,
@@ -1406,16 +1419,16 @@ private fun MessageList(
             // Prefer the message's denormalised sender fields (correct even for
             // historical senders who left a group), then the member row, then
             // the 1:1 peer.
-            val member = state.members.firstOrNull { it.userId == message.senderId }
+            val member = members.firstOrNull { it.userId == message.senderId }
             val senderAvatar = when {
                 isOutgoing -> null
                 else -> message.senderAvatar
                     ?: member?.avatar
-                    ?: state.otherUserAvatar
+                    ?: peerAvatarUrl
             }
             val senderName = message.senderName
                 ?: member?.displayName
-                ?: if (!state.isGroup) state.otherUserName else ""
+                ?: if (!isGroup) peerName.orEmpty() else ""
 
             Column(modifier = Modifier.fillMaxWidth()) {
                 // The list is reversed, so a day's first (oldest) message sits at
