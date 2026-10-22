@@ -303,7 +303,7 @@ fun NetworkPerformanceSettingsScreen(
         ) {
             SettingsGroup("DATA USAGE") {
                 ToggleRow("Data saver mode", s.toggle("network.dataSaver", false), { vm.setToggle("network.dataSaver", it) }, icon = Icons.Filled.NetworkCheck)
-                ToggleRow("Wi-Fi only for large uploads", s.toggle("network.wifiOnlyUploads", true), { vm.setToggle("network.wifiOnlyUploads", it) })
+                ToggleRow("Upload media on Wi-Fi only", s.toggle("network.wifiOnlyUploads", false), { vm.setToggle("network.wifiOnlyUploads", it) })
                 ChoiceRow("Background synchronization", listOf("Always", "Wi-Fi only", "Never"), s.choice("network.backgroundSync", "Wi-Fi only"), { vm.setChoice("network.backgroundSync", it) })
                 ToggleRow("Retry failed uploads on reconnect", s.toggle("network.retryUploads", true), { vm.setToggle("network.retryUploads", it) })
             }

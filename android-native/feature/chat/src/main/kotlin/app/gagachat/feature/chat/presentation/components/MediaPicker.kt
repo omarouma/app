@@ -9,6 +9,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.FileProvider
@@ -75,11 +76,12 @@ fun rememberMediaPicker(
     // FileProvider content:// URI. TakePicturePreview only returned a low-res
     // thumbnail bitmap, so captured photos looked blurry. The file lands in the
     // app-private cache and flows into the normal media-upload pipeline.
-    var pendingCameraUri by remember { mutableStateOf<Uri?>(null) }
+    var pendingCameraUri by rememberSaveable { mutableStateOf<String?>(null) }
     val cameraLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.TakePicture(),
     ) { success ->
-        val uri = pendingCameraUri
+        val uri = pendingCameraUri?.let(Uri::parse)
+        pendingCameraUri = null
         if (success && uri != null) onCameraPhotoPicked(uri)
     }
 
@@ -108,7 +110,7 @@ fun rememberMediaPicker(
                         file,
                     )
                 }.getOrNull()?.let { uri ->
-                    pendingCameraUri = uri
+                    pendingCameraUri = uri.toString()
                     cameraLauncher.launch(uri)
                 }
             },

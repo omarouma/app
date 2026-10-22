@@ -64,7 +64,7 @@ class SettingsCenterPreferencesTest {
         assertTrue(f.enterToSend.first())
         assertTrue(f.linkPreviews.first())
         assertFalse(f.saveToGallery.first())
-        assertTrue(f.wifiOnlyUploads.first())
+        assertFalse(f.wifiOnlyUploads.first())
         assertFalse(f.dataSaver.first())
     }
 
@@ -145,10 +145,17 @@ class SettingsCenterPreferencesTest {
     fun `media upload defers only when metered and a data policy is on`() = runTest {
         val f = facade(FakeToggleStore(), FakePrivacy())
 
-        // `network.wifiOnlyUploads` defaults ON (matches the UI declaration), so a
-        // metered connection defers immediately; an unmetered one never does.
-        assertTrue(f.shouldDeferMediaUpload(isMetered = true))
+        // Explicit sends work on mobile data unless the user enables a restriction.
+        assertFalse(f.shouldDeferMediaUpload(isMetered = true))
         assertFalse(f.shouldDeferMediaUpload(isMetered = false))
+
+        // A saved Wi-Fi-only choice survives rebuilding the preference facade.
+        val saved = FakeToggleStore()
+        val first = facade(saved, FakePrivacy())
+        first.setWifiOnlyUploads(true)
+        val restored = facade(saved, FakePrivacy())
+        assertTrue(restored.shouldDeferMediaUpload(isMetered = true))
+        assertFalse(restored.shouldDeferMediaUpload(isMetered = false))
 
         // Turning both data policies off lets uploads proceed on any connection.
         f.setWifiOnlyUploads(false)

@@ -72,6 +72,8 @@ jobs:
           gradle-version: '8.11.1'
       - name: Verify production artifact gate regression tests
         run: python3 -m unittest discover -s android-native/ci -p 'test_verify_production_release.py' -v
+      - name: Verify complete album retry queue
+        run: python3 -m unittest discover -s android-native/ci -p 'test_upload_queue.py' -v
       - name: Enforce Google Play update-install policy
         run: python3 -m unittest discover -s android-native/ci -p 'test_play_update_policy.py' -v
       - name: Validate Firebase public configuration
