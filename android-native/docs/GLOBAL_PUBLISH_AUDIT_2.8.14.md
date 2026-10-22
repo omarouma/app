@@ -171,6 +171,13 @@ defaults to non-exported — safe.
 6. **Install the four release secrets** in GitHub if CI signing is desired:
    `GAGA_RELEASE_KEYSTORE_BASE64`, `GAGA_RELEASE_STORE_PASSWORD`,
    `GAGA_RELEASE_KEY_ALIAS=gaga`, `GAGA_RELEASE_KEY_PASSWORD`.
+7. **Set a forced-update floor.** `app-updates/android.json` currently has
+   `minimumSupportedVersionCode: 0`, which disables forced updates. Once Play is
+   live, raise it to the oldest build you still support (for example the first
+   Play-published versionCode) so users on insecure builds are prompted to
+   update. The `apk` channel deliberately still points at the old-key release
+   (`android-2.8.14`, `b94c059d…`) to preserve in-place updates for sideloaded
+   users; it can move to the new key at the next version bump.
 
 ---
 
