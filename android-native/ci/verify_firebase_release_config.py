@@ -51,7 +51,7 @@ def verify() -> dict[str, str]:
                and x.get("client_id") == expected["oauth_client_id"]
                for x in release_client.get("oauth_client", []))
 
-    # The downloaded Firebase Android configuration contains three publicly
+    # The downloaded Firebase Android configuration contains four publicly
     # registered certificate-specific OAuth client entries. Keep them in the
     # generated release variant, or Google Sign-In/certificate association may
     # silently differ from the real Firebase registration.
@@ -66,7 +66,7 @@ def verify() -> dict[str, str]:
         and entry.get("android_info", {}).get("package_name") == EXPECTED_PACKAGE
     }
     assert registered_oauth == expected_oauth, "Registered Android OAuth SHA-1 clients do not match"
-    assert len(registered_oauth) == 3
+    assert len(registered_oauth) == 4
     assert "cd2f9de5f1932c836d79573726e1033de44bedf9" in {
         certificate for _, certificate in registered_oauth
     }, "Approved GaGa release signing certificate SHA-1 missing from Firebase Android config"
