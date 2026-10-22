@@ -4,6 +4,56 @@ All notable changes to the GaGa Chat native Android app are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 the project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.8.16] — versionCode 71
+
+Chatroom frontend pass: calling is now reachable on every phone, and the
+message list reads like a conversation instead of a stack of cards.
+
+### Fixed
+- **Voice and video calling were hidden on most phones.** The chat header
+  gated the two call buttons behind `maxWidth >= 420.dp` (voice) and
+  `maxWidth >= 500.dp` (video), so on the 360–412dp widths that make up the
+  bulk of the install base both buttons disappeared and calling was only
+  reachable from the overflow menu. Both actions are now always present in
+  1:1 conversations. Only an extreme accessibility font scale (>1.60) folds
+  video into the overflow menu, and voice calling never leaves the header.
+- **Chat toolbar could collapse.** The header is now pinned to a 56dp floor
+  and the identity avatar is 38dp, so the peer is recognisable without
+  eating the title width.
+
+### Added
+- **Sender avatars on incoming messages.** 1:1 and group chats now show the
+  sender's avatar beside the bubble, resolved from the message's
+  denormalised `sender_avatar`, then the conversation member row, then the
+  1:1 peer. Historical senders who have left a group still render.
+- **Consecutive-message grouping.** Messages from one sender within five
+  minutes on the same calendar day render as one visual run: the avatar
+  appears once on the newest row and the rows sit 1dp apart instead of
+  being separate cards. A day boundary always breaks a run so a date
+  separator never lands inside a group.
+- **Voice-note playback speed.** 1x / 1.5x / 2x, applied through
+  `MediaPlayer.PlaybackParams` and re-applied on every prepare and resume so
+  a paused-then-resumed clip keeps the chosen rate. The chip only appears
+  once the clip is playable, so it never advertises a rate for a message
+  that is still download-gated.
+
+### Changed
+- Call-event cards are more compact (40dp min height, 26dp icon box) so a
+  missed-call row no longer dominates the thread.
+- Composer tightened: attach button 48→44dp, text field min height 48→44dp
+  with a 20dp corner radius, send/mic 48→44dp. Visual size shrinks; Compose
+  still enforces the 48dp touch target.
+
+### Verified
+- Participant identity was already correct: `ChatViewModel.otherUserFlow`
+  resolves the peer via `Conversation.otherMember(currentUserId)` and then
+  `userRepository.observeUser(id)`, so each account sees the other
+  participant's profile and never its own. `openProfile` navigates with
+  `state.otherUserId`.
+- Calling was already wired end-to-end (LiveKit + `create-call` /
+  `livekit-token` edge functions), and a failed call surfaces a
+  "Call unavailable" error state with retry rather than a silent no-op.
+
 ## [2.8.15] — versionCode 70
 
 **Final release build.** Version bump so the audited fixes ship as a new,
