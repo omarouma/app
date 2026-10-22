@@ -42,6 +42,16 @@ interface ConversationRepository {
     suspend fun setPinned(conversationId: String, pinned: Boolean)
     suspend fun setMuted(conversationId: String, muted: Boolean)
 
+    /**
+     * Current mute state for a chat, read from the local cache. Used by the push
+     * handler to suppress notifications for muted chats even when the server
+     * fan-out cannot see the recipient's per-chat settings.
+     */
+    suspend fun isMuted(conversationId: String): Boolean
+
+    /** Last known message id for a chat (used to reconcile "mark read"). */
+    suspend fun lastMessageId(conversationId: String): String?
+
     /** Remove a conversation locally and on the server (best-effort). */
     suspend fun deleteConversation(conversationId: String)
 
@@ -166,6 +176,16 @@ class DefaultConversationRepository @Inject constructor(
             conversationDao.setMuted(conversationId, muted)
             runCatching { restApi.updateConversationFlags(conversationId, muted = muted) }
             Unit
+        }
+
+    override suspend fun isMuted(conversationId: String): Boolean =
+        withContext(dispatchers.io) {
+            conversationDao.getById(conversationId)?.isMuted ?: false
+        }
+
+    override suspend fun lastMessageId(conversationId: String): String? =
+        withContext(dispatchers.io) {
+            conversationDao.getById(conversationId)?.lastMessageId
         }
 
     override suspend fun deleteConversation(conversationId: String) =

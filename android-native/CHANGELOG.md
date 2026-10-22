@@ -4,6 +4,40 @@ All notable changes to the GaGa Chat native Android app are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 the project adheres to [Semantic Versioning](https://semver.org/).
 
+## [Unreleased] — Notifications V3 (issue #135)
+
+**Notification surface parity.** Closes the remaining gaps between the in-app
+chat experience and the system tray: mute is now enforced, chats no longer
+collapse into one tray entry, and the common actions can be taken without
+opening the app. Design notes: `docs/NOTIFICATIONS_V3.md`.
+
+### Added
+- **Per-chat notification groups.** Every conversation gets a stable group key,
+  a per-conversation summary and a stable conversation shortcut id, so two
+  chats never merge into a single tray entry.
+- **Inline Reply and Mark read.** Message notifications now carry a `RemoteInput`
+  Reply action (sent through the normal outbox path) and a Mark read action,
+  both handled by the non-exported `NotificationActionReceiver`.
+- **Call actions.** Incoming-call notifications offer Accept and Decline; missed
+  calls offer Call back (which opens the chat, never auto-dials).
+- **Active-call Mute toggle.** The ongoing-call notification now mirrors the
+  in-call Mute/Unmute control and shows "Call in progress · Muted" when muted.
+- **`NotificationPolicy`** (`core:model`) with pure, unit-tested rules for
+  mute/mention/reply decisions and stable notification ids.
+
+### Fixed
+- **Muted chats no longer notify.** `PushHandler` consults the local
+  conversation mute flag before posting; a confirmed @mention or reply-to-me can
+  override a *group* mute but never an explicit mute or OS DND.
+- **Notification identity.** Message, incoming-call and missed-call ids are
+  derived from the conversation through `NotificationPolicy`, removing the
+  scattered `hashCode() + N` arithmetic.
+
+### Tests
+- `NotificationPolicyTest` covers unmuted/muted direct chats, group mention and
+  reply overrides, explicit MUTE, mentions-only mode, alias parsing and id/key
+  stability.
+
 ## [2.8.14] — versionCode 69
 
 **Release-readiness line (2.8.0 → 2.8.14).** Rebuilt the native client to the 2.8

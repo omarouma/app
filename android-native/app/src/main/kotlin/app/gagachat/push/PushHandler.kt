@@ -2,7 +2,9 @@ package app.gagachat.push
 
 import android.content.Context
 import app.gagachat.core.data.preferences.SettingsPreferences
+import app.gagachat.core.data.repository.ConversationRepository
 import app.gagachat.core.data.updates.AppUpdateRepository
+import app.gagachat.core.model.NotificationPolicy
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.first
 import javax.inject.Inject
@@ -40,6 +42,7 @@ class PushHandler @Inject constructor(
     private val sessionStore: app.gagachat.core.network.session.SessionStore,
     private val privacyApi: app.gagachat.core.network.rest.SupabaseRestApi,
     private val updates: AppUpdateRepository,
+    private val conversations: ConversationRepository,
 ) {
 
     /**
@@ -150,6 +153,24 @@ class PushHandler @Inject constructor(
 
             else -> {
                 if (conversationId != null) {
+                    // GaGa Notifications V3: honour the recipient's per-chat mute.
+                    // A confirmed @mention / reply-to-me may override a *group*
+                    // mute, but never an explicit mute or OS DND.
+                    val isMention = data["isMention"].equals("true", ignoreCase = true) ||
+                        data["mention"].equals("true", ignoreCase = true)
+                    val isReplyToMe = data["isReplyToMe"].equals("true", ignoreCase = true) ||
+                        data["reply_to_me"].equals("true", ignoreCase = true)
+                    val muted = conversations.isMuted(conversationId)
+                    if (!NotificationPolicy.shouldNotifyForMessage(
+                            isMuted = muted,
+                            isMention = isMention,
+                            isReplyToMe = isReplyToMe,
+                            isGroup = isGroup,
+                        )
+                    ) {
+                        return
+                    }
+                    val senderName = data["senderName"] ?: data["sender_name"]
                     NotificationHelper.showMessage(
                         context = context,
                         conversationId = conversationId,
@@ -158,6 +179,9 @@ class PushHandler @Inject constructor(
                         isGroup = isGroup,
                         soundEnabled = soundsEnabled,
                         notificationsEnabled = notificationsEnabled,
+                        senderName = if (locked || preview == app.gagachat.core.data.preferences.NotificationPreview.NONE) null else senderName,
+                        messageId = data["messageId"] ?: data["message_id"],
+                        isMention = isMention,
                     )
                 }
             }

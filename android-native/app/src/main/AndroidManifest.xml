@@ -113,6 +113,12 @@
             </intent-filter>
         </service>
 
+        <!-- Notification action buttons (inline Reply / Mark read / call
+             Decline / Call back). Explicit, non-exported broadcasts only. -->
+        <receiver
+            android:name=".push.NotificationActionReceiver"
+            android:exported="false" />
+
         <!-- Default notification channel metadata -->
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_channel_id"

@@ -8,9 +8,12 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
+import androidx.core.app.Person
+import androidx.core.app.RemoteInput
 import androidx.core.content.ContextCompat
 import app.gagachat.MainActivity
 import app.gagachat.R
+import app.gagachat.core.model.NotificationPolicy
 
 /**
  * Builds and posts message/call notifications (PDF §8 / Master Spec §C).
@@ -19,6 +22,14 @@ import app.gagachat.R
  * sound preference, so the in-app switches are real (not decorative). Tapping a
  * notification opens [MainActivity] with a deep link so the nav host routes to
  * the exact conversation, call or profile surface.
+ *
+ * ## GaGa Notifications V3
+ *
+ * Message notifications use [NotificationCompat.MessagingStyle] and a stable
+ * per-conversation group key, so two chats never merge into one tray entry.
+ * Each message notification carries inline **Reply** and **Mark read** actions
+ * (handled by [NotificationActionReceiver]); call notifications carry
+ * **Accept/Decline** and missed calls carry **Call back**.
  */
 object NotificationHelper {
 
@@ -27,6 +38,10 @@ object NotificationHelper {
      *
      * @param soundEnabled when false the notification is posted silently (the
      *   user turned off "Message sounds").
+     * @param senderName the sender's display name for [NotificationCompat.MessagingStyle].
+     * @param messageId the server/client message id, used by "Mark read".
+     * @param canReply when false the inline Reply action is omitted (e.g. a
+     *   read-only or locked conversation).
      */
     fun showMessage(
         context: Context,
@@ -36,36 +51,127 @@ object NotificationHelper {
         isGroup: Boolean = false,
         soundEnabled: Boolean = true,
         notificationsEnabled: Boolean = true,
-        notificationId: Int = conversationId.hashCode(),
+        notificationId: Int = NotificationPolicy.conversationNotificationId(conversationId),
+        senderName: String? = null,
+        messageId: String? = null,
+        isMention: Boolean = false,
+        canReply: Boolean = true,
     ) {
         if (!notificationsEnabled) return
         val channel = if (isGroup) NotificationChannels.GROUP_MESSAGES else NotificationChannels.MESSAGES
-        val intent = Intent(context, MainActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-            data = android.net.Uri.parse("gagachat://chat/$conversationId")
-        }
-        val pending = PendingIntent.getActivity(
-            context,
-            notificationId,
-            intent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-        )
+        val groupKey = NotificationPolicy.groupKey(conversationId)
+        val pending = chatPendingIntent(context, conversationId, notificationId)
+
+        val me = Person.Builder().setName("Me").build()
+        val sender = Person.Builder()
+            .setName(senderName?.takeIf { it.isNotBlank() } ?: title)
+            .build()
+        val style = NotificationCompat.MessagingStyle(me)
+            .setConversationTitle(if (isGroup) title else null)
+            .addMessage(body, System.currentTimeMillis(), sender)
 
         val builder = NotificationCompat.Builder(context, channel)
             .setSmallIcon(R.drawable.ic_notification)
             .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
             .setPublicVersion(privatePreview(context, channel))
-            .setContentTitle(title)
+            .setContentTitle(if (isGroup) title else (senderName ?: title))
             .setContentText(body)
-            .setStyle(NotificationCompat.BigTextStyle().bigText(body))
+            .setStyle(style)
             .setAutoCancel(true)
             .setCategory(if (isGroup) NotificationCompat.CATEGORY_SOCIAL else NotificationCompat.CATEGORY_MESSAGE)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setContentIntent(pending)
-            .setGroup(GROUP_KEY_MESSAGES)
+            .setGroup(groupKey)
+            .setGroupAlertBehavior(NotificationCompat.GROUP_ALERT_CHILDREN)
+            .setShortcutId(NotificationPolicy.shortcutId(conversationId))
+            .setOnlyAlertOnce(false)
+        if (isMention) builder.setSubText("Mentioned you")
         if (!soundEnabled) builder.setSilent(true)
+        if (messageId != null) {
+            if (canReply) builder.addAction(replyAction(context, conversationId, messageId))
+            builder.addAction(markReadAction(context, conversationId, messageId))
+        }
 
-        post(context, notificationId, builder.build())
+        if (post(context, notificationId, builder.build())) {
+            postSummary(context, conversationId, title, body, channel, pending, isGroup)
+        }
+    }
+
+    /**
+     * Per-conversation summary so Android groups the thread correctly and the
+     * tray shows a single stack header instead of one entry per message.
+     */
+    private fun postSummary(
+        context: Context,
+        conversationId: String,
+        title: String,
+        body: String,
+        channel: String,
+        contentIntent: PendingIntent,
+        isGroup: Boolean,
+    ) {
+        val summary = NotificationCompat.Builder(context, channel)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setContentTitle(if (isGroup) title else "GaGa Chat")
+            .setContentText(body)
+            .setStyle(
+                NotificationCompat.InboxStyle()
+                    .addLine(if (isGroup) "$title: $body" else body)
+                    .setSummaryText("GaGa Chat"),
+            )
+            .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
+            .setPublicVersion(privatePreview(context, channel))
+            .setCategory(NotificationCompat.CATEGORY_MESSAGE)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setContentIntent(contentIntent)
+            .setGroup(NotificationPolicy.groupKey(conversationId))
+            .setGroupSummary(true)
+            .setAutoCancel(true)
+            .build()
+        post(context, NotificationPolicy.summaryId(conversationId), summary)
+    }
+
+    private fun chatPendingIntent(context: Context, conversationId: String, requestCode: Int): PendingIntent {
+        val intent = Intent(context, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            data = android.net.Uri.parse("gagachat://chat/$conversationId")
+        }
+        return PendingIntent.getActivity(
+            context,
+            requestCode,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+    }
+
+    /** Inline reply action backed by [RemoteInput]; requires a mutable PendingIntent. */
+    private fun replyAction(context: Context, conversationId: String, messageId: String): NotificationCompat.Action {
+        val remoteInput = RemoteInput.Builder(NotificationActionReceiver.KEY_REPLY_TEXT)
+            .setLabel("Reply")
+            .build()
+        val pending = NotificationActionReceiver.pending(
+            context = context,
+            action = NotificationActionReceiver.ACTION_REPLY,
+            requestCode = ("reply_$conversationId").hashCode(),
+            conversationId = conversationId,
+            messageId = messageId,
+            mutable = true,
+        )
+        return NotificationCompat.Action.Builder(R.drawable.ic_notification, "Reply", pending)
+            .addRemoteInput(remoteInput)
+            .setAllowGeneratedReplies(true)
+            .build()
+    }
+
+    private fun markReadAction(context: Context, conversationId: String, messageId: String): NotificationCompat.Action {
+        val pending = NotificationActionReceiver.pending(
+            context = context,
+            action = NotificationActionReceiver.ACTION_MARK_READ,
+            requestCode = ("read_$conversationId").hashCode(),
+            conversationId = conversationId,
+            messageId = messageId,
+        )
+        return NotificationCompat.Action.Builder(R.drawable.ic_notification, "Mark read", pending).build()
     }
 
     /**
@@ -85,7 +191,7 @@ object NotificationHelper {
         soundEnabled: Boolean = true,
         vibrationEnabled: Boolean = true,
         notificationsEnabled: Boolean = true,
-        notificationId: Int = conversationId.hashCode() + 1,
+        notificationId: Int = NotificationPolicy.incomingCallNotificationId(conversationId),
     ) {
         if (!notificationsEnabled) return
         val intent = Intent(context, MainActivity::class.java).apply {
@@ -100,8 +206,13 @@ object NotificationHelper {
         )
 
         val kind = if (isVideo) "Video call" else "Voice call"
-        val channel = when { soundEnabled && vibrationEnabled -> NotificationChannels.CALLS; soundEnabled -> NotificationChannels.CALLS_NO_VIBRATION; vibrationEnabled -> NotificationChannels.CALLS_VIBRATION_ONLY; else -> NotificationChannels.CALLS_QUIET }
-        val notification = NotificationCompat.Builder(context, channel)
+        val channel = when {
+            soundEnabled && vibrationEnabled -> NotificationChannels.CALLS
+            soundEnabled -> NotificationChannels.CALLS_NO_VIBRATION
+            vibrationEnabled -> NotificationChannels.CALLS_VIBRATION_ONLY
+            else -> NotificationChannels.CALLS_QUIET
+        }
+        val builder = NotificationCompat.Builder(context, channel)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(callerName)
             .setContentText("Incoming $kind")
@@ -114,9 +225,23 @@ object NotificationHelper {
             .setAutoCancel(true)
             .setFullScreenIntent(pending, true)
             .setContentIntent(pending)
-            .build()
 
-        post(context, notificationId, notification)
+        if (!callId.isNullOrBlank()) {
+            builder.addAction(0, "Accept", pending)
+            builder.addAction(
+                0,
+                "Decline",
+                NotificationActionReceiver.pending(
+                    context = context,
+                    action = NotificationActionReceiver.ACTION_DECLINE_CALL,
+                    requestCode = ("decline_$conversationId").hashCode(),
+                    conversationId = conversationId,
+                    callId = callId,
+                ),
+            )
+        }
+
+        post(context, notificationId, builder.build())
     }
 
     /**
@@ -134,14 +259,14 @@ object NotificationHelper {
         return "$base?callId=${android.net.Uri.encode(callId)}&video=$isVideo"
     }
 
-    /** Missed call notification; tapping opens the Calls tab. */
+    /** Missed call notification; tapping opens the Calls tab, action opens the chat. */
     fun showMissedCall(
         context: Context,
         conversationId: String,
         callerName: String,
         isVideo: Boolean,
         notificationsEnabled: Boolean = true,
-        notificationId: Int = conversationId.hashCode() + 2,
+        notificationId: Int = NotificationPolicy.missedCallNotificationId(conversationId),
     ) {
         if (!notificationsEnabled) return
         val intent = Intent(context, MainActivity::class.java).apply {
@@ -156,7 +281,7 @@ object NotificationHelper {
         )
 
         val kind = if (isVideo) "video call" else "voice call"
-        val notification = NotificationCompat.Builder(context, NotificationChannels.MISSED_CALLS)
+        val builder = NotificationCompat.Builder(context, NotificationChannels.MISSED_CALLS)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle("Missed $kind")
             .setContentText(callerName)
@@ -166,9 +291,18 @@ object NotificationHelper {
             .setCategory(NotificationCompat.CATEGORY_MISSED_CALL)
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .setContentIntent(pending)
-            .build()
+            .addAction(
+                0,
+                "Call back",
+                NotificationActionReceiver.pending(
+                    context = context,
+                    action = NotificationActionReceiver.ACTION_CALL_BACK,
+                    requestCode = ("callback_$conversationId").hashCode(),
+                    conversationId = conversationId,
+                ),
+            )
 
-        post(context, notificationId, notification)
+        post(context, notificationId, builder.build())
     }
 
     /**
@@ -240,7 +374,6 @@ object NotificationHelper {
         return runCatching { manager.notify(id, notification); true }.getOrDefault(false)
     }
 
-
     /** An update notice uses a fixed, trusted in-app destination, not an FCM-provided URL. */
     fun showAppUpdate(
         context: Context,
@@ -288,6 +421,4 @@ object NotificationHelper {
     @Suppress("unused")
     private fun systemManager(context: Context): NotificationManager? =
         context.getSystemService(NotificationManager::class.java)
-
-    private const val GROUP_KEY_MESSAGES = "gaga_messages_group"
 }
