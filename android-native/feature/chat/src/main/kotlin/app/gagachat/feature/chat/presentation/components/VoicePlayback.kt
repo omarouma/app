@@ -54,6 +54,14 @@ class VoicePlayerState internal constructor() {
     var error by mutableStateOf(false)
         private set
 
+    /**
+     * Playback rate. Voice notes are often long, so 1x/1.5x/2x is a real
+     * convenience rather than decoration. Applied through
+     * [MediaPlayer.setPlaybackParams] (API 23+; minSdk here is 26).
+     */
+    var speed by mutableStateOf(1f)
+        private set
+
     /** Playback progress in 0f..1f (0 when the duration is unknown). */
     val progress: Float
         get() = if (durationMs <= 0L) 0f else (positionMs.toFloat() / durationMs.toFloat()).coerceIn(0f, 1f)
@@ -98,6 +106,7 @@ class VoicePlayerState internal constructor() {
                 if (player !== it) return@setOnPreparedListener
                 isPreparing = false
                 durationMs = runCatching { it.duration.toLong() }.getOrDefault(0L).coerceAtLeast(0L)
+                applySpeed(it)
                 runCatching { it.start() }
                 isPlaying = true
                 startPolling()
@@ -125,6 +134,7 @@ class VoicePlayerState internal constructor() {
 
     private fun resume() {
         val mp = player ?: return
+        applySpeed(mp)
         runCatching { mp.start() }
         isPlaying = true
         error = false
@@ -143,6 +153,23 @@ class VoicePlayerState internal constructor() {
         val clamped = ms.coerceIn(0L, if (durationMs > 0L) durationMs else ms)
         runCatching { mp.seekTo(clamped.toInt()) }
         positionMs = clamped
+    }
+
+    /** Applies [speed] to [mp], tolerating a player that is not prepared yet. */
+    private fun applySpeed(mp: MediaPlayer) {
+        runCatching {
+            mp.playbackParams = mp.playbackParams.setSpeed(speed)
+        }
+    }
+
+    /** Cycles 1x -> 1.5x -> 2x -> 1x and applies it to the active clip. */
+    fun cycleSpeed() {
+        speed = when (speed) {
+            1f -> 1.5f
+            1.5f -> 2f
+            else -> 1f
+        }
+        player?.let { applySpeed(it) }
     }
 
     private fun startPolling() {

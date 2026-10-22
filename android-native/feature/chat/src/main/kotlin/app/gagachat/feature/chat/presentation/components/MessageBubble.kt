@@ -92,6 +92,7 @@ import app.gagachat.core.model.LinkPreview
 import app.gagachat.core.model.Message
 import app.gagachat.core.model.MessageStatus
 import app.gagachat.core.model.MessageType
+import app.gagachat.core.ui.component.GagaAvatar
 import app.gagachat.core.ui.theme.GagaDimens
 import app.gagachat.core.ui.theme.GagaGreen
 import app.gagachat.core.ui.theme.GagaTheme
@@ -127,6 +128,16 @@ fun MessageBubble(
     onCallBack: (Boolean) -> Unit = {},
     linkPreview: LinkPreview? = null,
     onRequestLinkPreview: (String) -> Unit = {},
+    /**
+     * Peer avatar drawn beside an incoming bubble. Non-null only on the last
+     * message of a consecutive run, so a burst from one sender shows the face
+     * once instead of repeating it on every row.
+     */
+    leadingAvatarUrl: String? = null,
+    /** Name used for the avatar's initials fallback. */
+    senderName: String = "",
+    /** True when this message continues the previous sender's run. */
+    grouped: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
     val bubbleColor = if (isOutgoing) {
@@ -148,10 +159,31 @@ fun MessageBubble(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = GagaDimens.space12, vertical = GagaDimens.space2),
+                .padding(
+                    horizontal = GagaDimens.space12,
+                    // Consecutive messages from one sender sit tight together so
+                    // a burst reads as one block instead of separate cards.
+                    vertical = if (grouped) 1.dp else GagaDimens.space2,
+                ),
             horizontalArrangement = if (isOutgoing) Arrangement.End else Arrangement.Start,
-            verticalAlignment = Alignment.CenterVertically,
+            verticalAlignment = Alignment.Bottom,
         ) {
+            // Incoming rows reserve a fixed avatar gutter so bubbles stay
+            // left-aligned whether or not this row carries the avatar.
+            if (!isOutgoing && !selectionMode) {
+                if (leadingAvatarUrl != null || senderName.isNotBlank()) {
+                    GagaAvatar(
+                        imageUrl = leadingAvatarUrl,
+                        name = senderName,
+                        size = 26.dp,
+                        status = null,
+                        showStatus = false,
+                    )
+                } else {
+                    Spacer(Modifier.width(26.dp))
+                }
+                Spacer(Modifier.width(GagaDimens.space6))
+            }
             if (selectionMode) {
                 SelectionCheck(selected = isSelected)
                 Spacer(Modifier.width(GagaDimens.space8))
@@ -1019,6 +1051,10 @@ private fun MediaVideo(message: Message, contentColor: Color, onRetry: () -> Uni
     }
 }
 
+/** "1x" / "1.5x" / "2x" label for the voice-note speed chip. */
+private fun formatSpeed(speed: Float): String =
+    if (speed == speed.toInt().toFloat()) "${speed.toInt()}x" else "${speed}x"
+
 @Composable
 private fun AudioContent(message: Message, contentColor: Color) {
     val player = rememberVoicePlayer()
@@ -1117,6 +1153,24 @@ private fun AudioContent(message: Message, contentColor: Color) {
                         color = contentColor.copy(alpha = 0.8f),
                     )
                     Spacer(Modifier.weight(1f))
+                    // Speed chip. Long voice notes are common in this app, and
+                    // 1x/1.5x/2x is applied through MediaPlayer.PlaybackParams,
+                    // so this is a real control rather than a label. Hidden
+                    // until the clip is bound so it never shows a stale rate.
+                    if (playable) {
+                        Text(
+                            text = formatSpeed(player.speed),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = contentColor,
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(contentColor.copy(alpha = 0.14f))
+                                .clickable { player.cycleSpeed() }
+                                .padding(horizontal = GagaDimens.space6, vertical = 2.dp)
+                                .testTag("voice-speed-toggle"),
+                        )
+                        Spacer(Modifier.width(GagaDimens.space6))
+                    }
                     Text(
                         text = if (totalMs > 0L) TimeFormat.callDuration(totalMs) else "Voice message",
                         style = MaterialTheme.typography.labelSmall,
@@ -1259,11 +1313,13 @@ private fun CallEventContent(
         // Tapping the call-log entry redials the same kind of call (P0). The
         // inner clickable consumes the tap so the bubble's media handler does not
         // also fire for a call event.
-        modifier = Modifier.heightIn(min = 48.dp).testTag("chat-call-card").clickable { onCallBack(parsed.isVideo) },
+        // Compact call-event row: a 40dp tap target keeps it comfortably
+        // reachable while no longer reading as a large media card.
+        modifier = Modifier.heightIn(min = 40.dp).testTag("chat-call-card").clickable { onCallBack(parsed.isVideo) },
     ) {
         Box(
             modifier = Modifier
-                .size(30.dp)
+                .size(26.dp)
                 .clip(CircleShape)
                 .background(accent.copy(alpha = 0.14f)),
             contentAlignment = Alignment.Center,
@@ -1272,7 +1328,7 @@ private fun CallEventContent(
                 imageVector = icon,
                 contentDescription = kindLabel,
                 tint = accent,
-                modifier = Modifier.size(20.dp),
+                modifier = Modifier.size(16.dp),
             )
         }
         Spacer(Modifier.width(GagaDimens.space8))
@@ -1289,12 +1345,12 @@ private fun CallEventContent(
                 color = accent.copy(alpha = 0.9f),
             )
         }
-        Spacer(Modifier.width(GagaDimens.space12))
+        Spacer(Modifier.width(GagaDimens.space8))
         Icon(
             imageVector = if (parsed.isVideo) Icons.Filled.Videocam else Icons.Filled.Call,
             contentDescription = if (parsed.isVideo) "Video call back" else "Voice call back",
             tint = contentColor.copy(alpha = 0.7f),
-            modifier = Modifier.size(18.dp),
+            modifier = Modifier.size(16.dp),
         )
     }
 }

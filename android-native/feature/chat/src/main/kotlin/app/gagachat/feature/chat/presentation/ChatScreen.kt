@@ -93,6 +93,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
@@ -103,6 +104,7 @@ import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.gagachat.core.data.preferences.ChatBackground
+import app.gagachat.core.model.ConversationMember
 import app.gagachat.core.model.LinkPreview
 import app.gagachat.core.model.Message
 import app.gagachat.core.model.MessageStatus
@@ -389,10 +391,20 @@ fun ChatRoute(
             LocalDensity.current.fontScale,
             MaterialTheme.typography.titleMedium.fontSize.value / 16f,
         )
-        // More and Back always stay reachable. On 320–400dp phones, keeping
-        // phone+video+overflow beside a profile/avatar makes the title unusable.
-        val voiceInHeader = maxWidth >= 420.dp && fontScale <= 1.15f
-        val videoInHeader = maxWidth >= 500.dp && fontScale <= 1.10f
+        // Voice and video are primary actions in a 1:1 chat, so they stay in the
+        // header on every supported width instead of being demoted to the
+        // overflow menu. The previous 420dp/500dp gates hid both buttons on the
+        // 360–412dp phones that make up most of the install base, which made
+        // calling effectively undiscoverable.
+        //
+        // Width is no longer the constraint. What can genuinely break the title
+        // is an extreme accessibility font scale, where two 48dp call targets
+        // plus Back, avatar and overflow leave almost nothing for the name. In
+        // that case only the video button folds into the overflow menu; voice
+        // calling stays visible because it is the more common action.
+        val callActionsSupported = !state.isGroup && state.conversationId.isNotBlank()
+        val voiceInHeader = callActionsSupported
+        val videoInHeader = callActionsSupported && fontScale <= 1.60f
         GagaScaffold(
             title = if (selectionMode) "${selectedIds.size} selected" else state.title,
             compactHeader = true,
@@ -406,6 +418,10 @@ fun ChatRoute(
             onBack = onNavigateBack,
             avatarUrl = state.otherUserAvatar ?: state.avatarUrl,
             avatarStatus = state.otherUserStatus,
+            // 38dp keeps the peer recognisable without eating title width.
+            avatarSize = 38.dp,
+            // Pin the chat toolbar to 56dp so the call actions never squeeze it.
+            minHeaderHeight = 56.dp,
             onTitleClick = openProfile,
             snackbarHostState = snackbarHostState,
             actions = {
@@ -429,19 +445,27 @@ fun ChatRoute(
                 } else {
                     // 1:1 LiveKit calling is supported. Do not display the same
                     // controls on group conversations without group-call support.
-                    if (voiceInHeader && !state.isGroup && state.conversationId.isNotBlank()) {
-                        IconButton(onClick = { onStartCall(state.conversationId, false) }) {
+                    if (voiceInHeader) {
+                        IconButton(
+                            onClick = { onStartCall(state.conversationId, false) },
+                            modifier = Modifier.testTag("chat-header-voice-call"),
+                        ) {
                             Icon(Icons.Filled.Call, contentDescription = "Start voice call")
                         }
                     }
-                    if (videoInHeader && !state.isGroup && state.conversationId.isNotBlank()) {
-                        IconButton(onClick = { onStartCall(state.conversationId, true) }) {
+                    if (videoInHeader) {
+                        IconButton(
+                            onClick = { onStartCall(state.conversationId, true) },
+                            modifier = Modifier.testTag("chat-header-video-call"),
+                        ) {
                             Icon(Icons.Filled.Videocam, contentDescription = "Start video call")
                         }
                     }
                     ChatOverflowMenu(
-                        onVoiceCall = if (!voiceInHeader && !state.isGroup && state.conversationId.isNotBlank()) ({ onStartCall(state.conversationId, false) }) else null,
-                        onVideoCall = if (!videoInHeader && !state.isGroup && state.conversationId.isNotBlank()) ({ onStartCall(state.conversationId, true) }) else null,
+                        // Only offered here when the header could not show it
+                        // (extreme font scale), so the action is never lost.
+                        onVoiceCall = if (!voiceInHeader && callActionsSupported) ({ onStartCall(state.conversationId, false) }) else null,
+                        onVideoCall = if (!videoInHeader && callActionsSupported) ({ onStartCall(state.conversationId, true) }) else null,
                         onSearch = viewModel::toggleSearch,
                         onToggleMute = viewModel::toggleMute,
                         onChatBackground = { showBackgroundPicker = true },
@@ -498,6 +522,10 @@ fun ChatRoute(
                             isOtherTyping = state.isOtherTyping && !isFiltering,
                             typingAvatarUrl = state.otherUserAvatar ?: state.avatarUrl,
                             typingName = state.otherUserName.ifBlank { state.title },
+                            members = state.members,
+                            peerAvatarUrl = state.otherUserAvatar,
+                            peerName = state.otherUserName,
+                            isGroup = state.isGroup,
                             listState = listState,
                             selectionMode = selectionMode,
                             selectedIds = selectedIds,
@@ -1307,6 +1335,14 @@ private fun MessageList(
     isOtherTyping: Boolean,
     typingAvatarUrl: String?,
     typingName: String?,
+    /** Group member rows, used to resolve a sender's avatar/name. */
+    members: List<ConversationMember>,
+    /** 1:1 peer avatar, the last-resort fallback for an incoming sender. */
+    peerAvatarUrl: String?,
+    /** 1:1 peer name, the last-resort fallback for an incoming sender. */
+    peerName: String?,
+    /** True for group chats, where the peer fallback must not be used. */
+    isGroup: Boolean,
     listState: androidx.compose.foundation.lazy.LazyListState,
     selectionMode: Boolean,
     selectedIds: Set<String>,
@@ -1372,6 +1408,28 @@ private fun MessageList(
             }
             val showUnreadDivider = message.localId == firstUnreadLocalId
 
+            // Consecutive-message grouping. The list is reversed, so index + 1
+            // is the *older* neighbour (drawn above) and index - 1 is the newer
+            // one (drawn below).
+            val below = reversed.getOrNull(index - 1)
+            val sameRunAsAbove = continuesRun(older, message, CONSECUTIVE_MESSAGE_WINDOW_MS)
+            // The avatar belongs to the newest message of a run, i.e. the row
+            // whose neighbour below belongs to someone else.
+            val isRunEnd = endsRun(below, message)
+            // Prefer the message's denormalised sender fields (correct even for
+            // historical senders who left a group), then the member row, then
+            // the 1:1 peer.
+            val member = members.firstOrNull { it.userId == message.senderId }
+            val senderAvatar = when {
+                isOutgoing -> null
+                else -> message.senderAvatar
+                    ?: member?.avatar
+                    ?: peerAvatarUrl
+            }
+            val senderName = message.senderName
+                ?: member?.displayName
+                ?: if (!isGroup) peerName.orEmpty() else ""
+
             Column(modifier = Modifier.fillMaxWidth()) {
                 // The list is reversed, so a day's first (oldest) message sits at
                 // the top of that day's group: the date separator and the unread
@@ -1402,6 +1460,9 @@ private fun MessageList(
                         ?.let { app.gagachat.core.common.util.LinkDetector.firstUrl(it) }
                         ?.let { linkPreviews[it] },
                     onRequestLinkPreview = onRequestLinkPreview,
+                    leadingAvatarUrl = if (isRunEnd) senderAvatar else null,
+                    senderName = senderName,
+                    grouped = sameRunAsAbove,
                 )
             }
         }
@@ -1419,6 +1480,9 @@ private fun MessageList(
         }
     }
 }
+
+/** Messages from one sender closer than this are rendered as one visual run. */
+private const val CONSECUTIVE_MESSAGE_WINDOW_MS = 5 * 60 * 1000L
 
 /** A thin "New messages" rule separating read from unread history. */
 @Composable

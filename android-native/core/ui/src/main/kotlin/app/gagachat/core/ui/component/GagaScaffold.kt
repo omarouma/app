@@ -9,6 +9,7 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.Dp
 import app.gagachat.core.model.UserStatus
 
 /**
@@ -28,6 +29,8 @@ fun GagaScaffold(
     titleHighlight: String? = null,
     avatarUrl: String? = null,
     avatarStatus: UserStatus? = null,
+    avatarSize: Dp? = null,
+    minHeaderHeight: Dp? = null,
     onTitleClick: (() -> Unit)? = null,
     showTopBarDivider: Boolean = title.isNotBlank() || onBack != null,
     snackbarHostState: SnackbarHostState? = null,
@@ -50,6 +53,8 @@ fun GagaScaffold(
                 titleHighlight = titleHighlight,
                 avatarUrl = avatarUrl,
                 avatarStatus = avatarStatus,
+                avatarSize = avatarSize,
+                minHeaderHeight = minHeaderHeight,
                 onTitleClick = onTitleClick,
                 showDivider = showTopBarDivider,
                 actions = actions,
