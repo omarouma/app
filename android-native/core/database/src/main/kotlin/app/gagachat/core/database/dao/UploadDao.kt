@@ -12,7 +12,18 @@ interface UploadDao {
     @Upsert
     suspend fun upsert(upload: PendingUploadEntity)
 
-    @Query("SELECT * FROM pending_uploads WHERE state IN ('QUEUED', 'UPLOADING', 'UPLOADED') ORDER BY rowid ASC")
+    // An album is one message: never dispatch a subset after a sibling fails.
+    // Manual retry resets FAILED rows, making the complete album eligible again.
+    @Query("""
+        SELECT * FROM pending_uploads AS candidate
+        WHERE state IN ('QUEUED', 'UPLOADING', 'UPLOADED')
+        AND NOT EXISTS (
+            SELECT 1 FROM pending_uploads AS sibling
+            WHERE sibling.clientMessageId = candidate.clientMessageId
+              AND sibling.state = 'FAILED'
+        )
+        ORDER BY candidate.rowid ASC
+    """)
     suspend fun getQueued(): List<PendingUploadEntity>
 
     @Query("SELECT * FROM pending_uploads WHERE clientMessageId = :clientMessageId ORDER BY rowid ASC")
