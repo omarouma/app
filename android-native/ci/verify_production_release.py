@@ -11,11 +11,47 @@ upload-key verification, Firebase Cloud Messaging delivery tests, or Play review
 from __future__ import annotations
 
 import argparse
+import json
+import shutil
+import subprocess
 import os
 import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def verify_signed_artifacts(apk: Path, aab: Path, version: str) -> bool:
+    """Verify the bytes rather than trusting filenames or a saved text report."""
+    try:
+        pin = json.loads((ROOT / "ci/release-signing-public.json").read_text())
+        sdk = os.getenv("ANDROID_HOME") or os.getenv("ANDROID_SDK_ROOT")
+        tools = sorted((Path(sdk) / "build-tools").glob("*")) if sdk else []
+        def tool(name: str) -> str:
+            found = shutil.which(name)
+            if found:
+                return found
+            for directory in reversed(tools):
+                candidate = directory / name
+                if candidate.is_file():
+                    return str(candidate)
+            raise FileNotFoundError(name)
+        def output(command: list[str]) -> str:
+            return subprocess.check_output(command, text=True, stderr=subprocess.STDOUT)
+        apk_report = output([tool("apksigner"), "verify", "--verbose", "--print-certs", str(apk)])
+        certs = re.findall(r"Signer #[0-9]+ certificate SHA-256 digest: ([0-9a-fA-F]+)", apk_report)
+        if len(certs) != 1 or certs[0].lower() != pin["sha256"].lower():
+            return False
+        output(["jarsigner", "-verify", str(aab)])
+        aab_report = output(["keytool", "-printcert", "-jarfile", str(aab)])
+        bundle_certs = re.findall(r"SHA256:\s*([0-9A-Fa-f:]+)", aab_report)
+        if len(bundle_certs) != 1 or bundle_certs[0].replace(":", "").lower() != pin["sha256"].lower():
+            return False
+        identity = output([tool("aapt"), "dump", "badging", str(apk)])
+        package = re.search(r"^package: name='([^']+)' versionCode='([0-9]+)' versionName='([^']+)'", identity, re.MULTILINE)
+        return package is not None and package[1] == pin["package"] and package[3] == version
+    except (OSError, subprocess.SubprocessError, ValueError, KeyError):
+        return False
 
 
 def check(artifacts: Path, strict: bool, version: str, git_ref: str) -> bool:
@@ -37,6 +73,8 @@ def check(artifacts: Path, strict: bool, version: str, git_ref: str) -> bool:
     compatibility = artifacts / "UPDATE-COMPATIBILITY.txt"
     signed = all(x.is_file() and x.stat().st_size > 0
                  for x in (signed_apk, signed_aab, signature_report, compatibility))
+    if signed:
+        signed = verify_signed_artifacts(signed_apk, signed_aab, version)
     notes.append("Matching-key signed APK/AAB and verification: " +
                  ("present" if signed else "NOT PRESENT"))
     notes.append("Play Store/App Signing account validation: still required")
