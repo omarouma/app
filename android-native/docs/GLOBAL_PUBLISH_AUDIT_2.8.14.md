@@ -56,7 +56,10 @@ bundle is internally intact. Native ABIs present: `arm64-v8a` and `armeabi-v7a`
 ## 3. Website and Android App Links
 
 * `https://gagachat.app` → 200; `/privacy` → 200; `/terms` → 200;
-  `/app-updates/android.json` → 200.
+  `/delete-account` → 200; `/app-updates/android.json` → 200.
+* The site was redeployed during this audit (`firebase deploy --only hosting`,
+  30 files) so the merged account-deletion page and the corrected App Links are
+  live now, not just in the repository.
 * Live `/.well-known/assetlinks.json` serves **12** SHA-256 fingerprints,
   including the new upload key. `autoVerify="true"` is declared on the
   `https://gagachat.app` intent filter in the manifest, so App Links verify.
@@ -114,7 +117,7 @@ These were real repository-vs-production drifts or policy issues, not cosmetic.
 | Feature graphic 1024×500 | ✅ | `play/feature-graphic-1024x500.png`, RGB |
 | Store listing copy | ✅ | name ≤30, short ≤80, full ≤4000 |
 | Phone screenshots (2–8) | ❌ **blocker** | `play/screenshots/` contains only a README — no real captures |
-| Account-deletion web page | ✅ (after #143) | `/delete-account`, deploy pending |
+| Account-deletion web page | ✅ live | `/delete-account` → 200, listed in sitemap |
 | In-app account deletion | ✅ | Settings → Delete account |
 | Privacy policy URL | ✅ | `https://gagachat.app/privacy` |
 | Data safety form | ⚠️ owner | must declare messages, media, files, location, contacts, device IDs |
@@ -156,8 +159,9 @@ defaults to non-exported — safe.
 1. **Capture 2–8 real phone screenshots** from the release build and place them
    in `android-native/play/screenshots/` (see that folder's README). This is the
    only hard blocker left in the repository.
-2. **Deploy the website** (`firebase deploy --only hosting --project oumagachat`)
-   so `/delete-account` and the corrected `assetlinks.json` go live.
+2. ~~Deploy the website~~ — **done**: `firebase deploy --only hosting` released
+   30 files; `/delete-account` is live and `assetlinks.json` serves 12
+   fingerprints including the new upload key.
 3. **Upload `daa5e764…` AAB to Play internal testing**, then promote to
    production. Play will mint the app-signing key on first upload.
 4. **After first upload**, register the Play app-signing SHA-1/SHA-256 with
