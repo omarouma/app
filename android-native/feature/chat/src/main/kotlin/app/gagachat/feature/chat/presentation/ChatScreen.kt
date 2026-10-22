@@ -1415,7 +1415,7 @@ private fun MessageList(
             val sameRunAsAbove = continuesRun(older, message, CONSECUTIVE_MESSAGE_WINDOW_MS)
             // The avatar belongs to the newest message of a run, i.e. the row
             // whose neighbour below belongs to someone else.
-            val isRunEnd = endsRun(below, message)
+            val isRunEnd = endsRun(below, message, CONSECUTIVE_MESSAGE_WINDOW_MS)
             // Prefer the message's denormalised sender fields (correct even for
             // historical senders who left a group), then the member row, then
             // the 1:1 peer.
@@ -1424,7 +1424,7 @@ private fun MessageList(
                 isOutgoing -> null
                 else -> message.senderAvatar
                     ?: member?.avatar
-                    ?: peerAvatarUrl
+                    ?: peerAvatarUrl.takeUnless { isGroup }
             }
             val senderName = message.senderName
                 ?: member?.displayName
