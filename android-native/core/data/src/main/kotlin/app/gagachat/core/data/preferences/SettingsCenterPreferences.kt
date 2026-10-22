@@ -126,7 +126,7 @@ class SettingsCenterPreferences @Inject constructor(
     // ---------------------------------------------------------------------
 
     /** `network.wifiOnlyUploads` — never upload media on a metered connection. */
-    val wifiOnlyUploads: Flow<Boolean> = store.toggles.map { it[KEY_WIFI_ONLY_UPLOADS] ?: true }
+    val wifiOnlyUploads: Flow<Boolean> = store.toggles.map { it[KEY_WIFI_ONLY_UPLOADS] ?: false }
 
     /** `network.dataSaver` — treat metered connections as upload-forbidden. */
     val dataSaver: Flow<Boolean> = store.toggles.map { it[KEY_DATA_SAVER] ?: false }

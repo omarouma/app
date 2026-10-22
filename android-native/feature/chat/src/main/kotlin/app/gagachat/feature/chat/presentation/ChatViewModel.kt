@@ -659,6 +659,10 @@ class ChatViewModel @Inject constructor(
                 caption = caption,
             )
             if (result is AppResult.Failure) error.value = result.error.toUserMessage()
+            if (result is AppResult.Success &&
+                settingsCenter.shouldDeferMediaUpload(networkMonitor.isCurrentlyMetered())) {
+                notice.value = "Photo or file queued: waiting for Wi-Fi. To send on mobile data, turn off Wi-Fi-only uploads and Data saver in Network & Performance."
+            }
         }
     }
 
@@ -734,6 +738,10 @@ class ChatViewModel @Inject constructor(
                 caption = caption,
             )
             if (result is AppResult.Failure) error.value = result.error.toUserMessage()
+            if (result is AppResult.Success &&
+                settingsCenter.shouldDeferMediaUpload(networkMonitor.isCurrentlyMetered())) {
+                notice.value = "Photo or file queued: waiting for Wi-Fi. To send on mobile data, turn off Wi-Fi-only uploads and Data saver in Network & Performance."
+            }
         }
     }
 
