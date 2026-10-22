@@ -92,4 +92,14 @@ class WalletRepositoryTest {
         coVerify(exactly = 0) { api.transferCoins(any(), any(), any(), any()) }
     }
 
+    @Test fun committedTransferIsNotReportedFailedWhenRequestCleanupFails() = runTest {
+        every { requests.keyFor("alice", "bob", 10, null) } returns "persisted-key"
+        every { requests.complete("persisted-key") } throws IllegalStateException("disk unavailable")
+        coEvery { api.transferCoins("bob", 10, null, "persisted-key") } returns true
+        coEvery { api.getWallet("alice") } returns WalletRow("wallet", "alice", 32)
+        coEvery { api.getWalletTransactions("alice", any()) } returns emptyList()
+        val repo = DefaultWalletRepository(api, auth, dispatchers, backgroundScope, requests)
+        assertTrue(repo.sendCoins("bob", "Bob", 10, null) is AppResult.Success)
+    }
+
 }
