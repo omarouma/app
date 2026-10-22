@@ -72,14 +72,20 @@ class ChatUiPolicyTest {
         val older = message("m1", "alice", t0)
         val newer = message("m2", "alice", t0 + 30_000L)
         // `newer` is drawn below `older`, so `older` is not the run end.
-        assertFalse(endsRun(newer, older))
-        assertTrue(endsRun(null, newer))
+        assertFalse(endsRun(newer, older, window))
+        assertTrue(endsRun(null, newer, window))
+    }
+
+    @Test fun timeGapEndsRunAndShowsAvatarAgain() {
+        val older = message("m1", "alice", t0)
+        val newer = message("m2", "alice", t0 + window + 1)
+        assertTrue(endsRun(newer, older, window))
     }
 
     @Test fun senderChangeEndsRun() {
         val mine = message("m1", "alice", t0)
         val theirs = message("m2", "bob", t0 + 30_000L)
-        assertTrue(endsRun(theirs, mine))
+        assertTrue(endsRun(theirs, mine, window))
     }
 
     @Test fun forwardingDoesNotSilentlyDiscardMultiSelection() {
