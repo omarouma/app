@@ -70,6 +70,7 @@ class DefaultWalletRepository @Inject constructor(
     private val authRepository: AuthRepository,
     private val dispatchers: DispatcherProvider,
     @ApplicationScope private val applicationScope: CoroutineScope,
+    private val transferRequests: WalletTransferRequestStore,
 ) : WalletRepository {
 
     private val _wallet = MutableStateFlow<Wallet?>(null)
@@ -156,21 +157,24 @@ class DefaultWalletRepository @Inject constructor(
         try {
             // Atomic, server-validated transfer. The RPC does the debit + credit in
             // one transaction and returns false when the balance is insufficient.
-            // This key deduplicates transport retries of this invocation only.
-            // A later invocation currently receives a new key; durable operation
-            // identity is required before enabling real-money transfers.
+            // Persist before the network request. Reuse after an uncertain response,
+            // including when the transfer committed but the subsequent reads failed.
+            val operationKey = transferRequests.keyFor(me, toUserId, amount, note)
             val moved = restApi.transferCoins(
                 toUserId = toUserId,
                 amount = amount,
                 note = note,
-                idempotencyKey = UUID.randomUUID().toString(),
+                idempotencyKey = operationKey,
             )
             if (!moved) {
+                transferRequests.complete(operationKey)
                 return@withContext AppResult.Failure(AppError.Validation("Insufficient balance"))
             }
-            // Re-read balance + ledger from the server so the UI reflects the
-            // committed state (the ledger is the source of truth for history).
-            AppResult.Success(loadInto(me))
+            // A failed refresh keeps the key, so retrying reconciles the same
+            // transfer instead of submitting a second debit.
+            val wallet = loadInto(me)
+            transferRequests.complete(operationKey)
+            AppResult.Success(wallet)
         } catch (t: Throwable) {
             if (t is CancellationException) throw t
             AppResult.Failure(ErrorMapper.map(t))
