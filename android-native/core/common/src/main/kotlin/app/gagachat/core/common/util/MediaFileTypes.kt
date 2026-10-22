@@ -140,9 +140,15 @@ object MediaFileTypes {
         val normalized = normalizeMime(mime)
         if (normalized.isNotEmpty()) {
             MIME_TO_EXTENSION[normalized]?.let { return it }
+        }
+        // The provider-supplied name is a better hint than a guessed subtype:
+        // `application/x-made-up` must not become `.madeup`, and a real
+        // `notes.md` should stay markdown. Only when the name has no usable
+        // suffix do we fall back to deriving one from the MIME subtype.
+        sanitizeExtension(fileName?.substringAfterLast('.', ""))?.let { return it }
+        if (normalized.isNotEmpty()) {
             sanitizeSubtype(normalized.substringAfter('/', ""))?.let { return it }
         }
-        sanitizeExtension(fileName?.substringAfterLast('.', ""))?.let { return it }
         return FALLBACK_EXTENSION
     }
 

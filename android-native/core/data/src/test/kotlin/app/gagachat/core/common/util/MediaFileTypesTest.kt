@@ -98,6 +98,20 @@ class MediaFileTypesTest {
     }
 
     @Test
+    fun `table entry wins over a misleading file name`() {
+        // The MIME is authoritative when we know it; a renamed file must not
+        // change how the object is stored.
+        assertEquals("jpg", MediaFileTypes.extensionForMime("image/jpeg", "photo.png"))
+        assertEquals("mov", MediaFileTypes.extensionForMime("video/quicktime", "clip.mp4"))
+    }
+
+    @Test
+    fun `subtype is derived when the name has no usable suffix`() {
+        assertEquals("icon", MediaFileTypes.extensionForMime("image/x-icon", "favicon"))
+        assertEquals("vcard", MediaFileTypes.extensionForMime("text/x-vcard", null))
+    }
+
+    @Test
     fun `nothing usable falls back to bin`() {
         assertEquals("bin", MediaFileTypes.extensionForMime(null, null))
         assertEquals("bin", MediaFileTypes.extensionForMime("", ""))
