@@ -923,8 +923,8 @@ class SupabaseRestApi @Inject constructor(
      * the sender's coins. Returns `false` when the balance is insufficient.
      *
      * [idempotencyKey] makes the call safe to retry: the server records it on the
-     * sender's ledger row and replays become a no-op, so a network timeout or a
-     * double-tap can never move the same coins twice.
+     * sender's ledger row and replays with the same key become a no-op. Callers
+     * must retain that key across retries; a new key represents a new transfer.
      */
     suspend fun transferCoins(
         toUserId: String,

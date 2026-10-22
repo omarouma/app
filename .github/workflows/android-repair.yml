@@ -180,7 +180,7 @@ jobs:
             android-native/docs/PEOPLE_SYNC_NOTIFICATIONS_2.7.3.md
       - name: Compile release and test messaging and call contracts
         working-directory: android-native
-        run: gradle --no-daemon --no-build-cache --max-workers=2 '-Dorg.gradle.jvmargs=-Xmx3072m -XX:MaxMetaspaceSize=2048m -Dfile.encoding=UTF-8' -Pksp.incremental=false :feature:dailylife:compileReleaseKotlin :feature:dailylife:testReleaseUnitTest :feature:profile:testReleaseUnitTest :feature:settings:compileReleaseKotlin :app:assembleRelease :app:bundleRelease :app:testReleaseUnitTest :core:model:test :core:data:testReleaseUnitTest :core:network:testReleaseUnitTest :feature:chat:testReleaseUnitTest :feature:qr:testReleaseUnitTest :feature:calls:testReleaseUnitTest
+        run: gradle --no-daemon --no-build-cache --max-workers=2 '-Dorg.gradle.jvmargs=-Xmx3072m -XX:MaxMetaspaceSize=2048m -Dfile.encoding=UTF-8' -Pksp.incremental=false :feature:dailylife:compileReleaseKotlin :feature:dailylife:testReleaseUnitTest :feature:profile:testReleaseUnitTest :feature:settings:compileReleaseKotlin :app:assembleRelease :app:bundleRelease :app:testReleaseUnitTest :core:model:test :core:data:testReleaseUnitTest :core:network:testReleaseUnitTest :feature:chat:testReleaseUnitTest :feature:qr:testReleaseUnitTest :feature:calls:testReleaseUnitTest :feature:wallet:testReleaseUnitTest
       - name: Package release artifacts
         run: |
           mkdir -p deliverables
@@ -214,15 +214,12 @@ jobs:
           trap 'rm -f "$keyfile"' EXIT
           printf '%s' "$KEYSTORE_BASE64" | base64 -d > "$keyfile"
           actual=$(keytool -exportcert -keystore "$keyfile" -storepass:env STORE_PASSWORD -alias "$KEY_ALIAS" | sha256sum | cut -d' ' -f1)
-          # User-authorized release-key rotation on 2026-10-14. Preserve this
-          # identity for every subsequent direct APK release.
-          case "$actual" in
-            dd6b6f166100e0db29a3f58af7439f5065c0148632d78ca5cd1d1a585a19af13)
-              echo 'Signer matches GaGa 2.7.8. Older signing identities require reinstall; subsequent releases using this key support in-place updates.' > deliverables/UPDATE-COMPATIBILITY.txt ;;
-            *)
-              echo 'Configured keystore is NOT the approved GaGa 2.7.8 signing identity.' > deliverables/SIGNING-REQUIRED.txt
-              exit 0 ;;
-          esac
+          expected=$(python3 -c 'import json; print(json.load(open("android-native/ci/release-signing-public.json"))["sha256"])')
+          if [ "$actual" != "$expected" ]; then
+            echo 'Configured keystore does not match the pinned release identity.' > deliverables/SIGNING-REQUIRED.txt
+            exit 0
+          fi
+          echo 'Signing certificate matches ci/release-signing-public.json. Device update compatibility still requires testing.' > deliverables/UPDATE-COMPATIBILITY.txt
           signer=$(find "$ANDROID_HOME/build-tools" -name apksigner | sort -V | tail -1)
           "$signer" sign --ks "$keyfile" --ks-key-alias "$KEY_ALIAS" --ks-pass env:STORE_PASSWORD --key-pass env:KEY_PASSWORD --out deliverables/GaGa-${GAGA_VERSION}-release.apk deliverables/GaGa-${GAGA_VERSION}-release-unsigned.apk
           cp deliverables/GaGa-${GAGA_VERSION}-release-unsigned.aab deliverables/GaGa-${GAGA_VERSION}-release.aab
@@ -253,6 +250,8 @@ jobs:
           path: |
             deliverables/
             android-native/core/model/build/reports/tests/test/
+            android-native/feature/wallet/build/reports/tests/testReleaseUnitTest/
+            android-native/feature/wallet/build/test-results/testReleaseUnitTest/
             android-native/feature/qr/build/reports/tests/testReleaseUnitTest/
             android-native/feature/qr/build/test-results/testReleaseUnitTest/
             android-native/feature/chat/build/reports/tests/testReleaseUnitTest/

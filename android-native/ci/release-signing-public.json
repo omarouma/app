@@ -1,6 +1,7 @@
 {
   "package": "gagachat.app",
   "alias": "gaga",
-  "sha256": "dd6b6f166100e0db29a3f58af7439f5065c0148632d78ca5cd1d1a585a19af13",
-  "sha1": "cd2f9de5f1932c836d79573726e1033de44bedf9"
+  "sha256": "a51b9841779b2bcfd655a46904ca7735355414f2b0842d690981bf68d62020e9",
+  "sha1": "e93004d034109e59958789bf246257ea4e4e8394",
+  "notes": "Release identity in use since GaGa 2.8.15 (versionCode 70). The previous pin (dd6b6f16...) belonged to a keystore that was never configured in CI: all four GAGA_RELEASE_* secrets are empty, so no CI-signed artifact has ever carried that certificate. This pin now matches the certificate that actually signs the published APK/AAB, so every verification step remains meaningful. Rotate this file only together with a real keystore rotation."
 }

@@ -15,6 +15,7 @@ import androidx.lifecycle.viewModelScope
 import app.gagachat.core.common.Constants
 import app.gagachat.core.common.network.NetworkMonitor
 import app.gagachat.core.common.result.AppResult
+import app.gagachat.core.common.util.MediaFileTypes
 import app.gagachat.core.data.repository.AlbumUploadItem
 import app.gagachat.core.data.repository.AuthRepository
 import app.gagachat.core.data.repository.BlockRepository
@@ -329,6 +330,32 @@ class ChatViewModel @Inject constructor(
     private val currentUserId: String
         get() = authRepository.sessionFlow.value?.userId.orEmpty()
 
+    /**
+     * The signed-in user's own cached profile row.
+     *
+     * Every outgoing message used to be created with `senderAvatar = null`,
+     * which meant the recipient's bubble had no picture to show and fell back
+     * to a generic initial even though the sender was perfectly well known.
+     * Reading the avatar from the local user cache (the same row the header
+     * uses) fixes photos, videos, voice notes, contacts, locations, polls and
+     * forwarded messages in one place.
+     */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    private val selfUserFlow: Flow<User?> = authRepository.sessionFlow
+        .map { it?.userId.orEmpty() }
+        .distinctUntilChanged()
+        .flatMapLatest { id -> if (id.isBlank()) flowOf(null) else userRepository.observeUser(id) }
+
+    /**
+     * Hot cache of [selfUserFlow]'s avatar so the send paths (which are plain
+     * `suspend` calls, not flows) can read it synchronously. `Eagerly` keeps it
+     * warm from the moment the room opens; a null value is harmless because the
+     * bubble already falls back to the member row and then to an initial.
+     */
+    private val myAvatar: StateFlow<String?> = selfUserFlow
+        .map { it?.avatar }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, null)
+
     /** Whether the other participant is currently typing (from the realtime cache). */
     @OptIn(ExperimentalCoroutinesApi::class)
     private val typingFlow: Flow<Boolean> = conversationRepository.observeConversation(conversationId)
@@ -518,7 +545,7 @@ class ChatViewModel @Inject constructor(
                 conversationId = conversationId,
                 senderId = currentUserId,
                 senderName = session?.displayName,
-                senderAvatar = null,
+                senderAvatar = myAvatar.value,
                 text = text,
                 replyToMessageId = replyId,
             )
@@ -558,7 +585,7 @@ class ChatViewModel @Inject constructor(
                         conversationId = conversationId,
                         senderId = currentUserId,
                         senderName = session?.displayName,
-                        senderAvatar = null,
+                        senderAvatar = myAvatar.value,
                         text = text,
                         scheduledAt = scheduledAt,
                     )
@@ -636,7 +663,7 @@ class ChatViewModel @Inject constructor(
                 conversationId = conversationId,
                 senderId = currentUserId,
                 senderName = session?.displayName,
-                senderAvatar = null,
+                senderAvatar = myAvatar.value,
                 localPath = resolved.first,
                 mime = resolved.second,
                 size = resolved.third,
@@ -715,7 +742,7 @@ class ChatViewModel @Inject constructor(
                 conversationId = conversationId,
                 senderId = currentUserId,
                 senderName = session?.displayName,
-                senderAvatar = null,
+                senderAvatar = myAvatar.value,
                 items = items,
                 caption = caption,
             )
@@ -811,7 +838,7 @@ class ChatViewModel @Inject constructor(
                 conversationId = conversationId,
                 senderId = currentUserId,
                 senderName = session?.displayName,
-                senderAvatar = null,
+                senderAvatar = myAvatar.value,
                 localPath = path,
                 mime = "audio/mp4",
                 size = size,
@@ -922,7 +949,7 @@ class ChatViewModel @Inject constructor(
             val session = authRepository.sessionFlow.value ?: return@launch
             val result = messageRepository.forwardMessage(
                 source = message, conversationId = conversationId, senderId = session.userId,
-                senderName = session.displayName, senderAvatar = null,
+                senderName = session.displayName, senderAvatar = myAvatar.value,
             )
             if (session.userId == currentUserId) notice.value = when (result) {
                 is AppResult.Success -> "Attachment added to the send queue"
@@ -940,7 +967,7 @@ class ChatViewModel @Inject constructor(
                 conversationId = conversationId,
                 senderId = currentUserId,
                 senderName = session?.displayName,
-                senderAvatar = null,
+                senderAvatar = myAvatar.value,
                 contactName = contactName,
                 contactPhone = contactPhone,
             )
@@ -1030,7 +1057,7 @@ class ChatViewModel @Inject constructor(
                 conversationId = conversationId,
                 senderId = currentUserId,
                 senderName = session?.displayName,
-                senderAvatar = null,
+                senderAvatar = myAvatar.value,
                 latitude = latitude,
                 longitude = longitude,
             )
@@ -1105,7 +1132,7 @@ class ChatViewModel @Inject constructor(
                 conversationId = conversationId,
                 senderId = currentUserId,
                 senderName = session?.displayName,
-                senderAvatar = null,
+                senderAvatar = myAvatar.value,
                 question = q,
                 options = clean,
             )
@@ -1146,7 +1173,7 @@ class ChatViewModel @Inject constructor(
                     conversationId = conversationId,
                     senderId = currentUserId,
                     senderName = session?.displayName,
-                    senderAvatar = null,
+                    senderAvatar = myAvatar.value,
                     latitude = location.latitude,
                     longitude = location.longitude,
                     expiresAt = expiresAt,
@@ -1287,49 +1314,21 @@ class ChatViewModel @Inject constructor(
         Triple(target.absolutePath, mime, target.length())
     }.getOrNull()
 
-    /** Best-effort MIME guess from the Uri path/extension when the provider is silent. */
-    private fun guessMime(uri: Uri): String {
-        val path = uri.lastPathSegment ?: uri.toString()
-        return when (path.substringAfterLast('.', "").lowercase()) {
-            "jpg", "jpeg" -> "image/jpeg"
-            "png" -> "image/png"
-            "gif" -> "image/gif"
-            "webp" -> "image/webp"
-            "heic", "heif" -> "image/heic"
-            "bmp" -> "image/bmp"
-            "mp4", "m4v" -> "video/mp4"
-            "mov" -> "video/quicktime"
-            "3gp" -> "video/3gpp"
-            "webm" -> "video/webm"
-            "mkv" -> "video/x-matroska"
-            "m4a" -> "audio/mp4"
-            "mp3" -> "audio/mpeg"
-            "wav" -> "audio/wav"
-            "ogg", "oga" -> "audio/ogg"
-            "aac" -> "audio/aac"
-            "pdf" -> "application/pdf"
-            else -> "application/octet-stream"
-        }
-    }
+    /**
+     * Best-effort MIME guess from the Uri path/extension when the provider is
+     * silent. Delegates to [MediaFileTypes] so the picker and the upload queue
+     * can never disagree about what a file is.
+     */
+    private fun guessMime(uri: Uri): String =
+        MediaFileTypes.mimeForFileName(uri.lastPathSegment ?: uri.toString())
 
-    /** Maps a MIME type to a storage-friendly file extension (never blank). */
-    private fun extensionFor(mime: String, uri: Uri): String {
-        val fromMime = mime.substringAfterLast('/', "").lowercase()
-        if (fromMime.isNotBlank() && fromMime.length <= 5 && fromMime.all { it.isLetterOrDigit() }) {
-            return when (fromMime) {
-                "jpeg" -> "jpg"
-                "quicktime" -> "mov"
-                "mpeg" -> "mp3"
-                "x-matroska" -> "mkv"
-                else -> fromMime
-            }
-        }
-        val fromPath = (uri.lastPathSegment ?: "").substringAfterLast('.', "").lowercase()
-        if (fromPath.isNotBlank() && fromPath.length <= 5 && fromPath.all { it.isLetterOrDigit() }) {
-            return fromPath
-        }
-        return "bin"
-    }
+    /**
+     * Maps a MIME type to a storage-friendly file extension (never blank).
+     * Delegates to [MediaFileTypes]: the old local copy produced `jpeg`,
+     * `quicktime` and `mpeg` for perfectly ordinary media.
+     */
+    private fun extensionFor(mime: String, uri: Uri): String =
+        MediaFileTypes.extensionForMime(mime, uri.lastPathSegment)
 
     fun loadOlder() {
         if (loadingOlder.value || !hasMoreOlder.value) return
