@@ -1051,6 +1051,10 @@ private fun MediaVideo(message: Message, contentColor: Color, onRetry: () -> Uni
     }
 }
 
+/** "1x" / "1.5x" / "2x" label for the voice-note speed chip. */
+private fun formatSpeed(speed: Float): String =
+    if (speed == speed.toInt().toFloat()) "${speed.toInt()}x" else "${speed}x"
+
 @Composable
 private fun AudioContent(message: Message, contentColor: Color) {
     val player = rememberVoicePlayer()
@@ -1149,6 +1153,24 @@ private fun AudioContent(message: Message, contentColor: Color) {
                         color = contentColor.copy(alpha = 0.8f),
                     )
                     Spacer(Modifier.weight(1f))
+                    // Speed chip. Long voice notes are common in this app, and
+                    // 1x/1.5x/2x is applied through MediaPlayer.PlaybackParams,
+                    // so this is a real control rather than a label. Hidden
+                    // until the clip is bound so it never shows a stale rate.
+                    if (playable) {
+                        Text(
+                            text = formatSpeed(player.speed),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = contentColor,
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(contentColor.copy(alpha = 0.14f))
+                                .clickable { player.cycleSpeed() }
+                                .padding(horizontal = GagaDimens.space6, vertical = 2.dp)
+                                .testTag("voice-speed-toggle"),
+                        )
+                        Spacer(Modifier.width(GagaDimens.space6))
+                    }
                     Text(
                         text = if (totalMs > 0L) TimeFormat.callDuration(totalMs) else "Voice message",
                         style = MaterialTheme.typography.labelSmall,
