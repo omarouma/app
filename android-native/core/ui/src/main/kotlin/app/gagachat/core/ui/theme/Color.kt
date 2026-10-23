@@ -41,10 +41,13 @@ val IncomingBubbleLight = Color(0xFFFFFFFF)
 val IncomingBubbleDark = Color(0xFF22352B)
 
 // Status / semantic
-val StatusOnline = Color(0xFF25D366)
-val StatusAway = Color(0xFFF1C40F)
-val StatusBusy = Color(0xFFE74C3C)
-val StatusOffline = Color(0xFF9AA0A6)
+val StatusOnline = Color(0xFF087F4B)
+val StatusAway = Color(0xFF916100)
+val StatusBusy = Color(0xFFBA1A1A)
+val StatusOffline = Color(0xFF607167)
 val ErrorRed = Color(0xFFBA1A1A)
 val WarningAmber = Color(0xFFF5A623)
-val SuccessGreen = Color(0xFF087F4B)
+val SuccessGreen = GagaGreenDark
+
+// Protect white labels and controls even over the brightest photo.
+val MediaLabelScrim = Color.Black.copy(alpha = 0.68f)

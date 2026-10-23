@@ -247,7 +247,7 @@ private fun SearchTab(
                 Text(
                     text = state.profileLink.ifBlank { "https://gagachat.app/profile/…" },
                     style = MaterialTheme.typography.bodyMedium,
-                    color = GagaGreen,
+                    color = MaterialTheme.colorScheme.primary,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f),
@@ -367,17 +367,17 @@ private fun QrAction(
     Column(
         modifier = modifier
             .clip(RoundedCornerShape(16.dp))
-            .background(GagaGreenContainer)
+            .background(MaterialTheme.colorScheme.primaryContainer)
             .clickable(onClick = onClick)
             .padding(vertical = GagaDimens.space12),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Icon(icon, contentDescription = label, tint = GagaGreen, modifier = Modifier.size(24.dp))
+        Icon(icon, contentDescription = label, tint = MaterialTheme.colorScheme.onPrimaryContainer, modifier = Modifier.size(24.dp))
         Spacer(Modifier.height(GagaDimens.space4))
         Text(
             text = label,
             style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurface,
+            color = MaterialTheme.colorScheme.onPrimaryContainer,
             fontWeight = FontWeight.SemiBold,
         )
     }

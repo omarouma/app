@@ -224,50 +224,52 @@ fun MediaReviewSheet(
             onDismissRequest = { previewUri = null },
             properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false),
         ) {
-            Surface(Modifier.fillMaxSize(), color = androidx.compose.ui.graphics.Color.Black) {
-                Column(Modifier.fillMaxSize().systemBarsPadding().imePadding().padding(16.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        TextButton(onClick = { previewUri = null }) { Text("Back") }
-                        Spacer(Modifier.weight(1f))
-                        TextButton(onClick = {
-                            pendingSave = selected
-                            val mime = runCatching { context.contentResolver.getType(selected) }.getOrNull()
-                            val extension = when (mime) { "image/png" -> "png"; "image/webp" -> "webp"; "image/heic" -> "heic"; else -> selected.path?.substringAfterLast('.', "")?.takeIf { it in listOf("jpg", "jpeg", "png", "webp", "heic") } ?: "jpg" }
-                            saveCopy.launch("GaGa-photo.$extension")
-                        }) { Text("Save copy") }
-                        TextButton(onClick = {
-                            previewUri = null
-                            editingUri = selected
-                        }) { Text("Edit") }
+            app.gagachat.core.ui.theme.GagaMediaTheme {
+                Surface(Modifier.fillMaxSize(), color = androidx.compose.ui.graphics.Color.Black) {
+                    Column(Modifier.fillMaxSize().systemBarsPadding().imePadding().padding(16.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            TextButton(onClick = { previewUri = null }) { Text("Back") }
+                            Spacer(Modifier.weight(1f))
+                            TextButton(onClick = {
+                                pendingSave = selected
+                                val mime = runCatching { context.contentResolver.getType(selected) }.getOrNull()
+                                val extension = when (mime) { "image/png" -> "png"; "image/webp" -> "webp"; "image/heic" -> "heic"; else -> selected.path?.substringAfterLast('.', "")?.takeIf { it in listOf("jpg", "jpeg", "png", "webp", "heic") } ?: "jpg" }
+                                saveCopy.launch("GaGa-photo.$extension")
+                            }) { Text("Save copy") }
+                            TextButton(onClick = {
+                                previewUri = null
+                                editingUri = selected
+                            }) { Text("Edit") }
+                        }
+                        AsyncImage(
+                            model = selected,
+                            contentDescription = "Full-screen photo preview",
+                            modifier = Modifier.fillMaxWidth().weight(1f),
+                            contentScale = ContentScale.Fit,
+                        )
+                        OutlinedTextField(value = caption, onValueChange = { caption = it },
+                            enabled = !viewOnce,
+                            placeholder = { Text("Add a caption…") }, modifier = Modifier.fillMaxWidth().testTag("photo-fullscreen-caption"), maxLines = 2,
+                            colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
+                                focusedTextColor = androidx.compose.ui.graphics.Color.White,
+                                unfocusedTextColor = androidx.compose.ui.graphics.Color.White,
+                                focusedContainerColor = androidx.compose.ui.graphics.Color(0xFF151B1E),
+                                unfocusedContainerColor = androidx.compose.ui.graphics.Color(0xFF151B1E),
+                                focusedPlaceholderColor = androidx.compose.ui.graphics.Color.LightGray,
+                                unfocusedPlaceholderColor = androidx.compose.ui.graphics.Color.LightGray))
+                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                            FilterChip(selected = sendOriginal, onClick = { sendOriginal = !sendOriginal }, label = { Text("Original / HD") },
+                                colors = androidx.compose.material3.FilterChipDefaults.filterChipColors(labelColor = androidx.compose.ui.graphics.Color.White))
+                            Spacer(Modifier.weight(1f))
+                            Button(modifier = Modifier.testTag("photo-fullscreen-send"), onClick = { previewUri = null; sendSelection() }) { Text("Send (${ordered.size})") }
+                        }
+                        if (onSendViewOnce != null) FilterChip(selected = viewOnce, enabled = ordered.size == 1,
+                            onClick = { viewOnce = !viewOnce }, label = { Text("View once · one photo, no caption") })
+                        Text(recipientName?.let { "To: $it" } ?: "Review before sending",
+                            modifier = Modifier.fillMaxWidth().padding(8.dp),
+                            color = androidx.compose.ui.graphics.Color.White,
+                            style = MaterialTheme.typography.bodySmall)
                     }
-                    AsyncImage(
-                        model = selected,
-                        contentDescription = "Full-screen photo preview",
-                        modifier = Modifier.fillMaxWidth().weight(1f),
-                        contentScale = ContentScale.Fit,
-                    )
-                    OutlinedTextField(value = caption, onValueChange = { caption = it },
-                        enabled = !viewOnce,
-                        placeholder = { Text("Add a caption…") }, modifier = Modifier.fillMaxWidth().testTag("photo-fullscreen-caption"), maxLines = 2,
-                        colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
-                            focusedTextColor = androidx.compose.ui.graphics.Color.White,
-                            unfocusedTextColor = androidx.compose.ui.graphics.Color.White,
-                            focusedContainerColor = androidx.compose.ui.graphics.Color(0xFF151B1E),
-                            unfocusedContainerColor = androidx.compose.ui.graphics.Color(0xFF151B1E),
-                            focusedPlaceholderColor = androidx.compose.ui.graphics.Color.LightGray,
-                            unfocusedPlaceholderColor = androidx.compose.ui.graphics.Color.LightGray))
-                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                        FilterChip(selected = sendOriginal, onClick = { sendOriginal = !sendOriginal }, label = { Text("Original / HD") },
-                            colors = androidx.compose.material3.FilterChipDefaults.filterChipColors(labelColor = androidx.compose.ui.graphics.Color.White))
-                        Spacer(Modifier.weight(1f))
-                        Button(modifier = Modifier.testTag("photo-fullscreen-send"), onClick = { previewUri = null; sendSelection() }) { Text("Send (${ordered.size})") }
-                    }
-                    if (onSendViewOnce != null) FilterChip(selected = viewOnce, enabled = ordered.size == 1,
-                        onClick = { viewOnce = !viewOnce }, label = { Text("View once · one photo, no caption") })
-                    Text(recipientName?.let { "To: $it" } ?: "Review before sending",
-                        modifier = Modifier.fillMaxWidth().padding(8.dp),
-                        color = androidx.compose.ui.graphics.Color.White,
-                        style = MaterialTheme.typography.bodySmall)
                 }
             }
         }

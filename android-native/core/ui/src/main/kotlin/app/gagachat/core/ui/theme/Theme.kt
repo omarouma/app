@@ -21,14 +21,21 @@ import app.gagachat.core.ui.i18n.LocalGagaStrings
 import app.gagachat.core.ui.i18n.gagaStringsFor
 
 internal val LightColors = lightColorScheme(
-    primary = GagaGreen,
+    primary = GagaGreenDark,
     onPrimary = Color.White,
     primaryContainer = GagaGreenContainer,
     onPrimaryContainer = Color(0xFF075C2E),
-    secondary = GagaTealDark,
+    secondary = Color(0xFF006B57),
     onSecondary = Color.White,
-    secondaryContainer = GagaTealDark,
-    onSecondaryContainer = Color.White,
+    secondaryContainer = Color(0xFFD6F0E7),
+    onSecondaryContainer = Color(0xFF064C3C),
+    tertiary = Color(0xFF37634B),
+    onTertiary = Color.White,
+    tertiaryContainer = Color(0xFFD6EADC),
+    onTertiaryContainer = Color(0xFF173C26),
+    inverseSurface = Color(0xFF26382E),
+    inverseOnSurface = Color(0xFFEFF6F0),
+    inversePrimary = GagaGreenLight,
     background = LightBackground,
     onBackground = LightOnSurface,
     surface = LightSurface,
@@ -54,10 +61,17 @@ internal val DarkColors = darkColorScheme(
     onPrimary = Color(0xFF003300),
     primaryContainer = GagaGreenDark,
     onPrimaryContainer = Color.White,
-    secondary = GagaTeal,
+    secondary = Color(0xFF6EDBB7),
     onSecondary = Color(0xFF04201D),
-    secondaryContainer = GagaTealDark,
-    onSecondaryContainer = Color.White,
+    secondaryContainer = Color(0xFF164D3E),
+    onSecondaryContainer = Color(0xFFBAF1D7),
+    tertiary = Color(0xFFA8D0B1),
+    onTertiary = Color(0xFF123921),
+    tertiaryContainer = Color(0xFF234E34),
+    onTertiaryContainer = Color(0xFFD6EADC),
+    inverseSurface = Color(0xFFE5EEE7),
+    inverseOnSurface = Color(0xFF1B2B22),
+    inversePrimary = GagaGreenDark,
     background = DarkBackground,
     onBackground = DarkOnSurface,
     surface = DarkSurface,
@@ -96,7 +110,7 @@ data class GagaExtraColors(
     val warning: Color,
 )
 
-private val LightExtraColors = GagaExtraColors(
+internal val LightExtraColors = GagaExtraColors(
     outgoingBubble = OutgoingBubbleLight,
     incomingBubble = IncomingBubbleLight,
     onOutgoingBubble = LightOnSurface,
@@ -106,18 +120,18 @@ private val LightExtraColors = GagaExtraColors(
     statusBusy = StatusBusy,
     statusOffline = StatusOffline,
     success = SuccessGreen,
-    warning = WarningAmber,
+    warning = Color(0xFF8C5000),
 )
 
-private val DarkExtraColors = GagaExtraColors(
+internal val DarkExtraColors = GagaExtraColors(
     outgoingBubble = OutgoingBubbleDark,
     incomingBubble = IncomingBubbleDark,
     onOutgoingBubble = DarkOnSurface,
     onIncomingBubble = DarkOnSurface,
-    statusOnline = StatusOnline,
-    statusAway = StatusAway,
-    statusBusy = StatusBusy,
-    statusOffline = StatusOffline,
+    statusOnline = GagaGreenLight,
+    statusAway = Color(0xFFFFCE84),
+    statusBusy = Color(0xFFFFB4AB),
+    statusOffline = DarkOnSurfaceVariant,
     success = GagaGreenLight,
     warning = Color(0xFFFFCE84),
 )
@@ -157,7 +171,10 @@ fun GagaTheme(
     if (!view.isInEditMode) {
         SideEffect {
             val window = (view.context as Activity).window
-            WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !darkTheme
+            WindowCompat.getInsetsController(window, view).apply {
+                isAppearanceLightStatusBars = !darkTheme
+                isAppearanceLightNavigationBars = !darkTheme
+            }
         }
     }
 
@@ -170,6 +187,19 @@ fun GagaTheme(
             colorScheme = colorScheme,
             typography = scaledTypography(textScale),
             shapes = GagaShapes,
+            content = content,
+        )
+    }
+}
+
+/** Dark control colors for a black media canvas, without changing system-bar state. */
+@Composable
+fun GagaMediaTheme(content: @Composable () -> Unit) {
+    CompositionLocalProvider(LocalGagaExtraColors provides DarkExtraColors) {
+        MaterialTheme(
+            colorScheme = DarkColors,
+            typography = MaterialTheme.typography,
+            shapes = MaterialTheme.shapes,
             content = content,
         )
     }

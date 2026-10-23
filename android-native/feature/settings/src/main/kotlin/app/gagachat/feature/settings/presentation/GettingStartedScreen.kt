@@ -27,6 +27,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.compositeOver
+import app.gagachat.core.ui.theme.readableAccent
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
@@ -58,13 +60,13 @@ fun GettingStartedScreen(onBack: () -> Unit) {
     val advantages = listOf(
         Advantage(
             icon = Icons.Filled.ChatBubble,
-            tint = GagaGreen,
+            tint = MaterialTheme.colorScheme.primary,
             title = "Connect with People",
             description = "Message, call and share — one-to-one or in groups, all end-to-end in real time.",
         ),
         Advantage(
             icon = Icons.AutoMirrored.Filled.EventNote,
-            tint = GagaTeal,
+            tint = MaterialTheme.colorScheme.secondary,
             title = "Organize Daily Life",
             description = "Turn chats into tasks, events, reminders, budgets and lists — your day, sorted.",
         ),
@@ -115,7 +117,7 @@ fun GettingStartedScreen(onBack: () -> Unit) {
             Spacer(Modifier.height(GagaDimens.space8))
 
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Filled.Lightbulb, contentDescription = null, tint = GagaGreen)
+                Icon(Icons.Filled.Lightbulb, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                 Spacer(Modifier.width(GagaDimens.space8))
                 Text(
                     text = "Quick tips",
@@ -129,7 +131,7 @@ fun GettingStartedScreen(onBack: () -> Unit) {
                     Text(
                         text = "•",
                         style = MaterialTheme.typography.bodyMedium,
-                        color = GagaGreen,
+                        color = MaterialTheme.colorScheme.primary,
                         fontWeight = FontWeight.Bold,
                     )
                     Spacer(Modifier.width(GagaDimens.space8))
@@ -167,7 +169,7 @@ private fun AdvantageCard(advantage: Advantage) {
             Icon(
                 imageVector = advantage.icon,
                 contentDescription = null,
-                tint = advantage.tint,
+                tint = readableAccent(advantage.tint, advantage.tint.copy(alpha = 0.14f).compositeOver(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f).compositeOver(MaterialTheme.colorScheme.background))),
                 modifier = Modifier.size(GagaDimens.iconMedium),
             )
         }

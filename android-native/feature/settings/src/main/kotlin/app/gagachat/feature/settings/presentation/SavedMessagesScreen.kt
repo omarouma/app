@@ -123,7 +123,7 @@ private fun SavedMessageRowItem(saved: SavedMessage, onDelete: () -> Unit, onOpe
                 modifier = Modifier
                     .size(GagaDimens.avatarMedium)
                     .clip(CircleShape)
-                    .background(GagaGreenContainer),
+                    .background(MaterialTheme.colorScheme.primaryContainer),
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(

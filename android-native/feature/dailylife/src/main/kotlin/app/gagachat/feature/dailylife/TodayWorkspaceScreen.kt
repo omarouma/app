@@ -14,6 +14,8 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.compositeOver
+import app.gagachat.core.ui.theme.readableAccent
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalDensity
@@ -210,13 +212,13 @@ fun TodayWorkspaceScreen(
                                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
                                         Surface(shape = RoundedCornerShape(14.dp), color = tool.accent.copy(alpha = .12f)) {
                                             Icon(tool.icon, contentDescription = null,
-                                                tint = tool.accent,
+                                                tint = readableAccent(tool.accent, tool.accent.copy(alpha = .12f).compositeOver(MaterialTheme.colorScheme.surface)),
                                                 modifier = Modifier.padding(10.dp).size(27.dp))
                                         }
                                         Spacer(Modifier.weight(1f))
                                         Icon(Icons.Default.ChevronRight,
                                             contentDescription = null,
-                                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .65f))
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant)
                                     }
                                     Text(tool.title, style = MaterialTheme.typography.titleSmall,
                                         fontWeight = FontWeight.Bold,
@@ -329,7 +331,7 @@ private fun WorkspaceLink(
     ) {
         Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
             Surface(shape = RoundedCornerShape(15.dp), color = accent.copy(alpha = .12f)) {
-                Icon(icon, contentDescription = null, tint = accent,
+                Icon(icon, contentDescription = null, tint = readableAccent(accent, accent.copy(alpha = .12f).compositeOver(MaterialTheme.colorScheme.surface)),
                     modifier = Modifier.padding(11.dp).size(26.dp))
             }
             Spacer(Modifier.width(12.dp))
