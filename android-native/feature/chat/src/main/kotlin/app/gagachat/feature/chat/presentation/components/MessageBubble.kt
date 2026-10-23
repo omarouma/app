@@ -360,6 +360,7 @@ private fun ReactionsRow(
                 } else {
                     MaterialTheme.colorScheme.surfaceVariant
                 },
+                contentColor = if (mine) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.clickable { onClick(emoji) },
             ) {
                 Row(
@@ -372,7 +373,7 @@ private fun ReactionsRow(
                         Text(
                             text = users.size.toString(),
                             style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            color = if (mine) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
                 }
@@ -601,7 +602,7 @@ private fun MediaDownloadPrompt(onClick: () -> Unit) {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.Black.copy(alpha = 0.38f))
+            .background(Color.Black.copy(alpha = 0.68f))
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
@@ -855,7 +856,7 @@ private fun UploadStatusOverlay(status: MediaStatus, progress: Int?, onRetry: ()
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.Black.copy(alpha = 0.38f))
+            .background(Color.Black.copy(alpha = 0.68f))
             .then(
                 if (failed) Modifier.clickable(onClick = onRetry) else Modifier,
             ),
@@ -937,7 +938,7 @@ private fun MultiImageGrid(message: Message, onRetry: () -> Unit, onClick: () ->
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .height(109.dp)
-                                        .background(Color.Black.copy(alpha = 0.45f)),
+                                        .background(Color.Black.copy(alpha = 0.68f)),
                                     contentAlignment = Alignment.Center,
                                 ) {
                                     Text(
@@ -998,7 +999,7 @@ private fun MediaVideo(message: Message, contentColor: Color, onRetry: () -> Uni
                 modifier = Modifier
                     .size(56.dp)
                     .clip(CircleShape)
-                    .background(Color.Black.copy(alpha = 0.45f)),
+                    .background(Color.Black.copy(alpha = 0.68f)),
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
