@@ -48,3 +48,6 @@ val StatusOffline = Color(0xFF607167)
 val ErrorRed = Color(0xFFBA1A1A)
 val WarningAmber = Color(0xFFF5A623)
 val SuccessGreen = Color(0xFF087F4B)
+
+// Protect white labels and controls even over the brightest photo.
+val MediaLabelScrim = Color.Black.copy(alpha = 0.68f)
