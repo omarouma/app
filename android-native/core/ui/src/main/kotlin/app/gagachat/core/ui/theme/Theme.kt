@@ -21,11 +21,11 @@ import app.gagachat.core.ui.i18n.LocalGagaStrings
 import app.gagachat.core.ui.i18n.gagaStringsFor
 
 internal val LightColors = lightColorScheme(
-    primary = GagaGreen,
+    primary = GagaGreenDark,
     onPrimary = Color.White,
     primaryContainer = GagaGreenContainer,
     onPrimaryContainer = Color(0xFF075C2E),
-    secondary = GagaTealDark,
+    secondary = Color(0xFF006B57),
     onSecondary = Color.White,
     secondaryContainer = Color(0xFFD6F0E7),
     onSecondaryContainer = Color(0xFF064C3C),
@@ -61,7 +61,7 @@ internal val DarkColors = darkColorScheme(
     onPrimary = Color(0xFF003300),
     primaryContainer = GagaGreenDark,
     onPrimaryContainer = Color.White,
-    secondary = GagaTeal,
+    secondary = Color(0xFF6EDBB7),
     onSecondary = Color(0xFF04201D),
     secondaryContainer = Color(0xFF164D3E),
     onSecondaryContainer = Color(0xFFBAF1D7),
