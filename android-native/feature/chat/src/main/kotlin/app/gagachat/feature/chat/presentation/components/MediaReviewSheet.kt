@@ -224,6 +224,7 @@ fun MediaReviewSheet(
             onDismissRequest = { previewUri = null },
             properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false),
         ) {
+            app.gagachat.core.ui.theme.GagaMediaTheme {
             Surface(Modifier.fillMaxSize(), color = androidx.compose.ui.graphics.Color.Black) {
                 Column(Modifier.fillMaxSize().systemBarsPadding().imePadding().padding(16.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -271,6 +272,7 @@ fun MediaReviewSheet(
                 }
             }
         }
+    }
     }
     saveStatus?.let { status -> AlertDialog(onDismissRequest = { saveStatus = null },
         text = { Text(status) }, confirmButton = { TextButton(onClick = { saveStatus = null }) { Text("OK") } }) }
