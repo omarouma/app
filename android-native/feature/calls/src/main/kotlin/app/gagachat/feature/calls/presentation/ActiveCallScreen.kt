@@ -479,7 +479,7 @@ private fun AudioDeviceSheet(
                         Icon(
                             imageVector = deviceKindIcon(device.kind),
                             contentDescription = null,
-                            tint = if (selected) GagaGreen else MaterialTheme.colorScheme.onSurfaceVariant,
+                            tint = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     },
                     trailingContent = {
@@ -487,13 +487,13 @@ private fun AudioDeviceSheet(
                             Icon(
                                 imageVector = Icons.Filled.Check,
                                 contentDescription = "Selected",
-                                tint = GagaGreen,
+                                tint = MaterialTheme.colorScheme.primary,
                                 modifier = Modifier.size(GagaDimens.iconSmall),
                             )
                         }
                     },
                     colors = ListItemDefaults.colors(
-                        containerColor = if (selected) GagaGreen.copy(alpha = 0.10f) else Color.Transparent,
+                        containerColor = if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.10f) else Color.Transparent,
                     ),
                     modifier = Modifier.clickable {
                         scope.launch { runCatching { sheetState.hide() } }.invokeOnCompletion { onSelect(device.id) }
