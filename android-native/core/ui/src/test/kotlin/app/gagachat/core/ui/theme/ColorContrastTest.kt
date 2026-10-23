@@ -58,6 +58,11 @@ class ColorContrastTest {
         readable(readableAccent(faded, Color.White), Color.White)
     }
 
+    @Test fun whiteMediaLabelsRemainReadableEvenOverAWhitePhoto() {
+        val darkestRequiredScrim = Color.Black.copy(alpha = .68f).compositeOver(Color.White)
+        readable(Color.White, darkestRequiredScrim)
+    }
+
     @Test fun avatarInitialsStayReadableOnBrightAndDarkColors() {
         listOf(GagaGreen, GagaTeal, Color(0xFF43A047), Color(0xFF005C4B)).forEach {
             readable(readableAccent(Color.White, it), it)
