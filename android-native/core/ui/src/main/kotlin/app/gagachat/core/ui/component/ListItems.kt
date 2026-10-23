@@ -20,6 +20,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.compositeOver
+import app.gagachat.core.ui.theme.readableAccent
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
@@ -41,7 +43,7 @@ fun GagaSettingsRow(
     modifier: Modifier = Modifier,
     subtitle: String? = null,
     leadingIcon: ImageVector? = null,
-    leadingIconTint: Color = MaterialTheme.colorScheme.onSurfaceVariant,
+    leadingIconTint: Color = MaterialTheme.colorScheme.onPrimaryContainer,
     trailing: (@Composable () -> Unit)? = null,
     leadingIconContainerColor: Color = MaterialTheme.colorScheme.primaryContainer,
     leadingContent: (@Composable () -> Unit)? = null,
@@ -69,7 +71,7 @@ fun GagaSettingsRow(
             Icon(
                 imageVector = leadingIcon,
                 contentDescription = null,
-                tint = leadingIconTint,
+                tint = readableAccent(leadingIconTint, leadingIconContainerColor.compositeOver(MaterialTheme.colorScheme.surface)),
                 modifier = Modifier
                     .background(leadingIconContainerColor, MaterialTheme.shapes.medium)
                     .padding(8.dp)
