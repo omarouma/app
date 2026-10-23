@@ -447,7 +447,7 @@ internal fun ProfileHeader(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(coverHeight)
-                    .background(Color.Black.copy(alpha = 0.45f)),
+                    .background(Color.Black.copy(alpha = 0.68f)),
                 contentAlignment = Alignment.Center,
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -469,7 +469,7 @@ internal fun ProfileHeader(
             var coverMenu by remember { mutableStateOf(false) }
             Box(Modifier.align(Alignment.TopEnd).padding(8.dp)) {
                 IconButton(onClick = { coverMenu = true }, modifier = Modifier.size(48.dp)) {
-                    Box(Modifier.size(32.dp).clip(CircleShape).background(Color.Black.copy(alpha = 0.5f)), contentAlignment = Alignment.Center) {
+                    Box(Modifier.size(32.dp).clip(CircleShape).background(Color.Black.copy(alpha = 0.68f)), contentAlignment = Alignment.Center) {
                         Icon(Icons.Default.CameraAlt, "Change cover", tint = Color.White, modifier = Modifier.size(18.dp))
                     }
                 }
@@ -780,8 +780,8 @@ private fun CoverBanner(
                     model = photo,
                     contentDescription = "Profile cover",
                     contentScale = ContentScale.Crop,
-                    placeholder = ColorPainter(GagaGreenContainer),
-                    error = ColorPainter(GagaGreenContainer),
+                    placeholder = ColorPainter(MaterialTheme.colorScheme.primaryContainer),
+                    error = ColorPainter(MaterialTheme.colorScheme.primaryContainer),
                     modifier = Modifier.fillMaxSize(),
                 )
             }
@@ -849,7 +849,7 @@ private fun CoverVideoPlayer(url: String, onClick: () -> Unit) {
                 .padding(GagaDimens.space8)
                 .size(28.dp)
                 .clip(CircleShape)
-                .background(Color.Black.copy(alpha = 0.45f)),
+                .background(Color.Black.copy(alpha = 0.68f)),
             contentAlignment = Alignment.Center,
         ) {
             Icon(
