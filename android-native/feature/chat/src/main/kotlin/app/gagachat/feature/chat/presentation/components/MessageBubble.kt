@@ -94,6 +94,7 @@ import app.gagachat.core.model.MessageStatus
 import app.gagachat.core.model.MessageType
 import app.gagachat.core.ui.component.GagaAvatar
 import app.gagachat.core.ui.theme.GagaDimens
+import app.gagachat.core.ui.theme.MediaLabelScrim
 import app.gagachat.core.ui.theme.GagaGreen
 import app.gagachat.core.ui.theme.GagaTheme
 import app.gagachat.core.ui.theme.IncomingBubbleShape
@@ -602,7 +603,7 @@ private fun MediaDownloadPrompt(onClick: () -> Unit) {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.Black.copy(alpha = 0.68f))
+            .background(MediaLabelScrim)
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
@@ -856,7 +857,7 @@ private fun UploadStatusOverlay(status: MediaStatus, progress: Int?, onRetry: ()
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.Black.copy(alpha = 0.68f))
+            .background(MediaLabelScrim)
             .then(
                 if (failed) Modifier.clickable(onClick = onRetry) else Modifier,
             ),
@@ -938,7 +939,7 @@ private fun MultiImageGrid(message: Message, onRetry: () -> Unit, onClick: () ->
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .height(109.dp)
-                                        .background(Color.Black.copy(alpha = 0.68f)),
+                                        .background(MediaLabelScrim),
                                     contentAlignment = Alignment.Center,
                                 ) {
                                     Text(
@@ -999,7 +1000,7 @@ private fun MediaVideo(message: Message, contentColor: Color, onRetry: () -> Uni
                 modifier = Modifier
                     .size(56.dp)
                     .clip(CircleShape)
-                    .background(Color.Black.copy(alpha = 0.68f)),
+                    .background(MediaLabelScrim),
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
