@@ -18,6 +18,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import app.gagachat.core.model.UserStatus
 import app.gagachat.core.ui.theme.GagaDimens
+import app.gagachat.core.ui.theme.readableAccent
 import app.gagachat.core.ui.theme.GagaTheme
 import coil.compose.AsyncImage
 
@@ -58,7 +59,7 @@ fun GagaAvatar(
             } else {
                 Text(
                     text = initials,
-                    color = Color.White,
+                    color = readableAccent(Color.White, fallbackColor),
                     fontWeight = FontWeight.SemiBold,
                     style = MaterialTheme.typography.titleMedium,
                 )
