@@ -23,6 +23,9 @@ class ColorContrastTest {
             readable(onBackground, background)
             readable(onSurfaceVariant, surfaceVariant)
             readable(onSurfaceVariant, surfaceContainerHighest)
+            readable(primary, surfaceContainerHighest)
+            readable(secondary, surfaceContainerHighest)
+            readable(tertiary, surfaceContainerHighest)
             readable(onError, error)
             readable(onErrorContainer, errorContainer)
             readable(inverseOnSurface, inverseSurface)
@@ -37,6 +40,8 @@ class ColorContrastTest {
             readable(extra.onOutgoingBubble, extra.outgoingBubble)
             readable(extra.onIncomingBubble, extra.incomingBubble)
         }
+        readable(LightExtraColors.success, LightColors.surfaceContainerHighest)
+        readable(DarkExtraColors.success, DarkColors.surfaceContainerHighest)
         readable(LightExtraColors.warning, LightColors.surface)
         readable(DarkExtraColors.warning, DarkColors.surface)
     }
