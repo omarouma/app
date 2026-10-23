@@ -59,7 +59,7 @@ class ColorContrastTest {
     }
 
     @Test fun whiteMediaLabelsRemainReadableEvenOverAWhitePhoto() {
-        val darkestRequiredScrim = Color.Black.copy(alpha = .68f).compositeOver(Color.White)
+        val darkestRequiredScrim = MediaLabelScrim.compositeOver(Color.White)
         readable(Color.White, darkestRequiredScrim)
     }
 
