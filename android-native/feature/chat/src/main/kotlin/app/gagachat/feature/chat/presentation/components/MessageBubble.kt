@@ -1596,7 +1596,7 @@ private fun PollContent(
             Icon(
                 Icons.Filled.Poll,
                 contentDescription = null,
-                tint = GagaGreen,
+                tint = contentColor,
                 modifier = Modifier.size(18.dp),
             )
             Spacer(Modifier.width(GagaDimens.space6))
@@ -1660,7 +1660,7 @@ private fun PollContent(
                             .fillMaxWidth(fraction)
                             .height(6.dp)
                             .clip(RoundedCornerShape(3.dp))
-                            .background(if (mine) GagaGreen else GagaGreen.copy(alpha = 0.6f)),
+                            .background(contentColor.copy(alpha = if (mine) 0.9f else 0.65f)),
                     )
                 }
             }
@@ -1750,7 +1750,7 @@ private fun LiveLocationContent(
             Icon(
                 Icons.Filled.NearMe,
                 contentDescription = null,
-                tint = if (active) GagaGreen else MaterialTheme.colorScheme.onSurfaceVariant,
+                tint = if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.size(GagaDimens.iconSmall),
             )
             Spacer(Modifier.width(GagaDimens.space8))
