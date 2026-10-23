@@ -84,6 +84,7 @@ import app.gagachat.core.ui.component.GagaScaffold
 import app.gagachat.core.ui.component.GagaSectionHeader
 import app.gagachat.core.ui.component.GagaSettingsRow
 import app.gagachat.core.ui.theme.GagaDimens
+import app.gagachat.core.ui.theme.MediaLabelScrim
 import app.gagachat.core.ui.theme.GagaGreen
 import app.gagachat.core.ui.theme.GagaGreenContainer
 import app.gagachat.core.ui.util.TimeFormat
@@ -447,7 +448,7 @@ internal fun ProfileHeader(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(coverHeight)
-                    .background(Color.Black.copy(alpha = 0.68f)),
+                    .background(MediaLabelScrim),
                 contentAlignment = Alignment.Center,
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -469,7 +470,7 @@ internal fun ProfileHeader(
             var coverMenu by remember { mutableStateOf(false) }
             Box(Modifier.align(Alignment.TopEnd).padding(8.dp)) {
                 IconButton(onClick = { coverMenu = true }, modifier = Modifier.size(48.dp)) {
-                    Box(Modifier.size(32.dp).clip(CircleShape).background(Color.Black.copy(alpha = 0.68f)), contentAlignment = Alignment.Center) {
+                    Box(Modifier.size(32.dp).clip(CircleShape).background(MediaLabelScrim), contentAlignment = Alignment.Center) {
                         Icon(Icons.Default.CameraAlt, "Change cover", tint = Color.White, modifier = Modifier.size(18.dp))
                     }
                 }
@@ -849,7 +850,7 @@ private fun CoverVideoPlayer(url: String, onClick: () -> Unit) {
                 .padding(GagaDimens.space8)
                 .size(28.dp)
                 .clip(CircleShape)
-                .background(Color.Black.copy(alpha = 0.68f)),
+                .background(MediaLabelScrim),
             contentAlignment = Alignment.Center,
         ) {
             Icon(
