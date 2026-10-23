@@ -130,4 +130,20 @@ class TodayDesignTest {
         assertEquals(DailyRoutes.records("task"), route)
         capture("today-workspace-light.png")
     }
+    @Test fun darkWorkspaceAccentsAndLargeTextStayVisible() {
+        compose.setContent {
+            GagaTheme(darkTheme = true, textScale = 1.4f) {
+                TodayWorkspaceScreen(
+                    ui = DailyUi(records = records, loading = false),
+                    onBack = {}, onRefresh = {}, onNavigate = { route = it },
+                )
+            }
+        }
+        compose.onNodeWithText("Tasks").assertIsDisplayed()
+        compose.onNodeWithText("Reminders").assertIsDisplayed()
+        capture("today-workspace-dark-large-text.png")
+        compose.onNodeWithText("Tasks").performClick()
+        assertEquals(DailyRoutes.records("task"), route)
+    }
+
 }
