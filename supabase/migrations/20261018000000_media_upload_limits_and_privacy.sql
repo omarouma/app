@@ -53,10 +53,9 @@ update storage.buckets
    set file_size_limit = 104857600 -- 100 MB, matches MAX_UPLOAD_BYTES
  where id = 'media';
 
--- Feed buckets stay below the chat ceiling; they are not part of chat sending.
-update storage.buckets
-   set file_size_limit = 52428800 -- 50 MB
- where id in ('posts', 'stories', 'reels');
+-- Do not modify posts/stories/reels here. Those are feed buckets and may
+-- already have independent 100 MB limits; reducing them would be an unrelated
+-- production regression in a chat attachment repair.
 
 -- ---------------------------------------------------------------------------
 -- 2. MIME allow-lists
