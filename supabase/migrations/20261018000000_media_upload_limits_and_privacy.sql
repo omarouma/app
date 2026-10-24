@@ -173,7 +173,28 @@ create policy gaga_objects_chat_read
   );
 
 -- ---------------------------------------------------------------------------
--- 5. Fail loudly if the buckets are missing
+-- 5. Require an active session IN ADDITION to bucket and membership rules
+-- ---------------------------------------------------------------------------
+-- Production also has a permissive FOR ALL policy named
+-- gaga_storage_active_session on storage.objects.  PostgreSQL combines
+-- permissive policies using OR, so an active session alone currently permits
+-- SELECT/INSERT/UPDATE/DELETE on *every* storage object -- bypassing the
+-- owner-folder policy and the chat participant check above.
+--
+-- Make the session policy RESTRICTIVE: its predicate is AND'ed with the
+-- operation-specific permissive policies. A caller now needs both an active
+-- Supabase session and the applicable bucket/owner/membership authorization.
+-- This is intentionally limited to authenticated clients; public bucket reads
+-- remain publicly accessible under their own public-read policy.
+drop policy if exists gaga_storage_active_session on storage.objects;
+create policy gaga_storage_active_session
+  on storage.objects as restrictive
+  for all to authenticated
+  using ((select gaga_private.session_active()))
+  with check ((select gaga_private.session_active()));
+
+-- ---------------------------------------------------------------------------
+-- 6. Fail loudly if the buckets are missing
 -- ---------------------------------------------------------------------------
 -- A silent no-op here would leave the app in exactly the state this migration
 -- is meant to fix, so assert that every bucket we touched actually exists.
