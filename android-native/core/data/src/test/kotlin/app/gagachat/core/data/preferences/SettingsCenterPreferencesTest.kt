@@ -64,7 +64,7 @@ class SettingsCenterPreferencesTest {
         assertTrue(f.enterToSend.first())
         assertTrue(f.linkPreviews.first())
         assertFalse(f.saveToGallery.first())
-        assertTrue(f.wifiOnlyUploads.first())
+        assertFalse(f.wifiOnlyUploads.first())
         assertFalse(f.dataSaver.first())
     }
 
@@ -145,17 +145,21 @@ class SettingsCenterPreferencesTest {
     fun `media upload defers only when metered and a data policy is on`() = runTest {
         val f = facade(FakeToggleStore(), FakePrivacy())
 
-        // `network.wifiOnlyUploads` defaults ON (matches the UI declaration), so a
-        // metered connection defers immediately; an unmetered one never does.
-        assertTrue(f.shouldDeferMediaUpload(isMetered = true))
-        assertFalse(f.shouldDeferMediaUpload(isMetered = false))
-
-        // Turning both data policies off lets uploads proceed on any connection.
-        f.setWifiOnlyUploads(false)
+        // New installs must be able to send photos, voice notes and video over
+        // mobile data without silently waiting for Wi-Fi.
         assertFalse(f.shouldDeferMediaUpload(isMetered = true))
         assertFalse(f.shouldDeferMediaUpload(isMetered = false))
 
-        // Data saver alone re-enables deferral on metered networks.
+        // Explicit opt-in Wi-Fi-only restriction still defers metered uploads.
+        f.setWifiOnlyUploads(true)
+        assertTrue(f.shouldDeferMediaUpload(isMetered = true))
+        assertFalse(f.shouldDeferMediaUpload(isMetered = false))
+
+        // Switching off Wi-Fi-only resumes normal mobile-data uploads.
+        f.setWifiOnlyUploads(false)
+        assertFalse(f.shouldDeferMediaUpload(isMetered = true))
+
+        // Data saver remains independently enforced.
         f.setDataSaver(true)
         assertTrue(f.shouldDeferMediaUpload(isMetered = true))
         assertFalse(f.shouldDeferMediaUpload(isMetered = false))

@@ -7,6 +7,7 @@ import app.gagachat.core.common.network.NetworkMonitor
 import app.gagachat.core.common.result.AppError
 import app.gagachat.core.common.result.AppResult
 import app.gagachat.core.common.util.IdGenerator
+import app.gagachat.core.common.util.MediaFileTypes
 import app.gagachat.core.common.util.TimeProvider
 import app.gagachat.core.database.dao.MessageDao
 import app.gagachat.core.database.dao.UploadDao
@@ -363,7 +364,14 @@ class DefaultMediaRepository @Inject constructor(
                         failed = true
                         break
                     }
-                    val extension = upload.mime.substringAfterLast('/', "bin")
+                    // Derive a real extension. `mime.substringAfterLast('/')`
+                    // produced "jpeg", "quicktime", "mpeg" and -- for Office
+                    // documents -- a 60 character pseudo-extension that
+                    // corrupted the object path. See MediaFileTypes.
+                    val extension = MediaFileTypes.extensionForMime(
+                        mime = upload.mime,
+                        fileName = file.name,
+                    )
                     val objectPath = storageApi.objectPath(
                         userId = senderId,
                         uploadId = upload.uploadId,

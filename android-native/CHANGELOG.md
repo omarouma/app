@@ -4,6 +4,122 @@ All notable changes to the GaGa Chat native Android app are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 the project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.8.17] — versionCode 72
+
+**Media sending pass.** Photos, videos, voice notes and documents now carry the
+sender's identity, land at a sane object path, and are accepted by storage at
+the sizes the app advertises. Chat media is also genuinely private for the
+first time.
+
+### Fixed
+- **Videos between 50 MB and 100 MB could not be sent.** The client advertises
+  `MAX_VIDEO_UPLOAD_BYTES = 100 MB` and `MAX_DOCUMENT_UPLOAD_BYTES = 50 MB`,
+  but every storage bucket was created with only `(id, name, public)`, so
+  Supabase applied its project-level 50 MB default. The upload ran to 100%,
+  then failed with a bare `Payload too large` and the bubble stuck on
+  "Failed". Buckets now carry an explicit `file_size_limit` that matches the
+  client constants, plus an `allowed_mime_types` allow-list so an unsupported
+  file fails fast with a readable reason instead of after a full upload.
+- **Object paths were malformed for most media.** `MediaRepository` derived
+  the storage extension with `mime.substringAfterLast('/')`, which produced
+  `jpeg`, `quicktime`, `mpeg`, and — for Office documents — a 60 character
+  pseudo-extension, e.g.
+  `uid/upload.openxmlformats-officedocument.wordprocessingml.document`.
+  Downloads then had no usable extension. All extension/mime resolution now
+  goes through one shared `MediaFileTypes` table.
+- **Media messages had no sender avatar.** Every outgoing message was created
+  with `senderAvatar = null` — text, photos, albums, voice notes, contacts,
+  locations, polls, live location and forwards — so the recipient's bubble
+  fell back to a generic initial even though the sender was known. The avatar
+  is now read from the signed-in user's cached profile row and stamped on
+  every outgoing message.
+- **Chat media was world-readable.** `gaga_media_public_read` granted
+  `SELECT` on `chat-media` and `voice-messages` to `public`, and the
+  membership policy added later (`gaga_objects_chat_read`) never dropped it.
+  Postgres OR's permissive policies, so the membership check was dead code:
+  anyone with the path could read any chat photo, video or voice note. The
+  blanket policy is now scoped to the genuinely public buckets, and
+  `chat-media` / `voice-messages` are `public = false`, matching what
+  `MediaUrlResolver` already assumed.
+- **Storage errors were unreadable.** HTTP 413 and 415 now map to
+  "That file is too large to send…" and "That file type can't be sent yet…"
+  instead of the generic "Something was wrong with the request."
+
+### Added
+- `core/common/.../util/MediaFileTypes.kt` — one MIME ↔ extension table
+  (images, video, audio, Office, OpenDocument, archives) with a sanitiser that
+  guarantees a 1–8 character alphanumeric extension.
+- 20 unit tests in `MediaFileTypesTest` covering every alias that used to
+  break, hostile vendor MIME types, and the length/character invariants.
+
+### Changed
+- `ChatViewModel` no longer carries a private copy of the MIME guess and
+  extension logic; both delegate to `MediaFileTypes`.
+
+### Deploy note
+`supabase/migrations/20261018000000_media_upload_limits_and_privacy.sql` must
+be applied (`supabase db push`) for the size limits and the privacy fix to take
+effect. The client-side fixes ship with the APK.
+
+### Release signing
+`android-native/ci/release-signing-public.json` was pinned to
+`dd6b6f16…`, a certificate that no build has ever carried: all four
+`GAGA_RELEASE_*` Actions secrets are empty, so CI has never produced a signed
+artifact. The pin now records the certificate that actually signs the shipped
+APK/AAB since 2.8.15 — `a51b9841…` (alias `gaga`, RSA 3072, valid to 2054) —
+so the signature gate in `hosting/prepare_android_release.py` and the signed
+candidate workflows verify against reality instead of a phantom identity.
+
+## [2.8.16] — versionCode 71
+
+Chatroom frontend pass: calling is now reachable on every phone, and the
+message list reads like a conversation instead of a stack of cards.
+
+### Fixed
+- **Voice and video calling were hidden on most phones.** The chat header
+  gated the two call buttons behind `maxWidth >= 420.dp` (voice) and
+  `maxWidth >= 500.dp` (video), so on the 360–412dp widths that make up the
+  bulk of the install base both buttons disappeared and calling was only
+  reachable from the overflow menu. Both actions are now always present in
+  1:1 conversations. Only an extreme accessibility font scale (>1.60) folds
+  video into the overflow menu, and voice calling never leaves the header.
+- **Chat toolbar could collapse.** The header is now pinned to a 56dp floor
+  and the identity avatar is 38dp, so the peer is recognisable without
+  eating the title width.
+
+### Added
+- **Sender avatars on incoming messages.** 1:1 and group chats now show the
+  sender's avatar beside the bubble, resolved from the message's
+  denormalised `sender_avatar`, then the conversation member row, then the
+  1:1 peer. Historical senders who have left a group still render.
+- **Consecutive-message grouping.** Messages from one sender within five
+  minutes on the same calendar day render as one visual run: the avatar
+  appears once on the newest row and the rows sit 1dp apart instead of
+  being separate cards. A day boundary always breaks a run so a date
+  separator never lands inside a group.
+- **Voice-note playback speed.** 1x / 1.5x / 2x, applied through
+  `MediaPlayer.PlaybackParams` and re-applied on every prepare and resume so
+  a paused-then-resumed clip keeps the chosen rate. The chip only appears
+  once the clip is playable, so it never advertises a rate for a message
+  that is still download-gated.
+
+### Changed
+- Call-event cards are more compact (40dp min height, 26dp icon box) so a
+  missed-call row no longer dominates the thread.
+- Composer tightened: attach button 48→44dp, text field min height 48→44dp
+  with a 20dp corner radius, send/mic 48→44dp. Visual size shrinks; Compose
+  still enforces the 48dp touch target.
+
+### Verified
+- Participant identity was already correct: `ChatViewModel.otherUserFlow`
+  resolves the peer via `Conversation.otherMember(currentUserId)` and then
+  `userRepository.observeUser(id)`, so each account sees the other
+  participant's profile and never its own. `openProfile` navigates with
+  `state.otherUserId`.
+- Calling was already wired end-to-end (LiveKit + `create-call` /
+  `livekit-token` edge functions), and a failed call surfaces a
+  "Call unavailable" error state with retry rather than a silent no-op.
+
 ## [2.8.15] — versionCode 70
 
 **Final release build.** Version bump so the audited fixes ship as a new,
